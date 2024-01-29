@@ -1,6 +1,9 @@
 package v1
 
 import (
+	"path"
+	"strings"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
@@ -44,15 +47,16 @@ type PerconaXtraDBClusterBackup struct {
 }
 
 type PXCBackupSpec struct {
-	PXCCluster  string `json:"pxcCluster"`
-	StorageName string `json:"storageName,omitempty"`
+	PXCCluster       string                  `json:"pxcCluster"`
+	StorageName      string                  `json:"storageName,omitempty"`
+	ContainerOptions *BackupContainerOptions `json:"containerOptions,omitempty"`
 }
 
 type PXCBackupStatus struct {
 	State                 PXCBackupState          `json:"state,omitempty"`
 	CompletedAt           *metav1.Time            `json:"completed,omitempty"`
 	LastScheduled         *metav1.Time            `json:"lastscheduled,omitempty"`
-	Destination           string                  `json:"destination,omitempty"`
+	Destination           PXCBackupDestination    `json:"destination,omitempty"`
 	StorageName           string                  `json:"storageName,omitempty"`
 	S3                    *BackupStorageS3Spec    `json:"s3,omitempty"`
 	Azure                 *BackupStorageAzureSpec `json:"azure,omitempty"`
@@ -63,6 +67,90 @@ type PXCBackupStatus struct {
 	VaultSecretName       string                  `json:"vaultSecretName,omitempty"`
 	Conditions            []metav1.Condition      `json:"conditions,omitempty"`
 	VerifyTLS             *bool                   `json:"verifyTLS,omitempty"`
+	LatestRestorableTime  *metav1.Time            `json:"latestRestorableTime,omitempty"`
+}
+
+type PXCBackupDestination string
+
+func (dest *PXCBackupDestination) set(value string) {
+	if dest == nil {
+		return
+	}
+	*dest = PXCBackupDestination(value)
+}
+
+func (dest *PXCBackupDestination) SetPVCDestination(backupName string) {
+	dest.set(PVCStoragePrefix + backupName)
+}
+
+func (dest *PXCBackupDestination) SetS3Destination(bucket, backupName string) {
+	dest.set(AwsBlobStoragePrefix + bucket + "/" + backupName)
+}
+
+func (dest *PXCBackupDestination) SetAzureDestination(container, backupName string) {
+	dest.set(AzureBlobStoragePrefix + container + "/" + backupName)
+}
+
+func (dest *PXCBackupDestination) String() string {
+	if dest == nil {
+		return ""
+	}
+	return string(*dest)
+}
+
+func (dest *PXCBackupDestination) StorageTypePrefix() string {
+	for _, p := range []string{AwsBlobStoragePrefix, AzureBlobStoragePrefix, PVCStoragePrefix} {
+		if strings.HasPrefix(dest.String(), p) {
+			return p
+		}
+	}
+	return ""
+}
+
+func (dest *PXCBackupDestination) BucketAndPrefix() (string, string) {
+	d := strings.TrimPrefix(dest.String(), dest.StorageTypePrefix())
+	bucket, left, _ := strings.Cut(d, "/")
+
+	spl := strings.Split(left, "/")
+	prefix := ""
+	if len(spl) > 1 {
+		prefix = path.Join(spl[:len(spl)-1]...)
+		prefix = strings.TrimSuffix(prefix, "/")
+		prefix += "/"
+	}
+	return bucket, prefix
+}
+
+func (dest *PXCBackupDestination) BackupName() string {
+	if dest.StorageTypePrefix() == PVCStoragePrefix {
+		return strings.TrimPrefix(dest.String(), dest.StorageTypePrefix())
+	}
+	bucket, prefix := dest.BucketAndPrefix()
+	backupName := strings.TrimPrefix(dest.String(), dest.StorageTypePrefix()+path.Join(bucket, prefix))
+	backupName = strings.TrimPrefix(backupName, "/")
+	return backupName
+}
+
+func (status *PXCBackupStatus) GetStorageType(cluster *PerconaXtraDBCluster) BackupStorageType {
+	if status.StorageType != "" {
+		return status.StorageType
+	}
+
+	if cluster != nil {
+		storage, ok := cluster.Spec.Backup.Storages[status.StorageName]
+		if ok {
+			return storage.Type
+		}
+	}
+
+	switch {
+	case status.S3 != nil:
+		return BackupStorageS3
+	case status.Azure != nil:
+		return BackupStorageAzure
+	}
+
+	return ""
 }
 
 const (

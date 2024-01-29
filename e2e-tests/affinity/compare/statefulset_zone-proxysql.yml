@@ -1,7 +1,6 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  annotations: {}
   generation: 1
   name: zone-proxysql
   ownerReferences:
@@ -22,7 +21,6 @@ spec:
   serviceName: zone-proxysql-unready
   template:
     metadata:
-      annotations: {}
       labels:
         app.kubernetes.io/component: proxysql
         app.kubernetes.io/instance: zone
@@ -165,11 +163,8 @@ spec:
           name: pxc-init
           resources:
             limits:
-              cpu: "1"
-              memory: 1G
-            requests:
-              cpu: 600m
-              memory: 1G
+              cpu: 50m
+              memory: 50M
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:

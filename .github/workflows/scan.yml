@@ -1,22 +1,57 @@
 name: Scan docker
 on: [pull_request]
+
+env:
+  # Use docker.io for Docker Hub if empty
+  REGISTRY: docker.io
+
+  # github.repository as <account>/<repo>
+  IMAGE_NAME: perconalab/percona-xtradb-cluster-operator
+
 jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
-      - name: Build an image from Dockerfile
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build an image from Dockerfile (linux/arm64)
         run: |
-          export IMAGE=perconalab/percona-xtradb-cluster-operator:${{ github.sha }}
+          export IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}-arm64
           export DOCKER_PUSH=0
           export DOCKER_SQUASH=0
+          export DOCKER_DEFAULT_PLATFORM='linux/arm64'
           ./e2e-tests/build
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@0.11.2
+
+      - name: Run Trivy vulnerability scanner image (linux/arm64)
+        uses: aquasecurity/trivy-action@0.16.0
         with:
-          image-ref: 'docker.io/perconalab/percona-xtradb-cluster-operator:${{ github.sha }}'
+          image-ref: '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}-arm64'
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Build an image from Dockerfile (linux/amd64)
+        run: |
+          export IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}-amd64
+          export DOCKER_PUSH=0
+          export DOCKER_SQUASH=0
+          export DOCKER_DEFAULT_PLATFORM='linux/amd64'
+          ./e2e-tests/build
+
+      - name: Run Trivy vulnerability scanner image (linux/amd64)
+        uses: aquasecurity/trivy-action@0.16.0
+        with:
+          image-ref: '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}-amd64'
           format: 'table'
           exit-code: '1'
           ignore-unfixed: true

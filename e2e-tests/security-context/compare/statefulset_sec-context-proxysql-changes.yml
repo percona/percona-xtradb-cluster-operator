@@ -1,7 +1,6 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  annotations: {}
   generation: 2
   name: sec-context-proxysql
   ownerReferences:
@@ -22,7 +21,6 @@ spec:
   serviceName: sec-context-proxysql-unready
   template:
     metadata:
-      annotations: {}
       labels:
         app.kubernetes.io/component: proxysql
         app.kubernetes.io/instance: sec-context
@@ -153,11 +151,8 @@ spec:
           name: pxc-init
           resources:
             limits:
-              cpu: "1"
-              memory: 1G
-            requests:
-              cpu: 100m
-              memory: 100M
+              cpu: 50m
+              memory: 50M
           securityContext:
             privileged: true
           terminationMessagePath: /dev/termination-log
@@ -175,6 +170,17 @@ spec:
       serviceAccount: percona-xtradb-cluster-operator-workload
       serviceAccountName: percona-xtradb-cluster-operator-workload
       terminationGracePeriodSeconds: 30
+      topologySpreadConstraints:
+        - labelSelector:
+            matchLabels:
+              app.kubernetes.io/component: proxysql
+              app.kubernetes.io/instance: sec-context
+              app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+              app.kubernetes.io/name: percona-xtradb-cluster
+              app.kubernetes.io/part-of: percona-xtradb-cluster
+          maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
       volumes:
         - name: ssl-internal
           secret:

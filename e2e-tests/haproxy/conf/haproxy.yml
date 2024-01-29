@@ -5,6 +5,14 @@ metadata:
   finalizers:
     - delete-pxc-pods-in-order
 spec:
+  initContainer:
+    resources:
+      requests:
+        memory: 0.2G
+        cpu: 300m
+      limits:
+        memory: 0.5G
+        cpu: "1"
   secretsName: my-cluster-secrets
   vaultSecretName: haproxy-vault
   pause: false
@@ -69,6 +77,9 @@ spec:
         timeout client 28800s
         timeout connect 100500
         timeout server 28800s
+
+      resolvers kubernetes
+        parse-resolv-conf
 
       frontend galera-in
         bind *:3309 accept-proxy

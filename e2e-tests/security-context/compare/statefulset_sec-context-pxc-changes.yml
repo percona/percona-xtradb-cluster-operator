@@ -1,7 +1,6 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  annotations: {}
   generation: 2
   name: sec-context-pxc
   ownerReferences:
@@ -149,6 +148,8 @@ spec:
               name: auto-config
             - mountPath: /etc/mysql/vault-keyring-secret
               name: vault-keyring-secret
+            - mountPath: /etc/mysql/init-file
+              name: mysql-init-file
       dnsPolicy: ClusterFirst
       initContainers:
         - command:
@@ -157,11 +158,8 @@ spec:
           name: pxc-init
           resources:
             limits:
-              cpu: "1"
-              memory: 1G
-            requests:
-              cpu: 100m
-              memory: 100M
+              cpu: 50m
+              memory: 50M
           securityContext:
             privileged: true
           terminationMessagePath: /dev/termination-log
@@ -179,6 +177,17 @@ spec:
       serviceAccount: percona-xtradb-cluster-operator-workload
       serviceAccountName: percona-xtradb-cluster-operator-workload
       terminationGracePeriodSeconds: 600
+      topologySpreadConstraints:
+        - labelSelector:
+            matchLabels:
+              app.kubernetes.io/component: pxc
+              app.kubernetes.io/instance: sec-context
+              app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+              app.kubernetes.io/name: percona-xtradb-cluster
+              app.kubernetes.io/part-of: percona-xtradb-cluster
+          maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
       volumes:
         - emptyDir: {}
           name: tmp
@@ -212,6 +221,11 @@ spec:
             defaultMode: 420
             optional: false
             secretName: internal-sec-context
+        - name: mysql-init-file
+          secret:
+            defaultMode: 420
+            optional: true
+            secretName: sec-context-mysql-init
   updateStrategy:
     rollingUpdate:
       partition: 0

@@ -2,6 +2,8 @@
 
 set -o errexit
 
+CLUSTER_NAME="${PMM_PREFIX}${CLUSTER_NAME}"
+
 pmm_args=()
 
 read -ra PMM_ADMIN_CUSTOM_PARAMS_ARRAY <<<"$PMM_ADMIN_CUSTOM_PARAMS"

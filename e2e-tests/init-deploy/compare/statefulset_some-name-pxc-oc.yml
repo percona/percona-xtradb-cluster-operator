@@ -1,7 +1,6 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  annotations: {}
   generation: 1
   name: some-name-pxc
   ownerReferences:
@@ -22,7 +21,6 @@ spec:
   serviceName: some-name-pxc
   template:
     metadata:
-      annotations: {}
       labels:
         app.kubernetes.io/component: pxc
         app.kubernetes.io/instance: some-name
@@ -193,6 +191,8 @@ spec:
               name: auto-config
             - mountPath: /etc/mysql/vault-keyring-secret
               name: vault-keyring-secret
+            - mountPath: /etc/mysql/init-file
+              name: mysql-init-file
       dnsPolicy: ClusterFirst
       initContainers:
         - command:
@@ -201,11 +201,8 @@ spec:
           name: pxc-init
           resources:
             limits:
-              cpu: "1"
-              memory: 1G
-            requests:
-              cpu: 100m
-              memory: 100M
+              cpu: 50m
+              memory: 50M
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:
@@ -252,6 +249,11 @@ spec:
             defaultMode: 420
             optional: false
             secretName: internal-some-name
+        - name: mysql-init-file
+          secret:
+            defaultMode: 420
+            optional: true
+            secretName: some-name-mysql-init
   updateStrategy:
     rollingUpdate:
       partition: 0

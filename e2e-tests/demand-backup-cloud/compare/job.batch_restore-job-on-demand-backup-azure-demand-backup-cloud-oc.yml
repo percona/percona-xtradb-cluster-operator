@@ -26,6 +26,17 @@ spec:
         - command:
             - recovery-cloud.sh
           env:
+            - name: PXC_SERVICE
+              value: demand-backup-cloud-pxc
+            - name: PXC_USER
+              value: xtrabackup
+            - name: PXC_PASS
+              valueFrom:
+                secretKeyRef:
+                  key: xtrabackup
+                  name: my-cluster-secrets
+            - name: VERIFY_TLS
+              value: "true"
             - name: AZURE_STORAGE_ACCOUNT
               valueFrom:
                 secretKeyRef:
@@ -38,17 +49,6 @@ spec:
                   name: azure-secret
             - name: AZURE_ENDPOINT
             - name: AZURE_STORAGE_CLASS
-            - name: PXC_SERVICE
-              value: demand-backup-cloud-pxc
-            - name: PXC_USER
-              value: xtrabackup
-            - name: PXC_PASS
-              valueFrom:
-                secretKeyRef:
-                  key: xtrabackup
-                  name: my-cluster-secrets
-            - name: VERIFY_TLS
-              value: "true"
             - name: XB_USE_MEMORY
               value: 100MB
           imagePullPolicy: Always

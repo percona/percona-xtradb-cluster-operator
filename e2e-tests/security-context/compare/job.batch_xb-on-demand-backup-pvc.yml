@@ -3,6 +3,7 @@ kind: Job
 metadata:
   annotations:
     openshift.io/scc: privileged
+  generation: 1
   labels:
     backup-name: on-demand-backup-pvc
     cluster: sec-context
@@ -15,6 +16,7 @@ metadata:
       name: on-demand-backup-pvc
 spec:
   backoffLimit: 10
+  completionMode: NonIndexed
   completions: 1
   manualSelector: true
   parallelism: 1
@@ -24,6 +26,7 @@ spec:
       cluster: sec-context
       job-name: xb-on-demand-backup-pvc
       type: xtrabackup
+  suspend: false
   template:
     metadata:
       annotations:

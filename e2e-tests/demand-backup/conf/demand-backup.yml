@@ -41,7 +41,7 @@ spec:
       antiAffinityTopologyKey: "kubernetes.io/hostname"
   proxysql:
     enabled: true
-    size: 1
+    size: 2
     image: -proxysql
     resources:
       requests:
@@ -85,6 +85,14 @@ spec:
         s3:
           credentialsSecret: minio-secret
           region: us-east-1
-          bucket: operator-testing
+          bucket: operator-testing/prefix/subfolder
           endpointUrl: https://minio-service.#namespace:9000/
         verifyTLS: false
+        containerOptions:
+          args:
+            xbstream: 
+            - 'invalidarg'
+            xtrabackup:
+            - 'invalidarg'
+            xbcloud: 
+            - 'invalidarg'

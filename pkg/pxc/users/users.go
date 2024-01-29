@@ -17,12 +17,10 @@ const (
 	ProxyAdmin   = "proxyadmin"
 	PMMServer    = "pmmserver"
 	PMMServerKey = "pmmserverkey"
-	Clustercheck = "clustercheck"
 )
 
-var UserNames = []string{Root, Operator, Monitor,
-	Xtrabackup, Replication, ProxyAdmin,
-	Clustercheck, PMMServer, PMMServerKey}
+var UserNames = []string{Root, Operator, Monitor, Xtrabackup,
+	Replication, ProxyAdmin, PMMServer, PMMServerKey}
 
 type Manager struct {
 	db *sql.DB
@@ -257,17 +255,10 @@ func (u *Manager) Update170XtrabackupUser(pass string) (err error) {
 	return nil
 }
 
-// Update1100SystemUserPrivilege grants system_user privilege for monitor and clustercheck users
-func (u *Manager) Update1100SystemUserPrivilege(user *SysUser) (err error) {
-	switch user.Name {
-	case Monitor:
-		if _, err := u.db.Exec("GRANT SYSTEM_USER ON *.* TO 'monitor'@'%'"); err != nil {
-			return errors.Wrap(err, "monitor user")
-		}
-	case Clustercheck:
-		if _, err := u.db.Exec("GRANT SYSTEM_USER ON *.* TO 'clustercheck'@'localhost'"); err != nil {
-			return errors.Wrap(err, "clustercheck user")
-		}
+// Update1100MonitorUserPrivilege grants system_user privilege for monitor
+func (u *Manager) Update1100MonitorUserPrivilege() (err error) {
+	if _, err := u.db.Exec("GRANT SYSTEM_USER ON *.* TO 'monitor'@'%'"); err != nil {
+		return errors.Wrap(err, "monitor user")
 	}
 
 	return nil

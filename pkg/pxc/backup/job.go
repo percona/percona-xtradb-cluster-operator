@@ -1,9 +1,8 @@
 package backup
 
 import (
-	"net/url"
+	"path"
 	"strconv"
-	"strings"
 
 	"github.com/pkg/errors"
 	batchv1 "k8s.io/api/batch/v1"
@@ -11,8 +10,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/util"
 )
 
 func (*Backup) Job(cr *api.PerconaXtraDBClusterBackup, cluster *api.PerconaXtraDBCluster) *batchv1.Job {
@@ -47,9 +48,32 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, cluster *api.PerconaXtraDBClu
 		backoffLimit = *cluster.Spec.Backup.BackoffLimit
 	}
 	verifyTLS := true
-	if cluster.Spec.Backup.Storages[spec.StorageName].VerifyTLS != nil {
-		verifyTLS = *cluster.Spec.Backup.Storages[spec.StorageName].VerifyTLS
+	storage := cluster.Spec.Backup.Storages[spec.StorageName]
+	if storage.VerifyTLS != nil {
+		verifyTLS = *storage.VerifyTLS
 	}
+	envs := []corev1.EnvVar{
+		{
+			Name:  "BACKUP_DIR",
+			Value: "/backup",
+		},
+		{
+			Name:  "PXC_SERVICE",
+			Value: spec.PXCCluster + "-pxc",
+		},
+		{
+			Name: "PXC_PASS",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: app.SecretKeySelector(cluster.Spec.SecretsName, users.Xtrabackup),
+			},
+		},
+		{
+			Name:  "VERIFY_TLS",
+			Value: strconv.FormatBool(verifyTLS),
+		},
+	}
+	envs = util.MergeEnvLists(envs, spec.ContainerOptions.GetEnvVar(cluster, spec.StorageName))
+
 	return batchv1.JobSpec{
 		BackoffLimit:   &backoffLimit,
 		ManualSelector: &manualSelector,
@@ -59,10 +83,10 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, cluster *api.PerconaXtraDBClu
 		Template: corev1.PodTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels:      job.Labels,
-				Annotations: cluster.Spec.Backup.Storages[spec.StorageName].Annotations,
+				Annotations: storage.Annotations,
 			},
 			Spec: corev1.PodSpec{
-				SecurityContext:    cluster.Spec.Backup.Storages[spec.StorageName].PodSecurityContext,
+				SecurityContext:    storage.PodSecurityContext,
 				ImagePullSecrets:   bcp.imagePullSecrets,
 				RestartPolicy:      corev1.RestartPolicyNever,
 				ServiceAccountName: cluster.Spec.Backup.ServiceAccountName,
@@ -70,38 +94,20 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, cluster *api.PerconaXtraDBClu
 					{
 						Name:            "xtrabackup",
 						Image:           bcp.image,
-						SecurityContext: cluster.Spec.Backup.Storages[spec.StorageName].ContainerSecurityContext,
+						SecurityContext: storage.ContainerSecurityContext,
 						ImagePullPolicy: bcp.imagePullPolicy,
 						Command:         []string{"bash", "/usr/bin/backup.sh"},
-						Env: []corev1.EnvVar{
-							{
-								Name:  "BACKUP_DIR",
-								Value: "/backup",
-							},
-							{
-								Name:  "PXC_SERVICE",
-								Value: spec.PXCCluster + "-pxc",
-							},
-							{
-								Name: "PXC_PASS",
-								ValueFrom: &corev1.EnvVarSource{
-									SecretKeyRef: app.SecretKeySelector(cluster.Spec.SecretsName, users.Xtrabackup),
-								},
-							},
-							{
-								Name:  "VERIFY_TLS",
-								Value: strconv.FormatBool(verifyTLS),
-							},
-						},
-						Resources: cluster.Spec.Backup.Storages[spec.StorageName].Resources,
+						Env:             envs,
+						Resources:       storage.Resources,
 					},
 				},
-				Affinity:          cluster.Spec.Backup.Storages[spec.StorageName].Affinity,
-				Tolerations:       cluster.Spec.Backup.Storages[spec.StorageName].Tolerations,
-				NodeSelector:      cluster.Spec.Backup.Storages[spec.StorageName].NodeSelector,
-				SchedulerName:     cluster.Spec.Backup.Storages[spec.StorageName].SchedulerName,
-				PriorityClassName: cluster.Spec.Backup.Storages[spec.StorageName].PriorityClassName,
-				RuntimeClassName:  cluster.Spec.Backup.Storages[spec.StorageName].RuntimeClassName,
+				Affinity:                  storage.Affinity,
+				TopologySpreadConstraints: pxc.PodTopologySpreadConstraints(storage.TopologySpreadConstraints, job.Labels),
+				Tolerations:               storage.Tolerations,
+				NodeSelector:              storage.NodeSelector,
+				SchedulerName:             storage.SchedulerName,
+				PriorityClassName:         storage.PriorityClassName,
+				RuntimeClassName:          storage.RuntimeClassName,
 			},
 		},
 	}, nil
@@ -209,7 +215,12 @@ func SetStorageAzure(job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBackup) e
 			SecretKeyRef: app.SecretKeySelector(azure.CredentialsSecret, "AZURE_STORAGE_ACCOUNT_KEY"),
 		},
 	}
-	container, _ := azure.ContainerAndPrefix()
+	container, prefix := azure.ContainerAndPrefix()
+	if container == "" {
+		container, prefix = cr.Status.Destination.BucketAndPrefix()
+	}
+	bucketPath := path.Join(prefix, cr.Status.Destination.BackupName())
+
 	containerName := corev1.EnvVar{
 		Name:  "AZURE_CONTAINER_NAME",
 		Value: container,
@@ -224,7 +235,7 @@ func SetStorageAzure(job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBackup) e
 	}
 	backupPath := corev1.EnvVar{
 		Name:  "BACKUP_PATH",
-		Value: strings.TrimPrefix(cr.Status.Destination, container+"/"),
+		Value: bucketPath,
 	}
 	if len(job.Template.Spec.Containers) == 0 {
 		return errors.New("no containers in job spec")
@@ -274,37 +285,30 @@ func SetStorageS3(job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBackup) erro
 	}
 	job.Template.Spec.Containers[0].Env = append(job.Template.Spec.Containers[0].Env, accessKey, secretKey, region, endpoint)
 
-	u, err := parseS3URL(cr.Status.Destination)
-	if err != nil {
-		return errors.Wrap(err, "failed to create job")
+	bucket, prefix := s3.BucketAndPrefix()
+	if bucket == "" {
+		bucket, prefix = cr.Status.Destination.BucketAndPrefix()
 	}
-	bucket := corev1.EnvVar{
+	bucketPath := path.Join(prefix, cr.Status.Destination.BackupName())
+
+	bucketEnv := corev1.EnvVar{
 		Name:  "S3_BUCKET",
-		Value: u.Host,
+		Value: bucket,
 	}
-	bucketPath := corev1.EnvVar{
+	bucketPathEnv := corev1.EnvVar{
 		Name:  "S3_BUCKET_PATH",
-		Value: strings.TrimLeft(u.Path, "/"),
+		Value: bucketPath,
 	}
-	job.Template.Spec.Containers[0].Env = append(job.Template.Spec.Containers[0].Env, bucket, bucketPath)
+	job.Template.Spec.Containers[0].Env = append(job.Template.Spec.Containers[0].Env, bucketEnv, bucketPathEnv)
 
 	// add SSL volumes
 	job.Template.Spec.Containers[0].VolumeMounts = []corev1.VolumeMount{}
 	job.Template.Spec.Volumes = []corev1.Volume{}
 
-	err = appendStorageSecret(job, cr)
+	err := appendStorageSecret(job, cr)
 	if err != nil {
 		return errors.Wrap(err, "failed to append storage secrets")
 	}
 
 	return nil
-}
-
-func parseS3URL(bucketURL string) (*url.URL, error) {
-	u, err := url.Parse(bucketURL)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse s3 URL")
-	}
-
-	return u, nil
 }

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/go-logr/logr"
 	"github.com/hashicorp/go-version"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -53,11 +52,6 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePxcPodServices(cr *api.PerconaXtra
 		svcName := fmt.Sprintf("%s-pxc-%d", cr.Name, i)
 		svc := NewExposedPXCService(svcName, cr)
 
-		err := setControllerReference(cr, svc, r.scheme)
-		if err != nil {
-			return errors.Wrap(err, "failed to set owner to external service")
-		}
-
 		err = r.createOrUpdateService(cr, svc, len(cr.Spec.PXC.Expose.Annotations) == 0)
 		if err != nil {
 			return errors.Wrap(err, "failed to ensure pxc service")
@@ -67,7 +61,7 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePxcPodServices(cr *api.PerconaXtra
 }
 
 func (r *ReconcilePerconaXtraDBCluster) removeOutdatedServices(cr *api.PerconaXtraDBCluster) error {
-	//needed for labels
+	// needed for labels
 	svc := NewExposedPXCService("", cr)
 
 	svcNames := make(map[string]struct{}, cr.Spec.PXC.Size)
@@ -83,7 +77,6 @@ func (r *ReconcilePerconaXtraDBCluster) removeOutdatedServices(cr *api.PerconaXt
 			LabelSelector: labels.SelectorFromSet(svc.Labels),
 		},
 	)
-
 	if err != nil {
 		return errors.Wrap(err, "failed to list external services")
 	}
@@ -167,12 +160,12 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(ctx context.Context
 		return nil
 	}
 
-	err = removeOutdatedChannels(primaryDB, cr.Spec.PXC.ReplicationChannels)
+	err = removeOutdatedChannels(ctx, primaryDB, cr.Spec.PXC.ReplicationChannels)
 	if err != nil {
 		return errors.Wrap(err, "remove outdated replication channels")
 	}
 
-	err = checkReadonlyStatus(cr.Spec.PXC.ReplicationChannels, podList, cr, r.client)
+	err = checkReadonlyStatus(ctx, cr.Spec.PXC.ReplicationChannels, podList, cr, r.client)
 	if err != nil {
 		return errors.Wrap(err, "failed to ensure cluster readonly status")
 	}
@@ -195,11 +188,13 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(ctx context.Context
 			if err != nil {
 				return errors.Wrapf(err, "failed to connect to pod %s", pod.Name)
 			}
+			log.V(1).Info("Stop replication on pod", "pod", pod.Name)
 			err = db.StopAllReplication()
 			db.Close()
 			if err != nil {
 				return errors.Wrapf(err, "stop replication on pod %s", pod.Name)
 			}
+			log.V(1).Info("Remove replication label from pod", "pod", pod.Name)
 			delete(pod.Labels, replicationPodLabel)
 			err = r.client.Update(context.TODO(), &pod)
 			if err != nil {
@@ -236,6 +231,13 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(ctx context.Context
 		}
 	}
 
+	authPlugin, err := primaryDB.ReadVariable("default_authentication_plugin")
+	if err != nil {
+		return errors.Wrap(err, "failed to get default_authentication_plugin variable value")
+	}
+
+	shouldGetMasterKey := authPlugin == "caching_sha2_password"
+
 	for _, channel := range cr.Spec.PXC.ReplicationChannels {
 		if channel.IsSource {
 			continue
@@ -243,7 +245,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(ctx context.Context
 
 		currConf := currentReplicaConfig(channel.Name, cr.Status.PXCReplication)
 
-		err = manageReplicationChannel(log, primaryDB, channel, currConf, string(sysUsersSecretObj.Data[users.Replication]))
+		err = manageReplicationChannel(ctx, primaryDB, channel, currConf, string(sysUsersSecretObj.Data[users.Replication]), shouldGetMasterKey)
 		if err != nil {
 			return errors.Wrapf(err, "manage replication channel %s", channel.Name)
 		}
@@ -268,7 +270,9 @@ func handleReplicaPasswordChange(db queries.Database, newPass string) error {
 	return nil
 }
 
-func checkReadonlyStatus(channels []api.ReplicationChannel, pods []corev1.Pod, cr *api.PerconaXtraDBCluster, client client.Client) error {
+func checkReadonlyStatus(ctx context.Context, channels []api.ReplicationChannel, pods []corev1.Pod, cr *api.PerconaXtraDBCluster, client client.Client) error {
+	log := logf.FromContext(ctx)
+
 	isReplica := false
 	if len(channels) > 0 {
 		isReplica = !channels[0].IsSource
@@ -290,10 +294,12 @@ func checkReadonlyStatus(channels []api.ReplicationChannel, pods []corev1.Pod, c
 		}
 
 		if isReplica && !readonly {
+			log.Info("Replica is not readonly. Enabling readonly mode", "pod", pod.Name)
 			err = db.EnableReadonly()
 		}
 
 		if !isReplica && readonly {
+			log.Info("Primary is readonly. Disabling readonly mode", "pod", pod.Name)
 			err = db.DisableReadonly()
 		}
 		if err != nil {
@@ -304,7 +310,9 @@ func checkReadonlyStatus(channels []api.ReplicationChannel, pods []corev1.Pod, c
 	return nil
 }
 
-func removeOutdatedChannels(db queries.Database, currentChannels []api.ReplicationChannel) error {
+func removeOutdatedChannels(ctx context.Context, db queries.Database, currentChannels []api.ReplicationChannel) error {
+	log := logf.FromContext(ctx)
+
 	dbChannels, err := db.CurrentReplicationChannels()
 	if err != nil {
 		return errors.Wrap(err, "get current replication channels")
@@ -330,8 +338,9 @@ func removeOutdatedChannels(db queries.Database, currentChannels []api.Replicati
 	}
 
 	for channelToRemove := range toRemove {
+		log.Info("Remove outdated replication channel", "channel", channelToRemove)
 		err = db.StopReplication(channelToRemove)
-		if err != nil {
+		if err != nil && !strings.Contains(err.Error(), "Error 3074") { // Error 3074: ER_REPLICA_CHANNEL_DOES_NOT_EXIST
 			return errors.Wrapf(err, "stop replication for channel %s", channelToRemove)
 		}
 
@@ -340,6 +349,7 @@ func removeOutdatedChannels(db queries.Database, currentChannels []api.Replicati
 			return errors.Wrapf(err, "get src list for outdated channel %s", channelToRemove)
 		}
 		for _, v := range srcList {
+			log.V(1).Info("Remove outdated replication source", "channel", channelToRemove, "host", v.Host)
 			err = db.DeleteReplicationSource(channelToRemove, v.Host, v.Port)
 			if err != nil {
 				return errors.Wrapf(err, "delete replication source for outdated channel %s", channelToRemove)
@@ -349,20 +359,25 @@ func removeOutdatedChannels(db queries.Database, currentChannels []api.Replicati
 	return nil
 }
 
-func manageReplicationChannel(log logr.Logger, primaryDB queries.Database, channel api.ReplicationChannel, currConf api.ReplicationChannelConfig, replicaPW string) error {
+func manageReplicationChannel(ctx context.Context, primaryDB queries.Database, channel api.ReplicationChannel, currConf api.ReplicationChannelConfig, replicaPW string, shouldGetMasterKey bool) error {
+	log := logf.FromContext(ctx)
 	currentSources, err := primaryDB.ReplicationChannelSources(channel.Name)
 	if err != nil && err != queries.ErrNotFound {
 		return errors.Wrapf(err, "get current replication sources for channel %s", channel.Name)
 	}
 
-	replicationStatus, err := primaryDB.ReplicationStatus(channel.Name)
+	replicationStatus, err := primaryDB.ReplicationStatus(ctx, channel.Name)
 	if err != nil {
 		return errors.Wrap(err, "failed to check replication status")
 	}
 
 	if !isSourcesChanged(channel.SourcesList, currentSources) {
 		if replicationStatus == queries.ReplicationStatusError {
-			log.Info("Replication for channel is not running. Please, check the replication status", "channel", channel.Name)
+			statusMap, err := primaryDB.ShowReplicaStatus(ctx, channel.Name)
+			if err != nil {
+				return errors.Wrap(err, "failed to get replica status")
+			}
+			log.Info("Replication for channel is not running. Please, check the replication status", "channel", channel.Name, "Last_IO_Error", statusMap["Last_IO_Error"])
 			return nil
 		}
 
@@ -410,7 +425,7 @@ func manageReplicationChannel(log logr.Logger, primaryDB queries.Database, chann
 		SSL:                channel.Config.SSL,
 		SSLSkipVerify:      channel.Config.SSLSkipVerify,
 		CA:                 channel.Config.CA,
-	})
+	}, shouldGetMasterKey)
 }
 
 func isSourcesChanged(new []api.ReplicationSource, old []queries.ReplicationChannelSource) bool {
@@ -455,7 +470,7 @@ func (r *ReconcilePerconaXtraDBCluster) removePxcPodServices(cr *api.PerconaXtra
 		return nil
 	}
 
-	//needed for labels
+	// needed for labels
 	svc := NewExposedPXCService("", cr)
 
 	svcList := &corev1.ServiceList{}
@@ -515,11 +530,20 @@ func NewExposedPXCService(svcName string, cr *api.PerconaXtraDBCluster) *corev1.
 
 	if cr.Spec.PXC.Expose.Type == corev1.ServiceTypeNodePort ||
 		cr.Spec.PXC.Expose.Type == corev1.ServiceTypeLoadBalancer {
-		switch cr.Spec.PXC.Expose.TrafficPolicy {
-		case corev1.ServiceExternalTrafficPolicyTypeLocal, corev1.ServiceExternalTrafficPolicyTypeCluster:
-			svc.Spec.ExternalTrafficPolicy = cr.Spec.PXC.Expose.TrafficPolicy
-		default:
-			svc.Spec.ExternalTrafficPolicy = corev1.ServiceExternalTrafficPolicyTypeCluster
+		if cr.CompareVersionWith("1.14.0") >= 0 {
+			switch cr.Spec.PXC.Expose.ExternalTrafficPolicy {
+			case corev1.ServiceExternalTrafficPolicyTypeLocal, corev1.ServiceExternalTrafficPolicyTypeCluster:
+				svc.Spec.ExternalTrafficPolicy = cr.Spec.PXC.Expose.ExternalTrafficPolicy
+			default:
+				svc.Spec.ExternalTrafficPolicy = corev1.ServiceExternalTrafficPolicyTypeCluster
+			}
+		} else {
+			switch cr.Spec.PXC.Expose.TrafficPolicy {
+			case corev1.ServiceExternalTrafficPolicyTypeLocal, corev1.ServiceExternalTrafficPolicyTypeCluster:
+				svc.Spec.ExternalTrafficPolicy = cr.Spec.PXC.Expose.TrafficPolicy
+			default:
+				svc.Spec.ExternalTrafficPolicy = corev1.ServiceExternalTrafficPolicyTypeCluster
+			}
 		}
 	}
 

@@ -249,6 +249,20 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 		})
 	}
 
+	if cr.CompareVersionWith("1.14.0") >= 0 {
+		appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
+			Name:      "mysql-init-file",
+			MountPath: "/etc/mysql/init-file",
+		})
+
+		appc.ReadinessProbe = app.Probe(&cr.Spec.PXC.ReadinessProbes, "/var/lib/mysql/readiness-check.sh")
+		appc.LivenessProbe = app.Probe(&cr.Spec.PXC.LivenessProbes, "/var/lib/mysql/liveness-check.sh")
+	}
+
+	if cr.Spec.PXC != nil && (cr.Spec.PXC.Lifecycle.PostStart != nil || cr.Spec.PXC.Lifecycle.PreStop != nil) {
+		appc.Lifecycle = &cr.Spec.PXC.Lifecycle
+	}
+
 	return appc, nil
 }
 
@@ -456,6 +470,18 @@ func (c *Node) PMMContainer(spec *api.PMMSpec, secret *corev1.Secret, cr *api.Pe
 		ct.Env = append(ct.Env, sidecarEnvs...)
 	}
 
+	if cr.CompareVersionWith("1.14.0") >= 0 {
+		// PMM team moved temp directory to /usr/local/percona/pmm2/tmp
+		// but it doesn't work on OpenShift so we set it back to /tmp
+		sidecarEnvs := []corev1.EnvVar{
+			{
+				Name:  "PMM_AGENT_PATHS_TEMPDIR",
+				Value: "/tmp",
+			},
+		}
+		ct.Env = append(ct.Env, sidecarEnvs...)
+	}
+
 	ct.VolumeMounts = []corev1.VolumeMount{
 		{
 			Name:      app.DataVolumeName,
@@ -500,6 +526,10 @@ func (c *Node) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg ap
 			vol.Volumes = append(vol.Volumes,
 				app.GetConfigVolumes("hookscript", config.HookScriptConfigMapName(cr.Name, "logcollector")))
 		}
+	}
+
+	if cr.CompareVersionWith("1.14.0") >= 0 {
+		vol.Volumes = append(vol.Volumes, app.GetSecretVolumes("mysql-init-file", cr.Name+"-mysql-init", true))
 	}
 
 	return vol, nil

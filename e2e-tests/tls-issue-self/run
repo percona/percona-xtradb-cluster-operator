@@ -15,6 +15,7 @@ main() {
   desc 'create PXC cluster without cert manager'
   cluster="some-name"
   spinup_pxc "$cluster" "$conf_dir/$cluster.yml" 3 10 "$conf_dir/secrets_without_tls.yml"
+  wait_cluster_consistency "$source_cluster" 3 2
 
   desc 'check if certificate issued manually'
   tlsSecretsShouldExist "$cluster-ssl"

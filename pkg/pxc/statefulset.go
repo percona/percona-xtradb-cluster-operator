@@ -1,6 +1,7 @@
 package pxc
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -9,12 +10,13 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 )
 
 // StatefulSet returns StatefulSet according for app to podSpec
-func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, secret *corev1.Secret,
+func StatefulSet(ctx context.Context, cl client.Client, sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, secret *corev1.Secret,
 	initContainers []corev1.Container, log logr.Logger, vg api.CustomVolumeGetter,
 ) (*appsv1.StatefulSet, error) {
 	pod := corev1.PodSpec{
@@ -58,7 +60,7 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 			log.Info(`Can't enable PMM: either "pmmserverkey" key doesn't exist in the secrets, or secrets and internal secrets are out of sync`,
 				"secrets", cr.Spec.SecretsName, "internalSecrets", "internal-"+cr.Name)
 		} else {
-			pmmC, err := sfs.PMMContainer(cr.Spec.PMM, secret, cr)
+			pmmC, err := sfs.PMMContainer(ctx, cl, cr.Spec.PMM, secret, cr)
 			if err != nil {
 				return nil, errors.Wrap(err, "pmm container error")
 			}

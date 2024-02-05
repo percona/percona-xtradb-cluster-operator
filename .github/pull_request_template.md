@@ -23,7 +23,6 @@
 
 **Config/Logging/Testability**
 - [ ] Are all needed new/changed options added to default YAML files?
-- [ ] Are the manifests (crd/bundle) regenerated if needed?
 - [ ] Did we add proper logging messages for operator actions?
 - [ ] Did we ensure compatibility with the previous version or cluster upgrade process?
 - [ ] Does the change support oldest and newest supported PXC version?

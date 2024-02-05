@@ -35,3 +35,5 @@ upgrade-proxysql,8.0
 users,5.7
 users,8.0
 validation-hook,8.0
+pvc-resize,5.7
+pvc-resize,8.0

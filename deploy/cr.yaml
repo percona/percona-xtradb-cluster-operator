@@ -220,6 +220,9 @@ spec:
 #        timeout connect 100500
 #        timeout server 28800s
 #
+#      resolvers kubernetes
+#        parse-resolv-conf
+#
 #      frontend galera-in
 #        bind *:3309 accept-proxy
 #        bind *:3306

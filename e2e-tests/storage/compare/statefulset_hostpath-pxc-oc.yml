@@ -47,6 +47,8 @@ spec:
           env:
             - name: PXC_SERVICE
               value: hostpath-pxc-unready
+            - name: MONITOR_HOST
+              value: '%'
             - name: MYSQL_ROOT_PASSWORD
               valueFrom:
                 secretKeyRef:

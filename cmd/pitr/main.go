@@ -39,7 +39,7 @@ func runCollector(ctx context.Context) {
 	if err != nil {
 		log.Fatalln("ERROR: get config:", err)
 	}
-	c, err := collector.New(config)
+	c, err := collector.New(ctx, config)
 	if err != nil {
 		log.Fatalln("ERROR: new controller:", err)
 	}
@@ -96,7 +96,6 @@ func getCollectorConfig() (collector.Config, error) {
 	}
 
 	return cfg, err
-
 }
 
 func getRecovererConfig() (recoverer.Config, error) {

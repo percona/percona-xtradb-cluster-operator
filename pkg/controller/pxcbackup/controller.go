@@ -201,7 +201,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 		pvc := backup.NewPVC(cr)
 		pvc.Spec = *storage.Volume.PersistentVolumeClaim
 
-		cr.Status.Destination = "pvc/" + pvc.Name
+		cr.Status.Destination.SetPVCDestination(pvc.Name)
 
 		// Set PerconaXtraDBClusterBackup instance as the owner and controller
 		if err := setControllerReference(cr, pvc, r.scheme); err != nil {
@@ -228,10 +228,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 		if storage.S3 == nil {
 			return rr, errors.New("s3 storage is not specified")
 		}
-		cr.Status.Destination = storage.S3.Bucket + "/" + cr.Spec.PXCCluster + "-" + cr.CreationTimestamp.Time.Format("2006-01-02-15:04:05") + "-full"
-		if !strings.HasPrefix(storage.S3.Bucket, api.AwsBlobStoragePrefix) {
-			cr.Status.Destination = api.AwsBlobStoragePrefix + cr.Status.Destination
-		}
+		cr.Status.Destination.SetS3Destination(storage.S3.Bucket, cr.Spec.PXCCluster+"-"+cr.CreationTimestamp.Time.Format("2006-01-02-15:04:05")+"-full")
 
 		err := backup.SetStorageS3(&job.Spec, cr)
 		if err != nil {
@@ -241,10 +238,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 		if storage.Azure == nil {
 			return rr, errors.New("azure storage is not specified")
 		}
-		cr.Status.Destination = storage.Azure.ContainerPath + "/" + cr.Spec.PXCCluster + "-" + cr.CreationTimestamp.Time.Format("2006-01-02-15:04:05") + "-full"
-		if !strings.HasPrefix(storage.Azure.ContainerPath, api.AzureBlobStoragePrefix) {
-			cr.Status.Destination = api.AzureBlobStoragePrefix + cr.Status.Destination
-		}
+		cr.Status.Destination.SetAzureDestination(storage.Azure.ContainerPath, cr.Spec.PXCCluster+"-"+cr.CreationTimestamp.Time.Format("2006-01-02-15:04:05")+"-full")
 
 		err := backup.SetStorageAzure(&job.Spec, cr)
 		if err != nil {
@@ -317,7 +311,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) runDeleteBackupFinalizer(ctx conte
 			}
 			switch cr.Status.GetStorageType(nil) {
 			case api.BackupStorageS3:
-				if !strings.HasPrefix(cr.Status.Destination, api.AwsBlobStoragePrefix) {
+				if cr.Status.Destination.StorageTypePrefix() != api.AwsBlobStoragePrefix {
 					continue
 				}
 				err = r.runS3BackupFinalizer(ctx, cr)
@@ -352,33 +346,24 @@ func (r *ReconcilePerconaXtraDBClusterBackup) runS3BackupFinalizer(ctx context.C
 	}
 
 	sec := corev1.Secret{}
-	err := r.client.Get(context.Background(),
+	err := r.client.Get(ctx,
 		types.NamespacedName{Name: cr.Status.S3.CredentialsSecret, Namespace: cr.Namespace}, &sec)
 	if err != nil {
 		return errors.Wrap(err, "failed to get secret")
 	}
 
-	accessKeyID := string(sec.Data["AWS_ACCESS_KEY_ID"])
-	secretAccessKey := string(sec.Data["AWS_SECRET_ACCESS_KEY"])
-	bucket, prefix := cr.Status.S3.BucketAndPrefix()
-	destination := strings.TrimPrefix(cr.Status.Destination, api.AwsBlobStoragePrefix+bucket+"/")
-	destination = strings.TrimPrefix(destination, bucket+"/")
-	if prefix != "" {
-		destination = strings.TrimPrefix(destination, prefix)
-		destination = strings.TrimPrefix(destination, "/")
+	opts, err := storage.GetOptionsFromBackup(ctx, r.client, nil, cr)
+	if err != nil {
+		return errors.Wrap(err, "get storage options")
 	}
-	destination = strings.TrimSuffix(destination, "/") + "/"
-	verifyTLS := true
-	if cr.Status.VerifyTLS != nil && !*cr.Status.VerifyTLS {
-		verifyTLS = false
-	}
-	storage, err := storage.NewS3(cr.Status.S3.EndpointURL, accessKeyID, secretAccessKey, bucket, prefix, cr.Status.S3.Region, verifyTLS)
+	storage, err := storage.NewClient(ctx, opts)
 	if err != nil {
 		return errors.Wrap(err, "new s3 storage")
 	}
 
-	log.Info("deleting backup from s3", "name", cr.Name, "bucket", cr.Status.S3.Bucket, "backupName", destination)
-	err = retry.OnError(retry.DefaultBackoff, func(e error) bool { return true }, removeBackupObjects(ctx, storage, bucket, destination))
+	backupName := cr.Status.Destination.BackupName()
+	log.Info("deleting backup from s3", "name", cr.Name, "bucket", cr.Status.S3.Bucket, "backupName", backupName)
+	err = retry.OnError(retry.DefaultBackoff, func(e error) bool { return true }, removeBackupObjects(ctx, storage, backupName))
 	if err != nil {
 		return errors.Wrapf(err, "failed to delete backup %s", cr.Name)
 	}
@@ -391,41 +376,30 @@ func (r *ReconcilePerconaXtraDBClusterBackup) runAzureBackupFinalizer(ctx contex
 	if cr.Status.Azure == nil {
 		return errors.New("azure storage is not specified")
 	}
-	secret := new(corev1.Secret)
-	err := r.client.Get(ctx, types.NamespacedName{Name: cr.Status.Azure.CredentialsSecret, Namespace: cr.Namespace}, secret)
+
+	opts, err := storage.GetOptionsFromBackup(ctx, r.client, nil, cr)
 	if err != nil {
-		return errors.Wrap(err, "failed to get secret")
+		return errors.Wrap(err, "get storage options")
 	}
-	accountName := string(secret.Data["AZURE_STORAGE_ACCOUNT_NAME"])
-	accountKey := string(secret.Data["AZURE_STORAGE_ACCOUNT_KEY"])
-
-	container, prefix := cr.Status.Azure.ContainerAndPrefix()
-	destination := strings.TrimPrefix(cr.Status.Destination, api.AzureBlobStoragePrefix+container+"/")
-	destination = strings.TrimPrefix(destination, container+"/")
-	if prefix != "" {
-		destination = strings.TrimPrefix(destination, prefix)
-		destination = strings.TrimPrefix(destination, "/")
-	}
-	destination = strings.TrimSuffix(destination, "/") + "/"
-
-	azureStorage, err := storage.NewAzure(accountName, accountKey, cr.Status.Azure.Endpoint, container, prefix)
+	azureStorage, err := storage.NewClient(ctx, opts)
 	if err != nil {
 		return errors.Wrap(err, "new azure storage")
 	}
 
-	log.Info("deleting backup from azure", "name", cr.Name, "containerName", container, "destination", destination)
+	backupName := cr.Status.Destination.BackupName()
+	log.Info("Deleting backup from azure", "name", cr.Name, "backupName", backupName)
 	err = retry.OnError(retry.DefaultBackoff,
 		func(e error) bool {
 			return true
 		},
-		removeBackupObjects(ctx, azureStorage, container, destination))
+		removeBackupObjects(ctx, azureStorage, backupName))
 	if err != nil {
 		return errors.Wrapf(err, "failed to delete backup %s", cr.Name)
 	}
 	return nil
 }
 
-func removeBackupObjects(ctx context.Context, s storage.Storage, container, destination string) func() error {
+func removeBackupObjects(ctx context.Context, s storage.Storage, destination string) func() error {
 	return func() error {
 		blobs, err := s.ListObjects(ctx, destination)
 		if err != nil {

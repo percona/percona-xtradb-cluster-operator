@@ -2,12 +2,23 @@ package fake
 
 import (
 	"context"
+	"errors"
 	"io"
 
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage"
 )
 
-func NewFakeClient(storage.Options) (storage.Storage, error) {
+func NewFakeClient(ctx context.Context, opts storage.Options) (storage.Storage, error) {
+	switch opts := opts.(type) {
+	case *storage.S3Options:
+		if opts.BucketName == "" {
+			return nil, errors.New("bucket name is empty")
+		}
+	case *storage.AzureOptions:
+		if opts.Container == "" {
+			return nil, errors.New("container name is empty")
+		}
+	}
 	return &FakeStorageClient{}, nil
 }
 

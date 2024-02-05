@@ -85,7 +85,7 @@ spec:
         s3:
           credentialsSecret: minio-secret
           region: us-east-1
-          bucket: operator-testing
+          bucket: operator-testing/prefix/subfolder
           endpointUrl: https://minio-service.#namespace:9000/
         verifyTLS: false
         containerOptions:

@@ -8,5 +8,5 @@ spec:
     destination: s3://percona-jenkins-artifactory/big-data-test/cluster1-2019-15-11-19:30:13-full
     s3:
       credentialsSecret: aws-s3-secret
-      region: us-west-2
+      region: us-east-1
       endpointUrl: https://s3.amazonaws.com

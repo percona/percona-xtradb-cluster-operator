@@ -48,7 +48,7 @@ spec:
             storage: 2Gi
   haproxy:
     enabled: true
-    size: 1
+    size: 2
     image: -haproxy
     resources:
       requests:

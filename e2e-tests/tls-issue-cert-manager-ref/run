@@ -21,6 +21,7 @@ main() {
 
 	desc 'create pxc cluster'
 	spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml" 3 10 "$conf_dir/secrets_without_tls.yml" "$test_dir/conf/client.yml"
+	wait_cluster_consistency "$cluster" 3 2
 
 	desc 'check if certificates issued with certmanager'
 	tlsSecretsShouldExist "$cluster-ssl"

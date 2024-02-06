@@ -523,7 +523,6 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileHAProxy(ctx context.Context, cr
 }
 
 func (r *ReconcilePerconaXtraDBCluster) deploy(ctx context.Context, cr *api.PerconaXtraDBCluster) error {
-	log := logf.FromContext(ctx)
 	stsApp := statefulset.NewNode(cr)
 	err := r.reconcileConfigMap(cr)
 	if err != nil {
@@ -558,7 +557,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(ctx context.Context, cr *api.Perc
 	if client.IgnoreNotFound(err) != nil {
 		return errors.Wrap(err, "get internal secret")
 	}
-	nodeSet, err := pxc.StatefulSet(stsApp, cr.Spec.PXC.PodSpec, cr, secrets, inits, log, r.getConfigVolume)
+	nodeSet, err := pxc.StatefulSet(ctx, stsApp, cr.Spec.PXC.PodSpec, cr, secrets, inits, r.getConfigVolume)
 	if err != nil {
 		return errors.Wrap(err, "get pxc statefulset")
 	}
@@ -661,7 +660,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(ctx context.Context, cr *api.Perc
 	// HAProxy StatefulSet
 	if cr.HAProxyEnabled() {
 		sfsHAProxy := statefulset.NewHAProxy(cr)
-		haProxySet, err := pxc.StatefulSet(sfsHAProxy, &cr.Spec.HAProxy.PodSpec, cr, secrets, proxyInits, log, r.getConfigVolume)
+		haProxySet, err := pxc.StatefulSet(ctx, sfsHAProxy, &cr.Spec.HAProxy.PodSpec, cr, secrets, proxyInits, r.getConfigVolume)
 		if err != nil {
 			return errors.Wrap(err, "create HAProxy StatefulSet")
 		}
@@ -715,7 +714,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(ctx context.Context, cr *api.Perc
 
 	if cr.Spec.ProxySQLEnabled() {
 		sfsProxy := statefulset.NewProxy(cr)
-		proxySet, err := pxc.StatefulSet(sfsProxy, &cr.Spec.ProxySQL.PodSpec, cr, secrets, proxyInits, log, r.getConfigVolume)
+		proxySet, err := pxc.StatefulSet(ctx, sfsProxy, &cr.Spec.ProxySQL.PodSpec, cr, secrets, proxyInits, r.getConfigVolume)
 		if err != nil {
 			return errors.Wrap(err, "create ProxySQL Service")
 		}

@@ -1,22 +1,25 @@
 package pxc
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
-	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 )
 
 // StatefulSet returns StatefulSet according for app to podSpec
-func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, secret *corev1.Secret,
-	initContainers []corev1.Container, log logr.Logger, vg api.CustomVolumeGetter,
+func StatefulSet(ctx context.Context, sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, secret *corev1.Secret,
+	initContainers []corev1.Container, vg api.CustomVolumeGetter,
 ) (*appsv1.StatefulSet, error) {
+	log := logf.FromContext(ctx)
+
 	pod := corev1.PodSpec{
 		SecurityContext:               podSpec.PodSecurityContext,
 		NodeSelector:                  podSpec.NodeSelector,
@@ -82,14 +85,18 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 		pod.InitContainers = append(pod.InitContainers, initContainers...)
 	}
 
-	if podSpec.ForceUnsafeBootstrap && cr.CompareVersionWith("1.10.0") < 0 {
-		ic := appC.DeepCopy()
-		ic.Name = ic.Name + "-init-unsafe"
-		ic.Resources = podSpec.Resources
-		ic.ReadinessProbe = nil
-		ic.LivenessProbe = nil
-		ic.Command = []string{"/var/lib/mysql/unsafe-bootstrap.sh"}
-		pod.InitContainers = append(pod.InitContainers, *ic)
+	if podSpec.ForceUnsafeBootstrap {
+		log.Info("spec.pxc.forceUnsafeBootstrap option is not supported since v1.10")
+
+		if cr.CompareVersionWith("1.10.0") < 0 {
+			ic := appC.DeepCopy()
+			ic.Name = ic.Name + "-init-unsafe"
+			ic.Resources = podSpec.Resources
+			ic.ReadinessProbe = nil
+			ic.LivenessProbe = nil
+			ic.Command = []string{"/var/lib/mysql/unsafe-bootstrap.sh"}
+			pod.InitContainers = append(pod.InitContainers, *ic)
+		}
 	}
 
 	sideC, err := sfs.SidecarContainers(podSpec, secrets, cr)

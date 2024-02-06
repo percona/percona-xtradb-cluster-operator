@@ -1,0 +1,38 @@
+#!/bin/bash
+
+set -o errexit
+
+test_dir=$(realpath $(dirname $0))
+. ${test_dir}/../functions
+
+set_debug
+
+create_infra ${namespace}
+
+desc 'create first PXC cluster'
+cluster="some-name"
+spinup_pxc "${cluster}" "$conf_dir/$cluster.yml" "3" "10" "${conf_dir}/secrets.yml"
+
+kubectl_bin patch pxc "$cluster" --type=merge --patch '{
+    "spec": { "pxc": { "volumeSpec": { "persistentVolumeClaim": { "resources": { "requests": { "storage": "4Gi" } } } } } }
+}'
+wait_cluster_consistency "$cluster" 3 2
+
+for pvc in $(kubectl_bin get pvc -l app.kubernetes.io/component=pxc -o name); do
+	retry=0
+	until [[ $(kubectl_bin get ${pvc} -o jsonpath={.status.capacity.storage}) == "4Gi" ]]; do
+		if [[ $retry -ge 60 ]]; then
+			echo "PVC ${pvc} was not resized, max retries exceeded"
+			exit 1
+		fi
+
+		echo "Waiting for PVC ${pvc} to be resized"
+		sleep 5
+
+		retry=$((retry + 1))
+	done
+	echo "PVC ${pvc} was resized"
+done
+
+destroy "${namespace}"
+desc "test passed"

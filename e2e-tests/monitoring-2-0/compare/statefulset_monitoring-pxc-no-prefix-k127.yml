@@ -2,28 +2,31 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   generation: 2
-  name: no-limits-proxysql
+  name: monitoring-pxc
   ownerReferences:
     - controller: true
       kind: PerconaXtraDBCluster
-      name: no-limits
+      name: monitoring
 spec:
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Retain
+    whenScaled: Retain
   podManagementPolicy: OrderedReady
-  replicas: 2
+  replicas: 3
   revisionHistoryLimit: 10
   selector:
     matchLabels:
-      app.kubernetes.io/component: proxysql
-      app.kubernetes.io/instance: no-limits
+      app.kubernetes.io/component: pxc
+      app.kubernetes.io/instance: monitoring
       app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
       app.kubernetes.io/name: percona-xtradb-cluster
       app.kubernetes.io/part-of: percona-xtradb-cluster
-  serviceName: no-limits-proxysql-unready
+  serviceName: monitoring-pxc
   template:
     metadata:
       labels:
-        app.kubernetes.io/component: proxysql
-        app.kubernetes.io/instance: no-limits
+        app.kubernetes.io/component: pxc
+        app.kubernetes.io/instance: monitoring
         app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
         app.kubernetes.io/name: percona-xtradb-cluster
         app.kubernetes.io/part-of: percona-xtradb-cluster
@@ -33,12 +36,12 @@ spec:
             - name: PMM_SERVER
               value: monitoring-service
             - name: PMM_USER
-              value: pmm
+              value: api_key
             - name: PMM_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  key: pmmserver
-                  name: internal-no-limits
+                  key: pmmserverkey
+                  name: internal-monitoring
             - name: CLIENT_PORT_LISTEN
               value: "7777"
             - name: CLIENT_PORT_MIN
@@ -58,12 +61,12 @@ spec:
             - name: PMM_AGENT_SERVER_ADDRESS
               value: monitoring-service
             - name: PMM_AGENT_SERVER_USERNAME
-              value: pmm
+              value: api_key
             - name: PMM_AGENT_SERVER_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  key: pmmserver
-                  name: internal-no-limits
+                  key: pmmserverkey
+                  name: internal-monitoring
             - name: PMM_AGENT_LISTEN_PORT
               value: "7777"
             - name: PMM_AGENT_PORTS_MIN
@@ -87,30 +90,26 @@ spec:
             - name: PMM_AGENT_SETUP_NODE_NAME
               value: $(POD_NAMESPASE)-$(POD_NAME)
             - name: DB_TYPE
-              value: proxysql
-            - name: MONITOR_USER
-              value: monitor
-            - name: MONITOR_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  key: monitor
-                  name: internal-no-limits
+              value: mysql
             - name: DB_USER
               value: monitor
             - name: DB_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: monitor
-                  name: internal-no-limits
+                  name: internal-monitoring
+            - name: DB_ARGS
+              value: --query-source=perfschema
             - name: DB_CLUSTER
               value: pxc
             - name: DB_HOST
               value: localhost
             - name: DB_PORT
-              value: "6032"
+              value: "33062"
             - name: CLUSTER_NAME
-              value: no-limits
+              value: monitoring
             - name: PMM_ADMIN_CUSTOM_PARAMS
+              value: --disable-tablestats-limit=2000
             - name: PMM_AGENT_PRERUN_SCRIPT
               value: /var/lib/mysql/pmm-prerun.sh
             - name: PMM_AGENT_SIDECAR
@@ -121,9 +120,9 @@ spec:
               value: /tmp
           envFrom:
             - secretRef:
-                name: no-limits-env-vars-proxysql
+                name: my-env-var-secrets
                 optional: true
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           lifecycle:
             preStop:
               exec:
@@ -157,129 +156,126 @@ spec:
               protocol: TCP
             - containerPort: 30105
               protocol: TCP
-          resources: {}
+          resources:
+            limits:
+              cpu: "1"
+              memory: 1G
+            requests:
+              cpu: 308m
+              memory: 508M
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:
             - mountPath: /var/lib/mysql
-              name: bin
-        - env:
+              name: datadir
+        - args:
+            - mysqld
+          command:
+            - /var/lib/mysql/pxc-entrypoint.sh
+          env:
             - name: PXC_SERVICE
-              value: no-limits-pxc
-            - name: OPERATOR_PASSWORD
+              value: monitoring-pxc-unready
+            - name: MONITOR_HOST
+              value: '%'
+            - name: MYSQL_ROOT_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  key: operator
-                  name: internal-no-limits
-            - name: PROXY_ADMIN_USER
-              value: proxyadmin
-            - name: PROXY_ADMIN_PASSWORD
+                  key: root
+                  name: internal-monitoring
+            - name: XTRABACKUP_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  key: proxyadmin
-                  name: internal-no-limits
+                  key: xtrabackup
+                  name: internal-monitoring
             - name: MONITOR_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: monitor
-                  name: internal-no-limits
+                  name: internal-monitoring
+            - name: OPERATOR_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: operator
+                  name: internal-monitoring
+            - name: LIVENESS_CHECK_TIMEOUT
+              value: "5"
+            - name: READINESS_CHECK_TIMEOUT
+              value: "15"
+            - name: DEFAULT_AUTHENTICATION_PLUGIN
+              value: caching_sha2_password
           envFrom:
             - secretRef:
-                name: no-limits-env-vars-proxysql
+                name: my-env-var-secrets
                 optional: true
-          imagePullPolicy: IfNotPresent
-          name: proxysql
+          imagePullPolicy: Always
+          livenessProbe:
+            exec:
+              command:
+                - /var/lib/mysql/liveness-check.sh
+            failureThreshold: 3
+            initialDelaySeconds: 300
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 5
+          name: pxc
           ports:
             - containerPort: 3306
               name: mysql
               protocol: TCP
-            - containerPort: 6032
-              name: proxyadm
+            - containerPort: 4444
+              name: sst
               protocol: TCP
+            - containerPort: 4567
+              name: write-set
+              protocol: TCP
+            - containerPort: 4568
+              name: ist
+              protocol: TCP
+            - containerPort: 33062
+              name: mysql-admin
+              protocol: TCP
+            - containerPort: 33060
+              name: mysqlx
+              protocol: TCP
+          readinessProbe:
+            exec:
+              command:
+                - /var/lib/mysql/readiness-check.sh
+            failureThreshold: 5
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            successThreshold: 1
+            timeoutSeconds: 15
           resources:
             requests:
-              cpu: 600m
-              memory: 1G
+              cpu: 300m
+              memory: 500M
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:
-            - mountPath: /var/lib/proxysql
-              name: proxydata
-            - mountPath: /etc/proxysql/ssl
+            - mountPath: /var/lib/mysql
+              name: datadir
+            - mountPath: /etc/percona-xtradb-cluster.conf.d
+              name: config
+            - mountPath: /tmp
+              name: tmp
+            - mountPath: /etc/mysql/ssl
               name: ssl
-            - mountPath: /etc/proxysql/ssl-internal
+            - mountPath: /etc/mysql/ssl-internal
               name: ssl-internal
-        - args:
-            - /usr/bin/peer-list
-            - -on-change=/usr/bin/add_pxc_nodes.sh
-            - -service=$(PXC_SERVICE)
-          env:
-            - name: PXC_SERVICE
-              value: no-limits-pxc
-            - name: OPERATOR_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  key: operator
-                  name: internal-no-limits
-            - name: PROXY_ADMIN_USER
-              value: proxyadmin
-            - name: PROXY_ADMIN_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  key: proxyadmin
-                  name: internal-no-limits
-            - name: MONITOR_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  key: monitor
-                  name: internal-no-limits
-          envFrom:
-            - secretRef:
-                name: no-limits-env-vars-proxysql
-                optional: true
-          imagePullPolicy: IfNotPresent
-          name: pxc-monit
-          resources: {}
-          terminationMessagePath: /dev/termination-log
-          terminationMessagePolicy: File
-        - args:
-            - /usr/bin/peer-list
-            - -on-change=/usr/bin/add_proxysql_nodes.sh
-            - -service=$(PROXYSQL_SERVICE)
-          env:
-            - name: PROXYSQL_SERVICE
-              value: no-limits-proxysql-unready
-            - name: OPERATOR_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  key: operator
-                  name: internal-no-limits
-            - name: PROXY_ADMIN_USER
-              value: proxyadmin
-            - name: PROXY_ADMIN_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  key: proxyadmin
-                  name: internal-no-limits
-            - name: MONITOR_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  key: monitor
-                  name: internal-no-limits
-          envFrom:
-            - secretRef:
-                name: no-limits-env-vars-proxysql
-                optional: true
-          imagePullPolicy: IfNotPresent
-          name: proxysql-monit
-          resources: {}
-          terminationMessagePath: /dev/termination-log
-          terminationMessagePolicy: File
+            - mountPath: /etc/mysql/mysql-users-secret
+              name: mysql-users-secret-file
+            - mountPath: /etc/my.cnf.d
+              name: auto-config
+            - mountPath: /etc/mysql/vault-keyring-secret
+              name: vault-keyring-secret
+            - mountPath: /etc/mysql/init-file
+              name: mysql-init-file
       dnsPolicy: ClusterFirst
       initContainers:
         - command:
             - /pxc-init-entrypoint.sh
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           name: pxc-init
           resources:
             limits:
@@ -289,7 +285,7 @@ spec:
           terminationMessagePolicy: File
           volumeMounts:
             - mountPath: /var/lib/mysql
-              name: bin
+              name: datadir
       restartPolicy: Always
       schedulerName: default-scheduler
       securityContext:
@@ -298,32 +294,57 @@ spec:
           - 1001
       serviceAccount: default
       serviceAccountName: default
-      terminationGracePeriodSeconds: 30
+      terminationGracePeriodSeconds: 600
       volumes:
+        - emptyDir: {}
+          name: tmp
+        - configMap:
+            defaultMode: 420
+            name: monitoring-pxc
+            optional: true
+          name: config
         - name: ssl-internal
           secret:
             defaultMode: 420
             optional: true
-            secretName: some-name-ssl-internal
+            secretName: monitoring-ssl-internal
         - name: ssl
           secret:
             defaultMode: 420
             optional: false
             secretName: some-name-ssl
-        - emptyDir: {}
-          name: bin
+        - configMap:
+            defaultMode: 420
+            name: auto-monitoring-pxc
+            optional: true
+          name: auto-config
+        - name: vault-keyring-secret
+          secret:
+            defaultMode: 420
+            optional: true
+            secretName: monitoring-vault
+        - name: mysql-users-secret-file
+          secret:
+            defaultMode: 420
+            optional: false
+            secretName: internal-monitoring
+        - name: mysql-init-file
+          secret:
+            defaultMode: 420
+            optional: true
+            secretName: monitoring-mysql-init
   updateStrategy:
     rollingUpdate:
       partition: 0
     type: RollingUpdate
   volumeClaimTemplates:
     - metadata:
-        name: proxydata
+        name: datadir
       spec:
         accessModes:
           - ReadWriteOnce
         resources:
           requests:
-            storage: 6Gi
+            storage: 2Gi
       status:
         phase: Pending

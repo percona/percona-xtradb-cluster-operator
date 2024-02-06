@@ -8,7 +8,7 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 )
 
-func PMMClient(cr *api.PerconaXtraDBCluster, spec *api.PMMSpec, secret *corev1.Secret) corev1.Container {
+func PMMClient(cr *api.PerconaXtraDBCluster, spec *api.PMMSpec, secret *corev1.Secret, envVarsSecret *corev1.Secret) corev1.Container {
 	ports := []corev1.ContainerPort{{ContainerPort: 7777}}
 
 	for i := 30100; i <= 30105; i++ {
@@ -69,9 +69,13 @@ func PMMClient(cr *api.PerconaXtraDBCluster, spec *api.PMMSpec, secret *corev1.S
 
 		pmmAgentEnvs := pmmAgentEnvs(spec.ServerHost, spec.ServerUser, secret.Name, spec.UseAPI(secret))
 		if cr.CompareVersionWith("1.14.0") >= 0 {
+			val := "$(POD_NAMESPASE)-$(POD_NAME)"
+			if len(envVarsSecret.Data["PMM_PREFIX"]) > 0 {
+				val = "$(PMM_PREFIX)$(POD_NAMESPASE)-$(POD_NAME)"
+			}
 			pmmAgentEnvs = append(pmmAgentEnvs, corev1.EnvVar{
 				Name:  "PMM_AGENT_SETUP_NODE_NAME",
-				Value: "$(PMM_PREFIX)$(POD_NAMESPASE)-$(POD_NAME)",
+				Value: val,
 			})
 		} else {
 			pmmAgentEnvs = append(pmmAgentEnvs, corev1.EnvVar{

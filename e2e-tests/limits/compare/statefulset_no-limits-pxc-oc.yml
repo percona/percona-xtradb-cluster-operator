@@ -85,7 +85,7 @@ spec:
             - name: PMM_AGENT_SETUP_NODE_TYPE
               value: container
             - name: PMM_AGENT_SETUP_NODE_NAME
-              value: $(PMM_PREFIX)$(POD_NAMESPASE)-$(POD_NAME)
+              value: $(POD_NAMESPASE)-$(POD_NAME)
             - name: DB_TYPE
               value: mysql
             - name: DB_USER

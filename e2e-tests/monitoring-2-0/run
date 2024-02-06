@@ -65,7 +65,6 @@ sleep 5
 kubectl_bin exec monitoring-0 -- bash -c "grafana-cli --homepath=/usr/share/grafana --config=/etc/grafana/grafana.ini admin reset-admin-password $ADMIN_PASSWORD"
 
 desc 'create PXC cluster'
-kubectl_bin apply -f "$test_dir/conf/envsecrets.yaml"
 spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml" 3 120 "$test_dir/conf/secrets.yaml"
 
 desc 'add PMM API key to secret'
@@ -77,6 +76,12 @@ wait_for_generation "sts/$cluster-haproxy" 2
 sleep 10
 kubectl wait pod -l 'app.kubernetes.io/managed-by=percona-xtradb-cluster-operator' --for=condition=ready --timeout=600s
 wait_cluster_consistency ${cluster} 3 2
+
+compare_kubectl statefulset/$cluster-pxc "-no-prefix"
+compare_kubectl statefulset/$cluster-haproxy "-no-prefix"
+
+desc 'apply my-env-var-secrets to add PMM_PREFIX'
+kubectl_bin apply -f "$test_dir/conf/envsecrets.yaml"
 
 desc 'add new PMM API key to secret'
 API_KEY_NEW=$(curl --insecure -X POST -H "Content-Type: application/json" -d '{"name":"operator-new", "role": "Admin"}' "https://admin:$ADMIN_PASSWORD@$(get_service_endpoint monitoring-service)/graph/api/auth/keys" | jq .key)
@@ -97,7 +102,7 @@ compare_kubectl statefulset/$cluster-haproxy
 
 desc 'verify clients agents statuses'
 # wait for proper agents statuses
-sleep 240
+sleep 300
 API_KEY=$(getSecretData "my-cluster-secrets" "pmmserverkey")
 diff -u ${test_dir}/compare/agents-list.json $(get_mgmnt_service_list ${API_KEY} $(get_service_endpoint monitoring-service) ${namespace})
 

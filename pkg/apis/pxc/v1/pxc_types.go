@@ -1471,3 +1471,10 @@ func (s *PerconaXtraDBClusterSpec) HAProxyEnabled() bool {
 func (s *PerconaXtraDBClusterSpec) ProxySQLEnabled() bool {
 	return s.ProxySQL != nil && s.ProxySQL.Enabled
 }
+
+const AnnotationPVCResizeInProgress = "percona.com/pvc-resize-in-progress"
+
+func (cr *PerconaXtraDBCluster) PVCResizeInProgress() bool {
+	_, ok := cr.Annotations[AnnotationPVCResizeInProgress]
+	return ok
+}

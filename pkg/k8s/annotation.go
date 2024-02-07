@@ -11,7 +11,10 @@ import (
 func AnnotateObject(ctx context.Context, c client.Client, obj client.Object, annotations map[string]string) error {
 	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		_obj := obj.DeepCopyObject().(client.Object)
-		c.Get(ctx, client.ObjectKeyFromObject(obj), _obj)
+		err := c.Get(ctx, client.ObjectKeyFromObject(obj), _obj)
+		if err != nil {
+			return err
+		}
 
 		a := _obj.GetAnnotations()
 		if a == nil {
@@ -31,7 +34,10 @@ func AnnotateObject(ctx context.Context, c client.Client, obj client.Object, ann
 func DeannotateObject(ctx context.Context, c client.Client, obj client.Object, annotation string) error {
 	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		_obj := obj.DeepCopyObject().(client.Object)
-		c.Get(ctx, client.ObjectKeyFromObject(obj), _obj)
+		err := c.Get(ctx, client.ObjectKeyFromObject(obj), _obj)
+		if err != nil {
+			return err
+		}
 
 		a := _obj.GetAnnotations()
 		if a == nil {

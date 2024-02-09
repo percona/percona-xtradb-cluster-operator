@@ -29,11 +29,16 @@ import (
 func (r *ReconcilePerconaXtraDBCluster) updatePod(ctx context.Context, sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, initContainers []corev1.Container) error {
 	log := logf.FromContext(ctx)
 
+	if cr.PVCResizeInProgress() {
+		log.V(1).Info("PVC resize in progress, skipping statefulset", "sfs", sfs.Name())
+		return nil
+	}
+
 	currentSet := sfs.StatefulSet()
 	newAnnotations := currentSet.Spec.Template.Annotations // need this step to save all new annotations that was set to currentSet in this reconcile loop
 	err := r.client.Get(ctx, types.NamespacedName{Name: currentSet.Name, Namespace: currentSet.Namespace}, currentSet)
 	if err != nil {
-		return errors.Wrap(err, "failed to get sate")
+		return errors.Wrap(err, "failed to get statefulset")
 	}
 
 	currentSet.Spec.UpdateStrategy = sfs.UpdateStrategy(cr)

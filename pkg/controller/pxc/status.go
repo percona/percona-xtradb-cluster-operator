@@ -42,6 +42,11 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 		return r.writeStatus(cr)
 	}
 
+	if cr.PVCResizeInProgress() {
+		cr.Status.Status = api.AppStateInit
+		return r.writeStatus(cr)
+	}
+
 	cr.Status.Messages = cr.Status.Messages[:0]
 
 	type sfsstatus struct {

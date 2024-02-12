@@ -83,6 +83,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '^1.21'
       - run: |
           make generate manifests VERSION=main
           git diff --exit-code

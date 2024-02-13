@@ -2,6 +2,7 @@ package pxc
 
 import (
 	"context"
+	"log"
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -23,6 +24,8 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 		Type:               api.AppStateInit,
 		LastTransitionTime: metav1.NewTime(time.Now()),
 	}
+
+	log.Print("test")
 
 	if reconcileErr != nil {
 		if cr.Status.Status != api.AppStateError {

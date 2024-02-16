@@ -19,7 +19,7 @@ require (
 	github.com/go-sql-driver/mysql v1.7.1
 	github.com/google/go-cmp v0.6.0
 	github.com/hashicorp/go-version v1.6.0
-	github.com/minio/minio-go/v7 v7.0.66
+	github.com/minio/minio-go/v7 v7.0.67
 	github.com/onsi/ginkgo/v2 v2.15.0
 	github.com/onsi/gomega v1.31.1
 	github.com/pkg/errors v0.9.1

@@ -531,6 +531,12 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileHAProxy(ctx context.Context, cr
 
 func (r *ReconcilePerconaXtraDBCluster) deploy(ctx context.Context, cr *api.PerconaXtraDBCluster) error {
 	log := logf.FromContext(ctx)
+
+	if cr.PVCResizeInProgress() {
+		log.V(1).Info("PVC resize in progress, skipping statefulset")
+		return nil
+	}
+
 	stsApp := statefulset.NewNode(cr)
 	err := r.reconcileConfigMap(cr)
 	if err != nil {

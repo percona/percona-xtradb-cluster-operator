@@ -50,7 +50,7 @@ build_operator() {
 		-t "${IMAGE}" -f build/Dockerfile .
 	popd
 
-	if [ "${DOCKER_PUSH:-1}" = 1 ] && [[ "$build_command" == 'build' ]]; then
+	if [ "${DOCKER_PUSH:-1}" = 1 ] && [[ $build_command == 'build' ]]; then
 		docker push ${IMAGE}
 	fi
 

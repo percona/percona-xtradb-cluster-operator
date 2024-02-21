@@ -57,7 +57,7 @@ spec:
 #      internalTrafficPolicy: Local
 #      loadBalancerSourceRanges:
 #        - 10.0.0.0/8
-#      loadBalancerIP: 127.0.01
+#      loadBalancerIP: 127.0.0.1
 #      annotations:
 #        networking.gke.io/load-balancer-type: "Internal"
 #      labels:

@@ -515,10 +515,12 @@ if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 			exit 1
 		fi
 
-		mysql_upgrade --force "${mysql[@]:1}"
-		if ! kill -s TERM "$pid" || ! wait "$pid"; then
-			echo >&2 'MySQL init process failed.'
-			exit 1
+		if [[ $MYSQL_VERSION == '5.7' ]]; then
+			mysql_upgrade --force "${mysql[@]:1}"
+			if ! kill -s TERM "$pid" || ! wait "$pid"; then
+				echo >&2 'MySQL init process failed.'
+				exit 1
+			fi
 		fi
 	fi
 	"$@" --version | sed 's/-ps//' >"$DATADIR/version_info"

@@ -490,16 +490,28 @@ if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 	SST_P_FILE=$(_get_cnf_config sst progress "${DATADIR}/sst_in_progress")
 	rm -rvf "${SST_DIR}" "${SST_P_FILE}"
 
-	"$@" --version | sed 's/-ps//' | tee /tmp/version_info
-	if [ -f "$DATADIR/version_info" ] && ! diff /tmp/version_info "$DATADIR/version_info"; then
+	"$@" --version | sed 's/-ps//' | awk '{print $3}' | tee /tmp/version_info
+
+	mysql_version_file=''
+	mysql_version=''
+	if [ -f "$DATADIR/version_info" ]; then
+		mysql_version_file="$DATADIR/version_info"
+		mysql_version=$(cat $mysql_version_file | awk '{print $3}')
+	elif [ -f "$DATADIR/xtrabackup_info" ]; then
+		mysql_version_file="$DATADIR/xtrabackup_info"
+		mysql_version=$(grep 'server_version' $mysql_version_file | awk '{print $3}' | tr -d '\n')
+	fi
+
+
+	if [[ -f $mysql_version_file && -n $mysql_version ]] && [[ $(cat /tmp/version_info) != $mysql_version ]]; then
 		SOCKET="$(_get_config 'socket' "$@")"
 		"$@" --skip-networking --socket="${SOCKET}" --wsrep-provider='none' &
 		pid="$!"
 
-		mysql=(mysql --protocol=socket -uoperator -hlocalhost --socket="${SOCKET}" --password="")
+		mysql=(mysql --protocol=socket -uroot -hlocalhost --socket="${SOCKET}" --password="")
 		{ set +x; } 2>/dev/null
-		if [ ! -z "$OPERATOR_ADMIN_PASSWORD" ]; then
-			mysql+=(-p"${OPERATOR_ADMIN_PASSWORD}")
+		if [ ! -z "$MYSQL_ROOT_PASSWORD" ]; then
+			mysql+=(-p"${MYSQL_ROOT_PASSWORD}")
 		fi
 		set -x
 

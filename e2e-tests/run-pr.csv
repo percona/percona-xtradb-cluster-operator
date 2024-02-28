@@ -32,7 +32,9 @@ tls-issue-cert-manager-ref,8.0
 tls-issue-cert-manager,8.0
 tls-issue-self,8.0
 upgrade-consistency,8.0
+upgrade-haproxy,5.7
 upgrade-haproxy,8.0
+upgrade-proxysql,5.7
 upgrade-proxysql,8.0
 users,5.7
 users,8.0

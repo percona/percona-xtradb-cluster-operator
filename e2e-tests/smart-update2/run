@@ -72,7 +72,7 @@ function check_last_pod_to_update {
 			echo "Something went wrong waiting for the last pod to update!"
 			exit 1
 		fi
-		((i++))
+		let i+=1
 		sleep 1
 	done
 	set -x

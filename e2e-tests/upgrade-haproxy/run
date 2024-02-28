@@ -86,7 +86,7 @@ function main() {
 			echo "Something went wrong waiting for operator upgrade!"
 			exit 1
 		fi
-		((i++))
+		let i+=1
 		sleep 5
 	done
 

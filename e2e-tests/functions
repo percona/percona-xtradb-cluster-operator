@@ -108,7 +108,7 @@ wait_cluster_consistency() {
 			echo "Something went wrong waiting for cluster consistency!"
 			exit 1
 		fi
-		((i++))
+		let i+=1
 	done
 }
 
@@ -1006,7 +1006,7 @@ retry() {
 			echo "The command '$@' has failed after $n attempts."
 			exit 1
 		fi
-		((n++))
+		let n+=1
 		sleep $delay
 	done
 }

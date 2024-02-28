@@ -43,6 +43,8 @@ function check_last_pod_to_update {
 
 	set +x
 	echo -n "Waiting for the last pod to update"
+	local i=0
+	local max=720
 	until [[ "$(kubectl_bin get pxc "${cluster}" -o jsonpath='{.status.state}')" == "ready" ]]; do
 		echo -n "."
 		updated_pods_count=0
@@ -62,6 +64,11 @@ function check_last_pod_to_update {
 				exit 1
 			fi
 		fi
+		if [[ $i -ge $max ]]; then
+			echo "Something went wrong waiting for the last pod to update!"
+			exit 1
+		fi
+		((i++))
 		sleep 1
 	done
 	set -x

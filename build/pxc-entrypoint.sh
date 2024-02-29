@@ -492,17 +492,18 @@ if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 
 	"$@" --version | sed 's/-ps//' | awk '{print $3}' | tee /tmp/version_info
 
-	mysql_version_file=''
-	mysql_version=''
+	pxc_version_file=''
+	pxc_version=''
 	if [ -f "$DATADIR/version_info" ]; then
-		mysql_version_file="$DATADIR/version_info"
-		mysql_version=$(cat $mysql_version_file | awk '{print $3}')
+		pxc_version_file="$DATADIR/version_info"
+		pxc_version=$(cat $pxc_version_file | awk '{print $3}')
 	elif [ -f "$DATADIR/xtrabackup_info" ]; then
-		mysql_version_file="$DATADIR/xtrabackup_info"
-		mysql_version=$(grep 'server_version' $mysql_version_file | awk '{print $3}' | tr -d '\n')
+		pxc_version_file="$DATADIR/xtrabackup_info"
+		pxc_version=$(grep 'server_version' $pxc_version_file | awk '{print $3}' | tr -d '\n')
 	fi
 
-	if [[ -f $mysql_version_file && -n $mysql_version ]] && [[ $(cat /tmp/version_info) != $mysql_version ]]; then
+
+	if [[ -f $pxc_version_file && -n $pxc_version && $MYSQL_VERSION == '5.7' ]] && [[ $(cat /tmp/version_info) != $pxc_version ]]; then
 		SOCKET="$(_get_config 'socket' "$@")"
 		"$@" --skip-networking --socket="${SOCKET}" --wsrep-provider='none' &
 		pid="$!"
@@ -526,12 +527,10 @@ if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 			exit 1
 		fi
 
-		if [[ $MYSQL_VERSION == '5.7' ]]; then
-			mysql_upgrade --force "${mysql[@]:1}"
-			if ! kill -s TERM "$pid" || ! wait "$pid"; then
-				echo >&2 'MySQL init process failed.'
-				exit 1
-			fi
+		mysql_upgrade --force "${mysql[@]:1}"
+		if ! kill -s TERM "$pid" || ! wait "$pid"; then
+			echo >&2 'MySQL init process failed.'
+			exit 1
 		fi
 	fi
 	"$@" --version | sed 's/-ps//' >"$DATADIR/version_info"

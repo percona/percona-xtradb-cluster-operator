@@ -502,7 +502,6 @@ if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 		mysql_version=$(grep 'server_version' $mysql_version_file | awk '{print $3}' | tr -d '\n')
 	fi
 
-
 	if [[ -f $mysql_version_file && -n $mysql_version ]] && [[ $(cat /tmp/version_info) != $mysql_version ]]; then
 		SOCKET="$(_get_config 'socket' "$@")"
 		"$@" --skip-networking --socket="${SOCKET}" --wsrep-provider='none' &

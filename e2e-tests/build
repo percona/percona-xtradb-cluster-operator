@@ -9,14 +9,18 @@ src_dir="$(realpath ${test_dir}/..)"
 set_debug
 
 IMAGE=$(echo "$IMAGE" | sed -e 's#percona/#perconalab/#')
-DOCKER_DEFAULT_PLATFORM=${DOCKER_DEFAULT_PLATFORM:-"linux/amd64"}
 
-build_options='--squash'
-if [[ ${DOCKER_SQUASH} == 0 ]]; then
-	build_options=''
-fi
 if [[ ${DOCKER_NOCACHE:-0} == 1 ]]; then
-	build_options="$build_options --no-cache"
+	no_cache="--no-cache"
+fi
+if [[ ${DOCKER_SQUASH:-1} == 1 ]]; then
+	squash="--squash"
+fi
+
+if [[ ${DOCKER_PUSH:-1} == 1 ]]; then
+	imgresult="--push=true"
+else
+	imgresult="--load"
 fi
 
 build_operator() {
@@ -25,40 +29,30 @@ build_operator() {
 	fi
 
 	export IMAGE
-	export DOCKER_DEFAULT_PLATFORM
+	export DOCKER_DEFAULT_PLATFORM=${DOCKER_DEFAULT_PLATFORM:-"linux/amd64"}
 	export GO_LDFLAGS="-w -s -trimpath $GO_LDFLAGS"
-	pushd ${src_dir}
 
-	build_command='build'
 	if echo "$DOCKER_DEFAULT_PLATFORM" | grep -q ','; then
-		build_command='buildx build'
-		if [[ ${DOCKER_PUSH:-1} == 1 ]]; then
-			build_options="$build_options --push=true"
-		else
-			build_options="$build_options --load"
+		if [ "${DOCKER_PUSH:-1}" = 0 ]; then
+			echo "'docker $build_command' doesn't support DOCKER_PUSH=0 option in case of multi-arch builds, please use DOCKER_PUSH=1"
+			exit 1
 		fi
 	fi
 
-	docker $build_command \
+	pushd ${src_dir}
+	docker buildx build \
 		--platform $DOCKER_DEFAULT_PLATFORM \
 		--build-arg GIT_COMMIT=$GIT_COMMIT \
 		--build-arg GIT_BRANCH=$GIT_BRANCH \
 		--build-arg BUILD_TIME=$BUILD_TIME \
 		--build-arg GO_LDFLAGS="$GO_LDFLAGS" \
 		--progress plain \
-		$build_options \
+		$squash \
+		$imgresult \
+		$no_cache \
 		-t "${IMAGE}" -f build/Dockerfile .
 	popd
-
-	if [ "${DOCKER_PUSH:-1}" = 1 ] && [[ $build_command == 'build' ]]; then
-		docker push ${IMAGE}
-	fi
-
 }
-
-if [[ $BUILD == "0" ]]; then
-	exit 0
-fi
 
 until docker ps; do sleep 1; done
 build_operator

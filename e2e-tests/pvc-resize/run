@@ -7,6 +7,11 @@ test_dir=$(realpath $(dirname $0))
 
 set_debug
 
+if [[ $EKS == 1 ]]; then
+	echo "Skip the test. We don't run it for EKS."
+	exit 0
+fi
+
 create_infra ${namespace}
 
 desc 'create first PXC cluster'

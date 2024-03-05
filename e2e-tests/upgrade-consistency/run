@@ -89,6 +89,18 @@ main() {
 	compare_kubectl statefulset/$cluster-pxc "-1140"
 	compare_kubectl statefulset/$cluster-proxysql "-1140"
 
+	desc "test 1.15.0"
+	kubectl_bin patch pxc "$cluster" --type=merge --patch '{
+        "spec": {"crVersion":"1.15.0"}
+    }'
+	wait_cluster_consistency "$cluster" 3 2
+	wait_for_sts_generation "$cluster-pxc" "5" "1"
+	desc "compare k8s objects"
+	compare_kubectl service/$cluster-pxc "-1150"
+	compare_kubectl service/$cluster-proxysql "-1150"
+	compare_kubectl statefulset/$cluster-pxc "-1150"
+	compare_kubectl statefulset/$cluster-proxysql "-1150"
+
 	destroy "${namespace}"
 	desc "test passed"
 }

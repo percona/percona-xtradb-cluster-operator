@@ -3,6 +3,7 @@
 package v1
 
 import (
+	"context"
 	"os"
 	"strings"
 
@@ -18,6 +19,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/util"
@@ -720,7 +722,7 @@ var NoCustomVolumeErr = errors.New("no custom volume found")
 type App interface {
 	AppContainer(spec *PodSpec, secrets string, cr *PerconaXtraDBCluster, availableVolumes []corev1.Volume) (corev1.Container, error)
 	SidecarContainers(spec *PodSpec, secrets string, cr *PerconaXtraDBCluster) ([]corev1.Container, error)
-	PMMContainer(spec *PMMSpec, secret *corev1.Secret, cr *PerconaXtraDBCluster) (*corev1.Container, error)
+	PMMContainer(ctx context.Context, cl client.Client, spec *PMMSpec, secret *corev1.Secret, cr *PerconaXtraDBCluster) (*corev1.Container, error)
 	LogCollectorContainer(spec *LogCollectorSpec, logPsecrets string, logRsecrets string, cr *PerconaXtraDBCluster) ([]corev1.Container, error)
 	Volumes(podSpec *PodSpec, cr *PerconaXtraDBCluster, vg CustomVolumeGetter) (*Volume, error)
 	Labels() map[string]string
@@ -1468,4 +1470,11 @@ func (s *PerconaXtraDBClusterSpec) HAProxyEnabled() bool {
 
 func (s *PerconaXtraDBClusterSpec) ProxySQLEnabled() bool {
 	return s.ProxySQL != nil && s.ProxySQL.Enabled
+}
+
+const AnnotationPVCResizeInProgress = "percona.com/pvc-resize-in-progress"
+
+func (cr *PerconaXtraDBCluster) PVCResizeInProgress() bool {
+	_, ok := cr.Annotations[AnnotationPVCResizeInProgress]
+	return ok
 }

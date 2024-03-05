@@ -92,7 +92,7 @@ func main() {
 		},
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "08db0feb.percona.com",
+		LeaderElectionID:       "08db1feb.percona.com",
 		WebhookServer: ctrlWebhook.NewServer(ctrlWebhook.Options{
 			Port: 9443,
 		}),

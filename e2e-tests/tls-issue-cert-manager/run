@@ -26,6 +26,7 @@ main() {
 
 	desc 'create pxc cluster'
 	spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml" 3 10 "$conf_dir/secrets_without_tls.yml" "$test_dir/conf/client.yml"
+	wait_cluster_consistency "$cluster" 3 2
 
 	desc 'check if certificates issued with certmanager'
 	tlsSecretsShouldExist "$cluster-ssl"
@@ -41,6 +42,7 @@ main() {
 
 	apply_config "$test_dir/conf/$cluster-haproxy.yml"
 	wait_for_running "$cluster-haproxy" 1
+	wait_cluster_consistency "$cluster" 3 2
 
 	desc 'check ssl-internal certificate using PXC'
 	check_verify_identity "$cluster-pxc"

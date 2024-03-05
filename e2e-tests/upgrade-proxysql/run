@@ -73,9 +73,16 @@ function main() {
 	sleep 10
 
 	desc 'wait for operator upgrade'
+	local i=0
+	local max=60
 	until [[ $(kubectl_bin get pods --selector=app.kubernetes.io/name=${OPERATOR_NAME} \
 		-o custom-columns='NAME:.metadata.name,IMAGE:.spec.containers[0].image' ${OPERATOR_NS:+-n $OPERATOR_NS} \
 		| grep -vc 'NAME' | awk '{print $1}') -eq 1 ]]; do
+		if [[ $i -ge $max ]]; then
+			echo "Something went wrong waiting for operator upgrade!"
+			exit 1
+		fi
+		let i+=1
 		sleep 5
 	done
 

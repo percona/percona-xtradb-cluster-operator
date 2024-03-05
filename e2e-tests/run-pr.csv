@@ -16,6 +16,8 @@ pitr,8.0
 pitr-gap-errors,8.0
 proxy-protocol,8.0
 proxysql-sidecar-res-limits,8.0
+pvc-resize,5.7
+pvc-resize,8.0
 recreate,8.0
 restore-to-encrypted-cluster,8.0
 scaling-proxysql,8.0
@@ -30,7 +32,9 @@ tls-issue-cert-manager-ref,8.0
 tls-issue-cert-manager,8.0
 tls-issue-self,8.0
 upgrade-consistency,8.0
+upgrade-haproxy,5.7
 upgrade-haproxy,8.0
+upgrade-proxysql,5.7
 upgrade-proxysql,8.0
 users,5.7
 users,8.0

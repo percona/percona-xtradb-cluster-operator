@@ -29,11 +29,16 @@ import (
 func (r *ReconcilePerconaXtraDBCluster) updatePod(ctx context.Context, sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, initContainers []corev1.Container) error {
 	log := logf.FromContext(ctx)
 
+	if cr.PVCResizeInProgress() {
+		log.V(1).Info("PVC resize in progress, skipping statefulset", "sfs", sfs.Name())
+		return nil
+	}
+
 	currentSet := sfs.StatefulSet()
 	newAnnotations := currentSet.Spec.Template.Annotations // need this step to save all new annotations that was set to currentSet in this reconcile loop
-	err := r.client.Get(context.TODO(), types.NamespacedName{Name: currentSet.Name, Namespace: currentSet.Namespace}, currentSet)
+	err := r.client.Get(ctx, types.NamespacedName{Name: currentSet.Name, Namespace: currentSet.Namespace}, currentSet)
 	if err != nil {
-		return errors.Wrap(err, "failed to get sate")
+		return errors.Wrap(err, "failed to get statefulset")
 	}
 
 	currentSet.Spec.UpdateStrategy = sfs.UpdateStrategy(cr)
@@ -133,7 +138,7 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(ctx context.Context, sfs api.S
 	}
 
 	secret := new(corev1.Secret)
-	err = r.client.Get(context.TODO(), types.NamespacedName{
+	err = r.client.Get(ctx, types.NamespacedName{
 		Name: secretsName, Namespace: cr.Namespace,
 	}, secret)
 	if client.IgnoreNotFound(err) != nil {
@@ -141,7 +146,7 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(ctx context.Context, sfs api.S
 	}
 	// pmm container
 	if cr.Spec.PMM != nil && cr.Spec.PMM.IsEnabled(secret) {
-		pmmC, err := sfs.PMMContainer(cr.Spec.PMM, secret, cr)
+		pmmC, err := sfs.PMMContainer(ctx, r.client, cr.Spec.PMM, secret, cr)
 		if err != nil {
 			return errors.Wrap(err, "pmm container error")
 		}
@@ -248,7 +253,7 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(ctx context.Context, sfs api
 	time.Sleep(time.Second)
 
 	currentSet := sfs.StatefulSet()
-	err := r.client.Get(context.TODO(), types.NamespacedName{
+	err := r.client.Get(ctx, types.NamespacedName{
 		Name:      currentSet.Name,
 		Namespace: currentSet.Namespace,
 	}, currentSet)
@@ -257,7 +262,7 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(ctx context.Context, sfs api
 	}
 
 	list := corev1.PodList{}
-	if err := r.client.List(context.TODO(),
+	if err := r.client.List(ctx,
 		&list,
 		&client.ListOptions{
 			Namespace:     currentSet.Namespace,
@@ -345,7 +350,7 @@ func (r *ReconcilePerconaXtraDBCluster) applyNWait(ctx context.Context, cr *api.
 	if pod.ObjectMeta.Labels["controller-revision-hash"] == sfs.Status.UpdateRevision {
 		log.Info("pod already updated", "pod name", pod.Name)
 	} else {
-		if err := r.client.Delete(context.TODO(), pod); err != nil {
+		if err := r.client.Delete(ctx, pod); err != nil {
 			return errors.Wrap(err, "failed to delete pod")
 		}
 	}
@@ -577,7 +582,7 @@ func (r *ReconcilePerconaXtraDBCluster) waitPXCSynced(cr *api.PerconaXtraDBClust
 func (r *ReconcilePerconaXtraDBCluster) waitPodRestart(ctx context.Context, cr *api.PerconaXtraDBCluster, updateRevision string, pod *corev1.Pod, waitLimit int) error {
 	return retry(time.Second*10, time.Duration(waitLimit)*time.Second,
 		func() (bool, error) {
-			err := r.client.Get(context.TODO(), types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, pod)
+			err := r.client.Get(ctx, types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, pod)
 			if err != nil && !k8serrors.IsNotFound(err) {
 				return false, errors.Wrap(err, "fetch pod")
 			}

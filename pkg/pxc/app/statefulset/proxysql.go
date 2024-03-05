@@ -1,15 +1,18 @@
 package statefulset
 
 import (
-	"errors"
+	"context"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	app "github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -283,8 +286,14 @@ func (c *Proxy) LogCollectorContainer(_ *api.LogCollectorSpec, _ string, _ strin
 	return nil, nil
 }
 
-func (c *Proxy) PMMContainer(spec *api.PMMSpec, secret *corev1.Secret, cr *api.PerconaXtraDBCluster) (*corev1.Container, error) {
-	ct := app.PMMClient(cr, spec, secret)
+func (c *Proxy) PMMContainer(ctx context.Context, cl client.Client, spec *api.PMMSpec, secret *corev1.Secret, cr *api.PerconaXtraDBCluster) (*corev1.Container, error) {
+	envVarsSecret := &corev1.Secret{}
+	err := cl.Get(ctx, types.NamespacedName{Name: cr.Spec.PXC.EnvVarsSecretName, Namespace: cr.Namespace}, envVarsSecret)
+	if client.IgnoreNotFound(err) != nil {
+		return nil, errors.Wrap(err, "get env vars secret")
+	}
+
+	ct := app.PMMClient(cr, spec, secret, envVarsSecret)
 
 	pmmEnvs := []corev1.EnvVar{
 		{

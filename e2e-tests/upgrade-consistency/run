@@ -38,20 +38,8 @@ main() {
 	kubectl_bin apply \
 		-f "$test_dir/conf/secrets.yml"
 	cat_config "$conf_dir/$cluster.yml" \
-		| yq eval '.spec.crVersion = "1.11.0"' - \
+		| yq eval '.spec.crVersion = "1.12.0"' - \
 		| kubectl_bin apply -f -
-
-	desc "test 1.11.0"
-	kubectl_bin patch pxc "$cluster" --type=merge --patch '{
-        "spec": {"crVersion":"1.11.0"}
-    }'
-	wait_cluster_consistency "$cluster" 3 2
-	wait_for_sts_generation "$cluster-pxc" "1" "1"
-	desc "compare k8s objects"
-	compare_kubectl service/$cluster-pxc "-1110"
-	compare_kubectl service/$cluster-proxysql "-1110"
-	compare_kubectl statefulset/$cluster-pxc "-1110"
-	compare_kubectl statefulset/$cluster-proxysql "-1110"
 
 	desc "test 1.12.0"
 	kubectl_bin patch pxc "$cluster" --type=merge --patch '{

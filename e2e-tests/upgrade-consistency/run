@@ -23,7 +23,7 @@ wait_for_sts_generation() {
 		let retry+=1
 		if [ $retry -ge 300 ]; then
 			kubectl_bin logs $(get_operator_pod) ${OPERATOR_NS:+-n $OPERATOR_NS}
-			echo max retry count $retry reached. Desired STS generation $desired_generation not found OR readyReplicas < $size
+			echo max retry count $retry reached. Desired STS generation $desired_generation not found OR readyReplicas is less than $size
 			exit 1
 		fi
 	done

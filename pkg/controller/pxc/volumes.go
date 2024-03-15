@@ -2,6 +2,7 @@ package pxc
 
 import (
 	"context"
+	"slices"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -49,7 +50,8 @@ func (r *ReconcilePerconaXtraDBCluster) reconcilePersistentVolumes(ctx context.C
 				switch condition.Type {
 				case corev1.PersistentVolumeClaimResizing, corev1.PersistentVolumeClaimFileSystemResizePending:
 					resizeInProgress = true
-					log.Info(condition.Message, "reason", condition.Reason, "pvc", pvc.Name, "lastProbeTime", condition.LastProbeTime, "lastTransitionTime", condition.LastTransitionTime)
+					log.V(1).Info(condition.Message, "pvc", pvc.Name, "type", condition.Type, "lastTransitionTime", condition.LastTransitionTime)
+					log.Info("PVC resize in progress", "pvc", pvc.Name, "lastTransitionTime", condition.LastTransitionTime)
 				}
 			}
 		}
@@ -60,6 +62,8 @@ func (r *ReconcilePerconaXtraDBCluster) reconcilePersistentVolumes(ctx context.C
 			}
 
 			log.Info("PVC resize completed")
+
+			return nil
 		}
 	}
 
@@ -98,12 +102,31 @@ func (r *ReconcilePerconaXtraDBCluster) reconcilePersistentVolumes(ctx context.C
 		return errors.Wrap(err, "annotate pxc")
 	}
 
-	pvcNames := make([]string, 0, len(pvcList.Items))
-	for _, pvc := range pvcList.Items {
-		pvcNames = append(pvcNames, pvc.Name)
+	podList := corev1.PodList{}
+	if err := r.client.List(ctx, &podList, client.InNamespace(cr.Namespace), client.MatchingLabels(labels)); err != nil {
+		return errors.Wrap(err, "list pods")
 	}
 
-	log.Info("Resizing PVCs", "requested", requested, "actual", actual, "pvcList", strings.Join(pvcNames, ","))
+	podNames := make([]string, 0, len(podList.Items))
+	for _, pod := range podList.Items {
+		podNames = append(podNames, pod.Name)
+	}
+
+	pvcsToUpdate := make([]string, 0, len(pvcList.Items))
+	for _, pvc := range pvcList.Items {
+		if !strings.HasPrefix(pvc.Name, "datadir-"+sts.Name) {
+			continue
+		}
+
+		podName := strings.SplitN(pvc.Name, "-", 2)[1]
+		if !slices.Contains(podNames, podName) {
+			continue
+		}
+
+		pvcsToUpdate = append(pvcsToUpdate, pvc.Name)
+	}
+
+	log.Info("Resizing PVCs", "requested", requested, "actual", actual, "pvcList", strings.Join(pvcsToUpdate, ","))
 
 	log.Info("Deleting statefulset", "name", sts.Name)
 
@@ -112,7 +135,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcilePersistentVolumes(ctx context.C
 	}
 
 	for _, pvc := range pvcList.Items {
-		if !strings.HasPrefix(pvc.Name, "datadir-"+sts.Name) {
+		if !slices.Contains(pvcsToUpdate, pvc.Name) {
 			continue
 		}
 

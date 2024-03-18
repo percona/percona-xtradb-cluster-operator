@@ -1,0 +1,17 @@
+#@data/values
+---
+csv_description: >-
+      Percona Distribution for MySQL Operator manages the lifecycle of Percona XtraDB
+      cluster instances.
+image:
+  operator: "ololoperator"
+  proxysql: "ololproxysql"
+  haproxy: "olohaproxy"
+  pmmclient: "ololpmm"
+  logcollector: "olollogcollector"
+  pxc80:
+    db: "ololpxc80"
+    backup: "ololpxc80backup"
+  pxc57:
+    db: "ololpxc57"
+    backup: "ololpxc80backup"

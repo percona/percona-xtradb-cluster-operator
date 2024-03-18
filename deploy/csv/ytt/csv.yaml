@@ -1,0 +1,70 @@
+#@ load("@ytt:data", "data")
+#@ load("@ytt:template", "template")
+#@ load("@ytt:json", "json")
+#@ load("@ytt:base64", "base64")
+#@ load("lib/operator.lib.yaml", "rendered_operator", "install_modes", "get_deployment_for_csv", "get_version_to_replace")
+#@ load("lib/cr.lib.yaml", "rendered_cr", "get_all_crs")
+#@ load("lib/crd.lib.yaml", "owned")
+#@ load("lib/base.lib.txt", "description")
+#@ load("lib/rbac.lib.yaml", "get_permissions")
+
+---
+apiVersion: operators.coreos.com/v1alpha1
+kind: ClusterServiceVersion
+metadata:
+  name: #@ "{}.v{}".format(rendered_operator()["metadata"]["name"], rendered_cr()["spec"]["crVersion"])
+  namespace: default
+  annotations:
+    alm-examples: #@ json.encode(get_all_crs())
+    categories: Database
+    certified: 'true'
+    createdAt:
+    description: #@ data.values.csv_description
+    containerImage: #@ data.values.image.operator
+    support: Percona
+    capabilities: Deep Insights
+    repository: 'https://github.com/percona/percona-xtradb-cluster-operator'
+spec:
+  displayName: Percona Distribution for MySQL Operator
+  description: #@ description()
+  icon:
+    - base64data: #@ base64.encode(data.read("icon.png"))
+      mediatype: image/png
+  maturity: stable
+  version: #@ rendered_cr()["spec"]["crVersion"]
+  minKubeVersion: ''
+  keywords:
+    - mysql
+    - percona
+    - database
+    - pxc
+    - galera
+  maintainers:
+    - name: Percona
+      email: info@percona.com
+  provider:
+    name: Percona
+  labels: {}
+  selector:
+    matchLabels: {}
+  links:
+    - name: Percona
+      url: 'https://www.percona.com/'
+    - name: Percona Kubernetes Operators Landing Page
+      url: 'https://www.percona.com/software/percona-kubernetes-operators'
+    - name: Documentation
+      url: 'https://percona.github.io/percona-xtradb-cluster-operator/'
+    - name: Github
+      url: 'https://github.com/percona/percona-xtradb-cluster-operator'
+  installModes: #@ install_modes()
+  apiservicedefinitions: {}
+  customresourcedefinitions:
+    owned: #@ owned()
+    required: []
+  install:
+    strategy: deployment
+    spec:
+      permissions: #@ get_permissions()
+      deployments: #@ get_deployment_for_csv()
+  skips: []
+  replaces: #@ get_version_to_replace()

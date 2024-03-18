@@ -347,6 +347,11 @@ spec:
             type: object
           status:
             properties:
+              allowUnsafeConfigurations:
+                type: boolean
+              clusterSize:
+                format: int32
+                type: integer
               comments:
                 type: string
               completed:

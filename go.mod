@@ -6,7 +6,7 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.3.0
 	github.com/Percona-Lab/percona-version-service/api v0.0.0-20201216104127-a39f2dded3cc
 	github.com/caarlos0/env v3.5.0+incompatible
-	github.com/cert-manager/cert-manager v1.14.2
+	github.com/cert-manager/cert-manager v1.14.4
 	github.com/flosch/pongo2/v6 v6.0.0
 	github.com/go-ini/ini v1.67.0
 	github.com/go-logr/logr v1.4.1
@@ -100,7 +100,7 @@ require (
 	golang.org/x/tools v0.16.1 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
 	google.golang.org/appengine v1.6.8 // indirect
-	google.golang.org/protobuf v1.32.0 // indirect
+	google.golang.org/protobuf v1.33.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect

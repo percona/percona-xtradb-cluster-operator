@@ -1,18 +1,21 @@
-FROM golang:1.21 AS go_builder
+FROM --platform=${BUILDPLATFORM} golang:1.21 AS go_builder
 WORKDIR /go/src/github.com/percona/percona-xtradb-cluster-operator
 
-COPY . .
+COPY go.mod go.sum ./
+RUN go mod download
 
 ARG GIT_COMMIT
 ARG GIT_BRANCH
 ARG BUILD_TIME
 ARG GO_LDFLAGS
 ARG GOOS=linux
+ARG TARGETARCH
 ARG CGO_ENABLED=0
 
-RUN go mod download \
-    && mkdir -p build/_output/bin \
-    && GOOS=$GOOS CGO_ENABLED=$CGO_ENABLED GO_LDFLAGS=$GO_LDFLAGS \
+COPY . .
+
+RUN mkdir -p build/_output/bin \
+    && GOOS=$GOOS GOARCH=${TARGETARCH} CGO_ENABLED=$CGO_ENABLED GO_LDFLAGS=$GO_LDFLAGS \
        go build -ldflags "-w -s -X main.GitCommit=$GIT_COMMIT -X main.GitBranch=$GIT_BRANCH -X main.BuildTime=$BUILD_TIME" \
            -o build/_output/bin/percona-xtradb-cluster-operator \
                cmd/manager/main.go \
@@ -20,6 +23,12 @@ RUN go mod download \
 
 RUN go build -o build/_output/bin/peer-list cmd/peer-list/main.go \
     && cp -r build/_output/bin/peer-list /usr/local/bin/
+
+# Looking for all possible License/Notice files and copying them to the image
+RUN find $GOPATH/pkg/mod -regextype posix-extended -iregex '.*(license|notice)(\.md|\.txt|$)' \
+         -exec \
+            sh -c 'mkdir -pv /licenses/$(echo "$0" | sed -E "s/\/(license|notice).*$//gi") \
+                   && cp -v "$0" /licenses/$(echo "$0" | sed -E "s/\/(license|notice).*$//gi")' {} \;
 
 FROM registry.access.redhat.com/ubi9/ubi-minimal AS ubi9
 RUN microdnf -y update && microdnf clean all

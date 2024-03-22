@@ -339,7 +339,6 @@ EOF
                                 docker login -u '${USER}' -p '${PASS}'
                                 export RELEASE=0
                                 export IMAGE=\$DOCKER_TAG
-                                docker buildx create --use
                                 ./e2e-tests/build
                                 docker logout
                             "

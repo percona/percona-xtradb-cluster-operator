@@ -1,16 +1,13 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  generation: 1
+  generation: 4
   name: some-name-proxysql
   ownerReferences:
     - controller: true
       kind: PerconaXtraDBCluster
       name: some-name
 spec:
-  persistentVolumeClaimRetentionPolicy:
-    whenDeleted: Retain
-    whenScaled: Retain
   podManagementPolicy: OrderedReady
   replicas: 2
   revisionHistoryLimit: 10
@@ -159,6 +156,20 @@ spec:
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
       dnsPolicy: ClusterFirst
+      initContainers:
+        - command:
+            - /pxc-init-entrypoint.sh
+          imagePullPolicy: Always
+          name: pxc-init
+          resources:
+            limits:
+              cpu: 50m
+              memory: 50M
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /var/lib/mysql
+              name: bin
       restartPolicy: Always
       schedulerName: default-scheduler
       securityContext:
@@ -178,6 +189,8 @@ spec:
             defaultMode: 420
             optional: false
             secretName: some-name-ssl
+        - emptyDir: {}
+          name: bin
   updateStrategy:
     rollingUpdate:
       partition: 0

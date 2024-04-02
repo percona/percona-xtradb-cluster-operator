@@ -1,12 +1,12 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  generation: 1
-  name: some-name-pxc
+  generation: 2
+  name: monitoring-pxc
   ownerReferences:
     - controller: true
       kind: PerconaXtraDBCluster
-      name: some-name
+      name: monitoring
 spec:
   persistentVolumeClaimRetentionPolicy:
     whenDeleted: Retain
@@ -17,70 +17,152 @@ spec:
   selector:
     matchLabels:
       app.kubernetes.io/component: pxc
-      app.kubernetes.io/instance: some-name
+      app.kubernetes.io/instance: monitoring
       app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
       app.kubernetes.io/name: percona-xtradb-cluster
       app.kubernetes.io/part-of: percona-xtradb-cluster
-  serviceName: some-name-pxc
+  serviceName: monitoring-pxc
   template:
     metadata:
       labels:
         app.kubernetes.io/component: pxc
-        app.kubernetes.io/instance: some-name
+        app.kubernetes.io/instance: monitoring
         app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
         app.kubernetes.io/name: percona-xtradb-cluster
         app.kubernetes.io/part-of: percona-xtradb-cluster
     spec:
-      affinity:
-        podAntiAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            - labelSelector:
-                matchLabels:
-                  app.kubernetes.io/component: pxc
-                  app.kubernetes.io/instance: some-name
-                  app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
-                  app.kubernetes.io/name: percona-xtradb-cluster
-                  app.kubernetes.io/part-of: percona-xtradb-cluster
-              topologyKey: kubernetes.io/hostname
       containers:
         - env:
-            - name: LOG_DATA_DIR
-              value: /var/lib/mysql
-            - name: POD_NAMESPASE
+            - name: PMM_SERVER
+              value: monitoring-service
+            - name: PMM_USER
+              value: api_key
+            - name: PMM_PASSWORD
               valueFrom:
-                fieldRef:
-                  apiVersion: v1
-                  fieldPath: metadata.namespace
+                secretKeyRef:
+                  key: pmmserverkey
+                  name: internal-monitoring
+            - name: CLIENT_PORT_LISTEN
+              value: "7777"
+            - name: CLIENT_PORT_MIN
+              value: "30100"
+            - name: CLIENT_PORT_MAX
+              value: "30105"
             - name: POD_NAME
               valueFrom:
                 fieldRef:
                   apiVersion: v1
                   fieldPath: metadata.name
-          envFrom:
-            - secretRef:
-                name: some-name-log-collector
-                optional: true
-          imagePullPolicy: Always
-          name: logs
-          resources: {}
-          terminationMessagePath: /dev/termination-log
-          terminationMessagePolicy: File
-          volumeMounts:
-            - mountPath: /var/lib/mysql
-              name: datadir
-        - args:
-            - logrotate
-          env:
-            - name: SERVICE_TYPE
+            - name: POD_NAMESPASE
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.namespace
+            - name: PMM_AGENT_SERVER_ADDRESS
+              value: monitoring-service
+            - name: PMM_AGENT_SERVER_USERNAME
+              value: api_key
+            - name: PMM_AGENT_SERVER_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: pmmserverkey
+                  name: internal-monitoring
+            - name: PMM_AGENT_LISTEN_PORT
+              value: "7777"
+            - name: PMM_AGENT_PORTS_MIN
+              value: "30100"
+            - name: PMM_AGENT_PORTS_MAX
+              value: "30105"
+            - name: PMM_AGENT_CONFIG_FILE
+              value: /usr/local/percona/pmm2/config/pmm-agent.yaml
+            - name: PMM_AGENT_SERVER_INSECURE_TLS
+              value: "1"
+            - name: PMM_AGENT_LISTEN_ADDRESS
+              value: 0.0.0.0
+            - name: PMM_AGENT_SETUP_METRICS_MODE
+              value: push
+            - name: PMM_AGENT_SETUP
+              value: "1"
+            - name: PMM_AGENT_SETUP_FORCE
+              value: "1"
+            - name: PMM_AGENT_SETUP_NODE_TYPE
+              value: container
+            - name: PMM_AGENT_SETUP_NODE_NAME
+              value: $(POD_NAMESPASE)-$(POD_NAME)
+            - name: DB_TYPE
               value: mysql
-            - name: MONITOR_PASSWORD
+            - name: DB_USER
+              value: monitor
+            - name: DB_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: monitor
-                  name: internal-some-name
+                  name: internal-monitoring
+            - name: DB_ARGS
+              value: --query-source=perfschema
+            - name: DB_CLUSTER
+              value: pxc
+            - name: DB_HOST
+              value: localhost
+            - name: DB_PORT
+              value: "33062"
+            - name: CLUSTER_NAME
+              value: monitoring
+            - name: PMM_ADMIN_CUSTOM_PARAMS
+              value: --disable-tablestats-limit=2000
+            - name: PMM_AGENT_PRERUN_SCRIPT
+              value: /var/lib/mysql/pmm-prerun.sh
+            - name: PMM_AGENT_SIDECAR
+              value: "true"
+            - name: PMM_AGENT_SIDECAR_SLEEP
+              value: "5"
+            - name: PMM_AGENT_PATHS_TEMPDIR
+              value: /tmp
+          envFrom:
+            - secretRef:
+                name: my-env-var-secrets
+                optional: true
           imagePullPolicy: Always
-          name: logrotate
-          resources: {}
+          lifecycle:
+            preStop:
+              exec:
+                command:
+                  - bash
+                  - -c
+                  - pmm-admin unregister --force
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /local/Status
+              port: 7777
+              scheme: HTTP
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 5
+          name: pmm-client
+          ports:
+            - containerPort: 7777
+              protocol: TCP
+            - containerPort: 30100
+              protocol: TCP
+            - containerPort: 30101
+              protocol: TCP
+            - containerPort: 30102
+              protocol: TCP
+            - containerPort: 30103
+              protocol: TCP
+            - containerPort: 30104
+              protocol: TCP
+            - containerPort: 30105
+              protocol: TCP
+          resources:
+            limits:
+              cpu: "1"
+              memory: 1G
+            requests:
+              cpu: 308m
+              memory: 508M
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:
@@ -92,40 +174,38 @@ spec:
             - /var/lib/mysql/pxc-entrypoint.sh
           env:
             - name: PXC_SERVICE
-              value: some-name-pxc-unready
+              value: monitoring-pxc-unready
             - name: MONITOR_HOST
               value: '%'
             - name: MYSQL_ROOT_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: root
-                  name: internal-some-name
+                  name: internal-monitoring
             - name: XTRABACKUP_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: xtrabackup
-                  name: internal-some-name
+                  name: internal-monitoring
             - name: MONITOR_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: monitor
-                  name: internal-some-name
-            - name: LOG_DATA_DIR
-              value: /var/lib/mysql
-            - name: IS_LOGCOLLECTOR
-              value: "yes"
+                  name: internal-monitoring
             - name: OPERATOR_ADMIN_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: operator
-                  name: internal-some-name
+                  name: internal-monitoring
             - name: LIVENESS_CHECK_TIMEOUT
               value: "5"
             - name: READINESS_CHECK_TIMEOUT
               value: "15"
+            - name: DEFAULT_AUTHENTICATION_PLUGIN
+              value: caching_sha2_password
           envFrom:
             - secretRef:
-                name: some-name-env-vars-pxc
+                name: my-env-var-secrets
                 optional: true
           imagePullPolicy: Always
           livenessProbe:
@@ -167,12 +247,9 @@ spec:
             successThreshold: 1
             timeoutSeconds: 15
           resources:
-            limits:
-              cpu: "1"
-              memory: 1G
             requests:
-              cpu: 100m
-              memory: 100M
+              cpu: 300m
+              memory: 500M
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:
@@ -192,6 +269,8 @@ spec:
               name: auto-config
             - mountPath: /etc/mysql/vault-keyring-secret
               name: vault-keyring-secret
+            - mountPath: /etc/mysql/init-file
+              name: mysql-init-file
       dnsPolicy: ClusterFirst
       initContainers:
         - command:
@@ -200,11 +279,8 @@ spec:
           name: pxc-init
           resources:
             limits:
-              cpu: "1"
-              memory: 1G
-            requests:
-              cpu: 100m
-              memory: 100M
+              cpu: 50m
+              memory: 50M
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:
@@ -223,14 +299,14 @@ spec:
           name: tmp
         - configMap:
             defaultMode: 420
-            name: some-name-pxc
+            name: monitoring-pxc
             optional: true
           name: config
         - name: ssl-internal
           secret:
             defaultMode: 420
             optional: true
-            secretName: some-name-ssl-internal
+            secretName: monitoring-ssl-internal
         - name: ssl
           secret:
             defaultMode: 420
@@ -238,19 +314,24 @@ spec:
             secretName: some-name-ssl
         - configMap:
             defaultMode: 420
-            name: auto-some-name-pxc
+            name: auto-monitoring-pxc
             optional: true
           name: auto-config
         - name: vault-keyring-secret
           secret:
             defaultMode: 420
             optional: true
-            secretName: some-name-vault
+            secretName: monitoring-vault
         - name: mysql-users-secret-file
           secret:
             defaultMode: 420
             optional: false
-            secretName: internal-some-name
+            secretName: internal-monitoring
+        - name: mysql-init-file
+          secret:
+            defaultMode: 420
+            optional: true
+            secretName: monitoring-mysql-init
   updateStrategy:
     rollingUpdate:
       partition: 0

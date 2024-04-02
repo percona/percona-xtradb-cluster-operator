@@ -16,7 +16,7 @@ SKIP_REMOTE_BACKUPS=${SKIP_REMOTE_BACKUPS:-1}
 PMM_SERVER_VER=${PMM_SERVER_VER:-"9.9.9"}
 IMAGE_PMM_CLIENT=${IMAGE_PMM_CLIENT:-"perconalab/pmm-client:dev-latest"}
 IMAGE_PMM_SERVER=${IMAGE_PMM_SERVER:-"perconalab/pmm-server:dev-latest"}
-CERT_MANAGER_VER="1.12.1"
+CERT_MANAGER_VER="1.14.2"
 tmp_dir=$(mktemp -d)
 sed=$(which gsed || which sed)
 date=$(which gdate || which date)
@@ -96,12 +96,19 @@ wait_cluster_consistency() {
 		proxy_size="$(get_proxy_size "$cluster_name")"
 	fi
 	desc "wait cluster consistency"
+	local i=0
+	local max=36
 	sleep 7 # wait for two reconcile loops ;)  3 sec x 2 times + 1 sec = 7 seconds
 	until [[ "$(kubectl_bin get pxc "${cluster_name}" -o jsonpath='{.status.state}')" == "ready" &&
 	"$(kubectl_bin get pxc "${cluster_name}" -o jsonpath='{.status.pxc.ready}')" == "${cluster_size}" &&
 	"$(kubectl_bin get pxc "${cluster_name}" -o jsonpath='{.status.'$(get_proxy_engine ${cluster_name})'.ready}')" == "${proxy_size}" ]]; do
 		echo 'waiting for cluster readyness'
 		sleep 20
+		if [[ $i -ge $max ]]; then
+			echo "Something went wrong waiting for cluster consistency!"
+			exit 1
+		fi
+		let i+=1
 	done
 }
 
@@ -999,7 +1006,7 @@ retry() {
 			echo "The command '$@' has failed after $n attempts."
 			exit 1
 		fi
-		((n++))
+		let n+=1
 		sleep $delay
 	done
 }

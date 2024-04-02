@@ -24,5 +24,7 @@ func VolumeSpec(vspec *api.VolumeSpec) corev1.PersistentVolumeClaimSpec {
 		StorageClassName: vspec.PersistentVolumeClaim.StorageClassName,
 		AccessModes:      vspec.PersistentVolumeClaim.AccessModes,
 		Resources:        vspec.PersistentVolumeClaim.Resources,
+		DataSource:       vspec.PersistentVolumeClaim.DataSource,
+                DataSourceRef:    vspec.PersistentVolumeClaim.DataSourceRef,
 	}
 }

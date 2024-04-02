@@ -48,7 +48,7 @@ spec:
     schedule: "0 4 * * *"
   pxc:
     size: 3
-    image: percona/percona-xtradb-cluster:8.0.35-27.1
+    image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0
     autoRecovery: true
 #    expose:
 #      enabled: true
@@ -146,7 +146,7 @@ spec:
 #    topologySpreadConstraints:
 #    - labelSelector:
 #        matchLabels:
-#          app.kubernetes.io/name: percona-xtradb-cluster-operator
+#          app.kubernetes.io/name: percona-xtradb-cluster
 #      maxSkew: 1
 #      topologyKey: kubernetes.io/hostname
 #      whenUnsatisfiable: DoNotSchedule
@@ -192,7 +192,7 @@ spec:
   haproxy:
     enabled: true
     size: 3
-    image: percona/percona-xtradb-cluster-operator:1.14.0-haproxy
+    image: perconalab/percona-xtradb-cluster-operator:main-haproxy
 #    imagePullPolicy: Always
 #    schedulerName: mycustom-scheduler
 #    readinessDelaySec: 15
@@ -332,7 +332,7 @@ spec:
 #    topologySpreadConstraints:
 #    - labelSelector:
 #        matchLabels:
-#          app.kubernetes.io/name: percona-xtradb-cluster-operator
+#          app.kubernetes.io/name: percona-xtradb-cluster
 #      maxSkew: 1
 #      topologyKey: kubernetes.io/hostname
 #      whenUnsatisfiable: DoNotSchedule
@@ -367,7 +367,7 @@ spec:
   proxysql:
     enabled: false
     size: 3
-    image: percona/percona-xtradb-cluster-operator:1.14.0-proxysql
+    image: perconalab/percona-xtradb-cluster-operator:main-proxysql
 #    imagePullPolicy: Always
 #    configuration: |
 #      datadir="/var/lib/proxysql"
@@ -529,7 +529,7 @@ spec:
 #     - 10.0.0.0/8
   logcollector:
     enabled: true
-    image: percona/percona-xtradb-cluster-operator:1.14.0-logcollector
+    image: perconalab/percona-xtradb-cluster-operator:main-logcollector
 #    configuration: |
 #      [OUTPUT]
 #           Name  es
@@ -557,7 +557,7 @@ spec:
         cpu: 300m
   backup:
 #    allowParallel: true
-    image: percona/percona-xtradb-cluster-operator:1.14.0-pxc8.0-backup-pxb8.0.35
+    image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0-backup
 #    backoffLimit: 6
 #    serviceAccountName: percona-xtradb-cluster-operator
 #    imagePullSecrets:
@@ -588,7 +588,7 @@ spec:
 #        topologySpreadConstraints:
 #        - labelSelector:
 #            matchLabels:
-#              app.kubernetes.io/name: percona-xtradb-cluster-operator
+#              app.kubernetes.io/name: percona-xtradb-cluster
 #          maxSkew: 1
 #          topologyKey: kubernetes.io/hostname
 #          whenUnsatisfiable: DoNotSchedule
@@ -651,7 +651,7 @@ spec:
 #        topologySpreadConstraints:
 #        - labelSelector:
 #            matchLabels:
-#              app.kubernetes.io/name: percona-xtradb-cluster-operator
+#              app.kubernetes.io/name: percona-xtradb-cluster
 #          maxSkew: 1
 #          topologyKey: kubernetes.io/hostname
 #          whenUnsatisfiable: DoNotSchedule

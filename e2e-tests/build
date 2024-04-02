@@ -29,8 +29,16 @@ build_operator() {
 	fi
 
 	export IMAGE
-	export DOCKER_DEFAULT_PLATFORM=${DOCKER_DEFAULT_PLATFORM:-"linux/amd64,linux/arm64"}
+	export DOCKER_DEFAULT_PLATFORM=${DOCKER_DEFAULT_PLATFORM:-"linux/amd64"}
 	export GO_LDFLAGS="-w -s -trimpath $GO_LDFLAGS"
+
+	if echo "$DOCKER_DEFAULT_PLATFORM" | grep -q ','; then
+		if [ "${DOCKER_PUSH:-1}" = 0 ]; then
+			echo "'docker $build_command' doesn't support DOCKER_PUSH=0 option in case of multi-arch builds, please use DOCKER_PUSH=1"
+			exit 1
+		fi
+	fi
+
 	pushd ${src_dir}
 	docker buildx build \
 		--platform $DOCKER_DEFAULT_PLATFORM \
@@ -38,17 +46,13 @@ build_operator() {
 		--build-arg GIT_BRANCH=$GIT_BRANCH \
 		--build-arg BUILD_TIME=$BUILD_TIME \
 		--build-arg GO_LDFLAGS="$GO_LDFLAGS" \
-		$imgresult \
+		--progress plain \
 		$squash \
+		$imgresult \
 		$no_cache \
 		-t "${IMAGE}" -f build/Dockerfile .
 	popd
-
 }
-
-if [[ $BUILD == "0" ]]; then
-	exit 0
-fi
 
 until docker ps; do sleep 1; done
 build_operator

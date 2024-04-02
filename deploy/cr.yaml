@@ -57,7 +57,7 @@ spec:
 #      internalTrafficPolicy: Local
 #      loadBalancerSourceRanges:
 #        - 10.0.0.0/8
-#      loadBalancerIP: 127.0.01
+#      loadBalancerIP: 127.0.0.1
 #      annotations:
 #        networking.gke.io/load-balancer-type: "Internal"
 #      labels:
@@ -98,10 +98,6 @@ spec:
 #      iam.amazonaws.com/role: role-arn
 #    labels:
 #      rack: rack-22
-#    serviceAnnotations:
-#      service.beta.kubernetes.io/aws-load-balancer-backend-protocol: http
-#    serviceLabels:
-#      rack: rack-23
 #    readinessProbes:
 #      initialDelaySeconds: 15
 #      timeoutSeconds: 15
@@ -150,7 +146,7 @@ spec:
 #    topologySpreadConstraints:
 #    - labelSelector:
 #        matchLabels:
-#          app.kubernetes.io/name: percona-xtradb-cluster-operator
+#          app.kubernetes.io/name: percona-xtradb-cluster
 #      maxSkew: 1
 #      topologyKey: kubernetes.io/hostname
 #      whenUnsatisfiable: DoNotSchedule
@@ -336,7 +332,7 @@ spec:
 #    topologySpreadConstraints:
 #    - labelSelector:
 #        matchLabels:
-#          app.kubernetes.io/name: percona-xtradb-cluster-operator
+#          app.kubernetes.io/name: percona-xtradb-cluster
 #      maxSkew: 1
 #      topologyKey: kubernetes.io/hostname
 #      whenUnsatisfiable: DoNotSchedule
@@ -548,7 +544,7 @@ spec:
         cpu: 200m
   pmm:
     enabled: false
-    image: percona/pmm-client:2.38.0
+    image: percona/pmm-client:2.41.1
     serverHost: monitoring-service
 #    serverUser: admin
 #    pxcParams: "--disable-tablestats-limit=2000"
@@ -592,7 +588,7 @@ spec:
 #        topologySpreadConstraints:
 #        - labelSelector:
 #            matchLabels:
-#              app.kubernetes.io/name: percona-xtradb-cluster-operator
+#              app.kubernetes.io/name: percona-xtradb-cluster
 #          maxSkew: 1
 #          topologyKey: kubernetes.io/hostname
 #          whenUnsatisfiable: DoNotSchedule
@@ -655,7 +651,7 @@ spec:
 #        topologySpreadConstraints:
 #        - labelSelector:
 #            matchLabels:
-#              app.kubernetes.io/name: percona-xtradb-cluster-operator
+#              app.kubernetes.io/name: percona-xtradb-cluster
 #          maxSkew: 1
 #          topologyKey: kubernetes.io/hostname
 #          whenUnsatisfiable: DoNotSchedule

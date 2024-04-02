@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  generation: 3
+  generation: 4
   name: some-name-pxc
   ownerReferences:
     - controller: true
@@ -211,6 +211,7 @@ spec:
       restartPolicy: Always
       schedulerName: default-scheduler
       securityContext:
+        fsGroup: 1001
         supplementalGroups:
           - 1001
       serviceAccount: default

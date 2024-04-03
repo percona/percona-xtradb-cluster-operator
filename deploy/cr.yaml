@@ -10,7 +10,7 @@ metadata:
 #  annotations:
 #    percona.com/issue-vault-token: "true"
 spec:
-  crVersion: 1.14.0
+  crVersion: 1.15.0
 #  ignoreAnnotations:
 #    - iam.amazonaws.com/role
 #  ignoreLabels:
@@ -178,6 +178,10 @@ spec:
       persistentVolumeClaim:
 #        storageClassName: standard
 #        accessModes: [ "ReadWriteOnce" ]
+#        dataSource:
+#          name: new-snapshot-test
+#          kind: VolumeSnapshot
+#          apiGroup: snapshot.storage.k8s.io
         resources:
           requests:
             storage: 6G

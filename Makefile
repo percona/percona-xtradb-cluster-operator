@@ -20,6 +20,14 @@ generate: controller-gen  ## Generate CRDs and RBAC files
 $(DEPLOYDIR)/crd.yaml: kustomize generate
 	$(KUSTOMIZE) build config/crd/ > $(DEPLOYDIR)/crd.yaml
 
+.PHONY: $(DEPLOYDIR)/operator.yaml
+$(DEPLOYDIR)/operator.yaml:
+	sed -i "/^      containers:/,/^        image:/{s#image: .*#image: $(IMAGE_TAG_BASE):$(VERSION)#}" deploy/operator.yaml
+
+.PHONY: $(DEPLOYDIR)/cw-operator.yaml
+$(DEPLOYDIR)/cw-operator.yaml:
+	sed -i "/^      containers:/,/^        image:/{s#image: .*#image: $(IMAGE_TAG_BASE):$(VERSION)#}" deploy/cw-operator.yaml
+
 $(DEPLOYDIR)/bundle.yaml: $(DEPLOYDIR)/crd.yaml $(DEPLOYDIR)/rbac.yaml $(DEPLOYDIR)/operator.yaml  ## Generate deploy/bundle.yaml
 	cat $(DEPLOYDIR)/crd.yaml > $(DEPLOYDIR)/bundle.yaml; echo "---" >> $(DEPLOYDIR)/bundle.yaml; cat $(DEPLOYDIR)/rbac.yaml >> $(DEPLOYDIR)/bundle.yaml; echo "---" >> $(DEPLOYDIR)/bundle.yaml; cat $(DEPLOYDIR)/operator.yaml >> $(DEPLOYDIR)/bundle.yaml
 
@@ -89,3 +97,40 @@ ENVTEST = $(shell pwd)/bin/setup-envtest
 envtest: ## Download envtest-setup locally if necessary.
 	$(call go-get-tool,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest@latest)
 
+# Prepare release
+CERT_MANAGER_VER := $(shell grep -Eo "cert-manager v.*" go.mod|grep -Eo "[0-9]+\.[0-9]+\.[0-9]+")
+release: manifests
+	sed -i "/CERT_MANAGER_VER/s/CERT_MANAGER_VER=\".*/CERT_MANAGER_VER=\"$(CERT_MANAGER_VER)\"/" e2e-tests/functions
+	sed -i \
+		-e "s/crVersion: .*/crVersion: $(VERSION)/" \
+		-e "/^  pxc:/,/^    image:/{s#image: .*#image: percona/percona-xtradb-cluster:@@SET_TAG@@#}" \
+		-e "/^  haproxy:/,/^    image:/{s#image: .*#image: percona/percona-xtradb-cluster-operator:$(VERSION)-haproxy#}" \
+		-e "/^  logcollector:/,/^    image:/{s#image: .*#image: percona/percona-xtradb-cluster-operator:$(VERSION)-logcollector#}" deploy/cr-minimal.yaml
+	sed -i \
+		-e "s/crVersion: .*/crVersion: $(VERSION)/" \
+		-e "/^  pxc:/,/^    image:/{s#image: .*#image: percona/percona-xtradb-cluster:@@SET_TAG@@#}" \
+		-e "/^  haproxy:/,/^    image:/{s#image: .*#image: percona/percona-xtradb-cluster-operator:$(VERSION)-haproxy#}" \
+		-e "/^  proxysql:/,/^    image:/{s#image: .*#image: percona/percona-xtradb-cluster-operator:$(VERSION)-proxysql#}" \
+		-e "/^  logcollector:/,/^    image:/{s#image: .*#image: percona/percona-xtradb-cluster-operator:$(VERSION)-logcollector#}" \
+		-e "/^  backup:/,/^    image:/{s#image: .*#image: percona/percona-xtradb-cluster-operator:$(VERSION)-pxc8.0-backup-pxb@@SET_TAG@@#}" \
+		-e "/^  pmm:/,/^    image:/{s#image: .*#image: percona/pmm-client:@@SET_TAG@@#}" deploy/cr.yaml
+
+# Prepare main branch after release
+MAJOR_VER := $(shell grep -oE "crVersion: .*" deploy/cr.yaml|grep -oE "[0-9]+\.[0-9]+\.[0-9]+"|cut -d'.' -f1)
+MINOR_VER := $(shell grep -oE "crVersion: .*" deploy/cr.yaml|grep -oE "[0-9]+\.[0-9]+\.[0-9]+"|cut -d'.' -f2)
+NEXT_VER ?= $(MAJOR_VER).$$(($(MINOR_VER) + 1)).0
+after-release: manifests
+	sed -i "/Version = \"/s/Version = \".*/Version = \"$(NEXT_VER)\"/" version/version.go
+	sed -i \
+		-e "s/crVersion: .*/crVersion: $(NEXT_VER)/" \
+		-e "/^  pxc:/,/^    image:/{s#image: .*#image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0#}" \
+		-e "/^  haproxy:/,/^    image:/{s#image: .*#image: perconalab/percona-xtradb-cluster-operator:main-haproxy#}" \
+		-e "/^  logcollector:/,/^    image:/{s#image: .*#image: perconalab/percona-xtradb-cluster-operator:main-logcollector#}" deploy/cr-minimal.yaml
+	sed -i \
+		-e "s/crVersion: .*/crVersion: $(NEXT_VER)/" \
+		-e "/^  pxc:/,/^    image:/{s#image: .*#image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0#}" \
+		-e "/^  haproxy:/,/^    image:/{s#image: .*#image: perconalab/percona-xtradb-cluster-operator:main-haproxy#}" \
+		-e "/^  proxysql:/,/^    image:/{s#image: .*#image: perconalab/percona-xtradb-cluster-operator:main-proxysql#}" \
+		-e "/^  logcollector:/,/^    image:/{s#image: .*#image: perconalab/percona-xtradb-cluster-operator:main-logcollector#}" \
+		-e "/^  backup:/,/^    image:/{s#image: .*#image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0-backup#}" \
+		-e "/^  pmm:/,/^    image:/{s#image: .*#image: perconalab/pmm-client:dev-latest#}" deploy/cr.yaml

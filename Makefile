@@ -101,6 +101,7 @@ envtest: ## Download envtest-setup locally if necessary.
 CERT_MANAGER_VER := $(shell grep -Eo "cert-manager v.*" go.mod|grep -Eo "[0-9]+\.[0-9]+\.[0-9]+")
 release: manifests
 	sed -i "/CERT_MANAGER_VER/s/CERT_MANAGER_VER=\".*/CERT_MANAGER_VER=\"$(CERT_MANAGER_VER)\"/" e2e-tests/functions
+	sed -i "/Version = \"/s/Version = \".*/Version = \"$(VERSION)\"/" version/version.go
 	sed -i \
 		-e "s/crVersion: .*/crVersion: $(VERSION)/" \
 		-e "/^  pxc:/,/^    image:/{s#image: .*#image: percona/percona-xtradb-cluster:@@SET_TAG@@#}" \
@@ -113,6 +114,7 @@ release: manifests
 		-e "/^  proxysql:/,/^    image:/{s#image: .*#image: percona/percona-xtradb-cluster-operator:$(VERSION)-proxysql#}" \
 		-e "/^  logcollector:/,/^    image:/{s#image: .*#image: percona/percona-xtradb-cluster-operator:$(VERSION)-logcollector#}" \
 		-e "/^  backup:/,/^    image:/{s#image: .*#image: percona/percona-xtradb-cluster-operator:$(VERSION)-pxc8.0-backup-pxb@@SET_TAG@@#}" \
+		-e "/initContainer:/,/image:/{s#image: .*#image: percona/percona-xtradb-cluster-operator:$(VERSION)#}" \
 		-e "/^  pmm:/,/^    image:/{s#image: .*#image: percona/pmm-client:@@SET_TAG@@#}" deploy/cr.yaml
 
 # Prepare main branch after release
@@ -133,4 +135,5 @@ after-release: manifests
 		-e "/^  proxysql:/,/^    image:/{s#image: .*#image: perconalab/percona-xtradb-cluster-operator:main-proxysql#}" \
 		-e "/^  logcollector:/,/^    image:/{s#image: .*#image: perconalab/percona-xtradb-cluster-operator:main-logcollector#}" \
 		-e "/^  backup:/,/^    image:/{s#image: .*#image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0-backup#}" \
+		-e "/initContainer:/,/image:/{s#image: .*#image: perconalab/percona-xtradb-cluster-operator:main#}" \
 		-e "/^  pmm:/,/^    image:/{s#image: .*#image: perconalab/pmm-client:dev-latest#}" deploy/cr.yaml

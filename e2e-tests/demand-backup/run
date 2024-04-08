@@ -49,7 +49,7 @@ main() {
 	backup_exists=$(
 		kubectl_bin run -n "${NAMESPACE}" -i --rm aws-cli --image=perconalab/awscli --restart=Never -- \
 			/usr/bin/env AWS_ACCESS_KEY_ID=some-access-key AWS_SECRET_ACCESS_KEY=some-secret-key AWS_DEFAULT_REGION=us-east-1 \
-			/usr/bin/aws --endpoint-url https://minio-service:9000 --no-verify-ssl s3 ls operator-testing/ | grep -c "demand-backup" | cat
+			/usr/bin/aws --endpoint-url https://minio-service:9000 --no-verify-ssl s3 ls operator-testing/ | grep -c "prefix" | cat
 		exit "${PIPESTATUS[0]}"
 	)
 	if [[ $backup_exists -ne 0 ]]; then
@@ -59,7 +59,6 @@ main() {
 
 	destroy $namespace
 	desc "test passed"
-
 }
 
 main

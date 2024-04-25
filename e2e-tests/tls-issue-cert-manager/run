@@ -21,7 +21,6 @@ main() {
 	create_infra $namespace
 	cluster="some-name-tls-issue"
 
-	desc 'deploy cert manager'
 	deploy_cert_manager
 
 	desc 'create pxc cluster'

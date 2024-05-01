@@ -53,7 +53,7 @@ build {
       "sudo apt install docker-buildx",
       "sudo apt-get update",
       "git clone https://avnshrai:${var.git_token}@github.com/coredgeio/percona-xtradb-cluster-operator.git /tmp/percona-xtradb-cluster-operator",
-      "cd /tmp/percona-xtradb-cluster-operator,
+      "cd /tmp/percona-xtradb-cluster-operator",
       "export DOCKER_DEFAULT_PLATFORM=linux/amd64",
       "export IMAGE=coredgeio/mysql-xtradb-operator:${var.tag}",
       "docker login -u ${var.docker_username} -p ${var.docker_password}",

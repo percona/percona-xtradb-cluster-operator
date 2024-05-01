@@ -19,8 +19,8 @@ on:
 env:
   PACKER_VERSION: "latest"
   APP_NAME: "mysql-xtradb-operator"
-  APP_VERSION: "v1.14.0"
-  DST_DIR: "mysql-xtradb-operator/v1.14.0"
+  APP_VERSION: "1.13.0"
+  DST_DIR: "mysql-xtradb-operator/1.13.0"
 
 jobs:
   packer:
@@ -46,7 +46,7 @@ jobs:
       - name: Set TAG variable
         run: |
           if [ -z "${{ github.event.inputs.TAG }}" ]; then
-            TAG=v1.14.0-$(TZ=Asia/Kolkata date +"%H-%M-%d-%m-%y")
+            TAG=1.13.0-$(TZ=Asia/Kolkata date +"%H-%M-%d-%m-%y")
             echo "TAG set to default value: $TAG"
           else
             TAG="-${{ github.event.inputs.TAG }}-$(TZ=Asia/Kolkata date +"%H-%M-%d-%m-%y")"
@@ -55,7 +55,7 @@ jobs:
           echo "TAG=$TAG" >> $GITHUB_ENV
           if [ "${{ github.event.inputs.TAG }}" = "prod" ]; then
             echo "TAG cleared as tag is 'prod'"
-            echo "TAG=v1.14.0" >> $GITHUB_ENV
+            echo "TAG=1.13.0" >> $GITHUB_ENV
           fi
 
       - name: Print TAG

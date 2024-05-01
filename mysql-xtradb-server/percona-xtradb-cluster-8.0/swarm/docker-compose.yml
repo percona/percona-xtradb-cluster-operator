@@ -1,0 +1,30 @@
+version: '2'
+
+services:
+    proxy:
+      image: perconalab/proxysql
+      networks:
+        - front
+        - Theistareykjarbunga
+      ports:
+        - "3306:3306"
+        - "6032:6032"
+      env_file: .env
+    percona-xtradb-cluster:
+      image: percona/percona-xtradb-cluster:8.0
+      networks:
+        - Theistareykjarbunga
+      ports:
+        - "3306"
+      env_file: .env
+      #volumes:
+        # create volumes for use
+        # - /var/lib/mysql
+        # bind mount my local my.cnf
+        # - $PWD/my.cnf:/etc/my.cnf
+
+networks:
+  Theistareykjarbunga:
+    driver: overlay
+  front:
+    driver: overlay

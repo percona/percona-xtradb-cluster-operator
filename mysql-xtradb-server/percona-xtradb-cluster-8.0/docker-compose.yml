@@ -1,0 +1,24 @@
+version: '2'
+
+services:
+        percona-xtradb-cluster:
+          image: perconalab/percona-xtradb-cluster:latest
+          environment:
+            MYSQL_ROOT_PASSWORD: secret
+            DISCOVERY_SERVICE: 10.20.2.4:2379
+            CLUSTER_NAME: Theistareykjarbunga 
+          networks:
+            - Theistareykjarbunga_net 
+          ports:
+            - "3306"
+          volumes:
+            # create volumes for use
+            - /var/lib/mysql
+            # bind mount my local my.cnf
+            # - $PWD/my.cnf:/etc/my.cnf
+          #command:
+
+
+networks:
+  Theistareykjarbunga_net:
+    driver: overlay

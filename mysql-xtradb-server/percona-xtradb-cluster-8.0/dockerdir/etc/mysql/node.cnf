@@ -1,0 +1,34 @@
+[mysqld]
+
+default_authentication_plugin=mysql_native_password
+datadir=/var/lib/mysql
+socket=/tmp/mysql.sock
+skip-host-cache
+
+#coredumper
+#server_id=0
+binlog_format=ROW
+default_storage_engine=InnoDB
+
+innodb_flush_log_at_trx_commit  = 2
+innodb_flush_method             = O_DIRECT
+innodb_file_per_table           = 1
+innodb_autoinc_lock_mode=2
+
+bind_address = 0.0.0.0
+
+wsrep_slave_threads=2
+wsrep_cluster_address=gcomm://
+wsrep_provider=/usr/lib64/galera4/libgalera_smm.so
+
+wsrep_cluster_name=noname
+#wsrep_node_address=noname
+#wsrep_node_incoming_address=nodeip
+
+wsrep_sst_method=xtrabackup-v2
+
+[client]
+socket=/tmp/mysql.sock
+
+[sst]
+progress=/var/lib/mysql/sst_in_progress

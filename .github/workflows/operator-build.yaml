@@ -1,0 +1,108 @@
+name: mysql xtradb operator Packer Image CI Build
+
+on: 
+ workflow_dispatch: 
+   inputs:
+      docker_username:
+        description: 'dockerhub username'
+        required: true
+        default: 'kubedrona'
+      image_repo:
+        description: 'dockerhub repo ex:- coredgeio/mysql-xtradb-operator:latest'
+        required: true
+        default: 'coredgeio/mysql-xtradb-operator:latest'
+      TAG:
+        description: 'Release tag for mysql-xtradb, If no tag is passed the timestamp will be the tag'
+        default: ''
+          
+
+env:
+  PACKER_VERSION: "latest"
+  APP_NAME: "mysql-xtradb-operator"
+  APP_VERSION: "v1.14.0"
+  DST_DIR: "mysql-xtradb-operator/v1.14.0"
+
+jobs:
+  packer:
+    runs-on: 
+      - devops-runner
+    name: Run Packer
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Install docker buildx
+        uses: docker/setup-buildx-action@v1
+        
+      - name: Setup `packer`
+        uses: hashicorp/setup-packer@main
+        id: setup
+        with:
+          version: ${{ env.PACKER_VERSION }}
+
+      - name: Set TAG variable
+        run: |
+          if [ -z "${{ github.event.inputs.TAG }}" ]; then
+            TAG=v1.14.0-$(TZ=Asia/Kolkata date +"%H-%M-%d-%m-%y")
+            echo "TAG set to default value: $TAG"
+          else
+            TAG="-${{ github.event.inputs.TAG }}-$(TZ=Asia/Kolkata date +"%H-%M-%d-%m-%y")"
+            echo "TAG set to provided value: $TAG"
+          fi
+          echo "TAG=$TAG" >> $GITHUB_ENV
+          if [ "${{ github.event.inputs.TAG }}" = "prod" ]; then
+            echo "TAG cleared as tag is 'prod'"
+            echo "TAG=v1.14.0" >> $GITHUB_ENV
+          fi
+
+      - name: Print TAG
+        run: |
+          echo "Final value of TAG is $TAG"
+          
+      - name: Run `packer init`
+        id: init
+        run: |
+           cd $DST_DIR
+           packer init main.pkr.hcl
+      
+      - name: Run `packer validate`
+        id: validate
+        run: |
+           cd $DST_DIR
+           packer validate main.pkr.hcl
+      - name: Docker login
+        env:
+          DOCKER_USER: ${{ github.event.inputs.docker_username }}
+          DOCKER_PWD: ${{secrets.DOCKERHUB_PUSH_TOKEN}}
+        run: |
+          docker login -u $DOCKER_USER -p $DOCKER_PWD
+      
+      - name: Run `packer build`
+        id: build
+        env:
+         docker_username: ${{ github.event.inputs.docker_username }}
+         docker_password: ${{ secrets.DOCKERHUB_PUSH_TOKEN }}
+         GIT_TOKEN: ${{ secrets.GIT_TOKEN }}
+        run: |
+           cd $DST_DIR
+           export IMAGE=${{ github.event.inputs.docker_username }}/${{ env.APP_NAME }}:${{ env.TAG }}
+           packer build -var 'git_token=${{ secrets.GIT_TOKEN }}' -var 'docker_username=${{ github.event.inputs.docker_username }}' -var 'docker_password=${{ secrets.DOCKERHUB_PUSH_TOKEN }}' -var 'tag=${{ env.TAG }}' -var 'branch=${{ env.APP_VERSION }}' main.pkr.hcl
+      
+      - name: ☢ Image Scan
+        uses: aquasecurity/trivy-action@master
+        id: scan
+        with:
+          image-ref: 'coredgeio/${{ env.APP_NAME }}:latest'
+          format: 'template'
+          template: "@/contrib/html.tpl"
+          output: 'trivy-image-results.html'
+          exit-code: '0'
+          ignore-unfixed: false
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH,MEDIUM,LOW'
+      
+      - name: ⬆ Upload Trivy Image scan results
+        uses: actions/upload-artifact@v3.1.2
+        with:
+          name: Trivy Scan HTML Report
+          path: trivy-image-results.html

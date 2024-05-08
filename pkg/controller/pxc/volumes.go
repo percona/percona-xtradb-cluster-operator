@@ -4,25 +4,34 @@ import (
 	"context"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	eventsv1 "k8s.io/api/events/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
-	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 )
 
-func (r *ReconcilePerconaXtraDBCluster) reconcilePersistentVolumes(ctx context.Context, cr *api.PerconaXtraDBCluster) error {
-	log := logf.FromContext(ctx)
+func validatePVCName(pvc corev1.PersistentVolumeClaim, sts *appsv1.StatefulSet) bool {
+	return strings.HasPrefix(pvc.Name, "datadir-"+sts.Name)
+}
 
+func (r *ReconcilePerconaXtraDBCluster) reconcilePersistentVolumes(ctx context.Context, cr *pxcv1.PerconaXtraDBCluster) error {
 	pxcSet := statefulset.NewNode(cr)
 	sts := pxcSet.StatefulSet()
 
-	labels := map[string]string{
+	ls := map[string]string{
 		"app.kubernetes.io/component":  "pxc",
 		"app.kubernetes.io/instance":   cr.Name,
 		"app.kubernetes.io/managed-by": "percona-xtradb-cluster-operator",
@@ -30,15 +39,47 @@ func (r *ReconcilePerconaXtraDBCluster) reconcilePersistentVolumes(ctx context.C
 		"app.kubernetes.io/part-of":    "percona-xtradb-cluster",
 	}
 
-	pvcList := corev1.PersistentVolumeClaimList{}
-	if err := r.client.List(ctx, &pvcList, client.InNamespace(cr.Namespace), client.MatchingLabels(labels)); err != nil {
-		return errors.Wrap(err, "list persistentvolumeclaims")
+	log := logf.FromContext(ctx).WithName("PVCResize").WithValues("sts", sts.Name)
+
+	pvcList := &corev1.PersistentVolumeClaimList{}
+	err := r.client.List(ctx, pvcList, &client.ListOptions{
+		Namespace:     sts.Namespace,
+		LabelSelector: labels.SelectorFromSet(ls),
+	})
+	if err != nil {
+		return errors.Wrap(err, "list PVCs")
+	}
+
+	if len(pvcList.Items) == 0 {
+		return nil
+	}
+
+	var actual resource.Quantity
+	for _, pvc := range pvcList.Items {
+		if !validatePVCName(pvc, sts) {
+			continue
+		}
+
+		if pvc.Status.Capacity == nil || pvc.Status.Capacity.Storage() == nil {
+			continue
+		}
+
+		// we need to find the smallest size among all PVCs
+		// since it indicates a resize operation is failed
+		if actual.IsZero() || pvc.Status.Capacity.Storage().Cmp(actual) < 0 {
+			actual = *pvc.Status.Capacity.Storage()
+		}
 	}
 
 	if cr.PVCResizeInProgress() {
+		resizeStartedAt, err := time.Parse(time.RFC3339, cr.GetAnnotations()[pxcv1.AnnotationPVCResizeInProgress])
+		if err != nil {
+			return errors.Wrap(err, "parse annotation")
+		}
+
 		resizeInProgress := false
 		for _, pvc := range pvcList.Items {
-			if !strings.HasPrefix(pvc.Name, "datadir-"+sts.Name) {
+			if !validatePVCName(pvc, sts) {
 				continue
 			}
 
@@ -54,10 +95,39 @@ func (r *ReconcilePerconaXtraDBCluster) reconcilePersistentVolumes(ctx context.C
 					log.Info("PVC resize in progress", "pvc", pvc.Name, "lastTransitionTime", condition.LastTransitionTime)
 				}
 			}
+
+			events := &eventsv1.EventList{}
+			if err := r.client.List(ctx, events, &client.ListOptions{
+				Namespace:     sts.Namespace,
+				FieldSelector: fields.SelectorFromSet(map[string]string{"regarding.name": pvc.Name}),
+			}); err != nil {
+				return errors.Wrapf(err, "list events for pvc/%s", pvc.Name)
+			}
+
+			for _, event := range events.Items {
+				eventTime := event.EventTime.Time
+				if event.EventTime.IsZero() {
+					eventTime = event.DeprecatedFirstTimestamp.Time
+				}
+
+				if eventTime.Before(resizeStartedAt) {
+					continue
+				}
+
+				if event.Reason == "VolumeResizeFailed" {
+					log.Error(nil, "PVC resize failed", "reason", event.Reason, "message", event.Note)
+
+					if err := r.handlePVCResizeFailure(ctx, cr, sts, actual); err != nil {
+						return err
+					}
+
+					return errors.Errorf("volume resize failed: %s", event.Note)
+				}
+			}
 		}
 
 		if !resizeInProgress {
-			if err := k8s.DeannotateObject(ctx, r.client, cr, api.AnnotationPVCResizeInProgress); err != nil {
+			if err := k8s.DeannotateObject(ctx, r.client, cr, pxcv1.AnnotationPVCResizeInProgress); err != nil {
 				return errors.Wrap(err, "deannotate pxc")
 			}
 
@@ -67,16 +137,12 @@ func (r *ReconcilePerconaXtraDBCluster) reconcilePersistentVolumes(ctx context.C
 		}
 	}
 
-	err := r.client.Get(ctx, client.ObjectKeyFromObject(sts), sts)
-	if err != nil {
+	sts = sts.DeepCopy()
+	if err := r.client.Get(ctx, client.ObjectKeyFromObject(sts), sts); err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil
 		}
-		return errors.Wrapf(err, "get statefulset/%s", sts.Name)
-	}
-
-	if cr.Spec.PXC.VolumeSpec.PersistentVolumeClaim == nil {
-		return nil
+		return errors.Wrapf(err, "get statefulset %s", client.ObjectKeyFromObject(sts))
 	}
 
 	var volumeTemplate corev1.PersistentVolumeClaim
@@ -87,23 +153,25 @@ func (r *ReconcilePerconaXtraDBCluster) reconcilePersistentVolumes(ctx context.C
 	}
 
 	requested := cr.Spec.PXC.VolumeSpec.PersistentVolumeClaim.Resources.Requests[corev1.ResourceStorage]
-	actual := volumeTemplate.Spec.Resources.Requests[corev1.ResourceStorage]
+	configured := volumeTemplate.Spec.Resources.Requests[corev1.ResourceStorage]
 
 	if requested.Cmp(actual) < 0 {
-		return errors.Wrap(err, "requested storage is less than actual")
+		return errors.Errorf("requested storage (%s) is less than actual storage (%s)", requested.String(), actual.String())
 	}
 
-	if requested.Cmp(actual) == 0 {
+	log.Info("Storage size", "requested", requested, "actual", actual, "configured", configured)
+
+	if requested.Cmp(configured) == 0 || requested.Cmp(actual) == 0 {
 		return nil
 	}
 
-	err = k8s.AnnotateObject(ctx, r.client, cr, map[string]string{api.AnnotationPVCResizeInProgress: "true"})
+	err = k8s.AnnotateObject(ctx, r.client, cr, map[string]string{pxcv1.AnnotationPVCResizeInProgress: metav1.Now().Format(time.RFC3339)})
 	if err != nil {
 		return errors.Wrap(err, "annotate pxc")
 	}
 
 	podList := corev1.PodList{}
-	if err := r.client.List(ctx, &podList, client.InNamespace(cr.Namespace), client.MatchingLabels(labels)); err != nil {
+	if err := r.client.List(ctx, &podList, client.InNamespace(cr.Namespace), client.MatchingLabels(ls)); err != nil {
 		return errors.Wrap(err, "list pods")
 	}
 
@@ -114,7 +182,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcilePersistentVolumes(ctx context.C
 
 	pvcsToUpdate := make([]string, 0, len(pvcList.Items))
 	for _, pvc := range pvcList.Items {
-		if !strings.HasPrefix(pvc.Name, "datadir-"+sts.Name) {
+		if !validatePVCName(pvc, sts) {
 			continue
 		}
 
@@ -126,25 +194,85 @@ func (r *ReconcilePerconaXtraDBCluster) reconcilePersistentVolumes(ctx context.C
 		pvcsToUpdate = append(pvcsToUpdate, pvc.Name)
 	}
 
-	log.Info("Resizing PVCs", "requested", requested, "actual", actual, "pvcList", strings.Join(pvcsToUpdate, ","))
-
-	log.Info("Deleting statefulset", "name", sts.Name)
-
-	if err := r.client.Delete(ctx, sts, client.PropagationPolicy("Orphan")); err != nil {
-		return errors.Wrapf(err, "delete statefulset/%s", sts.Name)
+	if len(pvcsToUpdate) == 0 {
+		return nil
 	}
+
+	log.Info("Resizing PVCs", "requested", requested, "actual", actual, "pvcList", strings.Join(pvcsToUpdate, ","))
 
 	for _, pvc := range pvcList.Items {
 		if !slices.Contains(pvcsToUpdate, pvc.Name) {
 			continue
 		}
 
-		log.Info("Resizing PVC", "name", pvc.Name)
+		if pvc.Status.Capacity.Storage().Cmp(requested) == 0 {
+			log.Info("PVC already resized", "name", pvc.Name, "actual", pvc.Status.Capacity.Storage(), "requested", requested)
+			continue
+		}
+
+		log.Info("Resizing PVC", "name", pvc.Name, "actual", pvc.Status.Capacity.Storage(), "requested", requested)
 		pvc.Spec.Resources.Requests[corev1.ResourceStorage] = requested
 
 		if err := r.client.Update(ctx, &pvc); err != nil {
-			return errors.Wrapf(err, "update persistentvolumeclaim/%s", pvc.Name)
+			switch {
+			case strings.Contains(err.Error(), "exceeded quota"):
+				log.Error(err, "PVC resize failed", "reason", "ExceededQuota", "message", err.Error())
+
+				if err := r.handlePVCResizeFailure(ctx, cr, sts, actual); err != nil {
+					return err
+				}
+
+				return nil
+			case strings.Contains(err.Error(), "the storageclass that provisions the pvc must support resize"):
+				log.Error(err, "PVC resize failed", "reason", "StorageClassNotSupportResize", "message", err.Error())
+
+				if err := r.handlePVCResizeFailure(ctx, cr, sts, actual); err != nil {
+					return err
+				}
+
+				return nil
+			default:
+				return errors.Wrapf(err, "update persistentvolumeclaim/%s", pvc.Name)
+			}
 		}
+
+		log.Info("PVC resize started", "pvc", pvc.Name, "requested", requested)
+	}
+
+	log.Info("Deleting statefulset")
+
+	if err := r.client.Delete(ctx, sts, client.PropagationPolicy("Orphan")); err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil
+		}
+		return errors.Wrapf(err, "delete statefulset/%s", sts.Name)
+	}
+
+	return nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) handlePVCResizeFailure(ctx context.Context, cr *pxcv1.PerconaXtraDBCluster, sts *appsv1.StatefulSet, originalSize resource.Quantity) error {
+	if err := r.revertVolumeTemplate(ctx, cr, sts, originalSize); err != nil {
+		return errors.Wrapf(err, "revert volume template for sts/%s", sts.Name)
+	}
+
+	if err := k8s.DeannotateObject(ctx, r.client, cr, pxcv1.AnnotationPVCResizeInProgress); err != nil {
+		return errors.Wrapf(err, "deannotate pxc/%s", cr.Name)
+	}
+
+	return nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) revertVolumeTemplate(ctx context.Context, cr *pxcv1.PerconaXtraDBCluster, sts *appsv1.StatefulSet, originalSize resource.Quantity) error {
+	log := logf.FromContext(ctx)
+
+	orig := cr.DeepCopy()
+
+	log.Info("Reverting volume template for PXC", "originalSize", originalSize)
+	cr.Spec.PXC.VolumeSpec.PersistentVolumeClaim.Resources.Requests[corev1.ResourceStorage] = originalSize
+
+	if err := r.client.Patch(ctx, cr.DeepCopy(), client.MergeFrom(orig)); err != nil {
+		return errors.Wrapf(err, "patch pxc/%s", cr.Name)
 	}
 
 	return nil

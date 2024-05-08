@@ -102,12 +102,15 @@ rules:
   - patch
   - delete
 - apiGroups:
-  - ""
+  - events.k8s.io
   resources:
   - events
   verbs:
   - create
   - patch
+  - get
+  - list
+  - watch
 - apiGroups:
   - certmanager.k8s.io
   - cert-manager.io

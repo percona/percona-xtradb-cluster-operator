@@ -1,0 +1,236 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: ClusterServiceVersion
+metadata:
+  annotations:
+    alm-examples: '[]'
+    capabilities: Basic Install
+    createdAt: "2024-01-31T09:21:38Z"
+    operators.operatorframework.io/builder: operator-sdk-v1.28.1
+    operators.operatorframework.io/project_layout: unknown
+  name: percona-xtradb-cluster-operator.v1.13.0
+  namespace: placeholder
+spec:
+  apiservicedefinitions: {}
+  customresourcedefinitions:
+    owned:
+    - kind: PerconaXtraDBClusterBackup
+      name: perconaxtradbclusterbackups.pxc.percona.com
+      version: v1
+    - kind: PerconaXtraDBClusterRestore
+      name: perconaxtradbclusterrestores.pxc.percona.com
+      version: v1
+    - kind: PerconaXtraDBCluster
+      name: perconaxtradbclusters.pxc.percona.com
+      version: v1-10-0
+    - kind: PerconaXtraDBCluster
+      name: perconaxtradbclusters.pxc.percona.com
+      version: v1-11-0
+    - kind: PerconaXtraDBCluster
+      name: perconaxtradbclusters.pxc.percona.com
+      version: v1
+  description: Percona Xtradb Cluster Operator description. TODO.
+  displayName: Percona Xtradb Cluster Operator
+  icon:
+  - base64data: ""
+    mediatype: ""
+  install:
+    spec:
+      deployments:
+      - name: percona-xtradb-cluster-operator
+        spec:
+          replicas: 1
+          selector:
+            matchLabels:
+              app.kubernetes.io/component: operator
+              app.kubernetes.io/instance: percona-xtradb-cluster-operator
+              app.kubernetes.io/name: percona-xtradb-cluster-operator
+              app.kubernetes.io/part-of: percona-xtradb-cluster-operator
+          strategy:
+            rollingUpdate:
+              maxUnavailable: 1
+            type: RollingUpdate
+          template:
+            metadata:
+              labels:
+                app.kubernetes.io/component: operator
+                app.kubernetes.io/instance: percona-xtradb-cluster-operator
+                app.kubernetes.io/name: percona-xtradb-cluster-operator
+                app.kubernetes.io/part-of: percona-xtradb-cluster-operator
+            spec:
+              containers:
+              - command:
+                - percona-xtradb-cluster-operator
+                env:
+                - name: LOG_STRUCTURED
+                  value: "false"
+                - name: LOG_LEVEL
+                  value: INFO
+                - name: WATCH_NAMESPACE
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.annotations['olm.targetNamespaces']
+                - name: POD_NAME
+                  valueFrom:
+                    fieldRef:
+                      apiVersion: v1
+                      fieldPath: metadata.name
+                - name: OPERATOR_NAME
+                  value: percona-xtradb-cluster-operator
+                - name: DISABLE_TELEMETRY
+                  value: "false"
+                image: perconalab/percona-xtradb-cluster-operator:main
+                imagePullPolicy: Always
+                livenessProbe:
+                  failureThreshold: 3
+                  httpGet:
+                    path: /metrics
+                    port: metrics
+                    scheme: HTTP
+                name: percona-xtradb-cluster-operator
+                ports:
+                - containerPort: 8080
+                  name: metrics
+                  protocol: TCP
+                resources:
+                  limits:
+                    cpu: 200m
+                    memory: 500Mi
+                  requests:
+                    cpu: 100m
+                    memory: 20Mi
+              serviceAccountName: percona-xtradb-cluster-operator
+              terminationGracePeriodSeconds: 600
+      permissions:
+      - rules:
+        - apiGroups:
+          - pxc.percona.com
+          resources:
+          - perconaxtradbclusters
+          - perconaxtradbclusters/status
+          - perconaxtradbclusterbackups
+          - perconaxtradbclusterbackups/status
+          - perconaxtradbclusterrestores
+          - perconaxtradbclusterrestores/status
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - update
+          - patch
+          - delete
+        - apiGroups:
+          - ""
+          resources:
+          - pods
+          - pods/exec
+          - pods/log
+          - configmaps
+          - services
+          - persistentvolumeclaims
+          - secrets
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - update
+          - patch
+          - delete
+        - apiGroups:
+          - apps
+          resources:
+          - deployments
+          - replicasets
+          - statefulsets
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - update
+          - patch
+          - delete
+        - apiGroups:
+          - batch
+          resources:
+          - jobs
+          - cronjobs
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - update
+          - patch
+          - delete
+        - apiGroups:
+          - policy
+          resources:
+          - poddisruptionbudgets
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - update
+          - patch
+          - delete
+        - apiGroups:
+          - coordination.k8s.io
+          resources:
+          - leases
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - update
+          - patch
+          - delete
+        - apiGroups:
+          - ""
+          resources:
+          - events
+          verbs:
+          - create
+          - patch
+        - apiGroups:
+          - certmanager.k8s.io
+          - cert-manager.io
+          resources:
+          - issuers
+          - certificates
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - update
+          - patch
+          - delete
+          - deletecollection
+        serviceAccountName: percona-xtradb-cluster-operator
+    strategy: deployment
+  installModes:
+  - supported: false
+    type: OwnNamespace
+  - supported: false
+    type: SingleNamespace
+  - supported: false
+    type: MultiNamespace
+  - supported: true
+    type: AllNamespaces
+  keywords:
+  - percona-xtradb-cluster-operator
+  links:
+  - name: Percona Xtradb Cluster Operator
+    url: https://percona-xtradb-cluster-operator.domain
+  maintainers:
+  - email: your@email.com
+    name: Maintainer Name
+  maturity: alpha
+  provider:
+    name: Provider Name
+    url: https://your.domain
+  version: 1.13.0

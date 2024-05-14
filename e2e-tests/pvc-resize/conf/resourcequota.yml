@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: default-storage-quota
+spec:
+  hard:
+    STORAGECLASS.storageclass.storage.k8s.io/requests.storage: QUOTA

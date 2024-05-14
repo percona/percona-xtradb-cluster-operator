@@ -25,6 +25,6 @@ func VolumeSpec(vspec *api.VolumeSpec) corev1.PersistentVolumeClaimSpec {
 		AccessModes:      vspec.PersistentVolumeClaim.AccessModes,
 		Resources:        vspec.PersistentVolumeClaim.Resources,
 		DataSource:       vspec.PersistentVolumeClaim.DataSource,
-                DataSourceRef:    vspec.PersistentVolumeClaim.DataSourceRef,
+		DataSourceRef:    vspec.PersistentVolumeClaim.DataSourceRef,
 	}
 }

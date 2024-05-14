@@ -40,11 +40,6 @@ spec:
       limits:
         memory: 1G
         cpu: 700m
-    volumeSpec:
-      persistentVolumeClaim:
-        resources:
-          requests:
-            storage: 2Gi
     affinity:
       antiAffinityTopologyKey: "kubernetes.io/hostname"
   logcollector:

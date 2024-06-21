@@ -1,10 +1,10 @@
 NAME ?= percona-xtradb-cluster-operator
 IMAGE_TAG_OWNER ?= perconalab
 IMAGE_TAG_BASE ?= $(IMAGE_TAG_OWNER)/$(NAME)
+SED := $(shell which gsed || which sed)
 VERSION ?= $(shell git rev-parse --abbrev-ref HEAD | $(SED) -e 's^/^-^g; s^[.]^-^g;' | tr '[:upper:]' '[:lower:]')
 IMAGE ?= $(IMAGE_TAG_BASE):$(VERSION)
 DEPLOYDIR = ./deploy
-SED := $(shell which gsed || which sed)
 
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.23

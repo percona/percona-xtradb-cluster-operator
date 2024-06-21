@@ -1,7 +1,8 @@
 NAME ?= percona-xtradb-cluster-operator
 IMAGE_TAG_OWNER ?= perconalab
 IMAGE_TAG_BASE ?= $(IMAGE_TAG_OWNER)/$(NAME)
-VERSION ?= $(shell git rev-parse --abbrev-ref HEAD | sed -e 's^/^-^g; s^[.]^-^g;' | tr '[:upper:]' '[:lower:]')
+SED := $(shell which gsed || which sed)
+VERSION ?= $(shell git rev-parse --abbrev-ref HEAD | $(SED) -e 's^/^-^g; s^[.]^-^g;' | tr '[:upper:]' '[:lower:]')
 IMAGE ?= $(IMAGE_TAG_BASE):$(VERSION)
 DEPLOYDIR = ./deploy
 
@@ -22,11 +23,11 @@ $(DEPLOYDIR)/crd.yaml: kustomize generate
 
 .PHONY: $(DEPLOYDIR)/operator.yaml
 $(DEPLOYDIR)/operator.yaml:
-	sed -i "/^      containers:/,/^        image:/{s#image: .*#image: $(IMAGE_TAG_BASE):$(VERSION)#}" deploy/operator.yaml
+	$(SED) -i "/^      containers:/,/^        image:/{s#image: .*#image: $(IMAGE_TAG_BASE):$(VERSION)#}" deploy/operator.yaml
 
 .PHONY: $(DEPLOYDIR)/cw-operator.yaml
 $(DEPLOYDIR)/cw-operator.yaml:
-	sed -i "/^      containers:/,/^        image:/{s#image: .*#image: $(IMAGE_TAG_BASE):$(VERSION)#}" deploy/cw-operator.yaml
+	$(SED) -i "/^      containers:/,/^        image:/{s#image: .*#image: $(IMAGE_TAG_BASE):$(VERSION)#}" deploy/cw-operator.yaml
 
 $(DEPLOYDIR)/bundle.yaml: $(DEPLOYDIR)/crd.yaml $(DEPLOYDIR)/rbac.yaml $(DEPLOYDIR)/operator.yaml  ## Generate deploy/bundle.yaml
 	cat $(DEPLOYDIR)/crd.yaml > $(DEPLOYDIR)/bundle.yaml; echo "---" >> $(DEPLOYDIR)/bundle.yaml; cat $(DEPLOYDIR)/rbac.yaml >> $(DEPLOYDIR)/bundle.yaml; echo "---" >> $(DEPLOYDIR)/bundle.yaml; cat $(DEPLOYDIR)/operator.yaml >> $(DEPLOYDIR)/bundle.yaml
@@ -87,7 +88,7 @@ endef
 
 CONTROLLER_GEN = $(shell pwd)/bin/controller-gen
 controller-gen: ## Download controller-gen locally if necessary.
-	$(call go-get-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.8.0)
+	$(call go-get-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.15.0)
 
 KUSTOMIZE = $(shell pwd)/bin/kustomize
 kustomize: ## Download kustomize locally if necessary.
@@ -100,14 +101,14 @@ envtest: ## Download envtest-setup locally if necessary.
 # Prepare release
 CERT_MANAGER_VER := $(shell grep -Eo "cert-manager v.*" go.mod|grep -Eo "[0-9]+\.[0-9]+\.[0-9]+")
 release: manifests
-	sed -i "/CERT_MANAGER_VER/s/CERT_MANAGER_VER=\".*/CERT_MANAGER_VER=\"$(CERT_MANAGER_VER)\"/" e2e-tests/functions
-	sed -i "/Version = \"/s/Version = \".*/Version = \"$(VERSION)\"/" version/version.go
-	sed -i \
+	$(SED) -i "/CERT_MANAGER_VER/s/CERT_MANAGER_VER=\".*/CERT_MANAGER_VER=\"$(CERT_MANAGER_VER)\"/" e2e-tests/functions
+	$(SED) -i "/Version = \"/s/Version = \".*/Version = \"$(VERSION)\"/" version/version.go
+	$(SED) -i \
 		-e "s/crVersion: .*/crVersion: $(VERSION)/" \
 		-e "/^  pxc:/,/^    image:/{s#image: .*#image: percona/percona-xtradb-cluster:@@SET_TAG@@#}" \
 		-e "/^  haproxy:/,/^    image:/{s#image: .*#image: percona/percona-xtradb-cluster-operator:$(VERSION)-haproxy#}" \
 		-e "/^  logcollector:/,/^    image:/{s#image: .*#image: percona/percona-xtradb-cluster-operator:$(VERSION)-logcollector#}" deploy/cr-minimal.yaml
-	sed -i \
+	$(SED) -i \
 		-e "s/crVersion: .*/crVersion: $(VERSION)/" \
 		-e "/^  pxc:/,/^    image:/{s#image: .*#image: percona/percona-xtradb-cluster:@@SET_TAG@@#}" \
 		-e "/^  haproxy:/,/^    image:/{s#image: .*#image: percona/percona-xtradb-cluster-operator:$(VERSION)-haproxy#}" \
@@ -122,13 +123,13 @@ MAJOR_VER := $(shell grep -oE "crVersion: .*" deploy/cr.yaml|grep -oE "[0-9]+\.[
 MINOR_VER := $(shell grep -oE "crVersion: .*" deploy/cr.yaml|grep -oE "[0-9]+\.[0-9]+\.[0-9]+"|cut -d'.' -f2)
 NEXT_VER ?= $(MAJOR_VER).$$(($(MINOR_VER) + 1)).0
 after-release: manifests
-	sed -i "/Version = \"/s/Version = \".*/Version = \"$(NEXT_VER)\"/" version/version.go
-	sed -i \
+	$(SED) -i "/Version = \"/s/Version = \".*/Version = \"$(NEXT_VER)\"/" version/version.go
+	$(SED) -i \
 		-e "s/crVersion: .*/crVersion: $(NEXT_VER)/" \
 		-e "/^  pxc:/,/^    image:/{s#image: .*#image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0#}" \
 		-e "/^  haproxy:/,/^    image:/{s#image: .*#image: perconalab/percona-xtradb-cluster-operator:main-haproxy#}" \
 		-e "/^  logcollector:/,/^    image:/{s#image: .*#image: perconalab/percona-xtradb-cluster-operator:main-logcollector#}" deploy/cr-minimal.yaml
-	sed -i \
+	$(SED) -i \
 		-e "s/crVersion: .*/crVersion: $(NEXT_VER)/" \
 		-e "/^  pxc:/,/^    image:/{s#image: .*#image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0#}" \
 		-e "/^  haproxy:/,/^    image:/{s#image: .*#image: perconalab/percona-xtradb-cluster-operator:main-haproxy#}" \

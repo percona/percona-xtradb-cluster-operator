@@ -21,8 +21,14 @@ RUN mkdir -p build/_output/bin \
                cmd/manager/main.go \
     && cp -r build/_output/bin/percona-xtradb-cluster-operator /usr/local/bin/percona-xtradb-cluster-operator
 
-RUN go build -o build/_output/bin/peer-list cmd/peer-list/main.go \
-    && cp -r build/_output/bin/peer-list /usr/local/bin/
+RUN GOOS=$GOOS GOARCH=${TARGETARCH} CGO_ENABLED=$CGO_ENABLED GO_LDFLAGS=$GO_LDFLAGS \
+    go build -o build/_output/bin/peer-list cmd/peer-list/main.go \
+    && cp -r build/_output/bin/peer-list /usr/local/bin/peer-list
+
+RUN GOOS=$GOOS GOARCH=${TARGETARCH} CGO_ENABLED=$CGO_ENABLED GO_LDFLAGS=$GO_LDFLAGS \
+       go build -o build/_output/bin/pitr \
+               cmd/pitr/main.go \
+    && cp -r build/_output/bin/pitr /usr/local/bin/pitr
 
 # Looking for all possible License/Notice files and copying them to the image
 RUN find $GOPATH/pkg/mod -regextype posix-extended -iregex '.*(license|notice)(\.md|\.txt|$)' \
@@ -42,8 +48,10 @@ LABEL name="Percona XtraDB Cluster Operator" \
 COPY LICENSE /licenses/
 COPY --from=go_builder /usr/local/bin/percona-xtradb-cluster-operator /usr/local/bin/percona-xtradb-cluster-operator
 COPY --from=go_builder /usr/local/bin/peer-list /peer-list
+COPY --from=go_builder /usr/local/bin/pitr /pitr
 COPY build/pxc-entrypoint.sh /pxc-entrypoint.sh
 COPY build/pxc-init-entrypoint.sh /pxc-init-entrypoint.sh
+COPY build/pitr-init-entrypoint.sh /pitr-init-entrypoint.sh
 COPY build/unsafe-bootstrap.sh /unsafe-bootstrap.sh
 COPY build/pxc-configure-pxc.sh /pxc-configure-pxc.sh
 COPY build/liveness-check.sh /liveness-check.sh

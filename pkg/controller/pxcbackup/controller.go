@@ -27,6 +27,7 @@ import (
 
 	"github.com/percona/percona-xtradb-cluster-operator/clientcmd"
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/deployment"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage"
@@ -191,7 +192,11 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 
 	bcp := backup.New(cluster)
 	job := bcp.Job(cr, cluster)
-	job.Spec, err = bcp.JobSpec(cr.Spec, cluster, job)
+	initImage, err := k8s.GetInitImage(ctx, cluster, r.client)
+	if err != nil {
+		return rr, errors.Wrap(err, "failed to get initImage")
+	}
+	job.Spec, err = bcp.JobSpec(cr.Spec, cluster, job, initImage)
 	if err != nil {
 		return rr, errors.Wrap(err, "can't create job spec")
 	}
@@ -497,13 +502,13 @@ func (r *ReconcilePerconaXtraDBClusterBackup) updateJobStatus(bcp *api.PerconaXt
 				return errors.Wrap(err, "get binlog collector pod")
 			}
 
-			if err := deployment.RemoveGapFile(context.TODO(), r.clientcmd, collectorPod); err != nil {
+			if err := deployment.RemoveGapFile(context.TODO(), cluster, r.clientcmd, collectorPod); err != nil {
 				if !errors.Is(err, deployment.GapFileNotFound) {
 					return errors.Wrap(err, "remove gap file")
 				}
 			}
 
-			if err := deployment.RemoveTimelineFile(context.TODO(), r.clientcmd, collectorPod); err != nil {
+			if err := deployment.RemoveTimelineFile(context.TODO(), cluster, r.clientcmd, collectorPod); err != nil {
 				return errors.Wrap(err, "remove timeline file")
 			}
 		}

@@ -135,10 +135,12 @@ newpassencrypted=$(echo -n "$newpass" | base64)
 apply_config "$test_dir/conf/some-name.yml"
 sleep 15
 wait_cluster_consistency "$cluster" 3 3
+check_generation "1" "haproxy" "${cluster}"
 patch_secret "my-cluster-secrets" "monitor" "$newpassencrypted"
 sleep 15
 wait_cluster_consistency "$cluster" 3 3
 compare_mysql_cmd "select-3" "SHOW DATABASES;" "-h $cluster-haproxy -umonitor -p'$newpass'"
+check_generation "1" "haproxy" "${cluster}"
 
 destroy "${namespace}"
 desc "test passed"

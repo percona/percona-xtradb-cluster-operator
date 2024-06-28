@@ -197,6 +197,13 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 		return reconcile.Result{}, err
 	}
 
+	defer func() {
+		uerr := r.updateStatus(o, false, err)
+		if uerr != nil {
+			log.Error(uerr, "Update status")
+		}
+	}()
+
 	if err := r.setCRVersion(ctx, o); err != nil {
 		return reconcile.Result{}, errors.Wrap(err, "set CR version")
 	}
@@ -243,13 +250,6 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 		log.Info("wait for token issuing")
 		return rr, nil
 	}
-
-	defer func() {
-		uerr := r.updateStatus(o, false, err)
-		if uerr != nil {
-			log.Error(uerr, "Update status")
-		}
-	}()
 
 	if o.CompareVersionWith("1.7.0") >= 0 && *o.Spec.PXC.AutoRecovery {
 		err = r.recoverFullClusterCrashIfNeeded(ctx, o)
@@ -605,7 +605,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(ctx context.Context, cr *api.Perc
 			cr.Spec.PXC.SSLSecretName, cr.Spec.PXC.SSLInternalSecretName)
 	}
 
-	sslHash, err := r.getSecretHash(cr, cr.Spec.PXC.SSLSecretName, cr.Spec.AllowUnsafeConfig)
+	sslHash, err := r.getSecretHash(cr, cr.Spec.PXC.SSLSecretName, cr.Spec.Unsafe.TLS)
 	if err != nil {
 		return errors.Wrap(err, "get secret hash")
 	}
@@ -613,7 +613,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(ctx context.Context, cr *api.Perc
 		nodeSet.Spec.Template.Annotations["percona.com/ssl-hash"] = sslHash
 	}
 
-	sslInternalHash, err := r.getSecretHash(cr, cr.Spec.PXC.SSLInternalSecretName, cr.Spec.AllowUnsafeConfig)
+	sslInternalHash, err := r.getSecretHash(cr, cr.Spec.PXC.SSLInternalSecretName, cr.Spec.Unsafe.TLS)
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return errors.Wrap(err, "get internal secret hash")
 	}

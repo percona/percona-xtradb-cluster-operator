@@ -55,7 +55,7 @@ func (p *PXC) GetHost() string {
 
 // GetGTIDSet return GTID set by binary log file name
 func (p *PXC) GetGTIDSet(ctx context.Context, binlogName string) (string, error) {
-	//select name from mysql.func where name='get_gtid_set_by_binlog'
+	// select name from mysql.func where name='get_gtid_set_by_binlog'
 	var existFunc string
 	nameRow := p.db.QueryRowContext(ctx, "select name from mysql.func where name='get_gtid_set_by_binlog'")
 	err := nameRow.Scan(&existFunc)
@@ -226,7 +226,7 @@ func (p *PXC) SubtractGTIDSet(ctx context.Context, set, subSet string) (string, 
 }
 
 func getNodesByServiceName(ctx context.Context, pxcServiceName string) ([]string, error) {
-	cmd := exec.CommandContext(ctx, "peer-list", "-on-start=/usr/bin/get-pxc-state", "-service="+pxcServiceName)
+	cmd := exec.CommandContext(ctx, "/opt/percona/peer-list", "-on-start=/usr/bin/get-pxc-state", "-service="+pxcServiceName)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return nil, errors.Wrap(err, "get peer-list output")

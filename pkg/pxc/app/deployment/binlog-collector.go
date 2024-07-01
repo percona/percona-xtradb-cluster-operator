@@ -19,10 +19,11 @@ import (
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 )
 
-func GetBinlogCollectorDeployment(cr *api.PerconaXtraDBCluster) (appsv1.Deployment, error) {
+func GetBinlogCollectorDeployment(cr *api.PerconaXtraDBCluster, initImage string) (appsv1.Deployment, error) {
 	binlogCollectorName := GetBinlogCollectorDeploymentName(cr)
 	pxcUser := users.Xtrabackup
 	sleepTime := fmt.Sprintf("%.2f", cr.Spec.Backup.PITR.TimeBetweenUploads)
@@ -97,6 +98,30 @@ func GetBinlogCollectorDeployment(cr *api.PerconaXtraDBCluster) (appsv1.Deployme
 	}
 	replicas := int32(1)
 
+	var initContainers []corev1.Container
+	volumes := []corev1.Volume{
+		app.GetSecretVolumes("mysql-users-secret-file", "internal-"+cr.Name, false),
+	}
+	if cr.CompareVersionWith("1.15.0") >= 0 {
+		container.Command = []string{"/opt/percona/pitr"}
+		initContainers = []corev1.Container{statefulset.PitrInitContainer(cr, cr.Spec.Backup.PITR.Resources, initImage)}
+		volumes = append(volumes,
+			corev1.Volume{
+				Name: app.BinVolumeName,
+				VolumeSource: corev1.VolumeSource{
+					EmptyDir: &corev1.EmptyDirVolumeSource{},
+				},
+			},
+		)
+
+		container.VolumeMounts = append(container.VolumeMounts,
+			corev1.VolumeMount{
+				Name:      app.BinVolumeName,
+				MountPath: app.BinVolumeMountPath,
+			},
+		)
+	}
+
 	return appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "apps/v1",
@@ -119,6 +144,7 @@ func GetBinlogCollectorDeployment(cr *api.PerconaXtraDBCluster) (appsv1.Deployme
 					Annotations: cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName].Annotations,
 				},
 				Spec: corev1.PodSpec{
+					InitContainers:            initContainers,
 					Containers:                []corev1.Container{container},
 					ImagePullSecrets:          cr.Spec.Backup.ImagePullSecrets,
 					ServiceAccountName:        cr.Spec.Backup.ServiceAccountName,
@@ -129,10 +155,8 @@ func GetBinlogCollectorDeployment(cr *api.PerconaXtraDBCluster) (appsv1.Deployme
 					NodeSelector:              cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName].NodeSelector,
 					SchedulerName:             cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName].SchedulerName,
 					PriorityClassName:         cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName].PriorityClassName,
-					Volumes: []corev1.Volume{
-						app.GetSecretVolumes("mysql-users-secret-file", "internal-"+cr.Name, false),
-					},
-					RuntimeClassName: cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName].RuntimeClassName,
+					Volumes:                   volumes,
+					RuntimeClassName:          cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName].RuntimeClassName,
 				},
 			},
 		},
@@ -283,7 +307,7 @@ func GetBinlogCollectorPod(ctx context.Context, c client.Client, cr *api.Percona
 
 var GapFileNotFound = errors.New("gap file not found")
 
-func RemoveGapFile(ctx context.Context, c *clientcmd.Client, pod *corev1.Pod) error {
+func RemoveGapFile(ctx context.Context, cr *api.PerconaXtraDBCluster, c *clientcmd.Client, pod *corev1.Pod) error {
 	stderrBuf := &bytes.Buffer{}
 	err := c.Exec(pod, "pitr", []string{"/bin/bash", "-c", "rm /tmp/gap-detected"}, nil, nil, stderrBuf, false)
 	if err != nil {
@@ -296,7 +320,7 @@ func RemoveGapFile(ctx context.Context, c *clientcmd.Client, pod *corev1.Pod) er
 	return nil
 }
 
-func RemoveTimelineFile(ctx context.Context, c *clientcmd.Client, pod *corev1.Pod) error {
+func RemoveTimelineFile(ctx context.Context, cr *api.PerconaXtraDBCluster, c *clientcmd.Client, pod *corev1.Pod) error {
 	stderrBuf := &bytes.Buffer{}
 	err := c.Exec(pod, "pitr", []string{"/bin/bash", "-c", "rm /tmp/pitr-timeline"}, nil, nil, stderrBuf, false)
 	if err != nil {

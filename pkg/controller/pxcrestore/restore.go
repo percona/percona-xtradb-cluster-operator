@@ -22,7 +22,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) restore(ctx context.Context, cr *
 		return errors.New("undefined backup section in a cluster spec")
 	}
 
-	restorer, err := r.getRestorer(cr, bcp, cluster)
+	restorer, err := r.getRestorer(ctx, cr, bcp, cluster)
 	if err != nil {
 		return errors.Wrap(err, "failed to get restorer")
 	}
@@ -49,7 +49,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) restore(ctx context.Context, cr *
 func (r *ReconcilePerconaXtraDBClusterRestore) pitr(ctx context.Context, cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, cluster *api.PerconaXtraDBCluster) error {
 	log := logf.FromContext(ctx)
 
-	restorer, err := r.getRestorer(cr, bcp, cluster)
+	restorer, err := r.getRestorer(ctx, cr, bcp, cluster)
 	if err != nil {
 		return errors.Wrap(err, "failed to get restorer")
 	}
@@ -73,7 +73,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) pitr(ctx context.Context, cr *api
 }
 
 func (r *ReconcilePerconaXtraDBClusterRestore) validate(ctx context.Context, cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, cluster *api.PerconaXtraDBCluster) error {
-	restorer, err := r.getRestorer(cr, bcp, cluster)
+	restorer, err := r.getRestorer(ctx, cr, bcp, cluster)
 	if err != nil {
 		return errors.Wrap(err, "failed to get restorer")
 	}

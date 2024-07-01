@@ -15,6 +15,7 @@ import (
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/util"
 )
@@ -136,7 +137,7 @@ func PVCRestorePod(cr *api.PerconaXtraDBClusterRestore, bcpStorageName, pvcName 
 	}, nil
 }
 
-func RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, cluster *api.PerconaXtraDBCluster, destination api.PXCBackupDestination, pitr bool) (*batchv1.Job, error) {
+func RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, cluster *api.PerconaXtraDBCluster, initImage string, destination api.PXCBackupDestination, pitr bool) (*batchv1.Job, error) {
 	switch bcp.Status.GetStorageType(cluster) {
 	case api.BackupStorageAzure:
 		if bcp.Status.Azure == nil {
@@ -162,7 +163,7 @@ func RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClust
 			MountPath: "/etc/mysql/vault-keyring-secret",
 		},
 	}
-	jobPVCs := []corev1.Volume{
+	volumes := []corev1.Volume{
 		{
 			Name: "datadir",
 			VolumeSource: corev1.VolumeSource{
@@ -173,6 +174,7 @@ func RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClust
 		},
 		app.GetSecretVolumes("vault-keyring-secret", cluster.Spec.PXC.VaultSecretName, true),
 	}
+
 	var command []string
 
 	switch bcp.Status.GetStorageType(cluster) {
@@ -188,7 +190,7 @@ func RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClust
 				MountPath: "/etc/mysql/ssl-internal",
 			},
 		}...)
-		jobPVCs = append(jobPVCs, []corev1.Volume{
+		volumes = append(volumes, []corev1.Volume{
 			app.GetSecretVolumes("ssl-internal", cluster.Spec.PXC.SSLInternalSecretName, true),
 			app.GetSecretVolumes("ssl", cluster.Spec.PXC.SSLSecretName, cluster.Spec.AllowUnsafeConfig),
 		}...)
@@ -203,11 +205,36 @@ func RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClust
 			}
 			jobName = "pitr-job-" + cr.Name + "-" + cr.Spec.PXCCluster
 			volumeMounts = []corev1.VolumeMount{}
-			jobPVCs = []corev1.Volume{}
-			command = []string{"pitr", "recover"}
+			volumes = []corev1.Volume{}
+			command = []string{"/opt/percona/pitr", "recover"}
+			if cluster.CompareVersionWith("1.15.0") < 0 {
+				command = []string{"pitr", "recover"}
+			}
 		}
 	default:
 		return nil, errors.Errorf("invalid storage type was specified in status, got: %s", bcp.Status.GetStorageType(cluster))
+	}
+
+	var initContainers []corev1.Container
+	if pitr {
+		initContainers = []corev1.Container{statefulset.PitrInitContainer(cluster, cr.Spec.Resources, initImage)}
+		if cluster.CompareVersionWith("1.15.0") >= 0 {
+			volumes = append(volumes,
+				corev1.Volume{
+					Name: app.BinVolumeName,
+					VolumeSource: corev1.VolumeSource{
+						EmptyDir: &corev1.EmptyDirVolumeSource{},
+					},
+				},
+			)
+
+			volumeMounts = append(volumeMounts,
+				corev1.VolumeMount{
+					Name:      app.BinVolumeName,
+					MountPath: app.BinVolumeMountPath,
+				},
+			)
+		}
 	}
 
 	envs, err := restoreJobEnvs(bcp, cr, cluster, destination, pitr)
@@ -233,11 +260,12 @@ func RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClust
 				Spec: corev1.PodSpec{
 					ImagePullSecrets: cluster.Spec.Backup.ImagePullSecrets,
 					SecurityContext:  cluster.Spec.PXC.PodSecurityContext,
+					InitContainers:   initContainers,
 					Containers: []corev1.Container{
 						xtrabackupContainer(cr, cluster, command, volumeMounts, envs),
 					},
 					RestartPolicy:             corev1.RestartPolicyNever,
-					Volumes:                   jobPVCs,
+					Volumes:                   volumes,
 					NodeSelector:              cluster.Spec.PXC.NodeSelector,
 					Affinity:                  cluster.Spec.PXC.Affinity.Advanced,
 					TopologySpreadConstraints: pxc.PodTopologySpreadConstraints(cluster.Spec.PXC.TopologySpreadConstraints, cluster.Spec.PXC.Labels),

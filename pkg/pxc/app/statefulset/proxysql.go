@@ -421,11 +421,16 @@ func (c *Proxy) PMMContainer(ctx context.Context, cl client.Client, spec *api.PM
 func (c *Proxy) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg api.CustomVolumeGetter) (*api.Volume, error) {
 	ls := c.Labels()
 
+	sslVolume := app.GetSecretVolumes("ssl", podSpec.SSLSecretName, cr.Spec.AllowUnsafeConfig)
+	if cr.CompareVersionWith("1.15.0") >= 0 {
+		sslVolume = app.GetSecretVolumes("ssl", podSpec.SSLSecretName, !cr.TLSEnabled())
+	}
+
 	vol := app.Volumes(podSpec, proxyDataVolumeName)
 	vol.Volumes = append(
 		vol.Volumes,
 		app.GetSecretVolumes("ssl-internal", podSpec.SSLInternalSecretName, true),
-		app.GetSecretVolumes("ssl", podSpec.SSLSecretName, !cr.TLSEnabled()),
+		sslVolume,
 	)
 
 	configVolume, err := vg(cr.Namespace, proxyConfigVolumeName, ls["app.kubernetes.io/instance"]+"-proxysql", false)

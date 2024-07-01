@@ -510,12 +510,17 @@ func (c *Node) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg ap
 		return nil, err
 	}
 
+	sslVolume := app.GetSecretVolumes("ssl", podSpec.SSLSecretName, cr.Spec.AllowUnsafeConfig)
+	if cr.CompareVersionWith("1.15.0") >= 0 {
+		sslVolume = app.GetSecretVolumes("ssl", podSpec.SSLSecretName, !cr.TLSEnabled())
+	}
+
 	vol.Volumes = append(
 		vol.Volumes,
 		app.GetTmpVolume("tmp"),
 		configVolume,
 		app.GetSecretVolumes("ssl-internal", podSpec.SSLInternalSecretName, true),
-		app.GetSecretVolumes("ssl", podSpec.SSLSecretName, !cr.TLSEnabled()),
+		sslVolume,
 		app.GetConfigVolumes("auto-config", config.AutoTuneConfigMapName(cr.Name, app.Name)),
 		app.GetSecretVolumes(VaultSecretVolumeName, podSpec.VaultSecretName, true),
 		app.GetSecretVolumes("mysql-users-secret-file", "internal-"+cr.Name, false),

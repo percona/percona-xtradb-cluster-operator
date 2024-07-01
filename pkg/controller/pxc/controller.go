@@ -605,7 +605,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(ctx context.Context, cr *api.Perc
 			cr.Spec.PXC.SSLSecretName, cr.Spec.PXC.SSLInternalSecretName)
 	}
 
-	sslHash, err := r.getSecretHash(cr, cr.Spec.PXC.SSLSecretName, cr.Spec.Unsafe.TLS)
+	sslHash, err := r.getSecretHash(cr, cr.Spec.PXC.SSLSecretName, !cr.TLSEnabled())
 	if err != nil {
 		return errors.Wrap(err, "get secret hash")
 	}
@@ -613,7 +613,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(ctx context.Context, cr *api.Perc
 		nodeSet.Spec.Template.Annotations["percona.com/ssl-hash"] = sslHash
 	}
 
-	sslInternalHash, err := r.getSecretHash(cr, cr.Spec.PXC.SSLInternalSecretName, cr.Spec.Unsafe.TLS)
+	sslInternalHash, err := r.getSecretHash(cr, cr.Spec.PXC.SSLInternalSecretName, !cr.TLSEnabled())
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return errors.Wrap(err, "get internal secret hash")
 	}

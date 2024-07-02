@@ -358,18 +358,24 @@ wait_for_running() {
 wait_for_generation() {
 	local resource="$1"
 	local target_generation="$2"
+	local max_retry="${3:-96}"
 
 	echo "Waiting for $resource to reach generation $target_generation..."
 
+	retry=0
 	while true; do
 		current_generation=$(kubectl get "$resource" -o jsonpath='{.metadata.generation}')
 
 		if [ "$current_generation" -eq "$target_generation" ]; then
 			echo "Resource $resource has reached generation $target_generation."
 			break
+		elif [[ $retry -ge $max_retry ]]; then
+			echo "Max retry count $retry reached. The desired generation $target_generation on resource $resource not reached."
+			exit 1
 		else
 			echo "Resource $resource is at generation $current_generation. Waiting..."
 			sleep 5
+			let retry+=1
 		fi
 	done
 }

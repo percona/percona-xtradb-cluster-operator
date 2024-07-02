@@ -1377,6 +1377,19 @@ function check_pxc_liveness() {
 	done
 }
 
+function check_generation() {
+	local generation="$1"
+	local container="$2"
+	local cluster="$3"
+	local current_generation
+
+	current_generation="$(kubectl_bin get statefulset "${cluster}-${container}" -o jsonpath='{.metadata.generation}')"
+	if [[ ${generation} != "${current_generation}" ]]; then
+		echo "Generation for resource ${container} is: ${current_generation}, but should be: ${generation}"
+		exit 1
+	fi
+}
+
 function compare_generation() {
 	local generation="$1"
 	local proxy="$2"
@@ -1389,11 +1402,7 @@ function compare_generation() {
 		containers=(pxc proxysql)
 	fi
 	for container in "${containers[@]}"; do
-		current_generation="$(kubectl_bin get statefulset "${cluster}-${container}" -o jsonpath='{.metadata.generation}')"
-		if [[ ${generation} != "${current_generation}" ]]; then
-			echo "Generation for resource ${container} is: ${current_generation}, but should be: ${generation}"
-			exit 1
-		fi
+		check_generation "$generation" "$container" "$cluster"
 	done
 }
 

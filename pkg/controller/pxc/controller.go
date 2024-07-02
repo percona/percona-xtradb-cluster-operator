@@ -364,7 +364,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 		}
 	}
 
-	if err := r.reconcileHAProxy(ctx, o, userReconcileResult.proxyAnnotations, proxyInits); err != nil {
+	if err := r.reconcileHAProxy(ctx, o, proxyInits); err != nil {
 		return reconcile.Result{}, err
 	}
 
@@ -455,7 +455,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 	return rr, nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) reconcileHAProxy(ctx context.Context, cr *api.PerconaXtraDBCluster, annotations map[string]string, initContainers []corev1.Container) error {
+func (r *ReconcilePerconaXtraDBCluster) reconcileHAProxy(ctx context.Context, cr *api.PerconaXtraDBCluster, initContainers []corev1.Container) error {
 	if !cr.HAProxyEnabled() {
 		if err := r.deleteServices(pxc.NewServiceHAProxyReplicas(cr)); err != nil {
 			return errors.Wrap(err, "delete HAProxy replica service")
@@ -479,7 +479,6 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileHAProxy(ctx context.Context, cr
 		return errors.Wrap(err, "get haproxy env vars secret")
 	}
 	sts := statefulset.NewHAProxy(cr)
-	pxc.MergeTemplateAnnotations(sts.StatefulSet(), annotations)
 
 	if err := r.updatePod(ctx, sts, &cr.Spec.HAProxy.PodSpec, cr, initContainers); err != nil {
 		return errors.Wrap(err, "HAProxy upgrade error")

@@ -2551,6 +2551,8 @@ spec:
                         items:
                           type: string
                         type: array
+                      onlyReaders:
+                        type: boolean
                       trafficPolicy:
                         type: string
                       type:
@@ -11293,7 +11295,7 @@ spec:
           value: percona-xtradb-cluster-operator
         - name: DISABLE_TELEMETRY
           value: "false"
-        image: perconalab/percona-xtradb-cluster-operator:main
+        image: perconalab/percona-xtradb-cluster-operator:k8spxc-1330
         imagePullPolicy: Always
         livenessProbe:
           failureThreshold: 3

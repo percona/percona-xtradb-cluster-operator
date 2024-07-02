@@ -103,8 +103,8 @@ var _ = Describe("Service labels and annotations", Ordered, func() {
 				cr.Spec.PXC.Expose.Annotations = map[string]string{"cr-annotation": "test"}
 				cr.Spec.HAProxy.ExposePrimary.Labels = map[string]string{"cr-label": "test"}
 				cr.Spec.HAProxy.ExposePrimary.Annotations = map[string]string{"cr-annotation": "test"}
-				cr.Spec.HAProxy.ExposeReplicas.Labels = map[string]string{"cr-label": "test"}
-				cr.Spec.HAProxy.ExposeReplicas.Annotations = map[string]string{"cr-annotation": "test"}
+				cr.Spec.HAProxy.ExposeReplicas.ServiceExpose.Labels = map[string]string{"cr-label": "test"}
+				cr.Spec.HAProxy.ExposeReplicas.ServiceExpose.Annotations = map[string]string{"cr-annotation": "test"}
 				cr.Spec.ProxySQL.Expose.Labels = map[string]string{"cr-label": "test"}
 				cr.Spec.ProxySQL.Expose.Annotations = map[string]string{"cr-annotation": "test"}
 				Expect(k8sClient.Update(ctx, cr)).Should(Succeed())
@@ -192,8 +192,8 @@ var _ = Describe("Service labels and annotations", Ordered, func() {
 		cr.Spec.PXC.Expose.Annotations = nil
 		cr.Spec.HAProxy.ExposePrimary.Labels = nil
 		cr.Spec.HAProxy.ExposePrimary.Annotations = nil
-		cr.Spec.HAProxy.ExposeReplicas.Labels = nil
-		cr.Spec.HAProxy.ExposeReplicas.Annotations = nil
+		cr.Spec.HAProxy.ExposeReplicas.ServiceExpose.Labels = nil
+		cr.Spec.HAProxy.ExposeReplicas.ServiceExpose.Annotations = nil
 		cr.Spec.ProxySQL.Expose.Labels = nil
 		cr.Spec.ProxySQL.Expose.Annotations = nil
 		Expect(k8sClient.Update(ctx, cr)).To(Succeed())

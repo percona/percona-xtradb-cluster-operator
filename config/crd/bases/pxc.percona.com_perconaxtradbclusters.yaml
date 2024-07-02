@@ -1651,6 +1651,8 @@ spec:
                         items:
                           type: string
                         type: array
+                      onlyReaders:
+                        type: boolean
                       trafficPolicy:
                         type: string
                       type:

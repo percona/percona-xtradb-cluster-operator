@@ -196,7 +196,7 @@ spec:
   haproxy:
     enabled: true
     size: 3
-    image: perconalab/percona-xtradb-cluster-operator:main-haproxy
+    image: perconalab/percona-xtradb-cluster-operator:k8spxc-1330-haproxy-5
 #    imagePullPolicy: Always
 #    schedulerName: mycustom-scheduler
 #    readinessDelaySec: 15
@@ -283,9 +283,10 @@ spec:
 #      loadBalancerSourceRanges:
 #        - 10.0.0.0/8
 #      loadBalancerIP: 127.0.0.1
-#    exposeReplicas:
-#      enabled: false
-#      type: ClusterIP
+    exposeReplicas:
+      enabled: true
+      onlyReaders: false
+      type: ClusterIP
 #      annotations:
 #        service.beta.kubernetes.io/aws-load-balancer-backend-protocol: tcp
 #      externalTrafficPolicy: Cluster

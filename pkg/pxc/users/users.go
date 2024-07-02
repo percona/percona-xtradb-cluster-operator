@@ -247,7 +247,7 @@ func (u *Manager) Update170XtrabackupUser(pass string) (err error) {
 		return errors.Wrap(err, "create operator user")
 	}
 
-	_, err = u.db.Exec("GRANT ALL ON *.* TO 'xtrabackup'@'%'")
+	_, err = u.db.Exec("GRANT ALL ON *.* TO 'xtrabackup'@'%' WITH GRANT OPTION")
 	if err != nil {
 		return errors.Wrapf(err, "grant privileges to user xtrabackup")
 	}

@@ -3,15 +3,13 @@ package pxcrestore
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/pkg/errors"
-	corev1 "k8s.io/api/core/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	k8sretry "k8s.io/client-go/util/retry"
@@ -24,8 +22,6 @@ import (
 
 	"github.com/percona/percona-xtradb-cluster-operator/clientcmd"
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage"
 	"github.com/percona/percona-xtradb-cluster-operator/version"
@@ -93,10 +89,13 @@ type ReconcilePerconaXtraDBClusterRestore struct {
 func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 	log := logf.FromContext(ctx)
 
-	rr := reconcile.Result{}
+	rr := reconcile.Result{
+		// TODO: do not depend on the RequeueAfter
+		RequeueAfter: time.Second * 5,
+	}
 
 	cr := &api.PerconaXtraDBClusterRestore{}
-	err := r.client.Get(context.TODO(), request.NamespacedName, cr)
+	err := r.client.Get(ctx, request.NamespacedName, cr)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
@@ -105,370 +104,278 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(ctx context.Context, re
 		// Error reading the object - requeue the request.
 		return rr, err
 	}
-	if cr.Status.State != api.RestoreNew {
-		return rr, nil
+
+	switch cr.Status.State {
+	case api.RestoreSucceeded, api.RestoreFailed:
+		return reconcile.Result{}, nil
 	}
 
-	log.Info("backup restore request")
-
-	err = r.setStatus(cr, api.RestoreStarting, "")
-	if err != nil {
-		return rr, errors.Wrap(err, "set status")
-	}
-	rJobsList := &api.PerconaXtraDBClusterRestoreList{}
-	err = r.client.List(
-		context.TODO(),
-		rJobsList,
-		&client.ListOptions{
-			Namespace: cr.Namespace,
-		},
-	)
-	if err != nil {
-		return rr, errors.Wrap(err, "get restore jobs list")
-	}
-
-	returnMsg := fmt.Sprintf(backupRestoredMsg, cr.Name, cr.Spec.PXCCluster, cr.Name)
+	statusState := cr.Status.State
+	statusMsg := ""
 
 	defer func() {
-		status := api.BcpRestoreStates(api.RestoreSucceeded)
-		if err != nil {
-			status = api.RestoreFailed
-			returnMsg = err.Error()
-		}
-		err := r.setStatus(cr, status, returnMsg)
-		if err != nil {
-			return
+		if err := setStatus(ctx, r.client, cr, statusState, statusMsg); err != nil {
+			log.Error(err, "failed to set status")
 		}
 	}()
 
-	for _, j := range rJobsList.Items {
-		if j.Spec.PXCCluster == cr.Spec.PXCCluster &&
-			j.Name != cr.Name && j.Status.State != api.RestoreFailed &&
-			j.Status.State != api.RestoreSucceeded {
-			err = errors.Errorf("unable to continue, concurent restore job %s running now.", j.Name)
-			return rr, err
-		}
+	otherRestore, err := isOtherRestoreInProgress(ctx, r.client, cr)
+	if err != nil {
+		return rr, errors.Wrap(err, "failed to check if other restore is in progress")
+	}
+	if otherRestore != nil {
+		err = errors.Errorf("unable to continue, concurent restore job %s running now", otherRestore.Name)
+		statusState = api.RestoreFailed
+		statusMsg = err.Error()
+		return rr, err
 	}
 
-	err = cr.CheckNsetDefaults()
-	if err != nil {
+	if err := cr.CheckNsetDefaults(); err != nil {
+		statusState = api.RestoreFailed
+		statusMsg = err.Error()
 		return rr, err
 	}
 
 	cluster := new(api.PerconaXtraDBCluster)
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Spec.PXCCluster, Namespace: cr.Namespace}, cluster)
-	if err != nil {
-		err = errors.Wrapf(err, "get cluster %s", cr.Spec.PXCCluster)
-		return rr, err
+	if err := r.client.Get(ctx, types.NamespacedName{Name: cr.Spec.PXCCluster, Namespace: cr.Namespace}, cluster); err != nil {
+		if k8serrors.IsNotFound(err) {
+			statusState = api.RestoreFailed
+			statusMsg = err.Error()
+		}
+		return rr, errors.Wrapf(err, "get cluster %s", cr.Spec.PXCCluster)
 	}
-	clusterOrig := cluster.DeepCopy()
 
-	err = cluster.CheckNSetDefaults(r.serverVersion, log)
-	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("wrong PXC options: %v", err)
+	if err := cluster.CheckNSetDefaults(r.serverVersion, log); err != nil {
+		statusState = api.RestoreFailed
+		statusMsg = err.Error()
+		return rr, errors.Wrap(err, "wrong PXC options")
 	}
 
 	err = backup.CheckPITRErrors(ctx, r.client, r.clientcmd, cluster)
 	if err != nil {
-		return reconcile.Result{}, err
+		statusState = api.RestoreFailed
+		statusMsg = err.Error()
+		return rr, err
 	}
 
-	bcp, err := r.getBackup(ctx, cr)
+	bcp, err := getBackup(ctx, r.client, cr)
 	if err != nil {
+		statusState = api.RestoreFailed
+		statusMsg = err.Error()
 		return rr, errors.Wrap(err, "get backup")
 	}
 
-	annotations := cr.GetAnnotations()
-	_, unsafePITR := annotations[api.AnnotationUnsafePITR]
-	cond := meta.FindStatusCondition(bcp.Status.Conditions, api.BackupConditionPITRReady)
-	if cond != nil && cond.Status == metav1.ConditionFalse && !unsafePITR {
-		msg := fmt.Sprintf("Backup doesn't guarantee consistent recovery with PITR. Annotate PerconaXtraDBClusterRestore with %s to force it.", api.AnnotationUnsafePITR)
-		err = errors.New(msg)
-		return reconcile.Result{}, nil
-	}
-
-	err = r.validate(ctx, cr, bcp, cluster)
+	restorer, err := r.getRestorer(cr, bcp, cluster)
 	if err != nil {
-		err = errors.Wrap(err, "failed to validate restore job")
-		return rr, err
+		return rr, errors.Wrap(err, "failed to get restorer")
 	}
 
-	log.Info("stopping cluster", "cluster", cr.Spec.PXCCluster)
-	err = r.setStatus(cr, api.RestoreStopCluster, "")
-	if err != nil {
-		err = errors.Wrap(err, "set status")
-		return rr, err
-	}
-	err = r.stopCluster(cluster.DeepCopy())
-	if err != nil {
-		err = errors.Wrapf(err, "stop cluster %s", cluster.Name)
-		return rr, err
-	}
-
-	log.Info("starting restore", "cluster", cr.Spec.PXCCluster, "backup", cr.Spec.BackupName)
-	err = r.setStatus(cr, api.RestoreRestore, "")
-	if err != nil {
-		err = errors.Wrap(err, "set status")
-		return rr, err
-	}
-
-	err = r.restore(ctx, cr, bcp, cluster)
-	if err != nil {
-		err = errors.Wrap(err, "run restore")
-		return rr, err
-	}
-
-	log.Info("starting cluster", "cluster", cr.Spec.PXCCluster)
-	err = r.setStatus(cr, api.RestoreStartCluster, "")
-	if err != nil {
-		err = errors.Wrap(err, "set status")
-		return rr, err
-	}
-
-	if cr.Spec.PITR != nil {
-		oldSize := cluster.Spec.PXC.Size
-		oldUnsafe := cluster.Spec.AllowUnsafeConfig
-		cluster.Spec.PXC.Size = 1
-		cluster.Spec.AllowUnsafeConfig = true
-
-		if err := r.startCluster(cluster); err != nil {
-			return rr, errors.Wrap(err, "restart cluster for pitr")
+	switch statusState {
+	case api.RestoreNew:
+		annotations := cr.GetAnnotations()
+		_, unsafePITR := annotations[api.AnnotationUnsafePITR]
+		cond := meta.FindStatusCondition(bcp.Status.Conditions, api.BackupConditionPITRReady)
+		if cond != nil && cond.Status == metav1.ConditionFalse && !unsafePITR {
+			statusState = api.RestoreFailed
+			statusMsg = fmt.Sprintf("Backup doesn't guarantee consistent recovery with PITR. Annotate PerconaXtraDBClusterRestore with %s to force it.", api.AnnotationUnsafePITR)
+			return rr, nil
 		}
-
-		log.Info("point-in-time recovering", "cluster", cr.Spec.PXCCluster)
-		err = r.setStatus(cr, api.RestorePITR, "")
+		err = validate(ctx, restorer, cr)
 		if err != nil {
-			return rr, errors.Wrap(err, "set status")
-		}
-
-		err = r.pitr(ctx, cr, bcp, cluster)
-		if err != nil {
-			return rr, errors.Wrap(err, "run pitr")
-		}
-
-		cluster.Spec.PXC.Size = oldSize
-		cluster.Spec.AllowUnsafeConfig = oldUnsafe
-
-		log.Info("starting cluster", "cluster", cr.Spec.PXCCluster)
-		err = r.setStatus(cr, api.RestoreStartCluster, "")
-		if err != nil {
-			err = errors.Wrap(err, "set status")
+			if errors.Is(err, errWaitValidate) {
+				return rr, nil
+			}
+			err = errors.Wrap(err, "failed to validate restore job")
 			return rr, err
 		}
-	}
-
-	err = r.startCluster(clusterOrig)
-	if err != nil {
-		err = errors.Wrap(err, "restart cluster")
-		return rr, err
-	}
-
-	log.Info(returnMsg)
-
-	return rr, err
-}
-
-func (r *ReconcilePerconaXtraDBClusterRestore) getBackup(ctx context.Context, cr *api.PerconaXtraDBClusterRestore) (*api.PerconaXtraDBClusterBackup, error) {
-	if cr.Spec.BackupSource != nil {
-		status := cr.Spec.BackupSource.DeepCopy()
-		status.State = api.BackupSucceeded
-		status.CompletedAt = nil
-		status.LastScheduled = nil
-		return &api.PerconaXtraDBClusterBackup{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      cr.Name,
-				Namespace: cr.Namespace,
-			},
-			Spec: api.PXCBackupSpec{
-				PXCCluster:  cr.Spec.PXCCluster,
-				StorageName: cr.Spec.BackupSource.StorageName,
-			},
-			Status: *status,
-		}, nil
-	}
-
-	bcp := &api.PerconaXtraDBClusterBackup{}
-	err := r.client.Get(ctx, types.NamespacedName{Name: cr.Spec.BackupName, Namespace: cr.Namespace}, bcp)
-	if err != nil {
-		err = errors.Wrapf(err, "get backup %s", cr.Spec.BackupName)
-		return bcp, err
-	}
-	if bcp.Status.State != api.BackupSucceeded {
-		err = errors.Errorf("backup %s didn't finished yet, current state: %s", bcp.Name, bcp.Status.State)
-		return bcp, err
-	}
-
-	return bcp, nil
-}
-
-const backupRestoredMsg = `You can view xtrabackup log:
-$ kubectl logs job/restore-job-%s-%s
-If everything is fine, you can cleanup the job:
-$ kubectl delete pxc-restore/%s
-`
-
-func (r *ReconcilePerconaXtraDBClusterRestore) stopCluster(c *api.PerconaXtraDBCluster) error {
-	var gracePeriodSec int64
-
-	if c.Spec.PXC != nil && c.Spec.PXC.TerminationGracePeriodSeconds != nil {
-		gracePeriodSec = int64(c.Spec.PXC.Size) * *c.Spec.PXC.TerminationGracePeriodSeconds
-	}
-
-	patch := client.MergeFrom(c.DeepCopy())
-	c.Spec.Pause = true
-	err := r.client.Patch(context.TODO(), c, patch)
-	if err != nil {
-		return errors.Wrap(err, "shutdown pods")
-	}
-
-	ls := statefulset.NewNode(c).Labels()
-	err = r.waitForPodsShutdown(ls, c.Namespace, gracePeriodSec)
-	if err != nil {
-		return errors.Wrap(err, "shutdown pods")
-	}
-
-	pvcs := corev1.PersistentVolumeClaimList{}
-	err = r.client.List(
-		context.TODO(),
-		&pvcs,
-		&client.ListOptions{
-			Namespace:     c.Namespace,
-			LabelSelector: labels.SelectorFromSet(ls),
-		},
-	)
-	if err != nil {
-		return errors.Wrap(err, "get pvc list")
-	}
-
-	pxcNode := statefulset.NewNode(c)
-	pvcNameTemplate := app.DataVolumeName + "-" + pxcNode.StatefulSet().Name
-	for _, pvc := range pvcs.Items {
-		// check prefix just in case, to be sure we're not going to delete a wrong pvc
-		if pvc.Name == pvcNameTemplate+"-0" || !strings.HasPrefix(pvc.Name, pvcNameTemplate) {
-			continue
-		}
-
-		err = r.client.Delete(context.TODO(), &pvc)
+		cr.Status.PXCSize = cluster.Spec.PXC.Size
+		cr.Status.AllowUnsafeConfig = cluster.Spec.AllowUnsafeConfig
+		log.Info("stopping cluster", "cluster", cr.Spec.PXCCluster)
+		statusState = api.RestoreStopCluster
+	case api.RestoreStopCluster:
+		err = stopCluster(ctx, r.client, cluster.DeepCopy())
 		if err != nil {
-			return errors.Wrap(err, "delete pvc")
+			if errors.Is(err, errWaitingPods) || errors.Is(err, errWaitingPVC) {
+				log.Info("waiting for cluster to stop", "cluster", cr.Spec.PXCCluster, "msg", err.Error())
+				return rr, nil
+			}
+			return rr, errors.Wrapf(err, "stop cluster %s", cluster.Name)
+		}
+
+		log.Info("starting restore", "cluster", cr.Spec.PXCCluster, "backup", cr.Spec.BackupName)
+		if err := createRestoreJob(ctx, r.client, restorer, false); err != nil {
+			if errors.Is(err, errWaitInit) {
+				return rr, nil
+			}
+			err = errors.Wrap(err, "run restore")
+			return rr, err
+		}
+		statusState = api.RestoreRestore
+	case api.RestoreRestore:
+		restorerJob, err := restorer.Job()
+		if err != nil {
+			return rr, errors.Wrap(err, "failed to create restore job")
+		}
+		job := new(batchv1.Job)
+		if err := r.client.Get(ctx, types.NamespacedName{
+			Name:      restorerJob.Name,
+			Namespace: restorerJob.Namespace,
+		}, job); err != nil {
+			return rr, errors.Wrap(err, "failed to get restore job")
+		}
+
+		finished, err := isJobFinished(job)
+		if err != nil {
+			statusState = api.RestoreFailed
+			statusMsg = err.Error()
+			return rr, err
+		}
+		if !finished {
+			log.Info("Waiting for restore job to finish", "job", job.Name)
+			return rr, nil
+		}
+
+		if cr.Spec.PITR != nil {
+			if cluster.Spec.Pause {
+				err = k8sretry.RetryOnConflict(k8sretry.DefaultRetry, func() error {
+					current := new(api.PerconaXtraDBCluster)
+					err := r.client.Get(ctx, types.NamespacedName{Name: cluster.Name, Namespace: cluster.Namespace}, current)
+					if err != nil {
+						return errors.Wrap(err, "get cluster")
+					}
+					current.Spec.Pause = false
+					current.Spec.PXC.Size = 1
+					current.Spec.AllowUnsafeConfig = true
+					return r.client.Update(ctx, current)
+				})
+				if err != nil {
+					return rr, errors.Wrap(err, "update cluster")
+				}
+				return rr, nil
+			} else {
+				if cluster.Status.ObservedGeneration != cluster.Generation || cluster.Status.PXC.Status != api.AppStateReady {
+					log.Info("Waiting for cluster to start", "cluster", cluster.Name)
+					return rr, nil
+				}
+			}
+
+			log.Info("point-in-time recovering", "cluster", cr.Spec.PXCCluster)
+			if err := createRestoreJob(ctx, r.client, restorer, true); err != nil {
+				if errors.Is(err, errWaitInit) {
+					return rr, nil
+				}
+				return rr, errors.Wrap(err, "run pitr")
+			}
+			statusState = api.RestorePITR
+			return rr, nil
+		}
+
+		log.Info("starting cluster", "cluster", cr.Spec.PXCCluster)
+		statusState = api.RestoreStartCluster
+	case api.RestorePITR:
+		restorerJob, err := restorer.PITRJob()
+		if err != nil {
+			return rr, errors.Wrap(err, "failed to create restore job")
+		}
+		job := new(batchv1.Job)
+		if err := r.client.Get(ctx, types.NamespacedName{
+			Name:      restorerJob.Name,
+			Namespace: restorerJob.Namespace,
+		}, job); err != nil {
+			return rr, errors.Wrap(err, "failed to get pitr job")
+		}
+
+		finished, err := isJobFinished(job)
+		if err != nil {
+			statusState = api.RestoreFailed
+			statusMsg = err.Error()
+			return rr, err
+		}
+		if !finished {
+			log.Info("Waiting for restore job to finish", "job", job.Name)
+			return rr, nil
+		}
+
+		log.Info("starting cluster", "cluster", cr.Spec.PXCCluster)
+		statusState = api.RestoreStartCluster
+	case api.RestoreStartCluster:
+		if cluster.Spec.Pause || (cr.Status.PXCSize != 0 && cluster.Spec.PXC.Size != cr.Status.PXCSize) {
+			err = k8sretry.RetryOnConflict(k8sretry.DefaultRetry, func() error {
+				current := new(api.PerconaXtraDBCluster)
+				err := r.client.Get(ctx, types.NamespacedName{Name: cluster.Name, Namespace: cluster.Namespace}, current)
+				if err != nil {
+					return errors.Wrap(err, "get cluster")
+				}
+				current.Spec.Pause = false
+				if cr.Status.PXCSize != 0 {
+					current.Spec.PXC.Size = cr.Status.PXCSize
+					current.Spec.AllowUnsafeConfig = cr.Status.AllowUnsafeConfig
+				}
+				return r.client.Update(ctx, current)
+			})
+			if err != nil {
+				return rr, errors.Wrap(err, "update cluster")
+			}
+		} else {
+			if cluster.Status.ObservedGeneration == cluster.Generation && cluster.Status.PXC.Status == api.AppStateReady {
+				if err := restorer.Finalize(ctx); err != nil {
+					return rr, errors.Wrap(err, "failed to finalize restore")
+				}
+
+				statusState = api.RestoreSucceeded
+				return rr, nil
+			}
+		}
+
+		log.Info("Waiting for cluster to start", "cluster", cluster.Name)
+	}
+
+	return rr, nil
+}
+
+func createRestoreJob(ctx context.Context, cl client.Client, restorer Restorer, pitr bool) error {
+	if err := restorer.Init(ctx); err != nil {
+		return errors.Wrap(err, "failed to init restore")
+	}
+
+	job, err := restorer.Job()
+	if err != nil {
+		return errors.Wrap(err, "failed to get restore job")
+	}
+	if pitr {
+		job, err = restorer.PITRJob()
+		if err != nil {
+			return errors.Wrap(err, "failed to create pitr restore job")
 		}
 	}
 
-	err = r.waitForPVCShutdown(ls, c.Namespace)
-	if err != nil {
-		return errors.Wrap(err, "shutdown pvc")
+	if err := cl.Create(ctx, job); err != nil && !k8serrors.IsAlreadyExists(err) {
+		return errors.Wrap(err, "create job")
 	}
 
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBClusterRestore) startCluster(cr *api.PerconaXtraDBCluster) (err error) {
-	// tryin several times just to avoid possible conflicts with the main controller
-	err = k8sretry.RetryOnConflict(k8sretry.DefaultRetry, func() error {
-		// need to get the object with latest version of meta-data for update
-		current := &api.PerconaXtraDBCluster{}
-		rerr := r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, current)
-		if rerr != nil {
-			return errors.Wrap(err, "get cluster")
-		}
-		current.Spec = cr.Spec
-		return r.client.Update(context.TODO(), current)
-	})
+func validate(ctx context.Context, restorer Restorer, cr *api.PerconaXtraDBClusterRestore) error {
+	job, err := restorer.Job()
 	if err != nil {
-		return errors.Wrap(err, "update cluster")
+		return errors.Wrap(err, "failed to create restore job")
+	}
+	if err := restorer.ValidateJob(ctx, job); err != nil {
+		return errors.Wrap(err, "failed to validate job")
 	}
 
-	// give time for process new state
-	time.Sleep(10 * time.Second)
-
-	var waitLimit int32 = 2 * 60 * 60 // 2 hours
-	if cr.Spec.PXC.LivenessInitialDelaySeconds != nil {
-		waitLimit = *cr.Spec.PXC.LivenessInitialDelaySeconds * cr.Spec.PXC.Size
-	}
-
-	for i := int32(0); i < waitLimit; i++ {
-		current := &api.PerconaXtraDBCluster{}
-		err = r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, current)
+	if cr.Spec.PITR != nil {
+		job, err := restorer.PITRJob()
 		if err != nil {
-			return errors.Wrap(err, "get cluster")
+			return errors.Wrap(err, "failed to create pitr restore job")
 		}
-		if current.Status.ObservedGeneration == current.Generation && current.Status.PXC.Status == api.AppStateReady {
-			return nil
+		if err := restorer.ValidateJob(ctx, job); err != nil {
+			return errors.Wrap(err, "failed to validate job")
 		}
-		time.Sleep(time.Second * 1)
 	}
-
-	return errors.Errorf("exceeded wait limit")
-}
-
-const waitLimitSec int64 = 300
-
-func (r *ReconcilePerconaXtraDBClusterRestore) waitForPodsShutdown(ls map[string]string, namespace string, gracePeriodSec int64) error {
-	for i := int64(0); i < waitLimitSec+gracePeriodSec; i++ {
-		pods := corev1.PodList{}
-
-		err := r.client.List(
-			context.TODO(),
-			&pods,
-			&client.ListOptions{
-				Namespace:     namespace,
-				LabelSelector: labels.SelectorFromSet(ls),
-			},
-		)
-		if err != nil {
-			return errors.Wrap(err, "get pods list")
-		}
-
-		if len(pods.Items) == 0 {
-			return nil
-		}
-
-		time.Sleep(time.Second * 1)
+	if err := restorer.Validate(ctx); err != nil {
+		return errors.Wrap(err, "failed to validate backup existence")
 	}
-
-	return errors.Errorf("exceeded wait limit")
-}
-
-func (r *ReconcilePerconaXtraDBClusterRestore) waitForPVCShutdown(ls map[string]string, namespace string) error {
-	for i := int64(0); i < waitLimitSec; i++ {
-		pvcs := corev1.PersistentVolumeClaimList{}
-
-		err := r.client.List(
-			context.TODO(),
-			&pvcs,
-			&client.ListOptions{
-				Namespace:     namespace,
-				LabelSelector: labels.SelectorFromSet(ls),
-			},
-		)
-		if err != nil {
-			return errors.Wrap(err, "get pvc list")
-		}
-
-		if len(pvcs.Items) == 1 {
-			return nil
-		}
-
-		time.Sleep(time.Second * 1)
-	}
-
-	return errors.Errorf("exceeded wait limit")
-}
-
-func (r *ReconcilePerconaXtraDBClusterRestore) setStatus(cr *api.PerconaXtraDBClusterRestore, state api.BcpRestoreStates, comments string) error {
-	cr.Status.State = state
-	switch state {
-	case api.RestoreSucceeded:
-		tm := metav1.NewTime(time.Now())
-		cr.Status.CompletedAt = &tm
-	}
-
-	cr.Status.Comments = comments
-
-	err := r.client.Status().Update(context.TODO(), cr)
-	if err != nil {
-		return errors.Wrap(err, "send update")
-	}
-
 	return nil
 }

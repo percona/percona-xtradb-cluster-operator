@@ -7,7 +7,8 @@ metadata:
     name: restore-src-restore-pvc-sec-context
   name: restore-src-restore-pvc-sec-context
   ownerReferences:
-    - controller: true
+    - blockOwnerDeletion: true
+      controller: true
       kind: PerconaXtraDBClusterRestore
       name: restore-pvc
 spec:

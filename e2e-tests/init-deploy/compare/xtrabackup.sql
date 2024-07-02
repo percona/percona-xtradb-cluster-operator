@@ -1,1 +1,1 @@
-GRANT ALL PRIVILEGES ON *.* TO 'xtrabackup'@'%'
+GRANT ALL PRIVILEGES ON *.* TO 'xtrabackup'@'%' WITH GRANT OPTION

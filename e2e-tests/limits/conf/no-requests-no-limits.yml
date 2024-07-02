@@ -18,7 +18,7 @@ spec:
       antiAffinityTopologyKey: none
   proxysql:
     enabled: true
-    size: 1
+    size: 2
     image: -proxysql
     volumeSpec:
       persistentVolumeClaim:

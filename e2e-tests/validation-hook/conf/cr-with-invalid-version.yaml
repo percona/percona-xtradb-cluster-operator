@@ -10,13 +10,13 @@ spec:
 
   haproxy:
     image: perconalab/percona-xtradb-cluster-operator:main-haproxy
-    size: 1
+    size: 2
     enabled: true
     replicasServiceEnabled: false
 
   pxc:
     image: percona/percona-xtradb-cluster:8.0
-    size: 1
+    size: 3
     forceUnsafeBootstrap: false
     volumeSpec:
       persistentVolumeClaim:

@@ -24,7 +24,7 @@ spec:
       antiAffinityTopologyKey: "failure-domain.beta.kubernetes.io/zone"
   proxysql:
     enabled: true
-    size: 1
+    size: 2
     image: -proxysql
     resources:
       requests:

@@ -22,7 +22,7 @@ spec:
     envVarsSecret: my-env-var-secrets
   haproxy:
     enabled: true
-    size: 1
+    size: 2
     image: -haproxy
     resources:
       requests:

@@ -15,7 +15,7 @@ spec:
         ephemeral-storage: 1G
   proxysql:
     enabled: true
-    size: 1
+    size: 2
     image: -proxysql
     volumeSpec:
       emptyDir: {}

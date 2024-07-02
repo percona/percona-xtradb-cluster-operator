@@ -4,7 +4,9 @@ metadata:
   name: one-pod
 spec:
   secretsName: my-cluster-secrets
-  allowUnsafeConfigurations: true
+  unsafeFlags:
+    pxcSize: true
+    proxySize: true
   pause: false
   pxc:
     size: 1

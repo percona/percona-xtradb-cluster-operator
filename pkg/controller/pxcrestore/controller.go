@@ -168,23 +168,25 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(ctx context.Context, re
 		return reconcile.Result{}, fmt.Errorf("wrong PXC options: %v", err)
 	}
 
-	err = backup.CheckPITRErrors(ctx, r.client, r.clientcmd, cluster)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
 	bcp, err := r.getBackup(ctx, cr)
 	if err != nil {
 		return rr, errors.Wrap(err, "get backup")
 	}
 
-	annotations := cr.GetAnnotations()
-	_, unsafePITR := annotations[api.AnnotationUnsafePITR]
-	cond := meta.FindStatusCondition(bcp.Status.Conditions, api.BackupConditionPITRReady)
-	if cond != nil && cond.Status == metav1.ConditionFalse && !unsafePITR {
-		msg := fmt.Sprintf("Backup doesn't guarantee consistent recovery with PITR. Annotate PerconaXtraDBClusterRestore with %s to force it.", api.AnnotationUnsafePITR)
-		err = errors.New(msg)
-		return reconcile.Result{}, nil
+	if cr.Spec.PITR != nil {
+		err = backup.CheckPITRErrors(ctx, r.client, r.clientcmd, cluster)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+
+		annotations := cr.GetAnnotations()
+		_, unsafePITR := annotations[api.AnnotationUnsafePITR]
+		cond := meta.FindStatusCondition(bcp.Status.Conditions, api.BackupConditionPITRReady)
+		if cond != nil && cond.Status == metav1.ConditionFalse && !unsafePITR {
+			msg := fmt.Sprintf("Backup doesn't guarantee consistent recovery with PITR. Annotate PerconaXtraDBClusterRestore with %s to force it.", api.AnnotationUnsafePITR)
+			err = errors.New(msg)
+			return reconcile.Result{}, nil
+		}
 	}
 
 	err = r.validate(ctx, cr, bcp, cluster)

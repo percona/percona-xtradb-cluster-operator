@@ -146,6 +146,15 @@ check_binlog_gap_restore() {
 		compare_mysql_cmd "select-gap" "SELECT * from test.gap;" "-h $cluster-pxc-1.$cluster-pxc -uroot -proot_password"
 		compare_mysql_cmd "select-gap" "SELECT * from test.gap;" "-h $cluster-pxc-2.$cluster-pxc -uroot -proot_password"
 		kubectl_bin delete -f "$test_dir/conf/restore-on-pitr-minio-gap-force.yaml"
+	elif [ "$type" == "no-pitr" ]; then
+		kubectl_bin apply -f $test_dir/conf/restore-on-pitr-minio-gap-no-pitr.yaml
+		wait_backup_restore "on-pitr-minio-gap-no-pitr" "Succeeded"
+		local backup_error=$(kubectl_bin get pxc-restore on-pitr-minio-gap-no-pitr -ojsonpath='{.status.comments}' | grep -c "Backup doesn't guarantee consistent recovery with PITR. Annotate PerconaXtraDBClusterRestore with percona.com/unsafe-pitr to force it.")
+		if [[ $backup_error -ne 0 ]]; then
+			echo "ERROR: Backup is tagged as PITR unready in the backup condition."
+			kubectl_bin get pxc-backup on-pitr-minio-gap -oyaml
+			exit 1
+		fi
 	else
 		echo "Wrong restore type!"
 		exit 1
@@ -344,6 +353,7 @@ main() {
 	check_binlog_gap_error
 	check_binlog_gap_restore "error"
 	check_binlog_gap_restore "force"
+	check_binlog_gap_restore "no-pitr"
 	desc "done binlog gap test"
 
 	invalid_binlog_test

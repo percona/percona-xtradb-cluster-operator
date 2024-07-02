@@ -21,8 +21,9 @@ RUN mkdir -p build/_output/bin \
                cmd/manager/main.go \
     && cp -r build/_output/bin/percona-xtradb-cluster-operator /usr/local/bin/percona-xtradb-cluster-operator
 
-RUN go build -o build/_output/bin/peer-list cmd/peer-list/main.go \
-    && cp -r build/_output/bin/peer-list /usr/local/bin/
+RUN GOOS=$GOOS GOARCH=${TARGETARCH} CGO_ENABLED=$CGO_ENABLED GO_LDFLAGS=$GO_LDFLAGS \
+    go build -o build/_output/bin/peer-list cmd/peer-list/main.go \
+        && cp -r build/_output/bin/peer-list /usr/local/bin/
 
 # Looking for all possible License/Notice files and copying them to the image
 RUN find $GOPATH/pkg/mod -regextype posix-extended -iregex '.*(license|notice)(\.md|\.txt|$)' \

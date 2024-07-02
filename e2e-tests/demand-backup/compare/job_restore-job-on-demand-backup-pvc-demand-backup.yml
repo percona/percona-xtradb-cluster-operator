@@ -3,12 +3,12 @@ kind: Job
 metadata:
   generation: 1
   labels:
-    job-name: restore-job-on-demand-backup-minio-demand-backup
-  name: restore-job-on-demand-backup-minio-demand-backup
+    job-name: restore-job-on-demand-backup-pvc-demand-backup
+  name: restore-job-on-demand-backup-pvc-demand-backup
   ownerReferences:
     - controller: true
       kind: PerconaXtraDBClusterRestore
-      name: on-demand-backup-minio
+      name: on-demand-backup-pvc
 spec:
   backoffLimit: 4
   completionMode: NonIndexed
@@ -20,51 +20,22 @@ spec:
   template:
     metadata:
       labels:
-        job-name: restore-job-on-demand-backup-minio-demand-backup
+        job-name: restore-job-on-demand-backup-pvc-demand-backup
     spec:
       containers:
         - command:
-            - recovery-cloud.sh
+            - recovery-pvc-joiner.sh
           env:
-            - name: PXC_SERVICE
-              value: demand-backup-pxc
-            - name: PXC_USER
-              value: xtrabackup
-            - name: PXC_PASS
-              valueFrom:
-                secretKeyRef:
-                  key: xtrabackup
-                  name: my-cluster-secrets
-            - name: VERIFY_TLS
-              value: "false"
-            - name: ENDPOINT
-              value: https://minio-service.namespace:9000/
-            - name: DEFAULT_REGION
-              value: us-east-1
-            - name: ACCESS_KEY_ID
-              valueFrom:
-                secretKeyRef:
-                  key: AWS_ACCESS_KEY_ID
-                  name: minio-secret
-            - name: SECRET_ACCESS_KEY
-              valueFrom:
-                secretKeyRef:
-                  key: AWS_SECRET_ACCESS_KEY
-                  name: minio-secret
-            - name: XB_EXTRA_ARGS
-              value: --parallel=3
-            - name: XBCLOUD_EXTRA_ARGS
-              value: --parallel=3
-            - name: XBSTREAM_EXTRA_ARGS
-              value: --parallel=3
+            - name: RESTORE_SRC_SERVICE
+              value: restore-src-on-demand-backup-pvc-demand-backup
             - name: XB_USE_MEMORY
-              value: "1500000000"
+              value: 2GB
           imagePullPolicy: Always
           name: xtrabackup
           resources:
             limits:
-              cpu: "1"
-              memory: 2G
+              cpu: "2"
+              memory: 3G
             requests:
               cpu: 500m
               memory: 500M
@@ -75,6 +46,10 @@ spec:
               name: datadir
             - mountPath: /etc/mysql/vault-keyring-secret
               name: vault-keyring-secret
+            - mountPath: /etc/mysql/ssl
+              name: ssl
+            - mountPath: /etc/mysql/ssl-internal
+              name: ssl-internal
       dnsPolicy: ClusterFirst
       restartPolicy: Never
       schedulerName: default-scheduler
@@ -94,3 +69,13 @@ spec:
             defaultMode: 420
             optional: true
             secretName: some-name-vault
+        - name: ssl-internal
+          secret:
+            defaultMode: 420
+            optional: true
+            secretName: demand-backup-ssl-internal
+        - name: ssl
+          secret:
+            defaultMode: 420
+            optional: false
+            secretName: demand-backup-ssl

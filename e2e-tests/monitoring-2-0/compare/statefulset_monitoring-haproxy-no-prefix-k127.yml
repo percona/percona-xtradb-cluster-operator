@@ -242,6 +242,8 @@ spec:
           env:
             - name: PXC_SERVICE
               value: monitoring-pxc
+            - name: REPLICAS_SVC_ONLY_READERS
+              value: "false"
           envFrom:
             - secretRef:
                 name: my-env-var-secrets

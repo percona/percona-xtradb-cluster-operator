@@ -40,7 +40,7 @@ spec:
     podSecurityContext:
       runAsUser: 1001
       fsGroup: 1001
-    size: 1
+    size: 2
     image: -proxysql
     serviceAccountName: percona-xtradb-cluster-operator-workload
     resources:

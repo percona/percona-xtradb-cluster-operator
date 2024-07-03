@@ -10,7 +10,7 @@ set_debug
 spinup_pxc() {
 	local cluster=$1
 	local config=$2
-	local size="${3:-3}"
+	local size="${3:-1}"
 
 	desc 'create first PXC cluster'
 	kubectl_bin apply \
@@ -19,7 +19,7 @@ spinup_pxc() {
 	apply_config "$conf_dir/client.yml"
 	apply_config "$config"
 
-	desc 'check if all 3 Pods started'
+	desc "check if all ${size} pods are started"
 	wait_for_running "$cluster-pxc" "$size"
 	sleep 15
 

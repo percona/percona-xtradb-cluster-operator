@@ -2,6 +2,7 @@ package pxc
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -13,6 +14,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
 )
 
@@ -103,6 +105,17 @@ var _ = Describe("Service labels and annotations", Ordered, func() {
 				cr.Spec.PXC.Expose.Annotations = map[string]string{"cr-annotation": "test"}
 				cr.Spec.HAProxy.ExposePrimary.Labels = map[string]string{"cr-label": "test"}
 				cr.Spec.HAProxy.ExposePrimary.Annotations = map[string]string{"cr-annotation": "test"}
+
+				if cr.Spec.HAProxy.ExposeReplicas == nil {
+					cr.Spec.HAProxy.ExposeReplicas = &pxcv1.ReplicasServiceExpose{}
+				}
+
+				if cr.Spec.HAProxy.ExposeReplicas.ServiceExpose == nil {
+					cr.Spec.HAProxy.ExposeReplicas.ServiceExpose = &pxcv1.ServiceExpose{
+						Enabled: true,
+					}
+				}
+
 				cr.Spec.HAProxy.ExposeReplicas.ServiceExpose.Labels = map[string]string{"cr-label": "test"}
 				cr.Spec.HAProxy.ExposeReplicas.ServiceExpose.Annotations = map[string]string{"cr-annotation": "test"}
 				cr.Spec.ProxySQL.Expose.Labels = map[string]string{"cr-label": "test"}
@@ -120,6 +133,8 @@ var _ = Describe("Service labels and annotations", Ordered, func() {
 					svc := new(corev1.Service)
 
 					Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(services[i]), svc)).To(Succeed())
+
+					fmt.Printf("Service: %s labels:%+v annotations:%+v\n", svc.Name, svc.Labels, svc.Annotations)
 
 					Expect(svc.Labels["manual-label"]).To(Equal(""))
 					Expect(svc.Annotations["manual-annotation"]).To(Equal(""))

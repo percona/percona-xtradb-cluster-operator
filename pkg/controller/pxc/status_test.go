@@ -57,7 +57,7 @@ func newCR(name, namespace string) *api.PerconaXtraDBCluster {
 					Type:    corev1.ServiceTypeClusterIP,
 				},
 				ExposeReplicas: &api.ReplicasServiceExpose{
-					ServiceExpose: &api.ServiceExpose{
+					ServiceExpose: api.ServiceExpose{
 						Enabled: false,
 						Type:    corev1.ServiceTypeClusterIP,
 					},

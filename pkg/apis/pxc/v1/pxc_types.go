@@ -491,8 +491,8 @@ type HAProxySpec struct {
 }
 
 type ReplicasServiceExpose struct {
-	ServiceExpose *ServiceExpose `json:",inline"`
-	OnlyReaders   bool           `json:"onlyReaders,omitempty"`
+	ServiceExpose `json:",inline"`
+	OnlyReaders   bool `json:"onlyReaders,omitempty"`
 }
 
 type PodDisruptionBudgetSpec struct {
@@ -899,15 +899,9 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 		if cr.CompareVersionWith("1.14.0") >= 0 {
 			if c.HAProxy.ExposeReplicas == nil {
 				c.HAProxy.ExposeReplicas = &ReplicasServiceExpose{
-					ServiceExpose: &ServiceExpose{
+					ServiceExpose: ServiceExpose{
 						Enabled: true,
 					},
-				}
-			}
-
-			if c.HAProxy.ExposeReplicas.ServiceExpose == nil {
-				c.HAProxy.ExposeReplicas.ServiceExpose = &ServiceExpose{
-					Enabled: true,
 				}
 			}
 		} else {

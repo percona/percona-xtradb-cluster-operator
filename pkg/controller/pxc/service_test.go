@@ -2,7 +2,6 @@ package pxc
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -107,12 +106,10 @@ var _ = Describe("Service labels and annotations", Ordered, func() {
 				cr.Spec.HAProxy.ExposePrimary.Annotations = map[string]string{"cr-annotation": "test"}
 
 				if cr.Spec.HAProxy.ExposeReplicas == nil {
-					cr.Spec.HAProxy.ExposeReplicas = &pxcv1.ReplicasServiceExpose{}
-				}
-
-				if cr.Spec.HAProxy.ExposeReplicas.ServiceExpose == nil {
-					cr.Spec.HAProxy.ExposeReplicas.ServiceExpose = &pxcv1.ServiceExpose{
-						Enabled: true,
+					cr.Spec.HAProxy.ExposeReplicas = &pxcv1.ReplicasServiceExpose{
+						ServiceExpose: pxcv1.ServiceExpose{
+							Enabled: true,
+						},
 					}
 				}
 
@@ -133,8 +130,6 @@ var _ = Describe("Service labels and annotations", Ordered, func() {
 					svc := new(corev1.Service)
 
 					Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(services[i]), svc)).To(Succeed())
-
-					fmt.Printf("Service: %s labels:%+v annotations:%+v\n", svc.Name, svc.Labels, svc.Annotations)
 
 					Expect(svc.Labels["manual-label"]).To(Equal(""))
 					Expect(svc.Annotations["manual-annotation"]).To(Equal(""))

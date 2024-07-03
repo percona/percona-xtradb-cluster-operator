@@ -91,8 +91,12 @@ desc 'delete old PMM key'
 ID_API_KEY_OLD=$(curl --insecure -X GET "https://admin:$ADMIN_PASSWORD@$(get_service_endpoint monitoring-service)/graph/api/auth/keys" | jq '.[] | select( .name == "operator").id')
 curl --insecure -X DELETE "https://admin:$ADMIN_PASSWORD@$(get_service_endpoint monitoring-service)/graph/api/auth/keys/$ID_API_KEY_OLD"
 
-wait_for_generation "sts/$cluster-pxc" 3
+# we changed the password and because of it we will get new annotation last-applied-secret. Also PMM_PREFIX will be added. So generation of pxc will be + 2
+#`PMM_PREFIX` and `last-applied-secret` annotation will be added. PXC statefulset will be incremented by 2.
+wait_for_generation "sts/$cluster-pxc" 4
+#`PMM_PREFIX` will be added. HAProxy statefulset will be incremented by 1.
 wait_for_generation "sts/$cluster-haproxy" 3
+
 sleep 10
 kubectl wait pod -l 'app.kubernetes.io/managed-by=percona-xtradb-cluster-operator' --for=condition=ready --timeout=600s
 

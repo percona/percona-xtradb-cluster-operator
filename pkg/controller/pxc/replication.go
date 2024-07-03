@@ -25,7 +25,7 @@ const replicationPodLabel = "percona.com/replicationPod"
 
 var minReplicationVersion = version.Must(version.NewVersion("8.0.23-14.1"))
 
-func (r *ReconcilePerconaXtraDBCluster) ensurePxcPodServices(cr *api.PerconaXtraDBCluster) error {
+func (r *ReconcilePerconaXtraDBCluster) ensurePxcPodServices(ctx context.Context, cr *api.PerconaXtraDBCluster) error {
 	if cr.Spec.Pause {
 		return nil
 	}
@@ -52,7 +52,7 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePxcPodServices(cr *api.PerconaXtra
 		svcName := fmt.Sprintf("%s-pxc-%d", cr.Name, i)
 		svc := NewExposedPXCService(svcName, cr)
 
-		err = r.createOrUpdateService(cr, svc, len(cr.Spec.PXC.Expose.Annotations) == 0)
+		err = r.createOrUpdateService(ctx, cr, svc, len(cr.Spec.PXC.Expose.Annotations) == 0)
 		if err != nil {
 			return errors.Wrap(err, "failed to ensure pxc service")
 		}

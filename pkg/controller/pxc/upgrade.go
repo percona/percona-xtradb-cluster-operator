@@ -11,12 +11,12 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
+	k8sretry "k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -34,191 +34,197 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(ctx context.Context, sfs api.S
 		return nil
 	}
 
-	currentSet := sfs.StatefulSet()
-	newAnnotations := currentSet.Spec.Template.Annotations // need this step to save all new annotations that was set to currentSet in this reconcile loop
-	err := r.client.Get(ctx, types.NamespacedName{Name: currentSet.Name, Namespace: currentSet.Namespace}, currentSet)
-	if err != nil {
-		return errors.Wrap(err, "failed to get statefulset")
-	}
-
-	currentSet.Spec.UpdateStrategy = sfs.UpdateStrategy(cr)
-
-	// support annotation adjustements
-	pxc.MergeTemplateAnnotations(currentSet, podSpec.Annotations)
-
-	// change the pod size
-	currentSet.Spec.Replicas = &podSpec.Size
-	currentSet.Spec.Template.Spec.SecurityContext = podSpec.PodSecurityContext
-	currentSet.Spec.Template.Spec.ImagePullSecrets = podSpec.ImagePullSecrets
-
-	if currentSet.Spec.Template.Labels == nil {
-		currentSet.Spec.Template.Labels = make(map[string]string)
-	}
-
-	for k, v := range podSpec.Labels {
-		currentSet.Spec.Template.Labels[k] = v
-	}
-
-	err = r.reconcileConfigMap(cr)
-	if err != nil {
-		return errors.Wrap(err, "upgradePod/updateApp error: update db config error")
-	}
-
-	// embed DB configuration hash
-	// TODO: code duplication with deploy function
-	configHash, err := r.getConfigHash(cr, sfs)
-	if err != nil {
-		return errors.Wrap(err, "getting config hash")
-	}
-
-	if currentSet.Spec.Template.Annotations == nil {
-		currentSet.Spec.Template.Annotations = make(map[string]string)
-	}
-
-	pxc.MergeTemplateAnnotations(currentSet, newAnnotations)
-
-	if cr.CompareVersionWith("1.1.0") >= 0 {
-		currentSet.Spec.Template.Annotations["percona.com/configuration-hash"] = configHash
-	}
-	if cr.CompareVersionWith("1.5.0") >= 0 {
-		currentSet.Spec.Template.Spec.ServiceAccountName = podSpec.ServiceAccountName
-	}
-
-	// change TLS secret configuration
-	sslHash, err := r.getSecretHash(cr, cr.Spec.PXC.SSLSecretName, cr.Spec.AllowUnsafeConfig)
-	if err != nil {
-		return errors.Wrap(err, "upgradePod/updateApp error: update secret error")
-	}
-	if sslHash != "" && cr.CompareVersionWith("1.1.0") >= 0 {
-		currentSet.Spec.Template.Annotations["percona.com/ssl-hash"] = sslHash
-	}
-
-	sslInternalHash, err := r.getSecretHash(cr, cr.Spec.PXC.SSLInternalSecretName, cr.Spec.AllowUnsafeConfig)
-	if err != nil && !k8serrors.IsNotFound(err) {
-		return errors.Wrap(err, "upgradePod/updateApp error: update secret error")
-	}
-	if sslInternalHash != "" && cr.CompareVersionWith("1.1.0") >= 0 {
-		currentSet.Spec.Template.Annotations["percona.com/ssl-internal-hash"] = sslInternalHash
-	}
-
-	vaultConfigHash, err := r.getSecretHash(cr, cr.Spec.VaultSecretName, true)
-	if err != nil {
-		return errors.Wrap(err, "upgradePod/updateApp error: update secret error")
-	}
-	if vaultConfigHash != "" && cr.CompareVersionWith("1.6.0") >= 0 && !isHAproxy(sfs) {
-		currentSet.Spec.Template.Annotations["percona.com/vault-config-hash"] = vaultConfigHash
-	}
-
-	if cr.CompareVersionWith("1.9.0") >= 0 {
-		envVarsHash, err := r.getSecretHash(cr, cr.Spec.PXC.EnvVarsSecretName, true)
-		if isHAproxy(sfs) {
-			envVarsHash, err = r.getSecretHash(cr, cr.Spec.HAProxy.EnvVarsSecretName, true)
-		} else if isProxySQL(sfs) {
-			envVarsHash, err = r.getSecretHash(cr, cr.Spec.ProxySQL.EnvVarsSecretName, true)
+	err := k8sretry.RetryOnConflict(k8sretry.DefaultRetry, func() error {
+		currentSet := sfs.StatefulSet()
+		newAnnotations := currentSet.Spec.Template.Annotations // need this step to save all new annotations that was set to currentSet in this reconcile loop
+		err := r.client.Get(ctx, types.NamespacedName{Name: currentSet.Name, Namespace: currentSet.Namespace}, currentSet)
+		if err != nil {
+			return errors.Wrap(err, "failed to get statefulset")
 		}
+
+		currentSet.Spec.UpdateStrategy = sfs.UpdateStrategy(cr)
+
+		// support annotation adjustements
+		pxc.MergeTemplateAnnotations(currentSet, podSpec.Annotations)
+
+		// change the pod size
+		currentSet.Spec.Replicas = &podSpec.Size
+		currentSet.Spec.Template.Spec.SecurityContext = podSpec.PodSecurityContext
+		currentSet.Spec.Template.Spec.ImagePullSecrets = podSpec.ImagePullSecrets
+
+		if currentSet.Spec.Template.Labels == nil {
+			currentSet.Spec.Template.Labels = make(map[string]string)
+		}
+
+		for k, v := range podSpec.Labels {
+			currentSet.Spec.Template.Labels[k] = v
+		}
+
+		err = r.reconcileConfigMap(cr)
+		if err != nil {
+			return errors.Wrap(err, "upgradePod/updateApp error: update db config error")
+		}
+
+		// embed DB configuration hash
+		// TODO: code duplication with deploy function
+		configHash, err := r.getConfigHash(cr, sfs)
+		if err != nil {
+			return errors.Wrap(err, "getting config hash")
+		}
+
+		if currentSet.Spec.Template.Annotations == nil {
+			currentSet.Spec.Template.Annotations = make(map[string]string)
+		}
+
+		pxc.MergeTemplateAnnotations(currentSet, newAnnotations)
+
+		if cr.CompareVersionWith("1.1.0") >= 0 {
+			currentSet.Spec.Template.Annotations["percona.com/configuration-hash"] = configHash
+		}
+		if cr.CompareVersionWith("1.5.0") >= 0 {
+			currentSet.Spec.Template.Spec.ServiceAccountName = podSpec.ServiceAccountName
+		}
+
+		// change TLS secret configuration
+		sslHash, err := r.getSecretHash(cr, cr.Spec.PXC.SSLSecretName, cr.Spec.AllowUnsafeConfig)
 		if err != nil {
 			return errors.Wrap(err, "upgradePod/updateApp error: update secret error")
 		}
-		if envVarsHash != "" {
-			currentSet.Spec.Template.Annotations["percona.com/env-secret-config-hash"] = envVarsHash
+		if sslHash != "" && cr.CompareVersionWith("1.1.0") >= 0 {
+			currentSet.Spec.Template.Annotations["percona.com/ssl-hash"] = sslHash
 		}
-	}
 
-	if isHAproxy(sfs) && cr.CompareVersionWith("1.6.0") >= 0 {
-		delete(currentSet.Spec.Template.Annotations, "percona.com/ssl-internal-hash")
-		delete(currentSet.Spec.Template.Annotations, "percona.com/ssl-hash")
-	}
+		sslInternalHash, err := r.getSecretHash(cr, cr.Spec.PXC.SSLInternalSecretName, cr.Spec.AllowUnsafeConfig)
+		if err != nil && !k8serrors.IsNotFound(err) {
+			return errors.Wrap(err, "upgradePod/updateApp error: update secret error")
+		}
+		if sslInternalHash != "" && cr.CompareVersionWith("1.1.0") >= 0 {
+			currentSet.Spec.Template.Annotations["percona.com/ssl-internal-hash"] = sslInternalHash
+		}
 
-	var newContainers []corev1.Container
-	var newInitContainers []corev1.Container
-
-	secretsName := cr.Spec.SecretsName
-	if cr.CompareVersionWith("1.6.0") >= 0 {
-		secretsName = "internal-" + cr.Name
-	}
-
-	secret := new(corev1.Secret)
-	err = r.client.Get(ctx, types.NamespacedName{
-		Name: secretsName, Namespace: cr.Namespace,
-	}, secret)
-	if client.IgnoreNotFound(err) != nil {
-		return errors.Wrap(err, "get internal secret")
-	}
-	// pmm container
-	if cr.Spec.PMM != nil && cr.Spec.PMM.IsEnabled(secret) {
-		pmmC, err := sfs.PMMContainer(ctx, r.client, cr.Spec.PMM, secret, cr)
+		vaultConfigHash, err := r.getSecretHash(cr, cr.Spec.VaultSecretName, true)
 		if err != nil {
-			return errors.Wrap(err, "pmm container error")
+			return errors.Wrap(err, "upgradePod/updateApp error: update secret error")
 		}
-		if pmmC != nil {
-			newContainers = append(newContainers, *pmmC)
+		if vaultConfigHash != "" && cr.CompareVersionWith("1.6.0") >= 0 && !isHAproxy(sfs) {
+			currentSet.Spec.Template.Annotations["percona.com/vault-config-hash"] = vaultConfigHash
 		}
-	}
 
-	// log-collector container
-	if cr.Spec.LogCollector != nil && cr.Spec.LogCollector.Enabled && cr.CompareVersionWith("1.7.0") >= 0 {
-		logCollectorC, err := sfs.LogCollectorContainer(cr.Spec.LogCollector, cr.Spec.LogCollectorSecretName, secretsName, cr)
+		if cr.CompareVersionWith("1.9.0") >= 0 {
+			envVarsHash, err := r.getSecretHash(cr, cr.Spec.PXC.EnvVarsSecretName, true)
+			if isHAproxy(sfs) {
+				envVarsHash, err = r.getSecretHash(cr, cr.Spec.HAProxy.EnvVarsSecretName, true)
+			} else if isProxySQL(sfs) {
+				envVarsHash, err = r.getSecretHash(cr, cr.Spec.ProxySQL.EnvVarsSecretName, true)
+			}
+			if err != nil {
+				return errors.Wrap(err, "upgradePod/updateApp error: update secret error")
+			}
+			if envVarsHash != "" {
+				currentSet.Spec.Template.Annotations["percona.com/env-secret-config-hash"] = envVarsHash
+			}
+		}
+
+		if isHAproxy(sfs) && cr.CompareVersionWith("1.6.0") >= 0 {
+			delete(currentSet.Spec.Template.Annotations, "percona.com/ssl-internal-hash")
+			delete(currentSet.Spec.Template.Annotations, "percona.com/ssl-hash")
+		}
+
+		var newContainers []corev1.Container
+		var newInitContainers []corev1.Container
+
+		secretsName := cr.Spec.SecretsName
+		if cr.CompareVersionWith("1.6.0") >= 0 {
+			secretsName = "internal-" + cr.Name
+		}
+
+		secret := new(corev1.Secret)
+		err = r.client.Get(ctx, types.NamespacedName{
+			Name: secretsName, Namespace: cr.Namespace,
+		}, secret)
+		if client.IgnoreNotFound(err) != nil {
+			return errors.Wrap(err, "get internal secret")
+		}
+		// pmm container
+		if cr.Spec.PMM != nil && cr.Spec.PMM.IsEnabled(secret) {
+			pmmC, err := sfs.PMMContainer(ctx, r.client, cr.Spec.PMM, secret, cr)
+			if err != nil {
+				return errors.Wrap(err, "pmm container error")
+			}
+			if pmmC != nil {
+				newContainers = append(newContainers, *pmmC)
+			}
+		}
+
+		// log-collector container
+		if cr.Spec.LogCollector != nil && cr.Spec.LogCollector.Enabled && cr.CompareVersionWith("1.7.0") >= 0 {
+			logCollectorC, err := sfs.LogCollectorContainer(cr.Spec.LogCollector, cr.Spec.LogCollectorSecretName, secretsName, cr)
+			if err != nil {
+				return errors.Wrap(err, "logcollector container error")
+			}
+			if logCollectorC != nil {
+				newContainers = append(newContainers, logCollectorC...)
+			}
+		}
+
+		// volumes
+		sfsVolume, err := sfs.Volumes(podSpec, cr, r.getConfigVolume)
 		if err != nil {
-			return errors.Wrap(err, "logcollector container error")
+			return errors.Wrap(err, "volumes error")
 		}
-		if logCollectorC != nil {
-			newContainers = append(newContainers, logCollectorC...)
+
+		// application container
+		appC, err := sfs.AppContainer(podSpec, secretsName, cr, sfsVolume.Volumes)
+		if err != nil {
+			return errors.Wrap(err, "app container error")
 		}
-	}
 
-	// volumes
-	sfsVolume, err := sfs.Volumes(podSpec, cr, r.getConfigVolume)
-	if err != nil {
-		return errors.Wrap(err, "volumes error")
-	}
+		newContainers = append(newContainers, appC)
 
-	// application container
-	appC, err := sfs.AppContainer(podSpec, secretsName, cr, sfsVolume.Volumes)
-	if err != nil {
-		return errors.Wrap(err, "app container error")
-	}
-
-	newContainers = append(newContainers, appC)
-
-	if len(initContainers) > 0 {
-		newInitContainers = append(newInitContainers, initContainers...)
-	}
-
-	if podSpec.ForceUnsafeBootstrap {
-		log.Info("spec.pxc.forceUnsafeBootstrap option is not supported since v1.10")
-
-		if cr.CompareVersionWith("1.10.0") < 0 {
-			ic := appC.DeepCopy()
-			ic.Name = ic.Name + "-init-unsafe"
-			ic.Resources = podSpec.Resources
-			ic.ReadinessProbe = nil
-			ic.LivenessProbe = nil
-			ic.Command = []string{"/var/lib/mysql/unsafe-bootstrap.sh"}
-			newInitContainers = append(newInitContainers, *ic)
+		if len(initContainers) > 0 {
+			newInitContainers = append(newInitContainers, initContainers...)
 		}
-	}
 
-	// sidecars
-	sideC, err := sfs.SidecarContainers(podSpec, secretsName, cr)
+		if podSpec.ForceUnsafeBootstrap {
+			log.Info("spec.pxc.forceUnsafeBootstrap option is not supported since v1.10")
+
+			if cr.CompareVersionWith("1.10.0") < 0 {
+				ic := appC.DeepCopy()
+				ic.Name = ic.Name + "-init-unsafe"
+				ic.Resources = podSpec.Resources
+				ic.ReadinessProbe = nil
+				ic.LivenessProbe = nil
+				ic.Command = []string{"/var/lib/mysql/unsafe-bootstrap.sh"}
+				newInitContainers = append(newInitContainers, *ic)
+			}
+		}
+
+		// sidecars
+		sideC, err := sfs.SidecarContainers(podSpec, secretsName, cr)
+		if err != nil {
+			return errors.Wrap(err, "sidecar container error")
+		}
+		newContainers = append(newContainers, sideC...)
+
+		newContainers = api.AddSidecarContainers(log, newContainers, podSpec.Sidecars)
+
+		currentSet.Spec.Template.Spec.Containers = newContainers
+		currentSet.Spec.Template.Spec.InitContainers = newInitContainers
+		currentSet.Spec.Template.Spec.Affinity = pxc.PodAffinity(podSpec.Affinity, sfs)
+		currentSet.Spec.Template.Spec.TopologySpreadConstraints = pxc.PodTopologySpreadConstraints(podSpec.TopologySpreadConstraints, sfs.Labels())
+		if sfsVolume != nil && sfsVolume.Volumes != nil {
+			currentSet.Spec.Template.Spec.Volumes = sfsVolume.Volumes
+		}
+		currentSet.Spec.Template.Spec.Volumes = api.AddSidecarVolumes(log, currentSet.Spec.Template.Spec.Volumes, podSpec.SidecarVolumes)
+		currentSet.Spec.Template.Spec.Tolerations = podSpec.Tolerations
+		err = r.createOrUpdate(ctx, cr, currentSet)
+		if err != nil {
+			return errors.Wrap(err, "update error")
+		}
+		return nil
+	})
 	if err != nil {
-		return errors.Wrap(err, "sidecar container error")
-	}
-	newContainers = append(newContainers, sideC...)
-
-	newContainers = api.AddSidecarContainers(log, newContainers, podSpec.Sidecars)
-
-	currentSet.Spec.Template.Spec.Containers = newContainers
-	currentSet.Spec.Template.Spec.InitContainers = newInitContainers
-	currentSet.Spec.Template.Spec.Affinity = pxc.PodAffinity(podSpec.Affinity, sfs)
-	currentSet.Spec.Template.Spec.TopologySpreadConstraints = pxc.PodTopologySpreadConstraints(podSpec.TopologySpreadConstraints, sfs.Labels())
-	if sfsVolume != nil && sfsVolume.Volumes != nil {
-		currentSet.Spec.Template.Spec.Volumes = sfsVolume.Volumes
-	}
-	currentSet.Spec.Template.Spec.Volumes = api.AddSidecarVolumes(log, currentSet.Spec.Template.Spec.Volumes, podSpec.SidecarVolumes)
-	currentSet.Spec.Template.Spec.Tolerations = podSpec.Tolerations
-	err = r.createOrUpdate(cr, currentSet)
-	if err != nil {
-		return errors.Wrap(err, "update error")
+		return errors.Wrap(err, "failed to create or update sts")
 	}
 
 	if cr.Spec.UpdateStrategy != api.SmartUpdateStatefulSetStrategyType {

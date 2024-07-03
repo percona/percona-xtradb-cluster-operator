@@ -239,8 +239,8 @@ func (u *Manager) Update160MonitorUserGrant(pass string) (err error) {
 	return nil
 }
 
-// Update170XtrabackupUser grants all needed rights to the xtrabackup user
-func (u *Manager) Update170XtrabackupUser(pass string) (err error) {
+// Update1150XtrabackupUser grants all needed rights to the xtrabackup user
+func (u *Manager) Update1150XtrabackupUser(pass string) (err error) {
 
 	_, err = u.db.Exec("CREATE USER IF NOT EXISTS 'xtrabackup'@'%' IDENTIFIED BY ?", pass)
 	if err != nil {

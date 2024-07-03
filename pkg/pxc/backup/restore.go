@@ -568,7 +568,7 @@ func xtrabackupContainer(cr *api.PerconaXtraDBClusterRestore, cluster *api.Perco
 		container.Resources = cluster.Spec.PXC.Resources
 	}
 
-	useMem, k8sq := xbMemoryUse(container.Resources)
+	useMem := xbMemoryUse(container.Resources)
 	container.Env = append(
 		container.Env,
 		corev1.EnvVar{
@@ -576,15 +576,11 @@ func xtrabackupContainer(cr *api.PerconaXtraDBClusterRestore, cluster *api.Perco
 			Value: useMem,
 		},
 	)
-	if k8sq.Value() > 0 {
-		container.Resources.Requests = corev1.ResourceList{
-			corev1.ResourceMemory: k8sq,
-		}
-	}
 	return container
 }
 
-func xbMemoryUse(res corev1.ResourceRequirements) (useMem string, k8sQuantity resource.Quantity) {
+func xbMemoryUse(res corev1.ResourceRequirements) string {
+	var k8sQuantity resource.Quantity
 	if _, ok := res.Requests[corev1.ResourceMemory]; ok {
 		k8sQuantity = *res.Requests.Memory()
 	}
@@ -592,7 +588,7 @@ func xbMemoryUse(res corev1.ResourceRequirements) (useMem string, k8sQuantity re
 		k8sQuantity = *res.Limits.Memory()
 	}
 
-	useMem = "100MB"
+	useMem := "100MB"
 
 	useMem75 := k8sQuantity.Value() / int64(100) * int64(75)
 	if useMem75 > 2000000000 {
@@ -601,5 +597,5 @@ func xbMemoryUse(res corev1.ResourceRequirements) (useMem string, k8sQuantity re
 		useMem = strconv.FormatInt(useMem75, 10)
 	}
 
-	return useMem, k8sQuantity
+	return useMem
 }

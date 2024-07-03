@@ -69,6 +69,11 @@ func PVCRestorePod(cr *api.PerconaXtraDBClusterRestore, bcpStorageName, pvcName 
 	}
 	labels["name"] = "restore-src-" + cr.Name + "-" + cr.Spec.PXCCluster
 
+	sslVolume := app.GetSecretVolumes("ssl", cluster.Spec.PXC.SSLSecretName, !cluster.TLSEnabled())
+	if cluster.CompareVersionWith("1.15.0") < 0 {
+		sslVolume = app.GetSecretVolumes("ssl", cluster.Spec.PXC.SSLSecretName, cluster.Spec.AllowUnsafeConfig)
+	}
+
 	return &corev1.Pod{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",
@@ -121,7 +126,7 @@ func PVCRestorePod(cr *api.PerconaXtraDBClusterRestore, bcpStorageName, pvcName 
 					},
 				},
 				app.GetSecretVolumes("ssl-internal", cluster.Spec.PXC.SSLInternalSecretName, true),
-				app.GetSecretVolumes("ssl", cluster.Spec.PXC.SSLSecretName, cluster.Spec.AllowUnsafeConfig),
+				sslVolume,
 				app.GetSecretVolumes("vault-keyring-secret", cluster.Spec.PXC.VaultSecretName, true),
 			},
 			RestartPolicy:             corev1.RestartPolicyAlways,
@@ -175,8 +180,12 @@ func RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClust
 		app.GetSecretVolumes("vault-keyring-secret", cluster.Spec.PXC.VaultSecretName, true),
 	}
 
-	var command []string
+	sslVolume := app.GetSecretVolumes("ssl", cluster.Spec.PXC.SSLSecretName, !cluster.TLSEnabled())
+	if cluster.CompareVersionWith("1.15.0") < 0 {
+		sslVolume = app.GetSecretVolumes("ssl", cluster.Spec.PXC.SSLSecretName, cluster.Spec.AllowUnsafeConfig)
+	}
 
+	var command []string
 	switch bcp.Status.GetStorageType(cluster) {
 	case api.BackupStorageFilesystem:
 		command = []string{"recovery-pvc-joiner.sh"}
@@ -192,7 +201,7 @@ func RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClust
 		}...)
 		volumes = append(volumes, []corev1.Volume{
 			app.GetSecretVolumes("ssl-internal", cluster.Spec.PXC.SSLInternalSecretName, true),
-			app.GetSecretVolumes("ssl", cluster.Spec.PXC.SSLSecretName, cluster.Spec.AllowUnsafeConfig),
+			sslVolume,
 		}...)
 	case api.BackupStorageAzure, api.BackupStorageS3:
 		command = []string{"recovery-cloud.sh"}
@@ -586,7 +595,7 @@ func xtrabackupContainer(cr *api.PerconaXtraDBClusterRestore, cluster *api.Perco
 		container.Resources = cluster.Spec.PXC.Resources
 	}
 
-	useMem, k8sq := xbMemoryUse(container.Resources)
+	useMem := xbMemoryUse(container.Resources)
 	container.Env = append(
 		container.Env,
 		corev1.EnvVar{
@@ -594,15 +603,11 @@ func xtrabackupContainer(cr *api.PerconaXtraDBClusterRestore, cluster *api.Perco
 			Value: useMem,
 		},
 	)
-	if k8sq.Value() > 0 {
-		container.Resources.Requests = corev1.ResourceList{
-			corev1.ResourceMemory: k8sq,
-		}
-	}
 	return container
 }
 
-func xbMemoryUse(res corev1.ResourceRequirements) (useMem string, k8sQuantity resource.Quantity) {
+func xbMemoryUse(res corev1.ResourceRequirements) string {
+	var k8sQuantity resource.Quantity
 	if _, ok := res.Requests[corev1.ResourceMemory]; ok {
 		k8sQuantity = *res.Requests.Memory()
 	}
@@ -610,7 +615,7 @@ func xbMemoryUse(res corev1.ResourceRequirements) (useMem string, k8sQuantity re
 		k8sQuantity = *res.Limits.Memory()
 	}
 
-	useMem = "100MB"
+	useMem := "100MB"
 
 	useMem75 := k8sQuantity.Value() / int64(100) * int64(75)
 	if useMem75 > 2000000000 {
@@ -619,5 +624,5 @@ func xbMemoryUse(res corev1.ResourceRequirements) (useMem string, k8sQuantity re
 		useMem = strconv.FormatInt(useMem75, 10)
 	}
 
-	return useMem, k8sQuantity
+	return useMem
 }

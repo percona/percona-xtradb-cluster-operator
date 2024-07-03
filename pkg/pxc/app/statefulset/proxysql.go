@@ -421,9 +421,9 @@ func (c *Proxy) PMMContainer(ctx context.Context, cl client.Client, spec *api.PM
 func (c *Proxy) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg api.CustomVolumeGetter) (*api.Volume, error) {
 	ls := c.Labels()
 
-	sslVolume := app.GetSecretVolumes("ssl", podSpec.SSLSecretName, cr.Spec.AllowUnsafeConfig)
-	if cr.CompareVersionWith("1.15.0") >= 0 {
-		sslVolume = app.GetSecretVolumes("ssl", podSpec.SSLSecretName, !cr.TLSEnabled())
+	sslVolume := app.GetSecretVolumes("ssl", podSpec.SSLSecretName, !cr.TLSEnabled())
+	if cr.CompareVersionWith("1.15.0") < 0 {
+		sslVolume = app.GetSecretVolumes("ssl", podSpec.SSLSecretName, cr.Spec.AllowUnsafeConfig)
 	}
 
 	vol := app.Volumes(podSpec, proxyDataVolumeName)

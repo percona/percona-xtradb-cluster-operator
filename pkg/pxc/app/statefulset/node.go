@@ -510,9 +510,9 @@ func (c *Node) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg ap
 		return nil, err
 	}
 
-	sslVolume := app.GetSecretVolumes("ssl", podSpec.SSLSecretName, cr.Spec.AllowUnsafeConfig)
-	if cr.CompareVersionWith("1.15.0") >= 0 {
-		sslVolume = app.GetSecretVolumes("ssl", podSpec.SSLSecretName, !cr.TLSEnabled())
+	sslVolume := app.GetSecretVolumes("ssl", podSpec.SSLSecretName, !cr.TLSEnabled())
+	if cr.CompareVersionWith("1.15.0") < 0 {
+		sslVolume = app.GetSecretVolumes("ssl", podSpec.SSLSecretName, cr.Spec.AllowUnsafeConfig)
 	}
 
 	vol.Volumes = append(

@@ -263,11 +263,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleXtrabackupUserWithoutDP(ctx contex
 	user := &users.SysUser{
 		Name:  users.Xtrabackup,
 		Pass:  string(secrets.Data[users.Xtrabackup]),
-		Hosts: []string{"localhost"},
-	}
-
-	if cr.CompareVersionWith("1.7.0") >= 0 {
-		user.Hosts = []string{"%"}
+		Hosts: []string{"%"},
 	}
 
 	if cr.Status.PXC.Ready > 0 {
@@ -275,8 +271,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleXtrabackupUserWithoutDP(ctx contex
 			return err
 		}
 
-		if cr.CompareVersionWith("1.7.0") >= 0 {
-			// monitor user need more grants for work in version more then 1.6.0
+		if cr.CompareVersionWith("1.15.0") >= 0 {
 			err := r.updateXtrabackupUserGrant(ctx, cr, internalSecrets)
 			if err != nil {
 				return errors.Wrap(err, "update xtrabackup user grant")

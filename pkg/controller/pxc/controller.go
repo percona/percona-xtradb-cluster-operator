@@ -15,6 +15,7 @@ import (
 	"github.com/robfig/cron/v3"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	policyv1 "k8s.io/api/policy/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -1300,6 +1301,8 @@ func (r *ReconcilePerconaXtraDBCluster) createOrUpdate(ctx context.Context, cr *
 			if object.Spec.Type == corev1.ServiceTypeLoadBalancer {
 				object.Spec.HealthCheckNodePort = oldObject.(*corev1.Service).Spec.HealthCheckNodePort
 			}
+		case *policyv1.PodDisruptionBudget:
+			obj.SetResourceVersion(oldObject.GetResourceVersion())
 		}
 
 		return r.client.Update(ctx, obj)

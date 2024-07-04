@@ -3,13 +3,10 @@
 set -o errexit
 
 test_dir="$(dirname $0)"
+. $(dirname $0)/functions
 src_dir="$(realpath ${test_dir}/..)"
 
-if [[ ${DEBUG_TESTS} == 1 ]]; then
-	set -o xtrace
-else
-	set +o xtrace
-fi
+set_debug
 
 IMAGE=$(echo "$IMAGE" | sed -e 's#percona/#perconalab/#')
 

@@ -50,7 +50,7 @@ spec:
       runAsUser: 1001
       runAsGroup: 1001
       supplementalGroups: [1001]
-    size: 1
+    size: 2
     image: -proxysql
     serviceAccountName: percona-xtradb-cluster-operator-workload
     resources:

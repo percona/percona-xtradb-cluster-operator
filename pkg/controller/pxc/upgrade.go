@@ -46,15 +46,6 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(ctx context.Context, sfs api.S
 		return errors.Wrap(err, "getting config hash")
 	}
 
-	sslHash, err := r.getSecretHash(cr, cr.Spec.PXC.SSLSecretName, !cr.TLSEnabled())
-	if err != nil {
-		return errors.Wrap(err, "upgradePod/updateApp error: update secret error")
-	}
-	sslInternalHash, err := r.getSecretHash(cr, cr.Spec.PXC.SSLInternalSecretName, !cr.TLSEnabled())
-	if err != nil && !k8serrors.IsNotFound(err) {
-		return errors.Wrap(err, "upgradePod/updateApp error: update secret error")
-	}
-
 	envVarsHash, err := r.getSecretHash(cr, cr.Spec.PXC.EnvVarsSecretName, true)
 	if isHAproxy(sfs) {
 		envVarsHash, err = r.getSecretHash(cr, cr.Spec.HAProxy.EnvVarsSecretName, true)
@@ -65,9 +56,28 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(ctx context.Context, sfs api.S
 		return errors.Wrap(err, "upgradePod/updateApp error: update secret error")
 	}
 
-	vaultConfigHash, err := r.getSecretHash(cr, cr.Spec.VaultSecretName, true)
-	if err != nil {
-		return errors.Wrap(err, "upgradePod/updateApp error: update secret error")
+	var vaultConfigHash, sslHash, sslInternalHash string
+	if !isHAproxy(sfs) {
+		vaultConfigHash, err = r.getSecretHash(cr, cr.Spec.VaultSecretName, true)
+		if err != nil {
+			return errors.Wrap(err, "upgradePod/updateApp error: update secret error")
+		}
+		sslHash, err = r.getSecretHash(cr, cr.Spec.PXC.SSLSecretName, !cr.TLSEnabled())
+		if err != nil {
+			return errors.Wrap(err, "upgradePod/updateApp error: update secret error")
+		}
+		sslInternalHash, err = r.getSecretHash(cr, cr.Spec.PXC.SSLInternalSecretName, !cr.TLSEnabled())
+		if err != nil && !k8serrors.IsNotFound(err) {
+			return errors.Wrap(err, "upgradePod/updateApp error: update secret error")
+		}
+	}
+
+	hashAnnotations := map[string]string{
+		"percona.com/configuration-hash":     configHash,
+		"percona.com/ssl-hash":               sslHash,
+		"percona.com/ssl-internal-hash":      sslInternalHash,
+		"percona.com/vault-config-hash":      vaultConfigHash,
+		"percona.com/env-secret-config-hash": envVarsHash,
 	}
 
 	secrets := new(corev1.Secret)
@@ -102,27 +112,10 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(ctx context.Context, sfs api.S
 
 		pxc.MergeMaps(labels, sts.Spec.Template.Labels)
 
-		annotations["percona.com/configuration-hash"] = configHash
-
-		// change TLS secret configuration
-		if sslHash != "" {
-			annotations["percona.com/ssl-hash"] = sslHash
-		}
-		if sslInternalHash != "" {
-			annotations["percona.com/ssl-internal-hash"] = sslInternalHash
-		}
-
-		if vaultConfigHash != "" && !isHAproxy(sfs) {
-			annotations["percona.com/vault-config-hash"] = vaultConfigHash
-		}
-
-		if envVarsHash != "" {
-			annotations["percona.com/env-secret-config-hash"] = envVarsHash
-		}
-
-		if isHAproxy(sfs) {
-			delete(annotations, "percona.com/ssl-internal-hash")
-			delete(annotations, "percona.com/ssl-hash")
+		for k, v := range hashAnnotations {
+			if v != "" || k == "percona.com/configuration-hash" {
+				annotations[k] = v
+			}
 		}
 
 		sts.Spec.Template.Annotations = annotations

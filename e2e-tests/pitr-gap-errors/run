@@ -151,7 +151,7 @@ check_binlog_gap_restore() {
 		wait_backup_restore "on-pitr-minio-gap-no-pitr" "Succeeded"
 		local backup_error=$(kubectl_bin get pxc-restore on-pitr-minio-gap-no-pitr -ojsonpath='{.status.comments}' | grep -c "Backup doesn't guarantee consistent recovery with PITR. Annotate PerconaXtraDBClusterRestore with percona.com/unsafe-pitr to force it.")
 		if [[ $backup_error -ne 0 ]]; then
-			echo "ERROR: Backup is tagged as PITR unready in the backup condition."
+			echo "ERROR: Restore without PiTR is failed because backups is tagged PiTR unready in the backup condition."
 			kubectl_bin get pxc-backup on-pitr-minio-gap -oyaml
 			exit 1
 		fi

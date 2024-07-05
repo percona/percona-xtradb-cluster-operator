@@ -258,19 +258,13 @@ func SetStorageS3(job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBackup) erro
 	if cr.Status.S3 == nil {
 		return errors.New("s3 storage is not specified in backup status")
 	}
+
+	if len(job.Template.Spec.Containers) == 0 {
+		return errors.New("no containers in job spec")
+	}
+
 	s3 := cr.Status.S3
-	accessKey := corev1.EnvVar{
-		Name: "ACCESS_KEY_ID",
-		ValueFrom: &corev1.EnvVarSource{
-			SecretKeyRef: app.SecretKeySelector(s3.CredentialsSecret, "AWS_ACCESS_KEY_ID"),
-		},
-	}
-	secretKey := corev1.EnvVar{
-		Name: "SECRET_ACCESS_KEY",
-		ValueFrom: &corev1.EnvVarSource{
-			SecretKeyRef: app.SecretKeySelector(s3.CredentialsSecret, "AWS_SECRET_ACCESS_KEY"),
-		},
-	}
+
 	region := corev1.EnvVar{
 		Name:  "DEFAULT_REGION",
 		Value: s3.Region,
@@ -280,10 +274,24 @@ func SetStorageS3(job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBackup) erro
 		Value: s3.EndpointURL,
 	}
 
-	if len(job.Template.Spec.Containers) == 0 {
-		return errors.New("no containers in job spec")
+	job.Template.Spec.Containers[0].Env = append(job.Template.Spec.Containers[0].Env, region, endpoint)
+
+	if s3.CredentialsSecret != "" {
+		accessKey := corev1.EnvVar{
+			Name: "ACCESS_KEY_ID",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: app.SecretKeySelector(s3.CredentialsSecret, "AWS_ACCESS_KEY_ID"),
+			},
+		}
+		secretKey := corev1.EnvVar{
+			Name: "SECRET_ACCESS_KEY",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: app.SecretKeySelector(s3.CredentialsSecret, "AWS_SECRET_ACCESS_KEY"),
+			},
+		}
+
+		job.Template.Spec.Containers[0].Env = append(job.Template.Spec.Containers[0].Env, accessKey, secretKey)
 	}
-	job.Template.Spec.Containers[0].Env = append(job.Template.Spec.Containers[0].Env, accessKey, secretKey, region, endpoint)
 
 	bucket, prefix := s3.BucketAndPrefix()
 	if bucket == "" {

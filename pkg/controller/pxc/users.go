@@ -34,13 +34,15 @@ var PassNotPropagatedError = errors.New("password not yet propagated")
 
 type userUpdateActions struct {
 	restartPXC            bool
-	restartProxy          bool
+	restartProxySQL       bool
+	restartHAProxy        bool
 	updateReplicationPass bool
 }
 
 type ReconcileUsersResult struct {
 	pxcAnnotations            map[string]string
-	proxyAnnotations          map[string]string
+	proxysqlAnnotations       map[string]string
+	haproxyAnnotations        map[string]string
 	updateReplicationPassword bool
 }
 
@@ -128,13 +130,21 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(ctx context.Context, cr *
 		updateReplicationPassword: actions.updateReplicationPass,
 	}
 
-	if actions.restartProxy {
+	if actions.restartProxySQL {
 		log.Info("Proxy pods will be restarted", "last-applied-secret", newSecretDataHash)
-		result.proxyAnnotations = map[string]string{"last-applied-secret": newSecretDataHash}
+		result.proxysqlAnnotations = map[string]string{"last-applied-secret": newSecretDataHash}
 	}
 	if actions.restartPXC {
 		log.Info("PXC pods will be restarted", "last-applied-secret", newSecretDataHash)
 		result.pxcAnnotations = map[string]string{"last-applied-secret": newSecretDataHash}
+	}
+
+	// we should restart HAProxy only for 5.7 version
+	if !ver.GreaterThanOrEqual(mysql80) {
+		if actions.restartHAProxy {
+			log.Info("HAProxy pods will be restarted", "last-applied-secret", newSecretDataHash)
+			result.haproxyAnnotations = map[string]string{"last-applied-secret": newSecretDataHash}
+		}
 	}
 
 	return result, nil
@@ -323,7 +333,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleOperatorUser(ctx context.Context, 
 	}
 	log.Info("Internal secrets updated", "user", user.Name)
 
-	actions.restartProxy = true
+	actions.restartProxySQL = true
 
 	err = r.discardOldPassword(cr, secrets, internalSecrets, user)
 	if err != nil {
@@ -465,7 +475,8 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(ctx context.Context, c
 			return PassNotPropagatedError
 		}
 
-		actions.restartProxy = true
+		actions.restartProxySQL = true
+		actions.restartHAProxy = true
 		if cr.Spec.PMM != nil && cr.Spec.PMM.IsEnabled(internalSecrets) {
 			actions.restartPXC = true
 		}
@@ -499,7 +510,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(ctx context.Context, c
 		log.Info("Proxy user updated", "user", user.Name)
 	}
 
-	actions.restartProxy = true
+	actions.restartProxySQL = true
 	if cr.Spec.PMM != nil && cr.Spec.PMM.IsEnabled(internalSecrets) {
 		actions.restartPXC = true
 	}
@@ -830,7 +841,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleProxyadminUser(ctx context.Context
 	}
 	log.Info("Internal secrets updated", "user", user.Name)
 
-	actions.restartProxy = true
+	actions.restartProxySQL = true
 
 	return nil
 }
@@ -880,7 +891,8 @@ func (r *ReconcilePerconaXtraDBCluster) handlePMMUser(ctx context.Context, cr *a
 	log.Info("Internal secrets updated", "user", name)
 
 	actions.restartPXC = true
-	actions.restartProxy = true
+	actions.restartProxySQL = true
+	actions.restartHAProxy = true
 
 	return nil
 }

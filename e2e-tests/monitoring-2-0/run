@@ -93,15 +93,23 @@ curl --insecure -X DELETE "https://admin:$ADMIN_PASSWORD@$(get_service_endpoint 
 
 #`PMM_PREFIX` and `last-applied-secret` annotation will be added. PXC statefulset will be incremented by 2.
 wait_for_generation "sts/$cluster-pxc" 4
-#`PMM_PREFIX` will be added. HAProxy statefulset will be incremented by 1.
-wait_for_generation "sts/$cluster-haproxy" 3
+if [[ ${MYSQL_VERSION} == "5.7" ]]; then
+	wait_for_generation "sts/$cluster-haproxy" 4
+else
+	#`PMM_PREFIX` will be added. HAProxy statefulset will be incremented by 1.
+	wait_for_generation "sts/$cluster-haproxy" 3
+fi
 
 sleep 10
 kubectl wait pod -l 'app.kubernetes.io/managed-by=percona-xtradb-cluster-operator' --for=condition=ready --timeout=600s
 
 desc 'check if pmm-client container enabled'
 compare_kubectl statefulset/$cluster-pxc
-compare_kubectl statefulset/$cluster-haproxy
+if [[ ${MYSQL_VERSION} == "5.7" ]]; then
+	compare_kubectl statefulset/$cluster-haproxy "-5_7"
+else
+	compare_kubectl statefulset/$cluster-haproxy
+fi
 
 desc 'verify clients agents statuses'
 # wait for proper agents statuses

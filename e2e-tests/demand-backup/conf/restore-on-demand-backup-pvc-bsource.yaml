@@ -7,3 +7,10 @@ spec:
   backupSource:
     destination: pvc/xb-on-demand-backup-pvc-bsource
     storageName: pvc
+  resources:
+    requests:
+      memory: 0.5G
+      cpu: 500m
+    limits:
+      memory: "1G"
+      cpu: "2"

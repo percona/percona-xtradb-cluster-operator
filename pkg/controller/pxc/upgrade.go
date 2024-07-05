@@ -85,7 +85,7 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(ctx context.Context, sfs api.S
 	}
 
 	// change TLS secret configuration
-	sslHash, err := r.getSecretHash(cr, cr.Spec.PXC.SSLSecretName, cr.Spec.AllowUnsafeConfig)
+	sslHash, err := r.getSecretHash(cr, cr.Spec.PXC.SSLSecretName, !cr.TLSEnabled())
 	if err != nil {
 		return errors.Wrap(err, "upgradePod/updateApp error: update secret error")
 	}
@@ -93,7 +93,7 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(ctx context.Context, sfs api.S
 		currentSet.Spec.Template.Annotations["percona.com/ssl-hash"] = sslHash
 	}
 
-	sslInternalHash, err := r.getSecretHash(cr, cr.Spec.PXC.SSLInternalSecretName, cr.Spec.AllowUnsafeConfig)
+	sslInternalHash, err := r.getSecretHash(cr, cr.Spec.PXC.SSLInternalSecretName, !cr.TLSEnabled())
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return errors.Wrap(err, "upgradePod/updateApp error: update secret error")
 	}

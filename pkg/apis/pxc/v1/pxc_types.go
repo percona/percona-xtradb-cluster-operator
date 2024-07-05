@@ -46,6 +46,7 @@ type PerconaXtraDBClusterSpec struct {
 	UpdateStrategy         appsv1.StatefulSetUpdateStrategyType `json:"updateStrategy,omitempty"`
 	UpgradeOptions         UpgradeOptions                       `json:"upgradeOptions,omitempty"`
 	AllowUnsafeConfig      bool                                 `json:"allowUnsafeConfigurations,omitempty"`
+	Unsafe                 UnsafeFlags                          `json:"unsafeFlags,omitempty"`
 
 	// Deprecated, should be removed in the future. Use InitContainer.Image instead
 	InitImage string `json:"initImage,omitempty"`
@@ -54,6 +55,13 @@ type PerconaXtraDBClusterSpec struct {
 	EnableCRValidationWebhook *bool             `json:"enableCRValidationWebhook,omitempty"`
 	IgnoreAnnotations         []string          `json:"ignoreAnnotations,omitempty"`
 	IgnoreLabels              []string          `json:"ignoreLabels,omitempty"`
+}
+
+type UnsafeFlags struct {
+	TLS               bool `json:"tls,omitempty"`
+	PXCSize           bool `json:"pxcSize,omitempty"`
+	ProxySize         bool `json:"proxySize,omitempty"`
+	BackupIfUnhealthy bool `json:"backupIfUnhealthy,omitempty"`
 }
 
 type InitContainerSpec struct {
@@ -104,6 +112,7 @@ type ReplicationSource struct {
 }
 
 type TLSSpec struct {
+	Enabled    *bool                   `json:"enabled,omitempty"`
 	SANs       []string                `json:"SANs,omitempty"`
 	IssuerConf *cmmeta.ObjectReference `json:"issuerConf,omitempty"`
 }
@@ -772,6 +781,10 @@ func (cr *PerconaXtraDBCluster) ShouldWaitForTokenIssue() bool {
 	return ok
 }
 
+func (cr *PerconaXtraDBCluster) TLSEnabled() bool {
+	return !(cr.Spec.Unsafe.TLS && !*cr.Spec.TLS.Enabled)
+}
+
 // CheckNSetDefaults sets defaults options and overwrites wrong settings
 // and checks if other options' values are allowable
 // returned "changed" means CR should be updated on cluster
@@ -832,7 +845,33 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 			}
 		}
 
-		setSafeDefaults(c, logger)
+		t := true
+		if c.TLS == nil {
+			c.TLS = &TLSSpec{Enabled: &t}
+		}
+
+		if c.TLS.Enabled == nil {
+			c.TLS.Enabled = &t
+		}
+
+		if c.AllowUnsafeConfig {
+			c.Unsafe = UnsafeFlags{
+				TLS:               true,
+				PXCSize:           true,
+				ProxySize:         true,
+				BackupIfUnhealthy: true,
+			}
+		}
+
+		if cr.DeletionTimestamp == nil && !cr.Spec.Pause {
+			if cr.CompareVersionWith("1.15.0") < 0 {
+				setSafeDefaults(c, logger)
+			} else {
+				if err := cr.checkSafeDefaults(); err != nil {
+					return errors.Wrap(err, "check safe defaults")
+				}
+			}
+		}
 
 		// Set maxUnavailable = 1 by default for PodDisruptionBudget-PXC.
 		// It's a description of the number of pods from that set that can be unavailable after the eviction.
@@ -1139,6 +1178,38 @@ func (cr *PerconaXtraDBCluster) setProbesDefaults() {
 			cr.Spec.HAProxy.LivenessProbes.SuccessThreshold = 1
 		}
 	}
+}
+
+func (cr *PerconaXtraDBCluster) checkSafeDefaults() error {
+	if !cr.Spec.Unsafe.TLS && !cr.TLSEnabled() {
+		return errors.New("TLS must be enabled. Set spec.unsafeFlags.tls to true to disable this check")
+	}
+
+	if !cr.Spec.Unsafe.PXCSize {
+		if cr.Spec.PXC.Size < 3 {
+			return errors.New("PXC size must be at least 3. Set spec.unsafeFlags.pxcSize to true to disable this check")
+		} else if cr.Spec.PXC.Size > maxSafePXCSize {
+			return errors.Errorf("PXC size must be at most %d. Set spec.unsafeFlags.pxcSize to true to disable this check", maxSafePXCSize)
+		}
+
+		if cr.Spec.PXC.Size%2 == 0 {
+			return errors.New("PXC size must be an odd number. Set spec.unsafeFlags.pxcSize to true to disable this check")
+		}
+	}
+
+	if cr.Spec.ProxySQLEnabled() && !cr.Spec.Unsafe.ProxySize {
+		if cr.Spec.ProxySQL.Size < minSafeProxySize {
+			return errors.Errorf("ProxySQL size must be at least %d. Set spec.unsafeFlags.proxySize to true to disable this check", minSafeProxySize)
+		}
+	}
+
+	if cr.Spec.HAProxyEnabled() && !cr.Spec.Unsafe.ProxySize {
+		if cr.Spec.HAProxy.Size < minSafeProxySize {
+			return errors.Errorf("HAProxy size must be at least %d. Set spec.unsafeFlags.proxySize to true to disable this check", minSafeProxySize)
+		}
+	}
+
+	return nil
 }
 
 func setSafeDefaults(spec *PerconaXtraDBClusterSpec, log logr.Logger) {
@@ -1449,8 +1520,8 @@ func (cr *PerconaXtraDBCluster) CanBackup() error {
 		return nil
 	}
 
-	if !cr.Spec.AllowUnsafeConfig {
-		return errors.Errorf("allowUnsafeConfigurations must be true to run backup on cluster with status %s", cr.Status.Status)
+	if !cr.Spec.Unsafe.BackupIfUnhealthy {
+		return errors.Errorf("unsafe.backupIfUnhealthy must be true to run backup on cluster with status %s", cr.Status.Status)
 	}
 
 	if cr.Status.PXC.Ready < int32(1) {

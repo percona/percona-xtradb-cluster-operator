@@ -637,10 +637,6 @@ const (
 	BackupStorageAzure      BackupStorageType = "azure"
 )
 
-const (
-	FinalizerDeleteS3Backup string = "delete-s3-backup" // TODO: rename to a more appropriate name like `delete-backup`
-)
-
 type BackupStorageS3Spec struct {
 	Bucket            string `json:"bucket"`
 	CredentialsSecret string `json:"credentialsSecret"`

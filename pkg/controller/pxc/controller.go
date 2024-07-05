@@ -32,6 +32,7 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/clientcmd"
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/config"
@@ -218,19 +219,19 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 		for _, fnlz := range o.GetFinalizers() {
 			var sfs api.StatefulApp
 			switch fnlz {
-			case "delete-ssl":
+			case naming.FinalizerDeleteSSL:
 				err = r.deleteCerts(o)
-			case "delete-proxysql-pvc":
+			case naming.FinalizerDeleteProxysqlPvc:
 				sfs = statefulset.NewProxy(o)
 				// deletePVC is always true on this stage
 				// because we never reach this point without finalizers
 				err = r.deleteStatefulSet(o, sfs, true, false)
-			case "delete-pxc-pvc":
+			case naming.FinalizerDeletePxcPvc:
 				sfs = statefulset.NewNode(o)
 				err = r.deleteStatefulSet(o, sfs, true, true)
 			// nil error gonna be returned only when there is no more pods to delete (only 0 left)
 			// until than finalizer won't be deleted
-			case "delete-pxc-pods-in-order":
+			case naming.FinalizerDeletePxcPodsInOrder:
 				err = r.deletePXCPods(o)
 			}
 			if err != nil {
@@ -399,7 +400,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 		// check if there is need to delete pvc
 		deletePVC := false
 		for _, fnlz := range o.GetFinalizers() {
-			if fnlz == "delete-proxysql-pvc" {
+			if fnlz == naming.FinalizerDeleteProxysqlPvc {
 				deletePVC = true
 				break
 			}

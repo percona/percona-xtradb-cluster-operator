@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/gomega"
 	gs "github.com/onsi/gomega/gstruct"
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -109,7 +110,7 @@ var _ = Describe("Finalizer delete-ssl", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		cr.Finalizers = append(cr.Finalizers, "delete-ssl")
+		cr.Finalizers = append(cr.Finalizers, naming.FinalizerDeleteSSL)
 		cr.Spec.SSLSecretName = "cluster1-ssl"
 		cr.Spec.SSLInternalSecretName = "cluster1-ssl-internal"
 
@@ -262,7 +263,7 @@ var _ = Describe("Finalizer delete-proxysql-pvc", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		cr.Finalizers = append(cr.Finalizers, "delete-proxysql-pvc")
+		cr.Finalizers = append(cr.Finalizers, naming.FinalizerDeleteProxysqlPvc)
 		cr.Spec.SecretsName = "cluster1-secrets"
 		cr.Spec.HAProxy.Enabled = false
 		cr.Spec.ProxySQL.Enabled = true
@@ -422,7 +423,7 @@ var _ = Describe("Finalizer delete-pxc-pvc", Ordered, func() {
 		It("should read default cr.yaml", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
-		cr.Finalizers = append(cr.Finalizers, "delete-pxc-pvc")
+		cr.Finalizers = append(cr.Finalizers, naming.FinalizerDeletePxcPvc)
 		cr.Spec.SecretsName = "cluster1-secrets"
 
 		sfsWithOwner := appsv1.StatefulSet{}

@@ -2,6 +2,7 @@ package pxcbackup
 
 import (
 	"context"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	"os"
 	"reflect"
 	"strconv"
@@ -305,7 +306,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) runDeleteBackupFinalizer(ctx conte
 	for _, f := range cr.GetFinalizers() {
 		var err error
 		switch f {
-		case api.FinalizerDeleteS3Backup:
+		case naming.FinalizerDeleteS3Backup:
 			if (cr.Status.S3 == nil && cr.Status.Azure == nil) || cr.Status.Destination == "" {
 				continue
 			}
@@ -326,7 +327,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) runDeleteBackupFinalizer(ctx conte
 		if err != nil {
 			log.Info("failed to delete backup", "backup path", cr.Status.Destination, "error", err.Error())
 			finalizers = append(finalizers, f)
-		} else if f == api.FinalizerDeleteS3Backup {
+		} else if f == naming.FinalizerDeleteS3Backup {
 			log.Info("backup was removed", "name", cr.Name)
 		}
 	}

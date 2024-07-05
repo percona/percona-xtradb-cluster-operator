@@ -3,7 +3,7 @@ kind: PerconaXtraDBClusterBackup
 metadata:
   name: on-demand-backup-gcp-cs
   finalizers:
-    - delete-s3-backup
+    - percona.com/delete-s3-backup
 spec:
   pxcCluster: demand-backup-cloud
   storageName: gcp-cs

@@ -3,8 +3,8 @@ kind: PerconaXtraDBCluster
 metadata:
   name: some-name
   finalizers:
-    - delete-proxysql-pvc
-    - delete-pxc-pvc
+    - percona.com/delete-proxysql-pvc
+    - percona.com/delete-pxc-pvc
   # annotations:
   #   percona.com/issue-vault-token: "true"
 spec:

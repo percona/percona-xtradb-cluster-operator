@@ -2,7 +2,7 @@ apiVersion: pxc.percona.com/v1
 kind: PerconaXtraDBClusterBackup
 metadata:
 #  finalizers:
-#    - delete-s3-backup
+#    - percona.com/delete-s3-backup
   name: backup1
 spec:
   pxcCluster: cluster1

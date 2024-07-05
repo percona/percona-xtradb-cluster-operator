@@ -6,6 +6,7 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 	"fmt"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	"hash/crc32"
 	"strconv"
 	"strings"
@@ -191,7 +192,7 @@ func (r *ReconcilePerconaXtraDBCluster) createBackupJob(ctx context.Context, cr 
 	var fins []string
 	switch storageType {
 	case api.BackupStorageS3, api.BackupStorageAzure:
-		fins = append(fins, api.FinalizerDeleteS3Backup)
+		fins = append(fins, naming.FinalizerDeleteS3Backup)
 	}
 
 	return func() {

@@ -668,8 +668,11 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(ctx context.Context, cr *api.Perc
 		}
 		proxyInits = []corev1.Container{
 			statefulset.EntrypointInitContainer(initImageName, app.BinVolumeName, initResources, cr.Spec.PXC.ContainerSecurityContext, cr.Spec.PXC.ImagePullPolicy),
-			statefulset.HaproxyEntrypointInitContainer(initImageName, cr.Spec.HAProxy.Resources, cr.Spec.HAProxy.ContainerSecurityContext, cr.Spec.HAProxy.ImagePullPolicy),
 		}
+	}
+
+	if cr.CompareVersionWith("1.15.0") >= 0 {
+		proxyInits = append(proxyInits, statefulset.HaproxyEntrypointInitContainer(initImageName, cr.Spec.HAProxy.Resources, cr.Spec.HAProxy.ContainerSecurityContext, cr.Spec.HAProxy.ImagePullPolicy))
 	}
 
 	// HAProxy StatefulSet

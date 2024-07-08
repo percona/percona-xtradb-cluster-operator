@@ -9,6 +9,3 @@ install -o "$(id -u)" -g "$(id -g)" -m 0755 -D /readiness-check.sh /usr/local/bi
 install -o "$(id -u)" -g "$(id -g)" -m 0755 -D /liveness-check.sh /usr/local/bin/liveness-check.sh
 install -o "$(id -u)" -g "$(id -g)" -m 0755 -D /haproxy.cfg /etc/haproxy/haproxy.cfg
 install -o "$(id -u)" -g "$(id -g)" -m 0755 -D /haproxy-global.cfg /etc/haproxy/haproxy-global.cfg
-
-
-

@@ -52,11 +52,11 @@ COPY build/readiness-check.sh /readiness-check.sh
 COPY build/pmm-prerun.sh /pmm-prerun.sh
 COPY build/get-pxc-state /get-pxc-state
 COPY build/haproxy-init-entrypoint.sh /haproxy-init-entrypoint.sh
-COPY build/haproxy/add_pxc_nodes.sh /add_pxc_nodes.sh
-COPY build/haproxy/check_pxc.sh /check_pxc.sh
-COPY build/haproxy/liveness-check.sh /liveness-check.sh
-COPY build/haproxy/readiness-check.sh /readiness-check.sh
-COPY build/haproxy/haproxy-global.cfg /haproxy-global.cfg
-COPY build/haproxy/haproxy.cfg /haproxy.cfg
+COPY build/haproxy/add_pxc_nodes.sh /haproxy/add_pxc_nodes.sh
+COPY build/haproxy/check_pxc.sh /haproxy/check_pxc.sh
+COPY build/haproxy/liveness-check.sh /haproxy/liveness-check.sh
+COPY build/haproxy/readiness-check.sh /haproxy/readiness-check.sh
+COPY build/haproxy/haproxy-global.cfg /haproxy/haproxy-global.cfg
+COPY build/haproxy/haproxy.cfg /haproxy/haproxy.cfg
 
 USER 2

@@ -364,6 +364,10 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 		}
 	}
 
+	if o.CompareVersionWith("1.15.0") >= 0 {
+		proxyInits = append(proxyInits, statefulset.HaproxyEntrypointInitContainer(initImageName, o.Spec.HAProxy.Resources, o.Spec.HAProxy.ContainerSecurityContext, o.Spec.HAProxy.ImagePullPolicy))
+	}
+
 	if err := r.reconcileHAProxy(ctx, o, userReconcileResult.proxyAnnotations, proxyInits); err != nil {
 		return reconcile.Result{}, err
 	}

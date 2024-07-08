@@ -303,7 +303,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	initImageName, err := getInitImage(ctx, o, r.client)
+	initImageName, err := k8s.GetInitImage(ctx, o, r.client)
 	if err != nil {
 		return reconcile.Result{}, errors.Wrap(err, "failed to get initImage")
 	}
@@ -545,7 +545,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(ctx context.Context, cr *api.Perc
 		return err
 	}
 
-	initImageName, err := getInitImage(ctx, cr, r.client)
+	initImageName, err := k8s.GetInitImage(ctx, cr, r.client)
 	if err != nil {
 		return errors.Wrap(err, "failed to get initImage")
 	}
@@ -1495,34 +1495,4 @@ func (r *ReconcilePerconaXtraDBCluster) getConfigVolume(nsName, cvName, cmName s
 	}
 
 	return corev1.Volume{}, api.NoCustomVolumeErr
-}
-
-func getInitImage(ctx context.Context, cr *api.PerconaXtraDBCluster, cli client.Client) (string, error) {
-	if len(cr.Spec.InitContainer.Image) > 0 {
-		return cr.Spec.InitContainer.Image, nil
-	}
-	if len(cr.Spec.InitImage) > 0 {
-		return cr.Spec.InitImage, nil
-	}
-	operatorPod, err := k8s.OperatorPod(ctx, cli)
-	if err != nil {
-		return "", errors.Wrap(err, "get operator deployment")
-	}
-	imageName, err := operatorImageName(&operatorPod)
-	if err != nil {
-		return "", err
-	}
-	if cr.CompareVersionWith(version.Version) != 0 {
-		imageName = strings.Split(imageName, ":")[0] + ":" + cr.Spec.CRVersion
-	}
-	return imageName, nil
-}
-
-func operatorImageName(operatorPod *corev1.Pod) (string, error) {
-	for _, c := range operatorPod.Spec.Containers {
-		if c.Name == "percona-xtradb-cluster-operator" {
-			return c.Image, nil
-		}
-	}
-	return "", errors.New("operator image not found")
 }

@@ -31,15 +31,16 @@ type Restorer interface {
 
 type s3 struct{ *restorerOptions }
 
-func (s *s3) Init(context.Context) error     { return nil }
+func (s *s3) Init(context.Context) error { return nil }
+
 func (s *s3) Finalize(context.Context) error { return nil }
 
 func (s *s3) Job() (*batchv1.Job, error) {
-	return backup.RestoreJob(s.cr, s.bcp, s.cluster, s.bcp.Status.Destination, false)
+	return backup.RestoreJob(s.cr, s.bcp, s.cluster, s.initImage, s.bcp.Status.Destination, false)
 }
 
 func (s *s3) PITRJob() (*batchv1.Job, error) {
-	return backup.RestoreJob(s.cr, s.bcp, s.cluster, s.bcp.Status.Destination, true)
+	return backup.RestoreJob(s.cr, s.bcp, s.cluster, s.initImage, s.bcp.Status.Destination, true)
 }
 
 func (s *s3) ValidateJob(ctx context.Context, job *batchv1.Job) error {
@@ -117,7 +118,7 @@ func (s *pvc) Validate(ctx context.Context) error {
 }
 
 func (s *pvc) Job() (*batchv1.Job, error) {
-	return backup.RestoreJob(s.cr, s.bcp, s.cluster, "", false)
+	return backup.RestoreJob(s.cr, s.bcp, s.cluster, s.initImage, "", false)
 }
 
 func (s *pvc) PITRJob() (*batchv1.Job, error) {
@@ -184,15 +185,16 @@ func (s *pvc) Finalize(ctx context.Context) error {
 
 type azure struct{ *restorerOptions }
 
-func (s *azure) Init(context.Context) error     { return nil }
+func (s *azure) Init(context.Context) error { return nil }
+
 func (s *azure) Finalize(context.Context) error { return nil }
 
 func (s *azure) Job() (*batchv1.Job, error) {
-	return backup.RestoreJob(s.cr, s.bcp, s.cluster, s.bcp.Status.Destination, false)
+	return backup.RestoreJob(s.cr, s.bcp, s.cluster, s.initImage, s.bcp.Status.Destination, false)
 }
 
 func (s *azure) PITRJob() (*batchv1.Job, error) {
-	return backup.RestoreJob(s.cr, s.bcp, s.cluster, s.bcp.Status.Destination, true)
+	return backup.RestoreJob(s.cr, s.bcp, s.cluster, s.initImage, s.bcp.Status.Destination, true)
 }
 
 func (s *azure) Validate(ctx context.Context) error {
@@ -218,6 +220,7 @@ func (s *azure) Validate(ctx context.Context) error {
 }
 
 func (r *ReconcilePerconaXtraDBClusterRestore) getRestorer(
+	ctx context.Context,
 	cr *api.PerconaXtraDBClusterRestore,
 	bcp *api.PerconaXtraDBClusterBackup,
 	cluster *api.PerconaXtraDBCluster,
@@ -230,6 +233,12 @@ func (r *ReconcilePerconaXtraDBClusterRestore) getRestorer(
 		scheme:           r.scheme,
 		newStorageClient: r.newStorageClientFunc,
 	}
+	initImage, err := k8s.GetInitImage(ctx, cluster, r.client)
+	if err != nil {
+		return nil, errors.New("failed to get init image")
+	}
+	s.initImage = initImage
+
 	switch s.bcp.Status.Destination.StorageTypePrefix() {
 	case api.PVCStoragePrefix:
 		sr := pvc{&s}
@@ -251,6 +260,7 @@ type restorerOptions struct {
 	k8sClient        client.Client
 	scheme           *runtime.Scheme
 	newStorageClient storage.NewClientFunc
+	initImage        string
 }
 
 func (opts *restorerOptions) ValidateJob(ctx context.Context, job *batchv1.Job) error {

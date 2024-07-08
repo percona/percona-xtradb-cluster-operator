@@ -671,13 +671,16 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(ctx context.Context, cr *api.Perc
 		}
 	}
 
-	if cr.CompareVersionWith("1.15.0") >= 0 {
-		log.Info("AAAAAAAAAAAAAAAAAAAAAAAAAAAAA HAProxy enabled", "HAProxyEnabled", cr.HAProxyEnabled())
-		proxyInits = append(proxyInits, statefulset.HaproxyEntrypointInitContainer(initImageName, cr.Spec.HAProxy.Resources, cr.Spec.HAProxy.ContainerSecurityContext, cr.Spec.HAProxy.ImagePullPolicy))
-	}
-
 	// HAProxy StatefulSet
 	if cr.HAProxyEnabled() {
+		if cr.CompareVersionWith("1.15.0") >= 0 {
+			proxyInits = append(proxyInits, statefulset.HaproxyEntrypointInitContainer(initImageName, cr.Spec.HAProxy.Resources, cr.Spec.HAProxy.ContainerSecurityContext, cr.Spec.HAProxy.ImagePullPolicy))
+		}
+
+		for _, p := range proxyInits {
+			log.Info("AAAAAAAAAAAAA HAProxy init container", "name", p.Name, "image", p.Image)
+		}
+
 		sfsHAProxy := statefulset.NewHAProxy(cr)
 		haProxySet, err := pxc.StatefulSet(ctx, r.client, sfsHAProxy, &cr.Spec.HAProxy.PodSpec, cr, secrets, proxyInits, log, r.getConfigVolume)
 		if err != nil {

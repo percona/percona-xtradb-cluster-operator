@@ -233,6 +233,24 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 			// until than finalizer won't be deleted
 			case naming.FinalizerDeletePxcPodsInOrder:
 				err = r.deletePXCPods(o)
+			case "delete-ssl":
+				log.Info("The value delete-ssl is deprecated and will be deleted in 1.18.0. Use percona.com/delete-ssl")
+				err = r.deleteCerts(o)
+			case "delete-proxysql-pvc":
+				log.Info("The value delete-proxysql-pvc is deprecated and will be deleted in 1.18.0. Use percona.com/delete-proxysql-pvc")
+				sfs = statefulset.NewProxy(o)
+				// deletePVC is always true on this stage
+				// because we never reach this point without finalizers
+				err = r.deleteStatefulSet(o, sfs, true, false)
+			case "delete-pxc-pvc":
+				log.Info("The value delete-pxc-pvc is deprecated and will be deleted in 1.18.0. Use percona.com/delete-pxc-pvc")
+				sfs = statefulset.NewNode(o)
+				err = r.deleteStatefulSet(o, sfs, true, true)
+			// nil error gonna be returned only when there is no more pods to delete (only 0 left)
+			// until than finalizer won't be deleted
+			case "delete-pxc-pods-in-order":
+				log.Info("The value delete-pxc-pods-in-order is deprecated and will be deleted in 1.18.0. Use percona.com/delete-pxc-pods-in-order")
+				err = r.deletePXCPods(o)
 			}
 			if err != nil {
 				finalizers = append(finalizers, fnlz)

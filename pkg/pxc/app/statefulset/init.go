@@ -1,6 +1,7 @@
 package statefulset
 
 import (
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -25,15 +26,15 @@ func HaproxyEntrypointInitContainer(initImageName string, resources corev1.Resou
 	return corev1.Container{
 		VolumeMounts: []corev1.VolumeMount{
 			{
-				Name:      "local-bin",
+				Name:      app.BinVolumeName,
 				MountPath: "/usr/local/bin",
 			},
 			{
-				Name:      "bin",
+				Name:      app.BinVolumeName,
 				MountPath: "/usr/bin",
 			},
 			{
-				Name:      "etc",
+				Name:      app.EtcVolumeName,
 				MountPath: "/etc",
 			},
 		},

@@ -438,6 +438,16 @@ func (c *HAProxy) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg
 			},
 		)
 	}
+	if cr.CompareVersionWith("1.15.0") >= 0 {
+		vol.Volumes = append(vol.Volumes,
+			corev1.Volume{
+				Name: app.EtcVolumeName,
+				VolumeSource: corev1.VolumeSource{
+					EmptyDir: &corev1.EmptyDirVolumeSource{},
+				},
+			},
+		)
+	}
 	return vol, nil
 }
 

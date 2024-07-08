@@ -27,7 +27,7 @@ spec:
       antiAffinityTopologyKey: "kubernetes.io/hostname"
   proxysql:
     enabled: true
-    size: 1
+    size: 2
     image: -proxysql
     serviceType: LoadBalancer
     resources:

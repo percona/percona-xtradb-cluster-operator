@@ -168,23 +168,25 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(ctx context.Context, re
 		return reconcile.Result{}, fmt.Errorf("wrong PXC options: %v", err)
 	}
 
-	err = backup.CheckPITRErrors(ctx, r.client, r.clientcmd, cluster)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
 	bcp, err := r.getBackup(ctx, cr)
 	if err != nil {
 		return rr, errors.Wrap(err, "get backup")
 	}
 
-	annotations := cr.GetAnnotations()
-	_, unsafePITR := annotations[api.AnnotationUnsafePITR]
-	cond := meta.FindStatusCondition(bcp.Status.Conditions, api.BackupConditionPITRReady)
-	if cond != nil && cond.Status == metav1.ConditionFalse && !unsafePITR {
-		msg := fmt.Sprintf("Backup doesn't guarantee consistent recovery with PITR. Annotate PerconaXtraDBClusterRestore with %s to force it.", api.AnnotationUnsafePITR)
-		err = errors.New(msg)
-		return reconcile.Result{}, nil
+	if cr.Spec.PITR != nil {
+		err = backup.CheckPITRErrors(ctx, r.client, r.clientcmd, cluster)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+
+		annotations := cr.GetAnnotations()
+		_, unsafePITR := annotations[api.AnnotationUnsafePITR]
+		cond := meta.FindStatusCondition(bcp.Status.Conditions, api.BackupConditionPITRReady)
+		if cond != nil && cond.Status == metav1.ConditionFalse && !unsafePITR {
+			msg := fmt.Sprintf("Backup doesn't guarantee consistent recovery with PITR. Annotate PerconaXtraDBClusterRestore with %s to force it.", api.AnnotationUnsafePITR)
+			err = errors.New(msg)
+			return reconcile.Result{}, nil
+		}
 	}
 
 	err = r.validate(ctx, cr, bcp, cluster)
@@ -227,9 +229,9 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(ctx context.Context, re
 
 	if cr.Spec.PITR != nil {
 		oldSize := cluster.Spec.PXC.Size
-		oldUnsafe := cluster.Spec.AllowUnsafeConfig
+		oldUnsafe := cluster.Spec.Unsafe.PXCSize
 		cluster.Spec.PXC.Size = 1
-		cluster.Spec.AllowUnsafeConfig = true
+		cluster.Spec.Unsafe.PXCSize = true
 
 		if err := r.startCluster(cluster); err != nil {
 			return rr, errors.Wrap(err, "restart cluster for pitr")
@@ -247,7 +249,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(ctx context.Context, re
 		}
 
 		cluster.Spec.PXC.Size = oldSize
-		cluster.Spec.AllowUnsafeConfig = oldUnsafe
+		cluster.Spec.Unsafe.PXCSize = oldUnsafe
 
 		log.Info("starting cluster", "cluster", cr.Spec.PXCCluster)
 		err = r.setStatus(cr, api.RestoreStartCluster, "")

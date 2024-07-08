@@ -364,11 +364,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 		}
 	}
 
-	if o.CompareVersionWith("1.15.0") >= 0 {
-		proxyInits = append(proxyInits, statefulset.HaproxyEntrypointInitContainer(initImageName, o.Spec.HAProxy.Resources, o.Spec.HAProxy.ContainerSecurityContext, o.Spec.HAProxy.ImagePullPolicy))
-	}
-
-	if err := r.reconcileHAProxy(ctx, o, userReconcileResult.proxyAnnotations, proxyInits); err != nil {
+	if err := r.reconcileHAProxy(ctx, o, userReconcileResult.proxyAnnotations, proxyInits, initImageName); err != nil {
 		return reconcile.Result{}, err
 	}
 
@@ -459,7 +455,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 	return rr, nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) reconcileHAProxy(ctx context.Context, cr *api.PerconaXtraDBCluster, annotations map[string]string, initContainers []corev1.Container) error {
+func (r *ReconcilePerconaXtraDBCluster) reconcileHAProxy(ctx context.Context, cr *api.PerconaXtraDBCluster, annotations map[string]string, initContainers []corev1.Container, initImageName string) error {
 	if !cr.HAProxyEnabled() {
 		if err := r.deleteServices(pxc.NewServiceHAProxyReplicas(cr)); err != nil {
 			return errors.Wrap(err, "delete HAProxy replica service")
@@ -475,6 +471,12 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileHAProxy(ctx context.Context, cr
 
 		return nil
 	}
+
+	if cr.CompareVersionWith("1.15.0") >= 0 {
+		initContainers = append(initContainers,
+			statefulset.HaproxyEntrypointInitContainer(initImageName, cr.Spec.HAProxy.Resources, cr.Spec.HAProxy.ContainerSecurityContext, cr.Spec.HAProxy.ImagePullPolicy))
+	}
+
 	envVarsSecret := new(corev1.Secret)
 	if err := r.client.Get(ctx, types.NamespacedName{
 		Name:      cr.Spec.HAProxy.EnvVarsSecretName,

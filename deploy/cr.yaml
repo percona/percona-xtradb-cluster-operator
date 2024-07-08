@@ -289,7 +289,8 @@ spec:
 #        - 10.0.0.0/8
 #      loadBalancerIP: 127.0.0.1
 #    exposeReplicas:
-#      enabled: false
+#      enabled: true
+#      onlyReaders: false
 #      type: ClusterIP
 #      annotations:
 #        service.beta.kubernetes.io/aws-load-balancer-backend-protocol: tcp

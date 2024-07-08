@@ -488,8 +488,8 @@ type ProxySQLSpec struct {
 
 type HAProxySpec struct {
 	PodSpec        `json:",inline"`
-	ExposePrimary  ServiceExpose  `json:"exposePrimary,omitempty"`
-	ExposeReplicas *ServiceExpose `json:"exposeReplicas,omitempty"`
+	ExposePrimary  ServiceExpose          `json:"exposePrimary,omitempty"`
+	ExposeReplicas *ReplicasServiceExpose `json:"exposeReplicas,omitempty"`
 
 	// Deprecated: Use ExposeReplica.Enabled instead
 	ReplicasServiceEnabled *bool `json:"replicasServiceEnabled,omitempty"`
@@ -497,6 +497,11 @@ type HAProxySpec struct {
 	ReplicasLoadBalancerSourceRanges []string `json:"replicasLoadBalancerSourceRanges,omitempty"`
 	// Deprecated: Use ExposeReplica.LoadBalancerIP instead
 	ReplicasLoadBalancerIP string `json:"replicasLoadBalancerIP,omitempty"`
+}
+
+type ReplicasServiceExpose struct {
+	ServiceExpose `json:",inline"`
+	OnlyReaders   bool `json:"onlyReaders,omitempty"`
 }
 
 type PodDisruptionBudgetSpec struct {
@@ -932,8 +937,10 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 	if c.HAProxyEnabled() {
 		if cr.CompareVersionWith("1.14.0") >= 0 {
 			if c.HAProxy.ExposeReplicas == nil {
-				c.HAProxy.ExposeReplicas = &ServiceExpose{
-					Enabled: true,
+				c.HAProxy.ExposeReplicas = &ReplicasServiceExpose{
+					ServiceExpose: ServiceExpose{
+						Enabled: true,
+					},
 				}
 			}
 		} else {
@@ -1472,7 +1479,7 @@ func (cr *PerconaXtraDBCluster) HAProxyReplicasServiceEnabled() bool {
 		return *cr.Spec.HAProxy.ReplicasServiceEnabled
 	}
 
-	return cr.Spec.HAProxy.ExposeReplicas.Enabled
+	return cr.Spec.HAProxy.ExposeReplicas.ServiceExpose.Enabled
 }
 
 func (cr *PerconaXtraDBCluster) ProxySQLEnabled() bool {

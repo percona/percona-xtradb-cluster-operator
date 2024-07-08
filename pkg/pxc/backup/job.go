@@ -274,8 +274,6 @@ func SetStorageS3(job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBackup) erro
 		Value: s3.EndpointURL,
 	}
 
-	job.Template.Spec.Containers[0].Env = append(job.Template.Spec.Containers[0].Env, region, endpoint)
-
 	if s3.CredentialsSecret != "" {
 		accessKey := corev1.EnvVar{
 			Name: "ACCESS_KEY_ID",
@@ -292,6 +290,8 @@ func SetStorageS3(job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBackup) erro
 
 		job.Template.Spec.Containers[0].Env = append(job.Template.Spec.Containers[0].Env, accessKey, secretKey)
 	}
+
+	job.Template.Spec.Containers[0].Env = append(job.Template.Spec.Containers[0].Env, region, endpoint)
 
 	bucket, prefix := s3.BucketAndPrefix()
 	if bucket == "" {

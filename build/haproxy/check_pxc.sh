@@ -18,7 +18,7 @@ if [ -f "$PATH_TO_SECRET/OK_IF_DONOR" ]; then
 fi
 
 if [ -f "$PATH_TO_SECRET/VERBOSE" ]; then
-    VERBOSE=$(/bin/cat $PATH_TO_SECRET/VERBOSE)
+	VERBOSE=$(/bin/cat $PATH_TO_SECRET/VERBOSE)
 fi
 
 VERBOSE=${VERBOSE:-1}

@@ -2,13 +2,14 @@ package pxcbackup
 
 import (
 	"context"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	"os"
 	"reflect"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 
 	"github.com/pkg/errors"
 	batchv1 "k8s.io/api/batch/v1"

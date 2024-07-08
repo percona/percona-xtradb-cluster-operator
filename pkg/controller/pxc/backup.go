@@ -6,11 +6,12 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 	"fmt"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	"hash/crc32"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 
 	"github.com/pkg/errors"
 	"github.com/robfig/cron/v3"

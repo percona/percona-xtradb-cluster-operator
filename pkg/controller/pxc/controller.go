@@ -672,6 +672,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(ctx context.Context, cr *api.Perc
 	}
 
 	if cr.CompareVersionWith("1.15.0") >= 0 {
+		log.Info("AAAAAAAAAAAAAAAAAAAAAAAAAAAAA HAProxy enabled", "HAProxyEnabled", cr.HAProxyEnabled())
 		proxyInits = append(proxyInits, statefulset.HaproxyEntrypointInitContainer(initImageName, cr.Spec.HAProxy.Resources, cr.Spec.HAProxy.ContainerSecurityContext, cr.Spec.HAProxy.ImagePullPolicy))
 	}
 

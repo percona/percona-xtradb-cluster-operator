@@ -24,6 +24,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/deployment"
 )
 
@@ -44,7 +45,11 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(ctx context.Context, cr
 			return errors.Wrap(err, "failed to check if restore is running")
 		}
 		if cr.Status.Status == api.AppStateReady && cr.Spec.Backup.PITR.Enabled && !cr.Spec.Pause && !restoreRunning {
-			binlogCollector, err := deployment.GetBinlogCollectorDeployment(cr)
+			initImage, err := k8s.GetInitImage(ctx, cr, r.client)
+			if err != nil {
+				return errors.Wrap(err, "failed to get init image")
+			}
+			binlogCollector, err := deployment.GetBinlogCollectorDeployment(cr, initImage)
 			if err != nil {
 				return errors.Errorf("get binlog collector deployment for cluster '%s': %v", cr.Name, err)
 			}
@@ -273,9 +278,11 @@ func trimNameRight(name string, ln int) string {
 type minHeap []api.PerconaXtraDBClusterBackup
 
 func (h minHeap) Len() int { return len(h) }
+
 func (h minHeap) Less(i, j int) bool {
 	return h[i].CreationTimestamp.Before(&h[j].CreationTimestamp)
 }
+
 func (h minHeap) Swap(i, j int) { h[i], h[j] = h[j], h[i] }
 
 func (h *minHeap) Push(x interface{}) {

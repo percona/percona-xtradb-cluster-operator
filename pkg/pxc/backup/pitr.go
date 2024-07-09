@@ -14,7 +14,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -59,6 +58,7 @@ func CheckPITRErrors(ctx context.Context, cl client.Client, clcmd *clientcmd.Cli
 
 	stdoutBuf := &bytes.Buffer{}
 	stderrBuf := &bytes.Buffer{}
+
 	err = clcmd.Exec(collectorPod, "pitr", []string{"/bin/bash", "-c", "cat /tmp/gap-detected"}, nil, stdoutBuf, stderrBuf, false)
 	if err != nil {
 		if strings.Contains(stderrBuf.String(), "No such file or directory") {
@@ -88,7 +88,7 @@ func CheckPITRErrors(ctx context.Context, cl client.Client, clcmd *clientcmd.Cli
 		return errors.Wrap(err, "update backup status")
 	}
 
-	if err := deployment.RemoveGapFile(ctx, clcmd, collectorPod); err != nil {
+	if err := deployment.RemoveGapFile(ctx, cr, clcmd, collectorPod); err != nil {
 		if !errors.Is(err, deployment.GapFileNotFound) {
 			return errors.Wrap(err, "remove gap file")
 		}

@@ -173,7 +173,7 @@ function check_telemetry_transfer() {
 		[[ -s ${tmp_dir}/disabled_telemetry.version-service.log.json ]] && exit 1
 	fi
 
-	kubectl_bin patch pxc minimal-cluster --type=merge -p '{"metadata":{"finalizers":["delete-pxc-pvc"]}}'
+	kubectl_bin patch pxc minimal-cluster --type=merge -p '{"metadata":{"finalizers":["percona.com/delete-pxc-pvc"]}}'
 	kubectl_bin delete pod ${OPERATOR_NS:+-n $OPERATOR_NS} "$(get_operator_pod)"
 	kubectl_bin delete pxc --all
 	kubectl_bin delete deploy pxc-client

@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
+
 	"github.com/pkg/errors"
 	"github.com/robfig/cron/v3"
 	appsv1 "k8s.io/api/apps/v1"
@@ -22,6 +24,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/deployment"
 )
 
@@ -42,7 +45,11 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(ctx context.Context, cr
 			return errors.Wrap(err, "failed to check if restore is running")
 		}
 		if cr.Status.Status == api.AppStateReady && cr.Spec.Backup.PITR.Enabled && !cr.Spec.Pause && !restoreRunning {
-			binlogCollector, err := deployment.GetBinlogCollectorDeployment(cr)
+			initImage, err := k8s.GetInitImage(ctx, cr, r.client)
+			if err != nil {
+				return errors.Wrap(err, "failed to get init image")
+			}
+			binlogCollector, err := deployment.GetBinlogCollectorDeployment(cr, initImage)
 			if err != nil {
 				return errors.Errorf("get binlog collector deployment for cluster '%s': %v", cr.Name, err)
 			}
@@ -191,7 +198,11 @@ func (r *ReconcilePerconaXtraDBCluster) createBackupJob(ctx context.Context, cr 
 	var fins []string
 	switch storageType {
 	case api.BackupStorageS3, api.BackupStorageAzure:
-		fins = append(fins, api.FinalizerDeleteS3Backup)
+		if cr.CompareVersionWith("1.15.0") < 0 {
+			fins = append(fins, naming.FinalizerDeleteS3Backup)
+		} else {
+			fins = append(fins, naming.FinalizerDeleteBackup)
+		}
 	}
 
 	return func() {
@@ -267,9 +278,11 @@ func trimNameRight(name string, ln int) string {
 type minHeap []api.PerconaXtraDBClusterBackup
 
 func (h minHeap) Len() int { return len(h) }
+
 func (h minHeap) Less(i, j int) bool {
 	return h[i].CreationTimestamp.Before(&h[j].CreationTimestamp)
 }
+
 func (h minHeap) Swap(i, j int) { h[i], h[j] = h[j], h[i] }
 
 func (h *minHeap) Push(x interface{}) {

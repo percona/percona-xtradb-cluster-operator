@@ -105,6 +105,8 @@ spec:
               value: proxy-protocol-pxc
             - name: IS_PROXY_PROTOCOL
               value: "yes"
+            - name: REPLICAS_SVC_ONLY_READERS
+              value: "false"
           envFrom:
             - secretRef:
                 name: proxy-protocol-env-vars-haproxy

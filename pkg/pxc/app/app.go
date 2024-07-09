@@ -6,3 +6,7 @@ const (
 	EtcVolumeName  = "etc"
 	Name           = "pxc"
 )
+
+const (
+	BinVolumeMountPath = "/opt/percona"
+)

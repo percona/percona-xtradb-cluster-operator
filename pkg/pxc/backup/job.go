@@ -95,7 +95,7 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, cluster *api.PerconaXtraDBClu
 			},
 		)
 
-		initContainers = append(initContainers, statefulset.BackupInitContainer(cluster, storage.Resources, initImage))
+		initContainers = append(initContainers, statefulset.BackupInitContainer(cluster, storage.Resources, initImage, storage.ContainerSecurityContext))
 	}
 
 	return batchv1.JobSpec{

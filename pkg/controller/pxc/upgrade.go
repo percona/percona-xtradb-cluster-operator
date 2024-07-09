@@ -21,6 +21,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/queries"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
@@ -88,7 +89,7 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(ctx context.Context, sfs api.S
 		return errors.Wrap(err, "get internal secret")
 	}
 
-	initImageName, err := getInitImage(ctx, cr, r.client)
+	initImageName, err := k8s.GetInitImage(ctx, cr, r.client)
 	if err != nil {
 		return errors.Wrap(err, "failed to get initImage")
 	}

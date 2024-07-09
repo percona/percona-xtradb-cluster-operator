@@ -519,7 +519,6 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileHAProxy(ctx context.Context, cr
 		}
 	}
 
-	log := logf.FromContext(ctx)
 	if cr.HAProxyReplicasServiceEnabled() {
 		svc := pxc.NewServiceHAProxyReplicas(cr)
 		err := setControllerReference(cr, svc, r.scheme)
@@ -529,7 +528,6 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileHAProxy(ctx context.Context, cr
 
 		if cr.CompareVersionWith("1.14.0") >= 0 {
 			e := cr.Spec.HAProxy.ExposeReplicas
-			log.Info("HAProxy replicas service", "service", svc.Name, "expose", e)
 			err = r.createOrUpdateService(ctx, cr, svc, len(e.ServiceExpose.Labels) == 0 && len(e.ServiceExpose.Annotations) == 0)
 			if err != nil {
 				return errors.Wrapf(err, "%s upgrade error", svc.Name)

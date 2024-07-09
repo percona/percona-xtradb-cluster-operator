@@ -141,7 +141,7 @@ function main() {
 
 	if [ -n "$main_node" ]; then
 		if /usr/local/bin/check_pxc.sh '' '' "$main_node"; then
-			for backup_server in ${NODE_LIST_BACKUP[@]}; do
+			for backup_server in "${NODE_LIST_BACKUP[@]}"; do
 				log "shutdown sessions server $backup_server | socat stdio ${SOCKET}"
 				echo "shutdown sessions server $backup_server" | socat stdio "${SOCKET}"
 			done

@@ -46,15 +46,7 @@ func HaproxyEntrypointInitContainer(initImageName string, resources corev1.Resou
 		VolumeMounts: []corev1.VolumeMount{
 			{
 				Name:      app.BinVolumeName,
-				MountPath: "/usr/local/bin",
-			},
-			{
-				Name:      app.BinVolumeName,
-				MountPath: "/usr/bin",
-			},
-			{
-				Name:      app.EtcVolumeName,
-				MountPath: "/etc",
+				MountPath: app.BinVolumeMountPath,
 			},
 		},
 		Image:           initImageName,

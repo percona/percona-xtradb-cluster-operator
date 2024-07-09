@@ -130,7 +130,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(ctx context.Context, cr *
 		updateReplicationPassword: actions.updateReplicationPass,
 	}
 
-	if actions.restartProxySQL {
+	if actions.restartProxySQL && cr.ProxySQLEnabled() {
 		log.Info("Proxy pods will be restarted", "last-applied-secret", newSecretDataHash)
 		result.proxysqlAnnotations = map[string]string{"last-applied-secret": newSecretDataHash}
 	}
@@ -138,13 +138,9 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(ctx context.Context, cr *
 		log.Info("PXC pods will be restarted", "last-applied-secret", newSecretDataHash)
 		result.pxcAnnotations = map[string]string{"last-applied-secret": newSecretDataHash}
 	}
-
-	// we should restart HAProxy only for 5.7 version
-	if !ver.GreaterThanOrEqual(mysql80) {
-		if actions.restartHAProxy {
-			log.Info("HAProxy pods will be restarted", "last-applied-secret", newSecretDataHash)
-			result.haproxyAnnotations = map[string]string{"last-applied-secret": newSecretDataHash}
-		}
+	if actions.restartHAProxy && cr.HAProxyEnabled() {
+		log.Info("HAProxy pods will be restarted", "last-applied-secret", newSecretDataHash)
+		result.haproxyAnnotations = map[string]string{"last-applied-secret": newSecretDataHash}
 	}
 
 	return result, nil
@@ -476,7 +472,6 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(ctx context.Context, c
 		}
 
 		actions.restartProxySQL = true
-		actions.restartHAProxy = true
 		if cr.Spec.PMM != nil && cr.Spec.PMM.IsEnabled(internalSecrets) {
 			actions.restartPXC = true
 		}

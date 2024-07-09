@@ -242,6 +242,9 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUserWithoutDP(ctx context.C
 		log.Info("Proxy user updated", "user", user.Name)
 	}
 
+	// We should restart HAProxy if the monitor user password has been changed only on version 5.7
+	actions.restartHAProxy = true
+
 	actions.restartProxySQL = true
 	if cr.Spec.PMM != nil && cr.Spec.PMM.IsEnabled(internalSecrets) {
 		actions.restartPXC = true

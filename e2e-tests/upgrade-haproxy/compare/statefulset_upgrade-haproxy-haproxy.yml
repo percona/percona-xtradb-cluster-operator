@@ -109,6 +109,8 @@ spec:
           env:
             - name: PXC_SERVICE
               value: upgrade-haproxy-pxc
+            - name: REPLICAS_SVC_ONLY_READERS
+              value: "false"
           envFrom:
             - secretRef:
                 name: upgrade-haproxy-env-vars-haproxy

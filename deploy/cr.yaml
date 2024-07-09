@@ -3,10 +3,10 @@ kind: PerconaXtraDBCluster
 metadata:
   name: cluster1
   finalizers:
-    - delete-pxc-pods-in-order
-#    - delete-ssl
-#    - delete-proxysql-pvc
-#    - delete-pxc-pvc
+    - percona.com/delete-pxc-pods-in-order
+#    - percona.com/delete-ssl
+#    - percona.com/delete-proxysql-pvc
+#    - percona.com/delete-pxc-pvc
 #  annotations:
 #    percona.com/issue-vault-token: "true"
 spec:
@@ -289,7 +289,8 @@ spec:
 #        - 10.0.0.0/8
 #      loadBalancerIP: 127.0.0.1
 #    exposeReplicas:
-#      enabled: false
+#      enabled: true
+#      onlyReaders: false
 #      type: ClusterIP
 #      annotations:
 #        service.beta.kubernetes.io/aws-load-balancer-backend-protocol: tcp

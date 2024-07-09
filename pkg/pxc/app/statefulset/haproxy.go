@@ -225,8 +225,8 @@ func (c *HAProxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.P
 		Image:           spec.Image,
 		ImagePullPolicy: spec.ImagePullPolicy,
 		Args: []string{
-			"/usr/bin/peer-list",
-			"-on-change=/usr/bin/add_pxc_nodes.sh",
+			"/opt/percona/peer-list",
+			"-on-change=/opt/percona/haproxy_add_pxc_nodes.sh",
 			"-service=$(PXC_SERVICE)",
 		},
 		Env: []corev1.EnvVar{
@@ -247,6 +247,14 @@ func (c *HAProxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.P
 			},
 		},
 		SecurityContext: spec.ContainerSecurityContext,
+	}
+
+	if cr.CompareVersionWith("1.15.0") < 0 {
+		container.Args = []string{
+			"/usr/bin/peer-list",
+			"-on-change=/usr/bin/add_pxc_nodes.sh",
+			"-service=$(PXC_SERVICE)",
+		}
 	}
 
 	hasKey, err := cr.ConfigHasKey("mysqld", "proxy_protocol_networks")

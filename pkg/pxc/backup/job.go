@@ -75,6 +75,29 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, cluster *api.PerconaXtraDBClu
 	}
 	envs = util.MergeEnvLists(envs, spec.ContainerOptions.GetEnvVar(cluster, spec.StorageName))
 
+	var volumeMounts []corev1.VolumeMount
+	var volumes []corev1.Volume
+	var initContainers []corev1.Container
+	if cluster.CompareVersionWith("1.15.0") >= 0 {
+		volumes = append(volumes,
+			corev1.Volume{
+				Name: app.BinVolumeName,
+				VolumeSource: corev1.VolumeSource{
+					EmptyDir: &corev1.EmptyDirVolumeSource{},
+				},
+			},
+		)
+
+		volumeMounts = append(volumeMounts,
+			corev1.VolumeMount{
+				Name:      app.BinVolumeName,
+				MountPath: app.BinVolumeMountPath,
+			},
+		)
+
+		initContainers = append(initContainers, statefulset.BackupInitContainer(cluster, storage.Resources, initImage))
+	}
+
 	return batchv1.JobSpec{
 		BackoffLimit:   &backoffLimit,
 		ManualSelector: &manualSelector,
@@ -91,9 +114,7 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, cluster *api.PerconaXtraDBClu
 				ImagePullSecrets:   bcp.imagePullSecrets,
 				RestartPolicy:      corev1.RestartPolicyNever,
 				ServiceAccountName: cluster.Spec.Backup.ServiceAccountName,
-				InitContainers: []corev1.Container{
-					statefulset.BackupInitContainer(cluster, storage.Resources, initImage),
-				},
+				InitContainers:     initContainers,
 				Containers: []corev1.Container{
 					{
 						Name:            "xtrabackup",
@@ -103,6 +124,7 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, cluster *api.PerconaXtraDBClu
 						Command:         []string{"bash", "/usr/bin/backup.sh"},
 						Env:             envs,
 						Resources:       storage.Resources,
+						VolumeMounts:    volumeMounts,
 					},
 				},
 				Affinity:                  storage.Affinity,
@@ -112,6 +134,7 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, cluster *api.PerconaXtraDBClu
 				SchedulerName:             storage.SchedulerName,
 				PriorityClassName:         storage.PriorityClassName,
 				RuntimeClassName:          storage.RuntimeClassName,
+				Volumes:                   volumes,
 			},
 		},
 	}, nil

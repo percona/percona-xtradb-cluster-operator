@@ -1578,7 +1578,7 @@ var _ = Describe("Liveness/Readiness Probes", Ordered, func() {
 		ProbeHandler: corev1.ProbeHandler{
 			Exec: &corev1.ExecAction{
 				Command: []string{
-					"/usr/local/bin/readiness-check.sh",
+					"/opt/percona/_haproxy_readiness_check.sh",
 				},
 			},
 		},
@@ -1592,7 +1592,7 @@ var _ = Describe("Liveness/Readiness Probes", Ordered, func() {
 		ProbeHandler: corev1.ProbeHandler{
 			Exec: &corev1.ExecAction{
 				Command: []string{
-					"/usr/local/bin/liveness-check.sh",
+					"/opt/percona/haproxy_liveness_check.sh",
 				},
 			},
 		},

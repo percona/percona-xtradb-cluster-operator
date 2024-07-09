@@ -61,8 +61,8 @@ COPY build/get-pxc-state /get-pxc-state
 COPY build/haproxy-init-entrypoint.sh /haproxy-init-entrypoint.sh
 COPY build/haproxy/add_pxc_nodes.sh /haproxy/add_pxc_nodes.sh
 COPY build/haproxy/check_pxc.sh /haproxy/check_pxc.sh
-COPY build/haproxy/liveness-check.sh /haproxy/liveness-check.sh
-COPY build/haproxy/readiness-check.sh /haproxy/readiness-check.sh
+COPY build/haproxy/liveness_check.sh /haproxy/liveness_check.sh
+COPY build/haproxy/readiness_check.sh /haproxy/readiness_check.sh
 COPY build/haproxy/haproxy-global.cfg /haproxy/haproxy-global.cfg
 COPY build/haproxy/haproxy.cfg /haproxy/haproxy.cfg
 

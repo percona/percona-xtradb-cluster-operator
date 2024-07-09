@@ -55,7 +55,7 @@ spec:
           livenessProbe:
             exec:
               command:
-                - /usr/local/bin/liveness-check.sh
+                - /opt/percona/haproxy_liveness_check.sh
             failureThreshold: 5
             initialDelaySeconds: 61
             periodSeconds: 31
@@ -81,7 +81,7 @@ spec:
           readinessProbe:
             exec:
               command:
-                - /usr/local/bin/readiness-check.sh
+                - /opt/percona/haproxy_readiness_check.sh
             failureThreshold: 3
             initialDelaySeconds: 15
             periodSeconds: 5

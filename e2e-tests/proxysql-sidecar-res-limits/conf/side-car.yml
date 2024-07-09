@@ -3,7 +3,7 @@ kind: PerconaXtraDBCluster
 metadata:
   name: side-car
   finalizers:
-    - delete-pxc-pods-in-order
+    - percona.com/delete-pxc-pods-in-order
 spec:
   secretsName: my-cluster-secrets
   sslSecretName: some-name-ssl

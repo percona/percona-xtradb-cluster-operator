@@ -12,6 +12,7 @@ import (
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/util"
 )
@@ -90,6 +91,9 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, cluster *api.PerconaXtraDBClu
 				ImagePullSecrets:   bcp.imagePullSecrets,
 				RestartPolicy:      corev1.RestartPolicyNever,
 				ServiceAccountName: cluster.Spec.Backup.ServiceAccountName,
+				InitContainers: []corev1.Container{
+					statefulset.BackupInitContainer(cluster, storage.Resources, initImage),
+				},
 				Containers: []corev1.Container{
 					{
 						Name:            "xtrabackup",

@@ -51,10 +51,6 @@ func HaproxyEntrypointInitContainer(initImageName string, resources corev1.Resou
 				MountPath: app.BinVolumeMountPath,
 			},
 			{
-				Name:      "haproxy-custom",
-				MountPath: "/etc/haproxy-custom/",
-			},
-			{
 				Name:      "haproxy-auto",
 				MountPath: "/etc/haproxy/pxc",
 			},

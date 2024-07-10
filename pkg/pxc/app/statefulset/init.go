@@ -59,7 +59,6 @@ func HaproxyEntrypointInitContainer(initImageName string, resources corev1.Resou
 }
 
 func ProxySQLEntrypointInitContainer(initImageName string, resources corev1.ResourceRequirements, securityContext *corev1.SecurityContext, pullPolicy corev1.PullPolicy) corev1.Container {
-	println("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
 	return corev1.Container{
 		VolumeMounts: []corev1.VolumeMount{
 			{

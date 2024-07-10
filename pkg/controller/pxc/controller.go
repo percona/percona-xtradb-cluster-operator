@@ -391,6 +391,10 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 	pxc.MergeTemplateAnnotations(proxysqlSet.StatefulSet(), userReconcileResult.proxyAnnotations)
 
 	if o.Spec.ProxySQLEnabled() {
+		if o.CompareVersionWith("1.15.0") >= 0 {
+			proxyInits = append(proxyInits,
+				statefulset.ProxySQLEntrypointInitContainer(initImageName, o.Spec.HAProxy.Resources, o.Spec.HAProxy.ContainerSecurityContext, o.Spec.HAProxy.ImagePullPolicy))
+		}
 		err = r.updatePod(ctx, proxysqlSet, &o.Spec.ProxySQL.PodSpec, o, proxyInits)
 		if err != nil {
 			return reconcile.Result{}, errors.Wrap(err, "ProxySQL upgrade error")
@@ -493,8 +497,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileHAProxy(ctx context.Context, cr
 
 	if cr.CompareVersionWith("1.15.0") >= 0 {
 		initContainers = append(initContainers,
-			statefulset.HaproxyEntrypointInitContainer(initImageName, cr.Spec.HAProxy.Resources, cr.Spec.HAProxy.ContainerSecurityContext, cr.Spec.HAProxy.ImagePullPolicy),
-			statefulset.ProxySQLEntrypointInitContainer(initImageName, cr.Spec.ProxySQL.Resources, cr.Spec.ProxySQL.ContainerSecurityContext, cr.Spec.ProxySQL.ImagePullPolicy))
+			statefulset.HaproxyEntrypointInitContainer(initImageName, cr.Spec.HAProxy.Resources, cr.Spec.HAProxy.ContainerSecurityContext, cr.Spec.HAProxy.ImagePullPolicy))
 	}
 
 	envVarsSecret := new(corev1.Secret)

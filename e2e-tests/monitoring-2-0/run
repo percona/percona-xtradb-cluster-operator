@@ -83,6 +83,9 @@ compare_kubectl statefulset/$cluster-haproxy "-no-prefix"
 desc 'apply my-env-var-secrets to add PMM_PREFIX'
 kubectl_bin apply -f "$test_dir/conf/envsecrets.yaml"
 
+wait_for_generation "sts/$cluster-pxc" 3
+wait_for_generation "sts/$cluster-haproxy" 3
+
 desc 'add new PMM API key to secret'
 API_KEY_NEW=$(curl --insecure -X POST -H "Content-Type: application/json" -d '{"name":"operator-new", "role": "Admin"}' "https://admin:$ADMIN_PASSWORD@$(get_service_endpoint monitoring-service)/graph/api/auth/keys" | jq .key)
 kubectl_bin patch secret my-cluster-secrets --type merge --patch '{"stringData": {"pmmserverkey": '"$API_KEY_NEW"'}}'
@@ -91,8 +94,9 @@ desc 'delete old PMM key'
 ID_API_KEY_OLD=$(curl --insecure -X GET "https://admin:$ADMIN_PASSWORD@$(get_service_endpoint monitoring-service)/graph/api/auth/keys" | jq '.[] | select( .name == "operator").id')
 curl --insecure -X DELETE "https://admin:$ADMIN_PASSWORD@$(get_service_endpoint monitoring-service)/graph/api/auth/keys/$ID_API_KEY_OLD"
 
-wait_for_generation "sts/$cluster-pxc" 3
-wait_for_generation "sts/$cluster-haproxy" 3
+wait_for_generation "sts/$cluster-pxc" 4
+wait_for_generation "sts/$cluster-haproxy" 4
+
 sleep 10
 kubectl wait pod -l 'app.kubernetes.io/managed-by=percona-xtradb-cluster-operator' --for=condition=ready --timeout=600s
 

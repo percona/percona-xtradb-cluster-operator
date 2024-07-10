@@ -9,3 +9,5 @@ install -o "$(id -u)" -g "$(id -g)" -m 0755 -D /haproxy_readiness_check.sh /opt/
 install -o "$(id -u)" -g "$(id -g)" -m 0755 -D /haproxy_liveness_check.sh /opt/percona/haproxy_liveness_check.sh
 install -o "$(id -u)" -g "$(id -g)" -m 0755 -D /haproxy.cfg /opt/percona/haproxy.cfg
 install -o "$(id -u)" -g "$(id -g)" -m 0755 -D /haproxy-global.cfg /opt/percona/haproxy-global.cfg
+
+install -o "$(id -u)" -g "$(id -g)" -m 0755 -D /peer-list /opt/percona/peer-list

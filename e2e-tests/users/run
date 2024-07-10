@@ -135,7 +135,7 @@ newpassencrypted=$(echo -n "$newpass" | base64)
 apply_config "$test_dir/conf/some-name.yml"
 sleep 15
 wait_cluster_consistency "$cluster" 3 3
-if [[ ${MYSQL_VERSION} == "5.7" ]]; then
+if [[ $IMAGE_PXC =~ 5\.7 ]]; then
 	check_generation "2" "haproxy" "${cluster}"
 else
 	check_generation "1" "haproxy" "${cluster}"
@@ -145,7 +145,7 @@ sleep 15
 wait_cluster_consistency "$cluster" 3 3
 compare_mysql_cmd "select-3" "SHOW DATABASES;" "-h $cluster-haproxy -umonitor -p'$newpass'"
 
-if [[ ${MYSQL_VERSION} == "5.7" ]]; then
+if [[ $IMAGE_PXC =~ 5\.7 ]]; then
 	check_generation "3" "haproxy" "${cluster}"
 else
 	check_generation "1" "haproxy" "${cluster}"

@@ -207,7 +207,7 @@ func (c *HAProxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.P
 		Image:           spec.Image,
 		ImagePullPolicy: spec.ImagePullPolicy,
 		Args: []string{
-			"/opt/percona/peer-list",
+			"/usr/bin/peer-list",
 			"-on-change=/opt/percona/haproxy_add_pxc_nodes.sh",
 			"-service=$(PXC_SERVICE)",
 		},

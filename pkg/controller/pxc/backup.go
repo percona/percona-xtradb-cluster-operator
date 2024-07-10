@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
+
 	"github.com/pkg/errors"
 	"github.com/robfig/cron/v3"
 	appsv1 "k8s.io/api/apps/v1"
@@ -196,7 +198,11 @@ func (r *ReconcilePerconaXtraDBCluster) createBackupJob(ctx context.Context, cr 
 	var fins []string
 	switch storageType {
 	case api.BackupStorageS3, api.BackupStorageAzure:
-		fins = append(fins, api.FinalizerDeleteS3Backup)
+		if cr.CompareVersionWith("1.15.0") < 0 {
+			fins = append(fins, naming.FinalizerDeleteS3Backup)
+		} else {
+			fins = append(fins, naming.FinalizerDeleteBackup)
+		}
 	}
 
 	return func() {

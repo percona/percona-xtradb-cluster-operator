@@ -43,8 +43,6 @@ func PitrInitContainer(cluster *api.PerconaXtraDBCluster, resources corev1.Resou
 
 func HaproxyEntrypointInitContainer(initImageName string, resources corev1.ResourceRequirements, securityContext *corev1.SecurityContext, pullPolicy corev1.PullPolicy) corev1.Container {
 	return corev1.Container{
-		// TODO: treba li ovdje dodati volume mount za haproxy.cfg?
-
 		VolumeMounts: []corev1.VolumeMount{
 			{
 				Name:      app.BinVolumeName,
@@ -55,6 +53,23 @@ func HaproxyEntrypointInitContainer(initImageName string, resources corev1.Resou
 		ImagePullPolicy: pullPolicy,
 		Name:            "haproxy-init",
 		Command:         []string{"/haproxy-init-entrypoint.sh"},
+		SecurityContext: securityContext,
+		Resources:       resources,
+	}
+}
+
+func ProxySQLEntrypointInitContainer(initImageName string, resources corev1.ResourceRequirements, securityContext *corev1.SecurityContext, pullPolicy corev1.PullPolicy) corev1.Container {
+	return corev1.Container{
+		VolumeMounts: []corev1.VolumeMount{
+			{
+				Name:      app.BinVolumeName,
+				MountPath: app.BinVolumeMountPath,
+			},
+		},
+		Image:           initImageName,
+		ImagePullPolicy: pullPolicy,
+		Name:            "proxysql-init",
+		Command:         []string{"/proxysql-init-entrypoint.sh"},
 		SecurityContext: securityContext,
 		Resources:       resources,
 	}

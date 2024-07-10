@@ -94,7 +94,7 @@ spec:
             - mountPath: /etc/mysql/haproxy-env-secret
               name: proxy-protocol-env-vars-haproxy
         - args:
-            - /usr/bin/peer-list
+            - /opt/percona/peer-list
             - -on-change=/opt/percona/haproxy_add_pxc_nodes.sh
             - -service=$(PXC_SERVICE)
           env:

@@ -171,8 +171,8 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.Per
 		Image:           spec.Image,
 		ImagePullPolicy: spec.ImagePullPolicy,
 		Args: []string{
-			"/usr/bin/peer-list",
-			"-on-change=/usr/bin/add_pxc_nodes.sh",
+			"/opt/percona/peer-list",
+			"-on-change=/opt/percona/proxysql_add_pxc_nodes.sh",
 			"-service=$(PXC_SERVICE)",
 		},
 		Resources: spec.SidecarResources,
@@ -205,14 +205,21 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.Per
 			},
 		},
 	}
+	if cr.CompareVersionWith("1.15.0") < 0 {
+		pxcMonit.Args = []string{
+			"/usr/bin/peer-list",
+			"-on-change=/usr/bin/add_pxc_nodes.sh",
+			"-service=$(PXC_SERVICE)",
+		}
+	}
 
 	proxysqlMonit := corev1.Container{
 		Name:            "proxysql-monit",
 		Image:           spec.Image,
 		ImagePullPolicy: spec.ImagePullPolicy,
 		Args: []string{
-			"/usr/bin/peer-list",
-			"-on-change=/usr/bin/add_proxysql_nodes.sh",
+			"/opt/percona/peer-list",
+			"-on-change=/opt/percona/proxysql_add_proxysql_nodes.sh",
 			"-service=$(PROXYSQL_SERVICE)",
 		},
 		Resources: spec.SidecarResources,
@@ -245,6 +252,15 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.Per
 			},
 		},
 	}
+
+	if cr.CompareVersionWith("1.15.0") < 0 {
+		proxysqlMonit.Args = []string{
+			"/usr/bin/peer-list",
+			"-on-change=/usr/bin/add_proxysql_nodes.sh",
+			"-service=$(PROXYSQL_SERVICE)",
+		}
+	}
+
 	if !cr.TLSEnabled() {
 		pxcMonit.Env = append(pxcMonit.Env, corev1.EnvVar{
 			Name:  "SSL_DIR",

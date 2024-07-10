@@ -67,4 +67,11 @@ COPY build/haproxy_readiness_check.sh /haproxy_readiness_check.sh
 COPY build/haproxy.cfg /haproxy.cfg
 COPY build/haproxy-global.cfg /haproxy-global.cfg
 
+COPY build/proxysql-init-entrypoint.sh /proxysql-init-entrypoint.sh
+COPY build/proxysql.cnf /proxysql.cnf
+COPY build/proxysql-admin.cnf /proxysql-admin.cnf
+COPY build/proxysql_add_cluster_nodes.sh /proxysql_add_cluster_nodes.sh
+COPY build/proxysql_add_proxysql_nodes.sh /proxysql_add_proxysql_nodes.sh
+COPY build/proxysql_add_pxc_nodes.sh /proxysql_add_pxc_nodes.sh
+
 USER 2

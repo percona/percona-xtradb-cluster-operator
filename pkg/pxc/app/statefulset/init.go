@@ -43,10 +43,20 @@ func PitrInitContainer(cluster *api.PerconaXtraDBCluster, resources corev1.Resou
 
 func HaproxyEntrypointInitContainer(initImageName string, resources corev1.ResourceRequirements, securityContext *corev1.SecurityContext, pullPolicy corev1.PullPolicy) corev1.Container {
 	return corev1.Container{
+		// TODO: treba li ovdje dodati volume mount za haproxy.cfg?
+
 		VolumeMounts: []corev1.VolumeMount{
 			{
 				Name:      app.BinVolumeName,
 				MountPath: app.BinVolumeMountPath,
+			},
+			{
+				Name:      "haproxy-custom",
+				MountPath: "/etc/haproxy-custom/",
+			},
+			{
+				Name:      "haproxy-auto",
+				MountPath: "/etc/haproxy/pxc",
 			},
 		},
 		Image:           initImageName,

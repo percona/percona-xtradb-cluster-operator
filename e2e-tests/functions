@@ -26,14 +26,13 @@ namespace="${test_name}-${RANDOM}"
 replica_namespace="${test_name}-replica-${RANDOM}"
 conf_dir=$(realpath $test_dir/../conf || :)
 src_dir=$(realpath $test_dir/../..)
-logs_dir=$(realpath $test_dir/../logs)
-
+logs_dir=$(realpath "$test_dir"/../logs || :)
 if [[ ${ENABLE_LOGGING} == "true" ]]; then
 	if [ ! -d "${logs_dir}" ]; then
 		mkdir "${logs_dir}"
 	fi
 	log_file_name=$(echo "$test_name-$MYSQL_VERSION" | tr '.' '-')
-	exec &> >(tee ${logs_dir}/${log_file_name}.log)
+	exec &> >(tee "${logs_dir}"/"${log_file_name}".log)
 	echo "Log: ${logs_dir}/${log_file_name}.log"
 fi
 
@@ -1383,6 +1382,19 @@ function check_pxc_liveness() {
 	done
 }
 
+function check_generation() {
+	local generation="$1"
+	local container="$2"
+	local cluster="$3"
+	local current_generation
+
+	current_generation="$(kubectl_bin get statefulset "${cluster}-${container}" -o jsonpath='{.metadata.generation}')"
+	if [[ ${generation} != "${current_generation}" ]]; then
+		echo "Generation for resource ${container} is: ${current_generation}, but should be: ${generation}"
+		exit 1
+	fi
+}
+
 function compare_generation() {
 	local generation="$1"
 	local proxy="$2"
@@ -1395,11 +1407,7 @@ function compare_generation() {
 		containers=(pxc proxysql)
 	fi
 	for container in "${containers[@]}"; do
-		current_generation="$(kubectl_bin get statefulset "${cluster}-${container}" -o jsonpath='{.metadata.generation}')"
-		if [[ ${generation} != "${current_generation}" ]]; then
-			echo "Generation for resource ${container} is: ${current_generation}, but should be: ${generation}"
-			exit 1
-		fi
+		check_generation "$generation" "$container" "$cluster"
 	done
 }
 
@@ -1486,7 +1494,8 @@ function prepare_cr_yaml() {
 			.spec.backup.storages.minio.s3.region = \"us-east-1\" |
 			.spec.backup.storages.minio.s3.bucket = \"operator-testing\" |
 			.spec.backup.storages.minio.s3.endpointUrl = \"http://minio-service.#namespace:9000/\" |
-			.spec.backup.storages.minio.type = \"s3\"
+			.spec.backup.storages.minio.type = \"s3\" |
+			.spec.pmm.image = \"-pmm\"
 		" - >"${cr_yaml}"
 	if [[ ${proxy} == "haproxy" ]]; then
 		yq -i eval '

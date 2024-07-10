@@ -3,7 +3,7 @@ kind: PerconaXtraDBCluster
 metadata:
   name: demand-backup-cloud
   finalizers:
-    - delete-pxc-pods-in-order
+    - percona.com/delete-pxc-pods-in-order
   # annotations:
   #   percona.com/issue-vault-token: "true"
 spec:
@@ -38,7 +38,7 @@ spec:
       antiAffinityTopologyKey: "kubernetes.io/hostname"
   proxysql:
     enabled: true
-    size: 1
+    size: 2
     image: -proxysql
     resources:
       requests:

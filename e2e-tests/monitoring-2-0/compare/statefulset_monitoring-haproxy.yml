@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  generation: 3
+  generation: 4
   name: monitoring-haproxy
   ownerReferences:
     - controller: true
@@ -239,6 +239,8 @@ spec:
           env:
             - name: PXC_SERVICE
               value: monitoring-pxc
+            - name: REPLICAS_SVC_ONLY_READERS
+              value: "false"
           envFrom:
             - secretRef:
                 name: my-env-var-secrets

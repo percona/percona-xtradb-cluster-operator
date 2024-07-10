@@ -3,7 +3,7 @@ kind: PerconaXtraDBCluster
 metadata:
   name: smart-update
   finalizers:
-    - delete-pxc-pods-in-order
+    - percona.com/delete-pxc-pods-in-order
 spec:
   crVersion: 9.9.9
   updateStrategy: SmartUpdate
@@ -32,7 +32,7 @@ spec:
       antiAffinityTopologyKey: "kubernetes.io/hostname"
   proxysql:
     enabled: false
-    size: 1
+    size: 2
     image: -proxysql
     resources:
       requests:
@@ -50,7 +50,7 @@ spec:
       antiAffinityTopologyKey: "kubernetes.io/hostname"
   haproxy:
     enabled: true
-    size: 1
+    size: 2
     image: -haproxy
     resources:
       requests:

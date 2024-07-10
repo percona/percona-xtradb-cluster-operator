@@ -34,13 +34,15 @@ var PassNotPropagatedError = errors.New("password not yet propagated")
 
 type userUpdateActions struct {
 	restartPXC            bool
-	restartProxy          bool
+	restartProxySQL       bool
+	restartHAProxy        bool
 	updateReplicationPass bool
 }
 
 type ReconcileUsersResult struct {
 	pxcAnnotations            map[string]string
-	proxyAnnotations          map[string]string
+	proxysqlAnnotations       map[string]string
+	haproxyAnnotations        map[string]string
 	updateReplicationPassword bool
 }
 
@@ -128,13 +130,17 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(ctx context.Context, cr *
 		updateReplicationPassword: actions.updateReplicationPass,
 	}
 
-	if actions.restartProxy {
+	if actions.restartProxySQL && cr.ProxySQLEnabled() {
 		log.Info("Proxy pods will be restarted", "last-applied-secret", newSecretDataHash)
-		result.proxyAnnotations = map[string]string{"last-applied-secret": newSecretDataHash}
+		result.proxysqlAnnotations = map[string]string{"last-applied-secret": newSecretDataHash}
 	}
 	if actions.restartPXC {
 		log.Info("PXC pods will be restarted", "last-applied-secret", newSecretDataHash)
 		result.pxcAnnotations = map[string]string{"last-applied-secret": newSecretDataHash}
+	}
+	if actions.restartHAProxy && cr.HAProxyEnabled() {
+		log.Info("HAProxy pods will be restarted", "last-applied-secret", newSecretDataHash)
+		result.haproxyAnnotations = map[string]string{"last-applied-secret": newSecretDataHash}
 	}
 
 	return result, nil
@@ -323,7 +329,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleOperatorUser(ctx context.Context, 
 	}
 	log.Info("Internal secrets updated", "user", user.Name)
 
-	actions.restartProxy = true
+	actions.restartProxySQL = true
 
 	err = r.discardOldPassword(cr, secrets, internalSecrets, user)
 	if err != nil {
@@ -465,7 +471,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(ctx context.Context, c
 			return PassNotPropagatedError
 		}
 
-		actions.restartProxy = true
+		actions.restartProxySQL = true
 		if cr.Spec.PMM != nil && cr.Spec.PMM.IsEnabled(internalSecrets) {
 			actions.restartPXC = true
 		}
@@ -499,7 +505,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(ctx context.Context, c
 		log.Info("Proxy user updated", "user", user.Name)
 	}
 
-	actions.restartProxy = true
+	actions.restartProxySQL = true
 	if cr.Spec.PMM != nil && cr.Spec.PMM.IsEnabled(internalSecrets) {
 		actions.restartPXC = true
 	}
@@ -562,11 +568,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleXtrabackupUser(ctx context.Context
 	user := &users.SysUser{
 		Name:  users.Xtrabackup,
 		Pass:  string(secrets.Data[users.Xtrabackup]),
-		Hosts: []string{"localhost"},
-	}
-
-	if cr.CompareVersionWith("1.7.0") >= 0 {
-		user.Hosts = []string{"%"}
+		Hosts: []string{"%"},
 	}
 
 	if cr.Status.PXC.Ready > 0 {
@@ -574,8 +576,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleXtrabackupUser(ctx context.Context
 			return err
 		}
 
-		if cr.CompareVersionWith("1.7.0") >= 0 {
-			// xtrabackup user need more grants for work in version more then 1.6.0
+		if cr.CompareVersionWith("1.15.0") >= 0 {
 			err := r.updateXtrabackupUserGrant(ctx, cr, internalSecrets)
 			if err != nil {
 				return errors.Wrap(err, "update xtrabackup user grant")
@@ -639,7 +640,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleXtrabackupUser(ctx context.Context
 func (r *ReconcilePerconaXtraDBCluster) updateXtrabackupUserGrant(ctx context.Context, cr *api.PerconaXtraDBCluster, secrets *corev1.Secret) error {
 	log := logf.FromContext(ctx)
 
-	annotationName := "grant-for-1.7.0-xtrabackup-user"
+	annotationName := "grant-for-1.15.0-xtrabackup-user"
 	if secrets.Annotations[annotationName] == "done" {
 		return nil
 	}
@@ -650,7 +651,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateXtrabackupUserGrant(ctx context.Co
 	}
 	defer um.Close()
 
-	err = um.Update170XtrabackupUser(string(secrets.Data[users.Xtrabackup]))
+	err = um.Update1150XtrabackupUser(string(secrets.Data[users.Xtrabackup]))
 	if err != nil {
 		return errors.Wrap(err, "update xtrabackup grant")
 	}
@@ -835,7 +836,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleProxyadminUser(ctx context.Context
 	}
 	log.Info("Internal secrets updated", "user", user.Name)
 
-	actions.restartProxy = true
+	actions.restartProxySQL = true
 
 	return nil
 }
@@ -885,7 +886,8 @@ func (r *ReconcilePerconaXtraDBCluster) handlePMMUser(ctx context.Context, cr *a
 	log.Info("Internal secrets updated", "user", name)
 
 	actions.restartPXC = true
-	actions.restartProxy = true
+	actions.restartProxySQL = true
+	actions.restartHAProxy = true
 
 	return nil
 }

@@ -3,10 +3,10 @@ kind: PerconaXtraDBCluster
 metadata:
   name: cluster1
   finalizers:
-    - delete-pxc-pods-in-order
-#    - delete-ssl
-#    - delete-proxysql-pvc
-#    - delete-pxc-pvc
+    - percona.com/delete-pxc-pods-in-order
+#    - percona.com/delete-ssl
+#    - percona.com/delete-proxysql-pvc
+#    - percona.com/delete-pxc-pvc
 #  annotations:
 #    percona.com/issue-vault-token: "true"
 spec:
@@ -30,7 +30,8 @@ spec:
 #        memory: 200M
 #        cpu: 200m
 #  enableCRValidationWebhook: true
-#  tls:
+  tls:
+    enabled: true
 #    SANs:
 #      - pxc-1.example.com
 #      - pxc-2.example.com
@@ -39,7 +40,11 @@ spec:
 #      name: special-selfsigned-issuer
 #      kind: ClusterIssuer
 #      group: cert-manager.io
-  allowUnsafeConfigurations: false
+#  unsafeFlags:
+#    tls: false
+#    pxcSize: false
+#    proxySize: false
+#    backupIfUnhealthy: false
 #  pause: false
   updateStrategy: SmartUpdate
   upgradeOptions:
@@ -284,7 +289,8 @@ spec:
 #        - 10.0.0.0/8
 #      loadBalancerIP: 127.0.0.1
 #    exposeReplicas:
-#      enabled: false
+#      enabled: true
+#      onlyReaders: false
 #      type: ClusterIP
 #      annotations:
 #        service.beta.kubernetes.io/aws-load-balancer-backend-protocol: tcp
@@ -548,7 +554,7 @@ spec:
         cpu: 200m
   pmm:
     enabled: false
-    image: percona/pmm-client:2.41.1
+    image: percona/pmm-client:2.41.2
     serverHost: monitoring-service
 #    serverUser: admin
 #    pxcParams: "--disable-tablestats-limit=2000"

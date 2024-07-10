@@ -3,6 +3,7 @@ package statefulset
 import (
 	"context"
 
+	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -12,7 +13,6 @@ import (
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	app "github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
-	"github.com/pkg/errors"
 )
 
 const (
@@ -56,6 +56,24 @@ func NewProxy(cr *api.PerconaXtraDBCluster) *Proxy {
 
 func (c *Proxy) Name() string {
 	return proxyName
+}
+
+func (c *Proxy) InitContainers(cr *api.PerconaXtraDBCluster, initImageName string) []corev1.Container {
+	return proxyInitContainers(cr, initImageName)
+}
+
+func proxyInitContainers(cr *api.PerconaXtraDBCluster, initImageName string) []corev1.Container {
+	inits := []corev1.Container{}
+	if cr.CompareVersionWith("1.13.0") >= 0 {
+		initResources := cr.Spec.PXC.Resources
+		if cr.Spec.InitContainer.Resources != nil {
+			initResources = *cr.Spec.InitContainer.Resources
+		}
+		inits = []corev1.Container{
+			EntrypointInitContainer(initImageName, app.BinVolumeName, initResources, cr.Spec.PXC.ContainerSecurityContext, cr.Spec.PXC.ImagePullPolicy),
+		}
+	}
+	return inits
 }
 
 func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster,
@@ -245,7 +263,7 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.Per
 			},
 		},
 	}
-	if cr.Spec.AllowUnsafeConfig && (cr.Spec.TLS == nil || cr.Spec.TLS.IssuerConf == nil) {
+	if !cr.TLSEnabled() {
 		pxcMonit.Env = append(pxcMonit.Env, corev1.EnvVar{
 			Name:  "SSL_DIR",
 			Value: "/dev/null",
@@ -421,11 +439,16 @@ func (c *Proxy) PMMContainer(ctx context.Context, cl client.Client, spec *api.PM
 func (c *Proxy) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg api.CustomVolumeGetter) (*api.Volume, error) {
 	ls := c.Labels()
 
+	sslVolume := app.GetSecretVolumes("ssl", podSpec.SSLSecretName, !cr.TLSEnabled())
+	if cr.CompareVersionWith("1.15.0") < 0 {
+		sslVolume = app.GetSecretVolumes("ssl", podSpec.SSLSecretName, cr.Spec.AllowUnsafeConfig)
+	}
+
 	vol := app.Volumes(podSpec, proxyDataVolumeName)
 	vol.Volumes = append(
 		vol.Volumes,
 		app.GetSecretVolumes("ssl-internal", podSpec.SSLInternalSecretName, true),
-		app.GetSecretVolumes("ssl", podSpec.SSLSecretName, cr.Spec.AllowUnsafeConfig),
+		sslVolume,
 	)
 
 	configVolume, err := vg(cr.Namespace, proxyConfigVolumeName, ls["app.kubernetes.io/instance"]+"-proxysql", false)

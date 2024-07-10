@@ -9,6 +9,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
+
 	"github.com/pkg/errors"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -27,6 +29,7 @@ import (
 
 	"github.com/percona/percona-xtradb-cluster-operator/clientcmd"
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/deployment"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage"
@@ -191,7 +194,11 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 
 	bcp := backup.New(cluster)
 	job := bcp.Job(cr, cluster)
-	job.Spec, err = bcp.JobSpec(cr.Spec, cluster, job)
+	initImage, err := k8s.GetInitImage(ctx, cluster, r.client)
+	if err != nil {
+		return rr, errors.Wrap(err, "failed to get initImage")
+	}
+	job.Spec, err = bcp.JobSpec(cr.Spec, cluster, job, initImage)
 	if err != nil {
 		return rr, errors.Wrap(err, "can't create job spec")
 	}
@@ -305,7 +312,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) runDeleteBackupFinalizer(ctx conte
 	for _, f := range cr.GetFinalizers() {
 		var err error
 		switch f {
-		case api.FinalizerDeleteS3Backup:
+		case naming.FinalizerDeleteS3Backup, naming.FinalizerDeleteBackup:
 			if (cr.Status.S3 == nil && cr.Status.Azure == nil) || cr.Status.Destination == "" {
 				continue
 			}
@@ -326,7 +333,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) runDeleteBackupFinalizer(ctx conte
 		if err != nil {
 			log.Info("failed to delete backup", "backup path", cr.Status.Destination, "error", err.Error())
 			finalizers = append(finalizers, f)
-		} else if f == api.FinalizerDeleteS3Backup {
+		} else if f == naming.FinalizerDeleteS3Backup || f == naming.FinalizerDeleteBackup {
 			log.Info("backup was removed", "name", cr.Name)
 		}
 	}
@@ -497,13 +504,13 @@ func (r *ReconcilePerconaXtraDBClusterBackup) updateJobStatus(bcp *api.PerconaXt
 				return errors.Wrap(err, "get binlog collector pod")
 			}
 
-			if err := deployment.RemoveGapFile(context.TODO(), r.clientcmd, collectorPod); err != nil {
+			if err := deployment.RemoveGapFile(context.TODO(), cluster, r.clientcmd, collectorPod); err != nil {
 				if !errors.Is(err, deployment.GapFileNotFound) {
 					return errors.Wrap(err, "remove gap file")
 				}
 			}
 
-			if err := deployment.RemoveTimelineFile(context.TODO(), r.clientcmd, collectorPod); err != nil {
+			if err := deployment.RemoveTimelineFile(context.TODO(), cluster, r.clientcmd, collectorPod); err != nil {
 				return errors.Wrap(err, "remove timeline file")
 			}
 		}

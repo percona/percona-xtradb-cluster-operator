@@ -3,7 +3,7 @@ kind: PerconaXtraDBCluster
 metadata:
   name: scaling-proxysql
   finalizers:
-    - delete-pxc-pods-in-order
+    - percona.com/delete-pxc-pods-in-order
 spec:
   secretsName: my-cluster-secrets
   sslSecretName: some-name-ssl
@@ -26,7 +26,7 @@ spec:
       antiAffinityTopologyKey: "kubernetes.io/hostname"
   proxysql:
     enabled: true
-    size: 1
+    size: 2
     image: -proxysql
     resources:
       requests:

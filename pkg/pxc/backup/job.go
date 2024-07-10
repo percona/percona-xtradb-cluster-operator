@@ -12,6 +12,7 @@ import (
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/util"
 )
@@ -41,7 +42,7 @@ func (*Backup) Job(cr *api.PerconaXtraDBClusterBackup, cluster *api.PerconaXtraD
 	}
 }
 
-func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, cluster *api.PerconaXtraDBCluster, job *batchv1.Job) (batchv1.JobSpec, error) {
+func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, cluster *api.PerconaXtraDBCluster, job *batchv1.Job, initImage string) (batchv1.JobSpec, error) {
 	manualSelector := true
 	backoffLimit := int32(10)
 	if cluster.CompareVersionWith("1.11.0") >= 0 && cluster.Spec.Backup.BackoffLimit != nil {
@@ -74,6 +75,29 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, cluster *api.PerconaXtraDBClu
 	}
 	envs = util.MergeEnvLists(envs, spec.ContainerOptions.GetEnvVar(cluster, spec.StorageName))
 
+	var volumeMounts []corev1.VolumeMount
+	var volumes []corev1.Volume
+	var initContainers []corev1.Container
+	if cluster.CompareVersionWith("1.15.0") >= 0 {
+		volumes = append(volumes,
+			corev1.Volume{
+				Name: app.BinVolumeName,
+				VolumeSource: corev1.VolumeSource{
+					EmptyDir: &corev1.EmptyDirVolumeSource{},
+				},
+			},
+		)
+
+		volumeMounts = append(volumeMounts,
+			corev1.VolumeMount{
+				Name:      app.BinVolumeName,
+				MountPath: app.BinVolumeMountPath,
+			},
+		)
+
+		initContainers = append(initContainers, statefulset.BackupInitContainer(cluster, storage.Resources, initImage, storage.ContainerSecurityContext))
+	}
+
 	return batchv1.JobSpec{
 		BackoffLimit:   &backoffLimit,
 		ManualSelector: &manualSelector,
@@ -90,6 +114,7 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, cluster *api.PerconaXtraDBClu
 				ImagePullSecrets:   bcp.imagePullSecrets,
 				RestartPolicy:      corev1.RestartPolicyNever,
 				ServiceAccountName: cluster.Spec.Backup.ServiceAccountName,
+				InitContainers:     initContainers,
 				Containers: []corev1.Container{
 					{
 						Name:            "xtrabackup",
@@ -99,6 +124,7 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, cluster *api.PerconaXtraDBClu
 						Command:         []string{"bash", "/usr/bin/backup.sh"},
 						Env:             envs,
 						Resources:       storage.Resources,
+						VolumeMounts:    volumeMounts,
 					},
 				},
 				Affinity:                  storage.Affinity,
@@ -108,6 +134,7 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, cluster *api.PerconaXtraDBClu
 				SchedulerName:             storage.SchedulerName,
 				PriorityClassName:         storage.PriorityClassName,
 				RuntimeClassName:          storage.RuntimeClassName,
+				Volumes:                   volumes,
 			},
 		},
 	}, nil
@@ -179,16 +206,16 @@ func SetStoragePVC(job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBackup, vol
 		return errors.New("no containers in job spec")
 	}
 
-	job.Template.Spec.Containers[0].VolumeMounts = []corev1.VolumeMount{
+	job.Template.Spec.Containers[0].VolumeMounts = append(job.Template.Spec.Containers[0].VolumeMounts, []corev1.VolumeMount{
 		{
 			Name:      pvc.Name,
 			MountPath: "/backup",
 		},
-	}
+	}...)
 
-	job.Template.Spec.Volumes = []corev1.Volume{
+	job.Template.Spec.Volumes = append(job.Template.Spec.Volumes, []corev1.Volume{
 		pvc,
-	}
+	}...)
 
 	err := appendStorageSecret(job, cr)
 	if err != nil {
@@ -243,9 +270,6 @@ func SetStorageAzure(job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBackup) e
 	job.Template.Spec.Containers[0].Env = append(job.Template.Spec.Containers[0].Env, storageAccount, accessKey, containerName, endpoint, storageClass, backupPath)
 
 	// add SSL volumes
-	job.Template.Spec.Containers[0].VolumeMounts = []corev1.VolumeMount{}
-	job.Template.Spec.Volumes = []corev1.Volume{}
-
 	err := appendStorageSecret(job, cr)
 	if err != nil {
 		return errors.Wrap(err, "failed to append storage secrets")
@@ -258,19 +282,13 @@ func SetStorageS3(job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBackup) erro
 	if cr.Status.S3 == nil {
 		return errors.New("s3 storage is not specified in backup status")
 	}
+
+	if len(job.Template.Spec.Containers) == 0 {
+		return errors.New("no containers in job spec")
+	}
+
 	s3 := cr.Status.S3
-	accessKey := corev1.EnvVar{
-		Name: "ACCESS_KEY_ID",
-		ValueFrom: &corev1.EnvVarSource{
-			SecretKeyRef: app.SecretKeySelector(s3.CredentialsSecret, "AWS_ACCESS_KEY_ID"),
-		},
-	}
-	secretKey := corev1.EnvVar{
-		Name: "SECRET_ACCESS_KEY",
-		ValueFrom: &corev1.EnvVarSource{
-			SecretKeyRef: app.SecretKeySelector(s3.CredentialsSecret, "AWS_SECRET_ACCESS_KEY"),
-		},
-	}
+
 	region := corev1.EnvVar{
 		Name:  "DEFAULT_REGION",
 		Value: s3.Region,
@@ -280,10 +298,24 @@ func SetStorageS3(job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBackup) erro
 		Value: s3.EndpointURL,
 	}
 
-	if len(job.Template.Spec.Containers) == 0 {
-		return errors.New("no containers in job spec")
+	if s3.CredentialsSecret != "" {
+		accessKey := corev1.EnvVar{
+			Name: "ACCESS_KEY_ID",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: app.SecretKeySelector(s3.CredentialsSecret, "AWS_ACCESS_KEY_ID"),
+			},
+		}
+		secretKey := corev1.EnvVar{
+			Name: "SECRET_ACCESS_KEY",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: app.SecretKeySelector(s3.CredentialsSecret, "AWS_SECRET_ACCESS_KEY"),
+			},
+		}
+
+		job.Template.Spec.Containers[0].Env = append(job.Template.Spec.Containers[0].Env, accessKey, secretKey)
 	}
-	job.Template.Spec.Containers[0].Env = append(job.Template.Spec.Containers[0].Env, accessKey, secretKey, region, endpoint)
+
+	job.Template.Spec.Containers[0].Env = append(job.Template.Spec.Containers[0].Env, region, endpoint)
 
 	bucket, prefix := s3.BucketAndPrefix()
 	if bucket == "" {
@@ -302,9 +334,6 @@ func SetStorageS3(job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBackup) erro
 	job.Template.Spec.Containers[0].Env = append(job.Template.Spec.Containers[0].Env, bucketEnv, bucketPathEnv)
 
 	// add SSL volumes
-	job.Template.Spec.Containers[0].VolumeMounts = []corev1.VolumeMount{}
-	job.Template.Spec.Volumes = []corev1.Volume{}
-
 	err := appendStorageSecret(job, cr)
 	if err != nil {
 		return errors.Wrap(err, "failed to append storage secrets")

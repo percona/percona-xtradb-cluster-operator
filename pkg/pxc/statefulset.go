@@ -5,20 +5,22 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 )
 
 // StatefulSet returns StatefulSet according for app to podSpec
 func StatefulSet(ctx context.Context, cl client.Client, sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, secret *corev1.Secret,
-	initContainers []corev1.Container, log logr.Logger, vg api.CustomVolumeGetter,
+	initImageName string, vg api.CustomVolumeGetter,
 ) (*appsv1.StatefulSet, error) {
+	log := logf.FromContext(ctx)
+
 	pod := corev1.PodSpec{
 		SecurityContext:               podSpec.PodSecurityContext,
 		NodeSelector:                  podSpec.NodeSelector,
@@ -80,6 +82,7 @@ func StatefulSet(ctx context.Context, cl client.Client, sfs api.StatefulApp, pod
 		}
 	}
 
+	initContainers := sfs.InitContainers(cr, initImageName)
 	if len(initContainers) > 0 {
 		pod.InitContainers = append(pod.InitContainers, initContainers...)
 	}
@@ -199,10 +202,16 @@ func MergeTemplateAnnotations(sfs *appsv1.StatefulSet, annotations map[string]st
 	if len(annotations) == 0 {
 		return
 	}
-	if sfs.Spec.Template.Annotations == nil {
-		sfs.Spec.Template.Annotations = make(map[string]string)
+	MergeMaps(sfs.Spec.Template.Annotations, annotations)
+}
+
+func MergeMaps(dest map[string]string, mapList ...map[string]string) {
+	if dest == nil {
+		dest = make(map[string]string)
 	}
-	for k, v := range annotations {
-		sfs.Spec.Template.Annotations[k] = v
+	for _, m := range mapList {
+		for k, v := range m {
+			dest[k] = v
+		}
 	}
 }

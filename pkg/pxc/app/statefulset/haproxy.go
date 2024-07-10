@@ -3,6 +3,7 @@ package statefulset
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
@@ -59,6 +60,10 @@ func NewHAProxy(cr *api.PerconaXtraDBCluster) *HAProxy {
 
 func (c *HAProxy) Name() string {
 	return haproxyName
+}
+
+func (c *HAProxy) InitContainers(cr *api.PerconaXtraDBCluster, initImageName string) []corev1.Container {
+	return proxyInitContainers(cr, initImageName)
 }
 
 func (c *HAProxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster,
@@ -287,6 +292,13 @@ func (c *HAProxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.P
 		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
 			Name:      cr.Spec.HAProxy.EnvVarsSecretName,
 			MountPath: "/etc/mysql/haproxy-env-secret",
+		})
+	}
+
+	if cr.CompareVersionWith("1.15.0") >= 0 {
+		container.Env = append(container.Env, corev1.EnvVar{
+			Name:  "REPLICAS_SVC_ONLY_READERS",
+			Value: strconv.FormatBool(cr.Spec.HAProxy.ExposeReplicas.OnlyReaders),
 		})
 	}
 

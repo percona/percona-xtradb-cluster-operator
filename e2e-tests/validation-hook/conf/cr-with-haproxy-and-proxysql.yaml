@@ -3,13 +3,13 @@ kind: PerconaXtraDBCluster
 metadata:
   name: cluster1
   finalizers:
-    - delete-pxc-pods-in-order
-#    - delete-proxysql-pvc
-#    - delete-pxc-pvc
+    - percona.com/delete-pxc-pods-in-order
+#    - percona.com/delete-proxysql-pvc
+#    - percona.com/delete-pxc-pvc
 #  annotations:
 #    percona.com/issue-vault-token: "true"
 spec:
-  crVersion: 1.10.0
+  crVersion: 1.15.0
   secretsName: my-cluster-secrets
   vaultSecretName: keyring-secret-vault
   sslSecretName: my-cluster-ssl
@@ -24,7 +24,6 @@ spec:
 #      name: special-selfsigned-issuer
 #      kind: ClusterIssuer
 #      group: cert-manager.io
-  allowUnsafeConfigurations: false
 #  pause: false
   updateStrategy: SmartUpdate
   upgradeOptions:

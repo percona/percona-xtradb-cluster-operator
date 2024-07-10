@@ -3,7 +3,7 @@ kind: PerconaXtraDBCluster
 metadata:
   name: haproxy
   finalizers:
-    - delete-pxc-pods-in-order
+    - percona.com/delete-pxc-pods-in-order
 spec:
   initContainer:
     resources:
@@ -101,7 +101,7 @@ spec:
         default_backend galera-replica-nodes
   proxysql:
     enabled: false
-    size: 1
+    size: 2
     image: -proxysql
     resources:
       requests:

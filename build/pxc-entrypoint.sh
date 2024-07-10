@@ -410,7 +410,7 @@ if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 			GRANT ALL ON *.* TO 'operator'@'${MYSQL_ROOT_HOST}' WITH GRANT OPTION ;
 
 			CREATE USER 'xtrabackup'@'%' IDENTIFIED BY '$(escape_special "${XTRABACKUP_PASSWORD}")' PASSWORD EXPIRE NEVER;
-			GRANT ALL ON *.* TO 'xtrabackup'@'%';
+			GRANT ALL ON *.* TO 'xtrabackup'@'%' WITH GRANT OPTION ;
 
 			CREATE USER 'monitor'@'${MONITOR_HOST}' IDENTIFIED BY '$(escape_special "${MONITOR_PASSWORD}")' WITH MAX_USER_CONNECTIONS 100 PASSWORD EXPIRE NEVER;
 			GRANT SELECT, PROCESS, SUPER, REPLICATION CLIENT, RELOAD ON *.* TO 'monitor'@'${MONITOR_HOST}';

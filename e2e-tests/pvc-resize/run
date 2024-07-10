@@ -5,39 +5,174 @@ set -o errexit
 test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
 
+function patch_pvc_request() {
+	local cluster=$1
+	local size=$2
+
+	echo "Patching PVC request to ${size} in ${cluster}"
+
+	kubectl_bin patch pxc ${cluster} --type=json -p='[{"op": "replace", "path": "/spec/pxc/volumeSpec/persistentVolumeClaim/resources/requests/storage", "value":"'"${size}"'"}]'
+}
+
+function get_default_storageclass() {
+	kubectl_bin get sc -o jsonpath='{.items[?(@.metadata.annotations.storageclass\.kubernetes\.io/is-default-class=="true")].metadata.name}'
+}
+
+function ensure_default_sc_allows_expansion() {
+	local default_sc=$(get_default_storageclass)
+
+	echo "Checking if default storageclass ${default_sc} allows volume expansion"
+
+	local allowVolumeExpansion=$(kubectl_bin get sc -o jsonpath='{.items[?(@.metadata.name=="'"${default_sc}"'")].allowVolumeExpansion}')
+
+	if [[ "${allowVolumeExpansion}" != "true" ]]; then
+		echo "Default storageclass ${default_sc} does not allow volume expansion"
+		exit 0
+	fi
+}
+
+function apply_resourcequota() {
+	local quota=$1
+	local default_sc=$(get_default_storageclass)
+
+	echo "Applying resourcequota for default storageclass ${default_sc} with quota ${quota}"
+
+	cat ${test_dir}/conf/resourcequota.yml |
+		sed "s/STORAGECLASS/${default_sc}/" |
+		sed "s/QUOTA/${quota}/" |
+		kubectl_bin apply -f -
+}
+
+function wait_cluster_status() {
+	local cluster=$1
+	local expected=$2
+
+	echo -n "Waiting for pxc/${cluster} status to be ${expected}"
+	until [[ $(kubectl_bin get pxc ${cluster} -o jsonpath='{.status.state}') == ${expected} ]]; do
+		if [[ $retry -ge 60 ]]; then
+			echo
+			echo "pxc/${cluster} did not reach ${expected} status, max retries exceeded"
+			exit 1
+		fi
+		echo -n "."
+		sleep 5
+
+		retry=$((retry + 1))
+	done
+
+	echo
+	echo "pxc/${cluster} status is ${expected}"
+}
+
 set_debug
 
-if [[ $EKS == 1 ]]; then
-	echo "Skip the test. We don't run it for EKS."
-	exit 0
+if [ "$EKS" == 1 ]; then
+	echo "EKS environment detected, creating storageclass for EBS volumes"
+	kubectl_bin apply -f ${test_dir}/conf/eks-storageclass.yml
+else
+	ensure_default_sc_allows_expansion
 fi
 
 create_infra ${namespace}
 
 desc 'create first PXC cluster'
 cluster="some-name"
-spinup_pxc "${cluster}" "$conf_dir/$cluster.yml" "3" "10" "${conf_dir}/secrets.yml"
 
-kubectl_bin patch pxc "$cluster" --type=merge --patch '{
-    "spec": { "pxc": { "volumeSpec": { "persistentVolumeClaim": { "resources": { "requests": { "storage": "4Gi" } } } } } }
-}'
+if [ "$EKS" == 1 ]; then
+	spinup_pxc "${cluster}" "$test_dir/conf/$cluster-eks.yml" "3" "10" "${conf_dir}/secrets.yml"
+else
+	spinup_pxc "${cluster}" "$test_dir/conf/$cluster.yml" "3" "10" "${conf_dir}/secrets.yml"
+fi
+
+desc "test scaling"
+
+patch_pvc_request "${cluster}" "3Gi"
 wait_cluster_consistency "$cluster" 3 2
 
 for pvc in $(kubectl_bin get pvc -l app.kubernetes.io/component=pxc -o name); do
 	retry=0
-	until [[ $(kubectl_bin get ${pvc} -o jsonpath={.status.capacity.storage}) == "4Gi" ]]; do
+	echo -n "Waiting for ${pvc} to be resized"
+	until [[ $(kubectl_bin get ${pvc} -o jsonpath={.status.capacity.storage}) == "3Gi" ]]; do
 		if [[ $retry -ge 60 ]]; then
-			echo "PVC ${pvc} was not resized, max retries exceeded"
+			echo
+			echo "pvc/${pvc} was not resized, max retries exceeded"
 			exit 1
 		fi
 
-		echo "Waiting for PVC ${pvc} to be resized"
+		echo -n "."
 		sleep 5
 
 		retry=$((retry + 1))
 	done
-	echo "PVC ${pvc} was resized"
+	echo
+	echo "${pvc} was resized"
 done
+
+if [ "$EKS" == 1 ]; then
+	# EKS rate limits PVC expansion for the same EBS volume (1 expand operation in every 6 hours),
+	# so we need to delete and recreate the cluster
+	echo "Deleting and recreating PXC cluster ${cluster}"
+	kubectl_bin delete pxc ${cluster}
+	spinup_pxc "${cluster}" "$test_dir/conf/$cluster-eks.yml" "3" "10" "${conf_dir}/secrets.yml"
+fi
+
+desc 'create resourcequota'
+
+# We're setting the quota to 12Gi, so we can only resize the first PVC to 4Gi
+# the others should fail to resize due to the exceeded quota but operator should
+# handle the error and keep the cluster ready
+apply_resourcequota 10Gi
+patch_pvc_request "${cluster}" "4Gi"
+wait_cluster_consistency "$cluster" 3 2
+echo
+
+echo -n "Waiting for pvc/datadir-some-name-pxc-0 to be resized"
+until [[ $(kubectl_bin get pvc datadir-some-name-pxc-0 -o jsonpath={.status.capacity.storage}) == "4Gi" ]]; do
+	if [[ $retry -ge 60 ]]; then
+		echo
+		echo "pvc/datadir-some-name-pxc-0 was not resized, max retries exceeded"
+		exit 1
+	fi
+	echo -n "."
+	sleep 5
+
+	retry=$((retry + 1))
+done
+echo
+echo "pvc/datadir-some-name-pxc-0 was resized"
+
+# We're setting the quota to 16Gi, so we can resize all PVCs to 4Gi
+apply_resourcequota 12Gi
+patch_pvc_request "${cluster}" "4Gi"
+wait_cluster_consistency "$cluster" 3 2
+echo
+for pvc in $(kubectl_bin get pvc -l app.kubernetes.io/component=pxc -o name); do
+	retry=0
+	echo -n "Waiting for pvc/${pvc} to be resized"
+	until [[ $(kubectl_bin get ${pvc} -o jsonpath={.status.capacity.storage}) == "4Gi" ]]; do
+		if [[ $retry -ge 60 ]]; then
+			echo
+			echo "pvc/${pvc} was not resized, max retries exceeded"
+			exit 1
+		fi
+		echo -n "."
+		sleep 5
+
+		retry=$((retry + 1))
+	done
+	echo
+	echo "pvc/${pvc} was resized"
+done
+
+desc "test downscale"
+
+# operator shouldn't try to downscale the PVCs and set status to error
+patch_pvc_request "${cluster}" "1Gi"
+wait_cluster_status ${cluster} "error"
+
+# user should be able to restore to the previous size and make the cluster ready
+patch_pvc_request "${cluster}" "4Gi"
+wait_cluster_status ${cluster} "ready"
 
 destroy "${namespace}"
 desc "test passed"

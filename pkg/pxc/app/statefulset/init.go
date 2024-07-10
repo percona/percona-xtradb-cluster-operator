@@ -50,10 +50,6 @@ func HaproxyEntrypointInitContainer(initImageName string, resources corev1.Resou
 				Name:      app.BinVolumeName,
 				MountPath: app.BinVolumeMountPath,
 			},
-			{
-				Name:      "haproxy-auto",
-				MountPath: "/etc/haproxy/pxc",
-			},
 		},
 		Image:           initImageName,
 		ImagePullPolicy: pullPolicy,

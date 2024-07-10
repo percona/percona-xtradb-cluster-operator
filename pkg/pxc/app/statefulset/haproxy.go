@@ -103,6 +103,14 @@ func (c *HAProxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.Percon
 		Resources:       spec.Resources,
 	}
 
+	if cr.CompareVersionWith("1.15.0") >= 0 {
+		appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
+			Name:      app.BinVolumeName,
+			MountPath: app.BinVolumeMountPath,
+		})
+
+	}
+
 	appc.Env = append(appc.Env, corev1.EnvVar{
 		Name: "MONITOR_PASSWORD",
 		ValueFrom: &corev1.EnvVarSource{
@@ -148,17 +156,14 @@ func (c *HAProxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.Percon
 	)
 
 	rsCmd := "/opt/percona/haproxy_readiness_check.sh"
+	lsCmd := "/opt/percona/haproxy_liveness_check.sh"
 	if cr.CompareVersionWith("1.15.0") < 0 {
 		rsCmd = "/usr/local/bin/readiness-check.sh"
+		lsCmd = "/usr/local/bin/liveness-check.sh"
 	}
 	appc.ReadinessProbe = &cr.Spec.HAProxy.ReadinessProbes
 	appc.ReadinessProbe.Exec = &corev1.ExecAction{
 		Command: []string{rsCmd},
-	}
-
-	lsCmd := "/opt/percona/haproxy_liveness_check.sh"
-	if cr.CompareVersionWith("1.15.0") < 0 {
-		rsCmd = "/usr/local/bin/liveness-check.sh"
 	}
 	appc.LivenessProbe = &cr.Spec.HAProxy.LivenessProbes
 	appc.LivenessProbe.Exec = &corev1.ExecAction{
@@ -285,6 +290,10 @@ func (c *HAProxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.P
 		container.Env = append(container.Env, corev1.EnvVar{
 			Name:  "REPLICAS_SVC_ONLY_READERS",
 			Value: strconv.FormatBool(cr.Spec.HAProxy.ExposeReplicas.OnlyReaders),
+		})
+		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
+			Name:      app.BinVolumeName,
+			MountPath: app.BinVolumeMountPath,
 		})
 	}
 

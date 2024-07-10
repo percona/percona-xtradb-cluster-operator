@@ -40,3 +40,20 @@ func PitrInitContainer(cluster *api.PerconaXtraDBCluster, resources corev1.Resou
 		Resources:       resources,
 	}
 }
+
+func BackupInitContainer(cluster *api.PerconaXtraDBCluster, resources corev1.ResourceRequirements, initImageName string, securityContext *corev1.SecurityContext) corev1.Container {
+	return corev1.Container{
+		VolumeMounts: []corev1.VolumeMount{
+			{
+				Name:      app.BinVolumeName,
+				MountPath: app.BinVolumeMountPath,
+			},
+		},
+		Image:           initImageName,
+		ImagePullPolicy: cluster.Spec.Backup.ImagePullPolicy,
+		Name:            "backup-init",
+		Command:         []string{"/backup-init-entrypoint.sh"},
+		SecurityContext: securityContext,
+		Resources:       resources,
+	}
+}

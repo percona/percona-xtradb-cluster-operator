@@ -26,6 +26,15 @@ namespace="${test_name}-${RANDOM}"
 replica_namespace="${test_name}-replica-${RANDOM}"
 conf_dir=$(realpath $test_dir/../conf || :)
 src_dir=$(realpath $test_dir/../..)
+logs_dir=$(realpath "$test_dir"/../logs || :)
+if [[ ${ENABLE_LOGGING} == "true" ]]; then
+	if [ ! -d "${logs_dir}" ]; then
+		mkdir "${logs_dir}"
+	fi
+	log_file_name=$(echo "$test_name-$MYSQL_VERSION" | tr '.' '-')
+	exec &> >(tee "${logs_dir}"/"${log_file_name}".log)
+	echo "Log: ${logs_dir}/${log_file_name}.log"
+fi
 
 if [ -f "$conf_dir/cloud-secret.yml" ]; then
 	SKIP_REMOTE_BACKUPS=''

@@ -393,7 +393,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 	if o.Spec.ProxySQLEnabled() {
 		if o.CompareVersionWith("1.15.0") >= 0 {
 			proxyInits = append(proxyInits,
-				statefulset.ProxySQLEntrypointInitContainer(initImageName, o.Spec.HAProxy.Resources, o.Spec.HAProxy.ContainerSecurityContext, o.Spec.HAProxy.ImagePullPolicy))
+				statefulset.ProxySQLEntrypointInitContainer(initImageName, o.Spec.ProxySQL.Resources, o.Spec.ProxySQL.ContainerSecurityContext, o.Spec.ProxySQL.ImagePullPolicy))
 		}
 		err = r.updatePod(ctx, proxysqlSet, &o.Spec.ProxySQL.PodSpec, o, proxyInits)
 		if err != nil {
@@ -704,9 +704,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(ctx context.Context, cr *api.Perc
 	if cr.HAProxyEnabled() {
 		if cr.CompareVersionWith("1.15.0") >= 0 {
 			proxyInits = append(proxyInits,
-				statefulset.HaproxyEntrypointInitContainer(initImageName, cr.Spec.HAProxy.Resources, cr.Spec.HAProxy.ContainerSecurityContext, cr.Spec.HAProxy.ImagePullPolicy),
-				statefulset.ProxySQLEntrypointInitContainer(initImageName, cr.Spec.ProxySQL.Resources, cr.Spec.ProxySQL.ContainerSecurityContext, cr.Spec.ProxySQL.ImagePullPolicy),
-			)
+				statefulset.HaproxyEntrypointInitContainer(initImageName, cr.Spec.HAProxy.Resources, cr.Spec.HAProxy.ContainerSecurityContext, cr.Spec.HAProxy.ImagePullPolicy))
 		}
 
 		sfsHAProxy := statefulset.NewHAProxy(cr)
@@ -763,6 +761,10 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(ctx context.Context, cr *api.Perc
 	}
 
 	if cr.Spec.ProxySQLEnabled() {
+		if cr.CompareVersionWith("1.15.0") >= 0 {
+			proxyInits = append(proxyInits,
+				statefulset.ProxySQLEntrypointInitContainer(initImageName, cr.Spec.ProxySQL.Resources, cr.Spec.ProxySQL.ContainerSecurityContext, cr.Spec.ProxySQL.ImagePullPolicy))
+		}
 		sfsProxy := statefulset.NewProxy(cr)
 		proxySet, err := pxc.StatefulSet(ctx, r.client, sfsProxy, &cr.Spec.ProxySQL.PodSpec, cr, secrets, proxyInits, log, r.getConfigVolume)
 		if err != nil {

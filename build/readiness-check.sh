@@ -21,7 +21,7 @@ NODE_IP=$(hostname -I | awk ' { print $1 } ')
 TIMEOUT=$((${READINESS_CHECK_TIMEOUT:-10} - 1))
 
 EXTRA_ARGS=""
-if [[ -n "$MYSQL_USERNAME" ]]; then
+if [[ -n $MYSQL_USERNAME ]]; then
 	EXTRA_ARGS="$EXTRA_ARGS -P 33062 -h${NODE_IP} --protocol=TCP --user=${MYSQL_USERNAME}"
 fi
 if [[ -r $DEFAULTS_EXTRA_FILE ]]; then

@@ -37,7 +37,7 @@ function main() {
 		node_name=$(echo "$pxc_host" | cut -d . -f -1)
 		node_id=$(echo $node_name | awk -F'-' '{print $NF}')
 		NODE_LIST_REPL+=("server $node_name $pxc_host:3306 $send_proxy $SERVER_OPTIONS")
-		if [ "x$node_id" == 'x0' ]; then
+		if [ "$node_id" == '0' ]; then
 			main_node="$pxc_host"
 			firs_node="server $node_name $pxc_host:3306 $send_proxy $SERVER_OPTIONS on-marked-up shutdown-backup-sessions"
 			firs_node_admin="server $node_name $pxc_host:33062 $SERVER_OPTIONS on-marked-up shutdown-backup-sessions"

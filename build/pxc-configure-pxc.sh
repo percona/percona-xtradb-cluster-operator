@@ -107,7 +107,7 @@ if [ -f "${SSL_DIR}"/ca.crt ]; then
 	CA=${SSL_DIR}/ca.crt
 fi
 SSL_INTERNAL_DIR=${SSL_INTERNAL_DIR:-/etc/mysql/ssl-internal}
-if [ -f ${SSL_INTERNAL_DIR}/ca.crt ]; then
+if [ -f "${SSL_INTERNAL_DIR}"/ca.crt ]; then
 	CA=${SSL_INTERNAL_DIR}/ca.crt
 fi
 

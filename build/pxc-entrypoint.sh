@@ -623,9 +623,9 @@ if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 
 		is_primary_exists=$(get_primary)
 		is_manual_recovery
-		if [[ -z $is_primary_exists && -f $grastate_loc && $safe_to_bootstrap != 1 ]] ||
-			[[ -z $is_primary_exists && -f "${DATADIR}/gvwstate.dat" ]] ||
-			[[ -z $is_primary_exists && -f $grastate_loc && $safe_to_bootstrap == 1 && -n ${CLUSTER_JOIN} ]]; then
+		if [[ -z $is_primary_exists && -f $grastate_loc && $safe_to_bootstrap != 1 ]] \
+			|| [[ -z $is_primary_exists && -f "${DATADIR}/gvwstate.dat" ]] \
+			|| [[ -z $is_primary_exists && -f $grastate_loc && $safe_to_bootstrap == 1 && -n ${CLUSTER_JOIN} ]]; then
 			trap '{ node_recovery "$@" ; }' USR1
 			touch /tmp/recovery-case
 			if [[ -z ${seqno} ]]; then

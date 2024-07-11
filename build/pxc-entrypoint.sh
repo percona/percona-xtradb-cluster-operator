@@ -570,9 +570,9 @@ if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 		cat "$wsrep_verbose_logfile" | tee -a "$DATADIR/wsrep_recovery_verbose_history.log"
 		if grep ' Recovered position:' "$wsrep_verbose_logfile"; then
 			start_pos="$(
-				grep ' Recovered position:' "$wsrep_verbose_logfile" |
-					sed 's/.*\ Recovered\ position://' |
-					sed 's/^[ \t]*//'
+				grep ' Recovered position:' "$wsrep_verbose_logfile" \
+					| sed 's/.*\ Recovered\ position://' \
+					| sed 's/^[ \t]*//'
 			)"
 			wsrep_start_position_opt="--wsrep_start_position=$start_pos"
 			seqno=$(echo "$start_pos" | awk -F':' '{print $NF}' || :)

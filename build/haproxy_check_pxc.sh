@@ -54,7 +54,7 @@ status_log="The following values are used for PXC node $PXC_SERVER_IP in backend
 status_log+="wsrep_local_state is ${PXC_NODE_STATUS[0]}; pxc_maint_mod is ${PXC_NODE_STATUS[1]}; wsrep_cluster_status is ${PXC_NODE_STATUS[2]}; $AVAILABLE_NODES nodes are available"
 
 if [[ ${PXC_NODE_STATUS[2]} == 'Primary' && (${PXC_NODE_STATUS[0]} -eq 4 ||
-	${PXC_NODE_STATUS[0]} -eq 2 && ("${AVAILABLE_NODES}" -le 1 || "${DONOR_IS_OK}" -eq 1)) &&
+	${PXC_NODE_STATUS[0]} -eq 2 && (${AVAILABLE_NODES} -le 1 || ${DONOR_IS_OK} -eq 1)) &&
 	${PXC_NODE_STATUS[1]} == 'DISABLED' ]]; then
 	log "$PXC_SERVER_IP" "$PXC_SERVER_PORT" "$status_log" "$VERBOSE"
 	log "$PXC_SERVER_IP" "$PXC_SERVER_PORT" "PXC node $PXC_SERVER_IP for backend $HAPROXY_PROXY_NAME is ok" "$VERBOSE"

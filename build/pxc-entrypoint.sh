@@ -499,7 +499,7 @@ if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 		pxc_version=$(cat $pxc_version_file | awk '{print $3}')
 	elif [ -f "$DATADIR/xtrabackup_info" ]; then
 		pxc_version_file="$DATADIR/xtrabackup_info"
-		pxc_version=$(grep 'server_version' $pxc_version_file | awk '{print $3}' | tr -d '\n')
+		pxc_version=$(grep 'server_version' "$pxc_version_file" | awk '{print $3}' | tr -d '\n')
 	fi
 
 	if [[ -f $pxc_version_file && -n $pxc_version && $MYSQL_VERSION == '5.7' ]] && [[ $(cat /tmp/version_info) != $pxc_version ]]; then

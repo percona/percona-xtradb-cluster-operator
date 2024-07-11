@@ -150,10 +150,10 @@ function join {
 
 escape_special() {
 	{ set +x; } 2>/dev/null
-	echo "$1" |
-		sed 's/\\/\\\\/g' |
-		sed 's/'\''/'\\\\\''/g' |
-		sed 's/"/\\\"/g'
+	echo "$1" \
+		| sed 's/\\/\\\\/g' \
+		| sed 's/'\''/'\\\\\''/g' \
+		| sed 's/"/\\\"/g'
 }
 
 MYSQL_VERSION=$(mysqld -V | awk '{print $3}' | awk -F'.' '{print $1"."$2}')

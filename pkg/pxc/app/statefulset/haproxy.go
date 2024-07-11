@@ -62,6 +62,11 @@ func (c *HAProxy) Name() string {
 	return haproxyName
 }
 
+func (c *HAProxy) InitContainers(cr *api.PerconaXtraDBCluster, initImageName string) []corev1.Container {
+	inits := proxyInitContainers(cr, initImageName)
+	return append(inits, HaproxyEntrypointInitContainer(cr, initImageName))
+}
+
 func (c *HAProxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster,
 	_ []corev1.Volume,
 ) (corev1.Container, error) {

@@ -57,6 +57,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateUsersWithoutDP(ctx context.Context
 
 	return res, nil
 }
+
 func (r *ReconcilePerconaXtraDBCluster) handleRootUserWithoutDP(ctx context.Context, cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
 	if cr.Status.Status != api.AppStateReady && !r.invalidPasswordApplied(cr.Status) {
 		return nil
@@ -154,7 +155,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleOperatorUserWithoutDP(ctx context.
 	}
 	log.Info("Internal secrets updated", "user", user.Name)
 
-	actions.restartProxy = true
+	actions.restartProxySQL = true
 	return nil
 }
 
@@ -241,7 +242,10 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUserWithoutDP(ctx context.C
 		log.Info("Proxy user updated", "user", user.Name)
 	}
 
-	actions.restartProxy = true
+	// We should restart HAProxy if the monitor user password has been changed only on version 5.7
+	actions.restartHAProxy = true
+
+	actions.restartProxySQL = true
 	if cr.Spec.PMM != nil && cr.Spec.PMM.IsEnabled(internalSecrets) {
 		actions.restartPXC = true
 	}
@@ -411,7 +415,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleProxyadminUserWithoutDP(ctx contex
 	}
 	log.Info("Internal secrets updated", "user", user.Name)
 
-	actions.restartProxy = true
+	actions.restartProxySQL = true
 
 	return nil
 }

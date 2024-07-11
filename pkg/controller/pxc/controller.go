@@ -15,6 +15,7 @@ import (
 	"github.com/robfig/cron/v3"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	policyv1 "k8s.io/api/policy/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -295,6 +296,8 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 		return reconcile.Result{}, errors.Wrap(err, "reconcile users secret")
 	}
 
+	// TODO: We should not use ReconcileUsersResult. Instead, we should update the statefulset annotations in the reconcileUsers method as soon as possible.
+	// Currently, if an error occurs before the statefulsets are updated with annotations, and reconcileUsers has a different result on the next reconcile, the statefulsets will not have the required annotations.
 	userReconcileResult := &ReconcileUsersResult{}
 
 	urr, err := r.reconcileUsers(ctx, o)
@@ -322,27 +325,9 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	initImageName, err := k8s.GetInitImage(ctx, o, r.client)
-	if err != nil {
-		return reconcile.Result{}, errors.Wrap(err, "failed to get initImage")
-	}
-
-	inits := []corev1.Container{}
-	if o.CompareVersionWith("1.5.0") >= 0 {
-		var initResources corev1.ResourceRequirements
-		if o.CompareVersionWith("1.6.0") >= 0 {
-			initResources = o.Spec.PXC.Resources
-		}
-		if o.Spec.InitContainer.Resources != nil {
-			initResources = *o.Spec.InitContainer.Resources
-		}
-		initC := statefulset.EntrypointInitContainer(initImageName, app.DataVolumeName, initResources, o.Spec.PXC.ContainerSecurityContext, o.Spec.PXC.ImagePullPolicy)
-		inits = append(inits, initC)
-	}
 
 	pxcSet := statefulset.NewNode(o)
-	pxc.MergeTemplateAnnotations(pxcSet.StatefulSet(), userReconcileResult.pxcAnnotations)
-	err = r.updatePod(ctx, pxcSet, o.Spec.PXC.PodSpec, o, inits)
+	err = r.updatePod(ctx, pxcSet, o.Spec.PXC.PodSpec, o, userReconcileResult.pxcAnnotations)
 	if err != nil {
 		return reconcile.Result{}, errors.Wrap(err, "pxc upgrade error")
 	}
@@ -372,30 +357,13 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 		}
 	}
 
-	var proxyInits []corev1.Container
-	if o.CompareVersionWith("1.13.0") >= 0 {
-		initResources := o.Spec.PXC.Resources
-		if o.Spec.InitContainer.Resources != nil {
-			initResources = *o.Spec.InitContainer.Resources
-		}
-		proxyInits = []corev1.Container{
-			statefulset.EntrypointInitContainer(initImageName, app.BinVolumeName, initResources, o.Spec.PXC.ContainerSecurityContext, o.Spec.PXC.ImagePullPolicy),
-		}
-	}
-
-	if err := r.reconcileHAProxy(ctx, o, userReconcileResult.proxyAnnotations, proxyInits, initImageName); err != nil {
+	if err := r.reconcileHAProxy(ctx, o, userReconcileResult.haproxyAnnotations); err != nil {
 		return reconcile.Result{}, err
 	}
 
 	proxysqlSet := statefulset.NewProxy(o)
-	pxc.MergeTemplateAnnotations(proxysqlSet.StatefulSet(), userReconcileResult.proxyAnnotations)
-
 	if o.Spec.ProxySQLEnabled() {
-		if o.CompareVersionWith("1.15.0") >= 0 {
-			proxyInits = append(proxyInits,
-				statefulset.ProxySQLEntrypointInitContainer(initImageName, o.Spec.ProxySQL.Resources, o.Spec.ProxySQL.ContainerSecurityContext, o.Spec.ProxySQL.ImagePullPolicy))
-		}
-		err = r.updatePod(ctx, proxysqlSet, &o.Spec.ProxySQL.PodSpec, o, proxyInits)
+		err = r.updatePod(ctx, proxysqlSet, &o.Spec.ProxySQL.PodSpec, o, userReconcileResult.proxysqlAnnotations)
 		if err != nil {
 			return reconcile.Result{}, errors.Wrap(err, "ProxySQL upgrade error")
 		}
@@ -478,7 +446,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 	return rr, nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) reconcileHAProxy(ctx context.Context, cr *api.PerconaXtraDBCluster, annotations map[string]string, initContainers []corev1.Container, initImageName string) error {
+func (r *ReconcilePerconaXtraDBCluster) reconcileHAProxy(ctx context.Context, cr *api.PerconaXtraDBCluster, templateAnnotations map[string]string) error {
 	if !cr.HAProxyEnabled() {
 		if err := r.deleteServices(pxc.NewServiceHAProxyReplicas(cr)); err != nil {
 			return errors.Wrap(err, "delete HAProxy replica service")
@@ -495,11 +463,6 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileHAProxy(ctx context.Context, cr
 		return nil
 	}
 
-	if cr.CompareVersionWith("1.15.0") >= 0 {
-		initContainers = append(initContainers,
-			statefulset.HaproxyEntrypointInitContainer(initImageName, cr.Spec.HAProxy.Resources, cr.Spec.HAProxy.ContainerSecurityContext, cr.Spec.HAProxy.ImagePullPolicy))
-	}
-
 	envVarsSecret := new(corev1.Secret)
 	if err := r.client.Get(ctx, types.NamespacedName{
 		Name:      cr.Spec.HAProxy.EnvVarsSecretName,
@@ -508,9 +471,8 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileHAProxy(ctx context.Context, cr
 		return errors.Wrap(err, "get haproxy env vars secret")
 	}
 	sts := statefulset.NewHAProxy(cr)
-	pxc.MergeTemplateAnnotations(sts.StatefulSet(), annotations)
 
-	if err := r.updatePod(ctx, sts, &cr.Spec.HAProxy.PodSpec, cr, initContainers); err != nil {
+	if err := r.updatePod(ctx, sts, &cr.Spec.HAProxy.PodSpec, cr, templateAnnotations); err != nil {
 		return errors.Wrap(err, "HAProxy upgrade error")
 	}
 	svc := pxc.NewServiceHAProxy(cr)
@@ -600,7 +562,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(ctx context.Context, cr *api.Perc
 	if client.IgnoreNotFound(err) != nil {
 		return errors.Wrap(err, "get internal secret")
 	}
-	nodeSet, err := pxc.StatefulSet(ctx, r.client, stsApp, cr.Spec.PXC.PodSpec, cr, secrets, inits, log, r.getConfigVolume)
+	nodeSet, err := pxc.StatefulSet(ctx, r.client, stsApp, cr.Spec.PXC.PodSpec, cr, secrets, initImageName, r.getConfigVolume)
 	if err != nil {
 		return errors.Wrap(err, "get pxc statefulset")
 	}
@@ -689,26 +651,10 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(ctx context.Context, cr *api.Perc
 		return errors.Wrap(err, "get PXC stateful set")
 	}
 
-	var proxyInits []corev1.Container
-	if cr.CompareVersionWith("1.13.0") >= 0 {
-		initResources := cr.Spec.PXC.Resources
-		if cr.Spec.InitContainer.Resources != nil {
-			initResources = *cr.Spec.InitContainer.Resources
-		}
-		proxyInits = []corev1.Container{
-			statefulset.EntrypointInitContainer(initImageName, app.BinVolumeName, initResources, cr.Spec.PXC.ContainerSecurityContext, cr.Spec.PXC.ImagePullPolicy),
-		}
-	}
-
 	// HAProxy StatefulSet
 	if cr.HAProxyEnabled() {
-		if cr.CompareVersionWith("1.15.0") >= 0 {
-			proxyInits = append(proxyInits,
-				statefulset.HaproxyEntrypointInitContainer(initImageName, cr.Spec.HAProxy.Resources, cr.Spec.HAProxy.ContainerSecurityContext, cr.Spec.HAProxy.ImagePullPolicy))
-		}
-
 		sfsHAProxy := statefulset.NewHAProxy(cr)
-		haProxySet, err := pxc.StatefulSet(ctx, r.client, sfsHAProxy, &cr.Spec.HAProxy.PodSpec, cr, secrets, proxyInits, log, r.getConfigVolume)
+		haProxySet, err := pxc.StatefulSet(ctx, r.client, sfsHAProxy, &cr.Spec.HAProxy.PodSpec, cr, secrets, initImageName, r.getConfigVolume)
 		if err != nil {
 			return errors.Wrap(err, "create HAProxy StatefulSet")
 		}
@@ -761,12 +707,8 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(ctx context.Context, cr *api.Perc
 	}
 
 	if cr.Spec.ProxySQLEnabled() {
-		if cr.CompareVersionWith("1.15.0") >= 0 {
-			proxyInits = append(proxyInits,
-				statefulset.ProxySQLEntrypointInitContainer(initImageName, cr.Spec.ProxySQL.Resources, cr.Spec.ProxySQL.ContainerSecurityContext, cr.Spec.ProxySQL.ImagePullPolicy))
-		}
 		sfsProxy := statefulset.NewProxy(cr)
-		proxySet, err := pxc.StatefulSet(ctx, r.client, sfsProxy, &cr.Spec.ProxySQL.PodSpec, cr, secrets, proxyInits, log, r.getConfigVolume)
+		proxySet, err := pxc.StatefulSet(ctx, r.client, sfsProxy, &cr.Spec.ProxySQL.PodSpec, cr, secrets, initImageName, r.getConfigVolume)
 		if err != nil {
 			return errors.Wrap(err, "create ProxySQL Service")
 		}
@@ -1369,24 +1311,25 @@ func (r *ReconcilePerconaXtraDBCluster) createOrUpdate(ctx context.Context, cr *
 
 	if k8serrors.IsNotFound(err) {
 		log.V(1).Info("Creating object", "object", obj.GetName())
-		return r.client.Create(context.TODO(), obj)
+		return r.client.Create(ctx, obj)
 	}
 
 	if oldObject.GetAnnotations()["percona.com/last-config-hash"] != hash ||
 		!isObjectMetaEqual(obj, oldObject) {
 
-		obj.SetResourceVersion(oldObject.GetResourceVersion())
 		switch object := obj.(type) {
 		case *corev1.Service:
 			object.Spec.ClusterIP = oldObject.(*corev1.Service).Spec.ClusterIP
 			if object.Spec.Type == corev1.ServiceTypeLoadBalancer {
 				object.Spec.HealthCheckNodePort = oldObject.(*corev1.Service).Spec.HealthCheckNodePort
 			}
+		case *policyv1.PodDisruptionBudget:
+			obj.SetResourceVersion(oldObject.GetResourceVersion())
 		}
 
 		log.V(1).Info("Updating object", "object", obj.GetName())
 
-		return r.client.Update(context.TODO(), obj)
+		return r.client.Update(ctx, obj)
 	}
 
 	return nil

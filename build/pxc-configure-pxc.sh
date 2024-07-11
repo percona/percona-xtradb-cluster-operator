@@ -103,7 +103,7 @@ if [ -f /var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt ]; then
 	CA=/var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt
 fi
 SSL_DIR=${SSL_DIR:-/etc/mysql/ssl}
-if [ -f ${SSL_DIR}/ca.crt ]; then
+if [ -f "${SSL_DIR}"/ca.crt ]; then
 	CA=${SSL_DIR}/ca.crt
 fi
 SSL_INTERNAL_DIR=${SSL_INTERNAL_DIR:-/etc/mysql/ssl-internal}

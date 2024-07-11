@@ -589,11 +589,11 @@ if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 	fi
 	if [ -n "$PXC_SERVICE" ]; then
 		function get_primary() {
-			/var/lib/mysql/peer-list -on-start=/var/lib/mysql/get-pxc-state -service="$PXC_SERVICE" 2>&1 |
-				grep wsrep_ready:ON:wsrep_connected:ON:wsrep_local_state_comment:Synced:wsrep_cluster_status:Primary |
-				sort |
-				tail -1 ||
-				true
+			/var/lib/mysql/peer-list -on-start=/var/lib/mysql/get-pxc-state -service="$PXC_SERVICE" 2>&1 \
+				| grep wsrep_ready:ON:wsrep_connected:ON:wsrep_local_state_comment:Synced:wsrep_cluster_status:Primary \
+				| sort \
+				| tail -1 \
+				|| true
 		}
 		function node_recovery() {
 			set -o xtrace

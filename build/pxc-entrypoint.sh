@@ -496,7 +496,7 @@ if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 	pxc_version=''
 	if [ -f "$DATADIR/version_info" ]; then
 		pxc_version_file="$DATADIR/version_info"
-		pxc_version=$(cat $pxc_version_file | awk '{print $3}')
+		pxc_version=$(cat "$pxc_version_file" | awk '{print $3}')
 	elif [ -f "$DATADIR/xtrabackup_info" ]; then
 		pxc_version_file="$DATADIR/xtrabackup_info"
 		pxc_version=$(grep 'server_version' "$pxc_version_file" | awk '{print $3}' | tr -d '\n')

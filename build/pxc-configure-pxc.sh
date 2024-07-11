@@ -113,7 +113,7 @@ fi
 
 KEY=${SSL_DIR}/tls.key
 CERT=${SSL_DIR}/tls.crt
-if [ -f ${SSL_INTERNAL_DIR}/tls.key -a -f ${SSL_INTERNAL_DIR}/tls.crt ]; then
+if [ -f "${SSL_INTERNAL_DIR}"/tls.key -a -f "${SSL_INTERNAL_DIR}"/tls.crt ]; then
 	KEY=${SSL_INTERNAL_DIR}/tls.key
 	CERT=${SSL_INTERNAL_DIR}/tls.crt
 fi

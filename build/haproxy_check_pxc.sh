@@ -44,8 +44,8 @@ log() {
 }
 
 PXC_NODE_STATUS=($(MYSQL_PWD="${MONITOR_PASSWORD}" $MYSQL_CMDLINE -h $PXC_SERVER_IP -P $PXC_SERVER_PORT \
-	-e "SHOW STATUS LIKE 'wsrep_local_state';SHOW VARIABLES LIKE 'pxc_maint_mode';SHOW GLOBAL STATUS LIKE 'wsrep_cluster_status';" \
-	| /usr/bin/grep -A 1 -E 'wsrep_local_state$|pxc_maint_mode$|wsrep_cluster_status$' | /usr/bin/sed -n -e '2p' -e '5p' -e '8p' | /usr/bin/tr '\n' ' '))
+	-e "SHOW STATUS LIKE 'wsrep_local_state';SHOW VARIABLES LIKE 'pxc_maint_mode';SHOW GLOBAL STATUS LIKE 'wsrep_cluster_status';" |
+	/usr/bin/grep -A 1 -E 'wsrep_local_state$|pxc_maint_mode$|wsrep_cluster_status$' | /usr/bin/sed -n -e '2p' -e '5p' -e '8p' | /usr/bin/tr '\n' ' '))
 
 # ${PXC_NODE_STATUS[0]} - wsrep_local_state
 # ${PXC_NODE_STATUS[1]} - pxc_maint_mod

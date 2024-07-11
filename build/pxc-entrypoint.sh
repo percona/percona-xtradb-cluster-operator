@@ -109,11 +109,11 @@ _get_cnf_config() {
 	local reval=""
 
 	reval=$(
-		my_print_defaults "${group}" |
-			awk -F= '{st=index($0,"="); cur=$0; if ($1 ~ /_/) { gsub(/_/,"-",$1);} if (st != 0) { print $1"="substr(cur,st+1) } else { print cur }}' |
-			grep -- "--$var=" |
-			cut -d= -f2- |
-			tail -1
+		my_print_defaults "${group}" \
+			| awk -F= '{st=index($0,"="); cur=$0; if ($1 ~ /_/) { gsub(/_/,"-",$1);} if (st != 0) { print $1"="substr(cur,st+1) } else { print cur }}' \
+			| grep -- "--$var=" \
+			| cut -d= -f2- \
+			| tail -1
 	)
 
 	if [[ -z $reval ]]; then

@@ -15,10 +15,10 @@ CFG=/etc/mysql/node.cnf
 wantHelp=
 for arg; do
 	case "$arg" in
-	-'?' | --help | --print-defaults | -V | --version)
-		wantHelp=1
-		break
-		;;
+		-'?' | --help | --print-defaults | -V | --version)
+			wantHelp=1
+			break
+			;;
 	esac
 done
 

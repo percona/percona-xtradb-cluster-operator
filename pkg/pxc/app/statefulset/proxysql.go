@@ -120,19 +120,17 @@ func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaX
 		SecurityContext: spec.ContainerSecurityContext,
 		Resources:       spec.Resources,
 	}
-	if cr.CompareVersionWith("1.9.0") >= 0 {
-		fvar := true
-		appc.EnvFrom = []corev1.EnvFromSource{
-			{
-				SecretRef: &corev1.SecretEnvSource{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: cr.Spec.ProxySQL.EnvVarsSecretName,
-					},
-					Optional: &fvar,
-				},
-			},
-		}
 
+	fvar := true
+	appc.EnvFrom = []corev1.EnvFromSource{
+		{
+			SecretRef: &corev1.SecretEnvSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: cr.Spec.ProxySQL.EnvVarsSecretName,
+				},
+				Optional: &fvar,
+			},
+		},
 	}
 
 	if api.ContainsVolume(availableVolumes, proxyConfigVolumeName) {
@@ -142,13 +140,18 @@ func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaX
 		})
 	}
 
-	if cr.CompareVersionWith("1.5.0") >= 0 {
-		appc.Env[1] = corev1.EnvVar{
-			Name: "OPERATOR_PASSWORD",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: app.SecretKeySelector(secrets, users.Operator),
-			},
-		}
+	if cr.CompareVersionWith("1.15.0") >= 0 {
+		appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
+			Name:      app.BinVolumeName,
+			MountPath: app.BinVolumeMountPath,
+		})
+	}
+
+	appc.Env[1] = corev1.EnvVar{
+		Name: "OPERATOR_PASSWORD",
+		ValueFrom: &corev1.EnvVarSource{
+			SecretKeyRef: app.SecretKeySelector(secrets, users.Operator),
+		},
 	}
 
 	if cr.CompareVersionWith("1.11.0") >= 0 && cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.HookScript != "" {
@@ -205,6 +208,14 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.Per
 			},
 		},
 	}
+
+	if cr.CompareVersionWith("1.15.0") >= 0 {
+		pxcMonit.VolumeMounts = append(pxcMonit.VolumeMounts, corev1.VolumeMount{
+			Name:      app.BinVolumeName,
+			MountPath: app.BinVolumeMountPath,
+		})
+	}
+
 	if cr.CompareVersionWith("1.15.0") < 0 {
 		pxcMonit.Args = []string{
 			"/usr/bin/peer-list",
@@ -251,6 +262,13 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.Per
 				},
 			},
 		},
+	}
+
+	if cr.CompareVersionWith("1.15.0") >= 0 {
+		pxcMonit.VolumeMounts = append(pxcMonit.VolumeMounts, corev1.VolumeMount{
+			Name:      app.BinVolumeName,
+			MountPath: app.BinVolumeMountPath,
+		})
 	}
 
 	if cr.CompareVersionWith("1.15.0") < 0 {

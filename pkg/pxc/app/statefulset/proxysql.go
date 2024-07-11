@@ -265,7 +265,7 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.Per
 	}
 
 	if cr.CompareVersionWith("1.15.0") >= 0 {
-		pxcMonit.VolumeMounts = append(pxcMonit.VolumeMounts, corev1.VolumeMount{
+		proxysqlMonit.VolumeMounts = append(proxysqlMonit.VolumeMounts, corev1.VolumeMount{
 			Name:      app.BinVolumeName,
 			MountPath: app.BinVolumeMountPath,
 		})

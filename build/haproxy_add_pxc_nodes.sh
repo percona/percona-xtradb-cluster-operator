@@ -19,12 +19,13 @@ function main() {
 	NODE_LIST_BACKUP=()
 	firs_node=''
 	firs_node_admin=''
+	firs_node_replica=''
 	main_node=''
 
 	SERVER_OPTIONS=${HA_SERVER_OPTIONS:-'resolvers kubernetes check inter 10000 rise 1 fall 2 weight 1'}
 	send_proxy=''
 	path_to_haproxy_cfg='/etc/haproxy/pxc'
-	if [[ ${IS_PROXY_PROTOCOL} == "yes" ]]; then
+	if [[ "${IS_PROXY_PROTOCOL}" = "yes" ]]; then
 		send_proxy='send-proxy-v2'
 	fi
 
@@ -35,9 +36,10 @@ function main() {
 		fi
 
 		node_name=$(echo "$pxc_host" | cut -d . -f -1)
-		node_id=$(echo "$node_name" | awk -F'-' '{print $NF}')
+		node_id=$(echo $node_name | awk -F'-' '{print $NF}')
 		NODE_LIST_REPL+=("server $node_name $pxc_host:3306 $send_proxy $SERVER_OPTIONS")
-		if [ "$node_id" == '0' ]; then
+		if [ "x$node_id" == 'x0' ]; then
+			firs_node_replica="$pxc_host"
 			main_node="$pxc_host"
 			firs_node="server $node_name $pxc_host:3306 $send_proxy $SERVER_OPTIONS on-marked-up shutdown-backup-sessions"
 			firs_node_admin="server $node_name $pxc_host:33062 $SERVER_OPTIONS on-marked-up shutdown-backup-sessions"
@@ -51,7 +53,7 @@ function main() {
 	done
 
 	if [ -n "$firs_node" ]; then
-		if [[ ${#NODE_LIST[@]} -ne 0 ]]; then
+		if [[ "${#NODE_LIST[@]}" -ne 0 ]]; then
 			NODE_LIST=("$firs_node" "$(printf '%s\n' "${NODE_LIST[@]}" | sort --version-sort -r | uniq)")
 			NODE_LIST_ADMIN=("$firs_node_admin" "$(printf '%s\n' "${NODE_LIST_ADMIN[@]}" | sort --version-sort -r | uniq)")
 			NODE_LIST_MYSQLX=("$firs_node_mysqlx" "$(printf '%s\n' "${NODE_LIST_MYSQLX[@]}" | sort --version-sort -r | uniq)")
@@ -61,7 +63,7 @@ function main() {
 			NODE_LIST_MYSQLX=("$firs_node_mysqlx")
 		fi
 	else
-		if [[ ${#NODE_LIST[@]} -ne 0 ]]; then
+		if [[ "${#NODE_LIST[@]}" -ne 0 ]]; then
 			NODE_LIST=("$(printf '%s\n' "${NODE_LIST[@]}" | sort --version-sort -r | uniq)")
 			NODE_LIST_ADMIN=("$(printf '%s\n' "${NODE_LIST_ADMIN[@]}" | sort --version-sort -r | uniq)")
 			NODE_LIST_MYSQLX=("$(printf '%s\n' "${NODE_LIST_MYSQLX[@]}" | sort --version-sort -r | uniq)")
@@ -74,7 +76,7 @@ function main() {
 		      option srvtcpka
 		      balance roundrobin
 		      option external-check
-		      external-check command /opt/percona/haproxy_check_pxc.sh
+		      external-check command /usr/local/bin/check_pxc.sh
 	EOF
 
 	log "number of available nodes are ${#NODE_LIST_REPL[@]}"
@@ -90,7 +92,7 @@ function main() {
 		      option srvtcpka
 		      balance roundrobin
 		      option external-check
-		      external-check command /opt/percona/haproxy_check_pxc.sh
+		      external-check command /usr/local/bin/check_pxc.sh
 	EOF
 
 	(
@@ -104,12 +106,27 @@ function main() {
 		      option srvtcpka
 		      balance roundrobin
 		      option external-check
-		      external-check command /opt/percona/haproxy_check_pxc.sh
+		      external-check command /usr/local/bin/check_pxc.sh
 	EOF
-	(
-		IFS=$'\n'
-		echo "${NODE_LIST_REPL[*]}"
-	) >>"$path_to_haproxy_cfg/haproxy.cfg"
+	if [ "${REPLICAS_SVC_ONLY_READERS}" == "false" ]; then
+		(
+			IFS=$'\n'
+			echo "${NODE_LIST_REPL[*]}"
+		) >>"$path_to_haproxy_cfg/haproxy.cfg"
+	else
+		if [ -n "$firs_node_replica" ]; then
+			(
+				IFS=$'\n'
+				echo "${NODE_LIST_REPL[*]:1}"
+			) >>"$path_to_haproxy_cfg/haproxy.cfg"
+		else
+			NODE_LIST_REPL=("$(printf "%s\n" "${NODE_LIST_REPL[@]}" | sort -r | tail -n +2)")
+			(
+				IFS=$'\n'
+				echo "${NODE_LIST_REPL[*]}"
+			) >>"$path_to_haproxy_cfg/haproxy.cfg"
+		fi
+	fi
 
 	cat <<-EOF >>"$path_to_haproxy_cfg/haproxy.cfg"
 		    backend galera-mysqlx-nodes
@@ -117,7 +134,7 @@ function main() {
 		      option srvtcpka
 		      balance roundrobin
 		      option external-check
-		      external-check command /opt/percona/haproxy_check_pxc.sh
+		      external-check command /usr/local/bin/check_pxc.sh
 	EOF
 	(
 		IFS=$'\n'
@@ -140,7 +157,7 @@ function main() {
 	fi
 
 	if [ -n "$main_node" ]; then
-		if /opt/percona/haproxy_check_pxc.sh '' '' "$main_node"; then
+		if /usr/local/bin/check_pxc.sh '' '' "$main_node"; then
 			for backup_server in "${NODE_LIST_BACKUP[@]}"; do
 				log "shutdown sessions server $backup_server | socat stdio ${SOCKET}"
 				echo "shutdown sessions server $backup_server" | socat stdio "${SOCKET}"

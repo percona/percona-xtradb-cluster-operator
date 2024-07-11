@@ -118,7 +118,7 @@ if [ -f "${SSL_INTERNAL_DIR}"/tls.key -a -f "${SSL_INTERNAL_DIR}"/tls.crt ]; the
 	CERT=${SSL_INTERNAL_DIR}/tls.crt
 fi
 
-if [ -f $CA -a -f $KEY -a -f $CERT ]; then
+if [ -f "$CA" -a -f "$KEY" -a -f "$CERT" ]; then
 	sed "/^\[mysqld\]/a pxc-encrypt-cluster-traffic=ON\nssl-ca=$CA\nssl-key=$KEY\nssl-cert=$CERT" ${CFG} 1<>${CFG}
 else
 	sed "/^\[mysqld\]/a pxc-encrypt-cluster-traffic=OFF" ${CFG} 1<>${CFG}

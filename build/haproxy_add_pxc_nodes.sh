@@ -35,7 +35,7 @@ function main() {
 		fi
 
 		node_name=$(echo "$pxc_host" | cut -d . -f -1)
-		node_id=$(echo $node_name | awk -F'-' '{print $NF}')
+		node_id=$(echo "$node_name" | awk -F'-' '{print $NF}')
 		NODE_LIST_REPL+=("server $node_name $pxc_host:3306 $send_proxy $SERVER_OPTIONS")
 		if [ "$node_id" == '0' ]; then
 			main_node="$pxc_host"

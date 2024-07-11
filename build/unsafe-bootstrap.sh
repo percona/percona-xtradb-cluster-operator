@@ -11,7 +11,7 @@ function get_synced_count() {
 GRA=/var/lib/mysql/grastate.dat
 if hostname -s | grep -- '-pxc-0$'; then
 	if grep 'safe_to_bootstrap: 0' "${GRA}"; then
-		if [[ $(get_synced_count) = 0 ]]; then
+		if [[ $(get_synced_count) == 0 ]]; then
 			mysqld --wsrep_recover
 			sed "s^safe_to_bootstrap: 0^safe_to_bootstrap: 1^" ${GRA} 1<>${GRA}
 		fi

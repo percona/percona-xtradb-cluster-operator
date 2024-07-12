@@ -101,6 +101,8 @@ spec:
               name: haproxy-custom
             - mountPath: /etc/haproxy/pxc
               name: haproxy-auto
+            - mountPath: /opt/percona
+              name: bin
             - mountPath: /etc/mysql/mysql-users-secret
               name: mysql-users-secret-file
             - mountPath: /etc/mysql/haproxy-env-secret
@@ -132,6 +134,8 @@ spec:
               name: mysql-users-secret-file
             - mountPath: /etc/mysql/haproxy-env-secret
               name: upgrade-haproxy-env-vars-haproxy
+            - mountPath: /opt/percona
+              name: bin
       dnsPolicy: ClusterFirst
       initContainers:
         - command:
@@ -146,6 +150,16 @@ spec:
           terminationMessagePolicy: File
           volumeMounts:
             - mountPath: /var/lib/mysql
+              name: bin
+        - command:
+            - /haproxy-init-entrypoint.sh
+          imagePullPolicy: Always
+          name: haproxy-init
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /opt/percona
               name: bin
       restartPolicy: Always
       schedulerName: default-scheduler

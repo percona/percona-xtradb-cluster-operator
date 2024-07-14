@@ -148,7 +148,10 @@ spec:
             - /haproxy-init-entrypoint.sh
           imagePullPolicy: Always
           name: haproxy-init
-          resources: {}
+          resources:
+            requests:
+              cpu: 600m
+              memory: 500M
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:

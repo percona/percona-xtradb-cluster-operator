@@ -116,12 +116,14 @@ func (c *HAProxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.Percon
 
 	}
 
-	appc.Env = append(appc.Env, corev1.EnvVar{
-		Name: "MONITOR_PASSWORD",
-		ValueFrom: &corev1.EnvVarSource{
-			SecretKeyRef: app.SecretKeySelector(secrets, users.Monitor),
-		},
-	})
+	if cr.CompareVersionWith("1.7.0") < 0 {
+		appc.Env = append(appc.Env, corev1.EnvVar{
+			Name: "MONITOR_PASSWORD",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: app.SecretKeySelector(secrets, users.Monitor),
+			},
+		})
+	}
 
 	appc.Ports = append(
 		appc.Ports,

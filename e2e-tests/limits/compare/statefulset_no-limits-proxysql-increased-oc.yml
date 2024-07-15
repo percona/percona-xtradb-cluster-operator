@@ -304,8 +304,8 @@ spec:
           name: proxysql-init
           resources:
             requests:
-              cpu: 300m
-              memory: 500M
+              cpu: 600m
+              memory: 1G
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:

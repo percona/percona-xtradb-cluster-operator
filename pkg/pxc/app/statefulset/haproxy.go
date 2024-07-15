@@ -64,7 +64,12 @@ func (c *HAProxy) Name() string {
 
 func (c *HAProxy) InitContainers(cr *api.PerconaXtraDBCluster, initImageName string) []corev1.Container {
 	inits := proxyInitContainers(cr, initImageName)
-	return append(inits, HaproxyEntrypointInitContainer(cr, initImageName))
+
+	if cr.CompareVersionWith("1.15.0") >= 0 {
+		inits = append(inits, HaproxyEntrypointInitContainer(cr, initImageName))
+	}
+
+	return inits
 }
 
 func (c *HAProxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster,

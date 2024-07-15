@@ -60,7 +60,12 @@ func (c *Proxy) Name() string {
 
 func (c *Proxy) InitContainers(cr *api.PerconaXtraDBCluster, initImageName string) []corev1.Container {
 	inits := proxyInitContainers(cr, initImageName)
-	return append(inits, ProxySQLEntrypointInitContainer(cr, initImageName))
+
+	if cr.CompareVersionWith("1.15.0") >= 0 {
+		inits = append(inits, ProxySQLEntrypointInitContainer(cr, initImageName))
+	}
+
+	return inits
 }
 
 func proxyInitContainers(cr *api.PerconaXtraDBCluster, initImageName string) []corev1.Container {

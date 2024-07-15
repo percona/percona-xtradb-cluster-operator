@@ -89,11 +89,9 @@ spec:
               name: ssl
             - mountPath: /etc/proxysql/ssl-internal
               name: ssl-internal
-            - mountPath: /opt/percona
-              name: bin
         - args:
-            - /opt/percona/peer-list
-            - -on-change=/opt/percona/proxysql_add_pxc_nodes.sh
+            - /usr/bin/peer-list
+            - -on-change=/usr/bin/add_pxc_nodes.sh
             - -service=$(PXC_SERVICE)
           env:
             - name: PXC_SERVICE
@@ -124,12 +122,9 @@ spec:
           resources: {}
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
-          volumeMounts:
-            - mountPath: /opt/percona
-              name: bin
         - args:
-            - /opt/percona/peer-list
-            - -on-change=/opt/percona/proxysql_add_proxysql_nodes.sh
+            - /usr/bin/peer-list
+            - -on-change=/usr/bin/add_proxysql_nodes.sh
             - -service=$(PROXYSQL_SERVICE)
           env:
             - name: PROXYSQL_SERVICE
@@ -160,9 +155,6 @@ spec:
           resources: {}
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
-          volumeMounts:
-            - mountPath: /opt/percona
-              name: bin
       dnsPolicy: ClusterFirst
       initContainers:
         - command:
@@ -194,9 +186,6 @@ spec:
               memory: 100m
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
-          volumeMounts:
-            - mountPath: /opt/percona
-              name: bin
       restartPolicy: Always
       schedulerName: default-scheduler
       securityContext:

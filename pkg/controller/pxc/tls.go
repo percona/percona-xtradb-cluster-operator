@@ -90,7 +90,7 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(cr *api.PerconaXt
 					Kind:  issuerKind,
 					Group: issuerGroup,
 				},
-				Duration:    &metav1.Duration{Duration: time.Hour * 24 * 365},
+				Duration:    &metav1.Duration{Duration: pxctls.DefaultValidity},
 				RenewBefore: &metav1.Duration{Duration: 730 * time.Hour},
 			},
 		}

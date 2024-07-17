@@ -447,6 +447,7 @@ compare_kubectl() {
 			del(.metadata.annotations."k8s.v1.cni.cncf.io*") |
 			del(.metadata.annotations."k8s.ovn.org/pod-networks") |
 			del(.spec.template.metadata.annotations."last-applied-secret") |
+			del(.spec.template.metadata.labels."batch.kubernetes.io/job-name") |
 			del(.. | select(has("batch.kubernetes.io/controller-uid"))."batch.kubernetes.io/controller-uid") |
 			del(.. | select(has("image")).image) |
 			del(.. | select(has("clusterIP")).clusterIP) |

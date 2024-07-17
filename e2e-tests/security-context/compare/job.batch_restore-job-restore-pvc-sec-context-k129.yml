@@ -3,7 +3,6 @@ kind: Job
 metadata:
   generation: 1
   labels:
-    batch.kubernetes.io/job-name: restore-job-restore-pvc-sec-context
     job-name: restore-job-restore-pvc-sec-context
   name: restore-job-restore-pvc-sec-context
   ownerReferences:
@@ -25,7 +24,6 @@ spec:
       annotations:
         openshift.io/scc: privileged
       labels:
-        batch.kubernetes.io/job-name: restore-job-restore-pvc-sec-context
         job-name: restore-job-restore-pvc-sec-context
     spec:
       containers:

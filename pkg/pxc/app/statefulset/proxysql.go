@@ -59,7 +59,13 @@ func (c *Proxy) Name() string {
 }
 
 func (c *Proxy) InitContainers(cr *api.PerconaXtraDBCluster, initImageName string) []corev1.Container {
-	return proxyInitContainers(cr, initImageName)
+	inits := proxyInitContainers(cr, initImageName)
+
+	if cr.CompareVersionWith("1.15.0") >= 0 {
+		inits = append(inits, ProxySQLEntrypointInitContainer(cr, initImageName))
+	}
+
+	return inits
 }
 
 func proxyInitContainers(cr *api.PerconaXtraDBCluster, initImageName string) []corev1.Container {
@@ -73,6 +79,7 @@ func proxyInitContainers(cr *api.PerconaXtraDBCluster, initImageName string) []c
 			EntrypointInitContainer(initImageName, app.BinVolumeName, initResources, cr.Spec.PXC.ContainerSecurityContext, cr.Spec.PXC.ImagePullPolicy),
 		}
 	}
+
 	return inits
 }
 
@@ -138,19 +145,17 @@ func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaX
 		SecurityContext: spec.ContainerSecurityContext,
 		Resources:       spec.Resources,
 	}
-	if cr.CompareVersionWith("1.9.0") >= 0 {
-		fvar := true
-		appc.EnvFrom = []corev1.EnvFromSource{
-			{
-				SecretRef: &corev1.SecretEnvSource{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: cr.Spec.ProxySQL.EnvVarsSecretName,
-					},
-					Optional: &fvar,
-				},
-			},
-		}
 
+	fvar := true
+	appc.EnvFrom = []corev1.EnvFromSource{
+		{
+			SecretRef: &corev1.SecretEnvSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: cr.Spec.ProxySQL.EnvVarsSecretName,
+				},
+				Optional: &fvar,
+			},
+		},
 	}
 
 	if api.ContainsVolume(availableVolumes, proxyConfigVolumeName) {
@@ -160,13 +165,18 @@ func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaX
 		})
 	}
 
-	if cr.CompareVersionWith("1.5.0") >= 0 {
-		appc.Env[1] = corev1.EnvVar{
-			Name: "OPERATOR_PASSWORD",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: app.SecretKeySelector(secrets, users.Operator),
-			},
-		}
+	if cr.CompareVersionWith("1.15.0") >= 0 {
+		appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
+			Name:      app.BinVolumeName,
+			MountPath: app.BinVolumeMountPath,
+		})
+	}
+
+	appc.Env[1] = corev1.EnvVar{
+		Name: "OPERATOR_PASSWORD",
+		ValueFrom: &corev1.EnvVarSource{
+			SecretKeyRef: app.SecretKeySelector(secrets, users.Operator),
+		},
 	}
 
 	if cr.CompareVersionWith("1.11.0") >= 0 && cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.HookScript != "" {
@@ -189,8 +199,8 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.Per
 		Image:           spec.Image,
 		ImagePullPolicy: spec.ImagePullPolicy,
 		Args: []string{
-			"/usr/bin/peer-list",
-			"-on-change=/usr/bin/add_pxc_nodes.sh",
+			"/opt/percona/peer-list",
+			"-on-change=/opt/percona/proxysql_add_pxc_nodes.sh",
 			"-service=$(PXC_SERVICE)",
 		},
 		Resources: spec.SidecarResources,
@@ -224,13 +234,28 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.Per
 		},
 	}
 
+	if cr.CompareVersionWith("1.15.0") >= 0 {
+		pxcMonit.VolumeMounts = append(pxcMonit.VolumeMounts, corev1.VolumeMount{
+			Name:      app.BinVolumeName,
+			MountPath: app.BinVolumeMountPath,
+		})
+	}
+
+	if cr.CompareVersionWith("1.15.0") < 0 {
+		pxcMonit.Args = []string{
+			"/usr/bin/peer-list",
+			"-on-change=/usr/bin/add_pxc_nodes.sh",
+			"-service=$(PXC_SERVICE)",
+		}
+	}
+
 	proxysqlMonit := corev1.Container{
 		Name:            "proxysql-monit",
 		Image:           spec.Image,
 		ImagePullPolicy: spec.ImagePullPolicy,
 		Args: []string{
-			"/usr/bin/peer-list",
-			"-on-change=/usr/bin/add_proxysql_nodes.sh",
+			"/opt/percona/peer-list",
+			"-on-change=/opt/percona/proxysql_add_proxysql_nodes.sh",
 			"-service=$(PROXYSQL_SERVICE)",
 		},
 		Resources: spec.SidecarResources,
@@ -263,6 +288,22 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.Per
 			},
 		},
 	}
+
+	if cr.CompareVersionWith("1.15.0") >= 0 {
+		proxysqlMonit.VolumeMounts = append(proxysqlMonit.VolumeMounts, corev1.VolumeMount{
+			Name:      app.BinVolumeName,
+			MountPath: app.BinVolumeMountPath,
+		})
+	}
+
+	if cr.CompareVersionWith("1.15.0") < 0 {
+		proxysqlMonit.Args = []string{
+			"/usr/bin/peer-list",
+			"-on-change=/usr/bin/add_proxysql_nodes.sh",
+			"-service=$(PROXYSQL_SERVICE)",
+		}
+	}
+
 	if !cr.TLSEnabled() {
 		pxcMonit.Env = append(pxcMonit.Env, corev1.EnvVar{
 			Name:  "SSL_DIR",

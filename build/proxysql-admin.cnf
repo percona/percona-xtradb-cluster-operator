@@ -1,0 +1,40 @@
+# proxysql admin interface credentials.
+export PROXYSQL_DATADIR='/var/lib/proxysql'
+export PROXYSQL_USERNAME='admin'
+export PROXYSQL_PASSWORD='admin'
+export PROXYSQL_HOSTNAME='localhost'
+export PROXYSQL_PORT='6032'
+
+# PXC admin credentials for connecting to pxc-cluster-node.
+export CLUSTER_USERNAME='admin'
+export CLUSTER_PASSWORD='admin'
+export CLUSTER_PORT='3306'
+
+# proxysql monitoring user. proxysql admin script will create this user in pxc to monitor pxc-nodes.
+export MONITOR_USERNAME='monitor'
+export MONITOR_PASSWORD='monitor'
+export USE_EXISTING_MONITOR_PASSWORD=1
+
+# Application user to connect to pxc-node through proxysql
+export WITH_CLUSTER_APP_USER=0
+
+# ProxySQL hostgroup IDs
+export READER_HOSTGROUP_ID='10'
+export WRITER_HOSTGROUP_ID='11'
+export BACKUP_WRITER_HOSTGROUP_ID='12'
+export OFFLINE_HOSTGROUP_ID='13'
+
+# ProxySQL read/write configuration mode.
+export MODE="singlewrite"
+export WRITE_NODE=""
+#export WRITERS_ARE_READERS='yes'
+
+# max_connections default (used only when INSERTing a new mysql_servers entry)
+export MAX_CONNECTIONS="1000"
+
+# Determines the maximum number of writesets a node can have queued
+# before the node is SHUNNED to avoid stale reads.
+export MAX_TRANSACTIONS_BEHIND=100
+
+# Use STDIN for passing credentials to MySQL client (PSQLADM-282)
+export USE_STDIN_FOR_CREDENTIALS=1

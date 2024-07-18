@@ -63,7 +63,13 @@ func (c *HAProxy) Name() string {
 }
 
 func (c *HAProxy) InitContainers(cr *api.PerconaXtraDBCluster, initImageName string) []corev1.Container {
-	return proxyInitContainers(cr, initImageName)
+	inits := proxyInitContainers(cr, initImageName)
+
+	if cr.CompareVersionWith("1.15.0") >= 0 {
+		inits = append(inits, HaproxyEntrypointInitContainer(cr, initImageName))
+	}
+
+	return inits
 }
 
 func (c *HAProxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster,
@@ -107,6 +113,14 @@ func (c *HAProxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.Percon
 		Resources:       spec.Resources,
 	}
 
+	if cr.CompareVersionWith("1.15.0") >= 0 {
+		appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
+			Name:      app.BinVolumeName,
+			MountPath: app.BinVolumeMountPath,
+		})
+
+	}
+
 	if cr.CompareVersionWith("1.7.0") < 0 {
 		appc.Env = append(appc.Env, corev1.EnvVar{
 			Name: "MONITOR_PASSWORD",
@@ -116,89 +130,70 @@ func (c *HAProxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.Percon
 		})
 	}
 
-	if cr.CompareVersionWith("1.6.0") >= 0 {
-		redinessDelay := int32(15)
-		if spec.ReadinessInitialDelaySeconds != nil {
-			redinessDelay = *spec.ReadinessInitialDelaySeconds
-		}
-		appc.ReadinessProbe = app.Probe(&corev1.Probe{
-			InitialDelaySeconds: redinessDelay,
-			TimeoutSeconds:      1,
-			PeriodSeconds:       5,
-			FailureThreshold:    3,
-		}, "/usr/local/bin/readiness-check.sh")
+	appc.Ports = append(
+		appc.Ports,
+		corev1.ContainerPort{
+			ContainerPort: 33062,
+			Name:          "mysql-admin",
+		},
+	)
 
-		appc.Ports = append(
-			appc.Ports,
-			corev1.ContainerPort{
-				ContainerPort: 33062,
-				Name:          "mysql-admin",
-			},
-		)
-	}
+	appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
+		Name:      "mysql-users-secret-file",
+		MountPath: "/etc/mysql/mysql-users-secret",
+	})
 
-	if cr.CompareVersionWith("1.7.0") >= 0 {
-		appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
-			Name:      "mysql-users-secret-file",
-			MountPath: "/etc/mysql/mysql-users-secret",
-		})
-
-		livenessDelay := int32(60)
-		if spec.LivenessInitialDelaySeconds != nil {
-			livenessDelay = *spec.LivenessInitialDelaySeconds
-		}
-		appc.LivenessProbe = app.Probe(&corev1.Probe{
-			InitialDelaySeconds: livenessDelay,
-			TimeoutSeconds:      5,
-			PeriodSeconds:       30,
-			FailureThreshold:    4,
-		}, "/usr/local/bin/readiness-check.sh")
-	}
-	if cr.CompareVersionWith("1.9.0") >= 0 {
-		fvar := true
-		appc.EnvFrom = []corev1.EnvFromSource{
-			{
-				SecretRef: &corev1.SecretEnvSource{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: cr.Spec.HAProxy.EnvVarsSecretName,
-					},
-					Optional: &fvar,
+	fvar := true
+	appc.EnvFrom = []corev1.EnvFromSource{
+		{
+			SecretRef: &corev1.SecretEnvSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: cr.Spec.HAProxy.EnvVarsSecretName,
 				},
+				Optional: &fvar,
 			},
-		}
-		appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
-			Name:      cr.Spec.HAProxy.EnvVarsSecretName,
-			MountPath: "/etc/mysql/haproxy-env-secret",
-		})
-
-		appc.Ports = append(
-			appc.Ports,
-			corev1.ContainerPort{
-				ContainerPort: 33060,
-				Name:          "mysqlx",
-			},
-		)
-
-		appc.LivenessProbe = &cr.Spec.HAProxy.LivenessProbes
-		appc.ReadinessProbe = &cr.Spec.HAProxy.ReadinessProbes
-		appc.ReadinessProbe.Exec = &corev1.ExecAction{
-			Command: []string{"/usr/local/bin/readiness-check.sh"},
-		}
-		appc.LivenessProbe.Exec = &corev1.ExecAction{
-			Command: []string{"/usr/local/bin/liveness-check.sh"},
-		}
-		probsEnvs := []corev1.EnvVar{
-			{
-				Name:  "LIVENESS_CHECK_TIMEOUT",
-				Value: fmt.Sprint(cr.Spec.HAProxy.LivenessProbes.TimeoutSeconds),
-			},
-			{
-				Name:  "READINESS_CHECK_TIMEOUT",
-				Value: fmt.Sprint(cr.Spec.HAProxy.ReadinessProbes.TimeoutSeconds),
-			},
-		}
-		appc.Env = append(appc.Env, probsEnvs...)
+		},
 	}
+	appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
+		Name:      cr.Spec.HAProxy.EnvVarsSecretName,
+		MountPath: "/etc/mysql/haproxy-env-secret",
+	})
+
+	appc.Ports = append(
+		appc.Ports,
+		corev1.ContainerPort{
+			ContainerPort: 33060,
+			Name:          "mysqlx",
+		},
+	)
+
+	rsCmd := "/opt/percona/haproxy_readiness_check.sh"
+	lsCmd := "/opt/percona/haproxy_liveness_check.sh"
+	if cr.CompareVersionWith("1.15.0") < 0 {
+		rsCmd = "/usr/local/bin/readiness-check.sh"
+		lsCmd = "/usr/local/bin/liveness-check.sh"
+	}
+	appc.ReadinessProbe = &cr.Spec.HAProxy.ReadinessProbes
+	appc.ReadinessProbe.Exec = &corev1.ExecAction{
+		Command: []string{rsCmd},
+	}
+	appc.LivenessProbe = &cr.Spec.HAProxy.LivenessProbes
+	appc.LivenessProbe.Exec = &corev1.ExecAction{
+		Command: []string{lsCmd},
+	}
+
+	probsEnvs := []corev1.EnvVar{
+		{
+			Name:  "LIVENESS_CHECK_TIMEOUT",
+			Value: fmt.Sprint(cr.Spec.HAProxy.LivenessProbes.TimeoutSeconds),
+		},
+		{
+			Name:  "READINESS_CHECK_TIMEOUT",
+			Value: fmt.Sprint(cr.Spec.HAProxy.ReadinessProbes.TimeoutSeconds),
+		},
+	}
+	appc.Env = append(appc.Env, probsEnvs...)
+
 	if cr.CompareVersionWith("1.11.0") >= 0 && cr.Spec.HAProxy != nil && cr.Spec.HAProxy.HookScript != "" {
 		appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
 			Name:      "hookscript",
@@ -229,8 +224,8 @@ func (c *HAProxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.P
 		Image:           spec.Image,
 		ImagePullPolicy: spec.ImagePullPolicy,
 		Args: []string{
-			"/usr/bin/peer-list",
-			"-on-change=/usr/bin/add_pxc_nodes.sh",
+			"/opt/percona/peer-list",
+			"-on-change=/opt/percona/haproxy_add_pxc_nodes.sh",
 			"-service=$(PXC_SERVICE)",
 		},
 		Env: []corev1.EnvVar{
@@ -251,6 +246,14 @@ func (c *HAProxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.P
 			},
 		},
 		SecurityContext: spec.ContainerSecurityContext,
+	}
+
+	if cr.CompareVersionWith("1.15.0") < 0 {
+		container.Args = []string{
+			"/usr/bin/peer-list",
+			"-on-change=/usr/bin/add_pxc_nodes.sh",
+			"-service=$(PXC_SERVICE)",
+		}
 	}
 
 	hasKey, err := cr.ConfigHasKey("mysqld", "proxy_protocol_networks")
@@ -299,6 +302,10 @@ func (c *HAProxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.P
 		container.Env = append(container.Env, corev1.EnvVar{
 			Name:  "REPLICAS_SVC_ONLY_READERS",
 			Value: strconv.FormatBool(cr.Spec.HAProxy.ExposeReplicas.OnlyReaders),
+		})
+		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
+			Name:      app.BinVolumeName,
+			MountPath: app.BinVolumeMountPath,
 		})
 	}
 

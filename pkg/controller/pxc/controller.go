@@ -1087,7 +1087,11 @@ func (r *ReconcilePerconaXtraDBCluster) deletePVC(namespace string, lbls map[str
 }
 
 func (r *ReconcilePerconaXtraDBCluster) deleteSecrets(cr *api.PerconaXtraDBCluster) error {
-	secrets := []string{cr.Spec.SecretsName, "internal-" + cr.Name}
+	secrets := []string{
+		cr.Spec.SecretsName,
+		"internal-" + cr.Name,
+		cr.Name + "-mysql-init",
+	}
 
 	for _, secretName := range secrets {
 		secret := &corev1.Secret{}

@@ -3,7 +3,6 @@ kind: Job
 metadata:
   generation: 1
   labels:
-    batch.kubernetes.io/job-name: restore-job-restore-s3-sec-context
     job-name: restore-job-restore-s3-sec-context
   name: restore-job-restore-s3-sec-context
   ownerReferences:
@@ -25,7 +24,6 @@ spec:
       annotations:
         openshift.io/scc: privileged
       labels:
-        batch.kubernetes.io/job-name: restore-job-restore-s3-sec-context
         job-name: restore-job-restore-s3-sec-context
     spec:
       containers:

@@ -9,8 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
-
 	"github.com/pkg/errors"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -30,6 +28,7 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/clientcmd"
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/deployment"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage"
@@ -560,7 +559,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) isOtherBackupRunning(ctx context.C
 		if job.Labels["backup-name"] == cr.Name || job.Labels["backup-name"] == "" {
 			continue
 		}
-		if job.Status.Succeeded > 0 {
+		if job.Status.Active == 0 && (jobSucceded(&job) || jobFailed(&job)) {
 			continue
 		}
 
@@ -568,4 +567,29 @@ func (r *ReconcilePerconaXtraDBClusterBackup) isOtherBackupRunning(ctx context.C
 	}
 
 	return false, nil
+}
+
+func jobFailed(job *batchv1.Job) bool {
+	failedCondition := findJobCondition(job.Status.Conditions, batchv1.JobFailed)
+	if failedCondition != nil && failedCondition.Status == corev1.ConditionTrue {
+		return true
+	}
+	return false
+}
+
+func jobSucceded(job *batchv1.Job) bool {
+	succeededCondition := findJobCondition(job.Status.Conditions, batchv1.JobComplete)
+	if succeededCondition != nil && succeededCondition.Status == corev1.ConditionTrue {
+		return true
+	}
+	return false
+}
+
+func findJobCondition(conditions []batchv1.JobCondition, condType batchv1.JobConditionType) *batchv1.JobCondition {
+	for i, cond := range conditions {
+		if cond.Type == condType {
+			return &conditions[i]
+		}
+	}
+	return nil
 }

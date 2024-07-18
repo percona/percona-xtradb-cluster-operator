@@ -462,6 +462,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileHAProxy(ctx context.Context, cr
 
 		return nil
 	}
+
 	envVarsSecret := new(corev1.Secret)
 	if err := r.client.Get(ctx, types.NamespacedName{
 		Name:      cr.Spec.HAProxy.EnvVarsSecretName,

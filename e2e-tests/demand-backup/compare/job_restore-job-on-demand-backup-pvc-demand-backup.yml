@@ -3,7 +3,6 @@ kind: Job
 metadata:
   generation: 1
   labels:
-    batch.kubernetes.io/job-name: restore-job-on-demand-backup-pvc-demand-backup
     job-name: restore-job-on-demand-backup-pvc-demand-backup
   name: restore-job-on-demand-backup-pvc-demand-backup
   ownerReferences:
@@ -21,7 +20,6 @@ spec:
   template:
     metadata:
       labels:
-        batch.kubernetes.io/job-name: restore-job-on-demand-backup-pvc-demand-backup
         job-name: restore-job-on-demand-backup-pvc-demand-backup
     spec:
       containers:

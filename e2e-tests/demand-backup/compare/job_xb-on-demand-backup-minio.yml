@@ -13,7 +13,7 @@ metadata:
       kind: PerconaXtraDBClusterBackup
       name: on-demand-backup-minio
 spec:
-  backoffLimit: 10
+  backoffLimit: 3
   completionMode: NonIndexed
   completions: 1
   manualSelector: true

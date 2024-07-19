@@ -12,7 +12,9 @@ import (
 	"time"
 )
 
-var validityNotAfter = time.Now().Add(time.Hour * 24 * 365)
+const DefaultValidity = time.Hour * 24 * 365 * 3
+
+var validityNotAfter = time.Now().Add(DefaultValidity)
 
 // Issue returns CA certificate, TLS certificate and TLS private key
 func Issue(hosts []string) (caCert []byte, tlsCert []byte, tlsKey []byte, err error) {

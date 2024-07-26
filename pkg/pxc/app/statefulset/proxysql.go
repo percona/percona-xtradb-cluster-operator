@@ -166,6 +166,7 @@ func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaX
 	}
 
 	if cr.CompareVersionWith("1.15.0") >= 0 {
+		appc.Command = []string{"/opt/percona/proxysql-entrypoint.sh"}
 		appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
 			Name:      app.BinVolumeName,
 			MountPath: app.BinVolumeMountPath,

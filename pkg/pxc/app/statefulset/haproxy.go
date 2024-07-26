@@ -114,6 +114,8 @@ func (c *HAProxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.Percon
 	}
 
 	if cr.CompareVersionWith("1.15.0") >= 0 {
+		appc.Command = []string{"/opt/percona/haproxy-entrypoint.sh"}
+		appc.Args = []string{"haproxy"}
 		appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
 			Name:      app.BinVolumeName,
 			MountPath: app.BinVolumeMountPath,

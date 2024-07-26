@@ -10,8 +10,8 @@ log() {
 
 if [ "$1" = 'haproxy' ]; then
 	if [ ! -f '/etc/haproxy/pxc/haproxy.cfg' ]; then
-		log /opt/percona/haproxy.cfg /etc/haproxy/mysql
-		cp /opt/percona/haproxy.cfg /etc/haproxy/mysql
+		log /opt/percona/haproxy.cfg /etc/haproxy/pxc
+		cp /opt/percona/haproxy.cfg /etc/haproxy/pxc
 	fi
 
 	custom_conf='/etc/haproxy-custom/haproxy-global.cfg'

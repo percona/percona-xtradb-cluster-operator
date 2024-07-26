@@ -2,7 +2,7 @@
 set -e
 
 log() {
-    local message=$1
+    local message="$1"
     local date=$(/usr/bin/date +"%d/%b/%Y:%H:%M:%S.%3N")
 
     echo "{\"time\":\"${date}\", \"message\": \"${message}\"}"

@@ -5,7 +5,7 @@ log() {
     local message="$1"
     local date=$(/usr/bin/date +"%d/%b/%Y:%H:%M:%S.%3N")
 
-    echo "{\"time\":\"${date}\", \"message\": \"${message}\"}"
+	echo "{\"time\":\"${date}\", \"message\": \"${message}\"}"
 }
 
 if [ "$1" = 'haproxy' ]; then

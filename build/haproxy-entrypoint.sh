@@ -37,5 +37,5 @@ fi
 log 'test -e /opt/percona/hookscript/hook.sh && source /opt/percona/hookscript/hook.sh'
 test -e /opt/percona/hookscript/hook.sh && source /opt/percona/hookscript/hook.sh
 
-log "$@" $haproxy_opt
-exec "$@" $haproxy_opt
+log "$@" "$haproxy_opt"
+exec "$@" "$haproxy_opt"

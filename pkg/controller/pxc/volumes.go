@@ -2,7 +2,6 @@ package pxc
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"slices"
 	"strings"
@@ -131,11 +130,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcilePersistentVolumes(ctx context.C
 		return errors.Wrap(err, "round GiB value")
 	}
 
-	requestedQuantity := fmt.Sprintf("%dGi", gib)
-	requested, err = resource.ParseQuantity(requestedQuantity)
-	if err != nil {
-		return errors.Wrapf(err, "parse quantity (%s)", requestedQuantity)
-	}
+	requested = *resource.NewQuantity(gib*GiB, resource.BinarySI)
 
 	if cr.PVCResizeInProgress() {
 		resizeStartedAt, err := time.Parse(time.RFC3339, cr.GetAnnotations()[pxcv1.AnnotationPVCResizeInProgress])

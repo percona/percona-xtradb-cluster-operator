@@ -14,11 +14,11 @@ ls -l /opt/percona
 echo "BBBBBBBBBBBBBBBBB"
 
 
-# PROXY_CFG=/etc/proxysql/proxysql.cnf
-# PROXY_ADMIN_CFG=/etc/proxysql-admin.cnf
+PROXY_CFG=/etc/proxysql/proxysql.cnf
+PROXY_ADMIN_CFG=/etc/proxysql-admin.cnf
 
-PROXY_CFG=/opt/percona/proxysql.cnf
-PROXY_ADMIN_CFG=/opt/percona/proxysql-admin.cnf
+# PROXY_CFG=/opt/percona/proxysql.cnf
+# PROXY_ADMIN_CFG=/opt/percona/proxysql-admin.cnf
 
 MYSQL_INTERFACES='0.0.0.0:3306;0.0.0.0:33062'
 CLUSTER_PORT='33062'

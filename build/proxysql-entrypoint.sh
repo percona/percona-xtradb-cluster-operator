@@ -6,11 +6,11 @@ cp /opt/percona/proxysql.cnf /etc/proxysql
 cp /opt/percona/proxysql-admin.cnf /etc/proxysql
 
 echo "AAAAAAAAAAAAAAA"
-ls -l /etc/proxysql
+ls -l .
 echo "AAAAAAAAAAAAAAA"
 
 echo "BBBBBBBBBBBBBBBBB"
-ls -l /opt/percona
+ls -l usr/bin
 echo "BBBBBBBBBBBBBBBBB"
 
 

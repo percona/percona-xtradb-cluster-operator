@@ -2,8 +2,19 @@
 
 set -o xtrace
 
-PROXY_CFG=/opt/percona/proxysql.cnf
-PROXY_ADMIN_CFG=/opt/percona/proxysql-admin.cnf
+cp /opt/percona/proxysql.cnf /etc/proxysql
+cp /opt/percona/proxysql-admin.cnf /etc/proxysql
+
+echo "AAAAAAAAAAAAAAA"
+ls -l /etc/proxysql
+echo "AAAAAAAAAAAAAAA"
+
+
+PROXY_CFG=/etc/proxysql/proxysql.cnf
+PROXY_ADMIN_CFG=/etc/proxysql-admin.cnf
+
+# PROXY_CFG=/opt/percona/proxysql.cnf
+# PROXY_ADMIN_CFG=/opt/percona/proxysql-admin.cnf
 
 MYSQL_INTERFACES='0.0.0.0:3306;0.0.0.0:33062'
 CLUSTER_PORT='33062'

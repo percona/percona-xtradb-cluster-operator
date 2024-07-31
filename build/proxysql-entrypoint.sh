@@ -13,7 +13,6 @@ echo "BBBBBBBBBBBBBBBBB"
 ls -l usr/bin
 echo "BBBBBBBBBBBBBBBBB"
 
-
 PROXY_CFG=/etc/proxysql/proxysql.cnf
 PROXY_ADMIN_CFG=/etc/proxysql-admin.cnf
 

@@ -52,11 +52,27 @@ COPY --from=go_builder /usr/local/bin/pitr /pitr
 COPY build/pxc-entrypoint.sh /pxc-entrypoint.sh
 COPY build/pxc-init-entrypoint.sh /pxc-init-entrypoint.sh
 COPY build/pitr-init-entrypoint.sh /pitr-init-entrypoint.sh
+COPY build/backup-init-entrypoint.sh /backup-init-entrypoint.sh
 COPY build/unsafe-bootstrap.sh /unsafe-bootstrap.sh
 COPY build/pxc-configure-pxc.sh /pxc-configure-pxc.sh
 COPY build/liveness-check.sh /liveness-check.sh
 COPY build/readiness-check.sh /readiness-check.sh
 COPY build/pmm-prerun.sh /pmm-prerun.sh
 COPY build/get-pxc-state /get-pxc-state
+
+COPY build/haproxy-init-entrypoint.sh /haproxy-init-entrypoint.sh
+COPY build/haproxy_add_pxc_nodes.sh /haproxy_add_pxc_nodes.sh
+COPY build/haproxy_check_pxc.sh /haproxy_check_pxc.sh
+COPY build/haproxy_liveness_check.sh /haproxy_liveness_check.sh
+COPY build/haproxy_readiness_check.sh /haproxy_readiness_check.sh
+COPY build/haproxy.cfg /haproxy.cfg
+COPY build/haproxy-global.cfg /haproxy-global.cfg
+
+COPY build/proxysql-init-entrypoint.sh /proxysql-init-entrypoint.sh
+COPY build/proxysql.cnf /proxysql.cnf
+COPY build/proxysql-admin.cnf /proxysql-admin.cnf
+COPY build/proxysql_add_cluster_nodes.sh /proxysql_add_cluster_nodes.sh
+COPY build/proxysql_add_proxysql_nodes.sh /proxysql_add_proxysql_nodes.sh
+COPY build/proxysql_add_pxc_nodes.sh /proxysql_add_pxc_nodes.sh
 
 USER 2

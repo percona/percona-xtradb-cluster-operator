@@ -13,7 +13,7 @@ metadata:
       kind: PerconaXtraDBClusterBackup
       name: on-demand-backup-minio
 spec:
-  backoffLimit: 10
+  backoffLimit: 3
   completionMode: NonIndexed
   completions: 1
   manualSelector: true
@@ -81,6 +81,8 @@ spec:
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:
+            - mountPath: /opt/percona
+              name: bin
             - mountPath: /etc/mysql/ssl
               name: ssl
             - mountPath: /etc/mysql/ssl-internal
@@ -88,6 +90,23 @@ spec:
             - mountPath: /etc/mysql/vault-keyring-secret
               name: vault-keyring-secret
       dnsPolicy: ClusterFirst
+      initContainers:
+        - command:
+            - /backup-init-entrypoint.sh
+          imagePullPolicy: Always
+          name: backup-init
+          resources:
+            limits:
+              cpu: "1"
+              memory: 2G
+            requests:
+              cpu: 500m
+              memory: 500M
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /opt/percona
+              name: bin
       restartPolicy: Never
       schedulerName: default-scheduler
       securityContext:
@@ -96,6 +115,8 @@ spec:
           - 1001
       terminationGracePeriodSeconds: 30
       volumes:
+        - emptyDir: {}
+          name: bin
         - name: ssl
           secret:
             defaultMode: 420

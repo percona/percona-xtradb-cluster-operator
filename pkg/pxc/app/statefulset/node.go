@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"hash/fnv"
 
+	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -15,7 +16,6 @@ import (
 	app "github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/config"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
-	"github.com/pkg/errors"
 )
 
 const (
@@ -57,6 +57,18 @@ func NewNode(cr *api.PerconaXtraDBCluster) *Node {
 
 func (c *Node) Name() string {
 	return app.Name
+}
+
+func (c *Node) InitContainers(cr *api.PerconaXtraDBCluster, initImageName string) []corev1.Container {
+	initResources := cr.Spec.PXC.Resources
+	if cr.Spec.InitContainer.Resources != nil {
+		initResources = *cr.Spec.InitContainer.Resources
+	}
+
+	inits := []corev1.Container{
+		EntrypointInitContainer(initImageName, app.DataVolumeName, initResources, cr.Spec.PXC.ContainerSecurityContext, cr.Spec.PXC.ImagePullPolicy),
+	}
+	return inits
 }
 
 func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster, _ []corev1.Volume) (corev1.Container, error) {

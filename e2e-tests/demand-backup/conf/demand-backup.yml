@@ -63,6 +63,8 @@ spec:
     serverHost: monitoring-service
     serverUser: pmm
   backup:
+    allowParallel: false
+    backoffLimit: 3
     image: -backup
     storages:
       pvc:
@@ -73,6 +75,13 @@ spec:
             resources:
               requests:
                 storage: 1Gi
+      minio-wrong:
+        type: s3
+        s3:
+          credentialsSecret: minio-secret
+          region: us-east-1
+          bucket: wrong-bucket
+          endpointUrl: https://wrong-service.#namespace:9000/
       minio:
         type: s3
         resources:

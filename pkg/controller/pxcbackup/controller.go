@@ -311,6 +311,9 @@ func (r *ReconcilePerconaXtraDBClusterBackup) runDeleteBackupFinalizer(ctx conte
 	for _, f := range cr.GetFinalizers() {
 		var err error
 		switch f {
+		case "delete-s3-backup":
+			log.Info("The value delete-s3-backup is deprecated and will be deleted in 1.18.0. Use percona.com/delete-s3-backup")
+			fallthrough
 		case naming.FinalizerDeleteS3Backup, naming.FinalizerDeleteBackup:
 			if (cr.Status.S3 == nil && cr.Status.Azure == nil) || cr.Status.Destination == "" {
 				continue

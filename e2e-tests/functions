@@ -489,8 +489,7 @@ compare_kubectl() {
 			del(.. | select(has("annotations")).annotations | select(length==0)) |
 			del(.. | select(.[] == "percona-xtradb-cluster-operator-workload-token*"))' - >${new_result}
 
-	# diff -u ${expected_result} ${new_result}
-	cp ${new_result} ${expected_result}
+	diff -u ${expected_result} ${new_result}
 }
 
 get_client_pod() {

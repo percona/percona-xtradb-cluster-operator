@@ -222,7 +222,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcilePersistentVolumes(ctx context.C
 		return errors.Errorf("requested storage (%s) is less than actual storage (%s)", requested.String(), actual.String())
 	}
 
-	if requested.Cmp(configured) == 0 || requested.Cmp(actual) == 0 {
+	if requested.Cmp(actual) == 0 {
 		return nil
 	}
 

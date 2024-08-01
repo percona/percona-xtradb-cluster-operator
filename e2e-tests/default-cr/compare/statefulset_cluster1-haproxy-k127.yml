@@ -114,6 +114,8 @@ spec:
           env:
             - name: PXC_SERVICE
               value: cluster1-pxc
+            - name: REPLICAS_SVC_ONLY_READERS
+              value: "false"
           envFrom:
             - secretRef:
                 name: cluster1-env-vars-haproxy

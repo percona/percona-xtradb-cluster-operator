@@ -312,9 +312,10 @@ func (r *ReconcilePerconaXtraDBClusterBackup) runDeleteBackupFinalizer(ctx conte
 		var err error
 		switch f {
 		case "delete-s3-backup":
-			log.Info("The value delete-s3-backup is deprecated and will be deleted in 1.18.0. Use percona.com/delete-s3-backup")
+			log.Info("The finalizer delete-s3-backup is deprecated and will be deleted in 1.18.0. Use percona.com/delete-backup")
 			fallthrough
-		case naming.FinalizerDeleteS3Backup, naming.FinalizerDeleteBackup:
+		case naming.FinalizerDeleteBackup:
+
 			if (cr.Status.S3 == nil && cr.Status.Azure == nil) || cr.Status.Destination == "" {
 				continue
 			}
@@ -335,7 +336,8 @@ func (r *ReconcilePerconaXtraDBClusterBackup) runDeleteBackupFinalizer(ctx conte
 		if err != nil {
 			log.Info("failed to delete backup", "backup path", cr.Status.Destination, "error", err.Error())
 			finalizers = append(finalizers, f)
-		} else if f == naming.FinalizerDeleteS3Backup || f == naming.FinalizerDeleteBackup {
+		} else if f == naming.FinalizerDeleteBackup {
+
 			log.Info("backup was removed", "name", cr.Name)
 		}
 	}

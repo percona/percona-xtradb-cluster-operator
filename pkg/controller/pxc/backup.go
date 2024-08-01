@@ -199,7 +199,7 @@ func (r *ReconcilePerconaXtraDBCluster) createBackupJob(ctx context.Context, cr 
 	switch storageType {
 	case api.BackupStorageS3, api.BackupStorageAzure:
 		if cr.CompareVersionWith("1.15.0") < 0 {
-			fins = append(fins, naming.FinalizerDeleteS3Backup)
+			fins = append(fins, "delete-s3-backup")
 		} else {
 			fins = append(fins, naming.FinalizerDeleteBackup)
 		}

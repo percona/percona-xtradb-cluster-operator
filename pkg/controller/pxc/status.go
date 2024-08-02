@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -14,10 +15,9 @@ import (
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
-	"github.com/pkg/errors"
 )
 
-func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluster, inProgress bool, reconcileErr error) (err error) {
+func (r *ReconcilePerconaXtraDBCluster) updateStatus(ctx context.Context, cr *api.PerconaXtraDBCluster, inProgress bool, reconcileErr error) (err error) {
 	clusterCondition := api.ClusterCondition{
 		Status:             api.ConditionTrue,
 		Type:               api.AppStateInit,
@@ -39,12 +39,12 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 			cr.Status.Status = api.AppStateError
 		}
 
-		return r.writeStatus(cr)
+		return r.writeStatus(ctx, cr)
 	}
 
 	if cr.PVCResizeInProgress() {
 		cr.Status.Status = api.AppStateInit
-		return r.writeStatus(cr)
+		return r.writeStatus(ctx, cr)
 	}
 
 	cr.Status.Messages = cr.Status.Messages[:0]
@@ -99,7 +99,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 	cr.Status.Size = 0
 	cr.Status.Ready = 0
 	for _, a := range apps {
-		status, err := r.appStatus(a.app, cr.Namespace, a.spec, cr.CompareVersionWith("1.7.0") == -1, cr.Spec.Pause)
+		status, err := r.appStatus(ctx, a.app, cr.Namespace, a.spec, cr.CompareVersionWith("1.7.0") == -1, cr.Spec.Pause)
 		if err != nil {
 			return errors.Wrapf(err, "get %s status", a.app.Name())
 		}
@@ -137,24 +137,24 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 	cr.Status.AddCondition(clusterCondition)
 	cr.Status.ObservedGeneration = cr.ObjectMeta.Generation
 
-	return r.writeStatus(cr)
+	return r.writeStatus(ctx, cr)
 }
 
-func (r *ReconcilePerconaXtraDBCluster) writeStatus(cr *api.PerconaXtraDBCluster) error {
+func (r *ReconcilePerconaXtraDBCluster) writeStatus(ctx context.Context, cr *api.PerconaXtraDBCluster) error {
 	err := k8sretry.RetryOnConflict(k8sretry.DefaultRetry, func() error {
 		c := &api.PerconaXtraDBCluster{}
 
-		err := r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, c)
+		err := r.client.Get(ctx, types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, c)
 		if err != nil {
 			return err
 		}
 
 		c.Status = cr.Status
 
-		return r.client.Status().Update(context.TODO(), c)
+		return r.client.Status().Update(ctx, c)
 	})
 
-	return errors.Wrap(err, "write status")
+	return errors.Wrap(client.IgnoreNotFound(err), "write status")
 }
 
 func (r *ReconcilePerconaXtraDBCluster) upgradeInProgress(cr *api.PerconaXtraDBCluster, appName string) (bool, error) {
@@ -170,9 +170,9 @@ func (r *ReconcilePerconaXtraDBCluster) upgradeInProgress(cr *api.PerconaXtraDBC
 // If ready pods are equal to the size of the statefulset, we consider them ready.
 // If a pod is in the unschedulable state for more than 1 min, we consider the statefulset in an error state.
 // Otherwise, we consider the statefulset is initializing.
-func (r *ReconcilePerconaXtraDBCluster) appStatus(app api.StatefulApp, namespace string, podSpec *api.PodSpec, crLt170, paused bool) (api.AppStatus, error) {
+func (r *ReconcilePerconaXtraDBCluster) appStatus(ctx context.Context, app api.StatefulApp, namespace string, podSpec *api.PodSpec, crLt170, paused bool) (api.AppStatus, error) {
 	list := corev1.PodList{}
-	err := r.client.List(context.TODO(),
+	err := r.client.List(ctx,
 		&list,
 		&client.ListOptions{
 			Namespace:     namespace,
@@ -183,8 +183,8 @@ func (r *ReconcilePerconaXtraDBCluster) appStatus(app api.StatefulApp, namespace
 		return api.AppStatus{}, errors.Wrap(err, "get pod list")
 	}
 	sfs := app.StatefulSet()
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: sfs.Name, Namespace: sfs.Namespace}, sfs)
-	if err != nil {
+	err = r.client.Get(ctx, types.NamespacedName{Name: sfs.Name, Namespace: sfs.Namespace}, sfs)
+	if client.IgnoreNotFound(err) != nil {
 		return api.AppStatus{}, errors.Wrap(err, "get statefulset")
 	}
 
@@ -245,7 +245,8 @@ func (r *ReconcilePerconaXtraDBCluster) appStatus(app api.StatefulApp, namespace
 }
 
 func (r *ReconcilePerconaXtraDBCluster) appHost(cr *api.PerconaXtraDBCluster, app api.StatefulApp,
-	podSpec *api.PodSpec, expose *api.ServiceExpose) (string, error) {
+	podSpec *api.PodSpec, expose *api.ServiceExpose,
+) (string, error) {
 	svcName := app.Service()
 	if app.Name() == "proxysql" {
 		svcName = cr.Name + "-proxysql"

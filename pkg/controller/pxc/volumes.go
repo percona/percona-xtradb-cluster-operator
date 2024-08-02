@@ -64,6 +64,11 @@ func (r *ReconcilePerconaXtraDBCluster) reconcilePersistentVolumes(ctx context.C
 		return errors.Wrap(err, "list pods")
 	}
 
+	if len(podList.Items) < int(cr.Spec.PXC.Size) {
+		log.Info("Waiting for all pods to be running")
+		return nil
+	}
+
 	podNames := make([]string, 0, len(podList.Items))
 	for _, pod := range podList.Items {
 		podNames = append(podNames, pod.Name)
@@ -216,6 +221,8 @@ func (r *ReconcilePerconaXtraDBCluster) reconcilePersistentVolumes(ctx context.C
 
 			return nil
 		}
+
+		log.Info("PVC resize in progress", "updated", updatedPVCs, "remaining", len(pvcsToUpdate)-updatedPVCs)
 	}
 
 	if requested.Cmp(actual) < 0 {

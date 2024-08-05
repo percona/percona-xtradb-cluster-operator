@@ -173,7 +173,11 @@ spec:
           volumeMounts:
             - mountPath: /var/lib/mysql
               name: bin
-        - env:
+        - args:
+            - haproxy
+          command:
+            - /opt/percona/haproxy-entrypoint.sh
+          env:
             - name: PXC_SERVICE
               value: monitoring-pxc
             - name: LIVENESS_CHECK_TIMEOUT
@@ -241,6 +245,8 @@ spec:
             - /opt/percona/peer-list
             - -on-change=/opt/percona/haproxy_add_pxc_nodes.sh
             - -service=$(PXC_SERVICE)
+          command:
+            - /opt/percona/haproxy-entrypoint.sh
           env:
             - name: PXC_SERVICE
               value: monitoring-pxc

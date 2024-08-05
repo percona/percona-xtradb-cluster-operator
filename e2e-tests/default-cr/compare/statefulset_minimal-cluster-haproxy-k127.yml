@@ -111,6 +111,8 @@ spec:
           env:
             - name: PXC_SERVICE
               value: minimal-cluster-pxc
+            - name: REPLICAS_SVC_ONLY_READERS
+              value: "false"
           envFrom:
             - secretRef:
                 name: minimal-cluster-env-vars-haproxy

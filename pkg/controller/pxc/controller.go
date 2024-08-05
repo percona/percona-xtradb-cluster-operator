@@ -22,6 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	k8sretry "k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
@@ -200,7 +201,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 	}
 
 	defer func() {
-		uerr := r.updateStatus(o, false, err)
+		uerr := r.updateStatus(ctx, o, false, err)
 		if uerr != nil {
 			log.Error(uerr, "Update status")
 		}
@@ -252,11 +253,22 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 			}
 		}
 
-		o.SetFinalizers(finalizers)
-		err = r.client.Update(context.TODO(), o)
+		err = k8sretry.RetryOnConflict(k8sretry.DefaultRetry, func() error {
+			cr := new(api.PerconaXtraDBCluster)
+			err := r.client.Get(ctx, request.NamespacedName, cr)
+			if err != nil {
+				return errors.Wrap(err, "get cr")
+			}
+
+			cr.SetFinalizers(finalizers)
+			return r.client.Update(ctx, cr)
+		})
+		if err != nil {
+			return reconcile.Result{}, errors.Wrap(err, "failed to update cr finalizers")
+		}
 
 		// object is being deleted, no need in further actions
-		return rr, err
+		return rr, nil
 	}
 
 	// wait until token issued to run PXC in data encrypted mode.
@@ -296,7 +308,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 
 	urr, err := r.reconcileUsers(ctx, o)
 	if err != nil {
-		return rr, errors.Wrap(err, "reconcile users")
+		return reconcile.Result{}, errors.Wrap(err, "reconcile users")
 	}
 	if urr != nil {
 		userReconcileResult = urr
@@ -342,12 +354,12 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 	if o.Spec.PXC.Expose.Enabled {
 		err = r.ensurePxcPodServices(ctx, o)
 		if err != nil {
-			return rr, errors.Wrap(err, "create replication services")
+			return reconcile.Result{}, errors.Wrap(err, "create replication services")
 		}
 	} else {
 		err = r.removePxcPodServices(o)
 		if err != nil {
-			return rr, errors.Wrap(err, "remove pxc pod services")
+			return reconcile.Result{}, errors.Wrap(err, "remove pxc pod services")
 		}
 	}
 
@@ -428,7 +440,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 	}
 
 	if err := r.fetchVersionFromPXC(ctx, o, pxcSet); err != nil {
-		return rr, errors.Wrap(err, "update CR version")
+		return reconcile.Result{}, errors.Wrap(err, "update CR version")
 	}
 
 	err = r.scheduleEnsurePXCVersion(ctx, o, VersionServiceClient{OpVersion: o.Version().String()})

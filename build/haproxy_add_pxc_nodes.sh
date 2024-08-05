@@ -76,7 +76,7 @@ function main() {
 		      option srvtcpka
 		      balance roundrobin
 		      option external-check
-		      external-check command /usr/local/bin/check_pxc.sh
+		      external-check command /opt/percona/haproxy_check_pxc.sh
 	EOF
 
 	log "number of available nodes are ${#NODE_LIST_REPL[@]}"
@@ -92,7 +92,7 @@ function main() {
 		      option srvtcpka
 		      balance roundrobin
 		      option external-check
-		      external-check command /usr/local/bin/check_pxc.sh
+		      external-check command /opt/percona/haproxy_check_pxc.sh
 	EOF
 
 	(
@@ -106,7 +106,7 @@ function main() {
 		      option srvtcpka
 		      balance roundrobin
 		      option external-check
-		      external-check command /usr/local/bin/check_pxc.sh
+		      external-check command /opt/percona/haproxy_check_pxc.sh
 	EOF
 	if [ "${REPLICAS_SVC_ONLY_READERS}" == "false" ]; then
 		(
@@ -153,7 +153,7 @@ function main() {
 			SOCKET="$SOCKET_CUSTOM"
 		fi
 	else
-		haproxy -c -f /etc/haproxy/haproxy-global.cfg -f $path_to_haproxy_cfg/haproxy.cfg
+		haproxy -c -f /opt/percona/haproxy-global.cfg -f $path_to_haproxy_cfg/haproxy.cfg
 	fi
 
 	if [ -n "$main_node" ]; then

@@ -22,6 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	k8sretry "k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
@@ -200,7 +201,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 	}
 
 	defer func() {
-		uerr := r.updateStatus(o, false, err)
+		uerr := r.updateStatus(ctx, o, false, err)
 		if uerr != nil {
 			log.Error(uerr, "Update status")
 		}
@@ -220,37 +221,31 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 		for _, fnlz := range o.GetFinalizers() {
 			var sfs api.StatefulApp
 			switch fnlz {
+			case "delete-ssl":
+				log.Info("The finalizer delete-ssl is deprecated and will be deleted in 1.18.0. Use percona.com/delete-ssl")
+				fallthrough
 			case naming.FinalizerDeleteSSL:
 				err = r.deleteCerts(o)
+			case "delete-proxysql-pvc":
+				log.Info("The finalizer delete-proxysql-pvc is deprecated and will be deleted in 1.18.0. Use percona.com/delete-proxysql-pvc")
+				fallthrough
 			case naming.FinalizerDeleteProxysqlPvc:
 				sfs = statefulset.NewProxy(o)
 				// deletePVC is always true on this stage
 				// because we never reach this point without finalizers
 				err = r.deleteStatefulSet(o, sfs, true, false)
+			case "delete-pxc-pvc":
+				log.Info("The finalizer delete-pxc-pvc is deprecated and will be deleted in 1.18.0. Use percona.com/delete-pxc-pvc")
+				fallthrough
 			case naming.FinalizerDeletePxcPvc:
 				sfs = statefulset.NewNode(o)
 				err = r.deleteStatefulSet(o, sfs, true, true)
 			// nil error gonna be returned only when there is no more pods to delete (only 0 left)
 			// until than finalizer won't be deleted
-			case naming.FinalizerDeletePxcPodsInOrder:
-				err = r.deletePXCPods(o)
-			case "delete-ssl":
-				log.Info("The value delete-ssl is deprecated and will be deleted in 1.18.0. Use percona.com/delete-ssl")
-				err = r.deleteCerts(o)
-			case "delete-proxysql-pvc":
-				log.Info("The value delete-proxysql-pvc is deprecated and will be deleted in 1.18.0. Use percona.com/delete-proxysql-pvc")
-				sfs = statefulset.NewProxy(o)
-				// deletePVC is always true on this stage
-				// because we never reach this point without finalizers
-				err = r.deleteStatefulSet(o, sfs, true, false)
-			case "delete-pxc-pvc":
-				log.Info("The value delete-pxc-pvc is deprecated and will be deleted in 1.18.0. Use percona.com/delete-pxc-pvc")
-				sfs = statefulset.NewNode(o)
-				err = r.deleteStatefulSet(o, sfs, true, true)
-			// nil error gonna be returned only when there is no more pods to delete (only 0 left)
-			// until than finalizer won't be deleted
 			case "delete-pxc-pods-in-order":
-				log.Info("The value delete-pxc-pods-in-order is deprecated and will be deleted in 1.18.0. Use percona.com/delete-pxc-pods-in-order")
+				log.Info("The finalizer delete-pxc-pods-in-order is deprecated and will be deleted in 1.18.0. Use percona.com/delete-pxc-pods-in-order")
+				fallthrough
+			case naming.FinalizerDeletePxcPodsInOrder:
 				err = r.deletePXCPods(o)
 			}
 			if err != nil {
@@ -258,11 +253,22 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 			}
 		}
 
-		o.SetFinalizers(finalizers)
-		err = r.client.Update(context.TODO(), o)
+		err = k8sretry.RetryOnConflict(k8sretry.DefaultRetry, func() error {
+			cr := new(api.PerconaXtraDBCluster)
+			err := r.client.Get(ctx, request.NamespacedName, cr)
+			if err != nil {
+				return errors.Wrap(err, "get cr")
+			}
+
+			cr.SetFinalizers(finalizers)
+			return r.client.Update(ctx, cr)
+		})
+		if err != nil {
+			return reconcile.Result{}, errors.Wrap(err, "failed to update cr finalizers")
+		}
 
 		// object is being deleted, no need in further actions
-		return rr, err
+		return rr, nil
 	}
 
 	// wait until token issued to run PXC in data encrypted mode.
@@ -302,7 +308,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 
 	urr, err := r.reconcileUsers(ctx, o)
 	if err != nil {
-		return rr, errors.Wrap(err, "reconcile users")
+		return reconcile.Result{}, errors.Wrap(err, "reconcile users")
 	}
 	if urr != nil {
 		userReconcileResult = urr
@@ -348,12 +354,12 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 	if o.Spec.PXC.Expose.Enabled {
 		err = r.ensurePxcPodServices(ctx, o)
 		if err != nil {
-			return rr, errors.Wrap(err, "create replication services")
+			return reconcile.Result{}, errors.Wrap(err, "create replication services")
 		}
 	} else {
 		err = r.removePxcPodServices(o)
 		if err != nil {
-			return rr, errors.Wrap(err, "remove pxc pod services")
+			return reconcile.Result{}, errors.Wrap(err, "remove pxc pod services")
 		}
 	}
 
@@ -390,7 +396,11 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 		// check if there is need to delete pvc
 		deletePVC := false
 		for _, fnlz := range o.GetFinalizers() {
-			if fnlz == naming.FinalizerDeleteProxysqlPvc {
+			switch fnlz {
+			case "delete-proxysql-pvc":
+				log.Info("The finalizer delete-proxysql-pvc is deprecated and will be deleted in 1.18.0. Use percona.com/delete-proxysql-pvc")
+				fallthrough
+			case naming.FinalizerDeleteProxysqlPvc:
 				deletePVC = true
 				break
 			}
@@ -430,7 +440,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 	}
 
 	if err := r.fetchVersionFromPXC(ctx, o, pxcSet); err != nil {
-		return rr, errors.Wrap(err, "update CR version")
+		return reconcile.Result{}, errors.Wrap(err, "update CR version")
 	}
 
 	err = r.scheduleEnsurePXCVersion(ctx, o, VersionServiceClient{OpVersion: o.Version().String()})

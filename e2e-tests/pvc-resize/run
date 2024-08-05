@@ -86,7 +86,7 @@ fi
 
 desc "test scaling"
 
-patch_pvc_request "${cluster}" "3Gi"
+patch_pvc_request "${cluster}" "3G"
 wait_cluster_consistency "$cluster" 3 2
 
 for pvc in $(kubectl_bin get pvc -l app.kubernetes.io/component=pxc -o name); do
@@ -122,7 +122,7 @@ desc 'create resourcequota'
 # the others should fail to resize due to the exceeded quota but operator should
 # handle the error and keep the cluster ready
 apply_resourcequota 10Gi
-patch_pvc_request "${cluster}" "4Gi"
+patch_pvc_request "${cluster}" "4G"
 wait_cluster_consistency "$cluster" 3 2
 echo
 
@@ -143,7 +143,7 @@ echo "pvc/datadir-some-name-pxc-0 was resized"
 
 # We're setting the quota to 16Gi, so we can resize all PVCs to 4Gi
 apply_resourcequota 12Gi
-patch_pvc_request "${cluster}" "4Gi"
+patch_pvc_request "${cluster}" "4G"
 wait_cluster_consistency "$cluster" 3 2
 echo
 for pvc in $(kubectl_bin get pvc -l app.kubernetes.io/component=pxc -o name); do
@@ -167,11 +167,11 @@ done
 desc "test downscale"
 
 # operator shouldn't try to downscale the PVCs and set status to error
-patch_pvc_request "${cluster}" "1Gi"
+patch_pvc_request "${cluster}" "1G"
 wait_cluster_status ${cluster} "error"
 
 # user should be able to restore to the previous size and make the cluster ready
-patch_pvc_request "${cluster}" "4Gi"
+patch_pvc_request "${cluster}" "4G"
 wait_cluster_status ${cluster} "ready"
 
 destroy "${namespace}"

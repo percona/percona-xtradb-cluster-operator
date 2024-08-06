@@ -163,8 +163,8 @@ spec:
           name: haproxy-init
           resources:
             requests:
-             cpu: 600m
-             memory: 1G
+              cpu: 600m
+              memory: 1G
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:

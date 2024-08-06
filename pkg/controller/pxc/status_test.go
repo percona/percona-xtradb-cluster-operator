@@ -1,19 +1,20 @@
 package pxc
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
-	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
-	"github.com/percona/percona-xtradb-cluster-operator/version"
 	"github.com/pkg/errors"
-
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake" // nolint
+
+	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
+	"github.com/percona/percona-xtradb-cluster-operator/version"
 )
 
 var podStatusReady = corev1.PodStatus{
@@ -106,13 +107,14 @@ func buildFakeClient(objs []runtime.Object) *ReconcilePerconaXtraDBCluster {
 
 func TestAppStatusInit(t *testing.T) {
 	cr := newCR("cr-mock", "pxc")
+	ctx := context.Background()
 
 	pxc := statefulset.NewNode(cr)
 	pxcSfs := pxc.StatefulSet()
 
 	r := buildFakeClient([]runtime.Object{cr, pxcSfs})
 
-	status, err := r.appStatus(pxc, cr.Namespace, cr.Spec.PXC.PodSpec, cr.CompareVersionWith("1.7.0") == -1, false)
+	status, err := r.appStatus(ctx, pxc, cr.Namespace, cr.Spec.PXC.PodSpec, cr.CompareVersionWith("1.7.0") == -1, false)
 	if err != nil {
 		t.Error(err)
 	}
@@ -124,6 +126,7 @@ func TestAppStatusInit(t *testing.T) {
 
 func TestPXCAppStatusReady(t *testing.T) {
 	cr := newCR("cr-mock", "pxc")
+	ctx := context.Background()
 
 	pxc := statefulset.NewNode(cr)
 	pxcSfs := pxc.StatefulSet()
@@ -136,7 +139,7 @@ func TestPXCAppStatusReady(t *testing.T) {
 
 	r := buildFakeClient(objs)
 
-	status, err := r.appStatus(pxc, cr.Namespace, cr.Spec.PXC.PodSpec, cr.CompareVersionWith("1.7.0") == -1, false)
+	status, err := r.appStatus(ctx, pxc, cr.Namespace, cr.Spec.PXC.PodSpec, cr.CompareVersionWith("1.7.0") == -1, false)
 	if err != nil {
 		t.Error(err)
 	}
@@ -152,6 +155,7 @@ func TestPXCAppStatusReady(t *testing.T) {
 
 func TestHAProxyAppStatusReady(t *testing.T) {
 	cr := newCR("cr-mock", "pxc")
+	ctx := context.Background()
 
 	haproxy := statefulset.NewHAProxy(cr)
 	haproxySfs := haproxy.StatefulSet()
@@ -164,7 +168,7 @@ func TestHAProxyAppStatusReady(t *testing.T) {
 
 	r := buildFakeClient(objs)
 
-	status, err := r.appStatus(haproxy, cr.Namespace, cr.Spec.PXC.PodSpec, cr.CompareVersionWith("1.7.0") == -1, false)
+	status, err := r.appStatus(ctx, haproxy, cr.Namespace, cr.Spec.PXC.PodSpec, cr.CompareVersionWith("1.7.0") == -1, false)
 	if err != nil {
 		t.Error(err)
 	}
@@ -180,6 +184,8 @@ func TestHAProxyAppStatusReady(t *testing.T) {
 
 func TestUpdateStatusReady(t *testing.T) {
 	cr := newCR("cr-mock", "pxc")
+
+	ctx := context.Background()
 
 	pxc := statefulset.NewNode(cr)
 	pxcSfs := pxc.StatefulSet()
@@ -198,7 +204,7 @@ func TestUpdateStatusReady(t *testing.T) {
 
 	r := buildFakeClient(objs)
 
-	if err := r.updateStatus(cr, false, nil); err != nil {
+	if err := r.updateStatus(ctx, cr, false, nil); err != nil {
 		t.Error(err)
 	}
 
@@ -210,6 +216,7 @@ func TestUpdateStatusReady(t *testing.T) {
 func TestUpdateStatusError(t *testing.T) {
 	cr := newCR("cr-mock", "pxc")
 
+	ctx := context.Background()
 	pxc := statefulset.NewNode(cr)
 	pxcSfs := pxc.StatefulSet()
 
@@ -218,7 +225,7 @@ func TestUpdateStatusError(t *testing.T) {
 
 	r := buildFakeClient([]runtime.Object{cr, pxcSfs, haproxySfs})
 
-	if err := r.updateStatus(cr, false, errors.New("mock error")); err != nil {
+	if err := r.updateStatus(ctx, cr, false, errors.New("mock error")); err != nil {
 		t.Error(err)
 	}
 

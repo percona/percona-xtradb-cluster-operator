@@ -498,7 +498,7 @@ func (r *ReconcilePerconaXtraDBCluster) waitPodRestart(ctx context.Context, cr *
 			}
 
 			// We update status in every loop to not wait until the end of smart update
-			if err := r.updateStatus(cr, true, nil); err != nil {
+			if err := r.updateStatus(ctx, cr, true, nil); err != nil {
 				return false, errors.Wrap(err, "update status")
 			}
 

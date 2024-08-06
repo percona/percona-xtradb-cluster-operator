@@ -32,7 +32,15 @@ spec:
         app.kubernetes.io/part-of: percona-xtradb-cluster
     spec:
       containers:
-        - env:
+        - args:
+            - proxysql
+            - -f
+            - -c
+            - /etc/proxysql/proxysql.cnf
+            - --reload
+          command:
+            - /opt/percona/proxysql-entrypoint.sh
+          env:
             - name: PXC_SERVICE
               value: side-car-pxc
             - name: OPERATOR_PASSWORD

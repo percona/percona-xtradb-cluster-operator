@@ -166,7 +166,15 @@ spec:
           volumeMounts:
             - mountPath: /var/lib/mysql
               name: bin
-        - env:
+        - args:
+            - proxysql
+            - -f
+            - -c
+            - /etc/proxysql/proxysql.cnf
+            - --reload
+          command:
+            - /opt/percona/proxysql-entrypoint.sh
+          env:
             - name: PXC_SERVICE
               value: no-limits-pxc
             - name: OPERATOR_PASSWORD

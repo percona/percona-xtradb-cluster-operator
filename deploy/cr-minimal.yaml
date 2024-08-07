@@ -16,7 +16,7 @@ spec:
     enabled: false
   pxc:
     size: 1
-    image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0
+    image: percona/percona-xtradb-cluster:8.0.36-28.1
     volumeSpec:
       persistentVolumeClaim:
         resources:
@@ -25,7 +25,7 @@ spec:
   haproxy:
     enabled: true
     size: 1
-    image: perconalab/percona-xtradb-cluster-operator:main-haproxy
+    image: percona/percona-xtradb-cluster-operator:1.15.0-haproxy
   logcollector:
     enabled: true
-    image: perconalab/percona-xtradb-cluster-operator:main-logcollector
+    image: percona/percona-xtradb-cluster-operator:1.15.0-logcollector

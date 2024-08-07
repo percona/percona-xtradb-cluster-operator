@@ -390,7 +390,7 @@ func (r *ReconcilePerconaXtraDBCluster) mysqlVersion(ctx context.Context, cr *ap
 		return "", versionNotReadyErr
 	}
 
-	upgradeInProgress, err := r.upgradeInProgress(cr, "pxc")
+	upgradeInProgress, err := r.upgradeInProgress(ctx, cr, "pxc")
 	if err != nil {
 		return "", errors.Wrap(err, "check pxc upgrade progress")
 	}

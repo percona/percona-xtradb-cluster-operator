@@ -7,6 +7,7 @@ import (
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
@@ -125,7 +126,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(ctx context.Context, cr *ap
 		cr.Status.Ready += status.Ready
 
 		if !inProgress {
-			inProgress, err = r.upgradeInProgress(cr, a.app.Name())
+			inProgress, err = r.upgradeInProgress(ctx, cr, a.app.Name())
 			if err != nil {
 				return errors.Wrapf(err, "check %s upgrade progress", a.app.Name())
 			}
@@ -157,10 +158,13 @@ func (r *ReconcilePerconaXtraDBCluster) writeStatus(ctx context.Context, cr *api
 	return errors.Wrap(client.IgnoreNotFound(err), "write status")
 }
 
-func (r *ReconcilePerconaXtraDBCluster) upgradeInProgress(cr *api.PerconaXtraDBCluster, appName string) (bool, error) {
+func (r *ReconcilePerconaXtraDBCluster) upgradeInProgress(ctx context.Context, cr *api.PerconaXtraDBCluster, appName string) (bool, error) {
 	sfsObj := &appsv1.StatefulSet{}
-	err := r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name + "-" + appName, Namespace: cr.Namespace}, sfsObj)
+	err := r.client.Get(ctx, types.NamespacedName{Name: cr.Name + "-" + appName, Namespace: cr.Namespace}, sfsObj)
 	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return false, nil
+		}
 		return false, err
 	}
 	return sfsObj.Status.Replicas > sfsObj.Status.UpdatedReplicas, nil

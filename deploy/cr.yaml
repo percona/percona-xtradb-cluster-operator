@@ -201,7 +201,7 @@ spec:
   haproxy:
     enabled: true
     size: 3
-    image: percona/percona-xtradb-cluster-operator:1.15.0-haproxy
+    image: percona/haproxy:2.8.5
 #    imagePullPolicy: Always
 #    schedulerName: mycustom-scheduler
 #    readinessDelaySec: 15
@@ -377,7 +377,7 @@ spec:
   proxysql:
     enabled: false
     size: 3
-    image: percona/percona-xtradb-cluster-operator:1.15.0-proxysql
+    image: percona/proxysql2:2.6.3
 #    imagePullPolicy: Always
 #    configuration: |
 #      datadir="/var/lib/proxysql"

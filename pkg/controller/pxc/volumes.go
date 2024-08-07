@@ -65,7 +65,6 @@ func (r *ReconcilePerconaXtraDBCluster) reconcilePersistentVolumes(ctx context.C
 	}
 
 	if len(podList.Items) < int(cr.Spec.PXC.Size) {
-		log.Info("Waiting for all pods to be running")
 		return nil
 	}
 

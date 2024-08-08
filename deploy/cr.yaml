@@ -377,7 +377,7 @@ spec:
   proxysql:
     enabled: false
     size: 3
-    image: percona/proxysql2:2.6.3
+    image: percona/proxysql2:2.5.5
 #    imagePullPolicy: Always
 #    configuration: |
 #      datadir="/var/lib/proxysql"

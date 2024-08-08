@@ -104,7 +104,7 @@ func GetBinlogCollectorDeployment(cr *api.PerconaXtraDBCluster, initImage string
 	}
 	if cr.CompareVersionWith("1.15.0") >= 0 {
 		container.Command = []string{"/opt/percona/pitr"}
-		initContainers = []corev1.Container{statefulset.PitrInitContainer(cr, cr.Spec.Backup.PITR.Resources, initImage)}
+		initContainers = []corev1.Container{statefulset.PitrInitContainer(cr, initImage)}
 		volumes = append(volumes,
 			corev1.Volume{
 				Name: app.BinVolumeName,

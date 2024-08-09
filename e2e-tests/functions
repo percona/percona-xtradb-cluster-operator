@@ -50,6 +50,7 @@ else
 	EKS=0
 fi
 
+set -o xtrace
 KUBE_VERSION=$(kubectl version -o json | jq -r '.serverVersion.major + "." + .serverVersion.minor' | $sed -r 's/[^0-9.]+//g')
 
 set_debug() {
@@ -66,6 +67,7 @@ if [ "${HELM_VERSION:0:2}" == "v2" ]; then
 fi
 
 version_gt() {
+    set -o xtrace
 	desc "return true if kubernetes version equal or greater than desired"
 	if [ $(echo "${KUBE_VERSION} >= $1" | bc -l) -eq 1 ]; then
 		return 0

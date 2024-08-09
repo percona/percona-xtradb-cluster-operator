@@ -59,6 +59,8 @@ spec:
                         type: string
                       storageClass:
                         type: string
+                    required:
+                    - container
                     type: object
                   completed:
                     format: date-time
@@ -119,6 +121,8 @@ spec:
                         type: string
                       region:
                         type: string
+                    required:
+                    - bucket
                     type: object
                   sslInternalSecretName:
                     type: string
@@ -233,6 +237,8 @@ spec:
                             type: string
                           storageClass:
                             type: string
+                        required:
+                        - container
                         type: object
                       completed:
                         format: date-time
@@ -293,6 +299,8 @@ spec:
                             type: string
                           region:
                             type: string
+                        required:
+                        - bucket
                         type: object
                       sslInternalSecretName:
                         type: string

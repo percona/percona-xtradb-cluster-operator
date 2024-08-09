@@ -1,0 +1,26 @@
+#@data/values-schema
+---
+manifest:
+  operator: ""
+  cr: ""
+  backup: ""
+  restore: ""
+  secrets: ""
+  rbac: ""
+  crd: ""
+rn_txt: ""
+csv_description: ""
+image:
+  operator: ""
+  proxysql: ""
+  haproxy: ""
+  pmmclient: ""
+  logcollector: ""
+  pxc80:
+    db: ""
+    backup: ""
+  pxc57:
+    db: ""
+    backup: ""
+last_version: ""
+platform: ""

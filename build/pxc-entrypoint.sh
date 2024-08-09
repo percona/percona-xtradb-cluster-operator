@@ -15,10 +15,10 @@ CFG=/etc/mysql/node.cnf
 wantHelp=
 for arg; do
 	case "$arg" in
-	-'?' | --help | --print-defaults | -V | --version)
-		wantHelp=1
-		break
-		;;
+		-'?' | --help | --print-defaults | -V | --version)
+			wantHelp=1
+			break
+			;;
 	esac
 done
 
@@ -58,21 +58,21 @@ process_init_file() {
 	local mysql=("$@")
 
 	case "$f" in
-	*.sh)
-		echo "$0: running $f"
-		. "$f"
-		;;
-	*.sql)
-		echo "$0: running $f"
-		"${mysql[@]}" <"$f"
-		echo
-		;;
-	*.sql.gz)
-		echo "$0: running $f"
-		gunzip -c "$f" | "${mysql[@]}"
-		echo
-		;;
-	*) echo "$0: ignoring $f" ;;
+		*.sh)
+			echo "$0: running $f"
+			. "$f"
+			;;
+		*.sql)
+			echo "$0: running $f"
+			"${mysql[@]}" <"$f"
+			echo
+			;;
+		*.sql.gz)
+			echo "$0: running $f"
+			gunzip -c "$f" | "${mysql[@]}"
+			echo
+			;;
+		*) echo "$0: ignoring $f" ;;
 	esac
 	echo
 }
@@ -97,8 +97,8 @@ _check_config() {
 _get_config() {
 	local conf="$1"
 	shift
-	"$@" --verbose --help --wsrep-provider='none' --log-bin-index="$(mktemp -u)" 2>/dev/null |
-		awk '$1 == "'"$conf"'" && /^[^ \t]/ { sub(/^[^ \t]+[ \t]+/, ""); print; exit }'
+	"$@" --verbose --help --wsrep-provider='none' --log-bin-index="$(mktemp -u)" 2>/dev/null \
+		| awk '$1 == "'"$conf"'" && /^[^ \t]/ { sub(/^[^ \t]+[ \t]+/, ""); print; exit }'
 	# match "datadir      /some/path with/spaces in/it here" but not "--xyz=abc\n     datadir (xyz)"
 }
 
@@ -109,11 +109,11 @@ _get_cnf_config() {
 	local reval=""
 
 	reval=$(
-		my_print_defaults "${group}" |
-			awk -F= '{st=index($0,"="); cur=$0; if ($1 ~ /_/) { gsub(/_/,"-",$1);} if (st != 0) { print $1"="substr(cur,st+1) } else { print cur }}' |
-			grep -- "--$var=" |
-			cut -d= -f2- |
-			tail -1
+		my_print_defaults "${group}" \
+			| awk -F= '{st=index($0,"="); cur=$0; if ($1 ~ /_/) { gsub(/_/,"-",$1);} if (st != 0) { print $1"="substr(cur,st+1) } else { print cur }}' \
+			| grep -- "--$var=" \
+			| cut -d= -f2- \
+			| tail -1
 	)
 
 	if [[ -z $reval ]]; then
@@ -150,13 +150,15 @@ function join {
 
 escape_special() {
 	{ set +x; } 2>/dev/null
-	echo "$1" |
-		sed 's/\\/\\\\/g' |
-		sed 's/'\''/'\\\\\''/g' |
-		sed 's/"/\\\"/g'
+	echo "$1" \
+		| sed 's/\\/\\\\/g' \
+		| sed 's/'\''/'\\\\\''/g' \
+		| sed 's/"/\\\"/g'
 }
 
 MYSQL_VERSION=$(mysqld -V | awk '{print $3}' | awk -F'.' '{print $1"."$2}')
+MYSQL_MAJOR_VERSION=$(echo "$MYSQL_VERSION" | awk -F'.' '{print $1}')
+MYSQL_MINOR_VERSION=$(echo "$MYSQL_VERSION" | awk -F'.' '{print $2}')
 MYSQL_PATCH_VERSION=$(mysqld -V | awk '{print $3}' | awk -F'.' '{print $3}' | awk -F'-' '{print $1}')
 
 # if vault secret file exists we assume we need to turn on encryption
@@ -323,7 +325,14 @@ if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 		echo 'Initializing database'
 		# we initialize database into $TMPDIR because "--initialize-insecure" option does not work if directory is not empty
 		# in some cases storage driver creates unremovable artifacts (see K8SPXC-286), so $DATADIR cleanup is not possible
-		"$@" --initialize-insecure --skip-ssl --datadir="$TMPDIR"
+		init_args=(--initialize-insecure --datadir="$TMPDIR")
+		# --skip-ssl was removed in 8.4
+		if [ "$MYSQL_MAJOR_VERSION" -le 8 ] && [ "$MYSQL_MINOR_VERSION" -lt 4 ]; then
+			init_args+=(
+				"--skip-ssl"
+			)
+		fi
+		"$@" "${init_args[@]}"
 		mv "$TMPDIR"/* "$DATADIR/"
 		rm -rfv "$TMPDIR"
 		echo 'Database initialized'
@@ -570,9 +579,9 @@ if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 		cat "$wsrep_verbose_logfile" | tee -a "$DATADIR/wsrep_recovery_verbose_history.log"
 		if grep ' Recovered position:' "$wsrep_verbose_logfile"; then
 			start_pos="$(
-				grep ' Recovered position:' "$wsrep_verbose_logfile" |
-					sed 's/.*\ Recovered\ position://' |
-					sed 's/^[ \t]*//'
+				grep ' Recovered position:' "$wsrep_verbose_logfile" \
+					| sed 's/.*\ Recovered\ position://' \
+					| sed 's/^[ \t]*//'
 			)"
 			wsrep_start_position_opt="--wsrep_start_position=$start_pos"
 			seqno=$(echo "$start_pos" | awk -F':' '{print $NF}' || :)
@@ -589,11 +598,11 @@ if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 	fi
 	if [ -n "$PXC_SERVICE" ]; then
 		function get_primary() {
-			/var/lib/mysql/peer-list -on-start=/var/lib/mysql/get-pxc-state -service="$PXC_SERVICE" 2>&1 |
-				grep wsrep_ready:ON:wsrep_connected:ON:wsrep_local_state_comment:Synced:wsrep_cluster_status:Primary |
-				sort |
-				tail -1 ||
-				true
+			/var/lib/mysql/peer-list -on-start=/var/lib/mysql/get-pxc-state -service="$PXC_SERVICE" 2>&1 \
+				| grep wsrep_ready:ON:wsrep_connected:ON:wsrep_local_state_comment:Synced:wsrep_cluster_status:Primary \
+				| sort \
+				| tail -1 \
+				|| true
 		}
 		function node_recovery() {
 			set -o xtrace
@@ -623,9 +632,9 @@ if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 
 		is_primary_exists=$(get_primary)
 		is_manual_recovery
-		if [[ -z $is_primary_exists && -f $grastate_loc && $safe_to_bootstrap != 1 ]] ||
-			[[ -z $is_primary_exists && -f "${DATADIR}/gvwstate.dat" ]] ||
-			[[ -z $is_primary_exists && -f $grastate_loc && $safe_to_bootstrap == 1 && -n ${CLUSTER_JOIN} ]]; then
+		if [[ -z $is_primary_exists && -f $grastate_loc && $safe_to_bootstrap != 1 ]] \
+			|| [[ -z $is_primary_exists && -f "${DATADIR}/gvwstate.dat" ]] \
+			|| [[ -z $is_primary_exists && -f $grastate_loc && $safe_to_bootstrap == 1 && -n ${CLUSTER_JOIN} ]]; then
 			trap '{ node_recovery "$@" ; }' USR1
 			touch /tmp/recovery-case
 			if [[ -z ${seqno} ]]; then

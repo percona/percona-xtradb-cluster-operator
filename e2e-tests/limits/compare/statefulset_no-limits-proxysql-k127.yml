@@ -314,9 +314,9 @@ spec:
           imagePullPolicy: IfNotPresent
           name: proxysql-init
           resources:
-            requests:
-              cpu: 300m
-              memory: 500M
+            limits:
+              cpu: 50m
+              memory: 50M
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:

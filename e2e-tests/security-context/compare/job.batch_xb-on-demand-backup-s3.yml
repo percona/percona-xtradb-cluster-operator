@@ -91,7 +91,10 @@ spec:
             - /backup-init-entrypoint.sh
           imagePullPolicy: Always
           name: backup-init
-          resources: {}
+          resources:
+            limits:
+              cpu: 50m
+              memory: 50M
           securityContext:
             privileged: true
           terminationMessagePath: /dev/termination-log

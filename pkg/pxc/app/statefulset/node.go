@@ -60,13 +60,8 @@ func (c *Node) Name() string {
 }
 
 func (c *Node) InitContainers(cr *api.PerconaXtraDBCluster, initImageName string) []corev1.Container {
-	initResources := cr.Spec.PXC.Resources
-	if cr.Spec.InitContainer.Resources != nil {
-		initResources = *cr.Spec.InitContainer.Resources
-	}
-
 	inits := []corev1.Container{
-		EntrypointInitContainer(initImageName, app.DataVolumeName, initResources, cr.Spec.PXC.ContainerSecurityContext, cr.Spec.PXC.ImagePullPolicy),
+		EntrypointInitContainer(cr, initImageName, app.DataVolumeName),
 	}
 	return inits
 }

@@ -208,7 +208,7 @@ spec:
 #    livenessDelaySec: 600
 #    configuration: |
 #
-#    the actual default configuration file can be found here https://github.com/percona/percona-docker/blob/main/haproxy/dockerdir/etc/haproxy/haproxy-global.cfg
+#    the actual default configuration file can be found here https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/main/build/haproxy-global.cfg
 #
 #      global
 #        maxconn 2048

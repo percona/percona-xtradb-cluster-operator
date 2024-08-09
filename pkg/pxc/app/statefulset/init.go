@@ -7,7 +7,11 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 )
 
-func EntrypointInitContainer(initImageName string, volumeName string, resources corev1.ResourceRequirements, securityContext *corev1.SecurityContext, pullPolicy corev1.PullPolicy) corev1.Container {
+func EntrypointInitContainer(cr *api.PerconaXtraDBCluster, initImageName string, volumeName string) corev1.Container {
+	initResources := cr.Spec.PXC.Resources
+	if cr.Spec.InitContainer.Resources != nil {
+		initResources = *cr.Spec.InitContainer.Resources
+	}
 	return corev1.Container{
 		VolumeMounts: []corev1.VolumeMount{
 			{
@@ -16,15 +20,15 @@ func EntrypointInitContainer(initImageName string, volumeName string, resources 
 			},
 		},
 		Image:           initImageName,
-		ImagePullPolicy: pullPolicy,
+		ImagePullPolicy: cr.Spec.PXC.ImagePullPolicy,
 		Name:            "pxc-init",
 		Command:         []string{"/pxc-init-entrypoint.sh"},
-		SecurityContext: securityContext,
-		Resources:       resources,
+		SecurityContext: cr.Spec.PXC.ContainerSecurityContext,
+		Resources:       initResources,
 	}
 }
 
-func PitrInitContainer(cluster *api.PerconaXtraDBCluster, resources corev1.ResourceRequirements, initImageName string) corev1.Container {
+func PitrInitContainer(cluster *api.PerconaXtraDBCluster, initImageName string) corev1.Container {
 	return corev1.Container{
 		VolumeMounts: []corev1.VolumeMount{
 			{
@@ -37,11 +41,11 @@ func PitrInitContainer(cluster *api.PerconaXtraDBCluster, resources corev1.Resou
 		Name:            "pitr-init",
 		Command:         []string{"/pitr-init-entrypoint.sh"},
 		SecurityContext: cluster.Spec.PXC.ContainerSecurityContext,
-		Resources:       resources,
+		Resources:       *cluster.Spec.InitContainer.Resources,
 	}
 }
 
-func BackupInitContainer(cluster *api.PerconaXtraDBCluster, resources corev1.ResourceRequirements, initImageName string, securityContext *corev1.SecurityContext) corev1.Container {
+func BackupInitContainer(cluster *api.PerconaXtraDBCluster, initImageName string, securityContext *corev1.SecurityContext) corev1.Container {
 	return corev1.Container{
 		VolumeMounts: []corev1.VolumeMount{
 			{
@@ -54,7 +58,7 @@ func BackupInitContainer(cluster *api.PerconaXtraDBCluster, resources corev1.Res
 		Name:            "backup-init",
 		Command:         []string{"/backup-init-entrypoint.sh"},
 		SecurityContext: securityContext,
-		Resources:       resources,
+		Resources:       *cluster.Spec.InitContainer.Resources,
 	}
 }
 
@@ -71,7 +75,7 @@ func HaproxyEntrypointInitContainer(cluster *api.PerconaXtraDBCluster, initImage
 		Name:            "haproxy-init",
 		Command:         []string{"/haproxy-init-entrypoint.sh"},
 		SecurityContext: cluster.Spec.HAProxy.ContainerSecurityContext,
-		Resources:       cluster.Spec.HAProxy.Resources,
+		Resources:       *cluster.Spec.InitContainer.Resources,
 	}
 }
 
@@ -88,6 +92,6 @@ func ProxySQLEntrypointInitContainer(cluster *api.PerconaXtraDBCluster, initImag
 		Name:            "proxysql-init",
 		Command:         []string{"/proxysql-init-entrypoint.sh"},
 		SecurityContext: cluster.Spec.ProxySQL.ContainerSecurityContext,
-		Resources:       cluster.Spec.ProxySQL.Resources,
+		Resources:       *cluster.Spec.InitContainer.Resources,
 	}
 }

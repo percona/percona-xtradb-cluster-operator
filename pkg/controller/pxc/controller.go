@@ -550,14 +550,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(ctx context.Context, cr *api.Perc
 	}
 	inits := []corev1.Container{}
 	if cr.CompareVersionWith("1.5.0") >= 0 {
-		var initResources corev1.ResourceRequirements
-		if cr.CompareVersionWith("1.6.0") >= 0 {
-			initResources = cr.Spec.PXC.Resources
-		}
-		if cr.Spec.InitContainer.Resources != nil {
-			initResources = *cr.Spec.InitContainer.Resources
-		}
-		initC := statefulset.EntrypointInitContainer(initImageName, app.DataVolumeName, initResources, cr.Spec.PXC.ContainerSecurityContext, cr.Spec.PXC.ImagePullPolicy)
+		initC := statefulset.EntrypointInitContainer(cr, initImageName, app.DataVolumeName)
 		inits = append(inits, initC)
 	}
 

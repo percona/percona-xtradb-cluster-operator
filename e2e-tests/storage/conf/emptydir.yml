@@ -5,6 +5,10 @@ metadata:
 spec:
   secretsName: my-cluster-secrets
   sslSecretName: some-name-ssl
+  initContainer:
+    resources:
+      limits:
+        ephemeral-storage: 1G
   pxc:
     size: 3
     image: -pxc

@@ -173,9 +173,9 @@ spec:
           imagePullPolicy: Always
           name: proxysql-init
           resources:
-            requests:
-              cpu: 100m
-              memory: 100m
+            limits:
+              cpu: 50m
+              memory: 50M
           securityContext:
             privileged: false
           terminationMessagePath: /dev/termination-log

@@ -97,11 +97,8 @@ spec:
           name: backup-init
           resources:
             limits:
-              cpu: "1"
-              memory: 2G
-            requests:
-              cpu: 500m
-              memory: 500M
+              cpu: 50m
+              memory: 50M
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:

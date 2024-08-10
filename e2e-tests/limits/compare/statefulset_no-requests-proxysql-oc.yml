@@ -38,7 +38,7 @@ spec:
           command:
             - /opt/percona/proxysql-entrypoint.sh
           env:
-e2e-tests/limits/compare/statefulset_no-requests-proxysql-oc.yml            - name: PXC_SERVICE
+            - name: PXC_SERVICE
               value: no-requests-pxc
             - name: OPERATOR_PASSWORD
               valueFrom:

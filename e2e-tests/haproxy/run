@@ -89,8 +89,10 @@ main() {
 	test_disable_replicas_service $cluster
 
 	desc 'enable haproxy-replicas service'
+    sleep 30
 	test_enable_replicas_service $cluster
-
+    kubectl get service
+    sleep 30
 	wait_for_running "$cluster-haproxy" 3
 
 	kubectl_bin exec haproxy-haproxy-0 -c haproxy -it -- bash -c 'echo "show info" | socat stdio unix-connect:/etc/haproxy/pxc/haproxy.sock' \

@@ -15,6 +15,7 @@ fi
 
 prepare_config() {
 	desc "prepare config"
+    kubectl get nodes
 	nodes=$(kubectl get nodes | grep -v "NAME" | grep -v 'master' | awk '{print $1}')
 	if [ $(printf "${nodes}\n" | wc -l) -lt 3 ]; then
 		echo "3 nodes are expected for this test to run."

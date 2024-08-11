@@ -66,23 +66,23 @@ function wait_cluster_status() {
 
 set_debug
 
-#if [ "$EKS" == 1 ]; then
+if [ "$EKS" == 1 -o "$OPENSHIFT" == 1 ]; then
 	echo "EKS environment detected, creating storageclass for EBS volumes"
 	kubectl_bin apply -f ${test_dir}/conf/eks-storageclass.yml
-#else
-#	ensure_default_sc_allows_expansion
-#fi
+else
+	ensure_default_sc_allows_expansion
+fi
 
 create_infra ${namespace}
 
 desc 'create first PXC cluster'
 cluster="some-name"
 
-#if [ "$EKS" == 1 ]; then
+if [ "$EKS" == 1 -o "$OPENSHIFT" == 1 ]; then
 	spinup_pxc "${cluster}" "$test_dir/conf/$cluster-eks.yml" "3" "10" "${conf_dir}/secrets.yml"
-#else
-#	spinup_pxc "${cluster}" "$test_dir/conf/$cluster.yml" "3" "10" "${conf_dir}/secrets.yml"
-#fi
+else
+	spinup_pxc "${cluster}" "$test_dir/conf/$cluster.yml" "3" "10" "${conf_dir}/secrets.yml"
+fi
 
 desc "test scaling"
 
@@ -108,13 +108,13 @@ for pvc in $(kubectl_bin get pvc -l app.kubernetes.io/component=pxc -o name); do
 	echo "${pvc} was resized"
 done
 
-#if [ "$EKS" == 1 ]; then
+if [ "$EKS" == 1 -o "$OPENSHIFT" == 1 ]; then
 	# EKS rate limits PVC expansion for the same EBS volume (1 expand operation in every 6 hours),
 	# so we need to delete and recreate the cluster
 	echo "Deleting and recreating PXC cluster ${cluster}"
 	kubectl_bin delete pxc ${cluster}
 	spinup_pxc "${cluster}" "$test_dir/conf/$cluster-eks.yml" "3" "10" "${conf_dir}/secrets.yml"
-#fi
+fi
 
 desc 'create resourcequota'
 

@@ -89,7 +89,7 @@ main() {
 	test_disable_replicas_service $cluster
 
 	desc 'enable haproxy-replicas service'
-    sleep 30
+	sleep 30
 	test_enable_replicas_service $cluster
 
 	wait_for_running "$cluster-haproxy" 3

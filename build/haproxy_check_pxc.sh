@@ -69,7 +69,7 @@ then
     log "$PXC_SERVER_IP" "$PXC_SERVER_PORT" "PXC node $PXC_SERVER_IP for backend $HAPROXY_PROXY_NAME is ok" "$VERBOSE"
     exit 0
 else
-    log "$PXC_SERVER_IP" "$PXC_SERVER_PORT" "$status_log" 1
-    log "$PXC_SERVER_IP" "$PXC_SERVER_PORT" "PXC node $PXC_SERVER_IP for backend $HAPROXY_PROXY_NAME is not ok" 1
-    exit 1
+	log "$PXC_SERVER_IP" "$PXC_SERVER_PORT" "$status_log" 1
+	log "$PXC_SERVER_IP" "$PXC_SERVER_PORT" "PXC node $PXC_SERVER_IP for backend $HAPROXY_PROXY_NAME is not ok" 1
+	exit 1
 fi

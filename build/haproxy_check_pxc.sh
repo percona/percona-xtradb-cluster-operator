@@ -32,10 +32,10 @@ if [ -f "$path_to_haproxy_cfg/AVAILABLE_NODES" ]; then
 fi
 
 log() {
-    local address=$1
-    local port=$2
-    local message=$3
-    local should_log=$4
+	local address=$1
+	local port=$2
+	local message=$3
+	local should_log=$4
 
     if [ "$should_log" -eq 1 ]; then
         local date=$(/usr/bin/date +"%d/%b/%Y:%H:%M:%S.%3N")

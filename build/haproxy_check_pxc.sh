@@ -28,7 +28,7 @@ MYSQL_CMDLINE="/usr/bin/timeout $TIMEOUT /usr/bin/mysql -nNE -u$MONITOR_USER"
 
 AVAILABLE_NODES=1
 if [ -f "$path_to_haproxy_cfg/AVAILABLE_NODES" ]; then
-    AVAILABLE_NODES=$(/bin/cat $path_to_haproxy_cfg/AVAILABLE_NODES)
+	AVAILABLE_NODES=$(/bin/cat $path_to_haproxy_cfg/AVAILABLE_NODES)
 fi
 
 log() {

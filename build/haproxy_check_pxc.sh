@@ -49,9 +49,9 @@ PXC_NODE_STATUS=($(MYSQL_PWD="${MONITOR_PASSWORD}" $MYSQL_CMDLINE -h $PXC_SERVER
         SHOW GLOBAL STATUS LIKE 'wsrep_cluster_status'; \
         SHOW GLOBAL VARIABLES LIKE 'wsrep_reject_queries'; \
         SHOW GLOBAL VARIABLES LIKE 'wsrep_sst_donor_rejects_queries';" \
-    | /usr/bin/grep -A 1 -E 'wsrep_local_state$|pxc_maint_mode$|wsrep_cluster_status$|wsrep_reject_queries$|wsrep_sst_donor_rejects_queries$' \
-    | /usr/bin/sed -n -e '2p' -e '5p' -e '8p' -e '11p' -e '14p' \
-    | /usr/bin/tr '\n' ' '))
+	| /usr/bin/grep -A 1 -E 'wsrep_local_state$|pxc_maint_mode$|wsrep_cluster_status$|wsrep_reject_queries$|wsrep_sst_donor_rejects_queries$' \
+	| /usr/bin/sed -n -e '2p' -e '5p' -e '8p' -e '11p' -e '14p' \
+	| /usr/bin/tr '\n' ' '))
 
 # ${PXC_NODE_STATUS[0]} - wsrep_local_state
 # ${PXC_NODE_STATUS[1]} - pxc_maint_mod

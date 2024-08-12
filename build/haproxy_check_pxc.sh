@@ -37,10 +37,10 @@ log() {
 	local message=$3
 	local should_log=$4
 
-    if [ "$should_log" -eq 1 ]; then
-        local date=$(/usr/bin/date +"%d/%b/%Y:%H:%M:%S.%3N")
-        echo "{\"time\":\"${date}\", \"backend_source_ip\": \"${address}\", \"backend_source_port\": \"${port}\", \"message\": \"${message}\"}"
-    fi
+	if [ "$should_log" -eq 1 ]; then
+		local date=$(/usr/bin/date +"%d/%b/%Y:%H:%M:%S.%3N")
+		echo "{\"time\":\"${date}\", \"backend_source_ip\": \"${address}\", \"backend_source_port\": \"${port}\", \"message\": \"${message}\"}"
+	fi
 }
 
 PXC_NODE_STATUS=($(MYSQL_PWD="${MONITOR_PASSWORD}" $MYSQL_CMDLINE -h $PXC_SERVER_IP -P $PXC_SERVER_PORT \

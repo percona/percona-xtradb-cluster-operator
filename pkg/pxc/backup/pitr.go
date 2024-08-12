@@ -137,6 +137,10 @@ func UpdatePITRTimeline(ctx context.Context, cl client.Client, clcmd *clientcmd.
 
 	timelines := strings.Split(stdoutBuf.String(), "\n")
 
+	if len(timelines) < 2 {
+		return nil
+	}
+
 	latest, err := strconv.ParseInt(timelines[1], 10, 64)
 	if err != nil {
 		return errors.Wrapf(err, "parse latest timeline %s", timelines[1])

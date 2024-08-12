@@ -103,7 +103,7 @@ spec:
             - mountPath: /opt/percona
               name: bin
         - args:
-            - /opt/percona/peer-listlist
+            - /opt/percona/peer-list
             - -on-change=/opt/percona/proxysql_add_pxc_nodes.sh
             - -service=$(PXC_SERVICE)
           env:
@@ -139,7 +139,7 @@ spec:
             - mountPath: /opt/percona
               name: bin
         - args:
-            - /opt/percona/peer-listlist
+            - /opt/percona/peer-list
             - -on-change=/opt/percona/proxysql_add_proxysql_nodes.sh
             - -service=$(PROXYSQL_SERVICE)
           env:

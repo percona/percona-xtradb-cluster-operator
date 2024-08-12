@@ -67,7 +67,15 @@ spec:
                 topologyKey: kubernetes.io/hostname
               weight: 100
       containers:
-        - env:
+        - args:
+            - proxysql
+            - -f
+            - -c
+            - /etc/proxysql/proxysql.cnf
+            - --reload
+          command:
+            - /opt/percona/proxysql-entrypoint.sh
+          env:
             - name: PXC_SERVICE
               value: custom-pxc
             - name: OPERATOR_PASSWORD

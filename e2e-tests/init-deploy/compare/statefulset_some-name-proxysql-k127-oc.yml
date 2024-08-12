@@ -103,7 +103,7 @@ spec:
             - mountPath: /opt/percona
               name: bin
         - args:
-            - /opt/percona/peer-listlist
+            - /opt/percona/peer-list
             - -on-change=/opt/percona/proxysql_add_pxc_nodes.sh
             - -service=$(PXC_SERVICE)
           env:
@@ -139,7 +139,7 @@ spec:
             - mountPath: /opt/percona
               name: bin
         - args:
-            - /opt/percona/peer-listlist
+            - /opt/percona/peer-list
             - -on-change=/opt/percona/proxysql_add_proxysql_nodes.sh
             - -service=$(PROXYSQL_SERVICE)
           env:
@@ -195,11 +195,8 @@ spec:
           name: proxysql-init
           resources:
             limits:
-              cpu: 700m
-              memory: 1G
-            requests:
-              cpu: 100m
-              memory: 100M
+              cpu: 50m
+              memory: 50M
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:

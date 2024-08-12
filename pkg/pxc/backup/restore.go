@@ -227,7 +227,7 @@ func RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClust
 	var initContainers []corev1.Container
 	if pitr {
 		if cluster.CompareVersionWith("1.15.0") >= 0 {
-			initContainers = []corev1.Container{statefulset.PitrInitContainer(cluster, cr.Spec.Resources, initImage)}
+			initContainers = []corev1.Container{statefulset.PitrInitContainer(cluster, initImage)}
 			volumes = append(volumes,
 				corev1.Volume{
 					Name: app.BinVolumeName,

@@ -155,9 +155,9 @@ spec:
           imagePullPolicy: Always
           name: haproxy-init
           resources:
-            requests:
-              cpu: 600m
-              memory: 500M
+            limits:
+              cpu: 50m
+              memory: 50M
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:

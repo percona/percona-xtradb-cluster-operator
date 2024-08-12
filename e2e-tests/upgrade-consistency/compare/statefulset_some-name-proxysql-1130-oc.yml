@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  generation: 2
+  generation: 1
   name: some-name-proxysql
   ownerReferences:
     - controller: true
@@ -79,7 +79,7 @@ spec:
               memory: 1G
             requests:
               cpu: 100m
-              memory: 100m
+              memory: 100M
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:
@@ -167,25 +167,12 @@ spec:
               memory: 1G
             requests:
               cpu: 100m
-              memory: 100m
+              memory: 100M
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:
             - mountPath: /var/lib/mysql
               name: bin
-        - command:
-            - /proxysql-init-entrypoint.sh
-          imagePullPolicy: Always
-          name: proxysql-init
-          resources:
-            limits:
-              cpu: 700m
-              memory: 1G
-            requests:
-              cpu: 100m
-              memory: 100m
-          terminationMessagePath: /dev/termination-log
-          terminationMessagePolicy: File
       restartPolicy: Always
       schedulerName: default-scheduler
       securityContext:

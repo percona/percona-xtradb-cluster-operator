@@ -71,12 +71,8 @@ func (c *Proxy) InitContainers(cr *api.PerconaXtraDBCluster, initImageName strin
 func proxyInitContainers(cr *api.PerconaXtraDBCluster, initImageName string) []corev1.Container {
 	inits := []corev1.Container{}
 	if cr.CompareVersionWith("1.13.0") >= 0 {
-		initResources := cr.Spec.PXC.Resources
-		if cr.Spec.InitContainer.Resources != nil {
-			initResources = *cr.Spec.InitContainer.Resources
-		}
 		inits = []corev1.Container{
-			EntrypointInitContainer(initImageName, app.BinVolumeName, initResources, cr.Spec.PXC.ContainerSecurityContext, cr.Spec.PXC.ImagePullPolicy),
+			EntrypointInitContainer(cr, initImageName, app.BinVolumeName),
 		}
 	}
 

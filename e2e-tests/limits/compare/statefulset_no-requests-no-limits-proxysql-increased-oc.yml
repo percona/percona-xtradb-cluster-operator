@@ -29,7 +29,15 @@ spec:
         app.kubernetes.io/part-of: percona-xtradb-cluster
     spec:
       containers:
-        - env:
+        - args:
+            - proxysql
+            - -f
+            - -c
+            - /etc/proxysql/proxysql.cnf
+            - --reload
+          command:
+            - /opt/percona/proxysql-entrypoint.sh
+          env:
             - name: PXC_SERVICE
               value: no-requests-no-limits-pxc
             - name: OPERATOR_PASSWORD
@@ -167,11 +175,8 @@ spec:
           name: proxysql-init
           resources:
             limits:
-              cpu: 700m
-              memory: 1G
-            requests:
-              cpu: 600m
-              memory: 1G
+              cpu: 50m
+              memory: 50M
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:

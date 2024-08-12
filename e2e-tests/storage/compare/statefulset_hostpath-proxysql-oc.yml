@@ -178,7 +178,10 @@ spec:
             - /proxysql-init-entrypoint.sh
           imagePullPolicy: Always
           name: proxysql-init
-          resources: {}
+          resources:
+            limits:
+              cpu: 50m
+              memory: 50M
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:

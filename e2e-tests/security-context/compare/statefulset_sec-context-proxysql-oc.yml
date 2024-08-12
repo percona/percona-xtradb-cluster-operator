@@ -1,0 +1,229 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  generation: 1
+  name: sec-context-proxysql
+  ownerReferences:
+    - controller: true
+      kind: PerconaXtraDBCluster
+      name: sec-context
+spec:
+  podManagementPolicy: OrderedReady
+  replicas: 2
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: proxysql
+      app.kubernetes.io/instance: sec-context
+      app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+      app.kubernetes.io/name: percona-xtradb-cluster
+      app.kubernetes.io/part-of: percona-xtradb-cluster
+  serviceName: sec-context-proxysql-unready
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: proxysql
+        app.kubernetes.io/instance: sec-context
+        app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+        app.kubernetes.io/name: percona-xtradb-cluster
+        app.kubernetes.io/part-of: percona-xtradb-cluster
+    spec:
+      containers:
+        - args:
+            - proxysql
+            - -f
+            - -c
+            - /etc/proxysql/proxysql.cnf
+            - --reload
+          command:
+            - /opt/percona/proxysql-entrypoint.sh
+          env:
+            - name: PXC_SERVICE
+              value: sec-context-pxc
+            - name: OPERATOR_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: operator
+                  name: internal-sec-context
+            - name: PROXY_ADMIN_USER
+              value: proxyadmin
+            - name: PROXY_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: proxyadmin
+                  name: internal-sec-context
+            - name: MONITOR_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: monitor
+                  name: internal-sec-context
+          envFrom:
+            - secretRef:
+                name: sec-context-env-vars-proxysql
+                optional: true
+          imagePullPolicy: Always
+          name: proxysql
+          ports:
+            - containerPort: 3306
+              name: mysql
+              protocol: TCP
+            - containerPort: 6032
+              name: proxyadm
+              protocol: TCP
+          resources:
+            requests:
+              cpu: 100m
+              memory: 100M
+          securityContext:
+            privileged: false
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /var/lib/proxysql
+              name: proxydata
+            - mountPath: /etc/proxysql/ssl
+              name: ssl
+            - mountPath: /etc/proxysql/ssl-internal
+              name: ssl-internal
+            - mountPath: /opt/percona
+              name: bin
+        - args:
+            - /opt/percona/peer-list
+            - -on-change=/opt/percona/proxysql_add_pxc_nodes.sh
+            - -service=$(PXC_SERVICE)
+          env:
+            - name: PXC_SERVICE
+              value: sec-context-pxc
+            - name: OPERATOR_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: operator
+                  name: internal-sec-context
+            - name: PROXY_ADMIN_USER
+              value: proxyadmin
+            - name: PROXY_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: proxyadmin
+                  name: internal-sec-context
+            - name: MONITOR_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: monitor
+                  name: internal-sec-context
+          envFrom:
+            - secretRef:
+                name: sec-context-env-vars-proxysql
+                optional: true
+          imagePullPolicy: Always
+          name: pxc-monit
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /opt/percona
+              name: bin
+        - args:
+            - /opt/percona/peer-list
+            - -on-change=/opt/percona/proxysql_add_proxysql_nodes.sh
+            - -service=$(PROXYSQL_SERVICE)
+          env:
+            - name: PROXYSQL_SERVICE
+              value: sec-context-proxysql-unready
+            - name: OPERATOR_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: operator
+                  name: internal-sec-context
+            - name: PROXY_ADMIN_USER
+              value: proxyadmin
+            - name: PROXY_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: proxyadmin
+                  name: internal-sec-context
+            - name: MONITOR_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: monitor
+                  name: internal-sec-context
+          envFrom:
+            - secretRef:
+                name: sec-context-env-vars-proxysql
+                optional: true
+          imagePullPolicy: Always
+          name: proxysql-monit
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /opt/percona
+              name: bin
+      dnsPolicy: ClusterFirst
+      initContainers:
+        - command:
+            - /pxc-init-entrypoint.sh
+          imagePullPolicy: Always
+          name: pxc-init
+          resources:
+            limits:
+              cpu: 50m
+              memory: 50M
+          securityContext:
+            privileged: false
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /var/lib/mysql
+              name: bin
+        - command:
+            - /proxysql-init-entrypoint.sh
+          imagePullPolicy: Always
+          name: proxysql-init
+          resources:
+            limits:
+              cpu: 50m
+              memory: 50M
+          securityContext:
+            privileged: false
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /opt/percona
+              name: bin
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext:
+        fsGroup: 1001
+        runAsUser: 1001
+      serviceAccount: percona-xtradb-cluster-operator-workload
+      serviceAccountName: percona-xtradb-cluster-operator-workload
+      terminationGracePeriodSeconds: 30
+      volumes:
+        - name: ssl-internal
+          secret:
+            defaultMode: 420
+            optional: true
+            secretName: some-name-ssl-internal
+        - name: ssl
+          secret:
+            defaultMode: 420
+            optional: false
+            secretName: some-name-ssl
+        - emptyDir: {}
+          name: bin
+  updateStrategy:
+    rollingUpdate:
+      partition: 0
+    type: RollingUpdate
+  volumeClaimTemplates:
+    - metadata:
+        name: proxydata
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 6Gi
+      status:
+        phase: Pending

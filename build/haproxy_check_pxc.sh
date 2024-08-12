@@ -14,7 +14,7 @@ if [ -f "$PATH_TO_SECRET/HA_CONNECTION_TIMEOUT" ]; then
 fi
 
 if [ -f "$PATH_TO_SECRET/OK_IF_DONOR" ]; then
-    OK_IF_DONOR=$(/bin/cat $PATH_TO_SECRET/OK_IF_DONOR)
+	OK_IF_DONOR=$(/bin/cat $PATH_TO_SECRET/OK_IF_DONOR)
 fi
 
 if [ -f "$PATH_TO_SECRET/VERBOSE" ]; then

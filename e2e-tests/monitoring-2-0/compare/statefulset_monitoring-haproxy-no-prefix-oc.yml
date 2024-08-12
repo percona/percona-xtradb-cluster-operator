@@ -1,29 +1,29 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  generation: 1
-  name: no-limits-proxysql
+  generation: 2
+  name: monitoring-haproxy
   ownerReferences:
     - controller: true
       kind: PerconaXtraDBCluster
-      name: no-limits
+      name: monitoring
 spec:
   podManagementPolicy: OrderedReady
   replicas: 2
   revisionHistoryLimit: 10
   selector:
     matchLabels:
-      app.kubernetes.io/component: proxysql
-      app.kubernetes.io/instance: no-limits
+      app.kubernetes.io/component: haproxy
+      app.kubernetes.io/instance: monitoring
       app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
       app.kubernetes.io/name: percona-xtradb-cluster
       app.kubernetes.io/part-of: percona-xtradb-cluster
-  serviceName: no-limits-proxysql-unready
+  serviceName: monitoring-haproxy
   template:
     metadata:
       labels:
-        app.kubernetes.io/component: proxysql
-        app.kubernetes.io/instance: no-limits
+        app.kubernetes.io/component: haproxy
+        app.kubernetes.io/instance: monitoring
         app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
         app.kubernetes.io/name: percona-xtradb-cluster
         app.kubernetes.io/part-of: percona-xtradb-cluster
@@ -33,12 +33,12 @@ spec:
             - name: PMM_SERVER
               value: monitoring-service
             - name: PMM_USER
-              value: pmm
+              value: api_key
             - name: PMM_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  key: pmmserver
-                  name: internal-no-limits
+                  key: pmmserverkey
+                  name: internal-monitoring
             - name: CLIENT_PORT_LISTEN
               value: "7777"
             - name: CLIENT_PORT_MIN
@@ -58,12 +58,12 @@ spec:
             - name: PMM_AGENT_SERVER_ADDRESS
               value: monitoring-service
             - name: PMM_AGENT_SERVER_USERNAME
-              value: pmm
+              value: api_key
             - name: PMM_AGENT_SERVER_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  key: pmmserver
-                  name: internal-no-limits
+                  key: pmmserverkey
+                  name: internal-monitoring
             - name: PMM_AGENT_LISTEN_PORT
               value: "7777"
             - name: PMM_AGENT_PORTS_MIN
@@ -87,30 +87,31 @@ spec:
             - name: PMM_AGENT_SETUP_NODE_NAME
               value: $(POD_NAMESPASE)-$(POD_NAME)
             - name: DB_TYPE
-              value: proxysql
+              value: haproxy
             - name: MONITOR_USER
               value: monitor
             - name: MONITOR_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: monitor
-                  name: internal-no-limits
+                  name: internal-monitoring
             - name: DB_USER
               value: monitor
             - name: DB_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: monitor
-                  name: internal-no-limits
+                  name: internal-monitoring
             - name: DB_CLUSTER
               value: pxc
             - name: DB_HOST
               value: localhost
             - name: DB_PORT
-              value: "6032"
+              value: "3306"
             - name: CLUSTER_NAME
-              value: no-limits
+              value: monitoring
             - name: PMM_ADMIN_CUSTOM_PARAMS
+              value: --listen-port=8404
             - name: PMM_AGENT_PRERUN_SCRIPT
               value: /var/lib/mysql/pmm-prerun.sh
             - name: PMM_AGENT_SIDECAR
@@ -121,9 +122,9 @@ spec:
               value: /tmp
           envFrom:
             - secretRef:
-                name: no-limits-env-vars-proxysql
+                name: my-env-var-secrets
                 optional: true
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           lifecycle:
             preStop:
               exec:
@@ -157,53 +158,69 @@ spec:
               protocol: TCP
             - containerPort: 30105
               protocol: TCP
-          resources: {}
+          resources:
+            limits:
+              cpu: "1"
+              memory: 1G
+            requests:
+              cpu: 308m
+              memory: 508M
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:
             - mountPath: /var/lib/mysql
               name: bin
         - args:
-            - proxysql
-            - -f
-            - -c
-            - /etc/proxysql/proxysql.cnf
-            - --reload
+            - haproxy
           command:
-            - /opt/percona/proxysql-entrypoint.sh
+            - /opt/percona/haproxy-entrypoint.sh
           env:
             - name: PXC_SERVICE
-              value: no-limits-pxc
-            - name: OPERATOR_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  key: operator
-                  name: internal-no-limits
-            - name: PROXY_ADMIN_USER
-              value: proxyadmin
-            - name: PROXY_ADMIN_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  key: proxyadmin
-                  name: internal-no-limits
-            - name: MONITOR_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  key: monitor
-                  name: internal-no-limits
+              value: monitoring-pxc
+            - name: LIVENESS_CHECK_TIMEOUT
+              value: "5"
+            - name: READINESS_CHECK_TIMEOUT
+              value: "1"
           envFrom:
             - secretRef:
-                name: no-limits-env-vars-proxysql
+                name: my-env-var-secrets
                 optional: true
-          imagePullPolicy: IfNotPresent
-          name: proxysql
+          imagePullPolicy: Always
+          livenessProbe:
+            exec:
+              command:
+                - /opt/percona/haproxy_liveness_check.sh
+            failureThreshold: 4
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            successThreshold: 1
+            timeoutSeconds: 5
+          name: haproxy
           ports:
             - containerPort: 3306
               name: mysql
               protocol: TCP
-            - containerPort: 6032
-              name: proxyadm
+            - containerPort: 3307
+              name: mysql-replicas
               protocol: TCP
+            - containerPort: 3309
+              name: proxy-protocol
+              protocol: TCP
+            - containerPort: 33062
+              name: mysql-admin
+              protocol: TCP
+            - containerPort: 33060
+              name: mysqlx
+              protocol: TCP
+          readinessProbe:
+            exec:
+              command:
+                - /opt/percona/haproxy_readiness_check.sh
+            failureThreshold: 3
+            initialDelaySeconds: 15
+            periodSeconds: 5
+            successThreshold: 1
+            timeoutSeconds: 1
           resources:
             requests:
               cpu: 300m
@@ -211,91 +228,52 @@ spec:
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:
-            - mountPath: /var/lib/proxysql
-              name: proxydata
-            - mountPath: /etc/proxysql/ssl
-              name: ssl
-            - mountPath: /etc/proxysql/ssl-internal
-              name: ssl-internal
+            - mountPath: /etc/haproxy-custom/
+              name: haproxy-custom
+            - mountPath: /etc/haproxy/pxc
+              name: haproxy-auto
             - mountPath: /opt/percona
               name: bin
+            - mountPath: /etc/mysql/mysql-users-secret
+              name: mysql-users-secret-file
+            - mountPath: /etc/mysql/haproxy-env-secret
+              name: my-env-var-secrets
         - args:
             - /opt/percona/peer-list
-            - -on-change=/opt/percona/proxysql_add_pxc_nodes.sh
+            - -on-change=/opt/percona/haproxy_add_pxc_nodes.sh
             - -service=$(PXC_SERVICE)
+          command:
+            - /opt/percona/haproxy-entrypoint.sh
           env:
             - name: PXC_SERVICE
-              value: no-limits-pxc
-            - name: OPERATOR_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  key: operator
-                  name: internal-no-limits
-            - name: PROXY_ADMIN_USER
-              value: proxyadmin
-            - name: PROXY_ADMIN_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  key: proxyadmin
-                  name: internal-no-limits
-            - name: MONITOR_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  key: monitor
-                  name: internal-no-limits
+              value: monitoring-pxc
+            - name: REPLICAS_SVC_ONLY_READERS
+              value: "false"
           envFrom:
             - secretRef:
-                name: no-limits-env-vars-proxysql
+                name: my-env-var-secrets
                 optional: true
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           name: pxc-monit
           resources: {}
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:
-            - mountPath: /opt/percona
-              name: bin
-        - args:
-            - /opt/percona/peer-list
-            - -on-change=/opt/percona/proxysql_add_proxysql_nodes.sh
-            - -service=$(PROXYSQL_SERVICE)
-          env:
-            - name: PROXYSQL_SERVICE
-              value: no-limits-proxysql-unready
-            - name: OPERATOR_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  key: operator
-                  name: internal-no-limits
-            - name: PROXY_ADMIN_USER
-              value: proxyadmin
-            - name: PROXY_ADMIN_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  key: proxyadmin
-                  name: internal-no-limits
-            - name: MONITOR_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  key: monitor
-                  name: internal-no-limits
-          envFrom:
-            - secretRef:
-                name: no-limits-env-vars-proxysql
-                optional: true
-          imagePullPolicy: IfNotPresent
-          name: proxysql-monit
-          resources: {}
-          terminationMessagePath: /dev/termination-log
-          terminationMessagePolicy: File
-          volumeMounts:
+            - mountPath: /etc/haproxy-custom/
+              name: haproxy-custom
+            - mountPath: /etc/haproxy/pxc
+              name: haproxy-auto
+            - mountPath: /etc/mysql/mysql-users-secret
+              name: mysql-users-secret-file
+            - mountPath: /etc/mysql/haproxy-env-secret
+              name: my-env-var-secrets
             - mountPath: /opt/percona
               name: bin
       dnsPolicy: ClusterFirst
       initContainers:
         - command:
             - /pxc-init-entrypoint.sh
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           name: pxc-init
           resources:
             limits:
@@ -307,9 +285,9 @@ spec:
             - mountPath: /var/lib/mysql
               name: bin
         - command:
-            - /proxysql-init-entrypoint.sh
-          imagePullPolicy: IfNotPresent
-          name: proxysql-init
+            - /haproxy-init-entrypoint.sh
+          imagePullPolicy: Always
+          name: haproxy-init
           resources:
             limits:
               cpu: 50m
@@ -321,37 +299,31 @@ spec:
               name: bin
       restartPolicy: Always
       schedulerName: default-scheduler
-      securityContext:
-        supplementalGroups:
-          - 1001
+      securityContext: {}
       serviceAccount: default
       serviceAccountName: default
       terminationGracePeriodSeconds: 30
       volumes:
-        - name: ssl-internal
-          secret:
+        - configMap:
             defaultMode: 420
+            name: monitoring-haproxy
             optional: true
-            secretName: some-name-ssl-internal
-        - name: ssl
+          name: haproxy-custom
+        - emptyDir: {}
+          name: haproxy-auto
+        - name: mysql-users-secret-file
           secret:
             defaultMode: 420
             optional: false
-            secretName: some-name-ssl
+            secretName: internal-monitoring
+        - name: my-env-var-secrets
+          secret:
+            defaultMode: 420
+            optional: true
+            secretName: my-env-var-secrets
         - emptyDir: {}
           name: bin
   updateStrategy:
     rollingUpdate:
       partition: 0
     type: RollingUpdate
-  volumeClaimTemplates:
-    - metadata:
-        name: proxydata
-      spec:
-        accessModes:
-          - ReadWriteOnce
-        resources:
-          requests:
-            storage: 6Gi
-      status:
-        phase: Pending

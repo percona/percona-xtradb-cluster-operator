@@ -42,6 +42,8 @@ fi
 
 if oc get projects 2>/dev/null; then
 	OPENSHIFT=$(oc version -o json | jq -r '.openshiftVersion' | grep -oE '^[0-9]+\.[0-9]+')
+	kubectl version -o json
+	kubectl version -o json | jq -r '.openshiftVersion' | grep -oE '^[0-9]+\.[0-9]+'
 fi
 
 if [ $(kubectl version -o json | jq -r '.serverVersion.gitVersion' | grep "\-eks\-") ]; then

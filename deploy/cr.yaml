@@ -256,7 +256,6 @@ spec:
 #      frontend stats
 #        bind *:8404
 #        mode http
-#        option http-use-htx
 #        http-request use-service prometheus-exporter if { path /metrics }
 #    imagePullSecrets:
 #      - name: private-registry-credentials

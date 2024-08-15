@@ -11318,7 +11318,7 @@ spec:
           value: percona-xtradb-cluster-operator
         - name: DISABLE_TELEMETRY
           value: "false"
-        image: perconalab/percona-xtradb-cluster-operator:1.15.0
+        image: percona/percona-xtradb-cluster-operator:1.15.0
         imagePullPolicy: Always
         resources:
           limits:

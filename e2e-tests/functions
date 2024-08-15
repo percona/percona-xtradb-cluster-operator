@@ -421,6 +421,8 @@ compare_kubectl() {
 
 	if [ ! -z "$OPENSHIFT" -a -f ${expected_result//.yml/-oc.yml} ]; then
 		expected_result=${expected_result//.yml/-oc.yml}
+	elif version_gt "1.29" && [ ! -z "$OPENSHIFT" -a -f ${expected_result//.yml/-k129-oc.yml} ]; then
+		expected_result=${expected_result//.yml/-k129-oc.yml}
 	fi
 
 	if [ "$EKS" = 1 -a -f ${expected_result//.yml/-eks.yml} ]; then

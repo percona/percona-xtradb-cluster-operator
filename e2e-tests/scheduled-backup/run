@@ -85,7 +85,7 @@ wait_num_backups() {
 		sleep 2
         ((timer+=1))
 	done
-	echo "Finished to check number $num of backups for $storage"
+	echo "Finished to check number $num of backups for $storage. Timer: $timer"
 }
 
 wait_all_backups() {

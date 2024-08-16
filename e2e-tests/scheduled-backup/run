@@ -261,7 +261,7 @@ main() {
 		sleep 40
 		wait_num_backups 'gcp-cs' 2
 		echo "Patch backup for yearly backup for gcs storage"
-		kubectl patch pxc ${cluster} --type="merge" -p '{"spec":{"backup":{"schedule":[{"name":"each-min-gcp-cs","storageName":"gcp-cs","schedule":"0 0 1 * *"}]}}}'
+		kubectl patch pxc ${cluster} --type="merge" -p '{"spec":{"backup":{"schedule":[{"name":"each-min-gcp-cs","storageName":"gcp-cs","keep":1,"schedule":"0 0 1 * *"}]}}}'
 		wait_num_backups 'gcp-cs' 1
 		apply_config "${test_dir}/conf/${cluster}-disable.yml"
 		wait_all_backups
@@ -270,7 +270,7 @@ main() {
 		sleep 40
 		wait_num_backups 'azure-blob' 2
 		echo "Patch backup for yearly backup for azure storag"
-		kubectl patch pxc ${cluster} --type="merge" -p '{"spec":{"backup":{"schedule":[{"name":"each-min-azure-every","storageName":"azure-blob","schedule":"0 0 1 * *"}]}}}'
+		kubectl patch pxc ${cluster} --type="merge" -p '{"spec":{"backup":{"schedule":[{"name":"each-min-azure-every","storageName":"azure-blob","keep":1,"schedule":"0 0 1 * *"}]}}}'
 		wait_num_backups 'azure-blob' 1
 		apply_config "${test_dir}/conf/${cluster}-disable.yml"
 		wait_all_backups
@@ -279,7 +279,7 @@ main() {
 		sleep 40
 		wait_num_backups 'aws-s3' 2
 		echo "Patch backup for yearly backup for aws s3 storage"
-		kubectl patch pxc ${cluster} --type="merge" -p '{"spec":{"backup":{"schedule":[{"name":"each-min-aws-s3","storageName":"aws-s3","schedule":"0 0 1 * *"}]}}}'
+		kubectl patch pxc ${cluster} --type="merge" -p '{"spec":{"backup":{"schedule":[{"name":"each-min-aws-s3","storageName":"aws-s3","keep":1,"schedule":"0 0 1 * *"}]}}}'
 		wait_num_backups 'aws-s3' 1
 		apply_config "${test_dir}/conf/${cluster}-disable.yml"
 		wait_all_backups

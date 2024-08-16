@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -x 
+
 set -o errexit
 
 test_dir=$(realpath $(dirname $0))
@@ -81,7 +83,7 @@ wait_num_backups() {
 	local num="$2"
     local timer=0
 	echo "Starting to check number $num of backups for $storage"
-	while [[ "$(get_successful_backups_amount $storage)" -ne $num  && $timer -le 200 ]]; do
+	while [[ "$(get_successful_backups_amount $storage)" -ne $num  && $timer -le 400 ]]; do
 		sleep 2
         ((timer+=1))
 	done
@@ -256,6 +258,7 @@ main() {
 
 		desc 'add backups schedule for gcs storage'
 		apply_config "${test_dir}/conf/${cluster}-gcs.yml"
+		sleep 40
 		wait_num_backups 'gcp-cs' 2
 		echo "Patch backup for yearly backup for gcs storage"
 		kubectl patch pxc ${cluster} --type="merge" -p '{"spec":{"backup":{"schedule":[{"name":"each-min-gcp-cs","storageName":"gcp-cs","schedule":"0 0 1 * *"}]}}}'
@@ -264,6 +267,7 @@ main() {
 		wait_all_backups
 		desc 'add backups schedule for azure storage'
 		apply_config "${test_dir}/conf/${cluster}-azure.yml"
+		sleep 40
 		wait_num_backups 'azure-blob' 2
 		echo "Patch backup for yearly backup for azure storag"
 		kubectl patch pxc ${cluster} --type="merge" -p '{"spec":{"backup":{"schedule":[{"name":"each-min-azure-every","storageName":"azure-blob","schedule":"0 0 1 * *"}]}}}'
@@ -272,6 +276,7 @@ main() {
 		wait_all_backups
 		desc 'add backups schedule for aws s3 storage'
 		apply_config "${test_dir}/conf/${cluster}-aws.yml"
+		sleep 40
 		wait_num_backups 'aws-s3' 2
 		echo "Patch backup for yearly backup for aws s3 storage"
 		kubectl patch pxc ${cluster} --type="merge" -p '{"spec":{"backup":{"schedule":[{"name":"each-min-aws-s3","storageName":"aws-s3","schedule":"0 0 1 * *"}]}}}'

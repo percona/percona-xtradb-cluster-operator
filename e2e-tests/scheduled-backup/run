@@ -254,10 +254,10 @@ main() {
 
 		desc 'add backups schedule for gcs storage'
 		apply_config "${test_dir}/conf/${cluster}-gcs.yml"
-		wait_num_backups 'gcs' 2
+		wait_num_backups 'gcp' 2
 		echo "Patch backup for yearly backup"
 		kubectl patch pxc ${cluster} --type="merge" -p '{"spec":{"backup":{"schedule":[{"name":"each-min-gcp-cs","storageName":"gcp-cs","schedule":"0 0 1 * *"}]}}}'
-		wait_num_backups 'gcs' 1
+		wait_num_backups 'gcp' 1
 		apply_config "${test_dir}/conf/${cluster}-disable.yml"
 		wait_all_backups
 		desc 'add backups schedule for azure storage'

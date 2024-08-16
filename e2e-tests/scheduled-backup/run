@@ -62,10 +62,28 @@ get_running_backups_amount() {
 		| wc -l
 }
 
+get_successful_backups_amount() {
+	local storage="$1"
+	kubectl_bin get pxc-backup -o=jsonpath='{range .items[*]}{.metadata.name}{":"}{.spec.storageName}{":"}{.status.state}{"\n"}{end}' \
+		| grep $storage \
+		| grep -E ":Succeeded" \
+		| wc -l
+}
+
 get_failed_backups_amount() {
 	kubectl_bin get pxc-backup -o=jsonpath='{range .items[*]}{.metadata.name}{":"}{.spec.storageName}{":"}{.status.state}{"\n"}{end}' \
 		| grep ":Failed" \
 		| wc -l
+}
+
+wait_num_backups() {
+	local storage="$1"
+	local num="$2"
+	while [[ "$(get_successful_backups_amount $storage)" -ne $num ]]; do
+		echo "Current number of backups is $(get_successful_backups_amount $storage)"
+		echo "Sleeping for 2 seconds till backup num is $num"
+		sleep 2
+	done
 }
 
 wait_all_backups() {
@@ -236,7 +254,10 @@ main() {
 
 		desc 'add backups schedule for gcs storage'
 		apply_config "${test_dir}/conf/${cluster}-gcs.yml"
-		sleep 110
+		wait_num_backups 'gcs' 2
+		echo "Patch backup for yearly backup"
+		kubectl patch pxc ${cluster} --type="merge" -p '{"spec":{"backup":{"schedule":[{"name":"each-min-gcp-cs","storageName":"gcp-cs","schedule":"0 0 1 * *"}]}}}'
+		wait_num_backups 'gcs' 1
 		apply_config "${test_dir}/conf/${cluster}-disable.yml"
 		wait_all_backups
 		desc 'add backups schedule for azure storage'

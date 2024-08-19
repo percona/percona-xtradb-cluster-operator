@@ -83,7 +83,7 @@ wait_num_backups() {
 	echo "Starting to check number $num of backups for $storage"
 	while [[ "$(get_successful_backups_amount $storage)" -ne $num  && $timer -le 400 ]]; do
 		sleep 2
-        ((timer+=1))
+		((timer += 1))
 	done
 	echo "Finished to check number $num of backups for $storage. Timer: $timer"
 }

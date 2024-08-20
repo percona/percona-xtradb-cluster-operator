@@ -12,7 +12,6 @@ mysql_query_rules
 mysql_query_rules_fast_routing
 mysql_replication_hostgroups
 mysql_servers
-mysql_servers_ssl_params
 mysql_users
 proxysql_servers
 restapi_routes
@@ -30,7 +29,6 @@ runtime_mysql_query_rules
 runtime_mysql_query_rules_fast_routing
 runtime_mysql_replication_hostgroups
 runtime_mysql_servers
-runtime_mysql_servers_ssl_params
 runtime_mysql_users
 runtime_proxysql_servers
 runtime_restapi_routes

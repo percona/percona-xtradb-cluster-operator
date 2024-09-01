@@ -486,7 +486,7 @@ func (c *Collector) manageBinlog(ctx context.Context, binlog pxc.Binlog) (err er
 		return errors.Wrapf(err, "put %s object", binlog.Name)
 	}
 
-	log.Println("Successfully written binlog file", binlog.Name, "to s3 with name", binlogName)
+	log.Println("Successfully wrote binlog file", binlog.Name, "to storage with name", binlogName)
 
 	err = cmd.Wait()
 	if err != nil {
@@ -502,7 +502,13 @@ func (c *Collector) manageBinlog(ctx context.Context, binlog pxc.Binlog) (err er
 		// nolint:errcheck
 		setBuffer.WriteString(binlog.GTIDSet.Raw())
 
-		err = c.storage.PutObject(ctx, lastSetFilePrefix+strings.Split(gtidSet, ":")[0], &setBuffer, int64(setBuffer.Len()))
+		lastSetName := lastSetFilePrefix+strings.Split(gtidSet, ":")[0]
+
+		// remove any newline characters from the last set name
+		lastSetName = strings.ReplaceAll(lastSetName, "\n", "")
+		lastSetName = strings.ReplaceAll(lastSetName, "\r", "")
+
+		err = c.storage.PutObject(ctx, lastSetName, &setBuffer, int64(setBuffer.Len()))
 		if err != nil {
 			return errors.Wrap(err, "put last-set object")
 		}

@@ -472,9 +472,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(ctx context.Context, c
 		}
 
 		actions.restartProxySQL = true
-		if cr.Spec.PMM != nil && cr.Spec.PMM.IsEnabled(internalSecrets) {
-			actions.restartPXC = true
-		}
+		actions.restartPXC = true
 
 		err = r.discardOldPassword(cr, secrets, internalSecrets, user)
 		if err != nil {

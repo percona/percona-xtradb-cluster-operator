@@ -1,8 +1,6 @@
 module github.com/percona/percona-xtradb-cluster-operator
 
-go 1.22.0
-
-toolchain go1.22.2
+go 1.22.6
 
 require (
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.3.2

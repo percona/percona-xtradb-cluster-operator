@@ -3,7 +3,7 @@
 set -o xtrace
 
 cp /opt/percona/proxysql.cnf /etc/proxysql
-cp /opt/percona/proxysql-admin.cnf /etc/proxysql
+cp /opt/percona/proxysql-admin.cnf /etc
 
 PROXY_CFG=/etc/proxysql/proxysql.cnf
 PROXY_ADMIN_CFG=/etc/proxysql-admin.cnf

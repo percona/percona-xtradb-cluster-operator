@@ -10,7 +10,7 @@ metadata:
 #  annotations:
 #    percona.com/issue-vault-token: "true"
 spec:
-  crVersion: 1.15.0
+  crVersion: 1.16.0
 #  ignoreAnnotations:
 #    - iam.amazonaws.com/role
 #  ignoreLabels:
@@ -256,7 +256,6 @@ spec:
 #      frontend stats
 #        bind *:8404
 #        mode http
-#        option http-use-htx
 #        http-request use-service prometheus-exporter if { path /metrics }
 #    imagePullSecrets:
 #      - name: private-registry-credentials
@@ -554,7 +553,7 @@ spec:
         cpu: 200m
   pmm:
     enabled: false
-    image: percona/pmm-client:2.41.2
+    image: perconalab/pmm-client:dev-latest
     serverHost: monitoring-service
 #    serverUser: admin
 #    pxcParams: "--disable-tablestats-limit=2000"

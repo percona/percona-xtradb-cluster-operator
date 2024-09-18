@@ -16,7 +16,7 @@ SKIP_REMOTE_BACKUPS=${SKIP_REMOTE_BACKUPS:-1}
 PMM_SERVER_VER=${PMM_SERVER_VER:-"9.9.9"}
 IMAGE_PMM_CLIENT=${IMAGE_PMM_CLIENT:-"perconalab/pmm-client:dev-latest"}
 IMAGE_PMM_SERVER=${IMAGE_PMM_SERVER:-"perconalab/pmm-server:dev-latest"}
-CERT_MANAGER_VER="1.14.2"
+CERT_MANAGER_VER="1.15.2"
 tmp_dir=$(mktemp -d)
 sed=$(which gsed || which sed)
 date=$(which gdate || which date)
@@ -421,6 +421,8 @@ compare_kubectl() {
 
 	if [ ! -z "$OPENSHIFT" -a -f ${expected_result//.yml/-oc.yml} ]; then
 		expected_result=${expected_result//.yml/-oc.yml}
+	elif version_gt "1.29" && [ ! -z "$OPENSHIFT" -a -f ${expected_result//.yml/-k129-oc.yml} ]; then
+		expected_result=${expected_result//.yml/-k129-oc.yml}
 	fi
 
 	if [ "$EKS" = 1 -a -f ${expected_result//.yml/-eks.yml} ]; then

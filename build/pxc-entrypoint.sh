@@ -188,7 +188,7 @@ fi
 # add sst.cpat to exclude pxc-entrypoint, unsafe-bootstrap, pxc-configure-pxc from SST cleanup
 grep -q "^progress=" $CFG && sed -i "s|^progress=.*|progress=1|" $CFG
 grep -q "^\[sst\]" "$CFG" || printf '[sst]\n' >>"$CFG"
-grep -q "^cpat=" "$CFG" || sed '/^\[sst\]/a cpat=.*\\.pem$\\|.*init\\.ok$\\|.*galera\\.cache$\\|.*wsrep_recovery_verbose\\.log$\\|.*readiness-check\\.sh$\\|.*liveness-check\\.sh$\\|.*get-pxc-state$\\|.*sst_in_progress$\\|.*sleep-forever$\\|.*pmm-prerun\\.sh$\\|.*sst-xb-tmpdir$\\|.*\\.sst$\\|.*gvwstate\\.dat$\\|.*grastate\\.dat$\\|.*\\.err$\\|.*\\.log$\\|.*RPM_UPGRADE_MARKER$\\|.*RPM_UPGRADE_HISTORY$\\|.*pxc-entrypoint\\.sh$\\|.*unsafe-bootstrap\\.sh$\\|.*pxc-configure-pxc\\.sh\\|.*peer-list$\\|.*auth_plugin$\\|.*version_info$' "$CFG" 1<>"$CFG"
+grep -q "^cpat=" "$CFG" || sed '/^\[sst\]/a cpat=.*\\.pem$\\|.*init\\.ok$\\|.*galera\\.cache$\\|.*wsrep_recovery_verbose\\.log$\\|.*readiness-check\\.sh$\\|.*liveness-check\\.sh$\\|.*get-pxc-state$\\|.*sst_in_progress$\\|.*sleep-forever$\\|.*pmm-prerun\\.sh$\\|.*sst-xb-tmpdir$\\|.*\\.sst$\\|.*gvwstate\\.dat$\\|.*grastate\\.dat$\\|.*\\.err$\\|.*\\.log$\\|.*RPM_UPGRADE_MARKER$\\|.*RPM_UPGRADE_HISTORY$\\|.*pxc-entrypoint\\.sh$\\|.*unsafe-bootstrap\\.sh$\\|.*pxc-configure-pxc\\.sh\\|.*peer-list$\\|.*auth_plugin$\\|.*version_info$\\|.*state-monitor$\\|.*state-monitor\\.log$\\|.*notify\\.sock$\\|.*mysql\\.state$' "$CFG" 1<>"$CFG"
 if [[ $MYSQL_VERSION == '8.0' ]]; then
 	if [[ $MYSQL_PATCH_VERSION -ge 26 ]]; then
 		grep -q "^skip_replica_start=ON" "$CFG" || sed -i "/\[mysqld\]/a skip_replica_start=ON" $CFG
@@ -293,9 +293,12 @@ if [[ -z ${WSREP_CLUSTER_NAME} || ${WSREP_CLUSTER_NAME} == 'noname' ]]; then
 	exit 1
 fi
 
+if [ -n ${NOTIFY_SOCKET} ]; then
+	nohup /var/lib/mysql/state-monitor >/var/lib/mysql/state-monitor.log 2>&1 < /dev/null &
+fi
+
 # if we have CLUSTER_JOIN - then we do not need to perform datadir initialize
 # the data will be copied from another node
-
 if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 	# still need to check config, container may have started with --user
 	_check_config "$@"
@@ -337,12 +340,18 @@ if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 		mysql=(mysql --protocol=socket -uroot -hlocalhost --socket="${SOCKET}" --password="")
 		wsrep_local_state_select="SELECT variable_value FROM performance_schema.global_status WHERE variable_name='wsrep_local_state_comment'"
 
+		mysqlState="startup"
+		while [[ "${mysqlState}" != "ready" ]]; do
+			mysqlState=$(tr -d '\0' < ${MYSQL_STATE_FILE})
+			echo >&2 "MySQL init process in progress..."
+			sleep 1
+		done
 		for i in {120..0}; do
 			wsrep_local_state=$(echo "$wsrep_local_state_select" | "${mysql[@]}" -s 2>/dev/null) || true
 			if [ "$wsrep_local_state" = 'Synced' ]; then
 				break
 			fi
-			echo 'MySQL init process in progress...'
+			echo >&2 "Waiting for member to be Synced..."
 			sleep 1
 		done
 		if [ "$i" = 0 ]; then

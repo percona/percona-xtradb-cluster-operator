@@ -21,6 +21,7 @@ DEFAULTS_EXTRA_FILE=${DEFAULTS_EXTRA_FILE:-/etc/my.cnf}
 NODE_IP=$(hostname -I | awk ' { print $1 } ')
 #Timeout exists for instances where mysqld may be hung
 TIMEOUT=$((${LIVENESS_CHECK_TIMEOUT:-5} - 1))
+MYSQL_STATE=$(tr -d '\0' < ${MYSQL_STATE_FILE})
 
 EXTRA_ARGS=""
 if [[ -n $MYSQL_USERNAME ]]; then
@@ -37,6 +38,11 @@ STATUS=$(MYSQL_PWD="${MYSQL_PASSWORD}" $MYSQL_CMDLINE --init-command="SET SESSIO
 set -x
 
 if [[ -n ${STATUS} && ${STATUS} == 'Primary' ]]; then
+	exit 0
+fi
+
+if [[ ${MYSQL_STATE} == "startup" ]]; then
+	echo "MySQL is starting up, not killing it..."
 	exit 0
 fi
 

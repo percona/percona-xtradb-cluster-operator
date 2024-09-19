@@ -13,6 +13,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 )
 
 // StatefulSet returns StatefulSet according for app to podSpec
@@ -38,7 +39,7 @@ func StatefulSet(ctx context.Context, cl client.Client, sfs api.StatefulApp, pod
 	pod.Affinity = PodAffinity(podSpec.Affinity, sfs)
 	pod.TopologySpreadConstraints = PodTopologySpreadConstraints(podSpec.TopologySpreadConstraints, sfs.Labels())
 
-	if sfs.Labels()["app.kubernetes.io/component"] == "haproxy" && cr.CompareVersionWith("1.7.0") == -1 {
+	if sfs.Labels()[naming.LabelAppKubernetesComponent] == "haproxy" && cr.CompareVersionWith("1.7.0") == -1 {
 		t := true
 		pod.ShareProcessNamespace = &t
 	}
@@ -196,22 +197,4 @@ func PodTopologySpreadConstraints(tscs []corev1.TopologySpreadConstraint, ls map
 		result = append(result, tsc)
 	}
 	return result
-}
-
-func MergeTemplateAnnotations(sfs *appsv1.StatefulSet, annotations map[string]string) {
-	if len(annotations) == 0 {
-		return
-	}
-	MergeMaps(sfs.Spec.Template.Annotations, annotations)
-}
-
-func MergeMaps(dest map[string]string, mapList ...map[string]string) {
-	if dest == nil {
-		dest = make(map[string]string)
-	}
-	for _, m := range mapList {
-		for k, v := range m {
-			dest[k] = v
-		}
-	}
 }

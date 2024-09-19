@@ -11,8 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
-
 	"github.com/pkg/errors"
 	"github.com/robfig/cron/v3"
 	appsv1 "k8s.io/api/apps/v1"
@@ -25,6 +23,7 @@ import (
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/deployment"
 )
 
@@ -220,11 +219,7 @@ func (r *ReconcilePerconaXtraDBCluster) createBackupJob(ctx context.Context, cr 
 				Finalizers: fins,
 				Namespace:  cr.Namespace,
 				Name:       generateBackupName(cr, backupJob.StorageName) + "-" + strconv.FormatUint(uint64(crc32.ChecksumIEEE([]byte(backupJob.Schedule))), 32)[:5],
-				Labels: map[string]string{
-					"ancestor": backupJob.Name,
-					"cluster":  cr.Name,
-					"type":     "cron",
-				},
+				Labels:     naming.LabelsScheduledBackup(cr, backupJob.Name),
 			},
 			Spec: api.PXCBackupSpec{
 				PXCCluster:  cr.Name,

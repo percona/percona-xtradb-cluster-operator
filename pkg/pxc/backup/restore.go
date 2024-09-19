@@ -13,6 +13,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
@@ -22,7 +23,7 @@ import (
 
 var log = logf.Log.WithName("backup/restore")
 
-func PVCRestoreService(cr *api.PerconaXtraDBClusterRestore) *corev1.Service {
+func PVCRestoreService(cr *api.PerconaXtraDBClusterRestore, cluster *api.PerconaXtraDBCluster) *corev1.Service {
 	svc := &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",
@@ -50,6 +51,10 @@ func PVCRestoreService(cr *api.PerconaXtraDBClusterRestore) *corev1.Service {
 		svc.Spec.ClusterIP = corev1.ClusterIPNone
 	}
 
+	if cluster.CompareVersionWith("1.16.0") >= 0 {
+		svc.Labels = naming.LabelsCluster(cluster)
+	}
+
 	return svc
 }
 
@@ -62,25 +67,21 @@ func PVCRestorePod(cr *api.PerconaXtraDBClusterRestore, bcpStorageName, pvcName 
 		cluster.Spec.Backup.Storages[bcpStorageName] = &api.BackupStorageSpec{}
 	}
 
-	// Copy from the original labels to the restore labels
-	labels := make(map[string]string)
-	for key, value := range cluster.Spec.Backup.Storages[bcpStorageName].Labels {
-		labels[key] = value
-	}
-	labels["name"] = "restore-src-" + cr.Name + "-" + cr.Spec.PXCCluster
-
 	sslVolume := app.GetSecretVolumes("ssl", cluster.Spec.PXC.SSLSecretName, !cluster.TLSEnabled())
 	if cluster.CompareVersionWith("1.15.0") < 0 {
 		sslVolume = app.GetSecretVolumes("ssl", cluster.Spec.PXC.SSLSecretName, cluster.Spec.AllowUnsafeConfig)
 	}
 
+	restoreName := "restore-src-" + cr.Name + "-" + cr.Spec.PXCCluster
+
+	labels := naming.LabelsRestorePVCPod(cluster, bcpStorageName, restoreName)
 	return &corev1.Pod{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",
 			Kind:       "Pod",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        "restore-src-" + cr.Name + "-" + cr.Spec.PXCCluster,
+			Name:        restoreName,
 			Namespace:   cr.Namespace,
 			Annotations: cluster.Spec.Backup.Storages[bcpStorageName].Annotations,
 			Labels:      labels,
@@ -264,7 +265,7 @@ func RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClust
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: cluster.Spec.PXC.Annotations,
-					Labels:      cluster.Spec.PXC.Labels,
+					Labels:      naming.LabelsRestore(cluster, bcp.Status.StorageName),
 				},
 				Spec: corev1.PodSpec{
 					ImagePullSecrets: cluster.Spec.Backup.ImagePullSecrets,
@@ -287,6 +288,9 @@ func RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClust
 			},
 			BackoffLimit: func(i int32) *int32 { return &i }(4),
 		},
+	}
+	if cluster.CompareVersionWith("1.16.0") >= 0 {
+		job.Labels = naming.LabelsRestore(cluster, bcp.Status.StorageName)
 	}
 	return job, nil
 }

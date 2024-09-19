@@ -13,6 +13,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	app "github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/config"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
@@ -40,17 +41,9 @@ func NewNode(cr *api.PerconaXtraDBCluster) *Node {
 		},
 	}
 
-	labels := map[string]string{
-		"app.kubernetes.io/name":       "percona-xtradb-cluster",
-		"app.kubernetes.io/instance":   cr.Name,
-		"app.kubernetes.io/component":  "pxc",
-		"app.kubernetes.io/managed-by": "percona-xtradb-cluster-operator",
-		"app.kubernetes.io/part-of":    "percona-xtradb-cluster",
-	}
-
 	return &Node{
 		sfs:     sfs,
-		labels:  labels,
+		labels:  naming.LabelsPXC(cr),
 		service: cr.Name + "-" + app.Name,
 	}
 }
@@ -169,7 +162,7 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 		Env: []corev1.EnvVar{
 			{
 				Name:  "PXC_SERVICE",
-				Value: c.labels["app.kubernetes.io/instance"] + "-" + c.labels["app.kubernetes.io/component"] + "-unready",
+				Value: c.labels[naming.LabelAppKubernetesInstance] + "-" + c.labels[naming.LabelAppKubernetesComponent] + "-unready",
 			},
 			{
 				Name:  "MONITOR_HOST",
@@ -552,6 +545,12 @@ func (c *Node) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg ap
 
 	if cr.CompareVersionWith("1.14.0") >= 0 {
 		vol.Volumes = append(vol.Volumes, app.GetSecretVolumes("mysql-init-file", cr.Name+"-mysql-init", true))
+	}
+
+	if cr.CompareVersionWith("1.16.0") >= 0 {
+		for i := range vol.PVCs {
+			vol.PVCs[i].Labels = c.Labels()
+		}
 	}
 
 	return vol, nil

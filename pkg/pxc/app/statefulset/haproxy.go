@@ -13,12 +13,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	app "github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 )
 
 const (
-	haproxyName           = "haproxy"
 	haproxyDataVolumeName = "haproxydata"
 )
 
@@ -35,7 +35,7 @@ func NewHAProxy(cr *api.PerconaXtraDBCluster) *HAProxy {
 			Kind:       "StatefulSet",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-" + haproxyName,
+			Name:      cr.Name + "-" + naming.ComponentHAProxy,
 			Namespace: cr.Namespace,
 		},
 		Spec: appsv1.StatefulSetSpec{
@@ -43,23 +43,15 @@ func NewHAProxy(cr *api.PerconaXtraDBCluster) *HAProxy {
 		},
 	}
 
-	labels := map[string]string{
-		"app.kubernetes.io/name":       "percona-xtradb-cluster",
-		"app.kubernetes.io/instance":   cr.Name,
-		"app.kubernetes.io/component":  haproxyName,
-		"app.kubernetes.io/managed-by": "percona-xtradb-cluster-operator",
-		"app.kubernetes.io/part-of":    "percona-xtradb-cluster",
-	}
-
 	return &HAProxy{
 		sfs:     sfs,
-		labels:  labels,
-		service: cr.Name + "-" + haproxyName,
+		labels:  naming.LabelsHAProxy(cr),
+		service: cr.Name + "-" + naming.ComponentHAProxy,
 	}
 }
 
 func (c *HAProxy) Name() string {
-	return haproxyName
+	return naming.ComponentHAProxy
 }
 
 func (c *HAProxy) InitContainers(cr *api.PerconaXtraDBCluster, initImageName string) []corev1.Container {
@@ -76,7 +68,7 @@ func (c *HAProxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.Percon
 	_ []corev1.Volume,
 ) (corev1.Container, error) {
 	appc := corev1.Container{
-		Name:            haproxyName,
+		Name:            naming.ComponentHAProxy,
 		Image:           spec.Image,
 		ImagePullPolicy: spec.ImagePullPolicy,
 		Ports: []corev1.ContainerPort{
@@ -106,7 +98,7 @@ func (c *HAProxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.Percon
 		Env: []corev1.EnvVar{
 			{
 				Name:  "PXC_SERVICE",
-				Value: c.labels["app.kubernetes.io/instance"] + "-" + "pxc",
+				Value: c.labels[naming.LabelAppKubernetesInstance] + "-" + "pxc",
 			},
 		},
 		SecurityContext: spec.ContainerSecurityContext,
@@ -233,7 +225,7 @@ func (c *HAProxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.P
 		Env: []corev1.EnvVar{
 			{
 				Name:  "PXC_SERVICE",
-				Value: c.labels["app.kubernetes.io/instance"] + "-" + "pxc",
+				Value: c.labels[naming.LabelAppKubernetesInstance] + "-" + "pxc",
 			},
 		},
 		Resources: spec.SidecarResources,
@@ -434,7 +426,7 @@ func (c *HAProxy) PMMContainer(ctx context.Context, cl client.Client, spec *api.
 
 func (c *HAProxy) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg api.CustomVolumeGetter) (*api.Volume, error) {
 	vol := app.Volumes(podSpec, haproxyDataVolumeName)
-	configVolume, err := vg(cr.Namespace, "haproxy-custom", c.labels["app.kubernetes.io/instance"]+"-haproxy", true)
+	configVolume, err := vg(cr.Namespace, "haproxy-custom", c.labels[naming.LabelAppKubernetesInstance]+"-haproxy", true)
 	if err != nil {
 		return nil, err
 	}
@@ -451,7 +443,7 @@ func (c *HAProxy) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg
 	}
 	if cr.CompareVersionWith("1.11.0") >= 0 && cr.Spec.HAProxy != nil && cr.Spec.HAProxy.HookScript != "" {
 		vol.Volumes = append(vol.Volumes,
-			app.GetConfigVolumes("hookscript", c.labels["app.kubernetes.io/instance"]+"-"+c.labels["app.kubernetes.io/component"]+"-hookscript"))
+			app.GetConfigVolumes("hookscript", c.labels[naming.LabelAppKubernetesInstance]+"-"+c.labels[naming.LabelAppKubernetesComponent]+"-hookscript"))
 	}
 	if cr.CompareVersionWith("1.13.0") >= 0 {
 		vol.Volumes = append(vol.Volumes,
@@ -462,6 +454,11 @@ func (c *HAProxy) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg
 				},
 			},
 		)
+	}
+	if cr.CompareVersionWith("1.16.0") >= 0 {
+		for i := range vol.PVCs {
+			vol.PVCs[i].Labels = c.Labels()
+		}
 	}
 	return vol, nil
 }

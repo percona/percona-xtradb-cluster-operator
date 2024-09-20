@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  generation: 2
+  generation: 3
   name: some-name-pxc
   ownerReferences:
     - controller: true
@@ -191,6 +191,8 @@ spec:
               name: auto-config
             - mountPath: /etc/mysql/vault-keyring-secret
               name: vault-keyring-secret
+            - mountPath: /etc/mysql/init-file
+              name: mysql-init-file
       dnsPolicy: ClusterFirst
       initContainers:
         - command:
@@ -199,11 +201,8 @@ spec:
           name: pxc-init
           resources:
             limits:
-              cpu: "1"
-              memory: 1G
-            requests:
-              cpu: 100m
-              memory: 100M
+              cpu: 50m
+              memory: 50M
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:
@@ -212,7 +211,6 @@ spec:
       restartPolicy: Always
       schedulerName: default-scheduler
       securityContext:
-        fsGroup: 1001
         supplementalGroups:
           - 1001
       serviceAccount: default
@@ -251,6 +249,11 @@ spec:
             defaultMode: 420
             optional: false
             secretName: internal-some-name
+        - name: mysql-init-file
+          secret:
+            defaultMode: 420
+            optional: true
+            secretName: some-name-mysql-init
   updateStrategy:
     rollingUpdate:
       partition: 0

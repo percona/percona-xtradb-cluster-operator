@@ -33,12 +33,16 @@ function ensure_default_sc_allows_expansion() {
 
 function apply_resourcequota() {
 	local quota=$1
-	local default_sc=$(get_default_storageclass)
+	if [ "$EKS" == 1 -o -n "$OPENSHIFT" ]; then
+		local sc='gp2-resizable'
+	else
+		local sc=$(get_default_storageclass)
+	fi
 
-	echo "Applying resourcequota for default storageclass ${default_sc} with quota ${quota}"
+	echo "Applying resourcequota for default storageclass ${sc} with quota ${quota}"
 
 	cat ${test_dir}/conf/resourcequota.yml |
-		sed "s/STORAGECLASS/${default_sc}/" |
+		sed "s/STORAGECLASS/${sc}/" |
 		sed "s/QUOTA/${quota}/" |
 		kubectl_bin apply -f -
 }

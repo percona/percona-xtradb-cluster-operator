@@ -33,12 +33,16 @@ function ensure_default_sc_allows_expansion() {
 
 function apply_resourcequota() {
 	local quota=$1
-	local default_sc=$(get_default_storageclass)
+	if [ "$EKS" == 1 -o -n "$OPENSHIFT" ]; then
+		local sc='gp2-resizable'
+	else
+		local sc=$(get_default_storageclass)
+	fi
 
-	echo "Applying resourcequota for default storageclass ${default_sc} with quota ${quota}"
+	echo "Applying resourcequota for default storageclass ${sc} with quota ${quota}"
 
 	cat ${test_dir}/conf/resourcequota.yml |
-		sed "s/STORAGECLASS/${default_sc}/" |
+		sed "s/STORAGECLASS/${sc}/" |
 		sed "s/QUOTA/${quota}/" |
 		kubectl_bin apply -f -
 }
@@ -66,7 +70,7 @@ function wait_cluster_status() {
 
 set_debug
 
-if [ "$EKS" == 1 -o "$OPENSHIFT" == 1 ]; then
+if [ "$EKS" == 1 -o -n "$OPENSHIFT" ]; then
 	echo "EKS environment detected, creating storageclass for EBS volumes"
 	kubectl_bin apply -f ${test_dir}/conf/eks-storageclass.yml
 else
@@ -78,7 +82,7 @@ create_infra ${namespace}
 desc 'create first PXC cluster'
 cluster="some-name"
 
-if [ "$EKS" == 1 -o "$OPENSHIFT" == 1 ]; then
+if [ "$EKS" == 1 -o -n "$OPENSHIFT" ]; then
 	spinup_pxc "${cluster}" "$test_dir/conf/$cluster-eks.yml" "3" "10" "${conf_dir}/secrets.yml"
 else
 	spinup_pxc "${cluster}" "$test_dir/conf/$cluster.yml" "3" "10" "${conf_dir}/secrets.yml"
@@ -108,7 +112,7 @@ for pvc in $(kubectl_bin get pvc -l app.kubernetes.io/component=pxc -o name); do
 	echo "${pvc} was resized"
 done
 
-if [ "$EKS" == 1 -o "$OPENSHIFT" == 1 ]; then
+if [ "$EKS" == 1 -o -n "$OPENSHIFT" ]; then
 	# EKS rate limits PVC expansion for the same EBS volume (1 expand operation in every 6 hours),
 	# so we need to delete and recreate the cluster
 	echo "Deleting and recreating PXC cluster ${cluster}"

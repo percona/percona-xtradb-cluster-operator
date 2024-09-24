@@ -136,7 +136,7 @@ func (status *PXCBackupStatus) GetStorageType(cluster *PerconaXtraDBCluster) Bac
 		return status.StorageType
 	}
 
-	if cluster != nil {
+	if cluster != nil && cluster.Spec.Backup != nil {
 		storage, ok := cluster.Spec.Backup.Storages[status.StorageName]
 		if ok {
 			return storage.Type

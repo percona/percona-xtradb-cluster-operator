@@ -12,6 +12,12 @@ func EntrypointInitContainer(cr *api.PerconaXtraDBCluster, initImageName string,
 	if cr.Spec.InitContainer.Resources != nil {
 		initResources = *cr.Spec.InitContainer.Resources
 	}
+	securityContext := cr.Spec.PXC.ContainerSecurityContext
+	if cr.CompareVersionWith("1.16.0") >= 0 {
+		if cr.Spec.InitContainer.ContainerSecurityContext != nil {
+			securityContext = cr.Spec.InitContainer.ContainerSecurityContext
+		}
+	}
 	return corev1.Container{
 		VolumeMounts: []corev1.VolumeMount{
 			{
@@ -23,12 +29,18 @@ func EntrypointInitContainer(cr *api.PerconaXtraDBCluster, initImageName string,
 		ImagePullPolicy: cr.Spec.PXC.ImagePullPolicy,
 		Name:            "pxc-init",
 		Command:         []string{"/pxc-init-entrypoint.sh"},
-		SecurityContext: cr.Spec.PXC.ContainerSecurityContext,
+		SecurityContext: securityContext,
 		Resources:       initResources,
 	}
 }
 
 func PitrInitContainer(cluster *api.PerconaXtraDBCluster, initImageName string) corev1.Container {
+	securityContext := cluster.Spec.PXC.ContainerSecurityContext
+	if cluster.CompareVersionWith("1.16.0") >= 0 {
+		if cluster.Spec.InitContainer.ContainerSecurityContext != nil {
+			securityContext = cluster.Spec.InitContainer.ContainerSecurityContext
+		}
+	}
 	return corev1.Container{
 		VolumeMounts: []corev1.VolumeMount{
 			{
@@ -40,7 +52,7 @@ func PitrInitContainer(cluster *api.PerconaXtraDBCluster, initImageName string) 
 		ImagePullPolicy: cluster.Spec.Backup.ImagePullPolicy,
 		Name:            "pitr-init",
 		Command:         []string{"/pitr-init-entrypoint.sh"},
-		SecurityContext: cluster.Spec.PXC.ContainerSecurityContext,
+		SecurityContext: securityContext,
 		Resources:       *cluster.Spec.InitContainer.Resources,
 	}
 }
@@ -63,6 +75,12 @@ func BackupInitContainer(cluster *api.PerconaXtraDBCluster, initImageName string
 }
 
 func HaproxyEntrypointInitContainer(cluster *api.PerconaXtraDBCluster, initImageName string) corev1.Container {
+	securityContext := cluster.Spec.HAProxy.ContainerSecurityContext
+	if cluster.CompareVersionWith("1.16.0") >= 0 {
+		if cluster.Spec.InitContainer.ContainerSecurityContext != nil {
+			securityContext = cluster.Spec.InitContainer.ContainerSecurityContext
+		}
+	}
 	return corev1.Container{
 		VolumeMounts: []corev1.VolumeMount{
 			{
@@ -74,12 +92,18 @@ func HaproxyEntrypointInitContainer(cluster *api.PerconaXtraDBCluster, initImage
 		ImagePullPolicy: cluster.Spec.HAProxy.ImagePullPolicy,
 		Name:            "haproxy-init",
 		Command:         []string{"/haproxy-init-entrypoint.sh"},
-		SecurityContext: cluster.Spec.HAProxy.ContainerSecurityContext,
+		SecurityContext: securityContext,
 		Resources:       *cluster.Spec.InitContainer.Resources,
 	}
 }
 
 func ProxySQLEntrypointInitContainer(cluster *api.PerconaXtraDBCluster, initImageName string) corev1.Container {
+	securityContext := cluster.Spec.ProxySQL.ContainerSecurityContext
+	if cluster.CompareVersionWith("1.16.0") >= 0 {
+		if cluster.Spec.InitContainer.ContainerSecurityContext != nil {
+			securityContext = cluster.Spec.InitContainer.ContainerSecurityContext
+		}
+	}
 	return corev1.Container{
 		VolumeMounts: []corev1.VolumeMount{
 			{
@@ -91,7 +115,7 @@ func ProxySQLEntrypointInitContainer(cluster *api.PerconaXtraDBCluster, initImag
 		ImagePullPolicy: cluster.Spec.ProxySQL.ImagePullPolicy,
 		Name:            "proxysql-init",
 		Command:         []string{"/proxysql-init-entrypoint.sh"},
-		SecurityContext: cluster.Spec.ProxySQL.ContainerSecurityContext,
+		SecurityContext: securityContext,
 		Resources:       *cluster.Spec.InitContainer.Resources,
 	}
 }

@@ -55,6 +55,22 @@ type PerconaXtraDBClusterSpec struct {
 	EnableCRValidationWebhook *bool             `json:"enableCRValidationWebhook,omitempty"`
 	IgnoreAnnotations         []string          `json:"ignoreAnnotations,omitempty"`
 	IgnoreLabels              []string          `json:"ignoreLabels,omitempty"`
+
+	Users []User `json:"users,omitempty"`
+}
+
+type SecretKeySelector struct {
+	Name string `json:"name"`
+	Key  string `json:"key,omitempty"`
+}
+
+type User struct {
+	Name              string             `json:"name"`
+	PasswordSecretRef *SecretKeySelector `json:"passwordSecretRef"`
+	DBs               []string           `json:"dbs,omitempty"`
+	Hosts             []string           `json:"hosts,omitempty"`
+	Grants            []string           `json:"grants,omitempty"`
+	WithGrantOption   bool               `json:"withGrantOption,omitempty"`
 }
 
 type UnsafeFlags struct {

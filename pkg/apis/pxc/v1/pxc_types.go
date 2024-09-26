@@ -81,8 +81,9 @@ type UnsafeFlags struct {
 }
 
 type InitContainerSpec struct {
-	Image     string                       `json:"image,omitempty"`
-	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
+	Image                    string                       `json:"image,omitempty"`
+	Resources                *corev1.ResourceRequirements `json:"resources,omitempty"`
+	ContainerSecurityContext *corev1.SecurityContext      `json:"containerSecurityContext,omitempty"`
 }
 
 type PXCSpec struct {
@@ -769,7 +770,7 @@ const clusterNameMaxLen = 22
 
 var defaultPXCGracePeriodSec int64 = 600
 
-func (cr *PerconaXtraDBCluster) setSecurityContext() {
+func (cr *PerconaXtraDBCluster) setPodSecurityContext() {
 	var fsgroup *int64
 	if cr.Spec.Platform != version.PlatformOpenshift {
 		var tp int64 = 1001
@@ -1082,7 +1083,7 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 	}
 
 	cr.setProbesDefaults()
-	cr.setSecurityContext()
+	cr.setPodSecurityContext()
 
 	if cr.Spec.EnableCRValidationWebhook == nil {
 		falseVal := false

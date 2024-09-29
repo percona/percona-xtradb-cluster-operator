@@ -520,10 +520,12 @@ func (r *ReconcilePerconaXtraDBCluster) waitPodRestart(ctx context.Context, cr *
 					continue
 				}
 
-				if cond.Status == corev1.ConditionFalse {
-					if time.Now().Sub(cond.LastTransitionTime.Time) > time.Duration(120*time.Second) {
-						return false, errors.Errorf("pod %s is not scheduled: %s", pod.Name, cond.Message)
-					}
+				if cond.Status != corev1.ConditionFalse {
+					continue
+				}
+
+				if time.Since(cond.LastTransitionTime.Time) > time.Duration(120*time.Second) {
+					return false, errors.Errorf("pod %s is not scheduled: %s", pod.Name, cond.Message)
 				}
 			}
 

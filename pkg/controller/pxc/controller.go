@@ -548,11 +548,6 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(ctx context.Context, cr *api.Perc
 	if err != nil {
 		return errors.Wrap(err, "failed to get initImage")
 	}
-	inits := []corev1.Container{}
-	if cr.CompareVersionWith("1.5.0") >= 0 {
-		initC := statefulset.EntrypointInitContainer(cr, initImageName, app.DataVolumeName)
-		inits = append(inits, initC)
-	}
 
 	secretsName := cr.Spec.SecretsName
 	if cr.CompareVersionWith("1.6.0") >= 0 {

@@ -6,7 +6,7 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.3.2
 	github.com/Percona-Lab/percona-version-service/api v0.0.0-20201216104127-a39f2dded3cc
 	github.com/caarlos0/env v3.5.0+incompatible
-	github.com/cert-manager/cert-manager v1.15.2
+	github.com/cert-manager/cert-manager v1.15.3
 	github.com/flosch/pongo2/v6 v6.0.0
 	github.com/go-ini/ini v1.67.0
 	github.com/go-logr/logr v1.4.2
@@ -19,7 +19,7 @@ require (
 	github.com/go-sql-driver/mysql v1.8.1
 	github.com/google/go-cmp v0.6.0
 	github.com/hashicorp/go-version v1.7.0
-	github.com/minio/minio-go/v7 v7.0.76
+	github.com/minio/minio-go/v7 v7.0.77
 	github.com/onsi/ginkgo/v2 v2.20.2
 	github.com/onsi/gomega v1.34.2
 	github.com/pkg/errors v0.9.1

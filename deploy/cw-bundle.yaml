@@ -1982,6 +1982,8 @@ spec:
                 type: string
               enableCRValidationWebhook:
                 type: boolean
+              enableVolumeExpansion:
+                type: boolean
               haproxy:
                 properties:
                   affinity:
@@ -4915,6 +4917,78 @@ spec:
                 type: array
               initContainer:
                 properties:
+                  containerSecurityContext:
+                    properties:
+                      allowPrivilegeEscalation:
+                        type: boolean
+                      appArmorProfile:
+                        properties:
+                          localhostProfile:
+                            type: string
+                          type:
+                            type: string
+                        required:
+                        - type
+                        type: object
+                      capabilities:
+                        properties:
+                          add:
+                            items:
+                              type: string
+                            type: array
+                            x-kubernetes-list-type: atomic
+                          drop:
+                            items:
+                              type: string
+                            type: array
+                            x-kubernetes-list-type: atomic
+                        type: object
+                      privileged:
+                        type: boolean
+                      procMount:
+                        type: string
+                      readOnlyRootFilesystem:
+                        type: boolean
+                      runAsGroup:
+                        format: int64
+                        type: integer
+                      runAsNonRoot:
+                        type: boolean
+                      runAsUser:
+                        format: int64
+                        type: integer
+                      seLinuxOptions:
+                        properties:
+                          level:
+                            type: string
+                          role:
+                            type: string
+                          type:
+                            type: string
+                          user:
+                            type: string
+                        type: object
+                      seccompProfile:
+                        properties:
+                          localhostProfile:
+                            type: string
+                          type:
+                            type: string
+                        required:
+                        - type
+                        type: object
+                      windowsOptions:
+                        properties:
+                          gmsaCredentialSpec:
+                            type: string
+                          gmsaCredentialSpecName:
+                            type: string
+                          hostProcess:
+                            type: boolean
+                          runAsUserName:
+                            type: string
+                        type: object
+                    type: object
                   image:
                     type: string
                   resources:

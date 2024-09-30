@@ -25,7 +25,7 @@ function ensure_default_sc_allows_expansion() {
 
 	local allowVolumeExpansion=$(kubectl_bin get sc -o jsonpath='{.items[?(@.metadata.name=="'"${default_sc}"'")].allowVolumeExpansion}')
 
-	if [[ "${allowVolumeExpansion}" != "true" ]]; then
+	if [[ ${allowVolumeExpansion} != "true" ]]; then
 		echo "Default storageclass ${default_sc} does not allow volume expansion"
 		exit 0
 	fi
@@ -41,10 +41,10 @@ function apply_resourcequota() {
 
 	echo "Applying resourcequota for default storageclass ${sc} with quota ${quota}"
 
-	cat ${test_dir}/conf/resourcequota.yml |
-		sed "s/STORAGECLASS/${sc}/" |
-		sed "s/QUOTA/${quota}/" |
-		kubectl_bin apply -f -
+	cat ${test_dir}/conf/resourcequota.yml \
+		| sed "s/STORAGECLASS/${sc}/" \
+		| sed "s/QUOTA/${quota}/" \
+		| kubectl_bin apply -f -
 }
 
 function wait_cluster_status() {
@@ -66,6 +66,43 @@ function wait_cluster_status() {
 
 	echo
 	echo "pxc/${cluster} status is ${expected}"
+}
+
+function wait_all_pvc_resize() {
+	local expected_size=$1
+	local max_retry=${2:-120}
+	local sleep_time=${3:-5}
+
+	for pvc in $(kubectl_bin get pvc -l app.kubernetes.io/component=pxc -o name); do
+		if ! wait_pvc_resize "$pvc" "$expected_size" "$max_retry" "$sleep_time"; then
+			return 1
+		fi
+	done
+	return 0
+}
+
+function wait_pvc_resize() {
+	local pvc=$1
+	local expected_size=$2
+	local max_retry=${3:-120}
+	local sleep_time=${4:-5}
+
+	local retry=0
+	echo "Waiting for $pvc to be resized"
+	until [[ $(kubectl_bin get "$pvc" -o jsonpath='{.status.capacity.storage}') == "$expected_size" ]]; do
+		if [[ $retry -ge $max_retry ]]; then
+			echo
+			echo "$pvc was not resized, max retries exceeded"
+			return 1
+		fi
+		echo -n "."
+		sleep "$sleep_time"
+
+		retry=$((retry + 1))
+	done
+	echo
+	echo "${pvc} was resized"
+	return 0
 }
 
 set_debug
@@ -93,24 +130,17 @@ desc "test scaling"
 patch_pvc_request "${cluster}" "3G"
 wait_cluster_consistency "$cluster" 3 2
 
-for pvc in $(kubectl_bin get pvc -l app.kubernetes.io/component=pxc -o name); do
-	retry=0
-	echo -n "Waiting for ${pvc} to be resized"
-	until [[ $(kubectl_bin get ${pvc} -o jsonpath={.status.capacity.storage}) == "3Gi" ]]; do
-		if [[ $retry -ge 60 ]]; then
-			echo
-			echo "pvc/${pvc} was not resized, max retries exceeded"
-			exit 1
-		fi
+if wait_all_pvc_resize "3Gi" 120 1; then
+	echo "PVC was resized, but resize.expansion is disabled"
+	exit 1
+fi
 
-		echo -n "."
-		sleep 5
+echo "Enabling PVC resize"
+kubectl_bin patch pxc "${cluster}" --type=json -p='[{"op": "add", "path": "/spec/enableVolumeExpansion", "value":true }]'
+sleep 10
 
-		retry=$((retry + 1))
-	done
-	echo
-	echo "${pvc} was resized"
-done
+wait_cluster_consistency "$cluster" 3 2
+wait_all_pvc_resize "3Gi"
 
 if [ "$EKS" == 1 -o -n "$OPENSHIFT" ]; then
 	# EKS rate limits PVC expansion for the same EBS volume (1 expand operation in every 6 hours),
@@ -130,19 +160,8 @@ patch_pvc_request "${cluster}" "4G"
 wait_cluster_consistency "$cluster" 3 2
 echo
 
-echo -n "Waiting for pvc/datadir-some-name-pxc-0 to be resized"
-until [[ $(kubectl_bin get pvc datadir-some-name-pxc-0 -o jsonpath={.status.capacity.storage}) == "4Gi" ]]; do
-	if [[ $retry -ge 60 ]]; then
-		echo
-		echo "pvc/datadir-some-name-pxc-0 was not resized, max retries exceeded"
-		exit 1
-	fi
-	echo -n "."
-	sleep 5
-
-	retry=$((retry + 1))
-done
-echo
+echo "Waiting for pvc/datadir-some-name-pxc-0 to be resized"
+wait_pvc_resize "persistentvolumeclaim/datadir-some-name-pxc-0" "4Gi"
 echo "pvc/datadir-some-name-pxc-0 was resized"
 
 # We're setting the quota to 16Gi, so we can resize all PVCs to 4Gi
@@ -150,23 +169,7 @@ apply_resourcequota 12Gi
 patch_pvc_request "${cluster}" "4G"
 wait_cluster_consistency "$cluster" 3 2
 echo
-for pvc in $(kubectl_bin get pvc -l app.kubernetes.io/component=pxc -o name); do
-	retry=0
-	echo -n "Waiting for pvc/${pvc} to be resized"
-	until [[ $(kubectl_bin get ${pvc} -o jsonpath={.status.capacity.storage}) == "4Gi" ]]; do
-		if [[ $retry -ge 60 ]]; then
-			echo
-			echo "pvc/${pvc} was not resized, max retries exceeded"
-			exit 1
-		fi
-		echo -n "."
-		sleep 5
-
-		retry=$((retry + 1))
-	done
-	echo
-	echo "pvc/${pvc} was resized"
-done
+wait_all_pvc_resize "4Gi"
 
 desc "test downscale"
 

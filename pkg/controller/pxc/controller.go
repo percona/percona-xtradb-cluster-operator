@@ -945,7 +945,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcilePDB(ctx context.Context, cr *ap
 		return nil
 	}
 
-	pdb := pxc.PodDisruptionBudget(spec, sfs.Labels(), cr.Namespace)
+	pdb := pxc.PodDisruptionBudget(cr, spec, sfs.Labels())
 	err := setControllerReference(owner, pdb, r.scheme)
 	if err != nil {
 		return errors.Wrap(err, "set owner reference")

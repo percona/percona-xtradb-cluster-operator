@@ -289,8 +289,8 @@ func RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClust
 			BackoffLimit: func(i int32) *int32 { return &i }(4),
 		},
 	}
-	if cluster.CompareVersionWith("1.16.0") >= 0 {
-		job.Labels = naming.LabelsRestore(cluster, bcp.Status.StorageName)
+	if cluster.CompareVersionWith("1.16.0") < 0 {
+		job.Labels = cluster.Spec.PXC.Labels
 	}
 	return job, nil
 }

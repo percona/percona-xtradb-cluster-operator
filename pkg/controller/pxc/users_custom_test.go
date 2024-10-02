@@ -113,7 +113,43 @@ func TestUpsertUserQuery(t *testing.T) {
 	}
 }
 
-// test userChanged function
+func TestAlterUserQuery(t *testing.T) {
+	var tests = []struct {
+		name     string
+		user     *api.User
+		pass     string
+		expected string
+	}{
+		{
+			name: "no hosts set",
+			user: &api.User{
+				Name: "test",
+			},
+			pass: "password",
+			expected: "ALTER USER 'test'@'%' IDENTIFIED BY 'password';",
+		},
+		{
+			name: "hosts set",
+			user: &api.User{
+				Name:  "test",
+				Hosts: []string{"host1", "host2"},
+			},
+			pass: "pass1",
+			expected: "ALTER USER 'test'@'host1' IDENTIFIED BY 'pass1';" +
+				"ALTER USER 'test'@'host2' IDENTIFIED BY 'pass1';",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			actual := alterUserQuery(tt.user, tt.pass)
+			if actual != tt.expected {
+				t.Fatalf("expected %s, got %s", tt.expected, actual)
+			}
+		})
+	}
+}
+
 func TestUserChanged(t *testing.T) {
 	var tests = []struct {
 		name     string

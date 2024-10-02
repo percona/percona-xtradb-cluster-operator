@@ -59,44 +59,118 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileCustomUsers(ctx context.Context
 			continue
 		}
 
-		if user.PasswordSecretRef.Key == "" {
+		if user.PasswordSecretRef != nil && user.PasswordSecretRef.Name == "" {
+			log.Error(nil, "passwordSecretRef name is not set", "user", user.Name)
+			continue
+		}
+
+		if user.PasswordSecretRef != nil && user.PasswordSecretRef.Key == "" {
 			user.PasswordSecretRef.Key = "password"
 		}
 
 		userSecret := corev1.Secret{}
+
+		userSecretName := ""
+		userSecretPassKey := ""
+
 		if user.PasswordSecretRef == nil {
-			// generate pass and create a secret
-			// userSecret, err = generateUserPass(ctx, r.client, cr)
+			userSecretName = fmt.Sprintf("%s-app-user-secrets", cr.Name)
+			userSecretPassKey = user.Name + "-pass"
+
+			err := generateUserPass(ctx, r.client, cr, &userSecret, userSecretName, userSecretPassKey)
+			if err != nil {
+				return errors.New("failed to generate user password secrets")
+			}
 
 		} else {
-			userSecret, err = getUserSecret(ctx, r.client, cr, user.PasswordSecretRef.Name)
-			if err != nil {
-				log.Error(err, "failed to get user secret", "user", user)
-				continue
-			}
+			userSecretName = user.PasswordSecretRef.Name
+			userSecretPassKey = user.PasswordSecretRef.Key
 		}
 
-		us, err := um.GetUsers(user.Name)
+		userSecret, err = getUserSecret(ctx, r.client, cr, userSecretName)
 		if err != nil {
-			// log.Error(err, "failed to get user", "user", user)
+			log.Error(err, "failed to get user secret", "user", user)
 			continue
 		}
 
-		if userChanged(us, &user) {
-			err := um.Exec(upsertUserQuery(&user, string(userSecret.Data[user.PasswordSecretRef.Key])))
+		us, err := um.GetUsers(ctx, user.Name)
+		if err != nil {
+			log.Error(err, "failed to get user", "user", user)
+			continue
+		}
+
+		annotationKey := fmt.Sprintf("percona.com/%s-%s-hash", cr.Name, user.Name)
+
+		if userPasswordChanged(&userSecret, annotationKey, userSecretPassKey) {
+			err := um.Exec(ctx, alterUserQuery(&user, string(userSecret.Data[userSecretPassKey])))
 			if err != nil {
 				log.Error(err, "failed to update user", "user", user)
 				continue
 			}
+
+			annotationKey := fmt.Sprintf("percona.com/%s-%s-hash", cr.Name, user.Name)
+
+			if userSecret.Annotations == nil {
+				userSecret.Annotations = make(map[string]string)
+			}
+
+			userSecret.Annotations[annotationKey] = string(sha256Hash(userSecret.Data[userSecretPassKey]))
+			if err := r.client.Update(ctx, &userSecret); err != nil {
+				return err
+			}
+
+			log.Info("User password updated", "user", user.Name)
 		}
-		// if us is different from user, update/create user
 
-		// Check if password is updated
-		// do alter user@host identified by newPass
+		if userChanged(us, &user) || userGrantsChanged(us, &user) {
+			err := um.Exec(ctx, upsertUserQuery(&user, string(userSecret.Data[userSecretPassKey])))
+			if err != nil {
+				log.Error(err, "failed to update user", "user", user)
+				continue
+			}
 
+			annotationKey := fmt.Sprintf("percona.com/%s-%s-hash", cr.Name, user.Name)
+
+			if userSecret.Annotations == nil {
+				userSecret.Annotations = make(map[string]string)
+			}
+
+			userSecret.Annotations[annotationKey] = string(sha256Hash(userSecret.Data[userSecretPassKey]))
+			if err := r.client.Update(ctx, &userSecret); err != nil {
+				return err
+			}
+
+			log.Info("User created", "user", user.Name)
+
+		}
 	}
 
 	return nil
+}
+
+func generateUserPass(
+	ctx context.Context,
+	cl client.Client,
+	cr *api.PerconaXtraDBCluster,
+	secret *corev1.Secret,
+	name, passKey string) error {
+
+	return nil
+}
+
+func userPasswordChanged(secret *corev1.Secret, key, passKey string) bool {
+	if secret.Annotations == nil {
+		return false
+	}
+
+	newHash := sha256Hash(secret.Data[passKey])
+
+	hash, ok := secret.Annotations[key]
+	if ok && hash == newHash {
+		return true
+	}
+
+	return true
 }
 
 func userChanged(current []users.User, new *api.User) bool {
@@ -134,6 +208,20 @@ func sysUserNames() map[string]struct{} {
 		sysUserNames[string(v)] = struct{}{}
 	}
 	return sysUserNames
+}
+
+func alterUserQuery(user *api.User, pass string) string {
+	query := strings.Builder{}
+
+	if len(user.Hosts) > 0 {
+		for _, host := range user.Hosts {
+			query.WriteString(fmt.Sprintf("ALTER USER '%s'@'%s' IDENTIFIED BY '%s';", user.Name, host, pass))
+		}
+	} else {
+		query.WriteString(fmt.Sprintf("ALTER USER '%s'@'%%' IDENTIFIED BY '%s';", user.Name, pass))
+	}
+
+	return query.String()
 }
 
 func upsertUserQuery(user *api.User, pass string) string {

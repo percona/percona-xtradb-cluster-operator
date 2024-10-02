@@ -1,6 +1,7 @@
 package users
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 
@@ -299,8 +300,8 @@ func (u *Manager) UpdatePassExpirationPolicy(user *SysUser) error {
 	return nil
 }
 
-func (u *Manager) Exec(query string, args ...string) error {
-	_, err := u.db.Exec(query, args)
+func (u *Manager) Exec(ctx context.Context, query string, args ...string) error {
+	_, err := u.db.ExecContext(ctx, query, args)
 	if err != nil {
 		return errors.Wrap(err, "exec query")
 	}
@@ -309,8 +310,8 @@ func (u *Manager) Exec(query string, args ...string) error {
 }
 
 // GetUsers returns a list of user@host for a given user
-func (p *Manager) GetUsers(user string) ([]User, error) {
-	rows, err := p.db.Query("SELECT User,Host FROM mysql.user WHERE User = ?", user)
+func (p *Manager) GetUsers(ctx context.Context, user string) ([]User, error) {
+	rows, err := p.db.QueryContext(ctx, "SELECT User,Host FROM mysql.user WHERE User = ?", user)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil

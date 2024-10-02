@@ -8,6 +8,19 @@ spec:
   secretsName: my-cluster-secrets
   vaultSecretName: some-name-vault
   pause: false
+
+  users:
+  - name: user-one
+    db:
+    - db1
+    - db2
+    hosts:
+    - localhost
+    passwordSecretRef:
+      name: user-one
+      key: userOnePassKey
+  # - name: user-two
+
   pxc:
     size: 3
     image: -pxc

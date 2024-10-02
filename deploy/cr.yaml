@@ -558,7 +558,7 @@ spec:
 
 #  users:
 #  - name: my-user
-#    db:
+#    dbs:
 #    - db1
 #    - db2
 #    hosts:

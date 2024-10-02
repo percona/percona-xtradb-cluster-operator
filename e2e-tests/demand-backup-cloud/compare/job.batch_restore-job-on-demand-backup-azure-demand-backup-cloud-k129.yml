@@ -4,6 +4,10 @@ metadata:
   generation: 1
   labels:
     job-name: restore-job-on-demand-backup-azure-demand-backup-cloud
+    app.kubernetes.io/instance: demand-backup-cloud
+    app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+    app.kubernetes.io/name: percona-xtradb-cluster
+    app.kubernetes.io/part-of: percona-xtradb-cluster
   name: restore-job-on-demand-backup-azure-demand-backup-cloud
   ownerReferences:
     - controller: true
@@ -17,12 +21,20 @@ spec:
   parallelism: 1
   podReplacementPolicy: TerminatingOrFailed
   selector:
-    matchLabels: {}
+    matchLabels:
+      app.kubernetes.io/instance: demand-backup-cloud
+      app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+      app.kubernetes.io/name: percona-xtradb-cluster
+      app.kubernetes.io/part-of: percona-xtradb-cluster
   suspend: false
   template:
     metadata:
       labels:
         job-name: restore-job-on-demand-backup-azure-demand-backup-cloud
+        app.kubernetes.io/instance: demand-backup-cloud
+        app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+        app.kubernetes.io/name: percona-xtradb-cluster
+        app.kubernetes.io/part-of: percona-xtradb-cluster
     spec:
       containers:
         - command:

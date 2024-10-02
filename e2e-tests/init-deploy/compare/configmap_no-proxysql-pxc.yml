@@ -8,6 +8,11 @@ data:
     wsrep_debug=1
 kind: ConfigMap
 metadata:
+  labels:
+    app.kubernetes.io/instance: no-proxysql
+    app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+    app.kubernetes.io/name: percona-xtradb-cluster
+    app.kubernetes.io/part-of: percona-xtradb-cluster
   name: no-proxysql-pxc
   ownerReferences:
     - controller: true

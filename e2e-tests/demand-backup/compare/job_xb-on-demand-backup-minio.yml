@@ -3,10 +3,14 @@ kind: Job
 metadata:
   generation: 1
   labels:
-    backup-name: on-demand-backup-minio
-    cluster: demand-backup
-    job-name: xb-on-demand-backup-minio
-    type: xtrabackup
+    app.kubernetes.io/instance: demand-backup
+    app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+    app.kubernetes.io/name: percona-xtradb-cluster
+    app.kubernetes.io/part-of: percona-xtradb-cluster
+    percona.com/backup-job-name: xb-on-demand-backup-minio
+    percona.com/backup-name: on-demand-backup-minio
+    percona.com/backup-type: xtrabackup
+    percona.com/cluster: demand-backup
   name: xb-on-demand-backup-minio
   ownerReferences:
     - controller: true
@@ -20,18 +24,26 @@ spec:
   parallelism: 1
   selector:
     matchLabels:
-      backup-name: on-demand-backup-minio
-      cluster: demand-backup
-      job-name: xb-on-demand-backup-minio
-      type: xtrabackup
+      app.kubernetes.io/instance: demand-backup
+      app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+      app.kubernetes.io/name: percona-xtradb-cluster
+      app.kubernetes.io/part-of: percona-xtradb-cluster
+      percona.com/backup-job-name: xb-on-demand-backup-minio
+      percona.com/backup-name: on-demand-backup-minio
+      percona.com/backup-type: xtrabackup
+      percona.com/cluster: demand-backup
   suspend: false
   template:
     metadata:
       labels:
-        backup-name: on-demand-backup-minio
-        cluster: demand-backup
-        job-name: xb-on-demand-backup-minio
-        type: xtrabackup
+        app.kubernetes.io/instance: demand-backup
+        app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+        app.kubernetes.io/name: percona-xtradb-cluster
+        app.kubernetes.io/part-of: percona-xtradb-cluster
+        percona.com/backup-job-name: xb-on-demand-backup-minio
+        percona.com/backup-name: on-demand-backup-minio
+        percona.com/backup-type: xtrabackup
+        percona.com/cluster: demand-backup
     spec:
       containers:
         - command:

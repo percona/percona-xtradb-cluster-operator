@@ -1,0 +1,112 @@
+#!/bin/bash
+
+set -o errexit
+
+test_dir=$(realpath $(dirname $0))
+. ${test_dir}/../functions
+
+set_debug
+
+is_password_updated() {
+	local username=$1
+	local uri=$2
+	run_mysql "SELECT User_attributes FROM mysql.user WHERE user='${username}'" "${uri}" | grep additional_password
+}
+
+is_old_password_discarded() {
+	local username=$1
+	local uri=$2
+	run_mysql "SELECT User_attributes FROM mysql.user WHERE user='${username}'" "${uri}" | grep NULL
+}
+
+wait_for_password_propagation() {
+	local secret=$1
+	local user=$2
+	local max_retry="${3:-240}"
+	local root_pass=$(getSecretData "${secret}" "root")
+
+	if [[ $IMAGE_PXC =~ 5\.7 ]]; then
+		echo "Skipping dual password feature doesn't work for 5.7. PXC 5.7 doesn't support it!"
+		return
+	fi
+	retry=0
+	until is_password_updated "${user}" "-h ${cluster}-pxc -uroot -p'${root_pass}'"; do
+		echo "waiting for password update"
+		sleep 1
+		let retry+=1
+		if [[ $retry -ge $max_retry ]]; then
+			echo max retry count $retry reached. something went wrong with operator or kubernetes cluster
+			exit 1
+		fi
+	done
+
+	retry=0
+	until is_old_password_discarded "${user}" "-h ${cluster}-pxc -uroot -p'${root_pass}'"; do
+		echo "waiting for password propagation"
+		sleep 1
+		let retry+=1
+		if [[ $retry -ge $max_retry ]]; then
+			echo max retry count $retry reached. something went wrong with operator or kubernetes cluster
+			exit 1
+		fi
+	done
+}
+
+create_infra $namespace
+
+desc 'create PXC cluster'
+
+newpass="test-password"
+newpassencrypted=$(echo -n "$newpass" | base64)
+
+cluster="some-name"
+spinup_pxc "$cluster" "$conf_dir/$cluster.yml"
+
+desc 'test root'
+patch_secret "my-cluster-secrets" "root" "$newpassencrypted"
+sleep 15
+compare_mysql_cmd "select-4" "SHOW TABLES;" "-h $cluster-proxysql -uroot -p'$newpass'"
+
+desc 'test proxyadmin'
+kubectl_bin patch pxc some-name --type=merge -p="{\"spec\":{\"proxysql\":{\"size\":3}}}"
+sleep 15
+wait_cluster_consistency "$cluster" 3 3
+patch_secret "my-cluster-secrets" "proxyadmin" "$newpassencrypted"
+sleep 15
+wait_cluster_consistency "$cluster" 3 3
+compare_mysql_cmd_local "select-2" "SHOW TABLES;" "-h127.0.0.1 -P6032 -uproxyadmin -p'$newpass'" "$cluster-proxysql-0" "" 'proxysql'
+compare_mysql_cmd_local "select-2" "SHOW TABLES;" "-h127.0.0.1 -P6032 -uproxyadmin -p'$newpass'" "$cluster-proxysql-1" "" 'proxysql'
+compare_mysql_cmd_local "select-2" "SHOW TABLES;" "-h127.0.0.1 -P6032 -uproxyadmin -p'$newpass'" "$cluster-proxysql-2" "" 'proxysql'
+
+
+desc 'check user created on cluster creation'
+
+desc 'delete initial user from CR and create a new one'
+
+desc 'check password change'
+patch_secret "my-cluster-secrets" "proxyadmin" "$newpassencrypted"
+sleep 15
+
+desc 'check user grants update from CR'
+kubectl_bin patch pxc some-name --type=merge -p="{\"spec\":{\"proxysql\":{\"size\":3}}}"
+sleep 15
+wait_cluster_consistency "$cluster" 3 3
+
+desc 'check user grants update from DB'
+
+desc 'check user recreated after deleted from DB'
+
+desc 'check new user created after updated user name via CR'
+
+desc 'check new user created with default db and secret password key'
+
+
+
+
+
+
+
+
+
+destroy "${namespace}"
+desc "test passed"

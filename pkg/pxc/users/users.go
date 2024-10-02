@@ -32,6 +32,11 @@ type SysUser struct {
 	Hosts []string `yaml:"hosts"`
 }
 
+type User struct {
+	Name string `db:"User"`
+	Host string `db:"Host"`
+}
+
 func NewManager(addr string, user, pass string, timeout int32) (Manager, error) {
 	var um Manager
 
@@ -292,4 +297,39 @@ func (u *Manager) UpdatePassExpirationPolicy(user *SysUser) error {
 		}
 	}
 	return nil
+}
+
+func (u *Manager) Exec(query string, args ...string) error {
+	_, err := u.db.Exec(query, args)
+	if err != nil {
+		return errors.Wrap(err, "exec query")
+	}
+
+	return nil
+}
+
+// GetUsers returns a list of user@host for a given user
+func (p *Manager) GetUsers(user string) ([]User, error) {
+	rows, err := p.db.Query("SELECT User,Host FROM mysql.user WHERE User = ?", user)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	users := make([]User, 0)
+
+	for rows.Next() {
+		var u User
+
+		err = rows.Scan(&u.Name, &u.Host)
+		if err != nil {
+			return nil, err
+		}
+
+		users = append(users, u)
+	}
+
+	return users, nil
 }

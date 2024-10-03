@@ -13,13 +13,26 @@ desc 'create PXC cluster'
 
 cluster="some-name"
 spinup_pxc "$cluster" "$conf_dir/$cluster.yml"
+kubectl_bin apply -f "$test_dir/conf/user-secrets.yml"
 
 desc 'check user created on cluster creation'
-# compare_mysql_cmd "select-1" "SELECT 1;" "-h $cluster-proxysql -uroot -p'$newpass'"
-compare_mysql_cmd "select-1" "SELECT 1;" "-h $cluster-proxysql -uroot -ptestpass"
+compare_mysql_cmd "select-1" "SELECT 1;" "-h $cluster-proxysql -uuser-one -ptestpass"
+compare_mysql_cmd "select-2" "SELECT User, Host from mysql.user WHERE User = 'user-one';" "-h $cluster-proxysql -uroot -proot_password"
 
 desc 'delete initial users from CR and create a new one'
-kubectl_bin patch pxc some-name --type=merge -p='{"spec":{"proxysql":{"size":3}}}'
+kubectl_bin patch pxc some-name --type=merge -p='{
+		"spec": {"users":[
+			{
+				"name":"user-three",
+				"dbs":["db1", "db2"],
+				"passwordSecretRef": {
+					"name": "user-two",
+					"key": "userTwoPassKey"
+				},
+				"hosts": ["localhost", "%"] ]
+			}
+		]}
+	}'
 wait_cluster_consistency "$cluster" 3 3
 
 desc 'check password change'

@@ -73,7 +73,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileCustomUsers(ctx context.Context
 		userSecretPassKey := ""
 
 		if user.PasswordSecretRef == nil {
-			userSecretName = fmt.Sprintf("%s-app-user-secrets", cr.Name)
+			userSecretName = fmt.Sprintf("%s-custom-user-secret", cr.Name)
 			userSecretPassKey = user.Name + "-pass"
 
 			err := generateUserPass(ctx, r.client, cr, &userSecret, userSecretName, userSecretPassKey)
@@ -86,9 +86,6 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileCustomUsers(ctx context.Context
 			userSecretPassKey = user.PasswordSecretRef.Key
 		}
 
-		println("User secret name: ", userSecretName)
-		println("User secret pass key: ", userSecretPassKey)
-
 		userSecret, err = getUserSecret(ctx, r.client, cr, userSecretName)
 		if err != nil {
 			log.Error(err, "failed to get user secret", "user", user)
@@ -96,6 +93,9 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileCustomUsers(ctx context.Context
 		}
 
 		annotationKey := fmt.Sprintf("percona.com/%s-%s-hash", cr.Name, user.Name)
+		if userSecret.Annotations == nil {
+			userSecret.Annotations = make(map[string]string)
+		}
 
 		if userPasswordChanged(&userSecret, annotationKey, userSecretPassKey) {
 			log.Info("User password changed", "user", user.Name)
@@ -104,10 +104,6 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileCustomUsers(ctx context.Context
 			if err != nil {
 				log.Error(err, "failed to update user", "user", user)
 				continue
-			}
-
-			if userSecret.Annotations == nil {
-				userSecret.Annotations = make(map[string]string)
 			}
 
 			userSecret.Annotations[annotationKey] = string(sha256Hash(userSecret.Data[userSecretPassKey]))
@@ -123,7 +119,6 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileCustomUsers(ctx context.Context
 			log.Error(err, "failed to get user", "user", user)
 			continue
 		}
-		log.Info("AAAAAAAAAAAAAAA Usersssssss", "user", user, "us", us)
 
 		if userChanged(us, &user) || userGrantsChanged(us, &user) {
 			log.Info("User changed", "user", user.Name)
@@ -132,10 +127,6 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileCustomUsers(ctx context.Context
 			if err != nil {
 				log.Error(err, "failed to update user", "user", user)
 				continue
-			}
-
-			if userSecret.Annotations == nil {
-				userSecret.Annotations = make(map[string]string)
 			}
 
 			userSecret.Annotations[annotationKey] = string(sha256Hash(userSecret.Data[userSecretPassKey]))

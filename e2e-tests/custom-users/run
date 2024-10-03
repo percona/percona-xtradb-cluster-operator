@@ -22,7 +22,7 @@ compare_mysql_cmd "select-3" "SHOW GRANTS FOR 'user-one'@'localhost';" "-h $clus
 compare_mysql_cmd "select-4" "SHOW GRANTS FOR 'user-one'@'111.111.111.111';" "-h $cluster-proxysql -uroot -proot_password"
 
 	# local ownerName=$(kubectl_bin get secrets/$cluster-ssl -o json | jq '.metadata.ownerReferences[0].name')
-generatedUserSecret=$(echo "$cluster-app-user-secret")
+generatedUserSecret=$(echo "$cluster-custom-user-secret")
 generatedPass=$(kubectl_bin get secret $generatedUserSecret -n $namespace  -o jsonpath="{.data.my-user-pwd-key}" | base64 -d 1>/dev/null 2>/dev/null)
 compare_mysql_cmd "select-5" "SELECT 1;" "-h $cluster-proxysql -uuser-two -p$generatedPass"
 compare_mysql_cmd "select-6" "SELECT User, Host from mysql.user WHERE User = 'user-two';" "-h $cluster-proxysql -uroot -proot_password"

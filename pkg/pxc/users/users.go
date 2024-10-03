@@ -304,17 +304,24 @@ func (u *Manager) Exec(ctx context.Context, query string, args ...any) error {
 	println("EEEEEEEEEEEEEEE executing query: ", query)
 	println("EEEEEEEEEEEEEEE executing ARGS: ", args)
 
-	queries := 
-        "CREATE DATABASE IF NOT EXISTS db2;\n"+
-        "CREATE USER IF NOT EXISTS 'inel'@'localhost' IDENTIFIED BY 'password';\n"+
-        "GRANT ALL PRIVILEGES ON db2.* TO 'my-user'@'localhost'\n"
-
-	_, err := u.db.ExecContext(ctx, queries, args...)
-	if err != nil {
-		println("EEEEEEEEEEEEEEE error: ", err)
+	queries := []string{
+		"CREATE DATABASE IF NOT EXISTS inel",
+		"CREATE USER IF NOT EXISTS 'my-usereeeeeeee'@'localhost' IDENTIFIED BY 'password'",
+		"GRANT ALL PRIVILEGES ON inel.* TO 'my-usereeeeeeee'@'localhost'",
 	}
 
-	_, err = u.db.ExecContext(ctx, query, args...)
+	// how to properly pass multiple query statements to ExecContext?
+	for _, q := range queries {
+		_, err := u.db.ExecContext(ctx, q, args...)
+		if err != nil {
+			println("EEEEEEEEEEEEEEE error: ", err.Error())
+		}else {
+			println("EEEEEEEEEEEEEEE success")
+		}
+	}
+
+	println("EEEEEEEEEEEEEEE done")
+	_, err := u.db.ExecContext(ctx, query, args...)
 	if err != nil {
 		return errors.Wrap(err, "exec query")
 	}

@@ -168,10 +168,14 @@ func userPasswordChanged(secret *corev1.Secret, key, passKey string) bool {
 		return false
 	}
 
+	hash, ok := secret.Annotations[key]
+	if !ok {
+		return false
+	}
+
 	newHash := sha256Hash(secret.Data[passKey])
 
-	hash, ok := secret.Annotations[key]
-	if ok && hash == newHash {
+	if hash == newHash {
 		return false
 	}
 

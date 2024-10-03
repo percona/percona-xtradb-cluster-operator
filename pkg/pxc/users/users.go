@@ -300,8 +300,9 @@ func (u *Manager) UpdatePassExpirationPolicy(user *SysUser) error {
 	return nil
 }
 
-func (u *Manager) Exec(ctx context.Context, query string, args ...string) error {
+func (u *Manager) Exec(ctx context.Context, query string, args ...any) error {
 	println("EEEEEEEEEEEEEEE executing query: ", query)
+	println("EEEEEEEEEEEEEEE executing ARGS: ", args)
 	_, err := u.db.ExecContext(ctx, query, args)
 	if err != nil {
 		return errors.Wrap(err, "exec query")

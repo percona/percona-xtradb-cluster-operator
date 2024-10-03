@@ -19,10 +19,11 @@ desc 'check user created on cluster creation'
 compare_mysql_cmd "select-1" "SELECT 1;" "-h $cluster-proxysql -uuser-one -ptestpass"
 compare_mysql_cmd "select-2" "SELECT User, Host from mysql.user WHERE User = 'user-one';" "-h $cluster-proxysql -uroot -proot_password"
 
-generatedPass=$(kubectl_bin get secret my-user-pwd -o jsonpath="{.data.my-user-pwd-key}" | base64 -d 1>/dev/null 2>/dev/null)
+	# local ownerName=$(kubectl_bin get secrets/$cluster-ssl -o json | jq '.metadata.ownerReferences[0].name')
 generatedUserSecret=$(echo "$cluster-app-user-secret")
-
-
+generatedPass=$(kubectl_bin get secret $generatedUserSecret -n $namespace  -o jsonpath="{.data.my-user-pwd-key}" | base64 -d 1>/dev/null 2>/dev/null)
+compare_mysql_cmd "select-3" "SELECT 1;" "-h $cluster-proxysql -uuser-two -p$generatedPass"
+compare_mysql_cmd "select-4" "SELECT User, Host from mysql.user WHERE User = 'user-two';" "-h $cluster-proxysql -uroot -proot_password"
 
 desc 'delete initial users from CR and create a new one'
 kubectl_bin patch pxc some-name --type=merge -p='{

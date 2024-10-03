@@ -123,7 +123,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileCustomUsers(ctx context.Context
 			log.Error(err, "failed to get user", "user", user)
 			continue
 		}
-		log.Info("AAAAAAAAAAAAAAA Usersssssss", "user", user.Name, "us", us)
+		log.Info("AAAAAAAAAAAAAAA Usersssssss", "user", user, "us", us)
 
 		if userChanged(us, &user) || userGrantsChanged(us, &user) {
 			log.Info("User changed", "user", user.Name)
@@ -161,8 +161,6 @@ func generateUserPass(
 }
 
 func userPasswordChanged(secret *corev1.Secret, key, passKey string) bool {
-	println("FFFFFFFFFFFFF secret: ", secret.Name)
-
 	if secret.Annotations == nil {
 		return false
 	}
@@ -174,21 +172,17 @@ func userPasswordChanged(secret *corev1.Secret, key, passKey string) bool {
 
 	newHash := sha256Hash(secret.Data[passKey])
 
-	if hash == newHash {
-		return false
-	}
-
-	println("FFFFFFFFFFFFF newHash: ", newHash)
-	println("FFFFFFFFFFFFF hash: ", hash)
-	return true
+	return hash != newHash
 }
 
 func userChanged(current []users.User, new *api.User) bool {
 	if len(current) == 0 {
+		println("VVVVVV Current is empty")
 		return true
 	}
 
 	if len(current) != len(new.Hosts) {
+		println("VVVVVV Hosts number not the same", len(current), len(new.Hosts))
 		return true
 	}
 
@@ -199,6 +193,7 @@ func userChanged(current []users.User, new *api.User) bool {
 
 	for _, u := range current {
 		if _, ok := newHosts[u.Host]; !ok {
+			println("VVVVVV Host not found", u.Host)
 			return true
 		}
 	}

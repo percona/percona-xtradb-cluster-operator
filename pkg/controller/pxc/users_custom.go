@@ -87,28 +87,25 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileCustomUsers(ctx context.Context
 			userSecretPassKey = user.PasswordSecretRef.Key
 		}
 
+		println("User secret name: ", userSecretName)
+		println("User secret pass key: ", userSecretPassKey)
+
 		userSecret, err = getUserSecret(ctx, r.client, cr, userSecretName)
 		if err != nil {
 			log.Error(err, "failed to get user secret", "user", user)
 			continue
 		}
 
-		us, err := um.GetUsers(ctx, user.Name)
-		if err != nil {
-			log.Error(err, "failed to get user", "user", user)
-			continue
-		}
-
 		annotationKey := fmt.Sprintf("percona.com/%s-%s-hash", cr.Name, user.Name)
 
 		if userPasswordChanged(&userSecret, annotationKey, userSecretPassKey) {
+			log.Info("User password changed", "user", user.Name)
+
 			err := um.Exec(ctx, alterUserQuery(&user, string(userSecret.Data[userSecretPassKey])))
 			if err != nil {
 				log.Error(err, "failed to update user", "user", user)
 				continue
 			}
-
-			annotationKey := fmt.Sprintf("percona.com/%s-%s-hash", cr.Name, user.Name)
 
 			if userSecret.Annotations == nil {
 				userSecret.Annotations = make(map[string]string)
@@ -122,14 +119,21 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileCustomUsers(ctx context.Context
 			log.Info("User password updated", "user", user.Name)
 		}
 
+		us, err := um.GetUsers(ctx, user.Name)
+		if err != nil {
+			log.Error(err, "failed to get user", "user", user)
+			continue
+		}
+		log.Info("AAAAAAAAAAAAAAA Usersssssss", "user", user.Name, "us", us)
+
 		if userChanged(us, &user) || userGrantsChanged(us, &user) {
+			log.Info("User changed", "user", user.Name)
+
 			err := um.Exec(ctx, upsertUserQuery(&user, string(userSecret.Data[userSecretPassKey])))
 			if err != nil {
 				log.Error(err, "failed to update user", "user", user)
 				continue
 			}
-
-			annotationKey := fmt.Sprintf("percona.com/%s-%s-hash", cr.Name, user.Name)
 
 			if userSecret.Annotations == nil {
 				userSecret.Annotations = make(map[string]string)
@@ -140,8 +144,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileCustomUsers(ctx context.Context
 				return err
 			}
 
-			log.Info("User created", "user", user.Name)
-
+			log.Info("User created/updated", "user", user.Name)
 		}
 	}
 
@@ -167,13 +170,17 @@ func userPasswordChanged(secret *corev1.Secret, key, passKey string) bool {
 
 	hash, ok := secret.Annotations[key]
 	if ok && hash == newHash {
-		return true
+		return false
 	}
 
 	return true
 }
 
 func userChanged(current []users.User, new *api.User) bool {
+	if current == nil || len(new.Hosts) == 0 {
+		return true
+	}
+
 	if len(current) != len(new.Hosts) {
 		return false
 	}

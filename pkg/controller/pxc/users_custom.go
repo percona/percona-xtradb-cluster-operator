@@ -224,25 +224,25 @@ func sysUserNames() map[string]struct{} {
 	return sysUserNames
 }
 
-func alterUserQuery(user *api.User, pass string) string {
-	query := strings.Builder{}
+func alterUserQuery(user *api.User, pass string) []string {
+	query := make([]string, 0)
 
 	if len(user.Hosts) > 0 {
 		for _, host := range user.Hosts {
-			query.WriteString(fmt.Sprintf("ALTER USER '%s'@'%s' IDENTIFIED BY '%s';", user.Name, host, pass))
+			query = append(query, fmt.Sprintf("ALTER USER '%s'@'%s' IDENTIFIED BY '%s'", user.Name, host, pass))
 		}
 	} else {
-		query.WriteString(fmt.Sprintf("ALTER USER '%s'@'%%' IDENTIFIED BY '%s';", user.Name, pass))
+		query = append(query, fmt.Sprintf("ALTER USER '%s'@'%%' IDENTIFIED BY '%s'", user.Name, pass))
 	}
 
-	return query.String()
+	return query
 }
 
-func upsertUserQuery(user *api.User, pass string) string {
-	query := strings.Builder{}
+func upsertUserQuery(user *api.User, pass string) []string {
+	query := make([]string, 0)
 
 	for _, db := range user.DBs {
-		query.WriteString(fmt.Sprintf("CREATE DATABASE IF NOT EXISTS %s;", db))
+		query = append(query, (fmt.Sprintf("CREATE DATABASE IF NOT EXISTS %s", db)))
 	}
 
 	withGrantOption := ""
@@ -252,33 +252,33 @@ func upsertUserQuery(user *api.User, pass string) string {
 
 	if len(user.Hosts) > 0 {
 		for _, host := range user.Hosts {
-			query.WriteString(fmt.Sprintf("CREATE USER IF NOT EXISTS '%s'@'%s' IDENTIFIED BY '%s';", user.Name, host, pass))
+			query = append(query, (fmt.Sprintf("CREATE USER IF NOT EXISTS '%s'@'%s' IDENTIFIED BY '%s'", user.Name, host, pass)))
 
 			if len(user.Grants) > 0 {
 				grants := strings.Join(user.Grants, ",")
 				if len(user.DBs) > 0 {
 					for _, db := range user.DBs {
-						query.WriteString(fmt.Sprintf("GRANT %s ON %s.* TO '%s'@'%s' %s;", grants, db, user.Name, host, withGrantOption))
+						query = append(query, (fmt.Sprintf("GRANT %s ON %s.* TO '%s'@'%s' %s", grants, db, user.Name, host, withGrantOption)))
 					}
 				} else {
-					query.WriteString(fmt.Sprintf("GRANT %s ON *.* TO '%s'@'%s' %s;", grants, user.Name, host, withGrantOption))
+					query = append(query, (fmt.Sprintf("GRANT %s ON *.* TO '%s'@'%s' %s", grants, user.Name, host, withGrantOption)))
 				}
 			}
 		}
 	} else {
-		query.WriteString(fmt.Sprintf("CREATE USER IF NOT EXISTS '%s'@'%%' IDENTIFIED BY '%s';", user.Name, pass))
+		query = append(query, (fmt.Sprintf("CREATE USER IF NOT EXISTS '%s'@'%%' IDENTIFIED BY '%s'", user.Name, pass)))
 
 		if len(user.Grants) > 0 {
 			grants := strings.Join(user.Grants, ",")
 			if len(user.DBs) > 0 {
 				for _, db := range user.DBs {
-					query.WriteString(fmt.Sprintf("GRANT %s ON %s.* TO '%s'@'%%' %s;", grants, db, user.Name, withGrantOption))
+					query = append(query, (fmt.Sprintf("GRANT %s ON %s.* TO '%s'@'%%' %s", grants, db, user.Name, withGrantOption)))
 				}
 			} else {
-				query.WriteString(fmt.Sprintf("GRANT %s ON *.* TO '%s'@'%%' %s;", grants, user.Name, withGrantOption))
+				query = append(query, (fmt.Sprintf("GRANT %s ON *.* TO '%s'@'%%' %s", grants, user.Name, withGrantOption)))
 			}
 		}
 	}
 
-	return query.String()
+	return query
 }

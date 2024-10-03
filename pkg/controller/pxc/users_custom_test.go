@@ -1,6 +1,7 @@
 package pxc
 
 import (
+	"reflect"
 	"testing"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
@@ -12,7 +13,7 @@ func TestUpsertUserQuery(t *testing.T) {
 		name     string
 		user     *api.User
 		pass     string
-		expected string
+		expected []string
 	}{
 		{
 			name: "no DBs or hosts set",
@@ -21,8 +22,10 @@ func TestUpsertUserQuery(t *testing.T) {
 				Grants: []string{"SELECT"},
 			},
 			pass: "password",
-			expected: "CREATE USER IF NOT EXISTS 'test'@'%' IDENTIFIED BY 'password';" +
-				"GRANT SELECT ON *.* TO 'test'@'%' ;",
+			expected: []string{
+				"CREATE USER IF NOT EXISTS 'test'@'%' IDENTIFIED BY 'password'",
+				"GRANT SELECT ON *.* TO 'test'@'%' ",
+			},
 		},
 		{
 			name: "DBs set but no hosts",
@@ -32,11 +35,13 @@ func TestUpsertUserQuery(t *testing.T) {
 				Grants: []string{"SELECT, INSERT"},
 			},
 			pass: "pass1",
-			expected: "CREATE DATABASE IF NOT EXISTS db1;" +
-				"CREATE DATABASE IF NOT EXISTS db2;" +
-				"CREATE USER IF NOT EXISTS 'test'@'%' IDENTIFIED BY 'pass1';" +
-				"GRANT SELECT, INSERT ON db1.* TO 'test'@'%' ;" +
-				"GRANT SELECT, INSERT ON db2.* TO 'test'@'%' ;",
+			expected: []string{
+				"CREATE DATABASE IF NOT EXISTS db1",
+				"CREATE DATABASE IF NOT EXISTS db2",
+				"CREATE USER IF NOT EXISTS 'test'@'%' IDENTIFIED BY 'pass1'",
+				"GRANT SELECT, INSERT ON db1.* TO 'test'@'%' ",
+				"GRANT SELECT, INSERT ON db2.* TO 'test'@'%' ",
+			},
 		},
 		{
 			name: "Hosts set but no DBs",
@@ -46,10 +51,12 @@ func TestUpsertUserQuery(t *testing.T) {
 				Grants: []string{"SELECT, INSERT"},
 			},
 			pass: "pass1",
-			expected: "CREATE USER IF NOT EXISTS 'test'@'host1' IDENTIFIED BY 'pass1';" +
-				"GRANT SELECT, INSERT ON *.* TO 'test'@'host1' ;" +
-				"CREATE USER IF NOT EXISTS 'test'@'host2' IDENTIFIED BY 'pass1';" +
-				"GRANT SELECT, INSERT ON *.* TO 'test'@'host2' ;",
+			expected: []string{
+				"CREATE USER IF NOT EXISTS 'test'@'host1' IDENTIFIED BY 'pass1'",
+				"GRANT SELECT, INSERT ON *.* TO 'test'@'host1' ",
+				"CREATE USER IF NOT EXISTS 'test'@'host2' IDENTIFIED BY 'pass1'",
+				"GRANT SELECT, INSERT ON *.* TO 'test'@'host2' ",
+			},
 		},
 		{
 			name: "DBs and hosts set",
@@ -60,14 +67,16 @@ func TestUpsertUserQuery(t *testing.T) {
 				Grants: []string{"SELECT, INSERT"},
 			},
 			pass: "pass1",
-			expected: "CREATE DATABASE IF NOT EXISTS db1;" +
-				"CREATE DATABASE IF NOT EXISTS db2;" +
-				"CREATE USER IF NOT EXISTS 'test'@'host1' IDENTIFIED BY 'pass1';" +
-				"GRANT SELECT, INSERT ON db1.* TO 'test'@'host1' ;" +
-				"GRANT SELECT, INSERT ON db2.* TO 'test'@'host1' ;" +
-				"CREATE USER IF NOT EXISTS 'test'@'host2' IDENTIFIED BY 'pass1';" +
-				"GRANT SELECT, INSERT ON db1.* TO 'test'@'host2' ;" +
-				"GRANT SELECT, INSERT ON db2.* TO 'test'@'host2' ;",
+			expected: []string{
+				"CREATE DATABASE IF NOT EXISTS db1",
+				"CREATE DATABASE IF NOT EXISTS db2",
+				"CREATE USER IF NOT EXISTS 'test'@'host1' IDENTIFIED BY 'pass1'",
+				"GRANT SELECT, INSERT ON db1.* TO 'test'@'host1' ",
+				"GRANT SELECT, INSERT ON db2.* TO 'test'@'host1' ",
+				"CREATE USER IF NOT EXISTS 'test'@'host2' IDENTIFIED BY 'pass1'",
+				"GRANT SELECT, INSERT ON db1.* TO 'test'@'host2' ",
+				"GRANT SELECT, INSERT ON db2.* TO 'test'@'host2' ",
+			},
 		},
 		{
 			name: "DBs and hosts set with grants and grant option",
@@ -79,14 +88,16 @@ func TestUpsertUserQuery(t *testing.T) {
 				WithGrantOption: true,
 			},
 			pass: "pass1",
-			expected: "CREATE DATABASE IF NOT EXISTS db1;" +
-				"CREATE DATABASE IF NOT EXISTS db2;" +
-				"CREATE USER IF NOT EXISTS 'test'@'host1' IDENTIFIED BY 'pass1';" +
-				"GRANT SELECT, INSERT ON db1.* TO 'test'@'host1' WITH GRANT OPTION;" +
-				"GRANT SELECT, INSERT ON db2.* TO 'test'@'host1' WITH GRANT OPTION;" +
-				"CREATE USER IF NOT EXISTS 'test'@'host2' IDENTIFIED BY 'pass1';" +
-				"GRANT SELECT, INSERT ON db1.* TO 'test'@'host2' WITH GRANT OPTION;" +
-				"GRANT SELECT, INSERT ON db2.* TO 'test'@'host2' WITH GRANT OPTION;",
+			expected: []string{
+				"CREATE DATABASE IF NOT EXISTS db1",
+				"CREATE DATABASE IF NOT EXISTS db2",
+				"CREATE USER IF NOT EXISTS 'test'@'host1' IDENTIFIED BY 'pass1'",
+				"GRANT SELECT, INSERT ON db1.* TO 'test'@'host1' WITH GRANT OPTION",
+				"GRANT SELECT, INSERT ON db2.* TO 'test'@'host1' WITH GRANT OPTION",
+				"CREATE USER IF NOT EXISTS 'test'@'host2' IDENTIFIED BY 'pass1'",
+				"GRANT SELECT, INSERT ON db1.* TO 'test'@'host2' WITH GRANT OPTION",
+				"GRANT SELECT, INSERT ON db2.* TO 'test'@'host2' WITH GRANT OPTION",
+			},
 		},
 		{
 			name: "DBs and hosts set with no grants",
@@ -96,17 +107,19 @@ func TestUpsertUserQuery(t *testing.T) {
 				DBs:   []string{"db1", "db2"},
 			},
 			pass: "pass1",
-			expected: "CREATE DATABASE IF NOT EXISTS db1;" +
-				"CREATE DATABASE IF NOT EXISTS db2;" +
-				"CREATE USER IF NOT EXISTS 'test'@'host1' IDENTIFIED BY 'pass1';" +
-				"CREATE USER IF NOT EXISTS 'test'@'host2' IDENTIFIED BY 'pass1';",
+			expected: []string{
+				"CREATE DATABASE IF NOT EXISTS db1",
+				"CREATE DATABASE IF NOT EXISTS db2",
+				"CREATE USER IF NOT EXISTS 'test'@'host1' IDENTIFIED BY 'pass1'",
+				"CREATE USER IF NOT EXISTS 'test'@'host2' IDENTIFIED BY 'pass1'",
+			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			actual := upsertUserQuery(tt.user, tt.pass)
-			if actual != tt.expected {
+			if !reflect.DeepEqual(actual, tt.expected) {
 				t.Fatalf("expected %s, got %s", tt.expected, actual)
 			}
 		})
@@ -118,15 +131,15 @@ func TestAlterUserQuery(t *testing.T) {
 		name     string
 		user     *api.User
 		pass     string
-		expected string
+		expected []string
 	}{
 		{
 			name: "no hosts set",
 			user: &api.User{
 				Name: "test",
 			},
-			pass: "password",
-			expected: "ALTER USER 'test'@'%' IDENTIFIED BY 'password';",
+			pass:     "password",
+			expected: []string{"ALTER USER 'test'@'%' IDENTIFIED BY 'password'"},
 		},
 		{
 			name: "hosts set",
@@ -135,15 +148,17 @@ func TestAlterUserQuery(t *testing.T) {
 				Hosts: []string{"host1", "host2"},
 			},
 			pass: "pass1",
-			expected: "ALTER USER 'test'@'host1' IDENTIFIED BY 'pass1';" +
-				"ALTER USER 'test'@'host2' IDENTIFIED BY 'pass1';",
+			expected: []string{
+				"ALTER USER 'test'@'host1' IDENTIFIED BY 'pass1'",
+				"ALTER USER 'test'@'host2' IDENTIFIED BY 'pass1'",
+			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			actual := alterUserQuery(tt.user, tt.pass)
-			if actual != tt.expected {
+			if !reflect.DeepEqual(actual, tt.expected) {
 				t.Fatalf("expected %s, got %s", tt.expected, actual)
 			}
 		})
@@ -153,8 +168,8 @@ func TestAlterUserQuery(t *testing.T) {
 func TestUserChanged(t *testing.T) {
 	var tests = []struct {
 		name     string
-		crUser      *api.User
-		dbUser  []users.User
+		crUser   *api.User
+		dbUser   []users.User
 		expected bool
 	}{
 		{

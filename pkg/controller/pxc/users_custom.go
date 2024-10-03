@@ -162,6 +162,8 @@ func generateUserPass(
 }
 
 func userPasswordChanged(secret *corev1.Secret, key, passKey string) bool {
+	println("FFFFFFFFFFFFF secret: ", secret.Name)
+
 	if secret.Annotations == nil {
 		return false
 	}
@@ -173,6 +175,8 @@ func userPasswordChanged(secret *corev1.Secret, key, passKey string) bool {
 		return false
 	}
 
+	println("FFFFFFFFFFFFF newHash: ", newHash)
+	println("FFFFFFFFFFFFF hash: ", hash)
 	return true
 }
 

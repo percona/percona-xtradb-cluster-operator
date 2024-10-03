@@ -16,6 +16,10 @@ spec:
     - db2
     hosts:
     - localhost
+    - 111.111.111.111
+    grants:
+    - SELECT
+    - INSERT
     passwordSecretRef:
       name: user-one
       key: userOnePassKey

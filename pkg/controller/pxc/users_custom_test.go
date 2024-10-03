@@ -173,6 +173,15 @@ func TestUserChanged(t *testing.T) {
 		expected bool
 	}{
 		{
+			name: "no users in DB",
+			crUser: &api.User{
+				Name:  "test",
+				Hosts: []string{"host1", "host2"},
+			},
+			dbUser:   []users.User{},
+			expected: true,
+		},
+		{
 			name: "host the same",
 			crUser: &api.User{
 				Name:  "test",
@@ -188,7 +197,7 @@ func TestUserChanged(t *testing.T) {
 					Host: "host2",
 				},
 			},
-			expected: true,
+			expected: false,
 		},
 		{
 			name: "host number not the same",
@@ -202,22 +211,22 @@ func TestUserChanged(t *testing.T) {
 					Host: "host1",
 				},
 			},
-			expected: false,
+			expected: true,
 		},
-		{
-			name: "hosts don't match by number",
-			crUser: &api.User{
-				Name:  "test",
-				Hosts: []string{"host1", "host2"},
-			},
-			dbUser: []users.User{
-				{
-					Name: "test",
-					Host: "host1",
-				},
-			},
-			expected: false,
-		},
+		// {
+		// 	name: "hosts don't match by number",
+		// 	crUser: &api.User{
+		// 		Name:  "test",
+		// 		Hosts: []string{"host1", "host2"},
+		// 	},
+		// 	dbUser: []users.User{
+		// 		{
+		// 			Name: "test",
+		// 			Host: "host1",
+		// 		},
+		// 	},
+		// 	expected: false,
+		// },
 		{
 			name: "hosts don't match by content",
 			crUser: &api.User{
@@ -234,7 +243,7 @@ func TestUserChanged(t *testing.T) {
 					Host: "host222",
 				},
 			},
-			expected: false,
+			expected: true,
 		},
 	}
 

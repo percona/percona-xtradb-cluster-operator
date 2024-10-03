@@ -184,12 +184,12 @@ func userPasswordChanged(secret *corev1.Secret, key, passKey string) bool {
 }
 
 func userChanged(current []users.User, new *api.User) bool {
-	if current == nil || len(new.Hosts) == 0 {
+	if len(current) == 0 {
 		return true
 	}
 
 	if len(current) != len(new.Hosts) {
-		return false
+		return true
 	}
 
 	newHosts := make(map[string]struct{}, len(new.Hosts))
@@ -199,11 +199,11 @@ func userChanged(current []users.User, new *api.User) bool {
 
 	for _, u := range current {
 		if _, ok := newHosts[u.Host]; !ok {
-			return false
+			return true
 		}
 	}
 
-	return true
+	return false
 }
 
 func userGrantsChanged(current []users.User, new *api.User) bool {

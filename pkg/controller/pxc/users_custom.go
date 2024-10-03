@@ -202,7 +202,7 @@ func userChanged(current []users.User, new *api.User) bool {
 }
 
 func userGrantsChanged(current []users.User, new *api.User) bool {
-	return true
+	return false
 }
 
 func getUserSecret(ctx context.Context, cl client.Client, cr *api.PerconaXtraDBCluster, name string) (corev1.Secret, error) {

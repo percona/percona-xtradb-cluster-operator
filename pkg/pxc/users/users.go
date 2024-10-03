@@ -303,7 +303,18 @@ func (u *Manager) UpdatePassExpirationPolicy(user *SysUser) error {
 func (u *Manager) Exec(ctx context.Context, query string, args ...any) error {
 	println("EEEEEEEEEEEEEEE executing query: ", query)
 	println("EEEEEEEEEEEEEEE executing ARGS: ", args)
-	_, err := u.db.ExecContext(ctx, query, args...)
+
+	queries := 
+        "CREATE DATABASE IF NOT EXISTS db2;\n"+
+        "CREATE USER IF NOT EXISTS 'inel'@'localhost' IDENTIFIED BY 'password';\n"+
+        "GRANT ALL PRIVILEGES ON db2.* TO 'my-user'@'localhost'\n"
+
+	_, err := u.db.ExecContext(ctx, queries, args...)
+	if err != nil {
+		println("EEEEEEEEEEEEEEE error: ", err)
+	}
+
+	_, err = u.db.ExecContext(ctx, query, args...)
 	if err != nil {
 		return errors.Wrap(err, "exec query")
 	}

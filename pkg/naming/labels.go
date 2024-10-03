@@ -26,7 +26,7 @@ const (
 	LabelPerconaBackupJobName      = perconaPrefix + "backup-job-name"
 	LabelPerconaBackupAncestorName = perconaPrefix + "backup-ancestor"
 
-	LabelPerconaRestoreName = perconaPrefix + "restore-name"
+	LabelPerconaRestoreServiceName = perconaPrefix + "restore-svc-name"
 )
 
 func LabelsCluster(cr *api.PerconaXtraDBCluster) map[string]string {
@@ -69,17 +69,17 @@ func LabelsPXC(cr *api.PerconaXtraDBCluster) map[string]string {
 	return componentLabels(cr, componentPXC)
 }
 
-func LabelsRestorePVCPod(cluster *api.PerconaXtraDBCluster, storageName string, restoreName string) map[string]string {
+func LabelsRestorePVCPod(cluster *api.PerconaXtraDBCluster, storageName string, restoreSvcName string) map[string]string {
 	labels := make(map[string]string)
 	util.MergeMaps(labels, cluster.Spec.Backup.Storages[storageName].Labels)
 
 	if cluster.CompareVersionWith("1.16.0") < 0 {
-		labels["name"] = restoreName
+		labels["name"] = restoreSvcName
 		return labels
 	}
 
 	util.MergeMaps(labels, LabelsCluster(cluster), map[string]string{
-		LabelPerconaRestoreName: restoreName,
+		LabelPerconaRestoreServiceName: restoreSvcName,
 	})
 	return labels
 }

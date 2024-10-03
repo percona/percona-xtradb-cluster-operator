@@ -24,18 +24,20 @@ import (
 var log = logf.Log.WithName("backup/restore")
 
 func PVCRestoreService(cr *api.PerconaXtraDBClusterRestore, cluster *api.PerconaXtraDBCluster) *corev1.Service {
+	restoreSvcName := pvcRestoreSvcName(cr)
+
 	svc := &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",
 			Kind:       "Service",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "restore-src-" + cr.Name + "-" + cr.Spec.PXCCluster,
+			Name:      restoreSvcName,
 			Namespace: cr.Namespace,
 		},
 		Spec: corev1.ServiceSpec{
 			Selector: map[string]string{
-				"name": "restore-src-" + cr.Name + "-" + cr.Spec.PXCCluster,
+				"name": restoreSvcName,
 			},
 			Type: corev1.ServiceTypeClusterIP,
 			Ports: []corev1.ServicePort{
@@ -53,9 +55,15 @@ func PVCRestoreService(cr *api.PerconaXtraDBClusterRestore, cluster *api.Percona
 
 	if cluster.CompareVersionWith("1.16.0") >= 0 {
 		svc.Labels = naming.LabelsCluster(cluster)
+		svc.Spec.Selector = naming.LabelsCluster(cluster)
+		svc.Spec.Selector[naming.LabelPerconaRestoreServiceName] = restoreSvcName
 	}
 
 	return svc
+}
+
+func pvcRestoreSvcName(cr *api.PerconaXtraDBClusterRestore) string {
+	return "restore-src-" + cr.Name + "-" + cr.Spec.PXCCluster
 }
 
 func PVCRestorePod(cr *api.PerconaXtraDBClusterRestore, bcpStorageName, pvcName string, cluster *api.PerconaXtraDBCluster) (*corev1.Pod, error) {
@@ -72,16 +80,16 @@ func PVCRestorePod(cr *api.PerconaXtraDBClusterRestore, bcpStorageName, pvcName 
 		sslVolume = app.GetSecretVolumes("ssl", cluster.Spec.PXC.SSLSecretName, cluster.Spec.AllowUnsafeConfig)
 	}
 
-	restoreName := "restore-src-" + cr.Name + "-" + cr.Spec.PXCCluster
+	restoreSvcName := pvcRestoreSvcName(cr)
 
-	labels := naming.LabelsRestorePVCPod(cluster, bcpStorageName, restoreName)
+	labels := naming.LabelsRestorePVCPod(cluster, bcpStorageName, restoreSvcName)
 	return &corev1.Pod{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",
 			Kind:       "Pod",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        restoreName,
+			Name:        restoreSvcName,
 			Namespace:   cr.Namespace,
 			Annotations: cluster.Spec.Backup.Storages[bcpStorageName].Annotations,
 			Labels:      labels,

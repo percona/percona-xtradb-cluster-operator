@@ -69,16 +69,18 @@ func LabelsPXC(cr *api.PerconaXtraDBCluster) map[string]string {
 	return componentLabels(cr, componentPXC)
 }
 
-func LabelsRestorePVCPod(cluster *api.PerconaXtraDBCluster, storageName string, restoreSvcName string) map[string]string {
+func LabelsRestorePVCPod(cr *api.PerconaXtraDBCluster, storageName string, restoreSvcName string) map[string]string {
 	labels := make(map[string]string)
-	util.MergeMaps(labels, cluster.Spec.Backup.Storages[storageName].Labels)
+	if cr.Spec.Backup.Storages != nil && cr.Spec.Backup.Storages[storageName] != nil && len(cr.Spec.Backup.Storages[storageName].Labels) > 0 {
+		util.MergeMaps(labels, cr.Spec.Backup.Storages[storageName].Labels)
+	}
 
-	if cluster.CompareVersionWith("1.16.0") < 0 {
+	if cr.CompareVersionWith("1.16.0") < 0 {
 		labels["name"] = restoreSvcName
 		return labels
 	}
 
-	util.MergeMaps(labels, LabelsCluster(cluster), map[string]string{
+	util.MergeMaps(labels, LabelsCluster(cr), map[string]string{
 		LabelPerconaRestoreServiceName: restoreSvcName,
 	})
 	return labels
@@ -92,7 +94,10 @@ func LabelsRestore(cr *api.PerconaXtraDBCluster, storageName string) map[string]
 	labels := make(map[string]string)
 
 	// TODO: should we add labels from storage or from .spec.pxc.labels ???
-	util.MergeMaps(labels, cr.Spec.Backup.Storages[storageName].Labels, LabelsCluster(cr))
+	if cr.Spec.Backup.Storages != nil && cr.Spec.Backup.Storages[storageName] != nil && len(cr.Spec.Backup.Storages[storageName].Labels) > 0 {
+		util.MergeMaps(labels, cr.Spec.Backup.Storages[storageName].Labels)
+	}
+	util.MergeMaps(labels, LabelsCluster(cr))
 
 	return labels
 }

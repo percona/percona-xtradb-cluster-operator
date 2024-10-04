@@ -11,18 +11,18 @@ spec:
 
   users:
   - name: user-one
-    db:
+    dbs:
     - db1
     - db2
     hosts:
-    - localhost
-    - 111.111.111.111
+    - '%'
+    - '127.0.0.1'
     grants:
     - SELECT
     - INSERT
     passwordSecretRef:
-      name: user-one
-      key: userOnePassKey
+      name: user-secrets-one
+      key: pwd-key
   # - name: user-two
 
   pxc:

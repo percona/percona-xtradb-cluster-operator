@@ -8,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -86,7 +87,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileCustomUsers(ctx context.Context
 			userSecretPassKey = user.PasswordSecretRef.Key
 		}
 
-		userSecret, err = getUserSecret(ctx, r.client, cr, userSecretName)
+		userSecret, err := getUserSecret(ctx, r.client, cr, userSecretName)
 		if err != nil {
 			log.Error(err, "failed to get user secret", "user", user)
 			continue
@@ -148,6 +149,24 @@ func generateUserPass(
 	secret *corev1.Secret,
 	name, passKey string) error {
 
+	// secretObj := &corev1.Secret{
+	// 	ObjectMeta: metav1.ObjectMeta{
+	// 		Name:      cr.Spec.SecretsName,
+	// 		Namespace: cr.Namespace,
+	// 	},
+	// 	Type: corev1.SecretTypeOpaque,
+	// }
+
+	// if _, err = setUserSecretDefaults(secretObj); err != nil {
+	// 	return errors.Wrap(err, "set user secret defaults")
+	// }
+
+	// err = r.client.Create(context.TODO(), secretObj)
+	// if err != nil {
+	// 	return fmt.Errorf("create Users secret: %v", err)
+	// }
+
+	// log.Info("Created user secrets", "secrets", cr.Spec.SecretsName)
 	return nil
 }
 
@@ -168,12 +187,10 @@ func userPasswordChanged(secret *corev1.Secret, key, passKey string) bool {
 
 func userChanged(current []users.User, new *api.User) bool {
 	if len(current) == 0 {
-		println("VVVVVV Current is empty")
 		return true
 	}
 
 	if len(current) != len(new.Hosts) {
-		println("VVVVVV Hosts number not the same", len(current), len(new.Hosts))
 		return true
 	}
 
@@ -184,7 +201,6 @@ func userChanged(current []users.User, new *api.User) bool {
 
 	for _, u := range current {
 		if _, ok := newHosts[u.Host]; !ok {
-			println("VVVVVV Host not found", u.Host)
 			return true
 		}
 	}

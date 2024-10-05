@@ -21,9 +21,17 @@ spec:
     - SELECT
     - INSERT
     passwordSecretRef:
-      name: user-secrets-one
-      key: pwd-key
-  # - name: user-two
+      name: user-secrets
+      key: pwd-key-one
+  - name: user-two
+    hosts:
+    - '%'
+    grants:
+    - INSERT
+    - UPDATE
+    passwordSecretRef:
+      name: user-secrets # will use default user password key
+  # - name: user-three # will use generated password
 
   pxc:
     size: 3

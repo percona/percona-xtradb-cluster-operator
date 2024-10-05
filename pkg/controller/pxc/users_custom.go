@@ -209,6 +209,7 @@ func userChanged(current []users.User, new *api.User) bool {
 }
 
 func userGrantsChanged(current []users.User, new *api.User) bool {
+	//GRANT SELECT, INSERT ON `db1`.* TO `user-one`@`127.0.0.1`
 	return false
 }
 

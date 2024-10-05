@@ -34,8 +34,9 @@ type SysUser struct {
 }
 
 type User struct {
-	Name string `db:"User"`
-	Host string `db:"Host"`
+	Name   string `db:"User"`
+	Host   string `db:"Host"`
+	Grants string
 }
 
 func NewManager(addr string, user, pass string, timeout int32) (Manager, error) {
@@ -331,6 +332,16 @@ func (p *Manager) GetUsers(ctx context.Context, user string) ([]User, error) {
 		}
 
 		users = append(users, u)
+	}
+
+	for _, u := range users {
+		grants := ""
+		err = p.db.QueryRowContext(ctx, "SHOW GRANTS FOR ?@?", u.Name, u.Host).Scan(&grants)
+		if err != nil {
+			return nil, err
+		}
+
+		u.Grants = grants
 	}
 
 	return users, nil

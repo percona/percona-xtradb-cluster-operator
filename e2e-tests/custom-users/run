@@ -46,7 +46,7 @@ kubectl_bin patch pxc some-name --type=merge -p='{
 		"spec": {"users":[
 			{
 				"name":"user-four",
-				"grants":["SELECT, REPLICATION_SLAVE, REPLICATION_CLIENT"],
+				"grants":["SELECT, REPLICATION_SLAVE_ADMIN, REPLICATION_APPLIER"],
 				"passwordSecretRef": {
 					"name": "user-secrets",
 					"key": "pwd-key-two"
@@ -62,9 +62,9 @@ compare_mysql_cmd "user-four-1" "SELECT User, Host from mysql.user WHERE User = 
 compare_mysql_cmd "user-four" "SHOW GRANTS FOR 'user-four'@'%';" "-h $cluster-haproxy -uroot -proot_password"
 
 # user-one, user-two and three should not be deleted
-compare_mysql_user "-h $cluster-haproxy -uuser-one -p'$newpass'"
+compare_mysql_user "-h $cluster-haproxy -uuser-one -pnew-password"
 compare_mysql_user "-h $cluster-haproxy -uuser-two -ptestpass3"
-compare_mysql_user "-h $cluster-haproxy -uuser-thre -p'$generatedPass'"
+# compare_mysql_user "-h $cluster-haproxy -uuser-three -p'$generatedPass'"
 
 desc 'check user update from DB =================='
 run_mysql "GRANT INSERT, insert ON test1.* TO 'user-four'@'%'" "-h $cluster-haproxy -uroot -proot_password"

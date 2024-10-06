@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/hashicorp/go-version"
 	"github.com/pkg/errors"
@@ -902,6 +903,9 @@ func (r *ReconcilePerconaXtraDBCluster) syncPXCUsersWithProxySQL(ctx context.Con
 		return nil
 	}
 
+	const maxRetries = 5
+	const baseDelay = time.Second * 2
+
 	for i := 0; i < int(cr.Spec.ProxySQL.Size); i++ {
 		pod := corev1.Pod{}
 		err := r.client.Get(context.TODO(),
@@ -917,12 +921,15 @@ func (r *ReconcilePerconaXtraDBCluster) syncPXCUsersWithProxySQL(ctx context.Con
 			return errors.Wrap(err, "get proxysql pod")
 		}
 		var errb, outb bytes.Buffer
-		err = r.clientcmd.Exec(&pod, "proxysql", []string{"proxysql-admin", "--syncusers", "--add-query-rule"}, nil, &outb, &errb, false)
-		if err != nil {
-			return errors.Errorf("exec syncusers: %v / %s / %s", err, outb.String(), errb.String())
-		}
-		if len(errb.Bytes()) > 0 {
-			return errors.New("syncusers: " + errb.String())
+		for retries := 0; retries <= maxRetries; retries++ {
+			err = r.clientcmd.Exec(&pod, "proxysql", []string{"proxysql-admin", "--syncusers", "--add-query-rule"}, nil, &outb, &errb, false)
+			if err == nil && len(errb.Bytes()) == 0 {
+				break
+			}
+			if retries == maxRetries {
+				return errors.Errorf("exec syncusers failed after %d attempts: %v / %s / %s", retries+1, err, outb.String(), errb.String())
+			}
+			time.Sleep(baseDelay * time.Duration(1<<retries))
 		}
 	}
 

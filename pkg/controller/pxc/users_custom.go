@@ -121,7 +121,9 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileCustomUsers(ctx context.Context
 			continue
 		}
 
-		if userChanged(us, &user) || userGrantsChanged(us, &user) {
+		log.Info("AAAAAAAAAAAAAAAA User found", "user", us)
+
+		if userChanged(us, &user) {
 			log.Info("User changed", "user", user.Name)
 
 			err := um.Exec(ctx, upsertUserQuery(&user, string(userSecret.Data[userSecretPassKey])))
@@ -205,11 +207,8 @@ func userChanged(current []users.User, new *api.User) bool {
 		}
 	}
 
-	return false
-}
+	// TODO: check grants
 
-func userGrantsChanged(current []users.User, new *api.User) bool {
-	//GRANT SELECT, INSERT ON `db1`.* TO `user-one`@`127.0.0.1`
 	return false
 }
 

@@ -16,7 +16,6 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	clientretry "k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -917,21 +916,13 @@ func (r *ReconcilePerconaXtraDBCluster) syncPXCUsersWithProxySQL(ctx context.Con
 		} else if err != nil {
 			return errors.Wrap(err, "get proxysql pod")
 		}
-
-		err = clientretry.RetryOnConflict(clientretry.DefaultRetry, func() error {
-			var errb, outb bytes.Buffer
-			err := r.clientcmd.Exec(&pod, "proxysql", []string{"proxysql-admin", "--syncusers", "--add-query-rule"}, nil, &outb, &errb, false)
-			if err != nil {
-				return err
-			}
-			if len(errb.Bytes()) > 0 {
-				return errors.New("syncusers: " + errb.String())
-			}
-			return nil
-		})
-
+		var errb, outb bytes.Buffer
+		err = r.clientcmd.Exec(&pod, "proxysql", []string{"proxysql-admin", "--syncusers", "--add-query-rule"}, nil, &outb, &errb, false)
 		if err != nil {
-			return errors.Wrapf(err, "exec syncusers failed after retries on proxysql pod %s", pod.Name)
+			return errors.Errorf("exec syncusers: %v / %s / %s", err, outb.String(), errb.String())
+		}
+		if len(errb.Bytes()) > 0 {
+			return errors.New("syncusers: " + errb.String())
 		}
 	}
 

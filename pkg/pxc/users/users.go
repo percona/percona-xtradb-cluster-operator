@@ -343,6 +343,8 @@ func (p *Manager) GetUsers(ctx context.Context, user string) ([]User, error) {
 			return nil, err
 		}
 
+		u.Grants = make([]string, len(users))
+
 		for rows.Next() {
 			var grant string
 			err = rows.Scan(&grant)

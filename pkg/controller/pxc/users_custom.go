@@ -121,8 +121,9 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileCustomUsers(ctx context.Context
 			continue
 		}
 
+		log.Info("AAAAAAAAAAAAAAAA User changeeed", "users", us)
 		if userChanged(us, &user) {
-			log.Info("AAAAAAAAAAAAAAAA User changeeed", "users", us)
+			log.Info("OOOOOOOOOOOOOOOOOOOO User changeeed", "users", us)
 			log.Info("User changed", "user", user.Name)
 
 			err := um.Exec(ctx, upsertUserQuery(&user, string(userSecret.Data[userSecretPassKey])))

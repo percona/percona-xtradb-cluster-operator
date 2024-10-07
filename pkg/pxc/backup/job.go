@@ -24,7 +24,7 @@ func (*Backup) Job(cr *api.PerconaXtraDBClusterBackup, cluster *api.PerconaXtraD
 		labelKeyBackupType = naming.LabelPerconaBackupType
 	}
 
-	jobName := util.GenBackupName(cr.Name, cr.Labels[labelKeyBackupType] == "cron")
+	jobName := naming.BackupJobName(cr.Name, cr.Labels[labelKeyBackupType] == "cron")
 
 	return &batchv1.Job{
 		TypeMeta: metav1.TypeMeta{

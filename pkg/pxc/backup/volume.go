@@ -6,7 +6,6 @@ import (
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/util"
 )
 
 // NewPVC returns the list of PersistentVolumeClaims for the backups
@@ -21,7 +20,7 @@ func NewPVC(cr *api.PerconaXtraDBClusterBackup, cluster *api.PerconaXtraDBCluste
 			Kind:       "PersistentVolumeClaim",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      util.GenBackupName(cr.Name, false),
+			Name:      naming.BackupJobName(cr.Name, false),
 			Namespace: cr.Namespace,
 			Labels:    ls,
 		},

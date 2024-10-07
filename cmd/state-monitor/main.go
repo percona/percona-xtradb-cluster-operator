@@ -106,7 +106,7 @@ func main() {
 				continue
 			}
 
-			n, err = stateFile.Write([]byte(mysqlState))
+			_, err = stateFile.Write([]byte(mysqlState))
 			if err != nil {
 				log.Printf("Failed to write to state file: %s", err)
 			}

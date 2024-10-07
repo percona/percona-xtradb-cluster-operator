@@ -344,7 +344,7 @@ func (p *Manager) GetUsers(ctx context.Context, user string) ([]User, error) {
 			return nil, err
 		}
 
-		users[i].Grants = make([]string, len(users))
+		users[i].Grants = make([]string, 0, len(users))
 
 		for rows.Next() {
 			var grant string

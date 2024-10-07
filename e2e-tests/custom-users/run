@@ -74,9 +74,6 @@ sleep 15
 compare_mysql_user "-h $cluster-haproxy -uuser-four -ptestpass2"
 compare_mysql_cmd "user-four-1" "SELECT User, Host from mysql.user WHERE User = 'user-four';" "-h $cluster-haproxy -uroot -proot_password"
 
-sleep 40
-echo "e sadaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-
 desc 'check user update from CR =================='
 kubectl_bin patch pxc some-name --type=merge -p='{
 		"spec": {"users":[
@@ -96,8 +93,6 @@ sleep 15
 compare_mysql_cmd "user-four-2" "SELECT User, Host from mysql.user WHERE User = 'user-four';" "-h $cluster-haproxy -uroot -proot_password"
 compare_mysql_cmd "user-four-3" "SHOW GRANTS FOR 'user-four'@'%';" "-h $cluster-haproxy -uroot -proot_password"
 compare_mysql_cmd "user-four-4" "SHOW GRANTS FOR 'user-four'@'localhost';" "-h $cluster-haproxy -uroot -proot_password"
-
-exit 1
 
 desc 'check new user created after updated user name via CR ================'
 kubectl_bin patch pxc some-name --type=merge -p='{

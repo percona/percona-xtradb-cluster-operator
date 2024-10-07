@@ -338,8 +338,8 @@ func (p *Manager) GetUsers(ctx context.Context, user string) ([]User, error) {
 	}
 
 	for i := range users {
-		println("XXXXXXXXX getting grants for user", u.Name, u.Host)
-		rows, err := p.db.QueryContext(ctx, "SHOW GRANTS FOR ?@?", u.Name, u.Host)
+		println("XXXXXXXXX getting grants for user", users[i].Name, users[i].Host)
+		rows, err := p.db.QueryContext(ctx, "SHOW GRANTS FOR ?@?", users[i].Name, users[i].Host)
 		if err != nil {
 			return nil, err
 		}

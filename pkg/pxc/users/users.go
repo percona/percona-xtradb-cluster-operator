@@ -302,12 +302,15 @@ func (u *Manager) UpdatePassExpirationPolicy(user *SysUser) error {
 }
 
 func (u *Manager) Exec(ctx context.Context, query []string, args ...any) error {
+	println("executing query")
 	for _, q := range query {
+		println(q)
 		_, err := u.db.ExecContext(ctx, q, args...)
 		if err != nil {
 			return errors.Wrap(err, "exec")
 		}
 	}
+	println("executing query done")
 	return nil
 }
 
@@ -334,15 +337,15 @@ func (p *Manager) GetUsers(ctx context.Context, user string) ([]User, error) {
 		users = append(users, u)
 	}
 
-	for _, u := range users {
-		grants := ""
-		err = p.db.QueryRowContext(ctx, "SHOW GRANTS FOR ?@?", u.Name, u.Host).Scan(&grants)
-		if err != nil {
-			return nil, err
-		}
+	// for _, u := range users {
+	// 	grants := ""
+	// 	err = p.db.QueryRowContext(ctx, "SHOW GRANTS FOR ?@?", u.Name, u.Host).Scan(&grants)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
 
-		u.Grants = grants
-	}
+	// 	u.Grants = grants
+	// }
 
 	return users, nil
 }

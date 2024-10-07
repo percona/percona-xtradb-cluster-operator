@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/hashicorp/go-version"
 	"github.com/pkg/errors"
@@ -17,6 +16,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	clientretry "k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -903,9 +903,6 @@ func (r *ReconcilePerconaXtraDBCluster) syncPXCUsersWithProxySQL(ctx context.Con
 		return nil
 	}
 
-	const maxRetries = 5
-	const baseDelay = time.Second * 2
-
 	for i := 0; i < int(cr.Spec.ProxySQL.Size); i++ {
 		pod := corev1.Pod{}
 		err := r.client.Get(context.TODO(),
@@ -920,16 +917,21 @@ func (r *ReconcilePerconaXtraDBCluster) syncPXCUsersWithProxySQL(ctx context.Con
 		} else if err != nil {
 			return errors.Wrap(err, "get proxysql pod")
 		}
-		var errb, outb bytes.Buffer
-		for retries := 0; retries <= maxRetries; retries++ {
-			err = r.clientcmd.Exec(&pod, "proxysql", []string{"proxysql-admin", "--syncusers", "--add-query-rule"}, nil, &outb, &errb, false)
-			if err == nil && len(errb.Bytes()) == 0 {
-				break
+
+		err = clientretry.RetryOnConflict(clientretry.DefaultRetry, func() error {
+			var errb, outb bytes.Buffer
+			err := r.clientcmd.Exec(&pod, "proxysql", []string{"proxysql-admin", "--syncusers", "--add-query-rule"}, nil, &outb, &errb, false)
+			if err != nil {
+				return err
 			}
-			if retries == maxRetries {
-				return errors.Errorf("exec syncusers failed after %d attempts: %v / %s / %s", retries+1, err, outb.String(), errb.String())
+			if len(errb.Bytes()) > 0 {
+				return errors.New("syncusers: " + errb.String())
 			}
-			time.Sleep(baseDelay * time.Duration(1<<retries))
+			return nil
+		})
+
+		if err != nil {
+			return errors.Wrapf(err, "exec syncusers failed after retries on proxysql pod %s", pod.Name)
 		}
 	}
 

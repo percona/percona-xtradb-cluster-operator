@@ -337,14 +337,14 @@ func (p *Manager) GetUsers(ctx context.Context, user string) ([]User, error) {
 		users = append(users, u)
 	}
 
-	for _, u := range users {
+	for i := range users {
 		println("XXXXXXXXX getting grants for user", u.Name, u.Host)
 		rows, err := p.db.QueryContext(ctx, "SHOW GRANTS FOR ?@?", u.Name, u.Host)
 		if err != nil {
 			return nil, err
 		}
 
-		u.Grants = make([]string, len(users))
+		users[i].Grants = make([]string, len(users))
 
 		for rows.Next() {
 			var grant string
@@ -354,7 +354,7 @@ func (p *Manager) GetUsers(ctx context.Context, user string) ([]User, error) {
 			}
 
 			println("XXXXXXXXXXXX grant", grant)
-			u.Grants = append(u.Grants, grant)
+			users[i].Grants = append(users[i].Grants, grant)
 		}
 	}
 

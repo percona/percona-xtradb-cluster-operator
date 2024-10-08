@@ -80,16 +80,15 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileCustomUsers(ctx context.Context
 			userSecretPassKey = user.PasswordSecretRef.Key
 		}
 
-		userSecret := &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      userSecretName,
-				Namespace: cr.Namespace,
-			},
-		}
-
-		userSecret, err = getUserSecret(ctx, r.client, cr, userSecretName)
+		userSecret, err := getUserSecret(ctx, r.client, cr, userSecretName)
 		if err != nil {
 			if k8serrors.IsNotFound(err) {
+				userSecret = &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      userSecretName,
+						Namespace: cr.Namespace,
+					},
+				}
 				err := generateUserPass(ctx, r.client, cr, userSecret, userSecretPassKey)
 				if err != nil {
 					return errors.Wrap(err, "failed to generate user password secrets")

@@ -546,10 +546,7 @@ compare_mysql_cmd() {
 		run_mysql "$command" "$uri" \
 			>$tmp_dir/${command_id}.sql
 	fi
-	# diff -u $expected_result $tmp_dir/${command_id}.sql
-	echo "compare_mysql_cmd---------------"
-	echo "UUUURIII: $uri"
-	cp $tmp_dir/${command_id}.sql $expected_result 
+	diff -u $expected_result $tmp_dir/${command_id}.sql
 }
 
 compare_mysql_cmd_local() {
@@ -572,11 +569,7 @@ compare_mysql_cmd_local() {
 		run_mysql_local "$command" "$uri" "$pod" \
 			>$tmp_dir/${command_id}.sql
 	fi
-	# diff -u $expected_result $tmp_dir/${command_id}.sql
-	echo "compare_mysql_cmd_local---------------"
-	echo "UUUURIII: $uri"
-
-	cp $tmp_dir/${command_id}.sql $expected_result 
+	diff -u $expected_result $tmp_dir/${command_id}.sql
 }
 
 get_proxy_primary() {
@@ -615,12 +608,7 @@ compare_mysql_user() {
 	(run_mysql "SHOW GRANTS;" "$uri" || :) \
 		| $sed -E "s/'(10|192)[.][0-9][^']*'//; s/'[^']*[.]internal'//" \
 			>$tmp_dir/$user.sql
-	# diff -u $expected_result $tmp_dir/$user.sql
-
-	echo "compare_mysql_user  --------------- $user"
-	echo "UUUURIII: $uri"
-
-	cp $tmp_dir/$user.sql $expected_result
+	diff -u $expected_result $tmp_dir/$user.sql
 }
 
 compare_mysql_user_local() {

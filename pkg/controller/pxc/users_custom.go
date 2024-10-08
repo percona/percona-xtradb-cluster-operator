@@ -167,7 +167,6 @@ func generateUserPass(
 	}
 	secret.Data[passKey] = pass
 
-	log.Info("AAAAAAA Generated custom user password", "secret", secret)
 	err = cl.Create(ctx, secret)
 	if err != nil {
 		return fmt.Errorf("create custom users secret: %v", err)

@@ -31,9 +31,9 @@ RUN GOOS=$GOOS GOARCH=${TARGETARCH} CGO_ENABLED=$CGO_ENABLED GO_LDFLAGS=$GO_LDFL
     && cp -r build/_output/bin/pitr /usr/local/bin/pitr
 
 RUN GOOS=$GOOS GOARCH=${TARGETARCH} CGO_ENABLED=$CGO_ENABLED GO_LDFLAGS=$GO_LDFLAGS \
-       go build -o build/_output/bin/state-monitor \
-               cmd/state-monitor/main.go \
-    && cp -r build/_output/bin/state-monitor /usr/local/bin/state-monitor
+       go build -o build/_output/bin/mysql-state-monitor \
+               cmd/mysql-state-monitor/main.go \
+    && cp -r build/_output/bin/mysql-state-monitor /usr/local/bin/mysql-state-monitor
 
 # Looking for all possible License/Notice files and copying them to the image
 RUN find $GOPATH/pkg/mod -regextype posix-extended -iregex '.*(license|notice)(\.md|\.txt|$)' \
@@ -54,7 +54,7 @@ COPY LICENSE /licenses/
 COPY --from=go_builder /usr/local/bin/percona-xtradb-cluster-operator /usr/local/bin/percona-xtradb-cluster-operator
 COPY --from=go_builder /usr/local/bin/peer-list /peer-list
 COPY --from=go_builder /usr/local/bin/pitr /pitr
-COPY --from=go_builder /usr/local/bin/state-monitor /state-monitor
+COPY --from=go_builder /usr/local/bin/mysql-state-monitor /mysql-state-monitor
 COPY build/pxc-entrypoint.sh /pxc-entrypoint.sh
 COPY build/pxc-init-entrypoint.sh /pxc-init-entrypoint.sh
 COPY build/pitr-init-entrypoint.sh /pitr-init-entrypoint.sh

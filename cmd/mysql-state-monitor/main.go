@@ -52,7 +52,7 @@ func parseDatum(datum string) MySQLState {
 }
 
 func main() {
-	log.Println("Starting state-monitor")
+	log.Println("Starting mysql-state-monitor")
 
 	socketPath, envDefined := os.LookupEnv("NOTIFY_SOCKET")
 	if !envDefined {
@@ -91,7 +91,7 @@ func main() {
 
 	go func() {
 		sig := <-sigterm
-		log.Printf("Received signal %v. Exiting state-monitor", sig)
+		log.Printf("Received signal %v. Exiting mysql-state-monitor", sig)
 		os.Exit(0)
 	}()
 

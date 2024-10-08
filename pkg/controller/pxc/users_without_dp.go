@@ -246,9 +246,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUserWithoutDP(ctx context.C
 	actions.restartHAProxy = true
 
 	actions.restartProxySQL = true
-	if cr.Spec.PMM != nil && cr.Spec.PMM.IsEnabled(internalSecrets) {
-		actions.restartPXC = true
-	}
+	actions.restartPXC = true
 
 	orig := internalSecrets.DeepCopy()
 	internalSecrets.Data[user.Name] = secrets.Data[user.Name]

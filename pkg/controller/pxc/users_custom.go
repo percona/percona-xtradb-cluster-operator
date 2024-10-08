@@ -93,10 +93,10 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileCustomUsers(ctx context.Context
 				if err != nil {
 					return errors.Wrap(err, "failed to generate user password secrets")
 				}
+			} else {
+				log.Error(err, "failed to get user secret", "user", user)
+				continue
 			}
-
-			log.Error(err, "failed to get user secret", "user", user)
-			continue
 		}
 
 		annotationKey := fmt.Sprintf("percona.com/%s-%s-hash", cr.Name, user.Name)
@@ -195,6 +195,10 @@ func userPasswordChanged(secret *corev1.Secret, key, passKey string) bool {
 func userChanged(current []users.User, new *api.User) bool {
 	if len(current) == 0 {
 		return true
+	}
+
+	if len(new.Hosts) == 0 {
+		new.Hosts = []string{"%"}
 	}
 
 	if len(current) != len(new.Hosts) {

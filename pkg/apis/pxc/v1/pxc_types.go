@@ -646,6 +646,7 @@ const (
 )
 
 type BackupStorageS3Spec struct {
+	// +kubebuilder:validation:Required
 	Bucket            string `json:"bucket"`
 	CredentialsSecret string `json:"credentialsSecret"`
 	Region            string `json:"region,omitempty"`
@@ -667,9 +668,10 @@ func (b *BackupStorageS3Spec) BucketAndPrefix() (string, string) {
 
 type BackupStorageAzureSpec struct {
 	CredentialsSecret string `json:"credentialsSecret"`
-	ContainerPath     string `json:"container"`
-	Endpoint          string `json:"endpointUrl"`
-	StorageClass      string `json:"storageClass"`
+	// +kubebuilder:validation:Required
+	ContainerPath string `json:"container"`
+	Endpoint      string `json:"endpointUrl"`
+	StorageClass  string `json:"storageClass"`
 }
 
 const (

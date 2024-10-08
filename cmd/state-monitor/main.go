@@ -82,7 +82,13 @@ func main() {
 	defer conn.Close()
 
 	sigterm := make(chan os.Signal, 1)
-	signal.Notify(sigterm, os.Interrupt)
+	signal.Notify(sigterm, os.Interrupt, os.Kill)
+
+	go func() {
+		sig := <-sigterm
+		log.Printf("Received signal %v. Exiting state-monitor", sig)
+		os.Exit(0)
+	}()
 
 	ticker := time.NewTicker(1 * time.Second)
 	for {
@@ -110,9 +116,6 @@ func main() {
 			if err != nil {
 				log.Printf("Failed to write to state file: %s", err)
 			}
-		case <-sigterm:
-			log.Println("Received sigterm")
-			os.Exit(0)
 		}
 	}
 }

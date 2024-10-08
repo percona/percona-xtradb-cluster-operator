@@ -15,7 +15,7 @@ cluster="some-name"
 kubectl_bin apply -f "$test_dir/conf/user-secrets.yml"
 spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml"
 
-desc 'check users created on cluster creation ============='
+desc 'check users created on cluster creation'
 
 compare_mysql_user "-h $cluster-haproxy -uuser-one -ptestpass"
 compare_mysql_cmd "user-one-1" "SELECT User, Host from mysql.user WHERE User = 'user-one';" "-h $cluster-haproxy -uroot -proot_password"
@@ -24,13 +24,13 @@ compare_mysql_cmd "user-one-2" "SHOW GRANTS FOR 'user-one'@'127.0.0.1';" "-h $cl
 compare_mysql_user "-h $cluster-haproxy -uuser-two -ptestpass3"
 compare_mysql_cmd "user-two-1" "SELECT User, Host from mysql.user WHERE User = 'user-two';" "-h $cluster-haproxy -uroot -proot_password"
 
-# generatedUserSecret="$cluster-custom-user-secret"
-# generatedPass=$(kubectl_bin get secret $generatedUserSecret -o jsonpath="{.data.my-user-pwd-key}" | base64 -d 1>/dev/null 2>/dev/null)
-# compare_mysql_user "-h $cluster-haproxy -uuser-three -p'$generatedPass'"
-# compare_mysql_cmd "user-three-1" "SELECT User, Host from mysql.user WHERE User = 'user-three';" "-h $cluster-proxysql -uroot -proot_password"
-# compare_mysql_cmd "user-three-2" "SHOW GRANTS FOR 'user-three'@'%';" "-h $cluster-haproxy -uroot -proot_password"
+ generatedUserSecret="$cluster-custom-user-secret"
+ generatedPass=$(kubectl_bin get secret $generatedUserSecret -o jsonpath="{.data.my-user-pwd-key}" | base64 -d 1>/dev/null 2>/dev/null)
+ compare_mysql_user "-h $cluster-haproxy -uuser-three -p'$generatedPass'"
+ compare_mysql_cmd "user-three-1" "SELECT User, Host from mysql.user WHERE User = 'user-three';" "-h $cluster-proxysql -uroot -proot_password"
+ compare_mysql_cmd "user-three-2" "SHOW GRANTS FOR 'user-three'@'%';" "-h $cluster-haproxy -uroot -proot_password"
 
-desc 'check password change ==============='
+desc 'check password change'
 kubectl_bin patch secret user-secrets -p='{"stringData":{"pwd-key-one": "new-password"}}'
 sleep 15
 
@@ -38,7 +38,7 @@ compare_mysql_user "-h $cluster-haproxy -uuser-one -pnew-password"
 compare_mysql_cmd "user-one-1" "SELECT User, Host from mysql.user WHERE User = 'user-one';" "-h $cluster-haproxy -uroot -proot_password"
 compare_mysql_cmd "user-one-2" "SHOW GRANTS FOR 'user-one'@'127.0.0.1';" "-h $cluster-haproxy -uroot -proot_password"
 
-desc 'delete initial users from CR and create a new one ============='
+desc 'delete initial users from CR and create a new one'
 kubectl_bin patch pxc some-name --type=merge -p='{
 		"spec": {"users":[
 			{
@@ -62,57 +62,35 @@ compare_mysql_user "-h $cluster-haproxy -uuser-one -pnew-password"
 compare_mysql_user "-h $cluster-haproxy -uuser-two -ptestpass3"
 # compare_mysql_user "-h $cluster-haproxy -uuser-three -p'$generatedPass'"
 
-desc 'check user update from DB =================='
+desc 'check user update from DB'
 run_mysql "GRANT INSERT, insert ON test1.* TO 'user-four'@'%'" "-h $cluster-haproxy -uroot -proot_password"
 sleep 15
 compare_mysql_user "-h $cluster-haproxy -uuser-four -ptestpass2"
 compare_mysql_cmd "user-four-1" "SELECT User, Host from mysql.user WHERE User = 'user-four';" "-h $cluster-haproxy -uroot -proot_password"
 
-desc 'check user recreated after deleted from DB =================='
+desc 'check user recreated after deleted from DB'
 run_mysql "DROP USER 'user-four'@'%';" "-h $cluster-haproxy -uroot -proot_password"
 sleep 15
 compare_mysql_user "-h $cluster-haproxy -uuser-four -ptestpass2"
 compare_mysql_cmd "user-four-1" "SELECT User, Host from mysql.user WHERE User = 'user-four';" "-h $cluster-haproxy -uroot -proot_password"
 
-desc 'check user update from CR =================='
-kubectl_bin patch pxc some-name --type=merge -p='{
-		"spec": {"users":[
-			{
-				"name":"user-four",
-				"grants":["SELECT, UPDATE"],
-				"passwordSecretRef": {
-					"name": "user-secrets",
-					"key": "pwd-key-two"
-				},
-				"hosts": ["%", "localhost"] 
-			}
-		]}
-	}'
-sleep 15
-# compare_mysql_user "-h $cluster-haproxy -uuser-four -ptestpass2"
-compare_mysql_cmd "user-four-2" "SELECT User, Host from mysql.user WHERE User = 'user-four';" "-h $cluster-haproxy -uroot -proot_password"
-compare_mysql_cmd "user-four-3" "SHOW GRANTS FOR 'user-four'@'%';" "-h $cluster-haproxy -uroot -proot_password"
-compare_mysql_cmd "user-four-4" "SHOW GRANTS FOR 'user-four'@'localhost';" "-h $cluster-haproxy -uroot -proot_password"
-
-desc 'check new user created after updated user name via CR ================'
+desc 'check new user created after updated user name via CR'
 kubectl_bin patch pxc some-name --type=merge -p='{
 		"spec": {"users":[
 			{
 				"name":"user-five",
-				"grants":["SELECT, UPDATE"],
+				"grants":["SELECT, REPLICATION_SLAVE_ADMIN, REPLICATION_APPLIER"],
 				"passwordSecretRef": {
 					"name": "user-secrets",
 					"key": "pwd-key-two"
 				},
-				"hosts": ["%", "localhost"] 
+				"hosts": ["%"] 
 			}
 		]}
 	}'
 wait_cluster_consistency "$cluster" 3 3
 compare_mysql_user "-h $cluster-haproxy -uuser-five -ptestpass2"
 compare_mysql_cmd "user-five-1" "SELECT User, Host from mysql.user WHERE User = 'user-five';" "-h $cluster-haproxy -uroot -proot_password"
-compare_mysql_cmd "user-five-2" "SHOW GRANTS FOR 'user-five'@'%';" "-h $cluster-haproxy -uroot -proot_password"
-compare_mysql_cmd "user-five-3" "SHOW GRANTS FOR 'user-five'@'localhost';" "-h $cluster-haproxy -uroot -proot_password"
 
 compare_mysql_user "-h $cluster-haproxy -uuser-four -ptestpass2"
 

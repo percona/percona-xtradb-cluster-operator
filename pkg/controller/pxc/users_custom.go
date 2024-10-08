@@ -162,6 +162,12 @@ func generateUserPass(
 	if err != nil {
 		return errors.Wrap(err, "generate custom user password")
 	}
+
+	println("AAAAAAAAAA Generated password: ", string(pass))
+
+	if secret.Data == nil {
+		secret.Data = make(map[string][]byte)
+	}
 	secret.Data[passKey] = pass
 
 	err = cl.Create(ctx, secret)

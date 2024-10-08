@@ -563,6 +563,11 @@ spec:
 #    - db2
 #    hosts:
 #    - localhost
+#    grants:
+#    - SELECT
+#    - DELETE
+#    - INSERT
+#    withGrantOption: true
 #    passwordSecretRef:
 #      name: my-user-pwd
 #      key: my-user-pwd-key

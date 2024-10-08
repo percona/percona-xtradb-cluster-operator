@@ -8,7 +8,7 @@ import (
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	// metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -68,8 +68,6 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileCustomUsers(ctx context.Context
 			user.PasswordSecretRef.Key = "password"
 		}
 
-		userSecret := corev1.Secret{}
-
 		userSecretName := ""
 		userSecretPassKey := ""
 
@@ -77,18 +75,27 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileCustomUsers(ctx context.Context
 			userSecretName = fmt.Sprintf("%s-custom-user-secret", cr.Name)
 			userSecretPassKey = user.Name + "-pass"
 
-			err := generateUserPass(ctx, r.client, cr, &userSecret, userSecretName, userSecretPassKey)
-			if err != nil {
-				return errors.New("failed to generate user password secrets")
-			}
-
 		} else {
 			userSecretName = user.PasswordSecretRef.Name
 			userSecretPassKey = user.PasswordSecretRef.Key
 		}
 
-		userSecret, err := getUserSecret(ctx, r.client, cr, userSecretName)
+		userSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      userSecretName,
+				Namespace: cr.Namespace,
+			},
+		}
+
+		userSecret, err = getUserSecret(ctx, r.client, cr, userSecretName)
 		if err != nil {
+			if k8serrors.IsNotFound(err) {
+				err := generateUserPass(ctx, r.client, cr, userSecret, userSecretPassKey)
+				if err != nil {
+					return errors.New("failed to generate user password secrets")
+				}
+			}
+
 			log.Error(err, "failed to get user secret", "user", user)
 			continue
 		}
@@ -98,7 +105,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileCustomUsers(ctx context.Context
 			userSecret.Annotations = make(map[string]string)
 		}
 
-		if userPasswordChanged(&userSecret, annotationKey, userSecretPassKey) {
+		if userPasswordChanged(userSecret, annotationKey, userSecretPassKey) {
 			log.Info("User password changed", "user", user.Name)
 
 			err := um.Exec(ctx, alterUserQuery(&user, string(userSecret.Data[userSecretPassKey])))
@@ -108,7 +115,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileCustomUsers(ctx context.Context
 			}
 
 			userSecret.Annotations[annotationKey] = string(sha256Hash(userSecret.Data[userSecretPassKey]))
-			if err := r.client.Update(ctx, &userSecret); err != nil {
+			if err := r.client.Update(ctx, userSecret); err != nil {
 				return err
 			}
 
@@ -121,10 +128,8 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileCustomUsers(ctx context.Context
 			continue
 		}
 
-		log.Info("AAAAAAAAAAAAAAAA User changeeed", "users", us)
 		if userChanged(us, &user) {
-			log.Info("OOOOOOOOOOOOOOOOOOOO User changeeed", "users", us)
-			log.Info("User changed", "user", user.Name)
+			log.Info("Creating/updating user", "user", user.Name)
 
 			err := um.Exec(ctx, upsertUserQuery(&user, string(userSecret.Data[userSecretPassKey])))
 			if err != nil {
@@ -133,7 +138,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileCustomUsers(ctx context.Context
 			}
 
 			userSecret.Annotations[annotationKey] = string(sha256Hash(userSecret.Data[userSecretPassKey]))
-			if err := r.client.Update(ctx, &userSecret); err != nil {
+			if err := r.client.Update(ctx, userSecret); err != nil {
 				return err
 			}
 
@@ -149,26 +154,22 @@ func generateUserPass(
 	cl client.Client,
 	cr *api.PerconaXtraDBCluster,
 	secret *corev1.Secret,
-	name, passKey string) error {
+	passKey string) error {
 
-	// secretObj := &corev1.Secret{
-	// 	ObjectMeta: metav1.ObjectMeta{
-	// 		Name:      cr.Spec.SecretsName,
-	// 		Namespace: cr.Namespace,
-	// 	},
-	// 	Type: corev1.SecretTypeOpaque,
-	// }
+	log := logf.FromContext(ctx)
 
-	// if _, err = setUserSecretDefaults(secretObj); err != nil {
-	// 	return errors.Wrap(err, "set user secret defaults")
-	// }
+	pass, err := generatePass()
+	if err != nil {
+		return errors.Wrap(err, "generate custom user password")
+	}
+	secret.Data[passKey] = pass
 
-	// err = r.client.Create(context.TODO(), secretObj)
-	// if err != nil {
-	// 	return fmt.Errorf("create Users secret: %v", err)
-	// }
+	err = cl.Create(ctx, secret)
+	if err != nil {
+		return fmt.Errorf("create custom users secret: %v", err)
+	}
 
-	// log.Info("Created user secrets", "secrets", cr.Spec.SecretsName)
+	log.Info("Created custom user secrets", "secrets", cr.Spec.SecretsName)
 	return nil
 }
 
@@ -207,15 +208,13 @@ func userChanged(current []users.User, new *api.User) bool {
 		}
 	}
 
-	// TODO: check grants
-
 	return false
 }
 
-func getUserSecret(ctx context.Context, cl client.Client, cr *api.PerconaXtraDBCluster, name string) (corev1.Secret, error) {
+func getUserSecret(ctx context.Context, cl client.Client, cr *api.PerconaXtraDBCluster, name string) (*corev1.Secret, error) {
 	secrets := corev1.Secret{}
 	err := cl.Get(ctx, types.NamespacedName{Name: name, Namespace: cr.Namespace}, &secrets)
-	return secrets, errors.Wrap(err, "get user secrets")
+	return &secrets, errors.Wrap(err, "get user secrets")
 }
 
 func sysUserNames() map[string]struct{} {

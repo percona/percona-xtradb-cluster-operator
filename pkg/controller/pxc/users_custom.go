@@ -92,7 +92,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileCustomUsers(ctx context.Context
 			if k8serrors.IsNotFound(err) {
 				err := generateUserPass(ctx, r.client, cr, userSecret, userSecretPassKey)
 				if err != nil {
-					return errors.New("failed to generate user password secrets")
+					return errors.Wrap(err, "failed to generate user password secrets")
 				}
 			}
 
@@ -116,7 +116,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileCustomUsers(ctx context.Context
 
 			userSecret.Annotations[annotationKey] = string(sha256Hash(userSecret.Data[userSecretPassKey]))
 			if err := r.client.Update(ctx, userSecret); err != nil {
-				return err
+				return errors.Wrap(err, "update user secret")
 			}
 
 			log.Info("User password updated", "user", user.Name)
@@ -139,7 +139,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileCustomUsers(ctx context.Context
 
 			userSecret.Annotations[annotationKey] = string(sha256Hash(userSecret.Data[userSecretPassKey]))
 			if err := r.client.Update(ctx, userSecret); err != nil {
-				return err
+				return errors.Wrap(err, "update user secret")
 			}
 
 			log.Info("User created/updated", "user", user.Name)
@@ -163,13 +163,12 @@ func generateUserPass(
 		return errors.Wrap(err, "generate custom user password")
 	}
 
-	println("AAAAAAAAAA Generated password: ", string(pass))
-
 	if secret.Data == nil {
 		secret.Data = make(map[string][]byte)
 	}
 	secret.Data[passKey] = pass
 
+	log.Info("AAAAAAA Generated custom user password", "secret", secret)
 	err = cl.Create(ctx, secret)
 	if err != nil {
 		return fmt.Errorf("create custom users secret: %v", err)

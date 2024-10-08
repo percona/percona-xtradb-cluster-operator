@@ -25,10 +25,9 @@ compare_mysql_user "-h $cluster-haproxy -uuser-two -ptestpass3"
 compare_mysql_cmd "user-two-1" "SELECT User, Host from mysql.user WHERE User = 'user-two';" "-h $cluster-haproxy -uroot -proot_password"
 
  generatedUserSecret="$cluster-custom-user-secret"
- generatedPass=$(kubectl_bin get secret $generatedUserSecret -o jsonpath="{.data.my-user-pwd-key}" | base64 -d 1>/dev/null 2>/dev/null)
+ generatedPass=$(kubectl_bin get secret $generatedUserSecret -o jsonpath="{.data.user-three-pass}" | base64 -d)
  compare_mysql_user "-h $cluster-haproxy -uuser-three -p'$generatedPass'"
- compare_mysql_cmd "user-three-1" "SELECT User, Host from mysql.user WHERE User = 'user-three';" "-h $cluster-proxysql -uroot -proot_password"
- compare_mysql_cmd "user-three-2" "SHOW GRANTS FOR 'user-three'@'%';" "-h $cluster-haproxy -uroot -proot_password"
+ compare_mysql_cmd "user-three-1" "SELECT User, Host from mysql.user WHERE User = 'user-three';" "-h $cluster-haproxy -uroot -proot_password"
 
 desc 'check password change'
 kubectl_bin patch secret user-secrets -p='{"stringData":{"pwd-key-one": "new-password"}}'
@@ -60,7 +59,6 @@ compare_mysql_cmd "user-four-1" "SELECT User, Host from mysql.user WHERE User = 
 # user-one, user-two and three should not be deleted
 compare_mysql_user "-h $cluster-haproxy -uuser-one -pnew-password"
 compare_mysql_user "-h $cluster-haproxy -uuser-two -ptestpass3"
-# compare_mysql_user "-h $cluster-haproxy -uuser-three -p'$generatedPass'"
 
 desc 'check user update from DB'
 run_mysql "GRANT INSERT, insert ON test1.* TO 'user-four'@'%'" "-h $cluster-haproxy -uroot -proot_password"

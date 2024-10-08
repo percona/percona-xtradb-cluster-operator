@@ -31,7 +31,7 @@ spec:
     - UPDATE
     passwordSecretRef:
       name: user-secrets # will use default user password key
-  # - name: user-three # will use generated password
+  - name: user-three # will use generated password
 
   pxc:
     size: 3

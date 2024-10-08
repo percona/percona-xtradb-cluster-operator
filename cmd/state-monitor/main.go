@@ -67,17 +67,23 @@ func main() {
 
 	stateFile, err := os.Create(stateFilePath)
 	if err != nil {
-		log.Fatalf("Failed create state file: %s", err)
+		log.Fatalf("Failed to create state file: %s", err)
+	}
+
+	if _, err := os.Stat(socketPath); err == nil {
+		if err := os.Remove(socketPath); err != nil {
+			log.Fatalf("Failed to remove %s: %s", socketPath, err)
+		}
 	}
 
 	addr, err := net.ResolveUnixAddr("unixgram", socketPath)
 	if err != nil {
-		log.Fatalf("Failed resolve unix addr %s: %s", socketPath, err)
+		log.Fatalf("Failed to resolve unix addr %s: %s", socketPath, err)
 	}
 
 	conn, err := net.ListenUnixgram("unixgram", addr)
 	if err != nil {
-		log.Fatalf("Failed listen unixgram %s: %s", socketPath, err)
+		log.Fatalf("Failed to listen unixgram %s: %s", socketPath, err)
 	}
 	defer conn.Close()
 

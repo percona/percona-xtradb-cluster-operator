@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/signal"
 	"strings"
-	"time"
 )
 
 type MySQLState string
@@ -96,32 +95,28 @@ func main() {
 		os.Exit(0)
 	}()
 
-	ticker := time.NewTicker(1 * time.Second)
 	for {
-		select {
-		case <-ticker.C:
-			buf := make([]byte, 256)
+		buf := make([]byte, 256)
 
-			n, _, err := conn.ReadFromUnix(buf)
-			if err != nil {
-				log.Printf("Failed to read from unix socket: %s", err)
-				continue
-			}
-			datum := string(buf[:n])
-			mysqlState := parseDatum(datum)
+		n, _, err := conn.ReadFromUnix(buf)
+		if err != nil {
+			log.Printf("Failed to read from unix socket: %s", err)
+			continue
+		}
+		datum := string(buf[:n])
+		mysqlState := parseDatum(datum)
 
-			log.Printf("MySQLState: %s\nReceived: %s", mysqlState, datum)
+		log.Printf("MySQLState: %s\nReceived: %s", mysqlState, datum)
 
-			err = stateFile.Truncate(0)
-			if err != nil {
-				log.Printf("Failed to truncate state file: %s", err)
-				continue
-			}
+		err = stateFile.Truncate(0)
+		if err != nil {
+			log.Printf("Failed to truncate state file: %s", err)
+			continue
+		}
 
-			_, err = stateFile.Write([]byte(mysqlState))
-			if err != nil {
-				log.Printf("Failed to write to state file: %s", err)
-			}
+		_, err = stateFile.Write([]byte(mysqlState))
+		if err != nil {
+			log.Printf("Failed to write to state file: %s", err)
 		}
 	}
 }

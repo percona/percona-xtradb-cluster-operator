@@ -235,7 +235,7 @@ func (a *Azure) PutObject(ctx context.Context, name string, data io.Reader, _ in
 }
 
 func (a *Azure) ListObjects(ctx context.Context, prefix string) ([]string, error) {
-	listPrefix := path.Join(a.prefix, prefix) + "/"
+	listPrefix := path.Join(a.prefix, prefix)
 	pg := a.client.NewListBlobsFlatPager(a.container, &container.ListBlobsFlatOptions{
 		Prefix: &listPrefix,
 	})

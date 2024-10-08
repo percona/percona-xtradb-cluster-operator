@@ -47,6 +47,7 @@ type PerconaXtraDBClusterSpec struct {
 	UpgradeOptions         UpgradeOptions                       `json:"upgradeOptions,omitempty"`
 	AllowUnsafeConfig      bool                                 `json:"allowUnsafeConfigurations,omitempty"`
 	Unsafe                 UnsafeFlags                          `json:"unsafeFlags,omitempty"`
+	VolumeExpansionEnabled bool                                 `json:"enableVolumeExpansion,omitempty"`
 
 	// Deprecated, should be removed in the future. Use InitContainer.Image instead
 	InitImage string `json:"initImage,omitempty"`
@@ -866,21 +867,24 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 		}
 
 		t := true
+		f := false
 		if c.TLS == nil {
 			c.TLS = &TLSSpec{Enabled: &t}
 		}
 
-		if c.TLS.Enabled == nil {
-			c.TLS.Enabled = &t
-		}
-
 		if c.AllowUnsafeConfig {
+			c.TLS.Enabled = &f
+
 			c.Unsafe = UnsafeFlags{
 				TLS:               true,
 				PXCSize:           true,
 				ProxySize:         true,
 				BackupIfUnhealthy: true,
 			}
+		}
+
+		if c.TLS.Enabled == nil {
+			c.TLS.Enabled = &t
 		}
 
 		if cr.DeletionTimestamp == nil && !cr.Spec.Pause {

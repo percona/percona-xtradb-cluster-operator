@@ -97,18 +97,26 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(ctx context.Context, sfs api.S
 	}
 
 	err = k8sretry.RetryOnConflict(k8sretry.DefaultRetry, func() error {
-		currentSet := sfs.StatefulSet()
-		err := r.client.Get(ctx, types.NamespacedName{Name: currentSet.Name, Namespace: currentSet.Namespace}, currentSet)
-		if err != nil {
-			return errors.Wrap(err, "failed to get statefulset")
-		}
-		annotations := currentSet.Spec.Template.Annotations
-		labels := currentSet.Spec.Template.Labels
-
 		sts, err := pxc.StatefulSet(ctx, r.client, sfs, podSpec, cr, secrets, initImageName, r.getConfigVolume)
 		if err != nil {
 			return errors.Wrap(err, "construct statefulset")
 		}
+
+		currentSet := sfs.StatefulSet()
+		err = r.client.Get(ctx, types.NamespacedName{Name: currentSet.Name, Namespace: currentSet.Namespace}, currentSet)
+		if err != nil {
+			return errors.Wrap(err, "failed to get statefulset")
+		}
+		// Keep same volumeClaimTemplates labels if statefulset already exists.
+		// We can't update volumeClaimTemplates.
+		if err == nil && cr.CompareVersionWith("1.16.0") >= 0 {
+			for i, pvc := range currentSet.Spec.VolumeClaimTemplates {
+				sts.Spec.VolumeClaimTemplates[i].Labels = pvc.Labels
+			}
+		}
+
+		annotations := currentSet.Spec.Template.Annotations
+		labels := currentSet.Spec.Template.Labels
 
 		// support annotation adjustements
 		util.MergeMaps(annotations, sts.Spec.Template.Annotations, newAnnotations)

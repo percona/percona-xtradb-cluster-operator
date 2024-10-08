@@ -51,21 +51,6 @@ func trimJobName(name string) string {
 	return name
 }
 
-func trimNameRight(name string, ln int) string {
-	if len(name) <= ln {
-		ln = len(name)
-	}
-
-	for ; ln > 0; ln-- {
-		if name[ln-1] >= 'a' && name[ln-1] <= 'z' ||
-			name[ln-1] >= '0' && name[ln-1] <= '9' {
-			break
-		}
-	}
-
-	return name[:ln]
-}
-
 func ScheduledBackupName(crName, storageName, schedule string) string {
 	result := "cron-"
 

@@ -268,12 +268,13 @@ func RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClust
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      jobName,
 			Namespace: cr.Namespace,
+			Labels:    naming.LabelsRestoreJob(cluster, jobName, bcp.Status.StorageName),
 		},
 		Spec: batchv1.JobSpec{
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: cluster.Spec.PXC.Annotations,
-					Labels:      naming.LabelsRestore(cluster, bcp.Status.StorageName),
+					Labels:      naming.LabelsRestoreJob(cluster, jobName, bcp.Status.StorageName),
 				},
 				Spec: corev1.PodSpec{
 					ImagePullSecrets: cluster.Spec.Backup.ImagePullSecrets,

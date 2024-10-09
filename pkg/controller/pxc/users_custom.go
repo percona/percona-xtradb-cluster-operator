@@ -68,6 +68,10 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileCustomUsers(ctx context.Context
 			user.PasswordSecretRef.Key = "password"
 		}
 
+		if len(user.Hosts) == 0 {
+			user.Hosts = []string{"%"}
+		}
+
 		userSecretName := ""
 		userSecretPassKey := ""
 
@@ -196,10 +200,6 @@ func userChanged(current []users.User, new *api.User) bool {
 		return true
 	}
 
-	if len(new.Hosts) == 0 {
-		new.Hosts = []string{"%"}
-	}
-
 	if len(current) != len(new.Hosts) {
 		return true
 	}
@@ -258,35 +258,50 @@ func upsertUserQuery(user *api.User, pass string) []string {
 		withGrantOption = "WITH GRANT OPTION"
 	}
 
-	if len(user.Hosts) > 0 {
-		for _, host := range user.Hosts {
-			query = append(query, (fmt.Sprintf("CREATE USER IF NOT EXISTS '%s'@'%s' IDENTIFIED BY '%s'", user.Name, host, pass)))
-
-			if len(user.Grants) > 0 {
-				grants := strings.Join(user.Grants, ",")
-				if len(user.DBs) > 0 {
-					for _, db := range user.DBs {
-						query = append(query, (fmt.Sprintf("GRANT %s ON %s.* TO '%s'@'%s' %s", grants, db, user.Name, host, withGrantOption)))
-					}
-				} else {
-					query = append(query, (fmt.Sprintf("GRANT %s ON *.* TO '%s'@'%s' %s", grants, user.Name, host, withGrantOption)))
-				}
-			}
-		}
-	} else {
-		query = append(query, (fmt.Sprintf("CREATE USER IF NOT EXISTS '%s'@'%%' IDENTIFIED BY '%s'", user.Name, pass)))
+	for _, host := range user.Hosts {
+		query = append(query, (fmt.Sprintf("CREATE USER IF NOT EXISTS '%s'@'%s' IDENTIFIED BY '%s'", user.Name, host, pass)))
 
 		if len(user.Grants) > 0 {
 			grants := strings.Join(user.Grants, ",")
 			if len(user.DBs) > 0 {
 				for _, db := range user.DBs {
-					query = append(query, (fmt.Sprintf("GRANT %s ON %s.* TO '%s'@'%%' %s", grants, db, user.Name, withGrantOption)))
+					query = append(query, (fmt.Sprintf("GRANT %s ON %s.* TO '%s'@'%s' %s", grants, db, user.Name, host, withGrantOption)))
 				}
 			} else {
-				query = append(query, (fmt.Sprintf("GRANT %s ON *.* TO '%s'@'%%' %s", grants, user.Name, withGrantOption)))
+				query = append(query, (fmt.Sprintf("GRANT %s ON *.* TO '%s'@'%s' %s", grants, user.Name, host, withGrantOption)))
 			}
 		}
 	}
+
+	// if len(user.Hosts) > 0 {
+	// 	for _, host := range user.Hosts {
+	// 		query = append(query, (fmt.Sprintf("CREATE USER IF NOT EXISTS '%s'@'%s' IDENTIFIED BY '%s'", user.Name, host, pass)))
+
+	// 		if len(user.Grants) > 0 {
+	// 			grants := strings.Join(user.Grants, ",")
+	// 			if len(user.DBs) > 0 {
+	// 				for _, db := range user.DBs {
+	// 					query = append(query, (fmt.Sprintf("GRANT %s ON %s.* TO '%s'@'%s' %s", grants, db, user.Name, host, withGrantOption)))
+	// 				}
+	// 			} else {
+	// 				query = append(query, (fmt.Sprintf("GRANT %s ON *.* TO '%s'@'%s' %s", grants, user.Name, host, withGrantOption)))
+	// 			}
+	// 		}
+	// 	}
+	// } else {
+	// 	query = append(query, (fmt.Sprintf("CREATE USER IF NOT EXISTS '%s'@'%%' IDENTIFIED BY '%s'", user.Name, pass)))
+
+	// 	if len(user.Grants) > 0 {
+	// 		grants := strings.Join(user.Grants, ",")
+	// 		if len(user.DBs) > 0 {
+	// 			for _, db := range user.DBs {
+	// 				query = append(query, (fmt.Sprintf("GRANT %s ON %s.* TO '%s'@'%%' %s", grants, db, user.Name, withGrantOption)))
+	// 			}
+	// 		} else {
+	// 			query = append(query, (fmt.Sprintf("GRANT %s ON *.* TO '%s'@'%%' %s", grants, user.Name, withGrantOption)))
+	// 		}
+	// 	}
+	// }
 
 	return query
 }

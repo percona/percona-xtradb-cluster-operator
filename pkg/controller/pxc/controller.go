@@ -738,8 +738,8 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(ctx context.Context, cr *api.Perc
 		}
 		currentProxySet := new(appsv1.StatefulSet)
 		err = r.client.Get(context.TODO(), types.NamespacedName{
-			Namespace: nodeSet.Namespace,
-			Name:      nodeSet.Name,
+			Namespace: proxySet.Namespace,
+			Name:      proxySet.Name,
 		}, currentProxySet)
 		if client.IgnoreNotFound(err) != nil {
 			return errors.Wrap(err, "get current proxy sts")

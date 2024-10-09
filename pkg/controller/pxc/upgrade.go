@@ -101,6 +101,9 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(ctx context.Context, sfs api.S
 		if err != nil {
 			return errors.Wrap(err, "construct statefulset")
 		}
+		if err = setControllerReference(cr, sts, r.scheme); err != nil {
+			return errors.Wrap(err, "set controller reference")
+		}
 
 		currentSet := sfs.StatefulSet()
 		err = r.client.Get(ctx, types.NamespacedName{Name: currentSet.Name, Namespace: currentSet.Namespace}, currentSet)

@@ -22,27 +22,12 @@ const (
 )
 
 type Proxy struct {
-	sfs     *appsv1.StatefulSet
-	labels  map[string]string
-	service string
+	cr *api.PerconaXtraDBCluster
 }
 
 func NewProxy(cr *api.PerconaXtraDBCluster) *Proxy {
-	sfs := &appsv1.StatefulSet{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "apps/v1",
-			Kind:       "StatefulSet",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-" + naming.ComponentProxySQL,
-			Namespace: cr.Namespace,
-		},
-	}
-
 	return &Proxy{
-		sfs:     sfs,
-		labels:  naming.LabelsProxySQL(cr),
-		service: cr.Name + "-proxysql-unready",
+		cr: cr.DeepCopy(),
 	}
 }
 
@@ -105,7 +90,7 @@ func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaX
 		Env: []corev1.EnvVar{
 			{
 				Name:  "PXC_SERVICE",
-				Value: c.labels[naming.LabelAppKubernetesInstance] + "-pxc",
+				Value: c.Labels()[naming.LabelAppKubernetesInstance] + "-pxc",
 			},
 			{
 				Name: "MYSQL_ROOT_PASSWORD",
@@ -197,7 +182,7 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.Per
 		Env: []corev1.EnvVar{
 			{
 				Name:  "PXC_SERVICE",
-				Value: c.labels[naming.LabelAppKubernetesInstance] + "-pxc",
+				Value: c.Labels()[naming.LabelAppKubernetesInstance] + "-pxc",
 			},
 			{
 				Name: "MYSQL_ROOT_PASSWORD",
@@ -252,7 +237,7 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.Per
 		Env: []corev1.EnvVar{
 			{
 				Name:  "PROXYSQL_SERVICE",
-				Value: c.labels[naming.LabelAppKubernetesInstance] + "-proxysql-unready",
+				Value: c.Labels()[naming.LabelAppKubernetesInstance] + "-proxysql-unready",
 			},
 			{
 				Name: "MYSQL_ROOT_PASSWORD",
@@ -512,16 +497,26 @@ func (c *Proxy) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg a
 	return vol, nil
 }
 
+// StatefulSet returns a new statefulset object with empty spec.
 func (c *Proxy) StatefulSet() *appsv1.StatefulSet {
-	return c.sfs
+	return &appsv1.StatefulSet{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "apps/v1",
+			Kind:       "StatefulSet",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      c.cr.Name + "-" + naming.ComponentProxySQL,
+			Namespace: c.cr.Namespace,
+		},
+	}
 }
 
 func (c *Proxy) Labels() map[string]string {
-	return c.labels
+	return naming.LabelsProxySQL(c.cr)
 }
 
 func (c *Proxy) Service() string {
-	return c.service
+	return c.cr.Name + "-proxysql-unready"
 }
 
 func (c *Proxy) UpdateStrategy(cr *api.PerconaXtraDBCluster) appsv1.StatefulSetUpdateStrategy {

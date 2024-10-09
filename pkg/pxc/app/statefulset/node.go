@@ -24,27 +24,12 @@ const (
 )
 
 type Node struct {
-	sfs     *appsv1.StatefulSet
-	labels  map[string]string
-	service string
+	cr *api.PerconaXtraDBCluster
 }
 
 func NewNode(cr *api.PerconaXtraDBCluster) *Node {
-	sfs := &appsv1.StatefulSet{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "apps/v1",
-			Kind:       "StatefulSet",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-" + app.Name,
-			Namespace: cr.Namespace,
-		},
-	}
-
 	return &Node{
-		sfs:     sfs,
-		labels:  naming.LabelsPXC(cr),
-		service: cr.Name + "-" + app.Name,
+		cr: cr.DeepCopy(),
 	}
 }
 
@@ -162,7 +147,7 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 		Env: []corev1.EnvVar{
 			{
 				Name:  "PXC_SERVICE",
-				Value: c.labels[naming.LabelAppKubernetesInstance] + "-" + c.labels[naming.LabelAppKubernetesComponent] + "-unready",
+				Value: c.Labels()[naming.LabelAppKubernetesInstance] + "-" + c.Labels()[naming.LabelAppKubernetesComponent] + "-unready",
 			},
 			{
 				Name:  "MONITOR_HOST",
@@ -556,16 +541,26 @@ func (c *Node) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg ap
 	return vol, nil
 }
 
+// StatefulSet returns a new statefulset object with empty spec.
 func (c *Node) StatefulSet() *appsv1.StatefulSet {
-	return c.sfs
+	return &appsv1.StatefulSet{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "apps/v1",
+			Kind:       "StatefulSet",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      c.cr.Name + "-" + app.Name,
+			Namespace: c.cr.Namespace,
+		},
+	}
 }
 
 func (c *Node) Labels() map[string]string {
-	return c.labels
+	return naming.LabelsPXC(c.cr)
 }
 
 func (c *Node) Service() string {
-	return c.service
+	return c.cr.Name + "-" + app.Name
 }
 
 func (c *Node) UpdateStrategy(cr *api.PerconaXtraDBCluster) appsv1.StatefulSetUpdateStrategy {

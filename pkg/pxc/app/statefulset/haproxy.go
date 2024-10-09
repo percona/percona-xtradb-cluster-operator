@@ -23,30 +23,12 @@ const (
 )
 
 type HAProxy struct {
-	sfs     *appsv1.StatefulSet
-	labels  map[string]string
-	service string
+	cr *api.PerconaXtraDBCluster
 }
 
 func NewHAProxy(cr *api.PerconaXtraDBCluster) *HAProxy {
-	sfs := &appsv1.StatefulSet{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "apps/v1",
-			Kind:       "StatefulSet",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-" + naming.ComponentHAProxy,
-			Namespace: cr.Namespace,
-		},
-		Spec: appsv1.StatefulSetSpec{
-			PodManagementPolicy: "OrderedReady",
-		},
-	}
-
 	return &HAProxy{
-		sfs:     sfs,
-		labels:  naming.LabelsHAProxy(cr),
-		service: cr.Name + "-" + naming.ComponentHAProxy,
+		cr: cr.DeepCopy(),
 	}
 }
 
@@ -98,7 +80,7 @@ func (c *HAProxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.Percon
 		Env: []corev1.EnvVar{
 			{
 				Name:  "PXC_SERVICE",
-				Value: c.labels[naming.LabelAppKubernetesInstance] + "-" + "pxc",
+				Value: c.Labels()[naming.LabelAppKubernetesInstance] + "-" + "pxc",
 			},
 		},
 		SecurityContext: spec.ContainerSecurityContext,
@@ -225,7 +207,7 @@ func (c *HAProxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.P
 		Env: []corev1.EnvVar{
 			{
 				Name:  "PXC_SERVICE",
-				Value: c.labels[naming.LabelAppKubernetesInstance] + "-" + "pxc",
+				Value: c.Labels()[naming.LabelAppKubernetesInstance] + "-" + "pxc",
 			},
 		},
 		Resources: spec.SidecarResources,
@@ -426,7 +408,7 @@ func (c *HAProxy) PMMContainer(ctx context.Context, cl client.Client, spec *api.
 
 func (c *HAProxy) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg api.CustomVolumeGetter) (*api.Volume, error) {
 	vol := app.Volumes(podSpec, haproxyDataVolumeName)
-	configVolume, err := vg(cr.Namespace, "haproxy-custom", c.labels[naming.LabelAppKubernetesInstance]+"-haproxy", true)
+	configVolume, err := vg(cr.Namespace, "haproxy-custom", c.Labels()[naming.LabelAppKubernetesInstance]+"-haproxy", true)
 	if err != nil {
 		return nil, err
 	}
@@ -443,7 +425,7 @@ func (c *HAProxy) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg
 	}
 	if cr.CompareVersionWith("1.11.0") >= 0 && cr.Spec.HAProxy != nil && cr.Spec.HAProxy.HookScript != "" {
 		vol.Volumes = append(vol.Volumes,
-			app.GetConfigVolumes("hookscript", c.labels[naming.LabelAppKubernetesInstance]+"-"+c.labels[naming.LabelAppKubernetesComponent]+"-hookscript"))
+			app.GetConfigVolumes("hookscript", c.Labels()[naming.LabelAppKubernetesInstance]+"-"+c.Labels()[naming.LabelAppKubernetesComponent]+"-hookscript"))
 	}
 	if cr.CompareVersionWith("1.13.0") >= 0 {
 		vol.Volumes = append(vol.Volumes,
@@ -463,16 +445,29 @@ func (c *HAProxy) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg
 	return vol, nil
 }
 
+// StatefulSet returns a new statefulset object with almost empty spec.
 func (c *HAProxy) StatefulSet() *appsv1.StatefulSet {
-	return c.sfs
+	return &appsv1.StatefulSet{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "apps/v1",
+			Kind:       "StatefulSet",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      c.cr.Name + "-" + naming.ComponentHAProxy,
+			Namespace: c.cr.Namespace,
+		},
+		Spec: appsv1.StatefulSetSpec{
+			PodManagementPolicy: "OrderedReady",
+		},
+	}
 }
 
 func (c *HAProxy) Labels() map[string]string {
-	return c.labels
+	return naming.LabelsHAProxy(c.cr)
 }
 
 func (c *HAProxy) Service() string {
-	return c.service
+	return c.cr.Name + "-" + naming.ComponentHAProxy
 }
 
 func (c *HAProxy) UpdateStrategy(cr *api.PerconaXtraDBCluster) appsv1.StatefulSetUpdateStrategy {

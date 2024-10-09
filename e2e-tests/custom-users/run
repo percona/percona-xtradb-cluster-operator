@@ -61,7 +61,7 @@ compare_mysql_user "-h $cluster-haproxy -uuser-one -pnew-password"
 compare_mysql_user "-h $cluster-haproxy -uuser-two -ptestpass3"
 
 desc 'check user update from DB'
-run_mysql "GRANT INSERT, insert ON test1.* TO 'user-four'@'%'" "-h $cluster-haproxy -uroot -proot_password"
+run_mysql "GRANT INSERT ON test1.* TO 'user-four'@'%'" "-h $cluster-haproxy -uroot -proot_password"
 sleep 15
 compare_mysql_user "-h $cluster-haproxy -uuser-four -ptestpass2"
 compare_mysql_cmd "user-four-1" "SELECT User, Host from mysql.user WHERE User = 'user-four';" "-h $cluster-haproxy -uroot -proot_password"

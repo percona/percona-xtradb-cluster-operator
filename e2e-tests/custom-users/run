@@ -65,12 +65,14 @@ run_mysql "GRANT INSERT ON test1.* TO 'user-four'@'%'" "-h $cluster-haproxy -uro
 sleep 15
 compare_mysql_user "-h $cluster-haproxy -uuser-four -ptestpass2"
 compare_mysql_cmd "user-four-1" "SELECT User, Host from mysql.user WHERE User = 'user-four';" "-h $cluster-haproxy -uroot -proot_password"
+compare_mysql_cmd "user-four-2" "SHOW GRANTS FOR 'user-four'@'%';" "-h $cluster-haproxy -uroot -proot_password"
 
 desc 'check user recreated after deleted from DB'
 run_mysql "DROP USER 'user-four'@'%';" "-h $cluster-haproxy -uroot -proot_password"
 sleep 15
 compare_mysql_user "-h $cluster-haproxy -uuser-four -ptestpass2"
 compare_mysql_cmd "user-four-1" "SELECT User, Host from mysql.user WHERE User = 'user-four';" "-h $cluster-haproxy -uroot -proot_password"
+compare_mysql_cmd "user-four-2" "SHOW GRANTS FOR 'user-four'@'%';" "-h $cluster-haproxy -uroot -proot_password"
 
 desc 'check new user created after updated user name via CR'
 kubectl_bin patch pxc some-name --type=merge -p='{

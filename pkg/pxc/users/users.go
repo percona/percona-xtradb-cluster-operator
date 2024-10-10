@@ -1,6 +1,7 @@
 package users
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 
@@ -30,6 +31,12 @@ type SysUser struct {
 	Name  string   `yaml:"username"`
 	Pass  string   `yaml:"password"`
 	Hosts []string `yaml:"hosts"`
+}
+
+type User struct {
+	Name   string `db:"User"`
+	Host   string `db:"Host"`
+	Grants []string
 }
 
 func NewManager(addr string, user, pass string, timeout int32) (Manager, error) {
@@ -292,4 +299,59 @@ func (u *Manager) UpdatePassExpirationPolicy(user *SysUser) error {
 		}
 	}
 	return nil
+}
+
+func (u *Manager) Exec(ctx context.Context, query []string, args ...any) error {
+	for _, q := range query {
+		_, err := u.db.ExecContext(ctx, q, args...)
+		if err != nil {
+			return errors.Wrap(err, "exec")
+		}
+	}
+	return nil
+}
+
+// GetUsers returns a list of user@host for a given user
+func (p *Manager) GetUsers(ctx context.Context, user string) ([]User, error) {
+	rows, err := p.db.QueryContext(ctx, "SELECT User,Host FROM mysql.user WHERE User = ?", user)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	users := make([]User, 0)
+
+	for rows.Next() {
+		var u User
+
+		err = rows.Scan(&u.Name, &u.Host)
+		if err != nil {
+			return nil, err
+		}
+
+		users = append(users, u)
+	}
+
+	for i := range users {
+		rows, err := p.db.QueryContext(ctx, "SHOW GRANTS FOR ?@?", users[i].Name, users[i].Host)
+		if err != nil {
+			return nil, err
+		}
+
+		users[i].Grants = make([]string, 0, len(users))
+
+		for rows.Next() {
+			var grant string
+			err = rows.Scan(&grant)
+			if err != nil {
+				return nil, err
+			}
+
+			users[i].Grants = append(users[i].Grants, grant)
+		}
+	}
+
+	return users, nil
 }

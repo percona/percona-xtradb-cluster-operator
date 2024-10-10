@@ -110,6 +110,13 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(ctx context.Context, sfs api.S
 		if err != nil {
 			return errors.Wrap(err, "failed to get statefulset")
 		}
+		// Keep same volumeClaimTemplates labels if statefulset already exists.
+		// We can't update volumeClaimTemplates.
+		if err == nil && cr.CompareVersionWith("1.16.0") >= 0 {
+			for i, pvc := range currentSet.Spec.VolumeClaimTemplates {
+				sts.Spec.VolumeClaimTemplates[i].Labels = pvc.Labels
+			}
+		}
 
 		annotations := currentSet.Spec.Template.Annotations
 		labels := currentSet.Spec.Template.Labels

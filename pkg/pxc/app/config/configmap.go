@@ -8,9 +8,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 )
 
 func NewConfigMap(cr *api.PerconaXtraDBCluster, cmName, filename, content string) *corev1.ConfigMap {
+	var ls map[string]string
+	if cr.CompareVersionWith("1.16.0") >= 0 {
+		ls = naming.LabelsCluster(cr)
+	}
 	return &corev1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",
@@ -19,6 +24,7 @@ func NewConfigMap(cr *api.PerconaXtraDBCluster, cmName, filename, content string
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cmName,
 			Namespace: cr.Namespace,
+			Labels:    ls,
 		},
 		Data: map[string]string{
 			filename: content,
@@ -31,6 +37,10 @@ func NewAutoTuneConfigMap(cr *api.PerconaXtraDBCluster, memory *resource.Quantit
 	if err != nil {
 		return nil, err
 	}
+	var ls map[string]string
+	if cr.CompareVersionWith("1.16.0") >= 0 {
+		ls = naming.LabelsCluster(cr)
+	}
 	return &corev1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",
@@ -39,6 +49,7 @@ func NewAutoTuneConfigMap(cr *api.PerconaXtraDBCluster, memory *resource.Quantit
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cmName,
 			Namespace: cr.Namespace,
+			Labels:    ls,
 		},
 		Data: map[string]string{
 			"auto-config.cnf": "[mysqld]" + autotuneParams,

@@ -2,6 +2,12 @@ apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
   generation: 1
+  labels:
+    app.kubernetes.io/component: haproxy
+    app.kubernetes.io/instance: haproxy
+    app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+    app.kubernetes.io/name: percona-xtradb-cluster
+    app.kubernetes.io/part-of: percona-xtradb-cluster
   name: haproxy-haproxy
   ownerReferences:
     - controller: true

@@ -17,6 +17,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 )
 
@@ -57,6 +58,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsersSecret(ctx context.Context
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Spec.SecretsName,
 			Namespace: cr.Namespace,
+			Labels:    naming.LabelsCluster(cr),
 		},
 		Type: corev1.SecretTypeOpaque,
 	}

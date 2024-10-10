@@ -14,6 +14,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 )
 
@@ -29,7 +30,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileCustomUsers(ctx context.Context
 	log := logf.FromContext(ctx)
 
 	internalSecrets := corev1.Secret{}
-	err := r.client.Get(context.TODO(),
+	err := r.client.Get(ctx,
 		types.NamespacedName{
 			Namespace: cr.Namespace,
 			Name:      internalSecretsPrefix + cr.Name,
@@ -72,16 +73,12 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileCustomUsers(ctx context.Context
 			user.Hosts = []string{"%"}
 		}
 
-		userSecretName := ""
-		userSecretPassKey := ""
-
+		userSecretName := user.PasswordSecretRef.Name
+		userSecretPassKey := user.PasswordSecretRef.Key
 		if user.PasswordSecretRef == nil {
 			userSecretName = fmt.Sprintf("%s-custom-user-secret", cr.Name)
 			userSecretPassKey = user.Name + "-pass"
 
-		} else {
-			userSecretName = user.PasswordSecretRef.Name
-			userSecretPassKey = user.PasswordSecretRef.Key
 		}
 
 		userSecret, err := getUserSecret(ctx, r.client, cr, userSecretName)
@@ -104,9 +101,6 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileCustomUsers(ctx context.Context
 		}
 
 		annotationKey := fmt.Sprintf("percona.com/%s-%s-hash", cr.Name, user.Name)
-		if userSecret.Annotations == nil {
-			userSecret.Annotations = make(map[string]string)
-		}
 
 		if userPasswordChanged(userSecret, annotationKey, userSecretPassKey) {
 			log.Info("User password changed", "user", user.Name)
@@ -117,8 +111,9 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileCustomUsers(ctx context.Context
 				continue
 			}
 
-			userSecret.Annotations[annotationKey] = string(sha256Hash(userSecret.Data[userSecretPassKey]))
-			if err := r.client.Update(ctx, userSecret); err != nil {
+			err = k8s.AnnotateObject(ctx, r.client, userSecret,
+				map[string]string{annotationKey: sha256Hash(userSecret.Data[userSecretPassKey])})
+			if err != nil {
 				return errors.Wrap(err, "update user secret")
 			}
 
@@ -140,8 +135,9 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileCustomUsers(ctx context.Context
 				continue
 			}
 
-			userSecret.Annotations[annotationKey] = string(sha256Hash(userSecret.Data[userSecretPassKey]))
-			if err := r.client.Update(ctx, userSecret); err != nil {
+			err = k8s.AnnotateObject(ctx, r.client, userSecret,
+				map[string]string{annotationKey: sha256Hash(userSecret.Data[userSecretPassKey])})
+			if err != nil {
 				return errors.Wrap(err, "update user secret")
 			}
 
@@ -272,36 +268,6 @@ func upsertUserQuery(user *api.User, pass string) []string {
 			}
 		}
 	}
-
-	// if len(user.Hosts) > 0 {
-	// 	for _, host := range user.Hosts {
-	// 		query = append(query, (fmt.Sprintf("CREATE USER IF NOT EXISTS '%s'@'%s' IDENTIFIED BY '%s'", user.Name, host, pass)))
-
-	// 		if len(user.Grants) > 0 {
-	// 			grants := strings.Join(user.Grants, ",")
-	// 			if len(user.DBs) > 0 {
-	// 				for _, db := range user.DBs {
-	// 					query = append(query, (fmt.Sprintf("GRANT %s ON %s.* TO '%s'@'%s' %s", grants, db, user.Name, host, withGrantOption)))
-	// 				}
-	// 			} else {
-	// 				query = append(query, (fmt.Sprintf("GRANT %s ON *.* TO '%s'@'%s' %s", grants, user.Name, host, withGrantOption)))
-	// 			}
-	// 		}
-	// 	}
-	// } else {
-	// 	query = append(query, (fmt.Sprintf("CREATE USER IF NOT EXISTS '%s'@'%%' IDENTIFIED BY '%s'", user.Name, pass)))
-
-	// 	if len(user.Grants) > 0 {
-	// 		grants := strings.Join(user.Grants, ",")
-	// 		if len(user.DBs) > 0 {
-	// 			for _, db := range user.DBs {
-	// 				query = append(query, (fmt.Sprintf("GRANT %s ON %s.* TO '%s'@'%%' %s", grants, db, user.Name, withGrantOption)))
-	// 			}
-	// 		} else {
-	// 			query = append(query, (fmt.Sprintf("GRANT %s ON *.* TO '%s'@'%%' %s", grants, user.Name, withGrantOption)))
-	// 		}
-	// 	}
-	// }
 
 	return query
 }

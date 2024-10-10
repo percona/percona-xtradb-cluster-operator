@@ -15,34 +15,6 @@ func TestUpsertUserQuery(t *testing.T) {
 		pass     string
 		expected []string
 	}{
-		// {
-		// 	name: "no DBs or hosts set",
-		// 	user: &api.User{
-		// 		Name:   "test",
-		// 		Grants: []string{"SELECT"},
-		// 	},
-		// 	pass: "password",
-		// 	expected: []string{
-		// 		"CREATE USER IF NOT EXISTS 'test'@'%' IDENTIFIED BY 'password'",
-		// 		"GRANT SELECT ON *.* TO 'test'@'%' ",
-		// 	},
-		// },
-		// {
-		// 	name: "DBs set but no hosts",
-		// 	user: &api.User{
-		// 		Name:   "test",
-		// 		DBs:    []string{"db1", "db2"},
-		// 		Grants: []string{"SELECT, INSERT"},
-		// 	},
-		// 	pass: "pass1",
-		// 	expected: []string{
-		// 		"CREATE DATABASE IF NOT EXISTS db1",
-		// 		"CREATE DATABASE IF NOT EXISTS db2",
-		// 		"CREATE USER IF NOT EXISTS 'test'@'%' IDENTIFIED BY 'pass1'",
-		// 		"GRANT SELECT, INSERT ON db1.* TO 'test'@'%' ",
-		// 		"GRANT SELECT, INSERT ON db2.* TO 'test'@'%' ",
-		// 	},
-		// },
 		{
 			name: "Hosts set but no DBs",
 			user: &api.User{
@@ -213,20 +185,6 @@ func TestUserChanged(t *testing.T) {
 			},
 			expected: true,
 		},
-		// {
-		// 	name: "hosts don't match by number",
-		// 	crUser: &api.User{
-		// 		Name:  "test",
-		// 		Hosts: []string{"host1", "host2"},
-		// 	},
-		// 	dbUser: []users.User{
-		// 		{
-		// 			Name: "test",
-		// 			Host: "host1",
-		// 		},
-		// 	},
-		// 	expected: false,
-		// },
 		{
 			name: "hosts don't match by content",
 			crUser: &api.User{

@@ -50,36 +50,57 @@ func NewClient() (*Client, error) {
 }
 
 func (c *Client) PodLogs(namespace, podName string, opts *corev1.PodLogOptions) ([]string, error) {
-	logs, err := c.client.Pods(namespace).GetLogs(podName, opts).Stream(context.TODO())
-	if err != nil {
-		return nil, errors.Wrap(err, "get pod logs stream")
+	var logArr []string
+	retryErr := retry.OnError(retry.DefaultRetry, func(err error) bool {
+		return true // Retry on all errors
+	}, func() error {
+		logs, err := c.client.Pods(namespace).GetLogs(podName, opts).Stream(context.TODO())
+		if err != nil {
+			return errors.Wrap(err, "get pod logs stream")
+		}
+		defer logs.Close()
+		logArr = make([]string, 0)
+		sc := bufio.NewScanner(logs)
+		for sc.Scan() {
+			logArr = append(logArr, sc.Text())
+		}
+		if sc.Err() != nil {
+			return errors.Wrap(sc.Err(), "reading logs stream")
+		}
+		return nil
+	})
+	if retryErr != nil {
+		return nil, errors.Wrap(retryErr, "failed to get pod logs")
 	}
-	defer logs.Close()
-
-	logArr := make([]string, 0)
-	sc := bufio.NewScanner(logs)
-	for sc.Scan() {
-		logArr = append(logArr, sc.Text())
-	}
-	return logArr, errors.Wrap(sc.Err(), "reading logs stream")
+	return logArr, nil
 }
 
 func (c *Client) IsPodRunning(namespace, podName string) (bool, error) {
-	pod, err := c.client.Pods(namespace).Get(context.TODO(), podName, metav1.GetOptions{})
-	if err != nil {
-		return false, err
-	}
-
-	if pod.Status.Phase != corev1.PodRunning {
-		return false, nil
-	}
-
-	for _, v := range pod.Status.Conditions {
-		if v.Type == corev1.ContainersReady && v.Status == corev1.ConditionTrue {
-			return true, nil
+	var isRunning bool
+	retryErr := retry.OnError(retry.DefaultRetry, func(err error) bool {
+		return true // Retry on all errors
+	}, func() error {
+		pod, err := c.client.Pods(namespace).Get(context.TODO(), podName, metav1.GetOptions{})
+		if err != nil {
+			return err
 		}
+		if pod.Status.Phase != corev1.PodRunning {
+			isRunning = false
+			return nil
+		}
+		for _, v := range pod.Status.Conditions {
+			if v.Type == corev1.ContainersReady && v.Status == corev1.ConditionTrue {
+				isRunning = true
+				return nil
+			}
+		}
+		isRunning = false
+		return nil
+	})
+	if retryErr != nil {
+		return false, errors.Wrap(retryErr, "failed to check pod status")
 	}
-	return false, nil
+	return isRunning, nil
 }
 
 func (c *Client) Exec(pod *corev1.Pod, containerName string, command []string, stdin io.Reader, stdout, stderr io.Writer, tty bool) error {

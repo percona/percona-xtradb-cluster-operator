@@ -21,6 +21,7 @@ import (
 
 	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 )
 
@@ -36,14 +37,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcilePersistentVolumes(ctx context.C
 	pxcSet := statefulset.NewNode(cr)
 	sts := pxcSet.StatefulSet()
 
-	ls := map[string]string{
-		"app.kubernetes.io/component":  "pxc",
-		"app.kubernetes.io/instance":   cr.Name,
-		"app.kubernetes.io/managed-by": "percona-xtradb-cluster-operator",
-		"app.kubernetes.io/name":       "percona-xtradb-cluster",
-		"app.kubernetes.io/part-of":    "percona-xtradb-cluster",
-	}
-
+	ls := naming.LabelsPXC(cr)
 	log := logf.FromContext(ctx).WithName("PVCResize").WithValues("sts", sts.Name)
 
 	pvcList := &corev1.PersistentVolumeClaimList{}

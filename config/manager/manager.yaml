@@ -2,47 +2,39 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: pgo
+  name: pxc
 spec:
   replicas: 1
   strategy: { type: Recreate }
   template:
     spec:
       containers:
-      - name: operator
-        image: percona-xtradb-cluster-operator
-        env:
-        - name: PGO_NAMESPACE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
-        - name: CRUNCHY_DEBUG
-          value: "true"
-        - name: RELATED_IMAGE_POSTGRES_15
-          value: "registry.developers.crunchydata.com/crunchydata/crunchy-postgres:ubi8-15.7-1"
-        - name: RELATED_IMAGE_POSTGRES_15_GIS_3.3
-          value: "registry.developers.crunchydata.com/crunchydata/crunchy-postgres-gis:ubi8-15.7-3.3-1"
-        - name: RELATED_IMAGE_POSTGRES_16
-          value: "registry.developers.crunchydata.com/crunchydata/crunchy-postgres:ubi8-16.3-1"
-        - name: RELATED_IMAGE_POSTGRES_16_GIS_3.3
-          value: "registry.developers.crunchydata.com/crunchydata/crunchy-postgres-gis:ubi8-16.3-3.3-1"
-        - name: RELATED_IMAGE_POSTGRES_16_GIS_3.4
-          value: "registry.developers.crunchydata.com/crunchydata/crunchy-postgres-gis:ubi8-16.3-3.4-1"
-        - name: RELATED_IMAGE_PGADMIN
-          value: "registry.developers.crunchydata.com/crunchydata/crunchy-pgadmin4:ubi8-4.30-26"
-        - name: RELATED_IMAGE_PGBACKREST
-          value: "registry.developers.crunchydata.com/crunchydata/crunchy-pgbackrest:ubi8-2.51-1"
-        - name: RELATED_IMAGE_PGBOUNCER
-          value: "registry.developers.crunchydata.com/crunchydata/crunchy-pgbouncer:ubi8-1.22-1"
-        - name: RELATED_IMAGE_PGEXPORTER
-          value: "registry.developers.crunchydata.com/crunchydata/crunchy-postgres-exporter:latest"
-        - name: RELATED_IMAGE_PGUPGRADE
-          value: "registry.developers.crunchydata.com/crunchydata/crunchy-upgrade:latest"
-        - name: RELATED_IMAGE_STANDALONE_PGADMIN
-          value: "registry.developers.crunchydata.com/crunchydata/crunchy-pgadmin4:ubi8-8.6-1"
-        securityContext:
-          allowPrivilegeEscalation: false
-          capabilities: { drop: [ALL] }
-          readOnlyRootFilesystem: true
-          runAsNonRoot: true
-      serviceAccountName: pgo
+        - name: operator
+          image: pxc-operator
+          env:
+            - name: PXC_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: RELATED_IMAGE_PXC5.7
+              value: percona/percona-xtradb-cluster:5.7.44-31.65
+            - name: RELATED_IMAGE_PXC5.7-BACKUP
+              value: percona/percona-xtradb-cluster-operator:1.15.0-pxc5.7-backup-pxb2.4.29
+            - name: RELATED_IMAGE_PXC8.0
+              value: percona/percona-xtradb-cluster:8.0.36-28.1
+            - name: RELATED_IMAGE_PXC8.0-BACKUP
+              value: percona/percona-xtradb-cluster-operator:1.15.0-pxc8.0-backup-pxb8.0.35
+            - name: RELATED_IMAGE_HAPROXY
+              value: percona/haproxy:2.8.5
+            - name: RELATED_IMAGE_PROXYSQL
+              value: percona/proxysql2:2.5.5
+            - name: RELATED_IMAGE_LOGCOLLECTOR
+              value: percona/percona-xtradb-cluster-operator:1.15.0-logcollector-fluentbit3.1.4
+            - name: RELATED_IMAGE_PMMCLIENT
+              value: percona/pmm-client:2.42.0
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: [ALL] }
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+      serviceAccountName: pxc

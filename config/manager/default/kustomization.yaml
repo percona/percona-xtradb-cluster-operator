@@ -8,6 +8,6 @@ commonLabels:
   app.kubernetes.io/name: percona-xtradb-cluster-operator
   app.kubernetes.io/part-of: percona-xtradb-cluster-operator
 images:
-- name: percona-xtradb-cluster-operator
-  newName: tishina/percona-server-mongodb-operator
-  newTag: main
+- name: pxc-operator
+  newName: perconalab/percona-xtradb-cluster-operator
+  newTag: 1.15.0

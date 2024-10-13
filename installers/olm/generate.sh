@@ -24,8 +24,8 @@ project_name='percona-xtradb-cluster-operator'
 # https://github.com/redhat-openshift-ecosystem/certification-releases/blob/main/4.9/ga/troubleshooting.md#get-supported-versions
 file_name='percona-xtradb-cluster-operator'
 
-operator_yamls=$(kubectl kustomize "../../config/${DISTRIBUTION}")
-echo "$operator_yamls" > operator_yamls.yaml
+kubectl kustomize "../../config/${DISTRIBUTION}" > operator_yamls.yaml
+
 yq eval '. | select(.kind == "CustomResourceDefinition")' operator_yamls.yaml > operator_crds.yaml
 yq eval '. | select(.kind == "Deployment")' operator_yamls.yaml > operator_deployments.yaml
 yq eval '. | select(.kind == "ServiceAccount")' operator_yamls.yaml > operator_accounts.yaml

@@ -2,12 +2,57 @@ NAME ?= percona-xtradb-cluster-operator
 IMAGE_TAG_OWNER ?= perconalab
 IMAGE_TAG_BASE ?= $(IMAGE_TAG_OWNER)/$(NAME)
 SED := $(shell which gsed || which sed)
-VERSION ?= $(shell git rev-parse --abbrev-ref HEAD | $(SED) -e 's^/^-^g; s^[.]^-^g;' | tr '[:upper:]' '[:lower:]')
+VERSION ?= 1.15.0
+#$(shell git rev-parse --abbrev-ref HEAD | $(SED) -e 's^/^-^g; s^[.]^-^g;' | tr '[:upper:]' '[:lower:]')
 IMAGE ?= $(IMAGE_TAG_BASE):$(VERSION)
 DEPLOYDIR = ./deploy
 
+BUNDLEDIR = $(DEPLOYDIR)/csv/redhat
+BUNDLE_CHANNELS := --channels=stable
+BUNDLE_DEFAULT_CHANNEL := --default-channel=stable
+BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
+
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.23
+.DEFAULT_GOAL := help
+.SUFFIXES:
+
+CONTAINER ?= docker
+OPENSHIFT_VERSIONS ?= v4.12-v4.15
+PACKAGE_CHANNEL ?= stable
+MIN_KUBE_VERSION ?= 1.24.0
+DOCKER_DEFAULT_PLATFORM ?= linux/amd64
+SHELL := /bin/bash
+REPO_ROOT = $(shell git rev-parse --show-toplevel)
+distros = community
+
+export VERSION
+export BUNDLE_REPO
+export OPENSHIFT_VERSIONS
+export PACKAGE_CHANNEL
+export MIN_KUBE_VERSION
+export DOCKER_DEFAULT_PLATFORM
+
+check-version:
+ifndef VERSION
+	$(error VERSION is not set)
+endif
+
+KUSTOMIZE = $(REPO_ROOT)/bin/kustomize
+kustomize: ## Download kustomize locally if necessary.
+	$(call go-get-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v4@v4.5.3)
+
+.PHONY: bundles
+bundles: ## Build OLM bundles
+bundles: check-version $(distros:%=bundles/%)
+
+# https://olm.operatorframework.io/docs/tasks/creating-operator-bundle/#validating-your-bundle
+# https://github.com/operator-framework/community-operators/blob/8a36a33/docs/packaging-required-criteria-ocp.md
+.PHONY: bundles/community
+bundles/community:
+	cd config/manager/default/ && $(KUSTOMIZE) edit set image percona-xtradb-cluster-operator=$(IMAGE)
+	./installers/olm/generate.sh community
+
 
 all: build
 

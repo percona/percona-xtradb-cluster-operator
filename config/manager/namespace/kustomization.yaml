@@ -1,0 +1,13 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+- ../default/
+
+patchesStrategicMerge:
+- manager-target.yaml
+
+images:
+- name: percona-xtradb-cluster-operator
+  newName: perconalab/percona-xtradb-cluster-operator
+  newTag: main

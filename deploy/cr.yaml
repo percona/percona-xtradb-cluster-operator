@@ -22,7 +22,7 @@ spec:
 #  sslInternalSecretName: cluster1-ssl-internal
 #  logCollectorSecretName: cluster1-log-collector-secrets
 #  initContainer:
-#    image: percona/percona-xtradb-cluster-operator:1.15.0
+#    image: percona/percona-xtradb-cluster-operator:1.15.1
 #    resources:
 #      requests:
 #        memory: 100M
@@ -539,7 +539,7 @@ spec:
 #     - 10.0.0.0/8
   logcollector:
     enabled: true
-    image: percona/percona-xtradb-cluster-operator:1.15.0-logcollector-fluentbit3.1.4
+    image: percona/percona-xtradb-cluster-operator:1.15.1-logcollector-fluentbit3.1.4
 #    configuration: |
 #      [OUTPUT]
 #           Name  es
@@ -567,7 +567,7 @@ spec:
         cpu: 300m
   backup:
 #    allowParallel: true
-    image: percona/percona-xtradb-cluster-operator:1.15.0-pxc8.0-backup-pxb8.0.35
+    image: percona/percona-xtradb-cluster-operator:1.15.1-pxc8.0-backup-pxb8.0.35
 #    backoffLimit: 6
 #    serviceAccountName: percona-xtradb-cluster-operator
 #    imagePullSecrets:

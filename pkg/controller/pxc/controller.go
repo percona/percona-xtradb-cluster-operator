@@ -507,19 +507,15 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileHAProxy(ctx context.Context, cr
 
 	if cr.HAProxyReplicasServiceEnabled() {
 		svc := pxc.NewServiceHAProxyReplicas(cr)
-		err := setControllerReference(cr, svc, r.scheme)
-		if err != nil {
-			return errors.Wrapf(err, "%s setControllerReference", svc.Name)
-		}
 
 		if cr.CompareVersionWith("1.14.0") >= 0 {
 			e := cr.Spec.HAProxy.ExposeReplicas
-			err = r.createOrUpdateService(ctx, cr, svc, len(e.ServiceExpose.Labels) == 0 && len(e.ServiceExpose.Annotations) == 0)
+			err := r.createOrUpdateService(ctx, cr, svc, len(e.ServiceExpose.Labels) == 0 && len(e.ServiceExpose.Annotations) == 0)
 			if err != nil {
 				return errors.Wrapf(err, "%s upgrade error", svc.Name)
 			}
 		} else {
-			err = r.createOrUpdateService(ctx, cr, svc, len(podSpec.ReplicasServiceLabels) == 0 && len(podSpec.ReplicasServiceAnnotations) == 0)
+			err := r.createOrUpdateService(ctx, cr, svc, len(podSpec.ReplicasServiceLabels) == 0 && len(podSpec.ReplicasServiceAnnotations) == 0)
 			if err != nil {
 				return errors.Wrapf(err, "%s upgrade error", svc.Name)
 			}

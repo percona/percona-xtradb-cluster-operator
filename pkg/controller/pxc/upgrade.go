@@ -209,11 +209,6 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(ctx context.Context, sfs api
 		return nil
 	}
 
-	if currentSet.Status.ReadyReplicas < currentSet.Status.Replicas {
-		log.Info("can't start/continue 'SmartUpdate': waiting for all replicas are ready")
-		return nil
-	}
-
 	primary, err := r.getPrimaryPod(cr)
 	if err != nil {
 		return errors.Wrap(err, "get primary pod")
@@ -225,7 +220,7 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(ctx context.Context, sfs api
 		}
 	}
 
-	log.Info("primary pod", "pod name", primary)
+	log.Info("primary pod", "pod", primary)
 
 	waitLimit := 2 * 60 * 60 // 2 hours
 	if cr.Spec.PXC.LivenessInitialDelaySeconds != nil {
@@ -242,14 +237,14 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(ctx context.Context, sfs api
 		if strings.HasPrefix(primary, fmt.Sprintf("%s.%s.%s", pod.Name, currentSet.Name, currentSet.Namespace)) {
 			primaryPod = pod
 		} else {
-			log.Info("apply changes to secondary pod", "pod name", pod.Name)
+			log.Info("apply changes to secondary pod", "pod", pod.Name)
 			if err := r.applyNWait(ctx, cr, currentSet, &pod, waitLimit); err != nil {
 				return errors.Wrap(err, "failed to apply changes")
 			}
 		}
 	}
 
-	log.Info("apply changes to primary pod", "pod name", primaryPod.Name)
+	log.Info("apply changes to primary pod", "pod", primaryPod.Name)
 	if err := r.applyNWait(ctx, cr, currentSet, &primaryPod, waitLimit); err != nil {
 		return errors.Wrap(err, "failed to apply changes")
 	}
@@ -263,7 +258,7 @@ func (r *ReconcilePerconaXtraDBCluster) applyNWait(ctx context.Context, cr *api.
 	log := logf.FromContext(ctx)
 
 	if pod.ObjectMeta.Labels["controller-revision-hash"] == sfs.Status.UpdateRevision {
-		log.Info("pod already updated", "pod name", pod.Name)
+		log.Info("pod already updated", "pod", pod.Name)
 	} else {
 		if err := r.client.Delete(ctx, pod); err != nil {
 			return errors.Wrap(err, "failed to delete pod")
@@ -326,7 +321,7 @@ func (r *ReconcilePerconaXtraDBCluster) waitHostgroups(ctx context.Context, cr *
 				return false, nil
 			}
 
-			logf.FromContext(ctx).Info("pod present in hostgroups", "pod name", pod.Name)
+			logf.FromContext(ctx).Info("pod present in hostgroups", "pod", pod.Name)
 			return true, nil
 		})
 }
@@ -358,7 +353,7 @@ func (r *ReconcilePerconaXtraDBCluster) waitUntilOnline(ctx context.Context, cr 
 				}
 			}
 
-			logf.FromContext(ctx).Info("pod is online", "pod name", pod.Name)
+			logf.FromContext(ctx).Info("pod is online", "pod", pod.Name)
 			return true, nil
 		})
 }
@@ -495,6 +490,8 @@ func (r *ReconcilePerconaXtraDBCluster) waitPXCSynced(cr *api.PerconaXtraDBClust
 }
 
 func (r *ReconcilePerconaXtraDBCluster) waitPodRestart(ctx context.Context, cr *api.PerconaXtraDBCluster, updateRevision string, pod *corev1.Pod, waitLimit int) error {
+	log := logf.FromContext(ctx)
+
 	return retry(time.Second*10, time.Duration(waitLimit)*time.Second,
 		func() (bool, error) {
 			err := r.client.Get(ctx, types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, pod)
@@ -517,9 +514,23 @@ func (r *ReconcilePerconaXtraDBCluster) waitPodRestart(ctx context.Context, cr *
 						case "ImagePullBackOff", "ErrImagePull", "CrashLoopBackOff":
 							return false, errors.Errorf("pod %s is in %s state", pod.Name, container.State.Waiting.Reason)
 						default:
-							logf.FromContext(ctx).Info("pod is waiting", "pod name", pod.Name, "reason", container.State.Waiting.Reason)
+							log.Info("pod is waiting", "pod", pod.Name, "reason", container.State.Waiting.Reason)
 						}
 					}
+				}
+			}
+
+			for _, cond := range pod.Status.Conditions {
+				if cond.Type != corev1.PodScheduled {
+					continue
+				}
+
+				if cond.Status != corev1.ConditionFalse {
+					continue
+				}
+
+				if time.Since(cond.LastTransitionTime.Time) > time.Duration(120*time.Second) {
+					return false, errors.Errorf("pod %s is not scheduled: %s", pod.Name, cond.Message)
 				}
 			}
 
@@ -527,8 +538,23 @@ func (r *ReconcilePerconaXtraDBCluster) waitPodRestart(ctx context.Context, cr *
 				return false, errors.Errorf("pod %s is in failed phase", pod.Name)
 			}
 
-			if pod.Status.Phase == corev1.PodRunning && pod.ObjectMeta.Labels["controller-revision-hash"] == updateRevision && ready {
-				logf.FromContext(ctx).Info("pod is running", "pod name", pod.Name)
+			if pod.Status.Phase != corev1.PodRunning {
+				log.Info("Pod is not running", "pod", pod.Name, "phase", pod.Status.Phase)
+				return false, nil
+			}
+
+			if pod.ObjectMeta.Labels["controller-revision-hash"] != updateRevision {
+				log.Info(
+					"Pod is not updated",
+					"pod", pod.Name,
+					"currentRevision", pod.ObjectMeta.Labels["controller-revision-hash"],
+					"targetRevision", updateRevision,
+				)
+				return false, nil
+			}
+
+			if ready {
+				log.Info("Pod is updated, running and ready", "pod", pod.Name)
 				return true, nil
 			}
 

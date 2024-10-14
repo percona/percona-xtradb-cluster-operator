@@ -537,7 +537,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileHAProxy(ctx context.Context, cr
 func (r *ReconcilePerconaXtraDBCluster) deploy(ctx context.Context, cr *api.PerconaXtraDBCluster) error {
 	deployStatefulApp := func(stsApp api.StatefulApp, podSpec *api.PodSpec) error {
 		if err := r.updatePod(ctx, stsApp, podSpec, cr, nil, false); err != nil {
-			return errors.Wrapf(err, "updatePod for ", stsApp.Name())
+			return errors.Wrapf(err, "updatePod for %s", stsApp.Name())
 		}
 		if err := r.reconcilePDB(ctx, cr, podSpec.PodDisruptionBudget, stsApp); err != nil {
 			return errors.Wrapf(err, "failed to reconcile PodDisruptionBudget for %s", stsApp.Name())

@@ -340,18 +340,12 @@ if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 		mysql=(mysql --protocol=socket -uroot -hlocalhost --socket="${SOCKET}" --password="")
 		wsrep_local_state_select="SELECT variable_value FROM performance_schema.global_status WHERE variable_name='wsrep_local_state_comment'"
 
-		mysqlState="startup"
-		while [[ "${mysqlState}" != "ready" ]]; do
-			mysqlState=$(tr -d '\0' < ${MYSQL_STATE_FILE})
-			echo >&2 "MySQL init process in progress..."
-			sleep 1
-		done
 		for i in {120..0}; do
 			wsrep_local_state=$(echo "$wsrep_local_state_select" | "${mysql[@]}" -s 2>/dev/null) || true
 			if [ "$wsrep_local_state" = 'Synced' ]; then
 				break
 			fi
-			echo >&2 "Waiting for member to be Synced..."
+			echo >&2 "MySQL init process in progress..."
 			sleep 1
 		done
 		if [ "$i" = 0 ]; then
@@ -523,21 +517,27 @@ if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 		fi
 		set -x
 
+		mysqlState="startup"
+		while [[ "${mysqlState}" != "ready" ]]; do
+			mysqlState=$(tr -d '\0' < ${MYSQL_STATE_FILE})
+			echo >&2 "MySQL upgrade process in progress..."
+			sleep 1
+		done
 		for i in {120..0}; do
 			if echo 'SELECT 1' | "${mysql[@]}" &>/dev/null; then
 				break
 			fi
-			echo 'MySQL init process in progress...'
+
 			sleep 1
 		done
 		if [ "$i" = 0 ]; then
-			echo >&2 'MySQL init process failed.'
+			echo >&2 'MySQL upgrade process failed.'
 			exit 1
 		fi
 
 		mysql_upgrade --force "${mysql[@]:1}"
 		if ! kill -s TERM "$pid" || ! wait "$pid"; then
-			echo >&2 'MySQL init process failed.'
+			echo >&2 'MySQL upgrade process failed.'
 			exit 1
 		fi
 	fi

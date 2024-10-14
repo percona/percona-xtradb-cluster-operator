@@ -33,7 +33,7 @@ func parseDatum(datum string) MySQLState {
 		switch status {
 		case "Server is operational":
 			return MySQLReady
-		case "Server shutdown in progress", "Server shutdown complete":
+		case "Server shutdown in progress":
 			return MySQLDown
 		case "Server startup in progress",
 			"Data Dictionary upgrade in progress",
@@ -43,7 +43,8 @@ func parseDatum(datum string) MySQLState {
 			"Server downgrade in progress",
 			"Server downgrade complete",
 			"Data Dictionary upgrade from MySQL 5.7 in progress",
-			"Data Dictionary upgrade from MySQL 5.7 complete":
+			"Data Dictionary upgrade from MySQL 5.7 complete",
+			"Server shutdown complete": // we treat this as startup because during init, MySQL notifies this even if it's up
 			return MySQLStartup
 		}
 	}

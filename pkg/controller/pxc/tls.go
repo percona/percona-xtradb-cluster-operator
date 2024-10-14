@@ -5,33 +5,40 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/pkg/errors"
-
 	cm "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	cmmeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
-	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxctls"
+	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	k8serr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxctls"
 )
 
-func (r *ReconcilePerconaXtraDBCluster) reconcileSSL(cr *api.PerconaXtraDBCluster) error {
+func (r *ReconcilePerconaXtraDBCluster) reconcileSSL(ctx context.Context, cr *api.PerconaXtraDBCluster) error {
+	if err := r.reconcileTLSToggle(ctx, cr); err != nil {
+		return errors.Wrap(err, "reconcile tls toggle")
+	}
+
 	if !cr.TLSEnabled() {
 		return nil
 	}
 
 	secretObj := corev1.Secret{}
 	secretInternalObj := corev1.Secret{}
-	errSecret := r.client.Get(context.TODO(),
+	errSecret := r.client.Get(ctx,
 		types.NamespacedName{
 			Namespace: cr.Namespace,
 			Name:      cr.Spec.PXC.SSLSecretName,
 		},
 		&secretObj,
 	)
-	errInternalSecret := r.client.Get(context.TODO(),
+	errInternalSecret := r.client.Get(ctx,
 		types.NamespacedName{
 			Namespace: cr.Namespace,
 			Name:      cr.Spec.PXC.SSLInternalSecretName,
@@ -309,5 +316,59 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLManualy(cr *api.PerconaXtraDBCl
 	if err != nil && !k8serr.IsAlreadyExists(err) {
 		return fmt.Errorf("create TLS internal secret: %v", err)
 	}
+	return nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) reconcileTLSToggle(ctx context.Context, cr *api.PerconaXtraDBCluster) error {
+	if cr.CompareVersionWith("1.16.0") < 0 {
+		return nil
+	}
+
+	annotationTLSState, ok := cr.Annotations[naming.AnnotationTLS]
+	if !ok {
+		if err := k8s.AnnotateObject(ctx, r.client, cr, map[string]string{
+			naming.AnnotationTLS: string(naming.GetAnnotationTLSState(cr)),
+		}); err != nil {
+			return errors.Wrap(err, "failed to annotate")
+		}
+		return nil
+	}
+
+	if annotationTLSState == string(naming.GetAnnotationTLSState(cr)) {
+		return nil
+	}
+	clusterPaused, err := k8s.PauseCluster(ctx, r.client, cr)
+	if err != nil {
+		return errors.Wrap(err, "failed to pause cluster")
+	}
+	if !clusterPaused {
+		return nil
+	}
+	switch annotationTLSState {
+	case naming.AnnotationTLSStateEnabled:
+		if err := r.deleteCerts(ctx, cr); err != nil {
+			return errors.Wrap(err, "failed to delete tls secrets")
+		}
+	case naming.AnnotationTLSStateDisabled:
+	default:
+		return errors.Errorf("unknown value for %s annotation: %s", naming.AnnotationTLS, annotationTLSState)
+	}
+	crOrig := cr.DeepCopy()
+	cr.Spec.Unsafe.TLS = !*cr.Spec.TLS.Enabled
+	if cr.Spec.Unsafe.TLS != crOrig.Spec.Unsafe.TLS {
+		if err := r.client.Patch(ctx, cr, client.MergeFrom(crOrig)); err != nil {
+			return errors.Wrap(err, "failed to patch cr")
+		}
+	}
+	_, err = k8s.UnpauseCluster(ctx, r.client, cr)
+	if err != nil {
+		return errors.Wrap(err, "failed to start cluster")
+	}
+	if err := k8s.AnnotateObject(ctx, r.client, cr, map[string]string{
+		naming.AnnotationTLS: string(naming.GetAnnotationTLSState(cr)),
+	}); err != nil {
+		return errors.Wrap(err, "failed to annotate")
+	}
+
 	return nil
 }

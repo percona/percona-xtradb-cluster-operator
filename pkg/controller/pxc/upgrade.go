@@ -27,7 +27,7 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 )
 
-func (r *ReconcilePerconaXtraDBCluster) updatePod(ctx context.Context, sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, newAnnotations map[string]string) error {
+func (r *ReconcilePerconaXtraDBCluster) updatePod(ctx context.Context, sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, newAnnotations map[string]string, smartUpdate bool) error {
 	log := logf.FromContext(ctx)
 
 	if cr.PVCResizeInProgress() {
@@ -41,7 +41,6 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(ctx context.Context, sfs api.S
 	}
 
 	// embed DB configuration hash
-	// TODO: code duplication with deploy function
 	configHash, err := r.getConfigHash(cr, sfs)
 	if err != nil {
 		return errors.Wrap(err, "getting config hash")
@@ -97,7 +96,7 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(ctx context.Context, sfs api.S
 	err = k8sretry.RetryOnConflict(k8sretry.DefaultRetry, func() error {
 		currentSet := sfs.StatefulSet()
 		err := r.client.Get(ctx, types.NamespacedName{Name: currentSet.Name, Namespace: currentSet.Namespace}, currentSet)
-		if err != nil {
+		if client.IgnoreNotFound(err) != nil {
 			return errors.Wrap(err, "failed to get statefulset")
 		}
 		annotations := currentSet.Spec.Template.Annotations
@@ -109,9 +108,9 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(ctx context.Context, sfs api.S
 		}
 
 		// support annotation adjustements
-		pxc.MergeMaps(annotations, sts.Spec.Template.Annotations, newAnnotations)
+		annotations = pxc.MergeMaps(annotations, sts.Spec.Template.Annotations, newAnnotations)
 
-		pxc.MergeMaps(labels, sts.Spec.Template.Labels)
+		labels = pxc.MergeMaps(labels, sts.Spec.Template.Labels)
 
 		for k, v := range hashAnnotations {
 			if v != "" || k == "percona.com/configuration-hash" {
@@ -135,7 +134,13 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(ctx context.Context, sfs api.S
 		return nil
 	}
 
-	return r.smartUpdate(ctx, sfs, cr)
+	if smartUpdate {
+		if err := r.smartUpdate(ctx, sfs, cr); err != nil {
+			return errors.Wrap(err, "smart update")
+		}
+	}
+
+	return nil
 }
 
 func (r *ReconcilePerconaXtraDBCluster) smartUpdate(ctx context.Context, sfs api.StatefulApp, cr *api.PerconaXtraDBCluster) error {

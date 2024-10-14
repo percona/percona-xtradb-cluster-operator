@@ -25,7 +25,38 @@ main() {
 		desc 'invalid owner of secret'
 		exit 1
 	fi
-	destroy $namespace
+
+	desc 'check disabling tls'
+	kubectl_bin patch pxc "$cluster" --type=merge --patch '{"spec": {"tls":{"enabled": false}}}'
+	sleep 10
+	wait_cluster_consistency "$cluster" 3 2
+	desc 'secrets should be deleted'
+	if kubectl get secret "$cluster-ssl" &>/dev/null; then
+		echo "error: secret $cluster-ssl exists"
+		exit 1
+	fi
+	if kubectl get secret "$cluster-ssl-internal" &>/dev/null; then
+		echo "error: secret $cluster-ssl-internal exists"
+		exit 1
+	fi
+	compare_kubectl "pxc/$cluster"
+
+	desc 'check enabling tls'
+	kubectl_bin patch pxc "$cluster" --type=merge --patch '{"spec": {"tls":{"enabled": true}}}'
+	sleep 10
+	wait_cluster_consistency "$cluster" 3 2
+	compare_kubectl "pxc/$cluster" "-enabled"
+	desc 'secrets should be recreated'
+	if ! kubectl get secret "$cluster-ssl" &>/dev/null; then
+		echo "error: secret $cluster-ssl doesn't exist"
+		exit 1
+	fi
+	if ! kubectl get secret "$cluster-ssl-internal" &>/dev/null; then
+		echo "error: secret $cluster-ssl-internal doesn't exist"
+		exit 1
+	fi
+
+	destroy "$namespace"
 	desc "test passed"
 }
 

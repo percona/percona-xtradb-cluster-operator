@@ -3,7 +3,6 @@ package pxcrestore
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -14,7 +13,6 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	k8sretry "k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -24,8 +22,7 @@ import (
 
 	"github.com/percona/percona-xtradb-cluster-operator/clientcmd"
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage"
 	"github.com/percona/percona-xtradb-cluster-operator/version"
@@ -201,7 +198,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(ctx context.Context, re
 		err = errors.Wrap(err, "set status")
 		return rr, err
 	}
-	err = r.stopCluster(cluster.DeepCopy())
+	err = k8s.PauseClusterWithWait(ctx, r.client, cluster, true)
 	if err != nil {
 		err = errors.Wrapf(err, "stop cluster %s", cluster.Name)
 		return rr, err
@@ -233,7 +230,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(ctx context.Context, re
 		cluster.Spec.PXC.Size = 1
 		cluster.Spec.Unsafe.PXCSize = true
 
-		if err := r.startCluster(cluster); err != nil {
+		if err := k8s.StartClusterWithBlocking(ctx, r.client, cluster); err != nil {
 			return rr, errors.Wrap(err, "restart cluster for pitr")
 		}
 
@@ -259,7 +256,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(ctx context.Context, re
 		}
 	}
 
-	err = r.startCluster(clusterOrig)
+	err = k8s.StartClusterWithBlocking(ctx, r.client, clusterOrig)
 	if err != nil {
 		err = errors.Wrap(err, "restart cluster")
 		return rr, err
@@ -308,100 +305,6 @@ $ kubectl logs job/restore-job-%s-%s
 If everything is fine, you can cleanup the job:
 $ kubectl delete pxc-restore/%s
 `
-
-func (r *ReconcilePerconaXtraDBClusterRestore) stopCluster(c *api.PerconaXtraDBCluster) error {
-	var gracePeriodSec int64
-
-	if c.Spec.PXC != nil && c.Spec.PXC.TerminationGracePeriodSeconds != nil {
-		gracePeriodSec = int64(c.Spec.PXC.Size) * *c.Spec.PXC.TerminationGracePeriodSeconds
-	}
-
-	patch := client.MergeFrom(c.DeepCopy())
-	c.Spec.Pause = true
-	err := r.client.Patch(context.TODO(), c, patch)
-	if err != nil {
-		return errors.Wrap(err, "shutdown pods")
-	}
-
-	ls := statefulset.NewNode(c).Labels()
-	err = r.waitForPodsShutdown(ls, c.Namespace, gracePeriodSec)
-	if err != nil {
-		return errors.Wrap(err, "shutdown pods")
-	}
-
-	pvcs := corev1.PersistentVolumeClaimList{}
-	err = r.client.List(
-		context.TODO(),
-		&pvcs,
-		&client.ListOptions{
-			Namespace:     c.Namespace,
-			LabelSelector: labels.SelectorFromSet(ls),
-		},
-	)
-	if err != nil {
-		return errors.Wrap(err, "get pvc list")
-	}
-
-	pxcNode := statefulset.NewNode(c)
-	pvcNameTemplate := app.DataVolumeName + "-" + pxcNode.StatefulSet().Name
-	for _, pvc := range pvcs.Items {
-		// check prefix just in case, to be sure we're not going to delete a wrong pvc
-		if pvc.Name == pvcNameTemplate+"-0" || !strings.HasPrefix(pvc.Name, pvcNameTemplate) {
-			continue
-		}
-
-		err = r.client.Delete(context.TODO(), &pvc)
-		if err != nil {
-			return errors.Wrap(err, "delete pvc")
-		}
-	}
-
-	err = r.waitForPVCShutdown(ls, c.Namespace)
-	if err != nil {
-		return errors.Wrap(err, "shutdown pvc")
-	}
-
-	return nil
-}
-
-func (r *ReconcilePerconaXtraDBClusterRestore) startCluster(cr *api.PerconaXtraDBCluster) (err error) {
-	// tryin several times just to avoid possible conflicts with the main controller
-	err = k8sretry.RetryOnConflict(k8sretry.DefaultRetry, func() error {
-		// need to get the object with latest version of meta-data for update
-		current := &api.PerconaXtraDBCluster{}
-		rerr := r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, current)
-		if rerr != nil {
-			return errors.Wrap(err, "get cluster")
-		}
-		current.Spec = cr.Spec
-		return r.client.Update(context.TODO(), current)
-	})
-	if err != nil {
-		return errors.Wrap(err, "update cluster")
-	}
-
-	// give time for process new state
-	time.Sleep(10 * time.Second)
-
-	var waitLimit int32 = 2 * 60 * 60 // 2 hours
-	if cr.Spec.PXC.LivenessInitialDelaySeconds != nil {
-		waitLimit = *cr.Spec.PXC.LivenessInitialDelaySeconds * cr.Spec.PXC.Size
-	}
-
-	for i := int32(0); i < waitLimit; i++ {
-		current := &api.PerconaXtraDBCluster{}
-		err = r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, current)
-		if err != nil {
-			return errors.Wrap(err, "get cluster")
-		}
-		if current.Status.ObservedGeneration == current.Generation && current.Status.PXC.Status == api.AppStateReady {
-			return nil
-		}
-		time.Sleep(time.Second * 1)
-	}
-
-	return errors.Errorf("exceeded wait limit")
-}
 
 const waitLimitSec int64 = 300
 

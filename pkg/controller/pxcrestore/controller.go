@@ -230,7 +230,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(ctx context.Context, re
 		cluster.Spec.PXC.Size = 1
 		cluster.Spec.Unsafe.PXCSize = true
 
-		if err := k8s.StartClusterWithBlocking(ctx, r.client, cluster); err != nil {
+		if err := k8s.UnpauseClusterWithWait(ctx, r.client, cluster); err != nil {
 			return rr, errors.Wrap(err, "restart cluster for pitr")
 		}
 
@@ -256,7 +256,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(ctx context.Context, re
 		}
 	}
 
-	err = k8s.StartClusterWithBlocking(ctx, r.client, clusterOrig)
+	err = k8s.UnpauseClusterWithWait(ctx, r.client, clusterOrig)
 	if err != nil {
 		err = errors.Wrap(err, "restart cluster")
 		return rr, err

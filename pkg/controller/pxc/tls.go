@@ -344,7 +344,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileTLSToggle(ctx context.Context, 
 	if !clusterPaused {
 		return nil
 	}
-	switch annotationTLSState {
+	switch naming.AnnotationTLSState(annotationTLSState) {
 	case naming.AnnotationTLSStateEnabled:
 		if err := r.deleteCerts(ctx, cr); err != nil {
 			return errors.Wrap(err, "failed to delete tls secrets")

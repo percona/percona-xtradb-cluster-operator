@@ -3,7 +3,7 @@ kind: PerconaXtraDBCluster
 metadata:
   name: minimal-cluster
 spec:
-  crVersion: 1.15.0
+  crVersion: 1.15.1
   secretsName: minimal-cluster-secrets
   unsafeFlags:
     tls: true
@@ -28,4 +28,4 @@ spec:
     image: percona/haproxy:2.8.5
   logcollector:
     enabled: true
-    image: percona/percona-xtradb-cluster-operator:1.15.0-logcollector-fluentbit3.1.4
+    image: percona/percona-xtradb-cluster-operator:1.15.1-logcollector-fluentbit3.1.4

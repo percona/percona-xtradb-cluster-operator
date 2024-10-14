@@ -77,9 +77,9 @@ main() {
 	compare_kubectl statefulset/$cluster-pxc "-1130"
 	compare_kubectl statefulset/$cluster-proxysql "-1130"
 
-	desc "test 1.14.0"
+	desc "test 1.14.1"
 	kubectl_bin patch pxc "$cluster" --type=merge --patch '{
-        "spec": {"crVersion":"1.14.0"}
+        "spec": {"crVersion":"1.14.1"}
     }'
 	wait_cluster_consistency "$cluster" 3 2
 	wait_for_sts_generation "$cluster-pxc" "4" "1"

@@ -193,7 +193,7 @@ spec:
   haproxy:
     enabled: true
     size: 3
-    image: percona/percona-xtradb-cluster-operator:1.14.0-haproxy
+    image: percona/percona-xtradb-cluster-operator:1.14.1-haproxy
 #    imagePullPolicy: Always
 #    schedulerName: mycustom-scheduler
 #    readinessDelaySec: 15
@@ -368,7 +368,7 @@ spec:
   proxysql:
     enabled: false
     size: 3
-    image: percona/percona-xtradb-cluster-operator:1.14.0-proxysql
+    image: percona/percona-xtradb-cluster-operator:1.14.1-proxysql
 #    imagePullPolicy: Always
 #    configuration: |
 #      datadir="/var/lib/proxysql"
@@ -530,7 +530,7 @@ spec:
 #     - 10.0.0.0/8
   logcollector:
     enabled: true
-    image: percona/percona-xtradb-cluster-operator:1.14.0-logcollector
+    image: percona/percona-xtradb-cluster-operator:1.14.1-logcollector
 #    configuration: |
 #      [OUTPUT]
 #           Name  es
@@ -558,7 +558,7 @@ spec:
         cpu: 300m
   backup:
 #    allowParallel: true
-    image: percona/percona-xtradb-cluster-operator:1.14.0-pxc8.0-backup-pxb8.0.35
+    image: percona/percona-xtradb-cluster-operator:1.14.1-pxc8.0-backup-pxb8.0.35
 #    backoffLimit: 6
 #    serviceAccountName: percona-xtradb-cluster-operator
 #    imagePullSecrets:

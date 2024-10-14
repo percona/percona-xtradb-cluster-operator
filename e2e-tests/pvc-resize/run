@@ -7,6 +7,50 @@ test_dir=$(realpath $(dirname $0))
 
 set_debug
 
+function patch_pvc_request() {
+	local cluster=$1
+	local size=$2
+	echo "Patching PVC request to ${size} in ${cluster}"
+	kubectl_bin patch pxc ${cluster} --type=json -p='[{"op": "replace", "path": "/spec/pxc/volumeSpec/persistentVolumeClaim/resources/requests/storage", "value":"'"${size}"'"}]'
+}
+
+function wait_all_pvc_resize() {
+	local expected_size=$1
+	local max_retry=${2:-120}
+	local sleep_time=${3:-5}
+
+	for pvc in $(kubectl_bin get pvc -l app.kubernetes.io/component=pxc -o name); do
+		if ! wait_pvc_resize "$pvc" "$expected_size" "$max_retry" "$sleep_time"; then
+			return 1
+		fi
+	done
+	return 0
+}
+
+function wait_pvc_resize() {
+	local pvc=$1
+	local expected_size=$2
+	local max_retry=${3:-120}
+	local sleep_time=${4:-5}
+
+	local retry=0
+	echo "Waiting for $pvc to be resized"
+	until [[ $(kubectl_bin get "$pvc" -o jsonpath='{.status.capacity.storage}') == "$expected_size" ]]; do
+		if [[ $retry -ge $max_retry ]]; then
+			echo
+			echo "$pvc was not resized, max retries exceeded"
+			return 1
+		fi
+		echo -n "."
+		sleep "$sleep_time"
+
+		retry=$((retry + 1))
+	done
+	echo
+	echo "${pvc} was resized"
+	return 0
+}
+
 if [[ $EKS == 1 ]]; then
 	echo "Skip the test. We don't run it for EKS."
 	exit 0
@@ -16,28 +60,22 @@ create_infra ${namespace}
 
 desc 'create first PXC cluster'
 cluster="some-name"
-spinup_pxc "${cluster}" "$conf_dir/$cluster.yml" "3" "10" "${conf_dir}/secrets.yml"
+spinup_pxc "${cluster}" "${conf_dir}/$cluster.yml" "3" "10" "${conf_dir}/secrets.yml"
 
-kubectl_bin patch pxc "$cluster" --type=merge --patch '{
-    "spec": { "pxc": { "volumeSpec": { "persistentVolumeClaim": { "resources": { "requests": { "storage": "4Gi" } } } } } }
-}'
-wait_cluster_consistency "$cluster" 3 2
+patch_pvc_request "${cluster}" 3Gi
+wait_cluster_consistency "${cluster}" 3 2
 
-for pvc in $(kubectl_bin get pvc -l app.kubernetes.io/component=pxc -o name); do
-	retry=0
-	until [[ $(kubectl_bin get ${pvc} -o jsonpath={.status.capacity.storage}) == "4Gi" ]]; do
-		if [[ $retry -ge 60 ]]; then
-			echo "PVC ${pvc} was not resized, max retries exceeded"
-			exit 1
-		fi
+if wait_all_pvc_resize "3Gi" 120 1; then
+	echo "PVC was resized, but resize.expansion is disabled"
+	exit 1
+fi
 
-		echo "Waiting for PVC ${pvc} to be resized"
-		sleep 5
+echo "Enabling PVC resize"
+kubectl_bin patch pxc "${cluster}" --type=json -p='[{"op": "add", "path": "/spec/enableVolumeExpansion", "value":true }]'
+sleep 10
 
-		retry=$((retry + 1))
-	done
-	echo "PVC ${pvc} was resized"
-done
+wait_cluster_consistency "${cluster}" 3 2
+wait_all_pvc_resize "3Gi"
 
 destroy "${namespace}"
 desc "test passed"

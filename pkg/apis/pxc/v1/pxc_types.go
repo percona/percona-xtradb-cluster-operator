@@ -46,6 +46,7 @@ type PerconaXtraDBClusterSpec struct {
 	UpdateStrategy         appsv1.StatefulSetUpdateStrategyType `json:"updateStrategy,omitempty"`
 	UpgradeOptions         UpgradeOptions                       `json:"upgradeOptions,omitempty"`
 	AllowUnsafeConfig      bool                                 `json:"allowUnsafeConfigurations,omitempty"`
+	VolumeExpansionEnabled bool                                 `json:"enableVolumeExpansion,omitempty"`
 
 	// Deprecated, should be removed in the future. Use InitContainer.Image instead
 	InitImage string `json:"initImage,omitempty"`

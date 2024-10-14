@@ -1894,6 +1894,8 @@ spec:
                 type: string
               enableCRValidationWebhook:
                 type: boolean
+              enableVolumeExpansion:
+                type: boolean
               haproxy:
                 properties:
                   affinity:

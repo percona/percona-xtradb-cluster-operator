@@ -1974,6 +1974,8 @@ spec:
                 type: string
               enableCRValidationWebhook:
                 type: boolean
+              enableVolumeExpansion:
+                type: boolean
               haproxy:
                 properties:
                   affinity:
@@ -11308,7 +11310,7 @@ spec:
           value: percona-xtradb-cluster-operator
         - name: DISABLE_TELEMETRY
           value: "false"
-        image: percona/percona-xtradb-cluster-operator:1.15.0
+        image: perconalab/percona-xtradb-cluster-operator:1.15.0
         imagePullPolicy: Always
         livenessProbe:
           failureThreshold: 3

@@ -232,6 +232,12 @@ func (r *ReconcilePerconaXtraDBCluster) reconcilePersistentVolumes(ctx context.C
 		return nil
 	}
 
+	if !cr.Spec.VolumeExpansionEnabled {
+		// If expansion is disabled we should keep the old value
+		cr.Spec.PXC.VolumeSpec.PersistentVolumeClaim.Resources.Requests[corev1.ResourceStorage] = configured
+		return nil
+	}
+
 	err = k8s.AnnotateObject(ctx, r.client, cr, map[string]string{pxcv1.AnnotationPVCResizeInProgress: metav1.Now().Format(time.RFC3339)})
 	if err != nil {
 		return errors.Wrap(err, "annotate pxc")

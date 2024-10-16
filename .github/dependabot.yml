@@ -23,7 +23,7 @@ updates:
       time: "01:00"
     reviewers:
       - hors
-      - tplavcic
+      - nmarukovich
     ignore:
       # ignore patch updates for all dependencies
       - dependency-name: "*"

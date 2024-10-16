@@ -165,9 +165,9 @@ export package_url="https://marketplace.redhat.com/en-us/operators/${file_name}"
         .metadata.name = env(name_certified_rhmp) |
         .metadata.annotations["containerImage"] = "registry.connect.redhat.com/percona/percona-xtradb-cluster-operator@sha256:<update_operator_SHA_value>" |
         .metadata.annotations["marketplace.openshift.io/remote-workflow"] =
-            "\($package_url)/pricing?utm_source=openshift_console" |
+            "https://marketplace.redhat.com/en-us/operators/percona-xtradb-cluster-operator-certified-rhmp/pricing?utm_source=openshift_console" |
         .metadata.annotations["marketplace.openshift.io/support-workflow"] =
-            "\($package_url)/support?utm_source=openshift_console" |
+            "https://marketplace.redhat.com/en-us/operators/percona-xtradb-cluster-operator-certified-rhmp/support?utm_source=openshift_console" |
         .spec.relatedImages = env(relatedImages)' \
         "${bundle_directory}/manifests/${file_name}.clusterserviceversion.yaml"
 fi

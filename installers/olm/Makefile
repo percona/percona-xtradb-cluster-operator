@@ -23,7 +23,8 @@ MIN_KUBE_VERSION ?= 1.24.0
 DOCKER_DEFAULT_PLATFORM ?= linux/amd64
 SHELL := /bin/bash
 REPO_ROOT = $(shell git rev-parse --show-toplevel)
-distros = community
+
+distros = community redhat marketplace
 
 export VERSION
 export BUNDLE_REPO
@@ -34,7 +35,7 @@ export DOCKER_DEFAULT_PLATFORM
 
 REPO_ROOT = $(shell git rev-parse --show-toplevel)
 
-distros = community
+distros = community redhat marketplace
 
 check-version:
 ifndef VERSION
@@ -55,8 +56,22 @@ bundles: check-version $(distros:%=bundles/%)
 bundles/community:
 	cd ../../config/manager/default/ && $(KUSTOMIZE) edit set image pxc-operator=$(IMAGE)
 	./generate.sh community
+
 	env operator-sdk bundle validate $@ --select-optional='suite=operatorframework'
 	env operator-sdk bundle validate $@ --select-optional='name=community' --optional-values='index-path=$@/Dockerfile'
+
+.PHONY: bundles/redhat
+bundles/redhat:
+	cd ../../config/manager/default/ && $(KUSTOMIZE) edit set image pxc-operator=$(IMAGE)
+	./generate.sh redhat
+	env operator-sdk bundle validate $@ --select-optional='suite=operatorframework'
+
+# The 'marketplace' configuration is currently identical to the 'redhat', so we just copy it here.
+.PHONY: bundles/marketplace
+bundles/marketplace:
+	cd ../../config/manager/default/ && $(KUSTOMIZE) edit set image pxc-operator=$(IMAGE)
+	./generate.sh marketplace
+	env operator-sdk bundle validate $@ --select-optional='suite=operatorframework'
 
 .PHONY: clean
 clean: clean-deprecated

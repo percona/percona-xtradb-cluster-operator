@@ -8,6 +8,16 @@ kind: ClusterServiceVersion
 metadata:
   name: '' # generate.sh
   annotations:
+    features.operators.openshift.io/disconnected: "true"
+    features.operators.openshift.io/fips-compliant: "false"
+    features.operators.openshift.io/proxy-aware: "false"
+    features.operators.openshift.io/tls-profiles: "false"
+    features.operators.openshift.io/token-auth-aws: "false"
+    features.operators.openshift.io/token-auth-azure: "false"
+    features.operators.openshift.io/token-auth-gcp: "false"
+    features.operators.openshift.io/cnf: "false"
+    features.operators.openshift.io/cni: "false"
+    features.operators.openshift.io/csi: "false"
     support: percona.com
     olm.properties: '[]'
 
@@ -24,7 +34,6 @@ metadata:
     # https://operatorhub.io/operator/postgresql
     createdAt: 2024-10-07 19:40Z
     repository: https://github.com/percona/percona-xtradb-cluster-operator
-    containerImage: # kustomize config/operator
     alm-examples: >-  # kustomize config/examples
 
 spec:

@@ -22,18 +22,18 @@ project_name='percona-xtradb-cluster-operator'
 # https://github.com/redhat-openshift-ecosystem/certification-releases/blob/main/4.9/ga/troubleshooting.md#get-supported-versions
 file_name='percona-xtradb-cluster-operator'
 echo $MODE
-if [ ${MODE} == "cluster" ];then
-    suffix="-cw"
-    mode="Cluster"
-    rulesLevel="ClusterPermissions"
+if [ ${MODE} == "cluster" ]; then
+	suffix="-cw"
+	mode="Cluster"
+	rulesLevel="ClusterPermissions"
 
-elif [ ${MODE} == "namespace" ];then
-    suffix=""
-    mode=""
-    rulesLevel="permissions"
+elif [ ${MODE} == "namespace" ]; then
+	suffix=""
+	mode=""
+	rulesLevel="permissions"
 else
-    echo "Please add MODE variable. It could be either namespace or cluster"
-    exit 1
+	echo "Please add MODE variable. It could be either namespace or cluster"
+	exit 1
 fi
 
 kubectl kustomize "../../config/${DISTRIBUTION}" >operator_yamls.yaml

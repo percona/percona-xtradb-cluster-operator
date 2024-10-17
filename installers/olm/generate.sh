@@ -21,7 +21,7 @@ project_name='percona-xtradb-cluster-operator'
 # with the Operator's package name for the 'redhat' and 'marketplace' bundles.
 # https://github.com/redhat-openshift-ecosystem/certification-releases/blob/main/4.9/ga/troubleshooting.md#get-supported-versions
 file_name='percona-xtradb-cluster-operator'
-echo $MODE
+
 if [ ${MODE} == "cluster" ]; then
 	suffix="-cw"
 	mode="Cluster"
@@ -69,9 +69,6 @@ install -d \
 	"${bundle_directory}/manifests" \
 	"${bundle_directory}/metadata"
 
-# `echo "${operator_yamls}" | operator-sdk generate bundle` includes the ServiceAccount which cannot
-# be upgraded: https://github.com/operator-framework/operator-lifecycle-manager/issues/2193
-
 # Render bundle annotations and strip comments.
 # Per Red Hat we should not include the org.opencontainers annotations in the
 # 'redhat' & 'marketplace' annotations.yaml file, so only add them for 'community'.
@@ -81,13 +78,11 @@ export package="${package_name}"
 export package_channel="${PACKAGE_CHANNEL}${suffix}"
 export openshift_supported_versions="${OPENSHIFT_VERSIONS}"
 
-echo "package_channel $package_channel"
-
 yq eval '.annotations["operators.operatorframework.io.bundle.channels.v1"] = env(package_channel) |
          .annotations["operators.operatorframework.io.bundle.channel.default.v1"] = env(package_channel) |
          .annotations["com.redhat.openshift.versions"] = env(openshift_supported_versions)' \
 	bundle.annotations.yaml >"${bundle_directory}/metadata/annotations.yaml"
-echo "First"
+
 if [ ${DISTRIBUTION} == 'community' ]; then
 	# community-operators
 	yq eval '.annotations["operators.operatorframework.io.bundle.package.v1"] = "percona-xtradb-cluster-operator" |
@@ -109,7 +104,6 @@ elif [ ${DISTRIBUTION} == 'marketplace' ]; then
 		"${bundle_directory}/metadata/annotations.yaml"
 fi
 
-echo "SEcond"
 
 # Copy annotations into Dockerfile LABELs.
 # TODO fix tab for labels.

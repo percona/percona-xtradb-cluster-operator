@@ -21,13 +21,29 @@ project_name='percona-xtradb-cluster-operator'
 # with the Operator's package name for the 'redhat' and 'marketplace' bundles.
 # https://github.com/redhat-openshift-ecosystem/certification-releases/blob/main/4.9/ga/troubleshooting.md#get-supported-versions
 file_name='percona-xtradb-cluster-operator'
+echo $MODE
+if [ ${MODE} == "cluster" ];then
+    suffix="-cw"
+    mode="Cluster"
+    rulesLevel="ClusterPermissions"
+
+elif [ ${MODE} == "namespace" ];then
+    suffix=""
+    mode=""
+    rulesLevel="permissions"
+else
+    echo "Please add MODE variable. It could be either namespace or cluster"
+    exit 1
+fi
 
 kubectl kustomize "../../config/${DISTRIBUTION}" >operator_yamls.yaml
+
+export role="${mode}Role"
 
 yq eval '. | select(.kind == "CustomResourceDefinition")' operator_yamls.yaml >operator_crds.yaml
 yq eval '. | select(.kind == "Deployment")' operator_yamls.yaml >operator_deployments.yaml
 yq eval '. | select(.kind == "ServiceAccount")' operator_yamls.yaml >operator_accounts.yaml
-yq eval '. | select(.kind == "Role")' operator_yamls.yaml >operator_roles.yaml
+yq eval '. | select(.kind == env(role))' operator_yamls.yaml >operator_roles${suffix}.yaml
 
 ## Recreate the Operator SDK project.
 
@@ -62,14 +78,16 @@ install -d \
 # - https://coreos.slack.com/team/UP1LZCC1Y
 
 export package="${package_name}"
-export package_channel="${PACKAGE_CHANNEL}"
+export package_channel="${PACKAGE_CHANNEL}${suffix}"
 export openshift_supported_versions="${OPENSHIFT_VERSIONS}"
 
-yq eval '.annotations["operators.operatorframework.io.bundle.channels.v1"] = $package_channel |
-         .annotations["operators.operatorframework.io.bundle.channel.default.v1"] = $package_channel |
+echo "package_channel $package_channel"
+
+yq eval '.annotations["operators.operatorframework.io.bundle.channels.v1"] = env(package_channel) |
+         .annotations["operators.operatorframework.io.bundle.channel.default.v1"] = env(package_channel) |
          .annotations["com.redhat.openshift.versions"] = env(openshift_supported_versions)' \
 	bundle.annotations.yaml >"${bundle_directory}/metadata/annotations.yaml"
-
+echo "First"
 if [ ${DISTRIBUTION} == 'community' ]; then
 	# community-operators
 	yq eval '.annotations["operators.operatorframework.io.bundle.package.v1"] = "percona-xtradb-cluster-operator" |
@@ -90,6 +108,8 @@ elif [ ${DISTRIBUTION} == 'marketplace' ]; then
     .annotations["operators.operatorframework.io.bundle.package.v1"] = "percona-xtradb-cluster-operator-certified-rhmp" ' \
 		"${bundle_directory}/metadata/annotations.yaml"
 fi
+
+echo "SEcond"
 
 # Copy annotations into Dockerfile LABELs.
 # TODO fix tab for labels.
@@ -118,7 +138,7 @@ yq eval -i '[.]' operator_deployments.yaml && yq eval 'length == 1' operator_dep
 
 yq eval -i '[.]' operator_accounts.yaml && yq eval 'length == 1' operator_accounts.yaml --exit-status >/dev/null || abort "too many service accounts!" $'\n'"$(yq eval . operator_accounts.yaml)"
 
-yq eval -i '[.]' operator_roles.yaml && yq eval 'length == 1' operator_roles.yaml --exit-status >/dev/null || abort "too many roles!" $'\n'"$(yq eval . operator_roles.yaml)"
+yq eval -i '[.]' operator_roles${suffix}.yaml && yq eval 'length == 1' operator_roles${suffix}.yaml --exit-status >/dev/null || abort "too many roles!" $'\n'"$(yq eval . operator_roles${suffix}.yaml)"
 
 # Render bundle CSV and strip comments.
 csv_stem=$(yq -r '.projectName' "${project_directory}/PROJECT")
@@ -128,19 +148,18 @@ cr_example=$(yq eval -o=json '[.]' ../../deploy/cr.yaml)
 export examples="${cr_example}"
 export deployment=$(yq eval operator_deployments.yaml)
 export account=$(yq eval '.[] | .metadata.name' operator_accounts.yaml)
-export rules=$(yq eval '.[] | .rules' operator_roles.yaml)
-export version="${VERSION}"
+export rules=$(yq eval '.[] | .rules' operator_roles${suffix}.yaml)
+export version="${VERSION}${suffix}"
 export minKubeVer="${MIN_KUBE_VERSION}"
 export stem="${csv_stem}"
 export timestamp=$(date -u +"%Y-%m-%dT%H:%M:%S.%3Z")
-export name="${csv_stem}.v${VERSION}"
-export name_certified="${csv_stem}-certified.v${VERSION}"
-export name_certified_rhmp="${csv_stem}-certified-rhmp.v${VERSION}"
+export name="${csv_stem}.v${VERSION}${suffix}"
+export name_certified="${csv_stem}-certified.v${VERSION}${suffix}"
+export name_certified_rhmp="${csv_stem}-certified-rhmp.v${VERSION}${suffix}"
 export skip_range="<${VERSION}"
 export containerImage=$(yq eval '.[0].spec.template.spec.containers[1].image' operator_deployments.yaml)
 export relatedImages=$(yq eval bundle.relatedImages.yaml)
-relIm==$(yq eval bundle.relatedImages.yaml)
-
+export rulesLevel=${rulesLevel}
 yq eval '
   .metadata.annotations["alm-examples"] = strenv(examples) |
   .metadata.annotations["containerImage"] = env(containerImage) |
@@ -148,12 +167,12 @@ yq eval '
   .metadata.annotations["createdAt"] = env(timestamp) |
   .metadata.name = env(name) |
   .spec.version = env(version) |
-  .spec.install.spec.permissions = [{ "serviceAccountName": env(account), "rules": env(rules) }] |
+  .spec.install.spec[strenv(rulesLevel)] = [{ "serviceAccountName": env(account), "rules": env(rules) }] |
   .spec.install.spec.deployments = [( env(deployment) | .[] |{ "name": .metadata.name, "spec": .spec} )] |
   .spec.minKubeVersion = env(minKubeVer)' bundle.csv.yaml >"${bundle_directory}/manifests/${file_name}.clusterserviceversion.yaml"
 
-if [[ ${DISTRIBUTION} == "redhat" ]]; then
-	echo "REDHAT"
+if [ ${DISTRIBUTION} == "redhat" ]; then
+
 	yq eval --inplace '
         .spec.relatedImages = env(relatedImages) |
         .metadata.annotations.certified = "true" |
@@ -161,7 +180,7 @@ if [[ ${DISTRIBUTION} == "redhat" ]]; then
         .metadata.name = strenv(name_certified)' \
 		"${bundle_directory}/manifests/${file_name}.clusterserviceversion.yaml"
 
-elif [[ ${DISTRIBUTION} == "marketplace" ]]; then
+elif [ ${DISTRIBUTION} == "marketplace" ]; then
 	# Annotations needed when targeting Red Hat Marketplace
 	export package_url="https://marketplace.redhat.com/en-us/operators/${file_name}"
 	yq --inplace '

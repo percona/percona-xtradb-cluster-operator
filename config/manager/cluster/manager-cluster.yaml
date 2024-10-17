@@ -1,0 +1,69 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: percona-xtradb-cluster-operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: operator
+      app.kubernetes.io/instance: percona-xtradb-cluster-operator
+      app.kubernetes.io/name: percona-xtradb-cluster-operator
+      app.kubernetes.io/part-of: percona-xtradb-cluster-operator
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: operator
+        app.kubernetes.io/instance: percona-xtradb-cluster-operator
+        app.kubernetes.io/name: percona-xtradb-cluster-operator
+        app.kubernetes.io/part-of: percona-xtradb-cluster-operator
+    spec:
+      terminationGracePeriodSeconds: 600
+      containers:
+        - command:
+            - percona-xtradb-cluster-operator
+          env:
+            - name: LOG_STRUCTURED
+              value: 'false'
+            - name: LOG_LEVEL
+              value: INFO
+            - name: WATCH_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.annotations['olm.targetNamespaces']
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.name
+            - name: OPERATOR_NAME
+              value: percona-xtradb-cluster-operator
+            - name: DISABLE_TELEMETRY
+              value: "false"
+          image: perconalab/percona-xtradb-cluster-operator:main
+          imagePullPolicy: Always
+          resources:
+            limits:
+              cpu: 200m
+              memory: 500Mi
+            requests:
+              cpu: 100m
+              memory: 20Mi
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /metrics
+              port: metrics
+              scheme: HTTP
+          name: percona-xtradb-cluster-operator
+          ports:
+            - containerPort: 8080
+              name: metrics
+              protocol: TCP
+      serviceAccountName: percona-xtradb-cluster-operator
+
+

@@ -4,6 +4,7 @@ IMAGE_TAG_BASE ?= $(IMAGE_TAG_OWNER)/$(NAME)
 SED := $(shell which gsed || which sed)
 VERSION ?= $(shell git rev-parse --abbrev-ref HEAD | $(SED) -e 's^/^-^g; s^[.]^-^g;' | tr '[:upper:]' '[:lower:]')
 IMAGE ?= $(IMAGE_TAG_BASE):$(VERSION)
+MODE ?= cluster
 DEPLOYDIR = ./deploy
 
 BUNDLEDIR = $(DEPLOYDIR)/csv/redhat
@@ -32,6 +33,7 @@ export OPENSHIFT_VERSIONS
 export PACKAGE_CHANNEL
 export MIN_KUBE_VERSION
 export DOCKER_DEFAULT_PLATFORM
+export MODE
 
 REPO_ROOT = $(shell git rev-parse --show-toplevel)
 
@@ -54,7 +56,7 @@ bundles: check-version $(distros:%=bundles/%)
 # https://github.com/operator-framework/community-operators/blob/8a36a33/docs/packaging-required-criteria-ocp.md
 .PHONY: bundles/community
 bundles/community:
-	cd ../../config/manager/default/ && $(KUSTOMIZE) edit set image pxc-operator=$(IMAGE)
+	cd ../../config/manager/$(MODE)/ && $(KUSTOMIZE) edit set image pxc-operator=$(IMAGE)
 	./generate.sh community
 
 	env operator-sdk bundle validate $@ --select-optional='suite=operatorframework'
@@ -62,21 +64,21 @@ bundles/community:
 
 .PHONY: bundles/redhat
 bundles/redhat:
-	cd ../../config/manager/default/ && $(KUSTOMIZE) edit set image pxc-operator=$(IMAGE)
+	cd ../../config/manager/$(MODE)/ && $(KUSTOMIZE) edit set image pxc-operator=$(IMAGE)
 	./generate.sh redhat
 	env operator-sdk bundle validate $@ --select-optional='suite=operatorframework'
 
 # The 'marketplace' configuration is currently identical to the 'redhat', so we just copy it here.
 .PHONY: bundles/marketplace
 bundles/marketplace:
-	cd ../../config/manager/default/ && $(KUSTOMIZE) edit set image pxc-operator=$(IMAGE)
+	cd ../../config/manager/$(MODE)/ && $(KUSTOMIZE) edit set image pxc-operator=$(IMAGE)
 	./generate.sh marketplace
 	env operator-sdk bundle validate $@ --select-optional='suite=operatorframework'
 
 .PHONY: clean
 clean: clean-deprecated
 clean: ## Remove generated files and downloaded tools
-	rm -rf ./bundles ./projects ./tools ./config/marketplace
+	rm -rf ./bundles ./projects ./tools
 
 .PHONY: clean-deprecated
 clean-deprecated:
@@ -131,19 +133,3 @@ tools/$(SYSTEM)/yq: | tools/$(SYSTEM)/venv
 	'tools/$(SYSTEM)/venv/bin/python' -m pip install yq
 	cd '$(dir $@)' && ln -s venv/bin/yq
 
-.PHONY: validate-bundles
-validate-bundles: ## Build temporary bundle images and run scorecard tests in Kubernetes
-validate-bundles: $(distros:%=validate-%-image)
-validate-bundles: $(distros:%=validate-%-directory)
-
-validate-%-directory:
-	./validate-directory.sh 'bundles/$*'
-
-validate-%-image:
-	./validate-image.sh '$(CONTAINER)' 'bundles/$*'
-
-.PHONY: build-bundle-images
-build-bundle-images: check-version $(distros:%=build-%-image)
-
-build-%-image:
-	./build-image.sh '$(CONTAINER)' 'bundles/$*' '$*' '$(VERSION)'

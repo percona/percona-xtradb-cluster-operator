@@ -104,7 +104,6 @@ elif [ ${DISTRIBUTION} == 'marketplace' ]; then
 		"${bundle_directory}/metadata/annotations.yaml"
 fi
 
-
 # Copy annotations into Dockerfile LABELs.
 # TODO fix tab for labels.
 

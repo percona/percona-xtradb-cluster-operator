@@ -205,7 +205,7 @@ func MergeTemplateAnnotations(sfs *appsv1.StatefulSet, annotations map[string]st
 	MergeMaps(sfs.Spec.Template.Annotations, annotations)
 }
 
-func MergeMaps(dest map[string]string, mapList ...map[string]string) {
+func MergeMaps(dest map[string]string, mapList ...map[string]string) map[string]string {
 	if dest == nil {
 		dest = make(map[string]string)
 	}
@@ -214,4 +214,5 @@ func MergeMaps(dest map[string]string, mapList ...map[string]string) {
 			dest[k] = v
 		}
 	}
+	return dest
 }

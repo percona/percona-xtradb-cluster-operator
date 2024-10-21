@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -229,9 +230,28 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(ctx context.Context, re
 
 	if cr.Spec.PITR != nil {
 		oldSize := cluster.Spec.PXC.Size
-		oldUnsafe := cluster.Spec.Unsafe.PXCSize
-		cluster.Spec.PXC.Size = 1
+		oldUnsafePXCSize := cluster.Spec.Unsafe.PXCSize
+		oldUpdateStrategy := cluster.Spec.UpdateStrategy
+
+		oldProxySQL := false
+		if cluster.Spec.ProxySQL != nil {
+			oldProxySQL = cluster.Spec.ProxySQL.Enabled
+		}
+		oldHAProxy := false
+		if cluster.Spec.HAProxy != nil {
+			oldHAProxy = cluster.Spec.HAProxy.Enabled
+		}
+
 		cluster.Spec.Unsafe.PXCSize = true
+		cluster.Spec.PXC.Size = 1
+		cluster.Spec.UpdateStrategy = appsv1.OnDeleteStatefulSetStrategyType
+
+		if cluster.Spec.ProxySQL != nil {
+			cluster.Spec.ProxySQL.Enabled = false
+		}
+		if cluster.Spec.HAProxy != nil {
+			cluster.Spec.HAProxy.Enabled = false
+		}
 
 		if err := r.startCluster(cluster); err != nil {
 			return rr, errors.Wrap(err, "restart cluster for pitr")
@@ -249,7 +269,15 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(ctx context.Context, re
 		}
 
 		cluster.Spec.PXC.Size = oldSize
-		cluster.Spec.Unsafe.PXCSize = oldUnsafe
+		cluster.Spec.Unsafe.PXCSize = oldUnsafePXCSize
+		cluster.Spec.UpdateStrategy = oldUpdateStrategy
+
+		if cluster.Spec.ProxySQL != nil {
+			cluster.Spec.ProxySQL.Enabled = oldProxySQL
+		}
+		if cluster.Spec.HAProxy != nil {
+			cluster.Spec.HAProxy.Enabled = oldHAProxy
+		}
 
 		log.Info("starting cluster", "cluster", cr.Spec.PXCCluster)
 		err = r.setStatus(cr, api.RestoreStartCluster, "")

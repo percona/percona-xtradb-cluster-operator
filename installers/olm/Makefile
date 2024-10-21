@@ -4,7 +4,7 @@ IMAGE_TAG_BASE ?= $(IMAGE_TAG_OWNER)/$(NAME)
 SED := $(shell which gsed || which sed)
 VERSION ?= $(shell git rev-parse --abbrev-ref HEAD | $(SED) -e 's^/^-^g; s^[.]^-^g;' | tr '[:upper:]' '[:lower:]')
 IMAGE ?= $(IMAGE_TAG_BASE):$(VERSION)
-MODE ?= cluster
+MODE ?= namespace
 DEPLOYDIR = ./deploy
 
 BUNDLEDIR = $(DEPLOYDIR)/csv/redhat

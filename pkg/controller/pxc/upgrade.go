@@ -121,8 +121,10 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(ctx context.Context, sfs api.S
 		sts.Spec.Template.Annotations = annotations
 		sts.Spec.Template.Labels = labels
 
-		if err := setControllerReference(cr, sts, r.scheme); err != nil {
-			return errors.Wrap(err, "set controller reference")
+		if len(currentSet.GetOwnerReferences()) == 0 {
+			if err := setControllerReference(cr, sts, r.scheme); err != nil {
+				return errors.Wrap(err, "set controller reference")
+			}
 		}
 		err = r.createOrUpdate(ctx, cr, sts)
 		if err != nil {

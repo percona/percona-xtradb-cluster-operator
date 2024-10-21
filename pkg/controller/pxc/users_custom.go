@@ -202,8 +202,8 @@ func userChanged(current []users.User, new *api.User) bool {
 	return false
 }
 
-// getUserSecret gets secret by name defined by `user.PasswordSecretRef.Name` or creates
-// a default secret with defaultName
+// getUserSecret gets secret by name defined by `user.PasswordSecretRef.Name` or returns a secret
+// with newly generated password if name matches defaultName
 func getUserSecret(ctx context.Context, cl client.Client, cr *api.PerconaXtraDBCluster, name, defaultName, passKey string) (*corev1.Secret, error) {
 	secret := &corev1.Secret{}
 	err := cl.Get(ctx, types.NamespacedName{Name: name, Namespace: cr.Namespace}, secret)

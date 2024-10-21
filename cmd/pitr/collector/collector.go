@@ -323,6 +323,11 @@ func (c *Collector) CollectBinLogs(ctx context.Context) error {
 
 	for _, gtidSet := range lastGTIDSetList {
 		sourceID := strings.Split(gtidSet, ":")[0]
+
+		// remove any newline characters from the set name
+		sourceID = strings.ReplaceAll(sourceID, "\n", "")
+		sourceID = strings.ReplaceAll(sourceID, "\r", "")
+
 		c.lastUploadedSet, err = c.lastGTIDSet(ctx, sourceID)
 		if err != nil {
 			return errors.Wrap(err, "get last uploaded gtid set")
@@ -502,7 +507,7 @@ func (c *Collector) manageBinlog(ctx context.Context, binlog pxc.Binlog) (err er
 		// nolint:errcheck
 		setBuffer.WriteString(binlog.GTIDSet.Raw())
 
-		lastSetName := lastSetFilePrefix+strings.Split(gtidSet, ":")[0]
+		lastSetName := lastSetFilePrefix + strings.Split(gtidSet, ":")[0]
 
 		// remove any newline characters from the last set name
 		lastSetName = strings.ReplaceAll(lastSetName, "\n", "")

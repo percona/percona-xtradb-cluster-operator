@@ -37,8 +37,6 @@ export MODE
 
 REPO_ROOT = $(shell git rev-parse --show-toplevel)
 
-distros = community redhat marketplace
-
 check-version:
 ifndef VERSION
 	$(error VERSION is not set)

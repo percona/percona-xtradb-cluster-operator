@@ -34,7 +34,7 @@ metadata:
     # https://operatorhub.io/operator/postgresql
     createdAt: 2024-10-07 19:40Z
     repository: https://github.com/percona/percona-xtradb-cluster-operator
-    alm-examples: >-  # kustomize config/examples
+    alm-examples: >- 
 
 spec:
   # The following affect how the package is indexed at OperatorHub.io:

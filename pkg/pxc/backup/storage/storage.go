@@ -227,7 +227,10 @@ func (a *Azure) GetObject(ctx context.Context, name string) (io.ReadCloser, erro
 
 func (a *Azure) PutObject(ctx context.Context, name string, data io.Reader, _ int64) error {
 	objPath := path.Join(a.prefix, name)
-	_, err := a.client.UploadStream(ctx, a.container, objPath, data, nil)
+	uploadOption := azblob.UploadStreamOptions{
+		Concurrency: 4,
+	}
+	_, err := a.client.UploadStream(ctx, a.container, objPath, data, &uploadOption)
 	if err != nil {
 		return errors.Wrapf(err, "upload stream: %s", objPath)
 	}

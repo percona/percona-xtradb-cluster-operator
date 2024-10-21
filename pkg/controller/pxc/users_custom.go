@@ -73,30 +73,19 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileCustomUsers(ctx context.Context
 			user.Hosts = []string{"%"}
 		}
 
-		userSecretName := fmt.Sprintf("%s-custom-user-secret", cr.Name)
+		defaultUserSecretName := fmt.Sprintf("%s-custom-user-secret", cr.Name)
+
+		userSecretName := defaultUserSecretName
 		userSecretPassKey := user.Name
 		if user.PasswordSecretRef != nil {
 			userSecretName = user.PasswordSecretRef.Name
 			userSecretPassKey = user.PasswordSecretRef.Key
 		}
 
-		userSecret, err := getUserSecret(ctx, r.client, cr, userSecretName)
+		userSecret, err := getUserSecret(ctx, r.client, cr, userSecretName, defaultUserSecretName, userSecretPassKey)
 		if err != nil {
-			if k8serrors.IsNotFound(err) {
-				userSecret = &corev1.Secret{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      userSecretName,
-						Namespace: cr.Namespace,
-					},
-				}
-				err := generateUserPass(ctx, r.client, cr, userSecret, userSecretPassKey)
-				if err != nil {
-					return errors.Wrap(err, "failed to generate user password secrets")
-				}
-			} else {
-				log.Error(err, "failed to get user secret", "user", user)
-				continue
-			}
+			log.Error(err, "failed to get user secret", "user", user)
+			continue
 		}
 
 		annotationKey := fmt.Sprintf("percona.com/%s-%s-hash", cr.Name, user.Name)
@@ -213,10 +202,32 @@ func userChanged(current []users.User, new *api.User) bool {
 	return false
 }
 
-func getUserSecret(ctx context.Context, cl client.Client, cr *api.PerconaXtraDBCluster, name string) (*corev1.Secret, error) {
-	secrets := corev1.Secret{}
-	err := cl.Get(ctx, types.NamespacedName{Name: name, Namespace: cr.Namespace}, &secrets)
-	return &secrets, errors.Wrap(err, "get user secrets")
+// getUserSecret gets secret by name defined by `user.PasswordSecretRef.Name` or creates
+// a default secret with defaultName
+func getUserSecret(ctx context.Context, cl client.Client, cr *api.PerconaXtraDBCluster, name, defaultName, passKey string) (*corev1.Secret, error) {
+	secret := &corev1.Secret{}
+	err := cl.Get(ctx, types.NamespacedName{Name: name, Namespace: cr.Namespace}, secret)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			if name == defaultName {
+				secret = &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      name,
+						Namespace: cr.Namespace,
+					},
+				}
+				err := generateUserPass(ctx, cl, cr, secret, passKey)
+				if err != nil {
+					return nil, errors.Wrap(err, "failed to generate user password secrets")
+				}
+
+			}
+		} else {
+			return nil, errors.Wrap(err, "failed to get user secret")
+		}
+	}
+
+	return secret, nil
 }
 
 func sysUserNames() map[string]struct{} {

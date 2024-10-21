@@ -11,51 +11,28 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	app "github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 )
 
 const (
-	proxyName             = "proxysql"
 	proxyDataVolumeName   = "proxydata"
 	proxyConfigVolumeName = "config"
 )
 
 type Proxy struct {
-	sfs     *appsv1.StatefulSet
-	labels  map[string]string
-	service string
+	cr *api.PerconaXtraDBCluster
 }
 
 func NewProxy(cr *api.PerconaXtraDBCluster) *Proxy {
-	sfs := &appsv1.StatefulSet{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "apps/v1",
-			Kind:       "StatefulSet",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-" + proxyName,
-			Namespace: cr.Namespace,
-		},
-	}
-
-	labels := map[string]string{
-		"app.kubernetes.io/name":       "percona-xtradb-cluster",
-		"app.kubernetes.io/instance":   cr.Name,
-		"app.kubernetes.io/component":  proxyName,
-		"app.kubernetes.io/managed-by": "percona-xtradb-cluster-operator",
-		"app.kubernetes.io/part-of":    "percona-xtradb-cluster",
-	}
-
 	return &Proxy{
-		sfs:     sfs,
-		labels:  labels,
-		service: cr.Name + "-proxysql-unready",
+		cr: cr.DeepCopy(),
 	}
 }
 
 func (c *Proxy) Name() string {
-	return proxyName
+	return naming.ComponentProxySQL
 }
 
 func (c *Proxy) InitContainers(cr *api.PerconaXtraDBCluster, initImageName string) []corev1.Container {
@@ -83,7 +60,7 @@ func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaX
 	availableVolumes []corev1.Volume,
 ) (corev1.Container, error) {
 	appc := corev1.Container{
-		Name:            proxyName,
+		Name:            naming.ComponentProxySQL,
 		Image:           spec.Image,
 		ImagePullPolicy: spec.ImagePullPolicy,
 		Ports: []corev1.ContainerPort{
@@ -113,7 +90,7 @@ func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaX
 		Env: []corev1.EnvVar{
 			{
 				Name:  "PXC_SERVICE",
-				Value: c.labels["app.kubernetes.io/instance"] + "-pxc",
+				Value: c.Labels()[naming.LabelAppKubernetesInstance] + "-pxc",
 			},
 			{
 				Name: "MYSQL_ROOT_PASSWORD",
@@ -205,7 +182,7 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.Per
 		Env: []corev1.EnvVar{
 			{
 				Name:  "PXC_SERVICE",
-				Value: c.labels["app.kubernetes.io/instance"] + "-pxc",
+				Value: c.Labels()[naming.LabelAppKubernetesInstance] + "-pxc",
 			},
 			{
 				Name: "MYSQL_ROOT_PASSWORD",
@@ -260,7 +237,7 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.Per
 		Env: []corev1.EnvVar{
 			{
 				Name:  "PROXYSQL_SERVICE",
-				Value: c.labels["app.kubernetes.io/instance"] + "-proxysql-unready",
+				Value: c.Labels()[naming.LabelAppKubernetesInstance] + "-proxysql-unready",
 			},
 			{
 				Name: "MYSQL_ROOT_PASSWORD",
@@ -490,7 +467,7 @@ func (c *Proxy) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg a
 		sslVolume,
 	)
 
-	configVolume, err := vg(cr.Namespace, proxyConfigVolumeName, ls["app.kubernetes.io/instance"]+"-proxysql", false)
+	configVolume, err := vg(cr.Namespace, proxyConfigVolumeName, ls[naming.LabelAppKubernetesInstance]+"-proxysql", false)
 	if err != nil && !errors.Is(err, api.NoCustomVolumeErr) {
 		return nil, err
 	}
@@ -499,7 +476,7 @@ func (c *Proxy) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg a
 	}
 	if cr.CompareVersionWith("1.11.0") >= 0 && cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.HookScript != "" {
 		vol.Volumes = append(vol.Volumes,
-			app.GetConfigVolumes("hookscript", ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"]+"-hookscript"))
+			app.GetConfigVolumes("hookscript", ls[naming.LabelAppKubernetesInstance]+"-"+ls[naming.LabelAppKubernetesComponent]+"-hookscript"))
 	}
 	if cr.CompareVersionWith("1.13.0") >= 0 {
 		vol.Volumes = append(vol.Volumes,
@@ -511,19 +488,35 @@ func (c *Proxy) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg a
 			},
 		)
 	}
+
+	if cr.CompareVersionWith("1.16.0") >= 0 {
+		for i := range vol.PVCs {
+			vol.PVCs[i].Labels = ls
+		}
+	}
 	return vol, nil
 }
 
+// StatefulSet returns a new statefulset object with empty spec.
 func (c *Proxy) StatefulSet() *appsv1.StatefulSet {
-	return c.sfs
+	return &appsv1.StatefulSet{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "apps/v1",
+			Kind:       "StatefulSet",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      c.cr.Name + "-" + naming.ComponentProxySQL,
+			Namespace: c.cr.Namespace,
+		},
+	}
 }
 
 func (c *Proxy) Labels() map[string]string {
-	return c.labels
+	return naming.LabelsProxySQL(c.cr)
 }
 
 func (c *Proxy) Service() string {
-	return c.service
+	return c.cr.Name + "-proxysql-unready"
 }
 
 func (c *Proxy) UpdateStrategy(cr *api.PerconaXtraDBCluster) appsv1.StatefulSetUpdateStrategy {

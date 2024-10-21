@@ -6,6 +6,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 )
 
 const (
@@ -22,10 +23,7 @@ func NewServicePXC(cr *api.PerconaXtraDBCluster) *corev1.Service {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name + "-" + appName,
 			Namespace: cr.Namespace,
-			Labels: map[string]string{
-				"app.kubernetes.io/name":     "percona-xtradb-cluster",
-				"app.kubernetes.io/instance": cr.Name,
-			},
+			Labels:    naming.LabelsPXC(cr),
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{
@@ -35,11 +33,7 @@ func NewServicePXC(cr *api.PerconaXtraDBCluster) *corev1.Service {
 				},
 			},
 			ClusterIP: "None",
-			Selector: map[string]string{
-				"app.kubernetes.io/name":      "percona-xtradb-cluster",
-				"app.kubernetes.io/instance":  cr.Name,
-				"app.kubernetes.io/component": appName,
-			},
+			Selector:  naming.SelectorPXC(cr),
 		},
 	}
 
@@ -54,10 +48,6 @@ func NewServicePXC(cr *api.PerconaXtraDBCluster) *corev1.Service {
 	}
 
 	if cr.CompareVersionWith("1.9.0") >= 0 {
-		obj.ObjectMeta.Labels["app.kubernetes.io/component"] = appName
-		obj.ObjectMeta.Labels["app.kubernetes.io/managed-by"] = "percona-xtradb-cluster-operator"
-		obj.ObjectMeta.Labels["app.kubernetes.io/part-of"] = "percona-xtradb-cluster"
-
 		obj.Spec.Ports = append(
 			obj.Spec.Ports,
 			corev1.ServicePort{
@@ -89,10 +79,7 @@ func NewServicePXCUnready(cr *api.PerconaXtraDBCluster) *corev1.Service {
 			Annotations: map[string]string{
 				"service.alpha.kubernetes.io/tolerate-unready-endpoints": "true",
 			},
-			Labels: map[string]string{
-				"app.kubernetes.io/name":     "percona-xtradb-cluster",
-				"app.kubernetes.io/instance": cr.Name,
-			},
+			Labels: naming.LabelsPXC(cr),
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{
@@ -102,11 +89,7 @@ func NewServicePXCUnready(cr *api.PerconaXtraDBCluster) *corev1.Service {
 				},
 			},
 			ClusterIP: "None",
-			Selector: map[string]string{
-				"app.kubernetes.io/name":      "percona-xtradb-cluster",
-				"app.kubernetes.io/instance":  cr.Name,
-				"app.kubernetes.io/component": appName,
-			},
+			Selector:  naming.SelectorPXC(cr),
 		},
 	}
 
@@ -121,10 +104,6 @@ func NewServicePXCUnready(cr *api.PerconaXtraDBCluster) *corev1.Service {
 	}
 
 	if cr.CompareVersionWith("1.9.0") >= 0 {
-		obj.ObjectMeta.Labels["app.kubernetes.io/component"] = appName
-		obj.ObjectMeta.Labels["app.kubernetes.io/managed-by"] = "percona-xtradb-cluster-operator"
-		obj.ObjectMeta.Labels["app.kubernetes.io/part-of"] = "percona-xtradb-cluster"
-
 		obj.Spec.Ports = append(
 			obj.Spec.Ports,
 			corev1.ServicePort{
@@ -161,10 +140,7 @@ func NewServiceProxySQLUnready(cr *api.PerconaXtraDBCluster) *corev1.Service {
 			Annotations: map[string]string{
 				"service.alpha.kubernetes.io/tolerate-unready-endpoints": "true",
 			},
-			Labels: map[string]string{
-				"app.kubernetes.io/name":     "percona-xtradb-cluster",
-				"app.kubernetes.io/instance": cr.Name,
-			},
+			Labels: naming.LabelsProxySQL(cr),
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{
@@ -178,11 +154,7 @@ func NewServiceProxySQLUnready(cr *api.PerconaXtraDBCluster) *corev1.Service {
 				},
 			},
 			ClusterIP: "None",
-			Selector: map[string]string{
-				"app.kubernetes.io/name":      "percona-xtradb-cluster",
-				"app.kubernetes.io/instance":  cr.Name,
-				"app.kubernetes.io/component": "proxysql",
-			},
+			Selector:  naming.SelectorProxySQL(cr),
 		},
 	}
 
@@ -194,12 +166,6 @@ func NewServiceProxySQLUnready(cr *api.PerconaXtraDBCluster) *corev1.Service {
 				Name: "mysql-admin",
 			},
 		)
-	}
-
-	if cr.CompareVersionWith("1.9.0") >= 0 {
-		obj.ObjectMeta.Labels["app.kubernetes.io/component"] = "proxysql"
-		obj.ObjectMeta.Labels["app.kubernetes.io/managed-by"] = "percona-xtradb-cluster-operator"
-		obj.ObjectMeta.Labels["app.kubernetes.io/part-of"] = "percona-xtradb-cluster"
 	}
 
 	if cr.CompareVersionWith("1.10.0") >= 0 {
@@ -222,10 +188,7 @@ func NewServiceProxySQL(cr *api.PerconaXtraDBCluster) *corev1.Service {
 	}
 
 	serviceAnnotations := make(map[string]string)
-	serviceLabels := map[string]string{
-		"app.kubernetes.io/name":     "percona-xtradb-cluster",
-		"app.kubernetes.io/instance": cr.Name,
-	}
+	serviceLabels := naming.LabelsProxySQL(cr)
 	loadBalancerSourceRanges := []string{}
 	loadBalancerIP := ""
 
@@ -262,11 +225,7 @@ func NewServiceProxySQL(cr *api.PerconaXtraDBCluster) *corev1.Service {
 					Name: "mysql",
 				},
 			},
-			Selector: map[string]string{
-				"app.kubernetes.io/name":      "percona-xtradb-cluster",
-				"app.kubernetes.io/instance":  cr.Name,
-				"app.kubernetes.io/component": "proxysql",
-			},
+			Selector:                 naming.SelectorProxySQL(cr),
 			LoadBalancerSourceRanges: loadBalancerSourceRanges,
 			LoadBalancerIP:           loadBalancerIP,
 		},
@@ -310,12 +269,6 @@ func NewServiceProxySQL(cr *api.PerconaXtraDBCluster) *corev1.Service {
 		)
 	}
 
-	if cr.CompareVersionWith("1.9.0") >= 0 {
-		obj.ObjectMeta.Labels["app.kubernetes.io/component"] = "proxysql"
-		obj.ObjectMeta.Labels["app.kubernetes.io/managed-by"] = "percona-xtradb-cluster-operator"
-		obj.ObjectMeta.Labels["app.kubernetes.io/part-of"] = "percona-xtradb-cluster"
-	}
-
 	return obj
 }
 
@@ -331,13 +284,7 @@ func NewServiceHAProxy(cr *api.PerconaXtraDBCluster) *corev1.Service {
 	}
 
 	serviceAnnotations := make(map[string]string)
-	serviceLabels := map[string]string{
-		"app.kubernetes.io/name":       "percona-xtradb-cluster",
-		"app.kubernetes.io/instance":   cr.Name,
-		"app.kubernetes.io/component":  "haproxy",
-		"app.kubernetes.io/managed-by": "percona-xtradb-cluster-operator",
-		"app.kubernetes.io/part-of":    "percona-xtradb-cluster",
-	}
+	serviceLabels := naming.LabelsHAProxy(cr)
 	loadBalancerSourceRanges := []string{}
 	loadBalancerIP := ""
 
@@ -380,11 +327,7 @@ func NewServiceHAProxy(cr *api.PerconaXtraDBCluster) *corev1.Service {
 					Name:       "proxy-protocol",
 				},
 			},
-			Selector: map[string]string{
-				"app.kubernetes.io/name":      "percona-xtradb-cluster",
-				"app.kubernetes.io/instance":  cr.Name,
-				"app.kubernetes.io/component": "haproxy",
-			},
+			Selector:                 naming.SelectorHAProxy(cr),
 			LoadBalancerSourceRanges: loadBalancerSourceRanges,
 			LoadBalancerIP:           loadBalancerIP,
 		},
@@ -468,13 +411,7 @@ func NewServiceHAProxyReplicas(cr *api.PerconaXtraDBCluster) *corev1.Service {
 	}
 
 	serviceAnnotations := make(map[string]string)
-	serviceLabels := map[string]string{
-		"app.kubernetes.io/name":       "percona-xtradb-cluster",
-		"app.kubernetes.io/instance":   cr.Name,
-		"app.kubernetes.io/component":  "haproxy",
-		"app.kubernetes.io/managed-by": "percona-xtradb-cluster-operator",
-		"app.kubernetes.io/part-of":    "percona-xtradb-cluster",
-	}
+	serviceLabels := naming.LabelsHAProxy(cr)
 	loadBalancerSourceRanges := []string{}
 	loadBalancerIP := ""
 	if cr.Spec.HAProxy != nil {
@@ -526,11 +463,7 @@ func NewServiceHAProxyReplicas(cr *api.PerconaXtraDBCluster) *corev1.Service {
 					Name:       "mysql-replicas",
 				},
 			},
-			Selector: map[string]string{
-				"app.kubernetes.io/name":      "percona-xtradb-cluster",
-				"app.kubernetes.io/instance":  cr.Name,
-				"app.kubernetes.io/component": "haproxy",
-			},
+			Selector:                 naming.SelectorHAProxy(cr),
 			LoadBalancerSourceRanges: loadBalancerSourceRanges,
 			LoadBalancerIP:           loadBalancerIP,
 		},

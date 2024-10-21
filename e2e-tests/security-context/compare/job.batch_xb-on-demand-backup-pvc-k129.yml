@@ -5,10 +5,14 @@ metadata:
     openshift.io/scc: privileged
   generation: 1
   labels:
-    backup-name: on-demand-backup-pvc
-    cluster: sec-context
-    job-name: xb-on-demand-backup-pvc
-    type: xtrabackup
+    app.kubernetes.io/instance: sec-context
+    app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+    app.kubernetes.io/name: percona-xtradb-cluster
+    app.kubernetes.io/part-of: percona-xtradb-cluster
+    percona.com/backup-job-name: xb-on-demand-backup-pvc
+    percona.com/backup-name: on-demand-backup-pvc
+    percona.com/backup-type: xtrabackup
+    percona.com/cluster: sec-context
   name: xb-on-demand-backup-pvc
   ownerReferences:
     - controller: true
@@ -23,20 +27,28 @@ spec:
   podReplacementPolicy: TerminatingOrFailed
   selector:
     matchLabels:
-      backup-name: on-demand-backup-pvc
-      cluster: sec-context
-      job-name: xb-on-demand-backup-pvc
-      type: xtrabackup
+      app.kubernetes.io/instance: sec-context
+      app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+      app.kubernetes.io/name: percona-xtradb-cluster
+      app.kubernetes.io/part-of: percona-xtradb-cluster
+      percona.com/backup-job-name: xb-on-demand-backup-pvc
+      percona.com/backup-name: on-demand-backup-pvc
+      percona.com/backup-type: xtrabackup
+      percona.com/cluster: sec-context
   suspend: false
   template:
     metadata:
       annotations:
         openshift.io/scc: privileged
       labels:
-        backup-name: on-demand-backup-pvc
-        cluster: sec-context
-        job-name: xb-on-demand-backup-pvc
-        type: xtrabackup
+        app.kubernetes.io/instance: sec-context
+        app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+        app.kubernetes.io/name: percona-xtradb-cluster
+        app.kubernetes.io/part-of: percona-xtradb-cluster
+        percona.com/backup-job-name: xb-on-demand-backup-pvc
+        percona.com/backup-name: on-demand-backup-pvc
+        percona.com/backup-type: xtrabackup
+        percona.com/cluster: sec-context
     spec:
       containers:
         - command:

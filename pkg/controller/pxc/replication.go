@@ -16,6 +16,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/queries"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
@@ -505,13 +506,9 @@ func NewExposedPXCService(svcName string, cr *api.PerconaXtraDBCluster) *corev1.
 			Kind:       "Service",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      svcName,
-			Namespace: cr.Namespace,
-			Labels: map[string]string{
-				"app.kubernetes.io/name":      "percona-xtradb-cluster",
-				"app.kubernetes.io/instance":  cr.Name,
-				"app.kubernetes.io/component": "external-service",
-			},
+			Name:        svcName,
+			Namespace:   cr.Namespace,
+			Labels:      naming.LabelsExternalService(cr),
 			Annotations: cr.Spec.PXC.Expose.Annotations,
 		},
 		Spec: corev1.ServiceSpec{

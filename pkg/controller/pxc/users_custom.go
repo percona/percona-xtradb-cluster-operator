@@ -73,12 +73,11 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileCustomUsers(ctx context.Context
 			user.Hosts = []string{"%"}
 		}
 
-		userSecretName := user.PasswordSecretRef.Name
-		userSecretPassKey := user.PasswordSecretRef.Key
-		if user.PasswordSecretRef == nil {
-			userSecretName = fmt.Sprintf("%s-custom-user-secret", cr.Name)
-			userSecretPassKey = user.Name + "-pass"
-
+		userSecretName := fmt.Sprintf("%s-custom-user-secret", cr.Name)
+		userSecretPassKey := user.Name
+		if user.PasswordSecretRef != nil {
+			userSecretName = user.PasswordSecretRef.Name
+			userSecretPassKey = user.PasswordSecretRef.Key
 		}
 
 		userSecret, err := getUserSecret(ctx, r.client, cr, userSecretName)

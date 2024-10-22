@@ -207,23 +207,21 @@ func userChanged(current []users.User, new *api.User) bool {
 func getUserSecret(ctx context.Context, cl client.Client, cr *api.PerconaXtraDBCluster, name, defaultName, passKey string) (*corev1.Secret, error) {
 	secret := &corev1.Secret{}
 	err := cl.Get(ctx, types.NamespacedName{Name: name, Namespace: cr.Namespace}, secret)
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			if name == defaultName {
-				secret = &corev1.Secret{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      name,
-						Namespace: cr.Namespace,
-					},
-				}
-				err := generateUserPass(ctx, cl, cr, secret, passKey)
-				if err != nil {
-					return nil, errors.Wrap(err, "failed to generate user password secrets")
-				}
 
-			}
-		} else {
-			return nil, errors.Wrap(err, "failed to get user secret")
+	if err != nil && name != defaultName {
+		return nil, errors.Wrap(err, "failed to get user secret")
+	}
+
+	if err != nil && k8serrors.IsNotFound(err) {
+		secret = &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: cr.Namespace,
+			},
+		}
+		err := generateUserPass(ctx, cl, cr, secret, passKey)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to generate user password secrets")
 		}
 	}
 

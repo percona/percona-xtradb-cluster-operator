@@ -25,7 +25,7 @@ compare_mysql_user "-h $cluster-haproxy -uuser-two -ptestpass3"
 compare_mysql_cmd "user-two-1" "SELECT User, Host from mysql.user WHERE User = 'user-two';" "-h $cluster-haproxy -uroot -proot_password"
 
 generatedUserSecret="$cluster-custom-user-secret"
-generatedPass=$(kubectl_bin get secret $generatedUserSecret -o jsonpath="{.data.user-three-pass}" | base64 -d)
+generatedPass=$(kubectl_bin get secret $generatedUserSecret -o jsonpath="{.data.user-three}" | base64 -d)
 compare_mysql_user "-h $cluster-haproxy -uuser-three -p'$generatedPass'"
 compare_mysql_cmd "user-three-1" "SELECT User, Host from mysql.user WHERE User = 'user-three';" "-h $cluster-haproxy -uroot -proot_password"
 

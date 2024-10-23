@@ -293,7 +293,7 @@ if [[ -z ${WSREP_CLUSTER_NAME} || ${WSREP_CLUSTER_NAME} == 'noname' ]]; then
 	exit 1
 fi
 
-if [ -n ${NOTIFY_SOCKET} ]; then
+if [[ -n ${NOTIFY_SOCKET} && ${MYSQL_VERSION} == '8.0' ]]; then
 	nohup /var/lib/mysql/mysql-state-monitor >/var/lib/mysql/mysql-state-monitor.log 2>&1 < /dev/null &
 fi
 
@@ -517,12 +517,14 @@ if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 		fi
 		set -x
 
-		mysqlState="startup"
-		while [[ "${mysqlState}" != "ready" ]]; do
-			mysqlState=$(tr -d '\0' < ${MYSQL_STATE_FILE})
-			echo >&2 "MySQL upgrade process in progress..."
-			sleep 1
-		done
+		if [[ ${MYSQL_VERSION} == '8.0' ]]; then
+			mysqlState="startup"
+			while [[ "${mysqlState}" != "ready" ]]; do
+				mysqlState=$(tr -d '\0' < ${MYSQL_STATE_FILE})
+				echo >&2 "MySQL upgrade process in progress..."
+				sleep 1
+			done
+		fi
 		for i in {120..0}; do
 			if echo 'SELECT 1' | "${mysql[@]}" &>/dev/null; then
 				break

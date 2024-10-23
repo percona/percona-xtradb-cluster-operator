@@ -16,7 +16,10 @@ MYSQL_PASSWORD="${mysql_pass:-$MONITOR_PASSWORD}"
 DEFAULTS_EXTRA_FILE=${DEFAULTS_EXTRA_FILE:-/etc/my.cnf}
 AVAILABLE_WHEN_DONOR=${AVAILABLE_WHEN_DONOR:-1}
 NODE_IP=$(hostname -I | awk ' { print $1 } ')
-MYSQL_STATE=$(tr -d '\0' < ${MYSQL_STATE_FILE})
+MYSQL_STATE=ready
+if [[ ${MYSQL_VERSION} == '8.0' ]]; then
+	MYSQL_STATE=$(tr -d '\0' < ${MYSQL_STATE_FILE})
+fi
 
 #Timeout exists for instances where mysqld may be hung
 TIMEOUT=$((${READINESS_CHECK_TIMEOUT:-10} - 1))

@@ -212,6 +212,10 @@ func getUserSecret(ctx context.Context, cl client.Client, cr *api.PerconaXtraDBC
 		return nil, errors.Wrap(err, "failed to get user secret")
 	}
 
+	if err != nil && !k8serrors.IsNotFound(err) && name == defaultName {
+		return nil, errors.Wrap(err, "failed to get user secret")
+	}
+
 	if err != nil && k8serrors.IsNotFound(err) {
 		secret = &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{

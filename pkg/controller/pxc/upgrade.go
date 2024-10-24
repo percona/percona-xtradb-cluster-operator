@@ -22,9 +22,11 @@ import (
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/queries"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/util"
 )
 
 func (r *ReconcilePerconaXtraDBCluster) updatePod(ctx context.Context, sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, newAnnotations map[string]string) error {
@@ -95,23 +97,34 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(ctx context.Context, sfs api.S
 	}
 
 	err = k8sretry.RetryOnConflict(k8sretry.DefaultRetry, func() error {
-		currentSet := sfs.StatefulSet()
-		err := r.client.Get(ctx, types.NamespacedName{Name: currentSet.Name, Namespace: currentSet.Namespace}, currentSet)
-		if err != nil {
-			return errors.Wrap(err, "failed to get statefulset")
-		}
-		annotations := currentSet.Spec.Template.Annotations
-		labels := currentSet.Spec.Template.Labels
-
 		sts, err := pxc.StatefulSet(ctx, r.client, sfs, podSpec, cr, secrets, initImageName, r.getConfigVolume)
 		if err != nil {
 			return errors.Wrap(err, "construct statefulset")
 		}
+		if err = setControllerReference(cr, sts, r.scheme); err != nil {
+			return errors.Wrap(err, "set controller reference")
+		}
+
+		currentSet := sfs.StatefulSet()
+		err = r.client.Get(ctx, types.NamespacedName{Name: currentSet.Name, Namespace: currentSet.Namespace}, currentSet)
+		if err != nil {
+			return errors.Wrap(err, "failed to get statefulset")
+		}
+		// Keep same volumeClaimTemplates labels if statefulset already exists.
+		// We can't update volumeClaimTemplates.
+		if err == nil && cr.CompareVersionWith("1.16.0") >= 0 {
+			for i, pvc := range currentSet.Spec.VolumeClaimTemplates {
+				sts.Spec.VolumeClaimTemplates[i].Labels = pvc.Labels
+			}
+		}
+
+		annotations := currentSet.Spec.Template.Annotations
+		labels := currentSet.Spec.Template.Labels
 
 		// support annotation adjustements
-		pxc.MergeMaps(annotations, sts.Spec.Template.Annotations, newAnnotations)
+		util.MergeMaps(annotations, sts.Spec.Template.Annotations, newAnnotations)
 
-		pxc.MergeMaps(labels, sts.Spec.Template.Labels)
+		util.MergeMaps(labels, sts.Spec.Template.Labels)
 
 		for k, v := range hashAnnotations {
 			if v != "" || k == "percona.com/configuration-hash" {
@@ -558,15 +571,15 @@ func (r *ReconcilePerconaXtraDBCluster) waitPodRestart(ctx context.Context, cr *
 }
 
 func isPXC(sfs api.StatefulApp) bool {
-	return sfs.Labels()["app.kubernetes.io/component"] == "pxc"
+	return sfs.Labels()[naming.LabelAppKubernetesComponent] == "pxc"
 }
 
 func isHAproxy(sfs api.StatefulApp) bool {
-	return sfs.Labels()["app.kubernetes.io/component"] == "haproxy"
+	return sfs.Labels()[naming.LabelAppKubernetesComponent] == "haproxy"
 }
 
 func isProxySQL(sfs api.StatefulApp) bool {
-	return sfs.Labels()["app.kubernetes.io/component"] == "proxysql"
+	return sfs.Labels()[naming.LabelAppKubernetesComponent] == "proxysql"
 }
 
 func (r *ReconcilePerconaXtraDBCluster) isBackupRunning(cr *api.PerconaXtraDBCluster) (bool, error) {
@@ -639,7 +652,7 @@ func (r *ReconcilePerconaXtraDBCluster) getConfigHash(cr *api.PerconaXtraDBClust
 
 	name := types.NamespacedName{
 		Namespace: cr.Namespace,
-		Name:      ls["app.kubernetes.io/instance"] + "-" + ls["app.kubernetes.io/component"],
+		Name:      ls[naming.LabelAppKubernetesInstance] + "-" + ls[naming.LabelAppKubernetesComponent],
 	}
 
 	obj, err := r.getFirstExisting(name, &corev1.Secret{}, &corev1.ConfigMap{})

@@ -316,7 +316,7 @@ var _ = Describe("Finalizer delete-proxysql-pvc", Ordered, func() {
 					&client.ListOptions{
 						Namespace: cr.Namespace,
 						LabelSelector: labels.SelectorFromSet(map[string]string{
-							"app.kubernetes.io/component": "proxysql",
+							naming.LabelAppKubernetesComponent: "proxysql",
 						}),
 					})
 				return err == nil
@@ -349,7 +349,7 @@ var _ = Describe("Finalizer delete-proxysql-pvc", Ordered, func() {
 					err := k8sClient.List(ctx, &pvcList, &client.ListOptions{
 						Namespace: cr.Namespace,
 						LabelSelector: labels.SelectorFromSet(map[string]string{
-							"app.kubernetes.io/component": "proxysql",
+							naming.LabelAppKubernetesComponent: "proxysql",
 						}),
 					})
 					return err == nil
@@ -474,7 +474,7 @@ var _ = Describe("Finalizer delete-pxc-pvc", Ordered, func() {
 					&client.ListOptions{
 						Namespace: cr.Namespace,
 						LabelSelector: labels.SelectorFromSet(map[string]string{
-							"app.kubernetes.io/component": "pxc",
+							naming.LabelAppKubernetesComponent: "pxc",
 						}),
 					})
 				return err == nil
@@ -507,7 +507,7 @@ var _ = Describe("Finalizer delete-pxc-pvc", Ordered, func() {
 					err := k8sClient.List(ctx, &pvcList, &client.ListOptions{
 						Namespace: cr.Namespace,
 						LabelSelector: labels.SelectorFromSet(map[string]string{
-							"app.kubernetes.io/component": "pxc",
+							naming.LabelAppKubernetesComponent: "pxc",
 						}),
 					})
 					return err == nil

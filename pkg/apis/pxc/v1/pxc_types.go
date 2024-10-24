@@ -484,6 +484,35 @@ type PodSpec struct {
 	TopologySpreadConstraints    []corev1.TopologySpreadConstraint `json:"topologySpreadConstraints,omitempty"`
 }
 
+func (spec *PodSpec) HasSidecarInternalSecret(secret *corev1.Secret) bool {
+	if spec.Sidecars != nil {
+		for _, container := range spec.Sidecars {
+			for _, env := range container.Env {
+				if env.ValueFrom != nil && env.ValueFrom.SecretKeyRef != nil {
+					if env.ValueFrom.SecretKeyRef.Name == secret.Name {
+						return true
+					}
+				}
+			}
+		}
+	}
+	if spec.SidecarVolumes != nil {
+		for _, volume := range spec.SidecarVolumes {
+			if volume.Secret != nil && volume.Secret.SecretName == secret.Name {
+				return true
+			}
+			if volume.Projected != nil {
+				for _, source := range volume.Projected.Sources {
+					if source.Secret != nil && source.Secret.Name == secret.Name {
+						return true
+					}
+				}
+			}
+		}
+	}
+	return false
+}
+
 type ProxySQLSpec struct {
 	PodSpec `json:",inline"`
 	Expose  ServiceExpose `json:"expose,omitempty"`

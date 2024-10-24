@@ -976,6 +976,8 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 			c.HAProxy.EnvVarsSecretName = cr.Name + "-env-vars-haproxy"
 		}
 
+		c.HAProxy.VolumeSpec.reconcileOpts()
+
 		c.HAProxy.reconcileAffinityOpts()
 
 		if err = c.HAProxy.executeConfigurationTemplate(); err != nil {
@@ -1523,6 +1525,17 @@ func (s *PerconaXtraDBClusterStatus) AddCondition(c ClusterCondition) {
 	if len(s.Conditions) > maxStatusesQuantity {
 		s.Conditions = s.Conditions[len(s.Conditions)-maxStatusesQuantity:]
 	}
+}
+
+// FindCondition finds the conditionType in conditions.
+func (s *PerconaXtraDBClusterStatus) FindCondition(conditionType AppState) *ClusterCondition {
+	for i := range s.Conditions {
+		if s.Conditions[i].Type == conditionType {
+			return &s.Conditions[i]
+		}
+	}
+
+	return nil
 }
 
 func (cr *PerconaXtraDBCluster) CanBackup() error {

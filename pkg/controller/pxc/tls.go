@@ -324,19 +324,20 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileTLSToggle(ctx context.Context, 
 		return nil
 	}
 
-	annotationTLSState, ok := cr.Annotations[naming.AnnotationTLS]
-	if !ok {
-		if err := k8s.AnnotateObject(ctx, r.client, cr, map[string]string{
-			naming.AnnotationTLS: string(naming.GetAnnotationTLSState(cr)),
-		}); err != nil {
-			return errors.Wrap(err, "failed to annotate")
-		}
+	condition := cr.Status.FindCondition(naming.ConditionTLS)
+	if condition == nil {
+		cr.Status.AddCondition(api.ClusterCondition{
+			Type:               naming.ConditionTLS,
+			Status:             api.ConditionStatus(naming.GetConditionTLSState(cr)),
+			LastTransitionTime: metav1.NewTime(time.Now()),
+		})
 		return nil
 	}
 
-	if annotationTLSState == string(naming.GetAnnotationTLSState(cr)) {
+	if condition.Status == api.ConditionStatus(naming.GetConditionTLSState(cr)) {
 		return nil
 	}
+
 	clusterPaused, err := k8s.PauseCluster(ctx, r.client, cr)
 	if err != nil {
 		return errors.Wrap(err, "failed to pause cluster")
@@ -344,31 +345,28 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileTLSToggle(ctx context.Context, 
 	if !clusterPaused {
 		return nil
 	}
-	switch naming.AnnotationTLSState(annotationTLSState) {
-	case naming.AnnotationTLSStateEnabled:
+
+	switch naming.ConditionTLSState(condition.Status) {
+	case naming.ConditionTLSStateEnabled:
 		if err := r.deleteCerts(ctx, cr); err != nil {
 			return errors.Wrap(err, "failed to delete tls secrets")
 		}
-	case naming.AnnotationTLSStateDisabled:
+	case naming.ConditionTLSStateDisabled:
 	default:
-		return errors.Errorf("unknown value for %s annotation: %s", naming.AnnotationTLS, annotationTLSState)
+		return errors.Errorf("unknown value for %s condition status: %s", naming.ConditionTLS, condition.Status)
 	}
-	crOrig := cr.DeepCopy()
+
+	patch := client.MergeFrom(cr.DeepCopy())
 	cr.Spec.Unsafe.TLS = !*cr.Spec.TLS.Enabled
-	if cr.Spec.Unsafe.TLS != crOrig.Spec.Unsafe.TLS {
-		if err := r.client.Patch(ctx, cr, client.MergeFrom(crOrig)); err != nil {
-			return errors.Wrap(err, "failed to patch cr")
-		}
+	if err := r.client.Patch(ctx, cr.DeepCopy(), patch); err != nil {
+		return errors.Wrap(err, "failed to patch cr")
 	}
+
 	_, err = k8s.UnpauseCluster(ctx, r.client, cr)
 	if err != nil {
 		return errors.Wrap(err, "failed to start cluster")
 	}
-	if err := k8s.AnnotateObject(ctx, r.client, cr, map[string]string{
-		naming.AnnotationTLS: string(naming.GetAnnotationTLSState(cr)),
-	}); err != nil {
-		return errors.Wrap(err, "failed to annotate")
-	}
 
+	condition.Status = api.ConditionStatus(naming.GetConditionTLSState(cr))
 	return nil
 }

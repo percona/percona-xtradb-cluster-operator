@@ -1,8 +1,6 @@
 apiVersion: pxc.percona.com/v1
 kind: PerconaXtraDBCluster
 metadata:
-  annotations:
-    percona.com/tls: enabled
   generation: 10
   name: some-name
 spec:

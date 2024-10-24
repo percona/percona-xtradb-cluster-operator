@@ -19,7 +19,7 @@ import (
 
 func PauseCluster(ctx context.Context, cl client.Client, cr *api.PerconaXtraDBCluster) (bool, error) {
 	if !cr.Spec.Pause {
-		cr = cr.DeepCopy()
+		cr := cr.DeepCopy() // calling patch will overwrite cr, removing values set by CheckNsetDefaults. We need to copy it into a new variable
 
 		patch := client.MergeFrom(cr.DeepCopy())
 		cr.Spec.Pause = true
@@ -29,6 +29,8 @@ func PauseCluster(ctx context.Context, cl client.Client, cr *api.PerconaXtraDBCl
 		}
 		time.Sleep(time.Second)
 	}
+	cr.Spec.Pause = true
+
 	pods := corev1.PodList{}
 
 	ls := statefulset.NewNode(cr).Labels()
@@ -52,7 +54,7 @@ func PauseCluster(ctx context.Context, cl client.Client, cr *api.PerconaXtraDBCl
 
 func UnpauseCluster(ctx context.Context, cl client.Client, cr *api.PerconaXtraDBCluster) (bool, error) {
 	if cr.Spec.Pause {
-		cr = cr.DeepCopy()
+		cr := cr.DeepCopy() // calling patch will overwrite cr, removing values set by CheckNsetDefaults. We need to copy it into a new variable
 
 		patch := client.MergeFrom(cr.DeepCopy())
 		cr.Spec.Pause = false
@@ -61,6 +63,8 @@ func UnpauseCluster(ctx context.Context, cl client.Client, cr *api.PerconaXtraDB
 			return false, errors.Wrap(err, "patch")
 		}
 	}
+	cr.Spec.Pause = false
+
 	ls := statefulset.NewNode(cr).Labels()
 	pods := new(corev1.PodList)
 	if err := cl.List(

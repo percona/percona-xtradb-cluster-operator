@@ -976,8 +976,6 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 			c.HAProxy.EnvVarsSecretName = cr.Name + "-env-vars-haproxy"
 		}
 
-		c.HAProxy.VolumeSpec.reconcileOpts()
-
 		c.HAProxy.reconcileAffinityOpts()
 
 		if err = c.HAProxy.executeConfigurationTemplate(); err != nil {

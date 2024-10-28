@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -231,26 +230,26 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(ctx context.Context, re
 	if cr.Spec.PITR != nil {
 		oldSize := cluster.Spec.PXC.Size
 		oldUnsafePXCSize := cluster.Spec.Unsafe.PXCSize
-		oldUpdateStrategy := cluster.Spec.UpdateStrategy
+		oldUnsafeProxySize := cluster.Spec.Unsafe.ProxySize
 
-		oldProxySQL := false
+		var oldProxySQLSize int32
 		if cluster.Spec.ProxySQL != nil {
-			oldProxySQL = cluster.Spec.ProxySQL.Enabled
+			oldProxySQLSize = cluster.Spec.ProxySQL.Size
 		}
-		oldHAProxy := false
+		var oldHAProxySize int32
 		if cluster.Spec.HAProxy != nil {
-			oldHAProxy = cluster.Spec.HAProxy.Enabled
+			oldHAProxySize = cluster.Spec.HAProxy.Size
 		}
 
 		cluster.Spec.Unsafe.PXCSize = true
+		cluster.Spec.Unsafe.ProxySize = true
 		cluster.Spec.PXC.Size = 1
-		cluster.Spec.UpdateStrategy = appsv1.OnDeleteStatefulSetStrategyType
 
 		if cluster.Spec.ProxySQL != nil {
-			cluster.Spec.ProxySQL.Enabled = false
+			cluster.Spec.ProxySQL.Size = 0
 		}
 		if cluster.Spec.HAProxy != nil {
-			cluster.Spec.HAProxy.Enabled = false
+			cluster.Spec.HAProxy.Size = 0
 		}
 
 		if err := r.startCluster(cluster); err != nil {
@@ -270,13 +269,13 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(ctx context.Context, re
 
 		cluster.Spec.PXC.Size = oldSize
 		cluster.Spec.Unsafe.PXCSize = oldUnsafePXCSize
-		cluster.Spec.UpdateStrategy = oldUpdateStrategy
+		cluster.Spec.Unsafe.ProxySize = oldUnsafeProxySize
 
 		if cluster.Spec.ProxySQL != nil {
-			cluster.Spec.ProxySQL.Enabled = oldProxySQL
+			cluster.Spec.ProxySQL.Size = oldProxySQLSize
 		}
 		if cluster.Spec.HAProxy != nil {
-			cluster.Spec.HAProxy.Enabled = oldHAProxy
+			cluster.Spec.HAProxy.Size = oldHAProxySize
 		}
 
 		log.Info("starting cluster", "cluster", cr.Spec.PXCCluster)

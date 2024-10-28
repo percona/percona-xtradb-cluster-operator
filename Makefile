@@ -46,6 +46,9 @@ vet: ## Run go vet against code.
 test: manifests generate fmt vet envtest ## Run tests.
 	DISABLE_TELEMETRY=true KUBEBUILDER_ASSETS="$(shell $(ENVTEST) --arch=amd64 use $(ENVTEST_K8S_VERSION) -p path)" go test ./... -coverprofile cover.out
 
+e2e-test:
+	IMAGE=$(IMAGE) ./e2e-tests/$(TEST)/run
+
 ##@ Build
 
 .PHONY: build

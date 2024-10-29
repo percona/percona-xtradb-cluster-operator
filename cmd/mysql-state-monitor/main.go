@@ -55,13 +55,13 @@ func parseDatum(datum string) MySQLState {
 func main() {
 	log.Println("Starting mysql-state-monitor")
 
-	socketPath, envDefined := os.LookupEnv("NOTIFY_SOCKET")
-	if !envDefined {
+	socketPath, ok := os.LookupEnv("NOTIFY_SOCKET")
+	if !ok {
 		log.Fatalln("NOTIFY_SOCKET env variable is required")
 	}
 
-	stateFilePath, envDefined := os.LookupEnv("MYSQL_STATE_FILE")
-	if !envDefined {
+	stateFilePath, ok := os.LookupEnv("MYSQL_STATE_FILE")
+	if !ok {
 		log.Fatalln("MYSQL_STATE_FILE env variable is required")
 	}
 

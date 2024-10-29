@@ -69,6 +69,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to create state file: %s", err)
 	}
+	defer stateFile.Close()
 
 	if _, err := os.Stat(socketPath); err == nil {
 		if err := os.Remove(socketPath); err != nil {
@@ -96,9 +97,8 @@ func main() {
 		os.Exit(0)
 	}()
 
+	buf := make([]byte, 256)
 	for {
-		buf := make([]byte, 256)
-
 		n, _, err := conn.ReadFromUnix(buf)
 		if err != nil {
 			log.Printf("Failed to read from unix socket: %s", err)

@@ -213,7 +213,7 @@ func getUserSecret(ctx context.Context, cl client.Client, cr *api.PerconaXtraDBC
 	}
 
 	if err != nil && !k8serrors.IsNotFound(err) && name == defaultName {
-		return nil, errors.Wrap(err, "failed to get user secret")
+		return nil, errors.Wrap(err, "failed to get default user secret")
 	}
 
 	if err != nil && k8serrors.IsNotFound(err) {
@@ -227,6 +227,32 @@ func getUserSecret(ctx context.Context, cl client.Client, cr *api.PerconaXtraDBC
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to generate user password secrets")
 		}
+
+		return secret, nil
+	}
+
+	_, hasPass := secret.Data[passKey]
+	if !hasPass && name == defaultName {
+		pass, err := generatePass()
+		if err != nil {
+			return nil, errors.Wrap(err, "generate custom user password")
+		}
+
+		if secret.Data == nil {
+			secret.Data = make(map[string][]byte)
+		}
+
+		secret.Data[passKey] = pass
+
+		err = cl.Update(ctx, secret)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to update user secret")
+		}
+	}
+
+	// pass key should be present in the user provided secret
+	if !hasPass {
+		return nil, errors.New("password key not found in secret")
 	}
 
 	return secret, nil

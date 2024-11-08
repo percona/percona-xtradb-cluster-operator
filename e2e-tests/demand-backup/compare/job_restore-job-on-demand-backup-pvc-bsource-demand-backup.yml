@@ -3,7 +3,11 @@ kind: Job
 metadata:
   generation: 1
   labels:
-    job-name: restore-job-on-demand-backup-pvc-bsource-demand-backup
+    app.kubernetes.io/instance: demand-backup
+    app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+    app.kubernetes.io/name: percona-xtradb-cluster
+    app.kubernetes.io/part-of: percona-xtradb-cluster
+    percona.com/restore-job-name: restore-job-on-demand-backup-pvc-bsource-demand-backup
   name: restore-job-on-demand-backup-pvc-bsource-demand-backup
   ownerReferences:
     - controller: true
@@ -20,7 +24,11 @@ spec:
   template:
     metadata:
       labels:
-        job-name: restore-job-on-demand-backup-pvc-bsource-demand-backup
+        app.kubernetes.io/instance: demand-backup
+        app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+        app.kubernetes.io/name: percona-xtradb-cluster
+        app.kubernetes.io/part-of: percona-xtradb-cluster
+        percona.com/restore-job-name: restore-job-on-demand-backup-pvc-bsource-demand-backup
     spec:
       containers:
         - command:

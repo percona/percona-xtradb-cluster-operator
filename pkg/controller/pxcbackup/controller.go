@@ -204,7 +204,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 
 	switch storage.Type {
 	case api.BackupStorageFilesystem:
-		pvc := backup.NewPVC(cr)
+		pvc := backup.NewPVC(cr, cluster)
 		pvc.Spec = *storage.Volume.PersistentVolumeClaim
 
 		cr.Status.Destination.SetPVCDestination(pvc.Name)
@@ -337,7 +337,6 @@ func (r *ReconcilePerconaXtraDBClusterBackup) runDeleteBackupFinalizer(ctx conte
 			log.Info("failed to delete backup", "backup path", cr.Status.Destination, "error", err.Error())
 			finalizers = append(finalizers, f)
 		} else if f == naming.FinalizerDeleteBackup || f == naming.FinalizerS3DeleteBackup {
-
 			log.Info("backup was removed", "name", cr.Name)
 		}
 	}

@@ -733,7 +733,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcilePDB(ctx context.Context, cr *ap
 		return errors.Wrap(err, "get PXC stateful set")
 	}
 
-	pdb := pxc.PodDisruptionBudget(spec, sfs.Labels(), cr.Namespace)
+	pdb := pxc.PodDisruptionBudget(cr, spec, sfs.Labels())
 	if err := setControllerReference(sts, pdb, r.scheme); err != nil {
 		return errors.Wrap(err, "set owner reference")
 	}

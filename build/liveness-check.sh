@@ -21,7 +21,10 @@ DEFAULTS_EXTRA_FILE=${DEFAULTS_EXTRA_FILE:-/etc/my.cnf}
 NODE_IP=$(hostname -I | awk ' { print $1 } ')
 #Timeout exists for instances where mysqld may be hung
 TIMEOUT=$((${LIVENESS_CHECK_TIMEOUT:-5} - 1))
-MYSQL_STATE=$(tr -d '\0' < ${MYSQL_STATE_FILE})
+MYSQL_STATE=ready
+if [[ ${MYSQL_VERSION} == '8.0' ]]; then
+	MYSQL_STATE=$(tr -d '\0' < ${MYSQL_STATE_FILE})
+fi
 
 EXTRA_ARGS=""
 if [[ -n $MYSQL_USERNAME ]]; then

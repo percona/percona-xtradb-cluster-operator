@@ -229,9 +229,28 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(ctx context.Context, re
 
 	if cr.Spec.PITR != nil {
 		oldSize := cluster.Spec.PXC.Size
-		oldUnsafe := cluster.Spec.Unsafe.PXCSize
-		cluster.Spec.PXC.Size = 1
+		oldUnsafePXCSize := cluster.Spec.Unsafe.PXCSize
+		oldUnsafeProxySize := cluster.Spec.Unsafe.ProxySize
+
+		var oldProxySQLSize int32
+		if cluster.Spec.ProxySQL != nil {
+			oldProxySQLSize = cluster.Spec.ProxySQL.Size
+		}
+		var oldHAProxySize int32
+		if cluster.Spec.HAProxy != nil {
+			oldHAProxySize = cluster.Spec.HAProxy.Size
+		}
+
 		cluster.Spec.Unsafe.PXCSize = true
+		cluster.Spec.Unsafe.ProxySize = true
+		cluster.Spec.PXC.Size = 1
+
+		if cluster.Spec.ProxySQL != nil {
+			cluster.Spec.ProxySQL.Size = 0
+		}
+		if cluster.Spec.HAProxy != nil {
+			cluster.Spec.HAProxy.Size = 0
+		}
 
 		if err := r.startCluster(cluster); err != nil {
 			return rr, errors.Wrap(err, "restart cluster for pitr")
@@ -249,7 +268,15 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(ctx context.Context, re
 		}
 
 		cluster.Spec.PXC.Size = oldSize
-		cluster.Spec.Unsafe.PXCSize = oldUnsafe
+		cluster.Spec.Unsafe.PXCSize = oldUnsafePXCSize
+		cluster.Spec.Unsafe.ProxySize = oldUnsafeProxySize
+
+		if cluster.Spec.ProxySQL != nil {
+			cluster.Spec.ProxySQL.Size = oldProxySQLSize
+		}
+		if cluster.Spec.HAProxy != nil {
+			cluster.Spec.HAProxy.Size = oldHAProxySize
+		}
 
 		log.Info("starting cluster", "cluster", cr.Spec.PXCCluster)
 		err = r.setStatus(cr, api.RestoreStartCluster, "")

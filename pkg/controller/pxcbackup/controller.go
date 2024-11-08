@@ -204,7 +204,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 
 	switch storage.Type {
 	case api.BackupStorageFilesystem:
-		pvc := backup.NewPVC(cr)
+		pvc := backup.NewPVC(cr, cluster)
 		pvc.Spec = *storage.Volume.PersistentVolumeClaim
 
 		cr.Status.Destination.SetPVCDestination(pvc.Name)

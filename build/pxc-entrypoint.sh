@@ -201,6 +201,7 @@ auth_plugin=${DEFAULT_AUTHENTICATION_PLUGIN}
 if [[ -f /var/lib/mysql/auth_plugin ]]; then
 	prev_auth_plugin=$(cat /var/lib/mysql/auth_plugin)
 	if [[ ${prev_auth_plugin} != "mysql_native_password" && ${auth_plugin} == "mysql_native_password" ]]; then
+		set +o xtrace
 		echo "FATAL: It's forbidden to switch from ${prev_auth_plugin} to ${auth_plugin}."
 		echo "If ProxySQL is enabled operator uses mysql_native_password since it doesn't work with caching_sha2_password."
 		echo "Using caching_sha2_password will break frontend connections in ProxySQL."

@@ -3,7 +3,11 @@ kind: Job
 metadata:
   generation: 1
   labels:
-    job-name: restore-job-restore-s3-sec-context
+    app.kubernetes.io/instance: sec-context
+    app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+    app.kubernetes.io/name: percona-xtradb-cluster
+    app.kubernetes.io/part-of: percona-xtradb-cluster
+    percona.com/restore-job-name: restore-job-restore-s3-sec-context
   name: restore-job-restore-s3-sec-context
   ownerReferences:
     - controller: true
@@ -24,7 +28,11 @@ spec:
       annotations:
         openshift.io/scc: privileged
       labels:
-        job-name: restore-job-restore-s3-sec-context
+        app.kubernetes.io/instance: sec-context
+        app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+        app.kubernetes.io/name: percona-xtradb-cluster
+        app.kubernetes.io/part-of: percona-xtradb-cluster
+        percona.com/restore-job-name: restore-job-restore-s3-sec-context
     spec:
       containers:
         - command:

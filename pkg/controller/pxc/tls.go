@@ -5,16 +5,17 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/pkg/errors"
-
 	cm "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	cmmeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
-	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxctls"
+	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	k8serr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+
+	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxctls"
 )
 
 func (r *ReconcilePerconaXtraDBCluster) reconcileSSL(cr *api.PerconaXtraDBCluster) error {
@@ -72,7 +73,7 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(cr *api.PerconaXt
 		issuerName = cr.Spec.TLS.IssuerConf.Name
 		issuerGroup = cr.Spec.TLS.IssuerConf.Group
 	} else {
-		if err := r.createIssuer(cr.Namespace, caIssuerName, ""); err != nil {
+		if err := r.createIssuer(cr, caIssuerName, ""); err != nil {
 			return err
 		}
 
@@ -94,6 +95,9 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(cr *api.PerconaXt
 				RenewBefore: &metav1.Duration{Duration: 730 * time.Hour},
 			},
 		}
+		if cr.CompareVersionWith("1.16.0") >= 0 {
+			caCert.Labels = naming.LabelsCluster(cr)
+		}
 
 		err := r.client.Create(context.TODO(), caCert)
 		if err != nil && !k8serr.IsAlreadyExists(err) {
@@ -104,7 +108,7 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(cr *api.PerconaXt
 			return err
 		}
 
-		if err := r.createIssuer(cr.Namespace, issuerName, caCert.Spec.SecretName); err != nil {
+		if err := r.createIssuer(cr, issuerName, caCert.Spec.SecretName); err != nil {
 			return err
 		}
 	}
@@ -130,7 +134,9 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(cr *api.PerconaXt
 			},
 		},
 	}
-
+	if cr.CompareVersionWith("1.16.0") >= 0 {
+		kubeCert.Labels = naming.LabelsCluster(cr)
+	}
 	if cr.Spec.TLS != nil && len(cr.Spec.TLS.SANs) > 0 {
 		kubeCert.Spec.DNSNames = append(kubeCert.Spec.DNSNames, cr.Spec.TLS.SANs...)
 	}
@@ -172,6 +178,9 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(cr *api.PerconaXt
 	if cr.Spec.TLS != nil && len(cr.Spec.TLS.SANs) > 0 {
 		kubeCert.Spec.DNSNames = append(kubeCert.Spec.DNSNames, cr.Spec.TLS.SANs...)
 	}
+	if cr.CompareVersionWith("1.16.0") >= 0 {
+		kubeCert.Labels = naming.LabelsCluster(cr)
+	}
 	err = r.client.Create(context.TODO(), kubeCert)
 	if err != nil && !k8serr.IsAlreadyExists(err) {
 		return fmt.Errorf("create internal certificate: %v", err)
@@ -210,7 +219,7 @@ func (r *ReconcilePerconaXtraDBCluster) waitForCerts(namespace string, secretsLi
 	}
 }
 
-func (r *ReconcilePerconaXtraDBCluster) createIssuer(namespace, issuer string, caCertSecret string) error {
+func (r *ReconcilePerconaXtraDBCluster) createIssuer(cr *api.PerconaXtraDBCluster, issuer string, caCertSecret string) error {
 	spec := cm.IssuerSpec{}
 
 	if caCertSecret == "" {
@@ -227,10 +236,15 @@ func (r *ReconcilePerconaXtraDBCluster) createIssuer(namespace, issuer string, c
 		}
 	}
 
+	var ls map[string]string
+	if cr.CompareVersionWith("1.16.0") >= 0 {
+		ls = naming.LabelsCluster(cr)
+	}
 	err := r.client.Create(context.TODO(), &cm.Issuer{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      issuer,
-			Namespace: namespace,
+			Namespace: cr.Namespace,
+			Labels:    ls,
 		},
 		Spec: spec,
 	})
@@ -272,6 +286,9 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLManualy(cr *api.PerconaXtraDBCl
 		Data: data,
 		Type: corev1.SecretTypeTLS,
 	}
+	if cr.CompareVersionWith("1.16.0") >= 0 {
+		secretObj.Labels = naming.LabelsCluster(cr)
+	}
 	err = r.client.Create(context.TODO(), &secretObj)
 	if err != nil && !k8serr.IsAlreadyExists(err) {
 		return fmt.Errorf("create TLS secret: %v", err)
@@ -304,6 +321,9 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLManualy(cr *api.PerconaXtraDBCl
 		},
 		Data: data,
 		Type: corev1.SecretTypeTLS,
+	}
+	if cr.CompareVersionWith("1.16.0") >= 0 {
+		secretObjInternal.Labels = naming.LabelsCluster(cr)
 	}
 	err = r.client.Create(context.TODO(), &secretObjInternal)
 	if err != nil && !k8serr.IsAlreadyExists(err) {

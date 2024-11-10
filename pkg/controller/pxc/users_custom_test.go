@@ -144,7 +144,7 @@ func TestUserChanged(t *testing.T) {
 	var tests = []struct {
 		name        string
 		desiredUser *api.User
-		currentUser *users.UUser
+		currentUser *users.User
 		expected    bool
 	}{
 		{
@@ -162,7 +162,7 @@ func TestUserChanged(t *testing.T) {
 				Name:  "test",
 				Hosts: []string{"host1", "host2"},
 			},
-			currentUser: &users.UUser{
+			currentUser: &users.User{
 				Name:  "test",
 				Hosts: sets.New("host1", "host2"),
 			},
@@ -174,7 +174,7 @@ func TestUserChanged(t *testing.T) {
 				Name:  "test",
 				Hosts: []string{"host1", "host2"},
 			},
-			currentUser: &users.UUser{
+			currentUser: &users.User{
 				Name:  "test",
 				Hosts: sets.New("host1"),
 			},
@@ -186,7 +186,7 @@ func TestUserChanged(t *testing.T) {
 				Name:  "test",
 				Hosts: []string{"host1", "host2"},
 			},
-			currentUser: &users.UUser{
+			currentUser: &users.User{
 				Name:  "test",
 				Hosts: sets.New("host1", "host2222"),
 			},
@@ -198,7 +198,7 @@ func TestUserChanged(t *testing.T) {
 				Name: "test",
 				DBs:  []string{"db1", "db2"},
 			},
-			currentUser: &users.UUser{
+			currentUser: &users.User{
 				Name: "test",
 				DBs:  sets.New("db1", "db2"),
 			},
@@ -210,7 +210,7 @@ func TestUserChanged(t *testing.T) {
 				Name: "test",
 				DBs:  []string{"db1", "db2"},
 			},
-			currentUser: &users.UUser{
+			currentUser: &users.User{
 				Name: "test",
 				DBs:  sets.New("db1"),
 			},
@@ -222,7 +222,7 @@ func TestUserChanged(t *testing.T) {
 				Name: "test",
 				DBs:  []string{"db1", "db2"},
 			},
-			currentUser: &users.UUser{
+			currentUser: &users.User{
 				Name: "test",
 				DBs:  sets.New("db1", "db2222"),
 			},
@@ -231,13 +231,13 @@ func TestUserChanged(t *testing.T) {
 		{
 			name: "grants the same with same number of hosts and DBs specified",
 			desiredUser: &api.User{
-				Name:   "test",
-				Hosts:  []string{"host1", "host2"},
-				DBs:    []string{"db1", "db2"},
-				Grants: []string{"SELECT", "INSERT"},
+				Name:            "test",
+				Hosts:           []string{"host1", "host2"},
+				DBs:             []string{"db1", "db2"},
+				Grants:          []string{"SELECT", "INSERT"},
 				WithGrantOption: true,
 			},
-			currentUser: &users.UUser{
+			currentUser: &users.User{
 				Name:  "test",
 				DBs:   sets.New("db1", "db2"),
 				Hosts: sets.New("host1", "host2"),
@@ -259,13 +259,13 @@ func TestUserChanged(t *testing.T) {
 		{
 			name: "grants the same with more DBs then hosts specified",
 			desiredUser: &api.User{
-				Name:   "test",
-				Hosts:  []string{"host1", "host2"},
-				DBs:    []string{"db1", "db2", "db3"},
-				Grants: []string{"SELECT", "INSERT"},
+				Name:            "test",
+				Hosts:           []string{"host1", "host2"},
+				DBs:             []string{"db1", "db2", "db3"},
+				Grants:          []string{"SELECT", "INSERT"},
 				WithGrantOption: true,
 			},
-			currentUser: &users.UUser{
+			currentUser: &users.User{
 				Name:  "test",
 				DBs:   sets.New("db1", "db2", "db3"),
 				Hosts: sets.New("host1", "host2"),
@@ -289,13 +289,13 @@ func TestUserChanged(t *testing.T) {
 		{
 			name: "grants the same with more hosts then DBs specified",
 			desiredUser: &api.User{
-				Name:   "test",
-				Hosts:  []string{"host1", "host2", "host3"},
-				DBs:    []string{"db1", "db2"},
-				Grants: []string{"SELECT", "INSERT"},
+				Name:            "test",
+				Hosts:           []string{"host1", "host2", "host3"},
+				DBs:             []string{"db1", "db2"},
+				Grants:          []string{"SELECT", "INSERT"},
 				WithGrantOption: true,
 			},
-			currentUser: &users.UUser{
+			currentUser: &users.User{
 				Name:  "test",
 				DBs:   sets.New("db1", "db2"),
 				Hosts: sets.New("host1", "host2", "host3"),
@@ -325,13 +325,13 @@ func TestUserChanged(t *testing.T) {
 		{
 			name: "grants the same with more privileges then specified",
 			desiredUser: &api.User{
-				Name:   "test",
-				Hosts:  []string{"host1"},
-				DBs:    []string{"db1",},
-				Grants: []string{"SELECT", "INSERT"},
+				Name:            "test",
+				Hosts:           []string{"host1"},
+				DBs:             []string{"db1"},
+				Grants:          []string{"SELECT", "INSERT"},
 				WithGrantOption: true,
 			},
-			currentUser: &users.UUser{
+			currentUser: &users.User{
 				Name:  "test",
 				DBs:   sets.New("db1"),
 				Hosts: sets.New("host1"),
@@ -347,13 +347,13 @@ func TestUserChanged(t *testing.T) {
 		{
 			name: "grants for user host missing",
 			desiredUser: &api.User{
-				Name:   "test",
-				Hosts:  []string{"host1", "host2"},
-				DBs:    []string{"db1", "db2"},
-				Grants: []string{"SELECT", "INSERT"},
+				Name:            "test",
+				Hosts:           []string{"host1", "host2"},
+				DBs:             []string{"db1", "db2"},
+				Grants:          []string{"SELECT", "INSERT"},
 				WithGrantOption: true,
 			},
-			currentUser: &users.UUser{
+			currentUser: &users.User{
 				Name:  "test",
 				DBs:   sets.New("db1", "db2", "db3"),
 				Hosts: sets.New("host1", "host2"),
@@ -370,13 +370,13 @@ func TestUserChanged(t *testing.T) {
 		{
 			name: "grants for DB missing",
 			desiredUser: &api.User{
-				Name:   "test",
-				Hosts:  []string{"host1", "host2"},
-				DBs:    []string{"db1", "db2"},
-				Grants: []string{"SELECT", "INSERT"},
+				Name:            "test",
+				Hosts:           []string{"host1", "host2"},
+				DBs:             []string{"db1", "db2"},
+				Grants:          []string{"SELECT", "INSERT"},
 				WithGrantOption: true,
 			},
-			currentUser: &users.UUser{
+			currentUser: &users.User{
 				Name:  "test",
 				DBs:   sets.New("db1", "db2", "db3"),
 				Hosts: sets.New("host1", "host2"),
@@ -393,13 +393,13 @@ func TestUserChanged(t *testing.T) {
 		{
 			name: "grants for privileges missing",
 			desiredUser: &api.User{
-				Name:   "test",
-				Hosts:  []string{"host1", "host2"},
-				DBs:    []string{"db1", "db2"},
-				Grants: []string{"SELECT", "INSERT"},
+				Name:            "test",
+				Hosts:           []string{"host1", "host2"},
+				DBs:             []string{"db1", "db2"},
+				Grants:          []string{"SELECT", "INSERT"},
 				WithGrantOption: true,
 			},
-			currentUser: &users.UUser{
+			currentUser: &users.User{
 				Name:  "test",
 				DBs:   sets.New("db1", "db2", "db3"),
 				Hosts: sets.New("host1", "host2"),
@@ -419,7 +419,7 @@ func TestUserChanged(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			actual := uuserChanged(tt.currentUser, tt.desiredUser, log)
+			actual := userChanged(tt.currentUser, tt.desiredUser, log)
 			if actual != tt.expected {
 				t.Fatalf("expected %v, got %v", tt.expected, actual)
 			}

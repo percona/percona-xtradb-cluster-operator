@@ -34,19 +34,13 @@ type SysUser struct {
 	Hosts []string `yaml:"hosts"`
 }
 
-type UUser struct {
+type User struct {
 	Name  string
 	Hosts sets.Set[string]
 	DBs   sets.Set[string]
 
 	// Grants holds the grants for each user@host
 	Grants map[string][]string
-}
-
-type User struct {
-	Name   string `db:"User"`
-	Host   string `db:"Host"`
-	Grants []string
 }
 
 func NewManager(addr string, user, pass string, timeout int32) (Manager, error) {
@@ -321,54 +315,9 @@ func (u *Manager) Exec(ctx context.Context, query []string, args ...any) error {
 	return nil
 }
 
-// GetUsers returns a list of user@host for a given user
-func (p *Manager) GetUsers(ctx context.Context, user string) ([]User, error) {
-	rows, err := p.db.QueryContext(ctx, "SELECT User,Host FROM mysql.user WHERE User = ?", user)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, nil
-		}
-		return nil, err
-	}
-
-	users := make([]User, 0)
-
-	for rows.Next() {
-		var u User
-
-		err = rows.Scan(&u.Name, &u.Host)
-		if err != nil {
-			return nil, err
-		}
-
-		users = append(users, u)
-	}
-
-	for i := range users {
-		rows, err := p.db.QueryContext(ctx, "SHOW GRANTS FOR ?@?", users[i].Name, users[i].Host)
-		if err != nil {
-			return nil, err
-		}
-
-		users[i].Grants = make([]string, 0, len(users))
-
-		for rows.Next() {
-			var grant string
-			err = rows.Scan(&grant)
-			if err != nil {
-				return nil, err
-			}
-
-			users[i].Grants = append(users[i].Grants, grant)
-		}
-	}
-
-	return users, nil
-}
-
-// GetUsers returns a list of user@host for a given user
-func (p *Manager) GetUUser(ctx context.Context, user string) (*UUser, error) {
-	u := &UUser{
+// GetUsers returns a user stored in the database
+func (p *Manager) GetUUser(ctx context.Context, user string) (*User, error) {
+	u := &User{
 		Name:   user,
 		Hosts:  sets.New[string](),
 		DBs:    sets.New[string](),
@@ -380,48 +329,20 @@ func (p *Manager) GetUUser(ctx context.Context, user string) (*UUser, error) {
 		return nil, err
 	}
 	for rows.Next() {
-		var host, db string
+		var host string
+		var db sql.NullString
 		err = rows.Scan(&host, &db)
 		if err != nil {
 			return nil, err
 		}
 
-		if db != "" {
-			u.DBs.Insert(db)
+		if db.Valid {
+			u.DBs.Insert(db.String)
 		}
 		u.Hosts.Insert(host)
 	}
 
-	// rows, err := p.db.QueryContext(ctx, "SELECT Host FROM mysql.user WHERE User = ?", user)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// for rows.Next() {
-	// 	var host string
-	// 	err = rows.Scan(&host)
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-
-	// 	u.Hosts.Insert(host)
-	// }
-
-	// rows, err = p.db.QueryContext(ctx, "SELECT DISTINCT Db FROM mysql.db WHERE User = ?", user)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// for rows.Next() {
-	// 	var db string
-	// 	err = rows.Scan(&db)
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-
-	// 	u.DBs.Insert(db)
-	// }
-
 	for host := range u.Hosts {
-		println("HHHHHHHHHHHHHHHHHHHHHHHH host", host)
 		rows, err := p.db.QueryContext(ctx, "SHOW GRANTS FOR ?@?", user, host)
 		if err != nil {
 			return nil, err

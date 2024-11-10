@@ -114,9 +114,8 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileCustomUsers(ctx context.Context
 			log.Error(err, "failed to get user", "user", user)
 			continue
 		}
-		log.Info("UUUUUUUUUUUUUser found", "user", u)
 
-		if uuserChanged(u, &user, log) {
+		if userChanged(u, &user, log) {
 			log.Info("Creating/updating user", "user", user.Name)
 
 			err := um.Exec(ctx, upsertUserQuery(&user, string(userSecret.Data[userSecretPassKey])))
@@ -181,92 +180,76 @@ func userPasswordChanged(secret *corev1.Secret, key, passKey string) bool {
 	return hash != newHash
 }
 
-func uuserChanged(current *users.UUser, desired *api.User, log logr.Logger) bool {
+func userChanged(current *users.User, desired *api.User, log logr.Logger) bool {
+	userName := desired.Name
+
 	if current == nil {
-		log.Info("XXXXXXXXXX User not created", "user", desired.Name)
+		log.Info("User not created", "user", userName)
 		return true
 	}
 
 	if len(current.Hosts) != len(desired.Hosts) {
-		log.Info("XXXXXXXXXX Hosts changed", "current", current.Hosts, "desired", desired.Hosts)
+		log.Info("Hosts changed", "current", current.Hosts, "desired", desired.Hosts, "user", userName)
 		return true
 	}
 
 	if len(current.DBs) != len(desired.DBs) {
-		log.Info("XXXXXXXXXX DBs changed", "current", current.DBs, "desired", desired.DBs)
+		log.Info("DBs changed", "current", current.DBs, "desired", desired.DBs)
 		return true
 	}
 
 	for _, u := range desired.Hosts {
 		if !current.Hosts.Has(u) {
-			log.Info("XXXXXXXXXX Hosts changed", "current", current.Hosts, "desired", desired.Hosts)
+			log.Info("Hosts changed", "current", current.Hosts, "desired", desired.Hosts, "user", userName)
 			return true
 		}
 	}
 
 	for _, db := range desired.DBs {
 		if !current.DBs.Has(db) {
-			log.Info("XXXXXXXXXX DBs changed", "current", current.DBs, "desired", desired.DBs)
+			log.Info("DBs changed", "current", current.DBs, "desired", desired.DBs, "user", userName)
 			return true
 		}
 	}
 
 	for _, host := range desired.Hosts {
-		if _, ok := current.Grants[host]; !ok {
-			log.Info("XXXXXXXXXX Grants for user host not present", "host", host)
+		if _, ok := current.Grants[host]; !ok && len(desired.Grants) > 0 {
+			log.Info("Grants for user host not present", "host", host, "user", userName)
 			return true
 		}
 
 		for _, grant := range desired.Grants {
 			for _, currGrant := range current.Grants[host] {
-
 				if currGrant == fmt.Sprintf("GRANT USAGE ON *.* TO `%s`@`%s`", desired.Name, host) {
-					println("AAAAAAAAAAA USAGE", current.Grants[host])
 					continue
 				}
 
 				if !strings.Contains(currGrant, strings.ToUpper(grant)) {
-					log.Info("XXXXXXXXXX Grant not present in current grants", "grant", grant)
+					log.Info("Grant not present in current grants", "grant", grant, "user", userName)
 					return true
 				}
 
 				if desired.WithGrantOption && !strings.Contains(currGrant, "WITH GRANT OPTION") {
-					log.Info("XXXXXXXXXX Grant with grant option not present")
+					log.Info("Grant with grant option not present", "user", userName)
 					return true
 				}
 			}
 		}
 
 		for _, db := range desired.DBs {
+			dbPresent := false
+
 			for _, currGrant := range current.Grants[host] {
-				if !strings.Contains(currGrant, fmt.Sprintf("ON %s.*", db)) {
-					log.Info("XXXXXXXXXX DB not present in current grants", "db", db)
-					return true
+				if strings.Contains(currGrant, fmt.Sprintf("ON `%s`.*", db)) {
+					dbPresent = true
+					break
 				}
 			}
-		}
-	}
 
-	return false
-}
-
-func userChanged(current []users.User, new *api.User) bool {
-	if len(current) == 0 {
-		return true
-	}
-
-	if len(current) != len(new.Hosts) {
-		return true
-	}
-
-	newHosts := make(map[string]struct{}, len(new.Hosts))
-	for _, h := range new.Hosts {
-		newHosts[h] = struct{}{}
-	}
-
-	for _, u := range current {
-		if _, ok := newHosts[u.Host]; !ok {
-			return true
+			if !dbPresent {
+				log.Info("DB not present in current grants", "db", db, "user", userName)
+				return true
+			}
 		}
 	}
 

@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-sql-driver/mysql"
 	"github.com/pkg/errors"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 const (
@@ -31,6 +32,15 @@ type SysUser struct {
 	Name  string   `yaml:"username"`
 	Pass  string   `yaml:"password"`
 	Hosts []string `yaml:"hosts"`
+}
+
+type UUser struct {
+	Name  string
+	Hosts sets.Set[string]
+	DBs   sets.Set[string]
+
+	// Grants holds the grants for each user@host
+	Grants map[string][]string
 }
 
 type User struct {
@@ -354,4 +364,80 @@ func (p *Manager) GetUsers(ctx context.Context, user string) ([]User, error) {
 	}
 
 	return users, nil
+}
+
+// GetUsers returns a list of user@host for a given user
+func (p *Manager) GetUUser(ctx context.Context, user string) (*UUser, error) {
+	u := &UUser{
+		Name:   user,
+		Hosts:  sets.New[string](),
+		DBs:    sets.New[string](),
+		Grants: make(map[string][]string),
+	}
+
+	rows, err := p.db.QueryContext(ctx, "SELECT DISTINCT u.Host, d.Db FROM mysql.user u LEFT JOIN mysql.db d ON u.User = d.User WHERE u.User = ?", user)
+	if err != nil {
+		return nil, err
+	}
+	for rows.Next() {
+		var host, db string
+		err = rows.Scan(&host, &db)
+		if err != nil {
+			return nil, err
+		}
+
+		if db != "" {
+			u.DBs.Insert(db)
+		}
+		u.Hosts.Insert(host)
+	}
+
+	// rows, err := p.db.QueryContext(ctx, "SELECT Host FROM mysql.user WHERE User = ?", user)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// for rows.Next() {
+	// 	var host string
+	// 	err = rows.Scan(&host)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+
+	// 	u.Hosts.Insert(host)
+	// }
+
+	// rows, err = p.db.QueryContext(ctx, "SELECT DISTINCT Db FROM mysql.db WHERE User = ?", user)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// for rows.Next() {
+	// 	var db string
+	// 	err = rows.Scan(&db)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+
+	// 	u.DBs.Insert(db)
+	// }
+
+	for host := range u.Hosts {
+		println("HHHHHHHHHHHHHHHHHHHHHHHH host", host)
+		rows, err := p.db.QueryContext(ctx, "SHOW GRANTS FOR ?@?", user, host)
+		if err != nil {
+			return nil, err
+		}
+		grants := make([]string, 0, len(u.DBs)+1)
+		for rows.Next() {
+			var grant string
+			err = rows.Scan(&grant)
+			if err != nil {
+				return nil, err
+			}
+			grants = append(grants, grant)
+		}
+
+		u.Grants[host] = grants
+	}
+
+	return u, nil
 }

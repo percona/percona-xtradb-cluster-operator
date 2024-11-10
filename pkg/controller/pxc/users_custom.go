@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -108,13 +109,14 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileCustomUsers(ctx context.Context
 			log.Info("User password updated", "user", user.Name)
 		}
 
-		us, err := um.GetUsers(ctx, user.Name)
+		u, err := um.GetUUser(ctx, user.Name)
 		if err != nil {
 			log.Error(err, "failed to get user", "user", user)
 			continue
 		}
+		log.Info("UUUUUUUUUUUUUser found", "user", u)
 
-		if userChanged(us, &user) {
+		if uuserChanged(u, &user, log) {
 			log.Info("Creating/updating user", "user", user.Name)
 
 			err := um.Exec(ctx, upsertUserQuery(&user, string(userSecret.Data[userSecretPassKey])))
@@ -177,6 +179,75 @@ func userPasswordChanged(secret *corev1.Secret, key, passKey string) bool {
 	newHash := sha256Hash(secret.Data[passKey])
 
 	return hash != newHash
+}
+
+func uuserChanged(current *users.UUser, desired *api.User, log logr.Logger) bool {
+	if current == nil {
+		log.Info("XXXXXXXXXX User not created", "user", desired.Name)
+		return true
+	}
+
+	if len(current.Hosts) != len(desired.Hosts) {
+		log.Info("XXXXXXXXXX Hosts changed", "current", current.Hosts, "desired", desired.Hosts)
+		return true
+	}
+
+	if len(current.DBs) != len(desired.DBs) {
+		log.Info("XXXXXXXXXX DBs changed", "current", current.DBs, "desired", desired.DBs)
+		return true
+	}
+
+	for _, u := range desired.Hosts {
+		if !current.Hosts.Has(u) {
+			log.Info("XXXXXXXXXX Hosts changed", "current", current.Hosts, "desired", desired.Hosts)
+			return true
+		}
+	}
+
+	for _, db := range desired.DBs {
+		if !current.DBs.Has(db) {
+			log.Info("XXXXXXXXXX DBs changed", "current", current.DBs, "desired", desired.DBs)
+			return true
+		}
+	}
+
+	for _, host := range desired.Hosts {
+		if _, ok := current.Grants[host]; !ok {
+			log.Info("XXXXXXXXXX Grants for user host not present", "host", host)
+			return true
+		}
+
+		for _, grant := range desired.Grants {
+			for _, currGrant := range current.Grants[host] {
+
+				if currGrant == fmt.Sprintf("GRANT USAGE ON *.* TO `%s`@`%s`", desired.Name, host) {
+					println("AAAAAAAAAAA USAGE", current.Grants[host])
+					continue
+				}
+
+				if !strings.Contains(currGrant, strings.ToUpper(grant)) {
+					log.Info("XXXXXXXXXX Grant not present in current grants", "grant", grant)
+					return true
+				}
+
+				if desired.WithGrantOption && !strings.Contains(currGrant, "WITH GRANT OPTION") {
+					log.Info("XXXXXXXXXX Grant with grant option not present")
+					return true
+				}
+			}
+		}
+
+		for _, db := range desired.DBs {
+			for _, currGrant := range current.Grants[host] {
+				if !strings.Contains(currGrant, fmt.Sprintf("ON %s.*", db)) {
+					log.Info("XXXXXXXXXX DB not present in current grants", "db", db)
+					return true
+				}
+			}
+		}
+	}
+
+	return false
 }
 
 func userChanged(current []users.User, new *api.User) bool {

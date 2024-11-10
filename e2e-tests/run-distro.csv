@@ -4,7 +4,6 @@ demand-backup-encrypted-with-tls
 custom-users
 haproxy
 init-deploy
-monitoring-2-0
 one-pod
 pitr
 pitr-gap-errors

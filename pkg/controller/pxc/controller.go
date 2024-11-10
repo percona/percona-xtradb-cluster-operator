@@ -573,7 +573,13 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(ctx context.Context, cr *api.Perc
 	if client.IgnoreNotFound(err) != nil {
 		return errors.Wrap(err, "get current pxc sts")
 	}
-
+	// Keep same volumeClaimTemplates labels if statefulset already exists.
+	// We can't update volumeClaimTemplates.
+	if err == nil && cr.CompareVersionWith("1.16.0") >= 0 {
+		for i, pvc := range currentNodeSet.Spec.VolumeClaimTemplates {
+			nodeSet.Spec.VolumeClaimTemplates[i].Labels = pvc.Labels
+		}
+	}
 	// TODO: code duplication with updatePod function
 	if nodeSet.Spec.Template.Annotations == nil {
 		nodeSet.Spec.Template.Annotations = make(map[string]string)
@@ -688,20 +694,29 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(ctx context.Context, cr *api.Perc
 				haProxySet.Spec.Template.Annotations["percona.com/env-secret-config-hash"] = envVarsHash
 			}
 		}
-		err = r.client.Create(context.TODO(), haProxySet)
-		if err != nil && !k8serrors.IsAlreadyExists(err) {
-			return errors.Wrap(err, "create newStatefulSetHAProxy")
-		}
-
 		// PodDisruptionBudget object for HAProxy
-		err = r.client.Get(ctx, types.NamespacedName{Name: haProxySet.Name, Namespace: haProxySet.Namespace}, haProxySet)
+		currentHAProxySts := new(appsv1.StatefulSet)
+		err = r.client.Get(ctx, types.NamespacedName{Name: haProxySet.Name, Namespace: haProxySet.Namespace}, currentHAProxySts)
+		if client.IgnoreNotFound(err) != nil {
+			return errors.Wrap(err, "get HAProxy stateful set")
+		}
 		if err == nil {
-			err := r.reconcilePDB(ctx, cr, cr.Spec.HAProxy.PodDisruptionBudget, sfsHAProxy, haProxySet)
+			err := r.reconcilePDB(ctx, cr, cr.Spec.HAProxy.PodDisruptionBudget, sfsHAProxy, currentHAProxySts)
 			if err != nil {
 				return errors.Wrapf(err, "PodDisruptionBudget for %s", haProxySet.Name)
 			}
-		} else if !k8serrors.IsNotFound(err) {
-			return errors.Wrap(err, "get HAProxy stateful set")
+			// Keep same volumeClaimTemplates labels if statefulset already exists.
+			// We can't update volumeClaimTemplates.
+			if cr.CompareVersionWith("1.16.0") >= 0 {
+				for i, pvc := range currentHAProxySts.Spec.VolumeClaimTemplates {
+					haProxySet.Spec.VolumeClaimTemplates[i].Labels = pvc.Labels
+				}
+			}
+		}
+
+		err = r.client.Create(context.TODO(), haProxySet)
+		if err != nil && !k8serrors.IsAlreadyExists(err) {
+			return errors.Wrap(err, "create newStatefulSetHAProxy")
 		}
 	}
 
@@ -717,11 +732,18 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(ctx context.Context, cr *api.Perc
 		}
 		currentProxySet := new(appsv1.StatefulSet)
 		err = r.client.Get(context.TODO(), types.NamespacedName{
-			Namespace: nodeSet.Namespace,
-			Name:      nodeSet.Name,
+			Namespace: proxySet.Namespace,
+			Name:      proxySet.Name,
 		}, currentProxySet)
 		if client.IgnoreNotFound(err) != nil {
 			return errors.Wrap(err, "get current proxy sts")
+		}
+		// Keep same volumeClaimTemplates labels if statefulset already exists.
+		// We can't update volumeClaimTemplates.
+		if err == nil && cr.CompareVersionWith("1.16.0") >= 0 {
+			for i, pvc := range currentProxySet.Spec.VolumeClaimTemplates {
+				proxySet.Spec.VolumeClaimTemplates[i].Labels = pvc.Labels
+			}
 		}
 
 		// TODO: code duplication with updatePod function
@@ -941,7 +963,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcilePDB(ctx context.Context, cr *ap
 		return nil
 	}
 
-	pdb := pxc.PodDisruptionBudget(spec, sfs.Labels(), cr.Namespace)
+	pdb := pxc.PodDisruptionBudget(cr, spec, sfs.Labels())
 	err := setControllerReference(owner, pdb, r.scheme)
 	if err != nil {
 		return errors.Wrap(err, "set owner reference")

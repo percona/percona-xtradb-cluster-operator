@@ -17,6 +17,7 @@ import (
 
 	"github.com/percona/percona-xtradb-cluster-operator/clientcmd"
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
@@ -33,13 +34,7 @@ func GetBinlogCollectorDeployment(cr *api.PerconaXtraDBCluster, initImage string
 		return appsv1.Deployment{}, errors.Wrap(err, "get buffer size")
 	}
 
-	labels := map[string]string{
-		"app.kubernetes.io/name":       "percona-xtradb-cluster",
-		"app.kubernetes.io/instance":   cr.Name,
-		"app.kubernetes.io/component":  "pitr",
-		"app.kubernetes.io/managed-by": "percona-xtradb-cluster-operator",
-		"app.kubernetes.io/part-of":    "percona-xtradb-cluster",
-	}
+	labels := naming.LabelsPITR(cr)
 	for key, value := range cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName].Labels {
 		labels[key] = value
 	}
@@ -122,7 +117,7 @@ func GetBinlogCollectorDeployment(cr *api.PerconaXtraDBCluster, initImage string
 		)
 	}
 
-	return appsv1.Deployment{
+	depl := appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "apps/v1",
 			Kind:       "Deployment",
@@ -160,7 +155,13 @@ func GetBinlogCollectorDeployment(cr *api.PerconaXtraDBCluster, initImage string
 				},
 			},
 		},
-	}, nil
+	}
+
+	if cr.CompareVersionWith("1.16.0") >= 0 {
+		depl.Labels = labels
+	}
+
+	return depl, nil
 }
 
 func getStorageEnvs(cr *api.PerconaXtraDBCluster) ([]corev1.EnvVar, error) {
@@ -284,14 +285,8 @@ func GetBinlogCollectorPod(ctx context.Context, c client.Client, cr *api.Percona
 
 	err := c.List(ctx, &collectorPodList,
 		&client.ListOptions{
-			Namespace: cr.Namespace,
-			LabelSelector: labels.SelectorFromSet(map[string]string{
-				"app.kubernetes.io/name":       "percona-xtradb-cluster",
-				"app.kubernetes.io/instance":   cr.Name,
-				"app.kubernetes.io/component":  "pitr",
-				"app.kubernetes.io/managed-by": "percona-xtradb-cluster-operator",
-				"app.kubernetes.io/part-of":    "percona-xtradb-cluster",
-			}),
+			Namespace:     cr.Namespace,
+			LabelSelector: labels.SelectorFromSet(naming.LabelsPITR(cr)),
 		},
 	)
 	if err != nil {

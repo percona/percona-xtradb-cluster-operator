@@ -3,7 +3,6 @@ default-cr
 demand-backup-encrypted-with-tls
 haproxy
 init-deploy
-monitoring-2-0
 one-pod
 pitr
 pitr-gap-errors

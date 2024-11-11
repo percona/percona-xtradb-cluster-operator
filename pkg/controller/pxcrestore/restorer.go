@@ -128,7 +128,7 @@ func (s *pvc) PITRJob() (*batchv1.Job, error) {
 func (s *pvc) Init(ctx context.Context) error {
 	destination := s.bcp.Status.Destination
 
-	svc := backup.PVCRestoreService(s.cr)
+	svc := backup.PVCRestoreService(s.cr, s.cluster)
 	if err := k8s.SetControllerReference(s.cr, svc, s.scheme); err != nil {
 		return err
 	}
@@ -169,7 +169,7 @@ func (s *pvc) Init(ctx context.Context) error {
 }
 
 func (s *pvc) Finalize(ctx context.Context) error {
-	svc := backup.PVCRestoreService(s.cr)
+	svc := backup.PVCRestoreService(s.cr, s.cluster)
 	if err := s.k8sClient.Delete(ctx, svc); err != nil {
 		return errors.Wrap(err, "failed to delete pvc service")
 	}

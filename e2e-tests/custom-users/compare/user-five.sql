@@ -1,2 +1,4 @@
-GRANT SELECT ON *.* TO `user-five`@`%`
-GRANT REPLICATION_APPLIER,REPLICATION_SLAVE_ADMIN ON *.* TO `user-five`@`%`
+GRANT USAGE ON *.* TO `user-five`@`%`
+GRANT SELECT, UPDATE, DELETE ON `db1`.* TO `user-five`@`%`
+GRANT SELECT, UPDATE, DELETE ON `db2`.* TO `user-five`@`%`
+GRANT SELECT, UPDATE, DELETE ON `db3`.* TO `user-five`@`%`

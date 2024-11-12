@@ -90,8 +90,8 @@ compare_mysql_cmd "user-four-3" "SHOW GRANTS FOR 'user-four'@'%';" "-h $cluster-
 desc 'check user recreated after deleted from DB'
 run_mysql "DROP USER 'user-four'@'%';" "-h $cluster-haproxy -uroot -proot_password"
 sleep 15
-compare_mysql_user "-h $cluster-haproxy -uuser-four -p'$userFourPass'"
 compare_mysql_cmd "user-four-1" "SELECT User, Host from mysql.user WHERE User = 'user-four';" "-h $cluster-haproxy -uroot -proot_password"
+compare_mysql_cmd "user-four-3" "SHOW GRANTS FOR 'user-four'@'%';" "-h $cluster-haproxy -uroot -proot_password"
 
 desc 'check user update from DB'
 run_mysql "GRANT INSERT ON db1.* TO 'user-four'@'%'" "-h $cluster-haproxy -uroot -proot_password"

@@ -57,6 +57,9 @@ spec:
             type: string
           spec:
             properties:
+              activeDeadlineSeconds:
+                format: int64
+                type: integer
               containerOptions:
                 properties:
                   args:

@@ -46,6 +46,14 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, cluster *api.PerconaXtraDBClu
 	if cluster.CompareVersionWith("1.11.0") >= 0 && cluster.Spec.Backup.BackoffLimit != nil {
 		backoffLimit = *cluster.Spec.Backup.BackoffLimit
 	}
+	var activeDeadlineSeconds *int64
+	if cluster.CompareVersionWith("1.16.0") >= 0 {
+		if spec.ActiveDeadlineSeconds != nil {
+			activeDeadlineSeconds = spec.ActiveDeadlineSeconds
+		} else if cluster.Spec.Backup.ActiveDeadlineSeconds != nil {
+			activeDeadlineSeconds = cluster.Spec.Backup.ActiveDeadlineSeconds
+		}
+	}
 	verifyTLS := true
 	storage := cluster.Spec.Backup.Storages[spec.StorageName]
 	if storage.VerifyTLS != nil {
@@ -97,8 +105,9 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, cluster *api.PerconaXtraDBClu
 	}
 
 	return batchv1.JobSpec{
-		BackoffLimit:   &backoffLimit,
-		ManualSelector: &manualSelector,
+		ActiveDeadlineSeconds: activeDeadlineSeconds,
+		BackoffLimit:          &backoffLimit,
+		ManualSelector:        &manualSelector,
 		Selector: &metav1.LabelSelector{
 			MatchLabels: job.Labels,
 		},

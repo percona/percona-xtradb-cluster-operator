@@ -17,6 +17,7 @@ metadata:
       kind: PerconaXtraDBClusterBackup
       name: on-demand-backup-aws-s3
 spec:
+  activeDeadlineSeconds: 7200
   backoffLimit: 10
   completionMode: NonIndexed
   completions: 1

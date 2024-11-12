@@ -18,12 +18,21 @@ spec:
         - name: sysbench
           image: perconalab/sysbench
           env:
-            - name: MYSQL_USER
-              value: root
-            - name: MYSQL_PASSWORD
-              value: root_password
-            - name: MYSQL_HOSTNAME
-              value: 10.16.5.6
+          - name: MYSQL_USER
+            value: root
+          - name: MYSQL_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: cluster1-secrets
+                key: root
+          - name: MYSQL_HOSTNAME
+            value: cluster1-haproxy.pxc
+          - name: TABLES
+            value: "600"
+          - name: PREPARE_THREADS
+            value: "2"
+          - name: RUN_THREADS
+            value: "2"
           command: ["bash"]
           args:
             - "-c"
@@ -43,21 +52,9 @@ spec:
                   --mysql-user="${MYSQL_USER}" \
                   --mysql-password="${MYSQL_PASSWORD}" \
                   --mysql-db=sbtest \
-                  --threads=6 \
-                  --tables=10 \
-                  --time=300 \
+                  --threads=${PREPARE_THREADS} \
+                  --tables=${TABLES} \
+                  --time=1200 \
                   --force_pk=1 \
                   --db-driver=mysql \
                   --scale=20 prepare
-              ./tpcc.lua \
-                  --mysql-host="${mysql_hostname}" \
-                  --mysql-user="${mysql_user}" \
-                  --mysql-password="${mysql_password}" \
-                  --mysql-db=sbtest \
-                  --time=300 \
-                  --threads=6 \
-                  --report-interval=1 \
-                  --tables=10 \
-                  --scale=20 \
-                  --force_pk=1 \
-                  --db-driver=mysql run

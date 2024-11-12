@@ -252,6 +252,19 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 		appc.Lifecycle = &cr.Spec.PXC.Lifecycle
 	}
 
+	if cr.CompareVersionWith("1.16.0") >= 0 {
+		appc.Env = append(appc.Env, []corev1.EnvVar{
+			{
+				Name:  "NOTIFY_SOCKET",
+				Value: "/var/lib/mysql/notify.sock",
+			},
+			{
+				Name:  "MYSQL_STATE_FILE",
+				Value: "/var/lib/mysql/mysql.state",
+			},
+		}...)
+	}
+
 	return appc, nil
 }
 

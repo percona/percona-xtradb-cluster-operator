@@ -597,7 +597,8 @@ func (b *BackupContainerOptions) GetEnvVar(cluster *PerconaXtraDBCluster, storag
 	if b != nil {
 		return util.MergeEnvLists(b.Args.Env(), b.Env)
 	}
-	if cluster == nil {
+
+	if cluster == nil || cluster.Spec.Backup == nil {
 		return nil
 	}
 

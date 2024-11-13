@@ -56,6 +56,9 @@ spec:
             type: string
           spec:
             properties:
+              activeDeadlineSeconds:
+                format: int64
+                type: integer
               containerOptions:
                 properties:
                   args:
@@ -957,6 +960,9 @@ spec:
                 type: boolean
               backup:
                 properties:
+                  activeDeadlineSeconds:
+                    format: int64
+                    type: integer
                   allowParallel:
                     type: boolean
                   annotations:

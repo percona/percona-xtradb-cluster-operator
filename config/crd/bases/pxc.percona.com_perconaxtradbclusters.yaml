@@ -55,6 +55,9 @@ spec:
                 type: boolean
               backup:
                 properties:
+                  activeDeadlineSeconds:
+                    format: int64
+                    type: integer
                   allowParallel:
                     type: boolean
                   annotations:

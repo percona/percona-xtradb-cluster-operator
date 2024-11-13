@@ -109,7 +109,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileCustomUsers(ctx context.Context
 			log.Info("User password updated", "user", user.Name)
 		}
 
-		u, err := um.GetUUser(ctx, user.Name)
+		u, err := um.GetUser(ctx, user.Name)
 		if err != nil {
 			log.Error(err, "failed to get user", "user", user)
 			continue

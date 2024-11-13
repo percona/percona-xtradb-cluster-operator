@@ -316,7 +316,7 @@ func (u *Manager) Exec(ctx context.Context, query []string, args ...any) error {
 }
 
 // GetUsers returns a user stored in the database
-func (p *Manager) GetUUser(ctx context.Context, user string) (*User, error) {
+func (p *Manager) GetUser(ctx context.Context, user string) (*User, error) {
 	u := &User{
 		Name:   user,
 		Hosts:  sets.New[string](),

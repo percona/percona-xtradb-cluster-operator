@@ -25,7 +25,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/robfig/cron/v3 v3.0.1
 	go.uber.org/zap v1.27.0
-	golang.org/x/sync v0.8.0
+	golang.org/x/sync v0.9.0
 	k8s.io/api v0.31.2
 	k8s.io/apimachinery v0.31.2
 	k8s.io/client-go v0.31.2

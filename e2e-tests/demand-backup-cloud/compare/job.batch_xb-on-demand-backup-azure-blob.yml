@@ -17,6 +17,7 @@ metadata:
       kind: PerconaXtraDBClusterBackup
       name: on-demand-backup-azure-blob
 spec:
+  activeDeadlineSeconds: 3600
   backoffLimit: 10
   completionMode: NonIndexed
   completions: 1

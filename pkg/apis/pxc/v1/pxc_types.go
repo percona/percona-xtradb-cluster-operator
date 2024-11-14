@@ -144,16 +144,17 @@ const (
 )
 
 type PXCScheduledBackup struct {
-	AllowParallel      *bool                         `json:"allowParallel,omitempty"`
-	Image              string                        `json:"image,omitempty"`
-	ImagePullSecrets   []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
-	ImagePullPolicy    corev1.PullPolicy             `json:"imagePullPolicy,omitempty"`
-	Schedule           []PXCScheduledBackupSchedule  `json:"schedule,omitempty"`
-	Storages           map[string]*BackupStorageSpec `json:"storages,omitempty"`
-	ServiceAccountName string                        `json:"serviceAccountName,omitempty"`
-	Annotations        map[string]string             `json:"annotations,omitempty"`
-	PITR               PITRSpec                      `json:"pitr,omitempty"`
-	BackoffLimit       *int32                        `json:"backoffLimit,omitempty"`
+	AllowParallel         *bool                         `json:"allowParallel,omitempty"`
+	Image                 string                        `json:"image,omitempty"`
+	ImagePullSecrets      []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
+	ImagePullPolicy       corev1.PullPolicy             `json:"imagePullPolicy,omitempty"`
+	Schedule              []PXCScheduledBackupSchedule  `json:"schedule,omitempty"`
+	Storages              map[string]*BackupStorageSpec `json:"storages,omitempty"`
+	ServiceAccountName    string                        `json:"serviceAccountName,omitempty"`
+	Annotations           map[string]string             `json:"annotations,omitempty"`
+	PITR                  PITRSpec                      `json:"pitr,omitempty"`
+	BackoffLimit          *int32                        `json:"backoffLimit,omitempty"`
+	ActiveDeadlineSeconds *int64                        `json:"activeDeadlineSeconds,omitempty"`
 }
 
 func (b *PXCScheduledBackup) GetAllowParallel() bool {

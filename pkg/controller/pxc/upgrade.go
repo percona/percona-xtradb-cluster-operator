@@ -97,7 +97,7 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(ctx context.Context, sfs api.S
 
 	err = k8sretry.RetryOnConflict(k8sretry.DefaultRetry, func() error {
 		currentSet := sfs.StatefulSet()
-		err := r.client.Get(ctx, types.NamespacedName{Name: currentSet.Name, Namespace: currentSet.Namespace}, currentSet)
+		err := r.client.Get(ctx, client.ObjectKeyFromObject(currentSet), currentSet)
 		if client.IgnoreNotFound(err) != nil {
 			return errors.Wrap(err, "failed to get statefulset")
 		}
@@ -130,10 +130,8 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(ctx context.Context, sfs api.S
 		sts.Spec.Template.Annotations = annotations
 		sts.Spec.Template.Labels = labels
 
-		if len(currentSet.GetOwnerReferences()) == 0 {
-			if err := setControllerReference(cr, sts, r.scheme); err != nil {
-				return errors.Wrap(err, "set controller reference")
-			}
+		if err := setControllerReference(cr, sts, r.scheme); err != nil {
+			return errors.Wrap(err, "set controller reference")
 		}
 		err = r.createOrUpdate(ctx, cr, sts)
 		if err != nil {

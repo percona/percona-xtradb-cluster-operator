@@ -22,9 +22,11 @@ import (
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/queries"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/util"
 )
 
 func (r *ReconcilePerconaXtraDBCluster) updatePod(ctx context.Context, sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, newAnnotations map[string]string) error {
@@ -95,23 +97,34 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(ctx context.Context, sfs api.S
 	}
 
 	err = k8sretry.RetryOnConflict(k8sretry.DefaultRetry, func() error {
-		currentSet := sfs.StatefulSet()
-		err := r.client.Get(ctx, types.NamespacedName{Name: currentSet.Name, Namespace: currentSet.Namespace}, currentSet)
-		if err != nil {
-			return errors.Wrap(err, "failed to get statefulset")
-		}
-		annotations := currentSet.Spec.Template.Annotations
-		labels := currentSet.Spec.Template.Labels
-
 		sts, err := pxc.StatefulSet(ctx, r.client, sfs, podSpec, cr, secrets, initImageName, r.getConfigVolume)
 		if err != nil {
 			return errors.Wrap(err, "construct statefulset")
 		}
+		if err = setControllerReference(cr, sts, r.scheme); err != nil {
+			return errors.Wrap(err, "set controller reference")
+		}
+
+		currentSet := sfs.StatefulSet()
+		err = r.client.Get(ctx, types.NamespacedName{Name: currentSet.Name, Namespace: currentSet.Namespace}, currentSet)
+		if err != nil {
+			return errors.Wrap(err, "failed to get statefulset")
+		}
+		// Keep same volumeClaimTemplates labels if statefulset already exists.
+		// We can't update volumeClaimTemplates.
+		if err == nil && cr.CompareVersionWith("1.16.0") >= 0 {
+			for i, pvc := range currentSet.Spec.VolumeClaimTemplates {
+				sts.Spec.VolumeClaimTemplates[i].Labels = pvc.Labels
+			}
+		}
+
+		annotations := currentSet.Spec.Template.Annotations
+		labels := currentSet.Spec.Template.Labels
 
 		// support annotation adjustements
-		pxc.MergeMaps(annotations, sts.Spec.Template.Annotations, newAnnotations)
+		util.MergeMaps(annotations, sts.Spec.Template.Annotations, newAnnotations)
 
-		pxc.MergeMaps(labels, sts.Spec.Template.Labels)
+		util.MergeMaps(labels, sts.Spec.Template.Labels)
 
 		for k, v := range hashAnnotations {
 			if v != "" || k == "percona.com/configuration-hash" {
@@ -204,11 +217,6 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(ctx context.Context, sfs api
 		return nil
 	}
 
-	if currentSet.Status.ReadyReplicas < currentSet.Status.Replicas {
-		log.Info("can't start/continue 'SmartUpdate': waiting for all replicas are ready")
-		return nil
-	}
-
 	primary, err := r.getPrimaryPod(cr)
 	if err != nil {
 		return errors.Wrap(err, "get primary pod")
@@ -220,7 +228,7 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(ctx context.Context, sfs api
 		}
 	}
 
-	log.Info("primary pod", "pod name", primary)
+	log.Info("primary pod", "pod", primary)
 
 	waitLimit := 2 * 60 * 60 // 2 hours
 	if cr.Spec.PXC.LivenessInitialDelaySeconds != nil {
@@ -237,14 +245,14 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(ctx context.Context, sfs api
 		if strings.HasPrefix(primary, fmt.Sprintf("%s.%s.%s", pod.Name, currentSet.Name, currentSet.Namespace)) {
 			primaryPod = pod
 		} else {
-			log.Info("apply changes to secondary pod", "pod name", pod.Name)
+			log.Info("apply changes to secondary pod", "pod", pod.Name)
 			if err := r.applyNWait(ctx, cr, currentSet, &pod, waitLimit); err != nil {
 				return errors.Wrap(err, "failed to apply changes")
 			}
 		}
 	}
 
-	log.Info("apply changes to primary pod", "pod name", primaryPod.Name)
+	log.Info("apply changes to primary pod", "pod", primaryPod.Name)
 	if err := r.applyNWait(ctx, cr, currentSet, &primaryPod, waitLimit); err != nil {
 		return errors.Wrap(err, "failed to apply changes")
 	}
@@ -258,7 +266,7 @@ func (r *ReconcilePerconaXtraDBCluster) applyNWait(ctx context.Context, cr *api.
 	log := logf.FromContext(ctx)
 
 	if pod.ObjectMeta.Labels["controller-revision-hash"] == sfs.Status.UpdateRevision {
-		log.Info("pod already updated", "pod name", pod.Name)
+		log.Info("pod already updated", "pod", pod.Name)
 	} else {
 		if err := r.client.Delete(ctx, pod); err != nil {
 			return errors.Wrap(err, "failed to delete pod")
@@ -321,7 +329,7 @@ func (r *ReconcilePerconaXtraDBCluster) waitHostgroups(ctx context.Context, cr *
 				return false, nil
 			}
 
-			logf.FromContext(ctx).Info("pod present in hostgroups", "pod name", pod.Name)
+			logf.FromContext(ctx).Info("pod present in hostgroups", "pod", pod.Name)
 			return true, nil
 		})
 }
@@ -353,7 +361,7 @@ func (r *ReconcilePerconaXtraDBCluster) waitUntilOnline(ctx context.Context, cr 
 				}
 			}
 
-			logf.FromContext(ctx).Info("pod is online", "pod name", pod.Name)
+			logf.FromContext(ctx).Info("pod is online", "pod", pod.Name)
 			return true, nil
 		})
 }
@@ -490,6 +498,8 @@ func (r *ReconcilePerconaXtraDBCluster) waitPXCSynced(cr *api.PerconaXtraDBClust
 }
 
 func (r *ReconcilePerconaXtraDBCluster) waitPodRestart(ctx context.Context, cr *api.PerconaXtraDBCluster, updateRevision string, pod *corev1.Pod, waitLimit int) error {
+	log := logf.FromContext(ctx)
+
 	return retry(time.Second*10, time.Duration(waitLimit)*time.Second,
 		func() (bool, error) {
 			err := r.client.Get(ctx, types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, pod)
@@ -512,9 +522,23 @@ func (r *ReconcilePerconaXtraDBCluster) waitPodRestart(ctx context.Context, cr *
 						case "ImagePullBackOff", "ErrImagePull", "CrashLoopBackOff":
 							return false, errors.Errorf("pod %s is in %s state", pod.Name, container.State.Waiting.Reason)
 						default:
-							logf.FromContext(ctx).Info("pod is waiting", "pod name", pod.Name, "reason", container.State.Waiting.Reason)
+							log.Info("pod is waiting", "pod", pod.Name, "reason", container.State.Waiting.Reason)
 						}
 					}
+				}
+			}
+
+			for _, cond := range pod.Status.Conditions {
+				if cond.Type != corev1.PodScheduled {
+					continue
+				}
+
+				if cond.Status != corev1.ConditionFalse {
+					continue
+				}
+
+				if time.Since(cond.LastTransitionTime.Time) > time.Duration(120*time.Second) {
+					return false, errors.Errorf("pod %s is not scheduled: %s", pod.Name, cond.Message)
 				}
 			}
 
@@ -522,8 +546,23 @@ func (r *ReconcilePerconaXtraDBCluster) waitPodRestart(ctx context.Context, cr *
 				return false, errors.Errorf("pod %s is in failed phase", pod.Name)
 			}
 
-			if pod.Status.Phase == corev1.PodRunning && pod.ObjectMeta.Labels["controller-revision-hash"] == updateRevision && ready {
-				logf.FromContext(ctx).Info("pod is running", "pod name", pod.Name)
+			if pod.Status.Phase != corev1.PodRunning {
+				log.Info("Pod is not running", "pod", pod.Name, "phase", pod.Status.Phase)
+				return false, nil
+			}
+
+			if pod.ObjectMeta.Labels["controller-revision-hash"] != updateRevision {
+				log.Info(
+					"Pod is not updated",
+					"pod", pod.Name,
+					"currentRevision", pod.ObjectMeta.Labels["controller-revision-hash"],
+					"targetRevision", updateRevision,
+				)
+				return false, nil
+			}
+
+			if ready {
+				log.Info("Pod is updated, running and ready", "pod", pod.Name)
 				return true, nil
 			}
 
@@ -532,15 +571,15 @@ func (r *ReconcilePerconaXtraDBCluster) waitPodRestart(ctx context.Context, cr *
 }
 
 func isPXC(sfs api.StatefulApp) bool {
-	return sfs.Labels()["app.kubernetes.io/component"] == "pxc"
+	return sfs.Labels()[naming.LabelAppKubernetesComponent] == "pxc"
 }
 
 func isHAproxy(sfs api.StatefulApp) bool {
-	return sfs.Labels()["app.kubernetes.io/component"] == "haproxy"
+	return sfs.Labels()[naming.LabelAppKubernetesComponent] == "haproxy"
 }
 
 func isProxySQL(sfs api.StatefulApp) bool {
-	return sfs.Labels()["app.kubernetes.io/component"] == "proxysql"
+	return sfs.Labels()[naming.LabelAppKubernetesComponent] == "proxysql"
 }
 
 func (r *ReconcilePerconaXtraDBCluster) isBackupRunning(cr *api.PerconaXtraDBCluster) (bool, error) {
@@ -613,7 +652,7 @@ func (r *ReconcilePerconaXtraDBCluster) getConfigHash(cr *api.PerconaXtraDBClust
 
 	name := types.NamespacedName{
 		Namespace: cr.Namespace,
-		Name:      ls["app.kubernetes.io/instance"] + "-" + ls["app.kubernetes.io/component"],
+		Name:      ls[naming.LabelAppKubernetesInstance] + "-" + ls[naming.LabelAppKubernetesComponent],
 	}
 
 	obj, err := r.getFirstExisting(name, &corev1.Secret{}, &corev1.ConfigMap{})

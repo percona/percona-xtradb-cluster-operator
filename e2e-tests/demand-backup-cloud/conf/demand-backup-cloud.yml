@@ -60,6 +60,7 @@ spec:
     serverHost: monitoring-service
     serverUser: pmm
   backup:
+    activeDeadlineSeconds: 3600
     image: -backup
     storages:
       pvc:

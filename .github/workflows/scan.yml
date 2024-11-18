@@ -39,7 +39,7 @@ jobs:
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
-          version: v0.57.1
+          version: 0.57.1
 
       - name: Build an image from Dockerfile (linux/amd64)
         run: |
@@ -58,4 +58,4 @@ jobs:
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
-          version: v0.57.1
+          version: 0.57.1

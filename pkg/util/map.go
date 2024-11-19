@@ -11,6 +11,10 @@ func MergeTemplateAnnotations(sfs *appsv1.StatefulSet, annotations map[string]st
 	MergeMaps(sfs.Spec.Template.Annotations, annotations)
 }
 
+// MergeMaps merges multiple maps into the provided `dest` map.
+// If `dest` is nil, a new map is created.
+// When keys overlap across maps, the value from the last map takes precedence.
+// The function returns the resulting `dest` map.
 func MergeMaps(dest map[string]string, mapList ...map[string]string) map[string]string {
 	if dest == nil {
 		dest = make(map[string]string)

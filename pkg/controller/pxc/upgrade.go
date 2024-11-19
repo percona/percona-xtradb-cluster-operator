@@ -116,9 +116,9 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(ctx context.Context, sfs api.S
 			}
 		}
 
-		// support annotation adjustements
+		// If currentSet is not found, both annotations and labels will be nil.
+		// In such cases, MergeMaps will initialize a new map and return it.
 		annotations = util.MergeMaps(annotations, sts.Spec.Template.Annotations, newAnnotations)
-
 		labels = util.MergeMaps(labels, sts.Spec.Template.Labels)
 
 		for k, v := range hashAnnotations {

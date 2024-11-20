@@ -405,6 +405,8 @@ compare_kubectl() {
 
 	if [[ $IMAGE_PXC =~ 8\.0 ]] && [ -f ${expected_result//.yml/-80.yml} ]; then
 		expected_result=${expected_result//.yml/-80.yml}
+	elif [[ $IMAGE_PXC =~ 8\.4 ]] && [ -f ${expected_result//.yml/-84.yml} ]; then
+		expected_result=${expected_result//.yml/-84.yml}
 	fi
 
 	if version_gt "1.29" && [ -f ${expected_result//.yml/-k129.yml} ]; then
@@ -539,6 +541,8 @@ compare_mysql_cmd() {
 
 	if [[ $IMAGE_PXC =~ 8\.0 ]] && [ -f ${test_dir}/compare/${command_id}${postfix}-80.sql ]; then
 		expected_result=${test_dir}/compare/${command_id}${postfix}-80.sql
+	elif [[ $IMAGE_PXC =~ 8\.4 ]] && [ -f ${test_dir}/compare/${command_id}${postfix}-84.sql ]; then
+		expected_result=${test_dir}/compare/${command_id}${postfix}-84.sql
 	fi
 
 	run_mysql "$command" "$uri" \
@@ -562,6 +566,8 @@ compare_mysql_cmd_local() {
 
 	if [[ $IMAGE_PXC =~ 8\.0 ]] && [ -f ${test_dir}/compare/${command_id}${postfix}-80.sql ]; then
 		expected_result=${test_dir}/compare/${command_id}${postfix}-80.sql
+	elif [[ $IMAGE_PXC =~ 8\.4 ]] && [ -f ${test_dir}/compare/${command_id}${postfix}-84.sql ]; then
+		expected_result=${test_dir}/compare/${command_id}${postfix}-84.sql
 	fi
 
 	run_mysql_local "$command" "$uri" "$pod" "$container_name" \
@@ -605,6 +611,8 @@ compare_mysql_user() {
 
 	if [[ $IMAGE_PXC =~ 8\.0 ]] && [ -f ${test_dir}/compare/$user$postfix-80.sql ]; then
 		expected_result=${test_dir}/compare/$user$postfix-80.sql
+	elif [[ $IMAGE_PXC =~ 8\.4 ]] && [ -f ${test_dir}/compare/$user$postfix-84.sql ]; then
+		expected_result=${test_dir}/compare/$user$postfix-84.sql
 	fi
 
 	(run_mysql "SHOW GRANTS;" "$uri" || :) \
@@ -623,6 +631,8 @@ compare_mysql_user_local() {
 
 	if [[ $IMAGE_PXC =~ 8\.0 ]] && [ -f ${test_dir}/compare/$user$postfix-80.sql ]; then
 		expected_result=${test_dir}/compare/$user$postfix-80.sql
+	elif [[ $IMAGE_PXC =~ 8\.4 ]] && [ -f ${test_dir}/compare/$user$postfix-84.sql ]; then
+		expected_result=${test_dir}/compare/$user$postfix-84.sql
 	fi
 
 	(run_mysql_local "SHOW GRANTS;" "$uri" "$pod" "$container_name" || :) \

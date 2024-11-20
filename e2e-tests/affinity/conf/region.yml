@@ -10,7 +10,7 @@ spec:
     image: -pxc
     resources:
       requests:
-        memory: 1G
+        memory: 2G
         cpu: 600m
       limits:
         memory: "1G"

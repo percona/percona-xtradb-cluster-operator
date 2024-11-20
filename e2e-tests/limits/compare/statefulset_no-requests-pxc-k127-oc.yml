@@ -113,7 +113,7 @@ spec:
           resources:
             limits:
               cpu: 300m
-              memory: 600M
+              memory: 2G
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:

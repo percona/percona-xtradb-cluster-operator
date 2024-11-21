@@ -177,7 +177,7 @@ wait_pod() {
 	set +o xtrace
 	kubectl_bin wait --for=condition=Ready pod/${pod} --timeout="${max_retry}s" ${ns:+-n $ns} || true
 	retry=0
-	echo -n $pod
+	echo -n "waiting for pod/$pod to become Ready"
 	until kubectl_bin get ${ns:+-n $ns} pod/$pod -o jsonpath='{.status.conditions[?(@.type == "Ready")].status}' 2>/dev/null | grep -q -i 'True' \
 		&& kubectl_bin get ${ns:+-n $ns} pod/$pod | grep -q "^$pod" \
 		&& ! IS_FULL_CRASH=$(kubectl_bin logs --tail=1 ${ns:+-n $ns} pod/$pod ${container:+ -c $container} | grep LAST_LINE); do
@@ -251,20 +251,23 @@ wait_backup() {
 
 wait_backup_restore() {
 	local backup_name=$1
-	local status=${2:-'Succeeded'}
+	local target_state=${2:-'Succeeded'}
 	local wait_time=${3:-720}
 
-	desc "wait backup restore"
 	set +o xtrace
 	retry=0
-	echo -n $backup_name
-	until kubectl_bin get pxc-restore/$backup_name -o jsonpath='{.status.state}' 2>/dev/null | grep $status; do
+	echo -n "waiting for pxc-restore/${backup_name} to reach ${target_state} state"
+	local current_state=
+	until [[ ${current_state} == ${target_state} ]]; do
 		sleep 1
 		echo -n .
 		let retry+=1
-		if [ $retry -ge $wait_time ]; then
+		current_state=$(kubectl_bin get pxc-restore $backup_name -o jsonpath='{.status.state}')
+		if [[ $retry -ge $wait_time || ${current_state} == 'error' ]]; then
 			kubectl_bin logs ${OPERATOR_NS:+-n $OPERATOR_NS} $(get_operator_pod)
-			echo max retry count $retry reached. something went wrong with operator or kubernetes cluster
+			kubectl_bin get pxc-restore ${backup_name} -o yaml
+			echo "Restore object pxc-restore/${backup_name} is in ${current_state} state."
+			echo something went wrong with operator or kubernetes cluster
 			exit 1
 		fi
 	done
@@ -1655,6 +1658,22 @@ run_recovery_check_pitr() {
 		| $sed -e "s/<gtid>/${gtid}/g" \
 		| $sed -e "s~minio-service.#namespace~minio-service.$namespace~" \
 		| kubectl_bin apply -f -
+
+	wait_backup_restore ${backup} "Stopping Cluster"
+	wait_for_delete pod/${cluster}-proxysql-0
+	wait_for_delete pod/${cluster}-proxysql-1
+	wait_for_delete pod/${cluster}-pxc-2
+	wait_for_delete pod/${cluster}-pxc-1
+	wait_for_delete pod/${cluster}-pxc-0
+
+	wait_backup_restore ${backup} "Point-in-time recovering"
+	wait_for_delete pod/${cluster}-proxysql-0
+	wait_for_delete pod/${cluster}-proxysql-1
+	wait_for_delete pod/${cluster}-pxc-2
+	wait_for_delete pod/${cluster}-pxc-1
+
+	wait_pod ${cluster}-pxc-0
+
 	wait_backup_restore ${backup}
 	kubectl_bin logs job/restore-job-${backup}-${cluster}
 	wait_for_running "$cluster-proxysql" 2

@@ -94,6 +94,7 @@ spec:
 #      [mysqld]
 #      wsrep_debug=CLIENT
 #      wsrep_provider_options="gcache.size=1G; gcache.recover=yes"
+#      log_error_suppression_list=MY-013360
 #      [sst]
 #      xbstream-opts=--decompress
 #      [xtrabackup]

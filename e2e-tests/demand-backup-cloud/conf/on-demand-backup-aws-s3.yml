@@ -7,3 +7,4 @@ metadata:
 spec:
   pxcCluster: demand-backup-cloud
   storageName: aws-s3
+  activeDeadlineSeconds: 7200

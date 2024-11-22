@@ -302,6 +302,8 @@ func getUserSecret(ctx context.Context, cl client.Client, cr *api.PerconaXtraDBC
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to update user secret")
 		}
+
+		return secret, nil
 	}
 
 	// pass key should be present in the user provided secret

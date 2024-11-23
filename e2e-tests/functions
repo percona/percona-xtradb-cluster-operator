@@ -256,20 +256,19 @@ wait_backup_restore() {
 
 	set +o xtrace
 	retry=0
-	echo -n "waiting for pxc-restore/${backup_name} to reach ${target_state} state"
+	echo "waiting for pxc-restore/${backup_name} to reach ${target_state} state"
 	local current_state=
 	until [[ ${current_state} == ${target_state} ]]; do
-		sleep 1
-		echo -n .
-		let retry+=1
 		current_state=$(kubectl_bin get pxc-restore $backup_name -o jsonpath='{.status.state}')
 		if [[ $retry -ge $wait_time || ${current_state} == 'error' ]]; then
-			kubectl_bin logs ${OPERATOR_NS:+-n $OPERATOR_NS} $(get_operator_pod)
 			kubectl_bin get pxc-restore ${backup_name} -o yaml
 			echo "Restore object pxc-restore/${backup_name} is in ${current_state} state."
 			echo something went wrong with operator or kubernetes cluster
 			exit 1
 		fi
+		echo "$(date +%Y-%m-%dT%H:%M:%S) pxc-restore/${backup_name} state: ${current_state}"
+		sleep 1
+		let retry+=1
 	done
 	echo
 	set_debug

@@ -315,6 +315,16 @@ func (u *Manager) Exec(ctx context.Context, query []string, args ...any) error {
 	return nil
 }
 
+func (u *Manager) UpsertUser(ctx context.Context, query []string, pass string) error {
+	for _, q := range query {
+		_, err := u.db.ExecContext(ctx, q, pass)
+		if err != nil {
+			return errors.Wrap(err, "exec")
+		}
+	}
+	return nil
+}
+
 // GetUsers returns a user stored in the database
 func (p *Manager) GetUser(ctx context.Context, user string) (*User, error) {
 	u := &User{

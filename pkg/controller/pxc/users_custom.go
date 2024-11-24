@@ -94,7 +94,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileCustomUsers(ctx context.Context
 		if userPasswordChanged(userSecret, annotationKey, userSecretPassKey) {
 			log.Info("User password changed", "user", user.Name)
 
-			err := um.Exec(ctx, alterUserQuery(&user, string(userSecret.Data[userSecretPassKey])))
+			err := um.UpsertUser(ctx, alterUserQuery(&user), string(userSecret.Data[userSecretPassKey]))
 			if err != nil {
 				log.Error(err, "failed to update user", "user", user)
 				continue
@@ -118,7 +118,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileCustomUsers(ctx context.Context
 		if userChanged(u, &user, log) {
 			log.Info("Creating/updating user", "user", user.Name)
 
-			err := um.Exec(ctx, upsertUserQuery(&user, string(userSecret.Data[userSecretPassKey])))
+			err := um.UpsertUser(ctx, upsertUserQuery(&user), string(userSecret.Data[userSecretPassKey]))
 			if err != nil {
 				log.Error(err, "failed to update user", "user", user)
 				continue
@@ -322,21 +322,25 @@ func sysUserNames() map[string]struct{} {
 	return sysUserNames
 }
 
-func alterUserQuery(user *api.User, pass string) []string {
+func escapeIdentifier(identifier string) string {
+	return strings.ReplaceAll(identifier, "'", "''")
+}
+
+func alterUserQuery(user *api.User) []string {
 	query := make([]string, 0)
 
 	if len(user.Hosts) > 0 {
 		for _, host := range user.Hosts {
-			query = append(query, fmt.Sprintf("ALTER USER '%s'@'%s' IDENTIFIED BY '%s'", user.Name, host, pass))
+			query = append(query, fmt.Sprintf("ALTER USER '%s'@'%s' IDENTIFIED BY ?", escapeIdentifier(user.Name), escapeIdentifier(host)))
 		}
 	} else {
-		query = append(query, fmt.Sprintf("ALTER USER '%s'@'%%' IDENTIFIED BY '%s'", user.Name, pass))
+		query = append(query, fmt.Sprintf("ALTER USER '%s'@'%%' IDENTIFIED BY ?", escapeIdentifier(user.Name)))
 	}
 
 	return query
 }
 
-func upsertUserQuery(user *api.User, pass string) []string {
+func upsertUserQuery(user *api.User) []string {
 	query := make([]string, 0)
 
 	for _, db := range user.DBs {
@@ -349,16 +353,16 @@ func upsertUserQuery(user *api.User, pass string) []string {
 	}
 
 	for _, host := range user.Hosts {
-		query = append(query, (fmt.Sprintf("CREATE USER IF NOT EXISTS '%s'@'%s' IDENTIFIED BY '%s'", user.Name, host, pass)))
+		query = append(query, (fmt.Sprintf("CREATE USER IF NOT EXISTS '%s'@'%s' IDENTIFIED BY ?", escapeIdentifier(user.Name), escapeIdentifier(host))))
 
 		if len(user.Grants) > 0 {
 			grants := strings.Join(user.Grants, ",")
 			if len(user.DBs) > 0 {
 				for _, db := range user.DBs {
-					query = append(query, (fmt.Sprintf("GRANT %s ON %s.* TO '%s'@'%s' %s", grants, db, user.Name, host, withGrantOption)))
+					query = append(query, (fmt.Sprintf("GRANT %s ON %s.* TO '%s'@'%s' %s", grants, db, escapeIdentifier(user.Name), escapeIdentifier(host), withGrantOption)))
 				}
 			} else {
-				query = append(query, (fmt.Sprintf("GRANT %s ON *.* TO '%s'@'%s' %s", grants, user.Name, host, withGrantOption)))
+				query = append(query, (fmt.Sprintf("GRANT %s ON *.* TO '%s'@'%s' %s", grants, escapeIdentifier(user.Name), escapeIdentifier(host), withGrantOption)))
 			}
 		}
 	}

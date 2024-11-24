@@ -292,8 +292,7 @@ if [[ -z ${WSREP_CLUSTER_NAME} || ${WSREP_CLUSTER_NAME} == 'noname' ]]; then
 	echo "Cluster name is invalid, please check DNS"
 	exit 1
 fi
-
-if [[ -n ${NOTIFY_SOCKET} && ${MYSQL_VERSION} == '8.0' ]]; then
+if [[ -n ${NOTIFY_SOCKET} && ${MYSQL_VERSION} =~ ^(8\.0|8\.4)$ ]]; then
 	nohup /var/lib/mysql/mysql-state-monitor >/var/lib/mysql/mysql-state-monitor.log 2>&1 < /dev/null &
 fi
 
@@ -521,7 +520,7 @@ if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 		fi
 		set -x
 
-		if [[ ${MYSQL_VERSION} == '8.0' ]]; then
+		if [[ "$MYSQL_VERSION" =~ ^(8\.0|8\.4)$ ]]; then
 			mysqlState="startup"
 			while [[ "${mysqlState}" != "ready" ]]; do
 				mysqlState=$(tr -d '\0' < ${MYSQL_STATE_FILE})

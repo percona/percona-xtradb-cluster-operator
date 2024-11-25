@@ -359,10 +359,12 @@ func upsertUserQuery(user *api.User) []string {
 			grants := strings.Join(user.Grants, ",")
 			if len(user.DBs) > 0 {
 				for _, db := range user.DBs {
-					query = append(query, (fmt.Sprintf("GRANT %s ON %s.* TO '%s'@'%s' %s", grants, db, escapeIdentifier(user.Name), escapeIdentifier(host), withGrantOption)))
+					q := fmt.Sprintf("GRANT %s ON %s.* TO '%s'@'%s' %s", grants, db, escapeIdentifier(user.Name), escapeIdentifier(host), withGrantOption)
+					query = append(query, q)
 				}
 			} else {
-				query = append(query, (fmt.Sprintf("GRANT %s ON *.* TO '%s'@'%s' %s", grants, escapeIdentifier(user.Name), escapeIdentifier(host), withGrantOption)))
+				q := fmt.Sprintf("GRANT %s ON *.* TO '%s'@'%s' %s", grants, escapeIdentifier(user.Name), escapeIdentifier(host), withGrantOption)
+				query = append(query, q)
 			}
 		}
 	}

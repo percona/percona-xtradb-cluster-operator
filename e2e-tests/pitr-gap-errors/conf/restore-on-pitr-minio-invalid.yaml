@@ -3,7 +3,7 @@ kind: PerconaXtraDBClusterRestore
 metadata:
   annotations:
     percona.com/unsafe-pitr: "true"
-  name: on-pitr-minio-invalid
+  name: restore-on-pitr-minio-invalid
 spec:
   pxcCluster: pitr-gap-errors
   backupName: on-pitr-minio 

@@ -378,7 +378,7 @@ wait_for_generation() {
 wait_for_delete() {
 	local res="$1"
 
-	echo -n "$res - "
+	echo -n "waiting for $res to be deleted"
 	set +o xtrace
 	retry=0
 	until (kubectl_bin get $res || :) 2>&1 | grep NotFound; do
@@ -1658,14 +1658,14 @@ run_recovery_check_pitr() {
 		| $sed -e "s~minio-service.#namespace~minio-service.$namespace~" \
 		| kubectl_bin apply -f -
 
-	wait_backup_restore ${backup} "Stopping Cluster"
+	wait_backup_restore ${restore} "Stopping Cluster"
 	wait_for_delete pod/${cluster}-proxysql-0
 	wait_for_delete pod/${cluster}-proxysql-1
 	wait_for_delete pod/${cluster}-pxc-2
 	wait_for_delete pod/${cluster}-pxc-1
 	wait_for_delete pod/${cluster}-pxc-0
 
-	wait_backup_restore ${backup} "Point-in-time recovering"
+	wait_backup_restore ${restore} "Point-in-time recovering"
 	wait_for_delete pod/${cluster}-proxysql-0
 	wait_for_delete pod/${cluster}-proxysql-1
 	wait_for_delete pod/${cluster}-pxc-2
@@ -1673,8 +1673,8 @@ run_recovery_check_pitr() {
 
 	wait_pod ${cluster}-pxc-0
 
-	wait_backup_restore ${backup}
-	kubectl_bin logs job/restore-job-${backup}-${cluster}
+	wait_backup_restore ${restore}
+	kubectl_bin logs job/restore-job-${restore}-${cluster}
 	wait_for_running "$cluster-proxysql" 2
 	wait_for_running "$cluster-pxc" 3
 	wait_cluster_consistency "$cluster" 3 2

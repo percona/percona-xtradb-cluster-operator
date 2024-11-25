@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"github.com/go-sql-driver/mysql"
 	"github.com/pkg/errors"
@@ -305,12 +306,10 @@ func (u *Manager) UpdatePassExpirationPolicy(user *SysUser) error {
 	return nil
 }
 
-func (u *Manager) Exec(ctx context.Context, query []string, args ...any) error {
-	for _, q := range query {
-		_, err := u.db.ExecContext(ctx, q, args...)
-		if err != nil {
-			return errors.Wrap(err, "exec")
-		}
+func (u *Manager) Exec(ctx context.Context, query string, args ...any) error {
+	_, err := u.db.ExecContext(ctx, query, args...)
+	if err != nil {
+		return errors.Wrap(err, "exec")
 	}
 	return nil
 }
@@ -318,15 +317,16 @@ func (u *Manager) Exec(ctx context.Context, query []string, args ...any) error {
 func (u *Manager) UpsertUser(ctx context.Context, query []string, pass string) error {
 	for _, q := range query {
 		var err error
-		if pass == "" {
-			_, err = u.db.ExecContext(ctx, q)
-		} else {
+		if strings.Contains(q, "?") {
 			_, err = u.db.ExecContext(ctx, q, pass)
+		} else {
+			_, err = u.db.ExecContext(ctx, q)
 		}
 		if err != nil {
 			return errors.Wrap(err, "exec")
 		}
 	}
+
 	return nil
 }
 

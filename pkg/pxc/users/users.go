@@ -306,14 +306,6 @@ func (u *Manager) UpdatePassExpirationPolicy(user *SysUser) error {
 	return nil
 }
 
-func (u *Manager) Exec(ctx context.Context, query string, args ...any) error {
-	_, err := u.db.ExecContext(ctx, query, args...)
-	if err != nil {
-		return errors.Wrap(err, "exec")
-	}
-	return nil
-}
-
 func (u *Manager) UpsertUser(ctx context.Context, query []string, pass string) error {
 	for _, q := range query {
 		var err error

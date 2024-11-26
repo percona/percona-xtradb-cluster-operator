@@ -1,7 +1,7 @@
 apiVersion: pxc.percona.com/v1
 kind: PerconaXtraDBClusterRestore
 metadata:
-  name: restore-on-pitr-minio
+  name: restore-on-pitr-minio-time
 spec:
   pxcCluster: pitr
   backupName: on-pitr-minio

@@ -1,11 +1,14 @@
 package users
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"github.com/go-sql-driver/mysql"
 	"github.com/pkg/errors"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 const (
@@ -30,6 +33,15 @@ type SysUser struct {
 	Name  string   `yaml:"username"`
 	Pass  string   `yaml:"password"`
 	Hosts []string `yaml:"hosts"`
+}
+
+type User struct {
+	Name  string
+	Hosts sets.Set[string]
+	DBs   sets.Set[string]
+
+	// Grants holds the grants for each user@host
+	Grants map[string][]string
 }
 
 func NewManager(addr string, user, pass string, timeout int32) (Manager, error) {
@@ -292,4 +304,68 @@ func (u *Manager) UpdatePassExpirationPolicy(user *SysUser) error {
 		}
 	}
 	return nil
+}
+
+func (u *Manager) UpsertUser(ctx context.Context, query []string, pass string) error {
+	for _, q := range query {
+		var err error
+		if strings.Contains(q, "?") {
+			_, err = u.db.ExecContext(ctx, q, pass)
+		} else {
+			_, err = u.db.ExecContext(ctx, q)
+		}
+		if err != nil {
+			return errors.Wrap(err, "exec")
+		}
+	}
+
+	return nil
+}
+
+// GetUsers returns a user stored in the database
+func (p *Manager) GetUser(ctx context.Context, user string) (*User, error) {
+	u := &User{
+		Name:   user,
+		Hosts:  sets.New[string](),
+		DBs:    sets.New[string](),
+		Grants: make(map[string][]string),
+	}
+
+	rows, err := p.db.QueryContext(ctx, "SELECT DISTINCT u.Host, d.Db FROM mysql.user u LEFT JOIN mysql.db d ON u.User = d.User WHERE u.User = ?", user)
+	if err != nil {
+		return nil, err
+	}
+	for rows.Next() {
+		var host string
+		var db sql.NullString
+		err = rows.Scan(&host, &db)
+		if err != nil {
+			return nil, err
+		}
+
+		if db.Valid {
+			u.DBs.Insert(db.String)
+		}
+		u.Hosts.Insert(host)
+	}
+
+	for host := range u.Hosts {
+		rows, err := p.db.QueryContext(ctx, "SHOW GRANTS FOR ?@?", user, host)
+		if err != nil {
+			return nil, err
+		}
+		grants := make([]string, 0, len(u.DBs)+1)
+		for rows.Next() {
+			var grant string
+			err = rows.Scan(&grant)
+			if err != nil {
+				return nil, err
+			}
+			grants = append(grants, grant)
+		}
+
+		u.Grants[host] = grants
+	}
+
+	return u, nil
 }

@@ -31,7 +31,7 @@ jobs:
           ./e2e-tests/build
 
       - name: Run Trivy vulnerability scanner image (linux/arm64)
-        uses: aquasecurity/trivy-action@0.24.0
+        uses: aquasecurity/trivy-action@0.28.0
         with:
           image-ref: '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}-arm64'
           format: 'table'
@@ -39,6 +39,7 @@ jobs:
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
+          version: 'v0.57.1'
 
       - name: Build an image from Dockerfile (linux/amd64)
         run: |
@@ -49,7 +50,7 @@ jobs:
           ./e2e-tests/build
 
       - name: Run Trivy vulnerability scanner image (linux/amd64)
-        uses: aquasecurity/trivy-action@0.24.0
+        uses: aquasecurity/trivy-action@0.28.0
         with:
           image-ref: '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}-amd64'
           format: 'table'
@@ -57,3 +58,4 @@ jobs:
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
+          version: 'v0.57.1'

@@ -56,6 +56,22 @@ type PerconaXtraDBClusterSpec struct {
 	EnableCRValidationWebhook *bool             `json:"enableCRValidationWebhook,omitempty"`
 	IgnoreAnnotations         []string          `json:"ignoreAnnotations,omitempty"`
 	IgnoreLabels              []string          `json:"ignoreLabels,omitempty"`
+
+	Users []User `json:"users,omitempty"`
+}
+
+type SecretKeySelector struct {
+	Name string `json:"name"`
+	Key  string `json:"key,omitempty"`
+}
+
+type User struct {
+	Name              string             `json:"name"`
+	PasswordSecretRef *SecretKeySelector `json:"passwordSecretRef"`
+	DBs               []string           `json:"dbs,omitempty"`
+	Hosts             []string           `json:"hosts,omitempty"`
+	Grants            []string           `json:"grants,omitempty"`
+	WithGrantOption   bool               `json:"withGrantOption,omitempty"`
 }
 
 type UnsafeFlags struct {
@@ -144,16 +160,17 @@ const (
 )
 
 type PXCScheduledBackup struct {
-	AllowParallel      *bool                         `json:"allowParallel,omitempty"`
-	Image              string                        `json:"image,omitempty"`
-	ImagePullSecrets   []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
-	ImagePullPolicy    corev1.PullPolicy             `json:"imagePullPolicy,omitempty"`
-	Schedule           []PXCScheduledBackupSchedule  `json:"schedule,omitempty"`
-	Storages           map[string]*BackupStorageSpec `json:"storages,omitempty"`
-	ServiceAccountName string                        `json:"serviceAccountName,omitempty"`
-	Annotations        map[string]string             `json:"annotations,omitempty"`
-	PITR               PITRSpec                      `json:"pitr,omitempty"`
-	BackoffLimit       *int32                        `json:"backoffLimit,omitempty"`
+	AllowParallel         *bool                         `json:"allowParallel,omitempty"`
+	Image                 string                        `json:"image,omitempty"`
+	ImagePullSecrets      []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
+	ImagePullPolicy       corev1.PullPolicy             `json:"imagePullPolicy,omitempty"`
+	Schedule              []PXCScheduledBackupSchedule  `json:"schedule,omitempty"`
+	Storages              map[string]*BackupStorageSpec `json:"storages,omitempty"`
+	ServiceAccountName    string                        `json:"serviceAccountName,omitempty"`
+	Annotations           map[string]string             `json:"annotations,omitempty"`
+	PITR                  PITRSpec                      `json:"pitr,omitempty"`
+	BackoffLimit          *int32                        `json:"backoffLimit,omitempty"`
+	ActiveDeadlineSeconds *int64                        `json:"activeDeadlineSeconds,omitempty"`
 }
 
 func (b *PXCScheduledBackup) GetAllowParallel() bool {
@@ -597,7 +614,8 @@ func (b *BackupContainerOptions) GetEnvVar(cluster *PerconaXtraDBCluster, storag
 	if b != nil {
 		return util.MergeEnvLists(b.Args.Env(), b.Env)
 	}
-	if cluster == nil {
+
+	if cluster == nil || cluster.Spec.Backup == nil {
 		return nil
 	}
 

@@ -3,16 +3,21 @@ kind: Job
 metadata:
   generation: 1
   labels:
-    backup-name: on-demand-backup-aws-s3
-    cluster: demand-backup-cloud
-    job-name: xb-on-demand-backup-aws-s3
-    type: xtrabackup
+    app.kubernetes.io/instance: demand-backup-cloud
+    app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+    app.kubernetes.io/name: percona-xtradb-cluster
+    app.kubernetes.io/part-of: percona-xtradb-cluster
+    percona.com/backup-job-name: xb-on-demand-backup-aws-s3
+    percona.com/backup-name: on-demand-backup-aws-s3
+    percona.com/backup-type: xtrabackup
+    percona.com/cluster: demand-backup-cloud
   name: xb-on-demand-backup-aws-s3
   ownerReferences:
     - controller: true
       kind: PerconaXtraDBClusterBackup
       name: on-demand-backup-aws-s3
 spec:
+  activeDeadlineSeconds: 7200
   backoffLimit: 10
   completionMode: NonIndexed
   completions: 1
@@ -21,18 +26,26 @@ spec:
   podReplacementPolicy: TerminatingOrFailed
   selector:
     matchLabels:
-      backup-name: on-demand-backup-aws-s3
-      cluster: demand-backup-cloud
-      job-name: xb-on-demand-backup-aws-s3
-      type: xtrabackup
+      app.kubernetes.io/instance: demand-backup-cloud
+      app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+      app.kubernetes.io/name: percona-xtradb-cluster
+      app.kubernetes.io/part-of: percona-xtradb-cluster
+      percona.com/backup-job-name: xb-on-demand-backup-aws-s3
+      percona.com/backup-name: on-demand-backup-aws-s3
+      percona.com/backup-type: xtrabackup
+      percona.com/cluster: demand-backup-cloud
   suspend: false
   template:
     metadata:
       labels:
-        backup-name: on-demand-backup-aws-s3
-        cluster: demand-backup-cloud
-        job-name: xb-on-demand-backup-aws-s3
-        type: xtrabackup
+        app.kubernetes.io/instance: demand-backup-cloud
+        app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+        app.kubernetes.io/name: percona-xtradb-cluster
+        app.kubernetes.io/part-of: percona-xtradb-cluster
+        percona.com/backup-job-name: xb-on-demand-backup-aws-s3
+        percona.com/backup-name: on-demand-backup-aws-s3
+        percona.com/backup-type: xtrabackup
+        percona.com/cluster: demand-backup-cloud
     spec:
       containers:
         - command:

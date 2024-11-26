@@ -188,7 +188,7 @@ fi
 # add sst.cpat to exclude pxc-entrypoint, unsafe-bootstrap, pxc-configure-pxc from SST cleanup
 grep -q "^progress=" $CFG && sed -i "s|^progress=.*|progress=1|" $CFG
 grep -q "^\[sst\]" "$CFG" || printf '[sst]\n' >>"$CFG"
-grep -q "^cpat=" "$CFG" || sed '/^\[sst\]/a cpat=.*\\.pem$\\|.*init\\.ok$\\|.*galera\\.cache$\\|.*wsrep_recovery_verbose\\.log$\\|.*readiness-check\\.sh$\\|.*liveness-check\\.sh$\\|.*get-pxc-state$\\|.*sst_in_progress$\\|.*sleep-forever$\\|.*pmm-prerun\\.sh$\\|.*sst-xb-tmpdir$\\|.*\\.sst$\\|.*gvwstate\\.dat$\\|.*grastate\\.dat$\\|.*\\.err$\\|.*\\.log$\\|.*RPM_UPGRADE_MARKER$\\|.*RPM_UPGRADE_HISTORY$\\|.*pxc-entrypoint\\.sh$\\|.*unsafe-bootstrap\\.sh$\\|.*pxc-configure-pxc\\.sh\\|.*peer-list$\\|.*auth_plugin$\\|.*version_info$' "$CFG" 1<>"$CFG"
+grep -q "^cpat=" "$CFG" || sed '/^\[sst\]/a cpat=.*\\.pem$\\|.*init\\.ok$\\|.*galera\\.cache$\\|.*wsrep_recovery_verbose\\.log$\\|.*readiness-check\\.sh$\\|.*liveness-check\\.sh$\\|.*get-pxc-state$\\|.*sst_in_progress$\\|.*sleep-forever$\\|.*pmm-prerun\\.sh$\\|.*sst-xb-tmpdir$\\|.*\\.sst$\\|.*gvwstate\\.dat$\\|.*grastate\\.dat$\\|.*\\.err$\\|.*\\.log$\\|.*RPM_UPGRADE_MARKER$\\|.*RPM_UPGRADE_HISTORY$\\|.*pxc-entrypoint\\.sh$\\|.*unsafe-bootstrap\\.sh$\\|.*pxc-configure-pxc\\.sh\\|.*peer-list$\\|.*auth_plugin$\\|.*version_info$\\|.*mysql-state-monitor$\\|.*mysql-state-monitor\\.log$\\|.*notify\\.sock$\\|.*mysql\\.state$' "$CFG" 1<>"$CFG"
 if [[ $MYSQL_VERSION == '8.0' ]]; then
 	if [[ $MYSQL_PATCH_VERSION -ge 26 ]]; then
 		grep -q "^skip_replica_start=ON" "$CFG" || sed -i "/\[mysqld\]/a skip_replica_start=ON" $CFG
@@ -201,6 +201,7 @@ auth_plugin=${DEFAULT_AUTHENTICATION_PLUGIN}
 if [[ -f /var/lib/mysql/auth_plugin ]]; then
 	prev_auth_plugin=$(cat /var/lib/mysql/auth_plugin)
 	if [[ ${prev_auth_plugin} != "mysql_native_password" && ${auth_plugin} == "mysql_native_password" ]]; then
+		set +o xtrace
 		echo "FATAL: It's forbidden to switch from ${prev_auth_plugin} to ${auth_plugin}."
 		echo "If ProxySQL is enabled operator uses mysql_native_password since it doesn't work with caching_sha2_password."
 		echo "Using caching_sha2_password will break frontend connections in ProxySQL."
@@ -293,9 +294,12 @@ if [[ -z ${WSREP_CLUSTER_NAME} || ${WSREP_CLUSTER_NAME} == 'noname' ]]; then
 	exit 1
 fi
 
+if [[ -n ${NOTIFY_SOCKET} && ${MYSQL_VERSION} == '8.0' ]]; then
+	nohup /var/lib/mysql/mysql-state-monitor >/var/lib/mysql/mysql-state-monitor.log 2>&1 < /dev/null &
+fi
+
 # if we have CLUSTER_JOIN - then we do not need to perform datadir initialize
 # the data will be copied from another node
-
 if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 	# still need to check config, container may have started with --user
 	_check_config "$@"
@@ -342,7 +346,7 @@ if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 			if [ "$wsrep_local_state" = 'Synced' ]; then
 				break
 			fi
-			echo 'MySQL init process in progress...'
+			echo >&2 "MySQL init process in progress..."
 			sleep 1
 		done
 		if [ "$i" = 0 ]; then
@@ -514,21 +518,29 @@ if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 		fi
 		set -x
 
+		if [[ ${MYSQL_VERSION} == '8.0' ]]; then
+			mysqlState="startup"
+			while [[ "${mysqlState}" != "ready" ]]; do
+				mysqlState=$(tr -d '\0' < ${MYSQL_STATE_FILE})
+				echo >&2 "MySQL upgrade process in progress..."
+				sleep 1
+			done
+		fi
 		for i in {120..0}; do
 			if echo 'SELECT 1' | "${mysql[@]}" &>/dev/null; then
 				break
 			fi
-			echo 'MySQL init process in progress...'
+
 			sleep 1
 		done
 		if [ "$i" = 0 ]; then
-			echo >&2 'MySQL init process failed.'
+			echo >&2 'MySQL upgrade process failed.'
 			exit 1
 		fi
 
 		mysql_upgrade --force "${mysql[@]:1}"
 		if ! kill -s TERM "$pid" || ! wait "$pid"; then
-			echo >&2 'MySQL init process failed.'
+			echo >&2 'MySQL upgrade process failed.'
 			exit 1
 		fi
 	fi

@@ -14,17 +14,17 @@ import (
 	"github.com/go-openapi/swag"
 )
 
-// VersionOperatorResponse version operator response
+// VersionMetadataV2Response version metadata v2 response
 //
-// swagger:model versionOperatorResponse
-type VersionOperatorResponse struct {
+// swagger:model versionMetadataV2Response
+type VersionMetadataV2Response struct {
 
 	// versions
-	Versions []*VersionOperatorVersion `json:"versions"`
+	Versions []*VersionMetadataV2Version `json:"versions"`
 }
 
-// Validate validates this version operator response
-func (m *VersionOperatorResponse) Validate(formats strfmt.Registry) error {
+// Validate validates this version metadata v2 response
+func (m *VersionMetadataV2Response) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validateVersions(formats); err != nil {
@@ -37,7 +37,7 @@ func (m *VersionOperatorResponse) Validate(formats strfmt.Registry) error {
 	return nil
 }
 
-func (m *VersionOperatorResponse) validateVersions(formats strfmt.Registry) error {
+func (m *VersionMetadataV2Response) validateVersions(formats strfmt.Registry) error {
 	if swag.IsZero(m.Versions) { // not required
 		return nil
 	}
@@ -63,8 +63,8 @@ func (m *VersionOperatorResponse) validateVersions(formats strfmt.Registry) erro
 	return nil
 }
 
-// ContextValidate validate this version operator response based on the context it is used
-func (m *VersionOperatorResponse) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+// ContextValidate validate this version metadata v2 response based on the context it is used
+func (m *VersionMetadataV2Response) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.contextValidateVersions(ctx, formats); err != nil {
@@ -77,7 +77,7 @@ func (m *VersionOperatorResponse) ContextValidate(ctx context.Context, formats s
 	return nil
 }
 
-func (m *VersionOperatorResponse) contextValidateVersions(ctx context.Context, formats strfmt.Registry) error {
+func (m *VersionMetadataV2Response) contextValidateVersions(ctx context.Context, formats strfmt.Registry) error {
 
 	for i := 0; i < len(m.Versions); i++ {
 
@@ -103,7 +103,7 @@ func (m *VersionOperatorResponse) contextValidateVersions(ctx context.Context, f
 }
 
 // MarshalBinary interface implementation
-func (m *VersionOperatorResponse) MarshalBinary() ([]byte, error) {
+func (m *VersionMetadataV2Response) MarshalBinary() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
@@ -111,8 +111,8 @@ func (m *VersionOperatorResponse) MarshalBinary() ([]byte, error) {
 }
 
 // UnmarshalBinary interface implementation
-func (m *VersionOperatorResponse) UnmarshalBinary(b []byte) error {
-	var res VersionOperatorResponse
+func (m *VersionMetadataV2Response) UnmarshalBinary(b []byte) error {
+	var res VersionMetadataV2Response
 	if err := swag.ReadJSON(b, &res); err != nil {
 		return err
 	}

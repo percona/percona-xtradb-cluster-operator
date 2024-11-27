@@ -7,12 +7,38 @@ package version_service
 
 import (
 	"github.com/go-openapi/runtime"
+	httptransport "github.com/go-openapi/runtime/client"
 	"github.com/go-openapi/strfmt"
 )
 
 // New creates a new version service API client.
 func New(transport runtime.ClientTransport, formats strfmt.Registry) ClientService {
 	return &Client{transport: transport, formats: formats}
+}
+
+// New creates a new version service API client with basic auth credentials.
+// It takes the following parameters:
+// - host: http host (github.com).
+// - basePath: any base path for the API client ("/v1", "/v3").
+// - scheme: http scheme ("http", "https").
+// - user: user for basic authentication header.
+// - password: password for basic authentication header.
+func NewClientWithBasicAuth(host, basePath, scheme, user, password string) ClientService {
+	transport := httptransport.New(host, basePath, []string{scheme})
+	transport.DefaultAuthentication = httptransport.BasicAuth(user, password)
+	return &Client{transport: transport, formats: strfmt.Default}
+}
+
+// New creates a new version service API client with a bearer token for authentication.
+// It takes the following parameters:
+// - host: http host (github.com).
+// - basePath: any base path for the API client ("/v1", "/v3").
+// - scheme: http scheme ("http", "https").
+// - bearerToken: bearer token for Bearer authentication header.
+func NewClientWithBearerToken(host, basePath, scheme, bearerToken string) ClientService {
+	transport := httptransport.New(host, basePath, []string{scheme})
+	transport.DefaultAuthentication = httptransport.BearerToken(bearerToken)
+	return &Client{transport: transport, formats: strfmt.Default}
 }
 
 /*
@@ -23,12 +49,18 @@ type Client struct {
 	formats   strfmt.Registry
 }
 
-// ClientOption is the option for Client methods
+// ClientOption may be used to customize the behavior of Client methods.
 type ClientOption func(*runtime.ClientOperation)
 
 // ClientService is the interface for Client methods
 type ClientService interface {
 	VersionServiceApply(params *VersionServiceApplyParams, opts ...ClientOption) (*VersionServiceApplyOK, error)
+
+	VersionServiceGetReleaseNotes(params *VersionServiceGetReleaseNotesParams, opts ...ClientOption) (*VersionServiceGetReleaseNotesOK, error)
+
+	VersionServiceMetadata(params *VersionServiceMetadataParams, opts ...ClientOption) (*VersionServiceMetadataOK, error)
+
+	VersionServiceMetadataV2(params *VersionServiceMetadataV2Params, opts ...ClientOption) (*VersionServiceMetadataV2OK, error)
 
 	VersionServiceOperator(params *VersionServiceOperatorParams, opts ...ClientOption) (*VersionServiceOperatorOK, error)
 
@@ -73,6 +105,123 @@ func (a *Client) VersionServiceApply(params *VersionServiceApplyParams, opts ...
 	}
 	// unexpected success response
 	unexpectedSuccess := result.(*VersionServiceApplyDefault)
+	return nil, runtime.NewAPIError("unexpected success response: content available as default response in error", unexpectedSuccess, unexpectedSuccess.Code())
+}
+
+/*
+VersionServiceGetReleaseNotes gets the release notes for a product version
+
+Return release notes for a product version
+*/
+func (a *Client) VersionServiceGetReleaseNotes(params *VersionServiceGetReleaseNotesParams, opts ...ClientOption) (*VersionServiceGetReleaseNotesOK, error) {
+	// TODO: Validate the params before sending
+	if params == nil {
+		params = NewVersionServiceGetReleaseNotesParams()
+	}
+	op := &runtime.ClientOperation{
+		ID:                 "VersionService_GetReleaseNotes",
+		Method:             "GET",
+		PathPattern:        "/release-notes/v1/{product}/{version}",
+		ProducesMediaTypes: []string{"application/json"},
+		ConsumesMediaTypes: []string{"application/json"},
+		Schemes:            []string{"http", "https"},
+		Params:             params,
+		Reader:             &VersionServiceGetReleaseNotesReader{formats: a.formats},
+		Context:            params.Context,
+		Client:             params.HTTPClient,
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+
+	result, err := a.transport.Submit(op)
+	if err != nil {
+		return nil, err
+	}
+	success, ok := result.(*VersionServiceGetReleaseNotesOK)
+	if ok {
+		return success, nil
+	}
+	// unexpected success response
+	unexpectedSuccess := result.(*VersionServiceGetReleaseNotesDefault)
+	return nil, runtime.NewAPIError("unexpected success response: content available as default response in error", unexpectedSuccess, unexpectedSuccess.Code())
+}
+
+/*
+VersionServiceMetadata metadata for a product
+
+Return metadata information for a product
+*/
+func (a *Client) VersionServiceMetadata(params *VersionServiceMetadataParams, opts ...ClientOption) (*VersionServiceMetadataOK, error) {
+	// TODO: Validate the params before sending
+	if params == nil {
+		params = NewVersionServiceMetadataParams()
+	}
+	op := &runtime.ClientOperation{
+		ID:                 "VersionService_Metadata",
+		Method:             "GET",
+		PathPattern:        "/metadata/v1/{product}",
+		ProducesMediaTypes: []string{"application/json"},
+		ConsumesMediaTypes: []string{"application/json"},
+		Schemes:            []string{"http", "https"},
+		Params:             params,
+		Reader:             &VersionServiceMetadataReader{formats: a.formats},
+		Context:            params.Context,
+		Client:             params.HTTPClient,
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+
+	result, err := a.transport.Submit(op)
+	if err != nil {
+		return nil, err
+	}
+	success, ok := result.(*VersionServiceMetadataOK)
+	if ok {
+		return success, nil
+	}
+	// unexpected success response
+	unexpectedSuccess := result.(*VersionServiceMetadataDefault)
+	return nil, runtime.NewAPIError("unexpected success response: content available as default response in error", unexpectedSuccess, unexpectedSuccess.Code())
+}
+
+/*
+VersionServiceMetadataV2 v2s metadata for a product
+
+Return metadata information with additional image information for a product
+*/
+func (a *Client) VersionServiceMetadataV2(params *VersionServiceMetadataV2Params, opts ...ClientOption) (*VersionServiceMetadataV2OK, error) {
+	// TODO: Validate the params before sending
+	if params == nil {
+		params = NewVersionServiceMetadataV2Params()
+	}
+	op := &runtime.ClientOperation{
+		ID:                 "VersionService_MetadataV2",
+		Method:             "GET",
+		PathPattern:        "/metadata/v2/{product}",
+		ProducesMediaTypes: []string{"application/json"},
+		ConsumesMediaTypes: []string{"application/json"},
+		Schemes:            []string{"http", "https"},
+		Params:             params,
+		Reader:             &VersionServiceMetadataV2Reader{formats: a.formats},
+		Context:            params.Context,
+		Client:             params.HTTPClient,
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+
+	result, err := a.transport.Submit(op)
+	if err != nil {
+		return nil, err
+	}
+	success, ok := result.(*VersionServiceMetadataV2OK)
+	if ok {
+		return success, nil
+	}
+	// unexpected success response
+	unexpectedSuccess := result.(*VersionServiceMetadataV2Default)
 	return nil, runtime.NewAPIError("unexpected success response: content available as default response in error", unexpectedSuccess, unexpectedSuccess.Code())
 }
 

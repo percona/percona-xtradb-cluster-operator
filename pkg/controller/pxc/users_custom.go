@@ -51,7 +51,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileCustomUsers(ctx context.Context
 	sysUserNames := sysUserNames()
 
 	for _, user := range cr.Spec.Users {
-		if user.Name ==  "" {
+		if user.Name == "" {
 			log.Error(nil, "user name is not set", "user", user)
 			continue
 		}
@@ -96,7 +96,13 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileCustomUsers(ctx context.Context
 
 		annotationKey := fmt.Sprintf("percona.com/%s-%s-hash", cr.Name, user.Name)
 
-		if userPasswordChanged(userSecret, annotationKey, userSecretPassKey) {
+		u, err := um.GetUser(ctx, user.Name)
+		if err != nil {
+			log.Error(err, "failed to get user", "user", user)
+			continue
+		}
+
+		if userPasswordChanged(userSecret, u, annotationKey, userSecretPassKey) {
 			log.Info("User password changed", "user", user.Name)
 
 			err := um.UpsertUser(ctx, alterUserQuery(&user), string(userSecret.Data[userSecretPassKey]))
@@ -112,12 +118,6 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileCustomUsers(ctx context.Context
 			}
 
 			log.Info("User password updated", "user", user.Name)
-		}
-
-		u, err := um.GetUser(ctx, user.Name)
-		if err != nil {
-			log.Error(err, "failed to get user", "user", user)
-			continue
 		}
 
 		if userChanged(u, &user, log) {
@@ -170,14 +170,16 @@ func generateUserPass(
 	return nil
 }
 
-func userPasswordChanged(secret *corev1.Secret, key, passKey string) bool {
+func userPasswordChanged(secret *corev1.Secret, dbUser *users.User, key, passKey string) bool {
 	if secret.Annotations == nil {
-		return true
+		return false
 	}
 
 	hash, ok := secret.Annotations[key]
 	if !ok {
-		return true
+		// If hash is not present in the secret and the user is created,
+		// we assume that password has changed.
+		return dbUser != nil
 	}
 
 	newHash := sha256Hash(secret.Data[passKey])

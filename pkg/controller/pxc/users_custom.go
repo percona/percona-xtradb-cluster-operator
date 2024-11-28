@@ -51,6 +51,11 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileCustomUsers(ctx context.Context
 	sysUserNames := sysUserNames()
 
 	for _, user := range cr.Spec.Users {
+		if user.Name ==  "" {
+			log.Error(nil, "user name is not set", "user", user)
+			continue
+		}
+
 		if _, ok := sysUserNames[user.Name]; ok {
 			log.Error(nil, "creating user with reserved user name is forbidden", "user", user.Name)
 			continue
@@ -167,12 +172,12 @@ func generateUserPass(
 
 func userPasswordChanged(secret *corev1.Secret, key, passKey string) bool {
 	if secret.Annotations == nil {
-		return false
+		return true
 	}
 
 	hash, ok := secret.Annotations[key]
 	if !ok {
-		return false
+		return true
 	}
 
 	newHash := sha256Hash(secret.Data[passKey])

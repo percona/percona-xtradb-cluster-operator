@@ -177,13 +177,12 @@ func userPasswordChanged(secret *corev1.Secret, dbUser *users.User, key, passKey
 
 	hash, ok := secret.Annotations[key]
 	if !ok {
-		// If hash is not present in the secret and the user is created,
+		// If annotation is not present in the secret and the user is created (not nil),
 		// we assume that password has changed.
 		return dbUser != nil
 	}
 
 	newHash := sha256Hash(secret.Data[passKey])
-
 	return hash != newHash
 }
 

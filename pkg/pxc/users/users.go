@@ -335,6 +335,12 @@ func (p *Manager) GetUser(ctx context.Context, user string) (*User, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
+
+	if !rows.Next() {
+		return nil, nil
+	}
+
 	for rows.Next() {
 		var host string
 		var db sql.NullString

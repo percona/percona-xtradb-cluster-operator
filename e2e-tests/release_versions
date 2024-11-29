@@ -1,3 +1,4 @@
+# Images versions
 IMAGE_OPERATOR=perconalab/percona-xtradb-cluster-operator:main
 
 IMAGE_PXC80=perconalab/percona-xtradb-cluster-operator:main-pxc8.0
@@ -6,13 +7,13 @@ IMAGE_BACKUP80=perconalab/percona-xtradb-cluster-operator:main-pxc8.0-backup
 IMAGE_PXC57=perconalab/percona-xtradb-cluster-operator:main-pxc5.7
 IMAGE_BACKUP57=perconalab/percona-xtradb-cluster-operator:main-pxc5.7-backup
 
-IMAGE_PROX=perconalab/percona-xtradb-cluster-operator:main-proxysql
+IMAGE_PROXY=perconalab/percona-xtradb-cluster-operator:main-proxysql
 IMAGE_HAPROXY=perconalab/percona-xtradb-cluster-operator:main-haproxy
 IMAGE_LOGCOLLECTOR=perconalab/percona-xtradb-cluster-operator:main-logcollector
 IMAGE_PMM_CLIENT=perconalab/pmm-client:dev-latest
 IMAGE_PMM_SERVER=perconalab/pmm-server:dev-latest
 
-
+# Supported k8s versions
 GKE_MIN=1.28
 GKE_MAX=1.30
 EKS_MIN=1.28

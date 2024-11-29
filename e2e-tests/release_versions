@@ -1,5 +1,5 @@
 # Images versions
-IMAGE_OPERATOR=perconalab/percona-xtradb-cluster-operator:main
+OPERATOR_IMAGE=perconalab/percona-xtradb-cluster-operator:main
 
 IMAGE_PXC80=perconalab/percona-xtradb-cluster-operator:main-pxc8.0
 IMAGE_BACKUP80=perconalab/percona-xtradb-cluster-operator:main-pxc8.0-backup

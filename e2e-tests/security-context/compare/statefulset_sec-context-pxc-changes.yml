@@ -8,6 +8,9 @@ metadata:
       kind: PerconaXtraDBCluster
       name: sec-context
 spec:
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Retain
+    whenScaled: Retain
   podManagementPolicy: OrderedReady
   replicas: 3
   revisionHistoryLimit: 10
@@ -166,6 +169,8 @@ spec:
               memory: 50M
           securityContext:
             privileged: true
+            runAsGroup: 1001
+            runAsUser: 1001
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:

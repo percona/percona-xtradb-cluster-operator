@@ -226,7 +226,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcilePersistentVolumes(ctx context.C
 		return nil
 	}
 
-	if cr.CompareVersionWith("1.16.0") >= 0 && !cr.Spec.VolumeExpansionEnabled {
+	if !cr.Spec.VolumeExpansionEnabled {
 		// If expansion is disabled we should keep the old value
 		cr.Spec.PXC.VolumeSpec.PersistentVolumeClaim.Resources.Requests[corev1.ResourceStorage] = configured
 		return nil

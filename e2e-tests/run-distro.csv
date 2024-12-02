@@ -1,6 +1,7 @@
 auto-tuning
 default-cr
 demand-backup-encrypted-with-tls
+custom-users
 haproxy
 init-deploy
 one-pod

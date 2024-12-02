@@ -2,6 +2,7 @@ package pxc
 
 import (
 	"context"
+	"reflect"
 	"time"
 
 	"github.com/pkg/errors"
@@ -11,6 +12,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 	k8sretry "k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -154,6 +156,29 @@ func (r *ReconcilePerconaXtraDBCluster) writeStatus(ctx context.Context, cr *api
 
 		return r.client.Status().Update(ctx, c)
 	})
+
+	// We need to make sure that the next reconcile gets a PerconaXtraDBCluster with an updated status.
+	// Without this, the next reconcile may occur too quickly, possibly before the status is updated.
+	// In this case, the next reconcile may use outdated status data,
+	// potentially breaking functionality that depends on it, such as the reconcileTLSToggle method.
+	b := wait.Backoff{
+		Steps:    10,
+		Duration: 500 * time.Millisecond,
+		Factor:   1.0,
+	}
+	if err := k8sretry.OnError(b, func(error) bool { return true }, func() error {
+		c := &api.PerconaXtraDBCluster{}
+		if err := r.client.Get(ctx, client.ObjectKeyFromObject(cr), c); err != nil {
+			return err
+		}
+
+		if !reflect.DeepEqual(c.Status.Conditions, cr.Status.Conditions) {
+			return errors.Errorf("conditions are not equal: expected %v, have %v", cr.Status.Conditions, c.Status.Conditions)
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
 
 	return errors.Wrap(client.IgnoreNotFound(err), "write status")
 }

@@ -348,7 +348,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileTLSToggle(ctx context.Context, 
 		cr.Status.AddCondition(api.ClusterCondition{
 			Type:               naming.ConditionTLS,
 			Status:             api.ConditionStatus(naming.GetConditionTLSState(cr)),
-			LastTransitionTime: metav1.NewTime(time.Now()),
+			LastTransitionTime: metav1.NewTime(time.Now().Truncate(time.Second)),
 		})
 		return nil
 	}
@@ -387,6 +387,6 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileTLSToggle(ctx context.Context, 
 	}
 
 	condition.Status = api.ConditionStatus(naming.GetConditionTLSState(cr))
-	condition.LastTransitionTime = metav1.NewTime(time.Now())
+	condition.LastTransitionTime = metav1.NewTime(time.Now().Truncate(time.Second))
 	return nil
 }

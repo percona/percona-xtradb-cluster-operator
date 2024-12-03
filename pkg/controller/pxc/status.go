@@ -24,7 +24,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(ctx context.Context, cr *ap
 	clusterCondition := api.ClusterCondition{
 		Status:             api.ConditionTrue,
 		Type:               api.AppStateInit,
-		LastTransitionTime: metav1.NewTime(time.Now()),
+		LastTransitionTime: metav1.NewTime(time.Now().Truncate(time.Second)),
 	}
 
 	if reconcileErr != nil {
@@ -34,7 +34,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(ctx context.Context, cr *ap
 				Type:               api.AppStateError,
 				Message:            reconcileErr.Error(),
 				Reason:             "ErrorReconcile",
-				LastTransitionTime: metav1.NewTime(time.Now()),
+				LastTransitionTime: metav1.NewTime(time.Now().Truncate(time.Second)),
 			}
 			cr.Status.AddCondition(clusterCondition)
 

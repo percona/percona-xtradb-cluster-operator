@@ -95,8 +95,6 @@ spec:
               memory: 50M
           securityContext:
             privileged: true
-            runAsGroup: 1001
-            runAsUser: 1001
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:

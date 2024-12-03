@@ -252,7 +252,7 @@ wait_backup() {
 wait_backup_restore() {
 	local backup_name=$1
 	local target_state=${2:-'Succeeded'}
-	local wait_time=${3:-1200}
+	local wait_time=${3:-720}
 
 	set +o xtrace
 	retry=0

@@ -40,7 +40,7 @@ compare_mysql_cmd "user-one-2" "SHOW GRANTS FOR 'user-one'@'127.0.0.1';" "-h $cl
 desc 'check removing secretPasswordRef from user generates user password stored in generated custom-user-secret'
 kubectl_bin patch pxc some-name \
   --type=json \
-  -p='[{"op": "replace", "path": "/spec/users/2/passwordSecretRef", "value": null}]'
+  -p='[{"op": "replace", "path": "/spec/users/1/passwordSecretRef", "value": null}]'
 wait_cluster_consistency "$cluster" 3 3
 
 userTwoPass=$(kubectl_bin get secret $generatedUserSecret -o jsonpath="{.data.user-two}" | base64 -d)

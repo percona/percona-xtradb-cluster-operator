@@ -126,25 +126,34 @@ func LabelsScheduledBackup(cluster *api.PerconaXtraDBCluster, ancestor string) m
 	return labels
 }
 
+func LabelsBackup(cluster *api.PerconaXtraDBCluster) map[string]string {
+	if cluster.CompareVersionWith("1.16.0") < 0 {
+		return map[string]string{
+			"type":    "xtrabackup",
+			"cluster": cluster.Name,
+		}
+	}
+	return map[string]string{
+		LabelPerconaBackupType:  "xtrabackup",
+		LabelPerconaClusterName: cluster.Name,
+	}
+}
+
 func LabelsBackupJob(cr *api.PerconaXtraDBClusterBackup, cluster *api.PerconaXtraDBCluster, jobName string) map[string]string {
 	labels := make(map[string]string)
 	util.MergeMaps(labels, cluster.Spec.Backup.Storages[cr.Spec.StorageName].Labels)
 
 	if cluster.CompareVersionWith("1.16.0") < 0 {
-		util.MergeMaps(labels, map[string]string{
-			"type":        "xtrabackup",
-			"cluster":     cr.Spec.PXCCluster,
+		util.MergeMaps(labels, LabelsBackup(cluster), map[string]string{
 			"backup-name": cr.Name,
 			"job-name":    jobName,
 		})
-	} else {
-		util.MergeMaps(labels, LabelsCluster(cluster), map[string]string{
-			LabelPerconaBackupType:    "xtrabackup",
-			LabelPerconaClusterName:   cr.Spec.PXCCluster,
-			LabelPerconaBackupName:    cr.Name,
-			LabelPerconaBackupJobName: jobName,
-		})
+		return labels
 	}
+	util.MergeMaps(labels, LabelsCluster(cluster), LabelsBackup(cluster), map[string]string{
+		LabelPerconaBackupName:    cr.Name,
+		LabelPerconaBackupJobName: jobName,
+	})
 
 	return labels
 }

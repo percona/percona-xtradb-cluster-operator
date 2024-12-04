@@ -1,7 +1,7 @@
 apiVersion: pxc.percona.com/v1
 kind: PerconaXtraDBClusterRestore
 metadata:
-  name: on-pitr-minio1
+  name: restore-on-pitr-minio1
 spec:
   pxcCluster: pitr-gap-errors
   backupSource:

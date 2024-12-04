@@ -333,13 +333,12 @@ func (p *Manager) GetUser(ctx context.Context, user string) (*User, error) {
 
 	rows, err := p.db.QueryContext(ctx, "SELECT DISTINCT u.Host, d.Db FROM mysql.user u LEFT JOIN mysql.db d ON u.User = d.User WHERE u.User = ?", user)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
 		return nil, err
 	}
 	defer rows.Close()
-
-	if !rows.Next() {
-		return nil, nil
-	}
 
 	for rows.Next() {
 		var host string
@@ -360,6 +359,7 @@ func (p *Manager) GetUser(ctx context.Context, user string) (*User, error) {
 		if err != nil {
 			return nil, err
 		}
+		// Plus 1 is for the default grant every user has, which is USAGE.
 		grants := make([]string, 0, len(u.DBs)+1)
 		for rows.Next() {
 			var grant string

@@ -333,9 +333,6 @@ func (p *Manager) GetUser(ctx context.Context, user string) (*User, error) {
 
 	rows, err := p.db.QueryContext(ctx, "SELECT DISTINCT u.Host, d.Db FROM mysql.user u LEFT JOIN mysql.db d ON u.User = d.User WHERE u.User = ?", user)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, nil
-		}
 		return nil, err
 	}
 	defer rows.Close()
@@ -352,6 +349,10 @@ func (p *Manager) GetUser(ctx context.Context, user string) (*User, error) {
 			u.DBs.Insert(db.String)
 		}
 		u.Hosts.Insert(host)
+	}
+
+	if len(u.Hosts) == 0 {
+		return nil, nil
 	}
 
 	for host := range u.Hosts {

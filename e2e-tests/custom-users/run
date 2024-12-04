@@ -44,7 +44,7 @@ kubectl_bin patch pxc some-name \
 wait_cluster_consistency "$cluster" 3 3
 
 userTwoPass=$(kubectl_bin get secret $generatedUserSecret -o jsonpath="{.data.user-two}" | base64 -d)
-compare_mysql_user "-h $cluster-haproxy -uuser-three -p'$userTwoPass'"
+compare_mysql_user "-h $cluster-haproxy -uuser-two -p'$userTwoPass'"
 
 desc 'delete initial users from CR and create a new one'
 kubectl_bin patch pxc some-name --type=merge -p='{

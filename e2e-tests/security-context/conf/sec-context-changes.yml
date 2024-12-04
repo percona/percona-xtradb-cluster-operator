@@ -8,6 +8,11 @@ spec:
   secretsName: my-cluster-secrets
   sslSecretName: some-name-ssl
   sslInternalSecretName: some-name-ssl-internal
+  initContainer:
+    containerSecurityContext:
+      privileged: true
+      runAsUser: 1001
+      runAsGroup: 1001
   pxc:
     annotations:
       openshift.io/scc: privileged

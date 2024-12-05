@@ -1,12 +1,12 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  generation: 2
-  name: sec-context-pxc
+  generation: 3
+  name: some-name-pxc
   ownerReferences:
     - controller: true
       kind: PerconaXtraDBCluster
-      name: sec-context
+      name: some-name
 spec:
   persistentVolumeClaimRetentionPolicy:
     whenDeleted: Retain
@@ -17,18 +17,16 @@ spec:
   selector:
     matchLabels:
       app.kubernetes.io/component: pxc
-      app.kubernetes.io/instance: sec-context
+      app.kubernetes.io/instance: some-name
       app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
       app.kubernetes.io/name: percona-xtradb-cluster
       app.kubernetes.io/part-of: percona-xtradb-cluster
-  serviceName: sec-context-pxc
+  serviceName: some-name-pxc
   template:
     metadata:
-      annotations:
-        openshift.io/scc: privileged
       labels:
         app.kubernetes.io/component: pxc
-        app.kubernetes.io/instance: sec-context
+        app.kubernetes.io/instance: some-name
         app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
         app.kubernetes.io/name: percona-xtradb-cluster
         app.kubernetes.io/part-of: percona-xtradb-cluster
@@ -39,54 +37,97 @@ spec:
             - labelSelector:
                 matchLabels:
                   app.kubernetes.io/component: pxc
-                  app.kubernetes.io/instance: sec-context
+                  app.kubernetes.io/instance: some-name
                   app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
                   app.kubernetes.io/name: percona-xtradb-cluster
                   app.kubernetes.io/part-of: percona-xtradb-cluster
               topologyKey: kubernetes.io/hostname
       containers:
+        - env:
+            - name: LOG_DATA_DIR
+              value: /var/lib/mysql
+            - name: POD_NAMESPASE
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.namespace
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.name
+          envFrom:
+            - secretRef:
+                name: some-name-log-collector
+                optional: true
+          imagePullPolicy: Always
+          name: logs
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /var/lib/mysql
+              name: datadir
+        - args:
+            - logrotate
+          env:
+            - name: SERVICE_TYPE
+              value: mysql
+            - name: MONITOR_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: monitor
+                  name: internal-some-name
+          imagePullPolicy: Always
+          name: logrotate
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /var/lib/mysql
+              name: datadir
         - args:
             - mysqld
           command:
             - /var/lib/mysql/pxc-entrypoint.sh
           env:
             - name: PXC_SERVICE
-              value: sec-context-pxc-unready
+              value: some-name-pxc-unready
             - name: MONITOR_HOST
               value: '%'
             - name: MYSQL_ROOT_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: root
-                  name: internal-sec-context
+                  name: internal-some-name
             - name: XTRABACKUP_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: xtrabackup
-                  name: internal-sec-context
+                  name: internal-some-name
             - name: MONITOR_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: monitor
-                  name: internal-sec-context
+                  name: internal-some-name
+            - name: LOG_DATA_DIR
+              value: /var/lib/mysql
+            - name: IS_LOGCOLLECTOR
+              value: "yes"
             - name: OPERATOR_ADMIN_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: operator
-                  name: internal-sec-context
+                  name: internal-some-name
             - name: LIVENESS_CHECK_TIMEOUT
               value: "5"
             - name: READINESS_CHECK_TIMEOUT
               value: "15"
             - name: DEFAULT_AUTHENTICATION_PLUGIN
               value: mysql_native_password
-            - name: NOTIFY_SOCKET
-              value: /var/lib/mysql/notify.sock
-            - name: MYSQL_STATE_FILE
-              value: /var/lib/mysql/mysql.state
           envFrom:
             - secretRef:
-                name: sec-context-env-vars-pxc
+                name: some-name-env-vars-pxc
                 optional: true
           imagePullPolicy: Always
           livenessProbe:
@@ -130,12 +171,10 @@ spec:
           resources:
             limits:
               cpu: "1"
-              memory: 1G
+              memory: 2G
             requests:
               cpu: 100m
               memory: 100M
-          securityContext:
-            privileged: true
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:
@@ -167,8 +206,6 @@ spec:
             limits:
               cpu: 50m
               memory: 50M
-          securityContext:
-            privileged: true
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:
@@ -177,30 +214,17 @@ spec:
       restartPolicy: Always
       schedulerName: default-scheduler
       securityContext:
-        fsGroup: 1001
-        runAsUser: 1001
         supplementalGroups:
           - 1001
-      serviceAccount: percona-xtradb-cluster-operator-workload
-      serviceAccountName: percona-xtradb-cluster-operator-workload
+      serviceAccount: default
+      serviceAccountName: default
       terminationGracePeriodSeconds: 600
-      topologySpreadConstraints:
-        - labelSelector:
-            matchLabels:
-              app.kubernetes.io/component: pxc
-              app.kubernetes.io/instance: sec-context
-              app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
-              app.kubernetes.io/name: percona-xtradb-cluster
-              app.kubernetes.io/part-of: percona-xtradb-cluster
-          maxSkew: 1
-          topologyKey: kubernetes.io/hostname
-          whenUnsatisfiable: ScheduleAnyway
       volumes:
         - emptyDir: {}
           name: tmp
         - configMap:
             defaultMode: 420
-            name: sec-context-pxc
+            name: some-name-pxc
             optional: true
           name: config
         - name: ssl-internal
@@ -215,36 +239,30 @@ spec:
             secretName: some-name-ssl
         - configMap:
             defaultMode: 420
-            name: auto-sec-context-pxc
+            name: auto-some-name-pxc
             optional: true
           name: auto-config
         - name: vault-keyring-secret
           secret:
             defaultMode: 420
             optional: true
-            secretName: sec-context-vault
+            secretName: some-name-vault
         - name: mysql-users-secret-file
           secret:
             defaultMode: 420
             optional: false
-            secretName: internal-sec-context
+            secretName: internal-some-name
         - name: mysql-init-file
           secret:
             defaultMode: 420
             optional: true
-            secretName: sec-context-mysql-init
+            secretName: some-name-mysql-init
   updateStrategy:
     rollingUpdate:
       partition: 0
     type: RollingUpdate
   volumeClaimTemplates:
     - metadata:
-        labels:
-          app.kubernetes.io/component: pxc
-          app.kubernetes.io/instance: sec-context
-          app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
-          app.kubernetes.io/name: percona-xtradb-cluster
-          app.kubernetes.io/part-of: percona-xtradb-cluster
         name: datadir
       spec:
         accessModes:

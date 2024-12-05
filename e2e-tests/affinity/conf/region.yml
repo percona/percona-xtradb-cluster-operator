@@ -13,7 +13,7 @@ spec:
         memory: 1G
         cpu: 600m
       limits:
-        memory: "1G"
+        memory: "2G"
         cpu: "1"
     volumeSpec:
       persistentVolumeClaim:

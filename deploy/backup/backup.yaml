@@ -3,10 +3,10 @@ kind: PerconaXtraDBClusterBackup
 metadata:
 #  finalizers:
 #    - percona.com/delete-backup
-  name: backup1
+  name: backup4
 spec:
   pxcCluster: cluster1
-  storageName: fs-pvc
+  storageName: ege-backup-test
 #  activeDeadlineSeconds: 3600
 #  containerOptions:
 #    env:

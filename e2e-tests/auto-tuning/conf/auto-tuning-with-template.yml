@@ -9,7 +9,7 @@ spec:
   pxc:
     configuration: |
         [mysqld]
-        innodb_buffer_pool_size={{containerMemoryLimit}}
+        innodb_buffer_pool_size={{containerMemoryLimit * 1 / 2}}
         max_connections=200
     size: 3
     image: -pxc
@@ -17,7 +17,7 @@ spec:
       requests:
         memory: 1Gi
       limits:
-        memory: 2Gi
+        memory: 4Gi
     volumeSpec:
       persistentVolumeClaim:
         resources:

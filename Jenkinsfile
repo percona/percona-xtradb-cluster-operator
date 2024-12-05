@@ -246,6 +246,8 @@ if (env.CHANGE_URL) {
     skipBranchBuilds = false
 }
 
+def nonTriggerFiles = false
+
 pipeline {
     environment {
         CLOUDSDK_CORE_DISABLE_PROMPTS = 1
@@ -407,14 +409,28 @@ EOF
                 }
             }
         }
+        stage('Determine non-trigger files') {
+            steps {
+                script {
+                    def changesetFile = "non-trigger-files.txt"
+                    if (fileExists(changesetFile)) {
+                        def excludedFiles = readFile(changesetFile).split('\n').collect {it.trim()}
+                        def changedFiles = sh(script: "git diff --name-only origin/${env.CHANGE_TARGET}", returnStdout: true).trim().split('\n')
+                        echo "Excluded files: ${excludedFiles}"
+                        echo "Changed files: ${changedFiles}"
+
+                        nonTriggerFiles = changedFiles.any { changed ->
+                            excludedFiles.any { excluded -> changed ==~ excluded }
+                        }
+                    }
+                }
+            }
+        }
         stage('Run tests for operator') {
             when {
                 allOf {
-                    not {
-                        anyOf {
-                            def excludedFiles = readFile("non-trigger-files.txt").split('\n').collect{it.trim()}
-                            excludedFiles.each{changeset(it)}
-                        }
+                    expression {
+                        !nonTriggerFiles
                     }
                     expression {
                         !skipBranchBuilds

@@ -419,7 +419,7 @@ EOF
                         echo "Excluded files: ${excludedFiles}"
                         echo "Changed files: ${changedFiles}"
 
-                        nonTriggerFiles = changedFiles.any { changed ->
+                        nonTriggerFiles = changedFiles.every { changed ->
                             excludedFiles.any { excluded -> changed ==~ excluded }
                         }
                     }

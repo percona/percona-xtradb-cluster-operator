@@ -436,6 +436,7 @@ EOF
                             changeset "operator.png"
                             changeset "README.md"
                             changeset "kubernetes.svg"
+                            changeset "non-trigger-files.txt"
                         }
                     }
                     expression {

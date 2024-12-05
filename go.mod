@@ -6,7 +6,7 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.5.0
 	github.com/Percona-Lab/percona-version-service/api v0.0.0-20201216104127-a39f2dded3cc
 	github.com/caarlos0/env v3.5.0+incompatible
-	github.com/cert-manager/cert-manager v1.16.1
+	github.com/cert-manager/cert-manager v1.16.2
 	github.com/flosch/pongo2/v6 v6.0.0
 	github.com/go-ini/ini v1.67.0
 	github.com/go-logr/logr v1.4.2
@@ -19,18 +19,18 @@ require (
 	github.com/go-sql-driver/mysql v1.8.1
 	github.com/google/go-cmp v0.6.0
 	github.com/hashicorp/go-version v1.7.0
-	github.com/minio/minio-go/v7 v7.0.80
-	github.com/onsi/ginkgo/v2 v2.21.0
-	github.com/onsi/gomega v1.35.1
+	github.com/minio/minio-go/v7 v7.0.81
+	github.com/onsi/ginkgo/v2 v2.22.0
+	github.com/onsi/gomega v1.36.0
 	github.com/pkg/errors v0.9.1
 	github.com/robfig/cron/v3 v3.0.1
 	go.uber.org/zap v1.27.0
 	golang.org/x/sync v0.9.0
-	k8s.io/api v0.31.2
-	k8s.io/apimachinery v0.31.2
-	k8s.io/client-go v0.31.2
+	k8s.io/api v0.31.3
+	k8s.io/apimachinery v0.31.3
+	k8s.io/client-go v0.31.3
 	k8s.io/klog/v2 v2.130.1
-	sigs.k8s.io/controller-runtime v0.19.1
+	sigs.k8s.io/controller-runtime v0.19.2
 )
 
 require (

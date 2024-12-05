@@ -293,7 +293,7 @@ if [[ -z ${WSREP_CLUSTER_NAME} || ${WSREP_CLUSTER_NAME} == 'noname' ]]; then
 	exit 1
 fi
 
-if [[ -n ${NOTIFY_SOCKET} && ${MYSQL_VERSION} =~ ^(8\.0|8\.4)$ ]]; then
+if [[ -n ${MYSQL_NOTIFY_SOCKET} && ${MYSQL_VERSION} =~ ^(8\.0|8\.4)$ ]]; then
 	export NOTIFY_SOCKET=${MYSQL_NOTIFY_SOCKET}
 	nohup /var/lib/mysql/mysql-state-monitor >/var/lib/mysql/mysql-state-monitor.log 2>&1 < /dev/null &
 fi

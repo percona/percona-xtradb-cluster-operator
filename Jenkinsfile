@@ -409,8 +409,16 @@ EOF
         }
         stage('Run tests for operator') {
             when {
-                expression {
-                    !skipBranchBuilds
+                allOf {
+                    not {
+                        anyOf {
+                            def excludedFiles = readFile("non-trigger-files.txt").split('\n').collect{it.trim()}
+                            excludedFiles.each{changeset(it)}
+                        }
+                    }
+                    expression {
+                        !skipBranchBuilds
+                    }
                 }
             }
             options {

@@ -1,0 +1,5 @@
+docs/**
+LICENSE
+operator.png
+README.md
+kubernetes.svg

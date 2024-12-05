@@ -194,16 +194,6 @@ func userChanged(current *users.User, desired *api.User, log logr.Logger) bool {
 		return true
 	}
 
-	if len(current.Hosts) != len(desired.Hosts) {
-		log.Info("Hosts changed", "current", current.Hosts, "desired", desired.Hosts, "user", userName)
-		return true
-	}
-
-	if len(current.DBs) != len(desired.DBs) {
-		log.Info("DBs changed", "current", current.DBs, "desired", desired.DBs)
-		return true
-	}
-
 	for _, u := range desired.Hosts {
 		if !current.Hosts.Has(u) {
 			log.Info("Hosts changed", "current", current.Hosts, "desired", desired.Hosts, "user", userName)

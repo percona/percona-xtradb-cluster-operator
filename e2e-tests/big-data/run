@@ -19,10 +19,12 @@ main() {
 	desc 'create first PXC cluster'
 	cluster="some-name"
 	spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml" "3" "10" "$test_dir/conf/secrets_without_tls.yml"
-
 	if [[ $IMAGE_PXC =~ 8\.0 ]]; then
 		desc 'Switch to 8.0 backup'
 		kubectl_bin apply -f "${test_dir}/conf/restore-backup.yml"
+	elif [[ $IMAGE_PXC =~ 8\.4 ]]; then
+		desc 'Switch to 8.4 backup'
+		kubectl_bin apply -f "${test_dir}/conf/restore-backup-84.yml"
 	else
 		kubectl_bin apply -f "${test_dir}/conf/restore-backup-57.yml"
 	fi

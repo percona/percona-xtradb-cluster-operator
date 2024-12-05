@@ -409,28 +409,34 @@ EOF
                 }
             }
         }
-        stage('Determine non-trigger files') {
-            steps {
-                script {
-                    def changesetFile = "non-trigger-files.txt"
-                    if (fileExists(changesetFile)) {
-                        def excludedFiles = readFile(changesetFile).split('\n').collect {it.trim()}
-                        def changedFiles = sh(script: "git diff --name-only origin/${env.CHANGE_TARGET}", returnStdout: true).trim().split('\n')
-                        echo "Excluded files: ${excludedFiles}"
-                        echo "Changed files: ${changedFiles}"
+        // stage('Determine non-trigger files') {
+        //     steps {
+        //         script {
+        //             def changesetFile = "non-trigger-files.txt"
+        //             if (fileExists(changesetFile)) {
+        //                 def excludedFiles = readFile(changesetFile).split('\n').collect {it.trim()}
+        //                 def changedFiles = sh(script: "git diff --name-only origin/${env.CHANGE_TARGET}", returnStdout: true).trim().split('\n')
+        //                 echo "Excluded files: ${excludedFiles}"
+        //                 echo "Changed files: ${changedFiles}"
 
-                        nonTriggerFiles = changedFiles.every { changed ->
-                            excludedFiles.any { excluded -> changed ==~ excluded }
-                        }
-                    }
-                }
-            }
-        }
+        //                 nonTriggerFiles = changedFiles.every { changed ->
+        //                     excludedFiles.any { excluded -> changed ==~ excluded }
+        //                 }
+        //             }
+        //         }
+        //     }
+        // }
         stage('Run tests for operator') {
             when {
                 allOf {
-                    expression {
-                        !nonTriggerFiles
+                    not {
+                        anyOf {
+                            changeset "docs/**"
+                            changeset "LICENSE"
+                            changeset "operator.png"
+                            changeset "README.md"
+                            changeset "kubernetes.svg"
+                        }
                     }
                     expression {
                         !skipBranchBuilds

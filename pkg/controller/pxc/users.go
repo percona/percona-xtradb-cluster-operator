@@ -475,6 +475,9 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(ctx context.Context, c
 		if cr.Spec.PMM != nil && cr.Spec.PMM.IsEnabled(internalSecrets) {
 			actions.restartPXC = true
 		}
+		if cr.Spec.PXC.Sidecars != nil && cr.Spec.PXC.HasSidecarInternalSecret(internalSecrets) {
+			actions.restartPXC = true
+		}
 
 		err = r.discardOldPassword(cr, secrets, internalSecrets, user)
 		if err != nil {

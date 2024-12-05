@@ -15,7 +15,7 @@ spec:
     image: -pxc
     resources:
       limits:
-        memory: 1Gi
+        memory: 4Gi
       requests:
         memory: 1Gi
     volumeSpec:

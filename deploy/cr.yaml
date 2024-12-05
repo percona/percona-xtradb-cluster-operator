@@ -11,7 +11,7 @@ metadata:
 #    percona.com/issue-vault-token: "true"
 spec:
   crVersion: 1.16.0
-#  enableVolumeExpansion: true
+#  enableVolumeExpansion: false
 #  ignoreAnnotations:
 #    - iam.amazonaws.com/role
 #  ignoreLabels:

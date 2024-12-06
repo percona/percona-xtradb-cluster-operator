@@ -266,10 +266,47 @@ pipeline {
         disableConcurrentBuilds(abortPrevious: true)
     }
     stages {
+        stage('Determine non-trigger files') {
+            steps {
+                script {
+                    def changesetFile = "non-trigger-files.txt"
+                    if (fileExists(changesetFile)) {
+                        def excludedFiles = readFile(changesetFile).split('\n').collect {it.trim()}
+
+                        def convertGlobToRegex = { glob ->
+                            glob.replace("**", ".*").replace("*", "[^/]*")
+                        }
+                        def excludedRegexes = excludedFiles.collect { convertGlobToRegex(it) }
+
+                        def changedFiles = sh(script: "git diff --name-only origin/main", returnStdout: true).trim().split('\n')
+                        echo "Excluded files: ${excludedFiles}"
+                        echo "Excluded files (as glob): ${excludedFiles}"
+                        echo "Excluded files (as regex): ${excludedRegexes}"
+                        echo "Changed files: ${changedFiles}"
+
+                        nonTriggerFiles = changedFiles.every { changed ->
+                            excludedRegexes.any { regex -> changed ==~ regex }
+                        }
+
+                        // Log the result
+                        if (nonTriggerFiles) {
+                            echo "All changed files are non-trigger files."
+                        } else {
+                            echo "Some changed files are not in the non-trigger list."
+                        }
+                            }
+                        }
+            }
+        }
         stage('Prepare') {
             when {
-                expression {
-                    !skipBranchBuilds
+                allOf {
+                    expression {
+                        !nonTriggerFiles
+                    }
+                    expression {
+                        !skipBranchBuilds
+                    }
                 }
             }
             steps {
@@ -323,8 +360,13 @@ EOF
         }
         stage('Build docker image') {
             when {
-                expression {
-                    !skipBranchBuilds
+                allOf {
+                    expression {
+                        !nonTriggerFiles
+                    }
+                    expression {
+                        !skipBranchBuilds
+                    }
                 }
             }
             steps {
@@ -350,8 +392,13 @@ EOF
         }
         stage('GoLicenseDetector test') {
             when {
-                expression {
-                    !skipBranchBuilds
+                allOf {
+                    expression {
+                        !nonTriggerFiles
+                    }
+                    expression {
+                        !skipBranchBuilds
+                    }
                 }
             }
             steps {
@@ -377,8 +424,13 @@ EOF
         }
         stage('GoLicense test') {
             when {
-                expression {
-                    !skipBranchBuilds
+                allOf {
+                    expression {
+                        !nonTriggerFiles
+                    }
+                    expression {
+                        !skipBranchBuilds
+                    }
                 }
             }
             steps {
@@ -407,38 +459,6 @@ EOF
                         diff -u e2e-tests/license/compare/golicense golicense-new
                     """
                 }
-            }
-        }
-        stage('Determine non-trigger files') {
-            steps {
-                script {
-                    def changesetFile = "non-trigger-files.txt"
-                    if (fileExists(changesetFile)) {
-                        def excludedFiles = readFile(changesetFile).split('\n').collect {it.trim()}
-
-                        def convertGlobToRegex = { glob ->
-                            glob.replace("**", ".*").replace("*", "[^/]*")
-                        }
-                        def excludedRegexes = excludedFiles.collect { convertGlobToRegex(it) }
-
-                        def changedFiles = sh(script: "git diff --name-only origin/main", returnStdout: true).trim().split('\n')
-                        echo "Excluded files: ${excludedFiles}"
-                        echo "Excluded files (as glob): ${excludedFiles}"
-                        echo "Excluded files (as regex): ${excludedRegexes}"
-                        echo "Changed files: ${changedFiles}"
-
-                        nonTriggerFiles = changedFiles.every { changed ->
-                            excludedRegexes.any { regex -> changed ==~ regex }
-                        }
-
-                        // Log the result
-                        if (nonTriggerFiles) {
-                            echo "All changed files are non-trigger files."
-                        } else {
-                            echo "Some changed files are not in the non-trigger list."
-                        }
-                            }
-                        }
             }
         }
         stage('Run tests for operator') {

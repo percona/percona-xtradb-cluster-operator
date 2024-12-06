@@ -171,6 +171,10 @@ void makeReport() {
     }
     TestsReport = TestsReport + "\r\n| We run $startedTestAmount out of $wholeTestAmount|"
     TestsReportXML = TestsReportXML + '</testsuite>\n'
+
+    sh """
+        echo "${TestsReportXML}" > TestsReport.xml
+    """
 }
 
 void clusterRunner(String cluster) {
@@ -241,12 +245,30 @@ void runTest(Integer TEST_ID) {
     }
 }
 
+void checkE2EIgnoreFiles() {
+    def e2eignoreFile = ".e2eignore"
+    if (fileExists(e2eignoreFile)) {
+        def excludedFiles = readFile(e2eignoreFile).split('\n').collect {it.trim()}
+        def changedFiles = sh(script: "git diff --name-only origin/${env.CHANGE_TARGET}", returnStdout: true).trim().split('\n')
+        echo "Excluded files: ${excludedFiles}"
+        echo "Changed files: ${changedFiles}"
+
+        def excludedFilesRegex = excludedFiles.collect {it.replace("**", ".*").replace("*", "[^/]*")}
+        def excludedFileList = changedFiles.every {changed -> excludedFilesRegex.any { regex -> changed ==~ regex}}
+
+        if (excludedFileList) {
+            currentBuild.result = 'ABORTED'
+            error("All changed files are e2eignore files. Aborting pipeline execution.")
+        } else {
+            echo "Some changed files are outside of the e2eignore list. Proceeding with execution."
+        }
+    }
+}
+
 def skipBranchBuilds = true
 if (env.CHANGE_URL) {
     skipBranchBuilds = false
 }
-
-def nonTriggerFiles = false
 
 pipeline {
     environment {
@@ -266,50 +288,14 @@ pipeline {
         disableConcurrentBuilds(abortPrevious: true)
     }
     stages {
-        stage('Determine non-trigger files') {
-            steps {
-                script {
-                    def changesetFile = ".e2eignore"
-                    if (fileExists(changesetFile)) {
-                        def excludedFiles = readFile(changesetFile).split('\n').collect {it.trim()}
-
-                        def convertGlobToRegex = { glob ->
-                            glob.replace("**", ".*").replace("*", "[^/]*")
-                        }
-                        def excludedRegexes = excludedFiles.collect { convertGlobToRegex(it) }
-
-                        def changedFiles = sh(script: "git diff --name-only origin/main", returnStdout: true).trim().split('\n')
-                        echo "Excluded files: ${excludedFiles}"
-                        echo "Excluded files (as glob): ${excludedFiles}"
-                        echo "Excluded files (as regex): ${excludedRegexes}"
-                        echo "Changed files: ${changedFiles}"
-
-                        nonTriggerFiles = changedFiles.every { changed ->
-                            excludedRegexes.any { regex -> changed ==~ regex }
-                        }
-
-                        // Log the result
-                        if (nonTriggerFiles) {
-                            echo "All changed files are non-trigger files."
-                        } else {
-                            echo "Some changed files are not in the non-trigger list."
-                        }
-                    }
-                }
-            }
-        }
         stage('Prepare') {
             when {
-                allOf {
-                    expression {
-                        !nonTriggerFiles
-                    }
-                    expression {
-                        !skipBranchBuilds
-                    }
+                expression {
+                    !skipBranchBuilds
                 }
             }
             steps {
+                checkE2EIgnoreFiles()
                 initTests()
                 script {
                     if (AUTHOR_NAME == 'null') {
@@ -360,13 +346,8 @@ EOF
         }
         stage('Build docker image') {
             when {
-                allOf {
-                    expression {
-                        !nonTriggerFiles
-                    }
-                    expression {
-                        !skipBranchBuilds
-                    }
+                expression {
+                    !skipBranchBuilds
                 }
             }
             steps {
@@ -392,13 +373,8 @@ EOF
         }
         stage('GoLicenseDetector test') {
             when {
-                allOf {
-                    expression {
-                        !nonTriggerFiles
-                    }
-                    expression {
-                        !skipBranchBuilds
-                    }
+                expression {
+                    !skipBranchBuilds
                 }
             }
             steps {
@@ -424,13 +400,8 @@ EOF
         }
         stage('GoLicense test') {
             when {
-                allOf {
-                    expression {
-                        !nonTriggerFiles
-                    }
-                    expression {
-                        !skipBranchBuilds
-                    }
+                expression {
+                    !skipBranchBuilds
                 }
             }
             steps {
@@ -463,13 +434,8 @@ EOF
         }
         stage('Run tests for operator') {
             when {
-                allOf {
-                    expression {
-                        !nonTriggerFiles
-                    }
-                    expression {
-                        !skipBranchBuilds
-                    }
+                expression {
+                    !skipBranchBuilds
                 }
             }
             options {
@@ -547,9 +513,6 @@ EOF
                         }
                     }
                     makeReport()
-                    sh """
-                        echo "${TestsReportXML}" > TestsReport.xml
-                    """
                     step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
                     archiveArtifacts '*.xml'
 

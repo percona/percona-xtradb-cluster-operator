@@ -493,42 +493,40 @@ EOF
     post {
         always {
             script {
-                if (!onlyIgnoredFiles) {
-                    echo "CLUSTER ASSIGNMENTS\n" + tests.toString().replace("], ","]\n").replace("]]","]").replaceFirst("\\[","")
+                echo "CLUSTER ASSIGNMENTS\n" + tests.toString().replace("], ","]\n").replace("]]","]").replaceFirst("\\[","")
 
-                    if (currentBuild.result != null && currentBuild.result != 'SUCCESS' && currentBuild.nextBuild == null) {
-                        try {
-                            slackSend channel: "@${AUTHOR_NAME}", color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, ${BUILD_URL} owner: @${AUTHOR_NAME}"
-                        }
-                        catch (exc) {
-                            slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, ${BUILD_URL} owner: @${AUTHOR_NAME}"
-                        }
+                if (currentBuild.result != null && currentBuild.result != 'SUCCESS' && currentBuild.nextBuild == null) {
+                    try {
+                        slackSend channel: "@${AUTHOR_NAME}", color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, ${BUILD_URL} owner: @${AUTHOR_NAME}"
                     }
-
-                    if (env.CHANGE_URL && currentBuild.nextBuild == null) {
-                        for (comment in pullRequest.comments) {
-                            println("Author: ${comment.user}, Comment: ${comment.body}")
-                            if (comment.user.equals('JNKPercona')) {
-                                println("delete comment")
-                                comment.delete()
-                            }
-                        }
-                        makeReport()
-                        step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
-                        archiveArtifacts '*.xml'
-
-                        unstash 'IMAGE'
-                        def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
-                        TestsReport = TestsReport + "\r\n\r\ncommit: ${env.CHANGE_URL}/commits/${env.GIT_COMMIT}\r\nimage: `${IMAGE}`\r\n"
-                        pullRequest.comment(TestsReport)
+                    catch (exc) {
+                        slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, ${BUILD_URL} owner: @${AUTHOR_NAME}"
                     }
-                    deleteOldClusters("$CLUSTER_NAME")
-                    sh """
-                        sudo docker system prune --volumes -af
-                        sudo rm -rf *
-                    """
-                    deleteDir()
                 }
+
+                if (!skipBranchBuilds && !onlyIgnoredFiles && currentBuild.nextBuild == null) {
+                    for (comment in pullRequest.comments) {
+                        println("Author: ${comment.user}, Comment: ${comment.body}")
+                        if (comment.user.equals('JNKPercona')) {
+                            println("delete comment")
+                            comment.delete()
+                        }
+                    }
+                    makeReport()
+                    step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
+                    archiveArtifacts '*.xml'
+
+                    unstash 'IMAGE'
+                    def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
+                    TestsReport = TestsReport + "\r\n\r\ncommit: ${env.CHANGE_URL}/commits/${env.GIT_COMMIT}\r\nimage: `${IMAGE}`\r\n"
+                    pullRequest.comment(TestsReport)
+                }
+                deleteOldClusters("$CLUSTER_NAME")
+                sh """
+                    sudo docker system prune --volumes -af
+                    sudo rm -rf *
+                """
+                deleteDir()
             }
         }
     }

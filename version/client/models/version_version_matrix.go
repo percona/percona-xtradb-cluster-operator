@@ -73,6 +73,9 @@ type VersionVersionMatrix struct {
 	// pmm
 	Pmm map[string]VersionVersion `json:"pmm,omitempty"`
 
+	// postgis
+	Postgis map[string]VersionVersion `json:"postgis,omitempty"`
+
 	// postgresql
 	Postgresql map[string]VersionVersion `json:"postgresql,omitempty"`
 
@@ -93,6 +96,9 @@ type VersionVersionMatrix struct {
 
 	// router
 	Router map[string]VersionVersion `json:"router,omitempty"`
+
+	// toolkit
+	Toolkit map[string]VersionVersion `json:"toolkit,omitempty"`
 }
 
 // Validate validates this version version matrix
@@ -171,6 +177,10 @@ func (m *VersionVersionMatrix) Validate(formats strfmt.Registry) error {
 		res = append(res, err)
 	}
 
+	if err := m.validatePostgis(formats); err != nil {
+		res = append(res, err)
+	}
+
 	if err := m.validatePostgresql(formats); err != nil {
 		res = append(res, err)
 	}
@@ -196,6 +206,10 @@ func (m *VersionVersionMatrix) Validate(formats strfmt.Registry) error {
 	}
 
 	if err := m.validateRouter(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validateToolkit(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -673,6 +687,32 @@ func (m *VersionVersionMatrix) validatePmm(formats strfmt.Registry) error {
 	return nil
 }
 
+func (m *VersionVersionMatrix) validatePostgis(formats strfmt.Registry) error {
+	if swag.IsZero(m.Postgis) { // not required
+		return nil
+	}
+
+	for k := range m.Postgis {
+
+		if err := validate.Required("postgis"+"."+k, "body", m.Postgis[k]); err != nil {
+			return err
+		}
+		if val, ok := m.Postgis[k]; ok {
+			if err := val.Validate(formats); err != nil {
+				if ve, ok := err.(*errors.Validation); ok {
+					return ve.ValidateName("postgis" + "." + k)
+				} else if ce, ok := err.(*errors.CompositeError); ok {
+					return ce.ValidateName("postgis" + "." + k)
+				}
+				return err
+			}
+		}
+
+	}
+
+	return nil
+}
+
 func (m *VersionVersionMatrix) validatePostgresql(formats strfmt.Registry) error {
 	if swag.IsZero(m.Postgresql) { // not required
 		return nil
@@ -855,6 +895,32 @@ func (m *VersionVersionMatrix) validateRouter(formats strfmt.Registry) error {
 	return nil
 }
 
+func (m *VersionVersionMatrix) validateToolkit(formats strfmt.Registry) error {
+	if swag.IsZero(m.Toolkit) { // not required
+		return nil
+	}
+
+	for k := range m.Toolkit {
+
+		if err := validate.Required("toolkit"+"."+k, "body", m.Toolkit[k]); err != nil {
+			return err
+		}
+		if val, ok := m.Toolkit[k]; ok {
+			if err := val.Validate(formats); err != nil {
+				if ve, ok := err.(*errors.Validation); ok {
+					return ve.ValidateName("toolkit" + "." + k)
+				} else if ce, ok := err.(*errors.CompositeError); ok {
+					return ce.ValidateName("toolkit" + "." + k)
+				}
+				return err
+			}
+		}
+
+	}
+
+	return nil
+}
+
 // ContextValidate validate this version version matrix based on the context it is used
 func (m *VersionVersionMatrix) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
 	var res []error
@@ -931,6 +997,10 @@ func (m *VersionVersionMatrix) ContextValidate(ctx context.Context, formats strf
 		res = append(res, err)
 	}
 
+	if err := m.contextValidatePostgis(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
 	if err := m.contextValidatePostgresql(ctx, formats); err != nil {
 		res = append(res, err)
 	}
@@ -956,6 +1026,10 @@ func (m *VersionVersionMatrix) ContextValidate(ctx context.Context, formats strf
 	}
 
 	if err := m.contextValidateRouter(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateToolkit(ctx, formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -1235,6 +1309,21 @@ func (m *VersionVersionMatrix) contextValidatePmm(ctx context.Context, formats s
 	return nil
 }
 
+func (m *VersionVersionMatrix) contextValidatePostgis(ctx context.Context, formats strfmt.Registry) error {
+
+	for k := range m.Postgis {
+
+		if val, ok := m.Postgis[k]; ok {
+			if err := val.ContextValidate(ctx, formats); err != nil {
+				return err
+			}
+		}
+
+	}
+
+	return nil
+}
+
 func (m *VersionVersionMatrix) contextValidatePostgresql(ctx context.Context, formats strfmt.Registry) error {
 
 	for k := range m.Postgresql {
@@ -1330,6 +1419,21 @@ func (m *VersionVersionMatrix) contextValidateRouter(ctx context.Context, format
 	for k := range m.Router {
 
 		if val, ok := m.Router[k]; ok {
+			if err := val.ContextValidate(ctx, formats); err != nil {
+				return err
+			}
+		}
+
+	}
+
+	return nil
+}
+
+func (m *VersionVersionMatrix) contextValidateToolkit(ctx context.Context, formats strfmt.Registry) error {
+
+	for k := range m.Toolkit {
+
+		if val, ok := m.Toolkit[k]; ok {
 			if err := val.ContextValidate(ctx, formats); err != nil {
 				return err
 			}

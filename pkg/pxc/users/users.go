@@ -335,6 +335,8 @@ func (p *Manager) GetUser(ctx context.Context, user string) (*User, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
+
 	for rows.Next() {
 		var host string
 		var db sql.NullString
@@ -349,11 +351,16 @@ func (p *Manager) GetUser(ctx context.Context, user string) (*User, error) {
 		u.Hosts.Insert(host)
 	}
 
+	if len(u.Hosts) == 0 {
+		return nil, nil
+	}
+
 	for host := range u.Hosts {
 		rows, err := p.db.QueryContext(ctx, "SHOW GRANTS FOR ?@?", user, host)
 		if err != nil {
 			return nil, err
 		}
+		// Plus 1 is for the default grant every user has, which is USAGE.
 		grants := make([]string, 0, len(u.DBs)+1)
 		for rows.Next() {
 			var grant string

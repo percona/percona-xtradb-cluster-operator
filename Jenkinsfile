@@ -255,7 +255,7 @@ void checkE2EIgnoreFiles() {
         echo "Changed files: ${changedFiles}"
 
         def excludedFilesRegex = excludedFiles.collect{it.replace("**", ".*").replace("*", "[^/]*")}
-        def onlyIgnoredFiles = changedFiles.every{changed -> excludedFilesRegex.any {regex -> changed ==~ regex}}
+        onlyIgnoredFiles = changedFiles.every{changed -> excludedFilesRegex.any {regex -> changed ==~ regex}}
 
         if (onlyIgnoredFiles) {
             echo "All changed files are e2eignore files. Aborting pipeline execution."

@@ -26,7 +26,7 @@ You interact with Percona Operator mostly via the command line tool. If you feel
 
 # Architecture
 
-Percona Operators are based on the [Operator SDK](https://github.com/operator-framework/operator-sdk) and leverage Kubernetes primitives to follow best CNCF practices. 
+Percona Operators are based on the [Operator SDK](https://github.com/operator-framework/operator-sdk) and leverage Kubernetes primitives to follow best CNCF practices.
 
 Please read more about [architecture and design decisions](https://www.percona.com/doc/kubernetes-operator-for-pxc/architecture.html).
 
@@ -36,7 +36,7 @@ To learn more about the Operator, check the [Percona Operator for MySQL based on
 
 # Quickstart installation
 
-Ready to try out the Operator? Check the [Quickstart tutorial](https://docs.percona.com/percona-operator-for-mysql/pxc/quickstart.html) for easy-to follow steps. 
+Ready to try out the Operator? Check the [Quickstart tutorial](https://docs.percona.com/percona-operator-for-mysql/pxc/quickstart.html) for easy-to follow steps.
 
 Below is one of the ways to deploy the Operator using `kubectl`.
 
@@ -67,22 +67,22 @@ See the [Contribution Guide](CONTRIBUTING.md) and [Building and Testing Guide](e
 
 We would love to hear from you! Reach out to us on [Forum](https://forums.percona.com/c/mysql-mariadb/percona-kubernetes-operator-for-mysql/28) with your questions, feedback and ideas
 
-# Join Percona Kubernetes Squad!                                                                              
-```                                                                                     
-                    %                        _____                
-                   %%%                      |  __ \                                          
-                 ###%%%%%%%%%%%%*           | |__) |__ _ __ ___ ___  _ __   __ _             
-                ###  ##%%      %%%%         |  ___/ _ \ '__/ __/ _ \| '_ \ / _` |            
-              ####     ##%       %%%%       | |  |  __/ | | (_| (_) | | | | (_| |            
-             ###        ####      %%%       |_|   \___|_|  \___\___/|_| |_|\__,_|           
+# Join Percona Kubernetes Squad!
+```
+                    %                        _____
+                   %%%                      |  __ \
+                 ###%%%%%%%%%%%%*           | |__) |__ _ __ ___ ___  _ __   __ _
+                ###  ##%%      %%%%         |  ___/ _ \ '__/ __/ _ \| '_ \ / _` |
+              ####     ##%       %%%%       | |  |  __/ | | (_| (_) | | | | (_| |
+             ###        ####      %%%       |_|   \___|_|  \___\___/|_| |_|\__,_|
            ,((###         ###     %%%        _      _          _____                       _
-          (((( (###        ####  %%%%       | |   / _ \       / ____|                     | | 
-         (((     ((#         ######         | | _| (_) |___  | (___   __ _ _   _  __ _  __| | 
+          (((( (###        ####  %%%%       | |   / _ \       / ____|                     | |
+         (((     ((#         ######         | | _| (_) |___  | (___   __ _ _   _  __ _  __| |
        ((((       (((#        ####          | |/ /> _ </ __|  \___ \ / _` | | | |/ _` |/ _` |
       /((          ,(((        *###         |   <| (_) \__ \  ____) | (_| | |_| | (_| | (_| |
     ////             (((         ####       |_|\_\\___/|___/ |_____/ \__, |\__,_|\__,_|\__,_|
-   ///                ((((        ####                                  | |                  
- /////////////(((((((((((((((((########                                 |_|   Join @ percona.com/k8s   
+   ///                ((((        ####                                  | |
+ /////////////(((((((((((((((((########                                 |_|   Join @ percona.com/k8s
 ```
 
 You can get early access to new product features, invite-only ”ask me anything” sessions with Percona Kubernetes experts, and monthly swag raffles. Interested? Fill in the form at [percona.com/k8s](https://www.percona.com/k8s).
@@ -90,10 +90,10 @@ You can get early access to new product features, invite-only ”ask me anything
 # Roadmap
 
 We have a public roadmap which can be found [here](https://github.com/orgs/percona/projects/10). Please feel free to contribute and propose new features by following the roadmap [guidelines](https://github.com/percona/roadmap).
- 
+
 # Submitting Bug Reports
 
-If you find a bug in Percona Docker Images or in one of the related projects, please submit a report to that project's [JIRA](https://jira.percona.com/browse/K8SPXC) issue tracker or [create a GitHub issue](https://docs.github.com/en/issues/tracking-your-work-with-issues/creating-an-issue#creating-an-issue-from-a-repository) in this repository. 
+If you find a bug in Percona Docker Images or in one of the related projects, please submit a report to that project's [JIRA](https://jira.percona.com/browse/K8SPXC) issue tracker or [create a GitHub issue](https://docs.github.com/en/issues/tracking-your-work-with-issues/creating-an-issue#creating-an-issue-from-a-repository) in this repository.
 
 Learn more about submitting bugs, new features ideas and improvements in the [Contribution Guide](CONTRIBUTING.md).
 

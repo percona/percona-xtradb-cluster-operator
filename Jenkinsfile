@@ -269,7 +269,7 @@ pipeline {
         stage('Determine non-trigger files') {
             steps {
                 script {
-                    def changesetFile = "non-trigger-files.txt"
+                    def changesetFile = ".e2eignore"
                     if (fileExists(changesetFile)) {
                         def excludedFiles = readFile(changesetFile).split('\n').collect {it.trim()}
 
@@ -294,8 +294,8 @@ pipeline {
                         } else {
                             echo "Some changed files are not in the non-trigger list."
                         }
-                            }
-                        }
+                    }
+                }
             }
         }
         stage('Prepare') {

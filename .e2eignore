@@ -3,4 +3,5 @@ LICENSE
 operator.png
 README.md
 kubernetes.svg
-non-trigger-files.txt
+.e2eignore
+Jenkinsfile

@@ -3,3 +3,4 @@ LICENSE
 operator.png
 README.md
 kubernetes.svg
+non-trigger-files.txt

@@ -248,13 +248,13 @@ void runTest(Integer TEST_ID) {
 void checkE2EIgnoreFiles() {
     def e2eignoreFile = ".e2eignore"
     if (fileExists(e2eignoreFile)) {
-        def excludedFiles = readFile(e2eignoreFile).split('\n').collect {it.trim()}
+        def excludedFiles = readFile(e2eignoreFile).split('\n').collect{it.trim()}
         def changedFiles = sh(script: "git diff --name-only origin/${env.CHANGE_TARGET}", returnStdout: true).trim().split('\n')
         echo "Excluded files: ${excludedFiles}"
         echo "Changed files: ${changedFiles}"
 
-        def excludedFilesRegex = excludedFiles.collect {it.replace("**", ".*").replace("*", "[^/]*")}
-        def excludedFileList = changedFiles.every {changed -> excludedFilesRegex.any { regex -> changed ==~ regex}}
+        def excludedFilesRegex = excludedFiles.collect{it.replace("**", ".*").replace("*", "[^/]*")}
+        def excludedFileList = changedFiles.every{changed -> excludedFilesRegex.any {regex -> changed ==~ regex}}
 
         if (excludedFileList) {
             currentBuild.result = 'ABORTED'

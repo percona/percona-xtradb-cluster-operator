@@ -265,12 +265,13 @@ void checkE2EIgnoreFiles() {
             echo "No previous successful build found."
         }
 
+        def changedFiles = []
         if (lastProcessedCommit == "") {
             echo "This is the first run. Using merge base as the starting point for the diff."
-            def changedFiles = sh(script: "git diff --name-only \$(git merge-base HEAD origin/$CHANGE_TARGET)", returnStdout: true).trim().split('\n')
+            changedFiles = sh(script: "git diff --name-only \$(git merge-base HEAD origin/$CHANGE_TARGET)", returnStdout: true).trim().split('\n')
         } else {
             echo "Processing changes since last processed commit: $lastProcessedCommit"
-            def changedFiles = sh(script: "git diff --name-only $lastProcessedCommit HEAD", returnStdout: true).trim().split('\n')
+            changedFiles = sh(script: "git diff --name-only $lastProcessedCommit HEAD", returnStdout: true).trim().split('\n')
         }
 
         echo "Excluded files: $excludedFiles"
@@ -279,6 +280,7 @@ void checkE2EIgnoreFiles() {
         def excludedFilesRegex = excludedFiles.collect{it.replace("**", ".*").replace("*", "[^/]*")}
         onlyIgnoredFiles = changedFiles.every{changed -> excludedFilesRegex.any {regex -> changed ==~ regex}}
 
+        echo "onlyIgnoredFiles: $onlyIgnoredFiles"
         if (onlyIgnoredFiles) {
             echo "All changed files are e2eignore files. Aborting pipeline execution."
         } else {
@@ -315,6 +317,11 @@ pipeline {
         disableConcurrentBuilds(abortPrevious: true)
     }
     stages {
+        stage('Check Ignore Files') {
+            steps {
+                checkE2EIgnoreFiles()
+            }
+        }
         stage('Prepare') {
             when {
                 expression {
@@ -322,7 +329,6 @@ pipeline {
                 }
             }
             steps {
-                checkE2EIgnoreFiles()
                 initTests()
                 script {
                     if (AUTHOR_NAME == 'null') {
@@ -530,7 +536,9 @@ EOF
                         slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, ${BUILD_URL} owner: @${AUTHOR_NAME}"
                     }
                 }
-
+                echo "skipBranchBuilds: ${skipBranchBuilds}"
+                echo "onlyIgnoredFiles: ${onlyIgnoredFiles}"
+                echo "currentBuild.nextBuild: ${currentBuild.nextBuild}"
                 if (!skipBranchBuilds && !onlyIgnoredFiles && currentBuild.nextBuild == null) {
                     for (comment in pullRequest.comments) {
                         println("Author: ${comment.user}, Comment: ${comment.body}")

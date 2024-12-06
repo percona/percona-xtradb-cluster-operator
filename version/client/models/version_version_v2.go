@@ -11,12 +11,13 @@ import (
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag"
+	"github.com/go-openapi/validate"
 )
 
-// VersionVersion Version represents product version information.
+// VersionVersionV2 Version represents product version information.
 //
-// swagger:model versionVersion
-type VersionVersion struct {
+// swagger:model versionVersionV2
+type VersionVersionV2 struct {
 
 	// critical
 	Critical bool `json:"critical,omitempty"`
@@ -30,13 +31,21 @@ type VersionVersion struct {
 	// image path
 	ImagePath string `json:"imagePath,omitempty"`
 
+	// release_timestamp is the release time of this image.
+	// Format: date-time
+	ImageReleaseTimestamp strfmt.DateTime `json:"imageReleaseTimestamp,omitempty"`
+
 	// status
 	Status *VersionStatus `json:"status,omitempty"`
 }
 
-// Validate validates this version version
-func (m *VersionVersion) Validate(formats strfmt.Registry) error {
+// Validate validates this version version v2
+func (m *VersionVersionV2) Validate(formats strfmt.Registry) error {
 	var res []error
+
+	if err := m.validateImageReleaseTimestamp(formats); err != nil {
+		res = append(res, err)
+	}
 
 	if err := m.validateStatus(formats); err != nil {
 		res = append(res, err)
@@ -48,7 +57,19 @@ func (m *VersionVersion) Validate(formats strfmt.Registry) error {
 	return nil
 }
 
-func (m *VersionVersion) validateStatus(formats strfmt.Registry) error {
+func (m *VersionVersionV2) validateImageReleaseTimestamp(formats strfmt.Registry) error {
+	if swag.IsZero(m.ImageReleaseTimestamp) { // not required
+		return nil
+	}
+
+	if err := validate.FormatOf("imageReleaseTimestamp", "body", "date-time", m.ImageReleaseTimestamp.String(), formats); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (m *VersionVersionV2) validateStatus(formats strfmt.Registry) error {
 	if swag.IsZero(m.Status) { // not required
 		return nil
 	}
@@ -67,8 +88,8 @@ func (m *VersionVersion) validateStatus(formats strfmt.Registry) error {
 	return nil
 }
 
-// ContextValidate validate this version version based on the context it is used
-func (m *VersionVersion) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+// ContextValidate validate this version version v2 based on the context it is used
+func (m *VersionVersionV2) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.contextValidateStatus(ctx, formats); err != nil {
@@ -81,7 +102,7 @@ func (m *VersionVersion) ContextValidate(ctx context.Context, formats strfmt.Reg
 	return nil
 }
 
-func (m *VersionVersion) contextValidateStatus(ctx context.Context, formats strfmt.Registry) error {
+func (m *VersionVersionV2) contextValidateStatus(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.Status != nil {
 
@@ -103,7 +124,7 @@ func (m *VersionVersion) contextValidateStatus(ctx context.Context, formats strf
 }
 
 // MarshalBinary interface implementation
-func (m *VersionVersion) MarshalBinary() ([]byte, error) {
+func (m *VersionVersionV2) MarshalBinary() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
@@ -111,8 +132,8 @@ func (m *VersionVersion) MarshalBinary() ([]byte, error) {
 }
 
 // UnmarshalBinary interface implementation
-func (m *VersionVersion) UnmarshalBinary(b []byte) error {
-	var res VersionVersion
+func (m *VersionVersionV2) UnmarshalBinary(b []byte) error {
+	var res VersionVersionV2
 	if err := swag.ReadJSON(b, &res); err != nil {
 		return err
 	}

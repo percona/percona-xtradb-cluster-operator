@@ -78,6 +78,11 @@ func (m *VersionOperatorVersion) ContextValidate(ctx context.Context, formats st
 func (m *VersionOperatorVersion) contextValidateMatrix(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.Matrix != nil {
+
+		if swag.IsZero(m.Matrix) { // not required
+			return nil
+		}
+
 		if err := m.Matrix.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("matrix")

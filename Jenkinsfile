@@ -415,15 +415,30 @@ EOF
                     def changesetFile = "non-trigger-files.txt"
                     if (fileExists(changesetFile)) {
                         def excludedFiles = readFile(changesetFile).split('\n').collect {it.trim()}
+
+                        def convertGlobToRegex = { glob ->
+                            glob.replace("**", ".*").replace("*", "[^/]*")
+                        }
+                        def excludedRegexes = excludedFiles.collect { convertGlobToRegex(it) }
+
                         def changedFiles = sh(script: "git diff --name-only origin/main", returnStdout: true).trim().split('\n')
                         echo "Excluded files: ${excludedFiles}"
+                        echo "Excluded files (as glob): ${excludedFiles}"
+                        echo "Excluded files (as regex): ${excludedRegexes}"
                         echo "Changed files: ${changedFiles}"
 
                         nonTriggerFiles = changedFiles.every { changed ->
-                            excludedFiles.any { excluded -> changed ==~ excluded }
+                            excludedRegexes.any { regex -> changed ==~ regex }
                         }
-                    }
-                }
+
+                        // Log the result
+                        if (nonTriggerFiles) {
+                            echo "All changed files are non-trigger files."
+                        } else {
+                            echo "Some changed files are not in the non-trigger list."
+                        }
+                            }
+                        }
             }
         }
         stage('Run tests for operator') {

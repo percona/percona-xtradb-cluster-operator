@@ -11,7 +11,7 @@ metadata:
 #    percona.com/issue-vault-token: "true"
 spec:
   crVersion: 1.16.0
-#  enableVolumeExpansion: true
+#  enableVolumeExpansion: false
 #  ignoreAnnotations:
 #    - iam.amazonaws.com/role
 #  ignoreLabels:
@@ -556,6 +556,24 @@ spec:
       requests:
         memory: 100M
         cpu: 200m
+
+#  users:
+#  - name: my-user
+#    dbs:
+#    - db1
+#    - db2
+#    hosts:
+#    - localhost
+#    grants:
+#    - SELECT
+#    - DELETE
+#    - INSERT
+#    withGrantOption: true
+#    passwordSecretRef:
+#      name: my-user-pwd
+#      key: my-user-pwd-key
+#  - name: my-user-two
+
   pmm:
     enabled: false
     image: perconalab/pmm-client:dev-latest

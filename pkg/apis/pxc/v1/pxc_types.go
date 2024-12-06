@@ -56,6 +56,22 @@ type PerconaXtraDBClusterSpec struct {
 	EnableCRValidationWebhook *bool             `json:"enableCRValidationWebhook,omitempty"`
 	IgnoreAnnotations         []string          `json:"ignoreAnnotations,omitempty"`
 	IgnoreLabels              []string          `json:"ignoreLabels,omitempty"`
+
+	Users []User `json:"users,omitempty"`
+}
+
+type SecretKeySelector struct {
+	Name string `json:"name"`
+	Key  string `json:"key,omitempty"`
+}
+
+type User struct {
+	Name              string             `json:"name"`
+	PasswordSecretRef *SecretKeySelector `json:"passwordSecretRef"`
+	DBs               []string           `json:"dbs,omitempty"`
+	Hosts             []string           `json:"hosts,omitempty"`
+	Grants            []string           `json:"grants,omitempty"`
+	WithGrantOption   bool               `json:"withGrantOption,omitempty"`
 }
 
 type UnsafeFlags struct {
@@ -483,6 +499,35 @@ type PodSpec struct {
 	HookScript                   string                            `json:"hookScript,omitempty"`
 	Lifecycle                    corev1.Lifecycle                  `json:"lifecycle,omitempty"`
 	TopologySpreadConstraints    []corev1.TopologySpreadConstraint `json:"topologySpreadConstraints,omitempty"`
+}
+
+func (spec *PodSpec) HasSidecarInternalSecret(secret *corev1.Secret) bool {
+	if spec.Sidecars != nil {
+		for _, container := range spec.Sidecars {
+			for _, env := range container.Env {
+				if env.ValueFrom != nil && env.ValueFrom.SecretKeyRef != nil {
+					if env.ValueFrom.SecretKeyRef.Name == secret.Name {
+						return true
+					}
+				}
+			}
+		}
+	}
+	if spec.SidecarVolumes != nil {
+		for _, volume := range spec.SidecarVolumes {
+			if volume.Secret != nil && volume.Secret.SecretName == secret.Name {
+				return true
+			}
+			if volume.Projected != nil {
+				for _, source := range volume.Projected.Sources {
+					if source.Secret != nil && source.Secret.Name == secret.Name {
+						return true
+					}
+				}
+			}
+		}
+	}
+	return false
 }
 
 type ProxySQLSpec struct {

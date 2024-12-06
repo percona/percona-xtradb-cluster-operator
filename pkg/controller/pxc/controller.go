@@ -313,6 +313,11 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 		userReconcileResult = urr
 	}
 
+	err = r.reconcileCustomUsers(ctx, o)
+	if err != nil {
+		return reconcile.Result{}, errors.Wrap(err, "reconcile custom users")
+	}
+
 	r.resyncPXCUsersWithProxySQL(ctx, o)
 
 	if o.Status.PXC.Version == "" || strings.HasSuffix(o.Status.PXC.Version, "intermediate") {

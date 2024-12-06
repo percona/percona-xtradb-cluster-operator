@@ -30,18 +30,26 @@ main() {
 
 	kubectl_bin apply -f "$test_dir/conf/$wrong_creds_backup_name.yml"
 
-	sleep 10
-
 	run_backup "$cluster" "$minio_backup_name"
 	compare_kubectl "job/xb-$minio_backup_name"
+
+	sleep 90
 
 	wrong_backup_job_fail_timestamp=$(kubectl_bin get job xb-$wrong_creds_backup_name -o yaml \
 		| yq '.status.conditions[] | select(.type == "Failed").lastTransitionTime' \
 		| xargs -I {} "$date" -d "{}" +%s)
+	if [[ -z $wrong_backup_job_fail_timestamp ]]; then
+		echo 'failed to get wrong_backup_job_fail_timestamp'
+		exit 1
+	fi
 
 	minio_job_creation_timestamp=$(kubectl get job xb-$minio_backup_name -o yaml \
 		| yq '.metadata.creationTimestamp' \
 		| xargs -I {} "$date" -d "{}" +%s)
+	if [[ -z $minio_job_creation_timestamp ]]; then
+		echo 'failed to get minio_job_creation_timestamp'
+		exit 1
+	fi
 
 	if [[ $wrong_backup_job_fail_timestamp > $minio_job_creation_timestamp ]]; then
 		echo "\"allowParallel: false\" doesn't work as expected. $minio_backup_name job was created before $wrong_creds_backup_name backup job failed"

@@ -447,6 +447,7 @@ compare_kubectl() {
 			del(.spec.template.spec.containers[].env[] | select(.name == "AZURE_CONTAINER_NAME")) |
 			del(.metadata.selfLink) |
 			del(.metadata.deletionTimestamp) |
+			del(.metadata.annotations."kubectl.kubernetes.io/last-applied-configuration") |
 			del(.metadata.annotations."kubernetes.io/psp") |
 			del(.metadata.annotations."batch.kubernetes.io/job-tracking") |
 			del(.metadata.labels."batch.kubernetes.io/job-name") |

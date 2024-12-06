@@ -1572,6 +1572,17 @@ func (s *PerconaXtraDBClusterStatus) AddCondition(c ClusterCondition) {
 	}
 }
 
+// FindCondition finds the conditionType in conditions.
+func (s *PerconaXtraDBClusterStatus) FindCondition(conditionType AppState) *ClusterCondition {
+	for i := range s.Conditions {
+		if s.Conditions[i].Type == conditionType {
+			return &s.Conditions[i]
+		}
+	}
+
+	return nil
+}
+
 func (cr *PerconaXtraDBCluster) CanBackup() error {
 	if cr.Status.Status == AppStateReady {
 		return nil

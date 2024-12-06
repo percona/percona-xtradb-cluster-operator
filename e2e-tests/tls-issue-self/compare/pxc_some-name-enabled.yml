@@ -1,0 +1,82 @@
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBCluster
+metadata:
+  generation: 10
+  name: some-name
+spec:
+  backup:
+    storages:
+      aws-s3:
+        s3:
+          bucket: operator-testing
+          credentialsSecret: aws-s3-secret
+          region: us-east-1
+        type: s3
+      gcp-cs:
+        s3:
+          bucket: operator-testing
+          credentialsSecret: gcp-cs-secret
+          endpointUrl: https://storage.googleapis.com
+          region: us-east-1
+        type: s3
+      minio:
+        s3:
+          bucket: operator-testing
+          credentialsSecret: minio-secret
+          endpointUrl: http://minio-service:9000/
+          region: us-east-1
+        type: s3
+      pvc:
+        type: filesystem
+        volume:
+          persistentVolumeClaim:
+            accessModes:
+              - ReadWriteOnce
+            resources:
+              requests:
+                storage: 1Gi
+  crVersion: 1.16.0
+  logcollector:
+    enabled: true
+  pmm:
+    enabled: false
+    serverHost: monitoring-service
+    serverUser: pmm
+  proxysql:
+    affinity:
+      antiAffinityTopologyKey: kubernetes.io/hostname
+    enabled: true
+    resources:
+      limits:
+        cpu: 700m
+        memory: 1G
+      requests:
+        cpu: 100m
+        memory: 0.1G
+    size: 2
+    volumeSpec:
+      persistentVolumeClaim:
+        resources:
+          requests:
+            storage: 2Gi
+  pxc:
+    affinity:
+      antiAffinityTopologyKey: kubernetes.io/hostname
+    resources:
+      limits:
+        cpu: "1"
+        memory: 2G
+      requests:
+        cpu: 100m
+        memory: 0.1G
+    size: 3
+    volumeSpec:
+      persistentVolumeClaim:
+        resources:
+          requests:
+            storage: 2Gi
+  secretsName: my-cluster-secrets
+  tls:
+    enabled: true
+  unsafeFlags: {}
+  vaultSecretName: some-name-vault

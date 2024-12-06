@@ -249,6 +249,9 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUserWithoutDP(ctx context.C
 	if cr.Spec.PMM != nil && cr.Spec.PMM.IsEnabled(internalSecrets) {
 		actions.restartPXC = true
 	}
+	if cr.Spec.PXC.Sidecars != nil && cr.Spec.PXC.HasSidecarInternalSecret(internalSecrets) {
+		actions.restartPXC = true
+	}
 
 	orig := internalSecrets.DeepCopy()
 	internalSecrets.Data[user.Name] = secrets.Data[user.Name]

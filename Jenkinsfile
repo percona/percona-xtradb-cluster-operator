@@ -251,17 +251,30 @@ void checkE2EIgnoreFiles() {
     if (fileExists(e2eignoreFile)) {
         def excludedFiles = readFile(e2eignoreFile).split('\n').collect{it.trim()}
 
-        // def changedFiles = sh(script: "git diff --name-only origin/${env.CHANGE_TARGET}", returnStdout: true).trim().split('\n')
+        def lastProcessedCommitFile="last-processed-commit.txt"
+        def lastProcessedCommit = ""
+        def previousBuild = currentBuild.previousBuild
+        if (previousBuild != null && previousBuild.result == 'SUCCESS') {
+            try {
+                previousBuild.copyArtifact(${lastProcessedCommitFile})
+                lastProcessedCommit = readFile(${lastProcessedCommitFile}).trim()
+            } catch (Exception e) {
+                echo "No ${lastProcessedCommitFile} file found from previous build. Assuming this is the first run."
+            }
+        } else {
+            echo "No previous successful build found."
+        }
 
-        // Find the last merge commit (sync)
-        def mergeCommitSHA = sh(script: "git log --oneline --grep='Merge branch' -n 1 --format='%H'", returnStdout: true).trim()
-        // Get files changed since that merge commit
-        def changedFiles = sh(script: "git diff --name-only ${mergeCommitSHA}..HEAD", returnStdout: true).trim().split('\n')
+        if (lastProcessedCommit == "") {
+            echo "This is the first run. Using merge base as the starting point for the diff."
+            def changedFiles = sh(script: "git diff --name-only \$(git merge-base HEAD origin/$CHANGE_TARGET)", returnStdout: true).trim().split('\n')
+        } else {
+            echo "Processing changes since last processed commit: $lastProcessedCommit"
+            def changedFiles = sh(script: "git diff --name-only $lastProcessedCommit HEAD", returnStdout: true).trim().split('\n')
+        }
 
-        echo "Excluded files: ${excludedFiles}"
-        echo "Changed files: ${changedFiles}"
-
-
+        echo "Excluded files: $excludedFiles"
+        echo "Changed files: $changedFiles"
 
         def excludedFilesRegex = excludedFiles.collect{it.replace("**", ".*").replace("*", "[^/]*")}
         onlyIgnoredFiles = changedFiles.every{changed -> excludedFilesRegex.any {regex -> changed ==~ regex}}
@@ -271,6 +284,11 @@ void checkE2EIgnoreFiles() {
         } else {
             echo "Some changed files are outside of the e2eignore list. Proceeding with execution."
         }
+
+        sh """
+            echo \$(git rev-parse HEAD) > ${lastProcessedCommitFile}
+        """
+        archiveArtifacts ${lastProcessedCommitFile}
     }
 }
 

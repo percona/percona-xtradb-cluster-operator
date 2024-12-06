@@ -245,6 +245,7 @@ void runTest(Integer TEST_ID) {
     }
 }
 
+def onlyIgnoredFiles = false
 void checkE2EIgnoreFiles() {
     def e2eignoreFile = ".e2eignore"
     if (fileExists(e2eignoreFile)) {

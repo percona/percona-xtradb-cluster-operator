@@ -250,9 +250,18 @@ void checkE2EIgnoreFiles() {
     def e2eignoreFile = ".e2eignore"
     if (fileExists(e2eignoreFile)) {
         def excludedFiles = readFile(e2eignoreFile).split('\n').collect{it.trim()}
-        def changedFiles = sh(script: "git diff --name-only origin/${env.CHANGE_TARGET}", returnStdout: true).trim().split('\n')
+
+        // def changedFiles = sh(script: "git diff --name-only origin/${env.CHANGE_TARGET}", returnStdout: true).trim().split('\n')
+
+        // Find the last merge commit (sync)
+        def mergeCommitSHA = sh(script: "git log --oneline --grep='Merge branch' -n 1 --format='%H'", returnStdout: true).trim()
+        // Get files changed since that merge commit
+        def changedFiles = sh(script: "git diff --name-only ${mergeCommitSHA}..HEAD", returnStdout: true).trim().split('\n')
+
         echo "Excluded files: ${excludedFiles}"
         echo "Changed files: ${changedFiles}"
+
+
 
         def excludedFilesRegex = excludedFiles.collect{it.replace("**", ".*").replace("*", "[^/]*")}
         onlyIgnoredFiles = changedFiles.every{changed -> excludedFilesRegex.any {regex -> changed ==~ regex}}

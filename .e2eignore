@@ -8,3 +8,4 @@ LICENSE
 operator.png
 kubernetes.svg
 .e2eignore
+Jenkinsfile

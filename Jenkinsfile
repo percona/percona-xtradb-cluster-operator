@@ -250,42 +250,33 @@ void checkE2EIgnoreFiles() {
     def e2eignoreFile = ".e2eignore"
     if (fileExists(e2eignoreFile)) {
         def excludedFiles = readFile(e2eignoreFile).split('\n').collect{it.trim()}
-
         def lastProcessedCommitFile="last-processed-commit.txt"
-        def lastProcessedCommit = ""
+        def lastProcessedCommitHash = ""
 
-
-        def currentBuildRef = currentBuild.previousBuild
-        while (currentBuildRef != null) {
-            if (currentBuildRef.result == 'SUCCESS') {
+        def build = currentBuild.previousBuild
+        while (build != null) {
+            if (build.result == 'SUCCESS') {
                 try {
-                    echo "Found a previous successful build: ${currentBuildRef.number}"
-
-                    copyArtifacts(
-                        projectName: env.JOB_NAME,
-                        selector: specific("${currentBuildRef.number}"),
-                        filter: "$lastProcessedCommitFile",
-                        flatten: true
-                    )
-
-                    lastProcessedCommit = readFile("$lastProcessedCommitFile").trim()
-                    echo "lastProcessedCommit: $lastProcessedCommit"
+                    echo "Found a previous successful build: ${build.number}"
+                    copyArtifacts(projectName: env.JOB_NAME, selector: specific("${build.number}"), filter: "$lastProcessedCommitFile")
+                    lastProcessedCommitHash = readFile("$lastProcessedCommitFile").trim()
+                    echo "lastProcessedCommitHash: $lastProcessedCommitHash"
                     break
                 } catch (Exception e) {
-                    echo "No $lastProcessedCommitFile found in build ${currentBuildRef.number}. Checking earlier builds."
+                    echo "No $lastProcessedCommitFile found in build ${build.number}. Checking earlier builds."
                 }
             } else {
-                echo "Build ${currentBuildRef.number} was not successful. Checking earlier builds."
+                echo "Build ${build.number} was not successful. Checking earlier builds."
             }
-            currentBuildRef = currentBuildRef.previousBuild
+            build = build.previousBuild
         }
 
-        if (lastProcessedCommit == "") {
+        if (lastProcessedCommitHash == "") {
             echo "This is the first run. Using merge base as the starting point for the diff."
             changedFiles = sh(script: "git diff --name-only \$(git merge-base HEAD origin/$CHANGE_TARGET)", returnStdout: true).trim().split('\n').findAll{it}
         } else {
-            echo "Processing changes since last processed commit: $lastProcessedCommit"
-            changedFiles = sh(script: "git diff --name-only $lastProcessedCommit HEAD", returnStdout: true).trim().split('\n').findAll{it}
+            echo "Processing changes since last processed commit: $lastProcessedCommitHash"
+            changedFiles = sh(script: "git diff --name-only $lastProcessedCommitHash HEAD", returnStdout: true).trim().split('\n').findAll{it}
         }
 
         echo "Excluded files: $excludedFiles"

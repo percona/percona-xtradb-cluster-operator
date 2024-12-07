@@ -283,8 +283,7 @@ void checkE2EIgnoreFiles() {
         echo "Changed files: $changedFiles"
 
         def excludedFilesRegex = excludedFiles.collect{it.replace("**", ".*").replace("*", "[^/]*")}
-        // needToRunTests = changedFiles.every{changed -> excludedFilesRegex.any{regex -> changed ==~ regex}}
-        needToRunTests = changedFiles.any{changed -> excludedFilesRegex.none{regex -> changed ==~ regex}}
+        needToRunTests = !changedFiles.every{changed -> excludedFilesRegex.any{regex -> changed ==~ regex}}
 
         if (needToRunTests) {
             echo "Some changed files are outside of the e2eignore list. Proceeding with execution."

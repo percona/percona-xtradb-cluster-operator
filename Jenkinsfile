@@ -262,10 +262,10 @@ void checkE2EIgnoreFiles() {
                     echo "Found a previous successful build: ${currentBuildRef.number}"
 
                     copyArtifacts(
-                        projectName: env.JOB_NAME, // Current job name
-                        selector: specific("${currentBuildRef.number}"), // Specific successful build
-                        filter: "$lastProcessedCommitFile", // File to copy
-                        flatten: true // Avoid recreating directory structure
+                        projectName: env.JOB_NAME,
+                        selector: specific("${currentBuildRef.number}"),
+                        filter: "$lastProcessedCommitFile",
+                        flatten: true
                     )
 
                     lastProcessedCommit = readFile("$lastProcessedCommitFile").trim()

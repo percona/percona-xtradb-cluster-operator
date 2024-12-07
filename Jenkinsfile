@@ -245,7 +245,7 @@ void runTest(Integer TEST_ID) {
     }
 }
 
-onlyIgnoredFiles = false
+needToRunTests = true
 void checkE2EIgnoreFiles() {
     def e2eignoreFile = ".e2eignore"
     if (fileExists(e2eignoreFile)) {
@@ -257,16 +257,16 @@ void checkE2EIgnoreFiles() {
         while (build != null) {
             if (build.result == 'SUCCESS') {
                 try {
-                    echo "Found a previous successful build: ${build.number}"
-                    copyArtifacts(projectName: env.JOB_NAME, selector: specific("${build.number}"), filter: "$lastProcessedCommitFile")
+                    echo "Found a previous successful build: $build.number"
+                    copyArtifacts(projectName: env.JOB_NAME, selector: specific("$build.number"), filter: "$lastProcessedCommitFile")
                     lastProcessedCommitHash = readFile("$lastProcessedCommitFile").trim()
                     echo "lastProcessedCommitHash: $lastProcessedCommitHash"
                     break
                 } catch (Exception e) {
-                    echo "No $lastProcessedCommitFile found in build ${build.number}. Checking earlier builds."
+                    echo "No $lastProcessedCommitFile found in build $build.number. Checking earlier builds."
                 }
             } else {
-                echo "Build ${build.number} was not successful. Checking earlier builds."
+                echo "Build $build.number was not successful. Checking earlier builds."
             }
             build = build.previousBuild
         }
@@ -283,12 +283,13 @@ void checkE2EIgnoreFiles() {
         echo "Changed files: $changedFiles"
 
         def excludedFilesRegex = excludedFiles.collect{it.replace("**", ".*").replace("*", "[^/]*")}
-        onlyIgnoredFiles = changedFiles.every{changed -> excludedFilesRegex.any {regex -> changed ==~ regex}}
+        // needToRunTests = changedFiles.every{changed -> excludedFilesRegex.any{regex -> changed ==~ regex}}
+        needToRunTests = changedFiles.any{changed -> excludedFilesRegex.none{regex -> changed ==~ regex}}
 
-        if (onlyIgnoredFiles) {
-            echo "All changed files are e2eignore files. Aborting pipeline execution."
-        } else {
+        if (needToRunTests) {
             echo "Some changed files are outside of the e2eignore list. Proceeding with execution."
+        } else {
+            echo "All changed files are e2eignore files. Aborting pipeline execution."
         }
 
         sh """
@@ -298,9 +299,9 @@ void checkE2EIgnoreFiles() {
     }
 }
 
-def skipBranchBuilds = true
+def isPRJob = false
 if (env.CHANGE_URL) {
-    skipBranchBuilds = false
+    isPRJob = true
 }
 
 pipeline {
@@ -323,6 +324,11 @@ pipeline {
     }
     stages {
         stage('Check Ignore Files') {
+            when {
+                expression {
+                    isPRJob
+                }
+            }
             steps {
                 checkE2EIgnoreFiles()
             }
@@ -330,7 +336,7 @@ pipeline {
         stage('Prepare') {
             when {
                 expression {
-                    !skipBranchBuilds && !onlyIgnoredFiles
+                    isPRJob && needToRunTests
                 }
             }
             steps {
@@ -385,7 +391,7 @@ EOF
         stage('Build docker image') {
             when {
                 expression {
-                    !skipBranchBuilds && !onlyIgnoredFiles
+                    isPRJob && needToRunTests
                 }
             }
             steps {
@@ -412,7 +418,7 @@ EOF
         stage('GoLicenseDetector test') {
             when {
                 expression {
-                    !skipBranchBuilds && !onlyIgnoredFiles
+                    isPRJob && needToRunTests
                 }
             }
             steps {
@@ -439,7 +445,7 @@ EOF
         stage('GoLicense test') {
             when {
                 expression {
-                    !skipBranchBuilds && !onlyIgnoredFiles
+                    isPRJob && needToRunTests
                 }
             }
             steps {
@@ -473,7 +479,7 @@ EOF
         stage('Run tests for operator') {
             when {
                 expression {
-                    !skipBranchBuilds && !onlyIgnoredFiles
+                    isPRJob && needToRunTests
                 }
             }
             options {
@@ -541,8 +547,8 @@ EOF
                         slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, ${BUILD_URL} owner: @${AUTHOR_NAME}"
                     }
                 }
-                if (!onlyIgnoredFiles) {
-                    if (!skipBranchBuilds && currentBuild.nextBuild == null) {
+                if (needToRunTests) {
+                    if (isPRJob && currentBuild.nextBuild == null) {
                         for (comment in pullRequest.comments) {
                             println("Author: ${comment.user}, Comment: ${comment.body}")
                             if (comment.user.equals('JNKPercona')) {

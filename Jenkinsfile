@@ -280,7 +280,6 @@ void checkE2EIgnoreFiles() {
         def excludedFilesRegex = excludedFiles.collect{it.replace("**", ".*").replace("*", "[^/]*")}
         onlyIgnoredFiles = changedFiles.every{changed -> excludedFilesRegex.any {regex -> changed ==~ regex}}
 
-        echo "onlyIgnoredFiles: $onlyIgnoredFiles"
         if (onlyIgnoredFiles) {
             echo "All changed files are e2eignore files. Aborting pipeline execution."
         } else {
@@ -291,8 +290,6 @@ void checkE2EIgnoreFiles() {
             echo \$(git rev-parse HEAD) > $lastProcessedCommitFile
         """
         archiveArtifacts "$lastProcessedCommitFile"
-
-        onlyIgnoredFiles = true
     }
 }
 
@@ -538,9 +535,6 @@ EOF
                         slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, ${BUILD_URL} owner: @${AUTHOR_NAME}"
                     }
                 }
-                echo "skipBranchBuilds: ${skipBranchBuilds}"
-                echo "onlyIgnoredFiles: ${onlyIgnoredFiles}"
-                echo "currentBuild.nextBuild: ${currentBuild.nextBuild}"
                 if (!skipBranchBuilds && !onlyIgnoredFiles && currentBuild.nextBuild == null) {
                     for (comment in pullRequest.comments) {
                         println("Author: ${comment.user}, Comment: ${comment.body}")

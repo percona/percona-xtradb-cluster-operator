@@ -253,35 +253,39 @@ void checkE2EIgnoreFiles() {
 
         def lastProcessedCommitFile="last-processed-commit.txt"
         def lastProcessedCommit = ""
-        def previousBuild = currentBuild.previousBuild
-        echo "previousBuild: $previousBuild"
-        if (previousBuild != null && previousBuild.result == 'SUCCESS') {
-            try {
-                // previousBuild.copyArtifact("$lastProcessedCommitFile")
-
-                copyArtifacts(
-                    projectName: env.JOB_NAME, // Name of the current job
-                    selector: specific("${previousBuild.number}"), // Reference the previous build by number
-                    filter: "$lastProcessedCommitFile", // Specify the file(s) to copy
-                    flatten: true // Optional: to avoid recreating directory structure
-                )
 
 
-                lastProcessedCommit = readFile("$lastProcessedCommitFile").trim()
-                echo "lastProcessedCommit: $lastProcessedCommit"
-            } catch (Exception e) {
-                echo "No $lastProcessedCommitFile file found from previous build. Assuming this is the first run."
+        def currentBuildRef = currentBuild.previousBuild
+        while (currentBuildRef != null) {
+            if (currentBuildRef.result == 'SUCCESS') {
+                try {
+                    echo "Found a previous successful build: ${currentBuildRef.number}"
+
+                    copyArtifacts(
+                        projectName: env.JOB_NAME, // Current job name
+                        selector: specific("${currentBuildRef.number}"), // Specific successful build
+                        filter: "$lastProcessedCommitFile", // File to copy
+                        flatten: true // Avoid recreating directory structure
+                    )
+
+                    lastProcessedCommit = readFile("$lastProcessedCommitFile").trim()
+                    echo "lastProcessedCommit: $lastProcessedCommit"
+                    break
+                } catch (Exception e) {
+                    echo "No $lastProcessedCommitFile found in build ${currentBuildRef.number}. Checking earlier builds."
+                }
+            } else {
+                echo "Build ${currentBuildRef.number} was not successful. Checking earlier builds."
             }
-        } else {
-            echo "No previous successful build found."
+            currentBuildRef = currentBuildRef.previousBuild
         }
 
         if (lastProcessedCommit == "") {
             echo "This is the first run. Using merge base as the starting point for the diff."
-            changedFiles = sh(script: "git diff --name-only \$(git merge-base HEAD origin/$CHANGE_TARGET)", returnStdout: true).trim().split('\n')
+            changedFiles = sh(script: "git diff --name-only \$(git merge-base HEAD origin/$CHANGE_TARGET)", returnStdout: true).trim().split('\n').findAll{it}
         } else {
             echo "Processing changes since last processed commit: $lastProcessedCommit"
-            changedFiles = sh(script: "git diff --name-only $lastProcessedCommit HEAD", returnStdout: true).trim().split('\n')
+            changedFiles = sh(script: "git diff --name-only $lastProcessedCommit HEAD", returnStdout: true).trim().split('\n').findAll{it}
         }
 
         echo "Excluded files: $excludedFiles"

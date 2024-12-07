@@ -265,7 +265,6 @@ void checkE2EIgnoreFiles() {
             echo "No previous successful build found."
         }
 
-        def changedFiles = []
         if (lastProcessedCommit == "") {
             echo "This is the first run. Using merge base as the starting point for the diff."
             changedFiles = sh(script: "git diff --name-only \$(git merge-base HEAD origin/$CHANGE_TARGET)", returnStdout: true).trim().split('\n')

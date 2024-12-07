@@ -306,8 +306,6 @@ void checkE2EIgnoreFiles() {
             }
         }
 
-        echo "onlyIgnoredFiles: $onlyIgnoredFiles"
-
         sh """
             echo \$(git rev-parse HEAD) > $lastProcessedCommitFile
         """
@@ -558,7 +556,6 @@ EOF
                         slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, ${BUILD_URL} owner: @${AUTHOR_NAME}"
                     }
                 }
-                echo "onlyIgnoredFiles: $onlyIgnoredFiles"
                 if (!onlyIgnoredFiles) {
                     if (!skipBranchBuilds && currentBuild.nextBuild == null) {
                         for (comment in pullRequest.comments) {

@@ -254,10 +254,21 @@ void checkE2EIgnoreFiles() {
         def lastProcessedCommitFile="last-processed-commit.txt"
         def lastProcessedCommit = ""
         def previousBuild = currentBuild.previousBuild
+        echo "previousBuild: $previousBuild"
         if (previousBuild != null && previousBuild.result == 'SUCCESS') {
             try {
-                previousBuild.copyArtifact($lastProcessedCommitFile)
-                lastProcessedCommit = readFile($lastProcessedCommitFile).trim()
+                // previousBuild.copyArtifact("$lastProcessedCommitFile")
+
+                copyArtifacts(
+                    projectName: env.JOB_NAME, // Name of the current job
+                    selector: specific("${previousBuild.number}"), // Reference the previous build by number
+                    filter: "$lastProcessedCommitFile", // Specify the file(s) to copy
+                    flatten: true // Optional: to avoid recreating directory structure
+                )
+
+
+                lastProcessedCommit = readFile("$lastProcessedCommitFile").trim()
+                echo "lastProcessedCommit: $lastProcessedCommit"
             } catch (Exception e) {
                 echo "No $lastProcessedCommitFile file found from previous build. Assuming this is the first run."
             }
@@ -277,13 +288,21 @@ void checkE2EIgnoreFiles() {
         echo "Changed files: $changedFiles"
 
         def excludedFilesRegex = excludedFiles.collect{it.replace("**", ".*").replace("*", "[^/]*")}
-        onlyIgnoredFiles = changedFiles.every{changed -> excludedFilesRegex.any {regex -> changed ==~ regex}}
 
-        if (onlyIgnoredFiles) {
-            echo "All changed files are e2eignore files. Aborting pipeline execution."
+        if (changedFiles.toList().isEmpty()) {
+            onlyIgnoredFiles = true
+            echo "No files were changed. Aborting pipeline execution."
         } else {
-            echo "Some changed files are outside of the e2eignore list. Proceeding with execution."
+            onlyIgnoredFiles = changedFiles.every{changed -> excludedFilesRegex.any {regex -> changed ==~ regex}}
+
+            if (onlyIgnoredFiles) {
+                echo "All changed files are e2eignore files. Aborting pipeline execution."
+            } else {
+                echo "Some changed files are outside of the e2eignore list. Proceeding with execution."
+            }
         }
+
+        echo "onlyIgnoredFiles: $onlyIgnoredFiles"
 
         sh """
             echo \$(git rev-parse HEAD) > $lastProcessedCommitFile
@@ -313,6 +332,7 @@ pipeline {
     }
     options {
         disableConcurrentBuilds(abortPrevious: true)
+        copyArtifactPermission("$JOB_NAME/PR-*")
     }
     stages {
         stage('Check Ignore Files') {
@@ -534,28 +554,30 @@ EOF
                         slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, ${BUILD_URL} owner: @${AUTHOR_NAME}"
                     }
                 }
-                if (!skipBranchBuilds && !onlyIgnoredFiles && currentBuild.nextBuild == null) {
-                    for (comment in pullRequest.comments) {
-                        println("Author: ${comment.user}, Comment: ${comment.body}")
-                        if (comment.user.equals('JNKPercona')) {
-                            println("delete comment")
-                            comment.delete()
+                echo "onlyIgnoredFiles: $onlyIgnoredFiles"
+                if (!onlyIgnoredFiles) {
+                    if (!skipBranchBuilds && currentBuild.nextBuild == null) {
+                        for (comment in pullRequest.comments) {
+                            println("Author: ${comment.user}, Comment: ${comment.body}")
+                            if (comment.user.equals('JNKPercona')) {
+                                println("delete comment")
+                                comment.delete()
+                            }
                         }
-                    }
-                    makeReport()
-                    step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
-                    archiveArtifacts '*.xml'
+                        makeReport()
+                        step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
+                        archiveArtifacts '*.xml'
 
-                    unstash 'IMAGE'
-                    def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
-                    TestsReport = TestsReport + "\r\n\r\ncommit: ${env.CHANGE_URL}/commits/${env.GIT_COMMIT}\r\nimage: `${IMAGE}`\r\n"
-                    pullRequest.comment(TestsReport)
+                        unstash 'IMAGE'
+                        def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
+                        TestsReport = TestsReport + "\r\n\r\ncommit: ${env.CHANGE_URL}/commits/${env.GIT_COMMIT}\r\nimage: `${IMAGE}`\r\n"
+                        pullRequest.comment(TestsReport)
+                    }
+                    deleteOldClusters("$CLUSTER_NAME")
+                    sh """
+                        sudo docker system prune --volumes -af
+                    """
                 }
-                deleteOldClusters("$CLUSTER_NAME")
-                sh """
-                    sudo docker system prune --volumes -af
-                    sudo rm -rf *
-                """
                 deleteDir()
             }
         }

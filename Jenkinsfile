@@ -245,7 +245,7 @@ void runTest(Integer TEST_ID) {
     }
 }
 
-def onlyIgnoredFiles = false
+onlyIgnoredFiles = false
 void checkE2EIgnoreFiles() {
     def e2eignoreFile = ".e2eignore"
     if (fileExists(e2eignoreFile)) {
@@ -256,10 +256,10 @@ void checkE2EIgnoreFiles() {
         def previousBuild = currentBuild.previousBuild
         if (previousBuild != null && previousBuild.result == 'SUCCESS') {
             try {
-                previousBuild.copyArtifact(${lastProcessedCommitFile})
-                lastProcessedCommit = readFile(${lastProcessedCommitFile}).trim()
+                previousBuild.copyArtifact($lastProcessedCommitFile)
+                lastProcessedCommit = readFile($lastProcessedCommitFile).trim()
             } catch (Exception e) {
-                echo "No ${lastProcessedCommitFile} file found from previous build. Assuming this is the first run."
+                echo "No $lastProcessedCommitFile file found from previous build. Assuming this is the first run."
             }
         } else {
             echo "No previous successful build found."
@@ -288,9 +288,11 @@ void checkE2EIgnoreFiles() {
         }
 
         sh """
-            echo \$(git rev-parse HEAD) > ${lastProcessedCommitFile}
+            echo \$(git rev-parse HEAD) > $lastProcessedCommitFile
         """
-        archiveArtifacts ${lastProcessedCommitFile}
+        archiveArtifacts "$lastProcessedCommitFile"
+
+        onlyIgnoredFiles = true
     }
 }
 

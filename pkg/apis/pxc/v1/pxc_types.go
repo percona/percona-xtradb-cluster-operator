@@ -1238,7 +1238,7 @@ func (cr *PerconaXtraDBCluster) setProbesDefaults() {
 }
 
 func (cr *PerconaXtraDBCluster) checkSafeDefaults() error {
-	if !cr.Spec.Unsafe.TLS && !cr.TLSEnabled() {
+	if !cr.Spec.Unsafe.TLS && !*cr.Spec.TLS.Enabled {
 		return errors.New("TLS must be enabled. Set spec.unsafeFlags.tls to true to disable this check")
 	}
 

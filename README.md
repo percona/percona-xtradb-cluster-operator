@@ -25,7 +25,7 @@ While the Percona Operator is primarily managed through the command line, you ca
 
 # Architecture
 
-Percona Operators are based on the [Operator SDK](https://github.com/operator-framework/operator-sdk) and leverage Kubernetes primitives to follow best CNCF practices.
+Percona Operators are based on the [Operator SDK](https://github.com/operator-framework/operator-sdk) and leverage Kubernetes primitives to follow best CNCF practices. 
 
 Please read more about [architecture and design decisions](https://www.percona.com/doc/kubernetes-operator-for-pxc/architecture.html).
 
@@ -35,7 +35,7 @@ To learn more about the Operator, check the [Percona Operator for MySQL based on
 
 # Quickstart installation
 
-Ready to try out the Operator? Check the [Quickstart tutorial](https://docs.percona.com/percona-operator-for-mysql/pxc/quickstart.html) for easy-to follow steps.
+Ready to try out the Operator? Check the [Quickstart tutorial](https://docs.percona.com/percona-operator-for-mysql/pxc/quickstart.html) for easy-to follow steps. 
 
 Below is one of the ways to deploy the Operator using `kubectl`.
 
@@ -60,7 +60,7 @@ See full documentation with examples and various advanced cases on [percona.com]
 
 **Commercial Support**  | **Community Support** |
 :-: | :-: |
-| <br/>Enterprise-grade assistance for your mission-critical MySQL deployments with the Percona Operator for MySQL. Get expert guidance for complex tasks like multi-cloud replication, database migration and building platforms.<br/><br/>  | <br/>Connect with our engineers and fellow users for general questions, troubleshooting, and sharing feedback and ideas.<br/><br/>  |
+| <br/>Enterprise-grade assistance for your mission-critical MySQL deployments with the Percona Operator for MySQL. Get expert guidance for complex tasks like multi-cloud replication, database migration and building platforms.<br/><br/>  | <br/>Connect with our engineers and fellow users for general questions, troubleshooting, and sharing feedback and ideas.<br/><br/>  | 
 | **[Get Percona Support](https://hubs.ly/Q02ZTH940)** | **[Visit our Forum](https://forums.percona.com/c/mysql-mariadb/percona-kubernetes-operator-for-mysql/28)** |
 
 # Contributing
@@ -72,9 +72,10 @@ See the [Contribution Guide](CONTRIBUTING.md) and [Building and Testing Guide](e
 ## Roadmap
 
 We have a public roadmap which can be found [here](https://github.com/orgs/percona/projects/10). Please feel free to contribute and propose new features by following the roadmap [guidelines](https://github.com/percona/roadmap).
-
+ 
 ## Submitting Bug Reports
 
-If you find a bug in Percona Docker Images or in one of the related projects, please submit a report to that project's [JIRA](https://jira.percona.com/browse/K8SPXC) issue tracker or [create a GitHub issue](https://docs.github.com/en/issues/tracking-your-work-with-issues/creating-an-issue#creating-an-issue-from-a-repository) in this repository.
+If you find a bug in Percona Docker Images or in one of the related projects, please submit a report to that project's [JIRA](https://jira.percona.com/browse/K8SPXC) issue tracker or [create a GitHub issue](https://docs.github.com/en/issues/tracking-your-work-with-issues/creating-an-issue#creating-an-issue-from-a-repository) in this repository. 
 
 Learn more about submitting bugs, new features ideas and improvements in the [Contribution Guide](CONTRIBUTING.md).
+

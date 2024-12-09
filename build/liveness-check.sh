@@ -23,7 +23,7 @@ NODE_IP=$(hostname -I | awk ' { print $1 } ')
 TIMEOUT=$((${LIVENESS_CHECK_TIMEOUT:-5} - 1))
 MYSQL_STATE=ready
 MYSQL_VERSION=$(mysqld -V | awk '{print $3}' | awk -F'.' '{print $1"."$2}')
-if [[ ${MYSQL_VERSION} == '8.0' ]]; then
+if [[ ${MYSQL_VERSION} =~ ^(8\.0|8\.4)$ && -f ${MYSQL_STATE_FILE} ]]; then
 	MYSQL_STATE=$(tr -d '\0' < ${MYSQL_STATE_FILE})
 fi
 

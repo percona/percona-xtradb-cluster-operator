@@ -32,8 +32,7 @@ main() {
 	sleep 10
 	# operator performs:
 	# - patch .spec.pause to true (generation = 4)
-	# - patch spec.unsafeFlags.tls to true (generation = 5)
-	# - patch .spec.pause to false (generation = 6)
+	# - patch .spec.pause to false (generation = 5)
 	wait_cluster_consistency "$cluster" 3 2
 	desc 'secrets should be deleted'
 	if kubectl get secret "$cluster-ssl" &>/dev/null; then
@@ -47,12 +46,12 @@ main() {
 	compare_kubectl "pxc/$cluster"
 
 	desc 'check enabling tls'
-	kubectl_bin patch pxc "$cluster" --type=merge --patch '{"spec": {"tls":{"enabled": true}}}' # generation + 1 (total = 7)
+	kubectl_bin patch pxc "$cluster" --type=merge --patch '{"spec": {"tls":{"enabled": true}}}' # generation + 1 (total = 6)
 	sleep 10
 	# operator performs:
-	# - patch .spec.pause to true (generation = 8)
-	# - patch spec.unsafeFlags.tls to false (generation = 9)
-	# - patch .spec.pause to false (generation = 10)
+	# - patch .spec.pause to true (generation = 7)
+	# - patch spec.unsafeFlags.tls to false (generation = 8)
+	# - patch .spec.pause to false (generation = 9)
 	wait_cluster_consistency "$cluster" 3 2
 	compare_kubectl "pxc/$cluster" "-enabled"
 	desc 'secrets should be recreated'

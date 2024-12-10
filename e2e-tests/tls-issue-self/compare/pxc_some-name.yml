@@ -1,7 +1,7 @@
 apiVersion: pxc.percona.com/v1
 kind: PerconaXtraDBCluster
 metadata:
-  generation: 6
+  generation: 5
   name: some-name
 spec:
   backup:

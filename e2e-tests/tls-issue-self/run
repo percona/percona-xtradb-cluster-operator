@@ -28,7 +28,7 @@ main() {
 
 	# generation = 2 on this step
 	desc 'check disabling tls'
-	kubectl_bin patch pxc "$cluster" --type=merge --patch '{"spec": {"tls":{"enabled": false}}}' # generation + 1 (total 3)
+	kubectl_bin patch pxc "$cluster" --type=merge --patch '{"spec": {"tls":{"enabled": false}, "unsafeFlags": {"tls": true}}}' # generation + 1 (total 3)
 	sleep 10
 	# operator performs:
 	# - patch .spec.pause to true (generation = 4)

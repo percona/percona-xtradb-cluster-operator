@@ -1,4 +1,4 @@
-region='us-central1-a'
+region="us-central1-a"
 testUrlPrefix="https://percona-jenkins-artifactory-public.s3.amazonaws.com/cloud-pxc-operator"
 tests=[]
 
@@ -14,7 +14,7 @@ void createCluster(String CLUSTER_SUFFIX) {
                 gcloud config set project $GCP_PROJECT
                 gcloud container clusters list --filter $CLUSTER_NAME-${CLUSTER_SUFFIX} --zone $region --format='csv[no-heading](name)' | xargs gcloud container clusters delete --zone $region --quiet || true
 
-                gcloud container clusters create --zone $region $CLUSTER_NAME-${CLUSTER_SUFFIX} --cluster-version=1.28 --machine-type=n1-standard-4 --preemptible --disk-size 30 --num-nodes=\$NODES_NUM --network=jenkins-vpc --subnetwork=jenkins-${CLUSTER_SUFFIX} --no-enable-autoupgrade --cluster-ipv4-cidr=/21 --labels delete-cluster-after-hours=6 && \
+                gcloud container clusters create --zone $region $CLUSTER_NAME-${CLUSTER_SUFFIX} --cluster-version=1.28 --machine-type=n1-standard-4 --preemptible --disk-size 30 --num-nodes=\$NODES_NUM --network=jenkins-vpc --subnetwork=jenkins-${CLUSTER_SUFFIX} --no-enable-autoupgrade --cluster-ipv4-cidr=/21 --labels delete-cluster-after-hours=6 --enable-ip-alias&& \
                 kubectl create clusterrolebinding cluster-admin-binding --clusterrole cluster-admin --user jenkins@"$GCP_PROJECT".iam.gserviceaccount.com || ret_val=\$?
                 if [ \${ret_val} -eq 0 ]; then break; fi
                 ret_num=\$((ret_num + 1))
@@ -150,7 +150,7 @@ void printKubernetesStatus(String LOCATION, String CLUSTER_SUFFIX) {
     """
 }
 
-TestsReport = '| Test name  | Status |\r\n| ------------- | ------------- |'
+TestsReport = '| Test name | Status |\r\n| ------------- | ------------- |'
 TestsReportXML = '<testsuite name=\\"PXC\\">\n'
 
 void makeReport() {
@@ -158,9 +158,9 @@ void makeReport() {
     def startedTestAmount = 0
 
     for (int i=0; i<tests.size(); i++) {
+        def testNameWithMysqlVersion = tests[i]["name"] +"-"+ tests[i]["mysql_ver"].replace(".", "-")
         def testResult = tests[i]["result"]
         def testTime = tests[i]["time"]
-        def testNameWithMysqlVersion = tests[i]["name"] +"-"+ tests[i]["mysql_ver"].replace(".", "-")
         def testUrl = "${testUrlPrefix}/${env.GIT_BRANCH}/${env.GIT_SHORT_COMMIT}/${testNameWithMysqlVersion}.log"
 
         if (tests[i]["result"] != "skipped") {
@@ -171,6 +171,10 @@ void makeReport() {
     }
     TestsReport = TestsReport + "\r\n| We run $startedTestAmount out of $wholeTestAmount|"
     TestsReportXML = TestsReportXML + '</testsuite>\n'
+
+    sh """
+        echo "${TestsReportXML}" > TestsReport.xml
+    """
 }
 
 void clusterRunner(String cluster) {
@@ -241,9 +245,62 @@ void runTest(Integer TEST_ID) {
     }
 }
 
-def skipBranchBuilds = true
+needToRunTests = true
+void checkE2EIgnoreFiles() {
+    def e2eignoreFile = ".e2eignore"
+    if (fileExists(e2eignoreFile)) {
+        def excludedFiles = readFile(e2eignoreFile).split('\n').collect{it.trim()}
+        def lastProcessedCommitFile="last-processed-commit.txt"
+        def lastProcessedCommitHash = ""
+
+        def build = currentBuild.previousBuild
+        while (build != null) {
+            if (build.result == 'SUCCESS') {
+                try {
+                    echo "Found a previous successful build: $build.number"
+                    copyArtifacts(projectName: env.JOB_NAME, selector: specific("$build.number"), filter: "$lastProcessedCommitFile")
+                    lastProcessedCommitHash = readFile("$lastProcessedCommitFile").trim()
+                    echo "lastProcessedCommitHash: $lastProcessedCommitHash"
+                    break
+                } catch (Exception e) {
+                    echo "No $lastProcessedCommitFile found in build $build.number. Checking earlier builds."
+                }
+            } else {
+                echo "Build $build.number was not successful. Checking earlier builds."
+            }
+            build = build.previousBuild
+        }
+
+        if (lastProcessedCommitHash == "") {
+            echo "This is the first run. Using merge base as the starting point for the diff."
+            changedFiles = sh(script: "git diff --name-only \$(git merge-base HEAD origin/$CHANGE_TARGET)", returnStdout: true).trim().split('\n').findAll{it}
+        } else {
+            echo "Processing changes since last processed commit: $lastProcessedCommitHash"
+            changedFiles = sh(script: "git diff --name-only $lastProcessedCommitHash HEAD", returnStdout: true).trim().split('\n').findAll{it}
+        }
+
+        echo "Excluded files: $excludedFiles"
+        echo "Changed files: $changedFiles"
+
+        def excludedFilesRegex = excludedFiles.collect{it.replace("**", ".*").replace("*", "[^/]*")}
+        needToRunTests = !changedFiles.every{changed -> excludedFilesRegex.any{regex -> changed ==~ regex}}
+
+        if (needToRunTests) {
+            echo "Some changed files are outside of the e2eignore list. Proceeding with execution."
+        } else {
+            echo "All changed files are e2eignore files. Aborting pipeline execution."
+        }
+
+        sh """
+            echo \$(git rev-parse HEAD) > $lastProcessedCommitFile
+        """
+        archiveArtifacts "$lastProcessedCommitFile"
+    }
+}
+
+def isPRJob = false
 if (env.CHANGE_URL) {
-    skipBranchBuilds = false
+    isPRJob = true
 }
 
 pipeline {
@@ -262,12 +319,23 @@ pipeline {
     }
     options {
         disableConcurrentBuilds(abortPrevious: true)
+        copyArtifactPermission("$JOB_NAME/PR-*")
     }
     stages {
+        stage('Check Ignore Files') {
+            when {
+                expression {
+                    isPRJob
+                }
+            }
+            steps {
+                checkE2EIgnoreFiles()
+            }
+        }
         stage('Prepare') {
             when {
                 expression {
-                    !skipBranchBuilds
+                    isPRJob && needToRunTests
                 }
             }
             steps {
@@ -322,7 +390,7 @@ EOF
         stage('Build docker image') {
             when {
                 expression {
-                    !skipBranchBuilds
+                    isPRJob && needToRunTests
                 }
             }
             steps {
@@ -349,7 +417,7 @@ EOF
         stage('GoLicenseDetector test') {
             when {
                 expression {
-                    !skipBranchBuilds
+                    isPRJob && needToRunTests
                 }
             }
             steps {
@@ -376,7 +444,7 @@ EOF
         stage('GoLicense test') {
             when {
                 expression {
-                    !skipBranchBuilds
+                    isPRJob && needToRunTests
                 }
             }
             steps {
@@ -410,7 +478,7 @@ EOF
         stage('Run tests for operator') {
             when {
                 expression {
-                    !skipBranchBuilds
+                    isPRJob && needToRunTests
                 }
             }
             options {
@@ -478,34 +546,31 @@ EOF
                         slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, ${BUILD_URL} owner: @${AUTHOR_NAME}"
                     }
                 }
-
-                if (env.CHANGE_URL && currentBuild.nextBuild == null) {
-                    for (comment in pullRequest.comments) {
-                        println("Author: ${comment.user}, Comment: ${comment.body}")
-                        if (comment.user.equals('JNKPercona')) {
-                            println("delete comment")
-                            comment.delete()
+                if (needToRunTests) {
+                    if (isPRJob && currentBuild.nextBuild == null) {
+                        for (comment in pullRequest.comments) {
+                            println("Author: ${comment.user}, Comment: ${comment.body}")
+                            if (comment.user.equals('JNKPercona')) {
+                                println("delete comment")
+                                comment.delete()
+                            }
                         }
-                    }
-                    makeReport()
-                    sh """
-                        echo "${TestsReportXML}" > TestsReport.xml
-                    """
-                    step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
-                    archiveArtifacts '*.xml'
+                        makeReport()
+                        step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
+                        archiveArtifacts '*.xml'
 
-                    unstash 'IMAGE'
-                    def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
-                    TestsReport = TestsReport + "\r\n\r\ncommit: ${env.CHANGE_URL}/commits/${env.GIT_COMMIT}\r\nimage: `${IMAGE}`\r\n"
-                    pullRequest.comment(TestsReport)
+                        unstash 'IMAGE'
+                        def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
+                        TestsReport = TestsReport + "\r\n\r\ncommit: ${env.CHANGE_URL}/commits/${env.GIT_COMMIT}\r\nimage: `${IMAGE}`\r\n"
+                        pullRequest.comment(TestsReport)
+                    }
+                    deleteOldClusters("$CLUSTER_NAME")
+                    sh """
+                        sudo docker system prune --volumes -af
+                    """
                 }
+                deleteDir()
             }
-            deleteOldClusters("$CLUSTER_NAME")
-            sh """
-                sudo docker system prune --volumes -af
-                sudo rm -rf *
-            """
-            deleteDir()
         }
     }
 }

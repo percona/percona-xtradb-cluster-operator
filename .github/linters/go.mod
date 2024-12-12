@@ -1,3 +1,3 @@
 module linters
 
-go 1.13
+go 1.23.4

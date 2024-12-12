@@ -522,19 +522,11 @@ if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 		fi
 		set -x
 
-		if [[ "$MYSQL_VERSION" =~ ^(8\.0|8\.4)$ ]]; then
-			mysqlState="startup"
-			while [[ "${mysqlState}" != "ready" ]]; do
-				mysqlState=$(tr -d '\0' < ${MYSQL_STATE_FILE})
-				echo >&2 "MySQL upgrade process in progress..."
-				sleep 1
-			done
-		fi
 		for i in {120..0}; do
 			if echo 'SELECT 1' | "${mysql[@]}" &>/dev/null; then
 				break
 			fi
-
+			echo >&2 "MySQL upgrade process in progress..."
 			sleep 1
 		done
 		if [ "$i" = 0 ]; then

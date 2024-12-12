@@ -8,6 +8,12 @@ import (
 	"strings"
 )
 
+var (
+	GitCommit string
+	GitBranch string
+	BuildTime string
+)
+
 type MySQLState string
 
 const (
@@ -56,6 +62,7 @@ func parseDatum(datum string) MySQLState {
 			"Components initialization in progress",
 			"Components initialization successful",
 			"Connection shutdown complete",
+			"Execution of SQL Commands from Init-file in progress",
 			"Execution of SQL Commands from Init-file successful",
 			"Initialization of dynamic plugins in progress",
 			"Initialization of dynamic plugins successful",
@@ -91,7 +98,8 @@ func parseDatum(datum string) MySQLState {
 }
 
 func main() {
-	log.Println("Starting mysql-state-monitor")
+	log.Println("Starting mysql-state-monitor...")
+	log.Printf("GitCommit=%s GitBranch=%s BuildTime=%s", GitCommit, GitBranch, BuildTime)
 
 	socketPath, ok := os.LookupEnv("NOTIFY_SOCKET")
 	if !ok {

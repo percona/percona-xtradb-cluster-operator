@@ -417,6 +417,14 @@ func (cr *PerconaXtraDBCluster) Validate() error {
 		return errors.Errorf("ProxySQL or HAProxy should be enabled if SmartUpdate set")
 	}
 
+	customUsers := make(map[string]int8, len(c.Users))
+	for _, user := range c.Users {
+		customUsers[user.Name]++
+		if customUsers[user.Name] > 1 {
+			return errors.Errorf("user %s is duplicated", user.Name)
+		}
+	}
+
 	return nil
 }
 

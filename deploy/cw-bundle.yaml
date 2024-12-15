@@ -166,6 +166,11 @@ spec:
                     type: string
                   storageClass:
                     type: string
+                  blockSize:
+                    format: int64
+                    type: integer
+                  concurrency:
+                    type: integer
                 type: object
               completed:
                 format: date-time
@@ -310,6 +315,11 @@ spec:
                         type: string
                       storageClass:
                         type: string
+                      blockSize:
+                        format: int64
+                        type: integer
+                      concurrency:
+                        type: integer
                     type: object
                   completed:
                     format: date-time
@@ -486,6 +496,11 @@ spec:
                             type: string
                           storageClass:
                             type: string
+                          blockSize:
+                            format: int64
+                            type: integer
+                          concurrency:
+                            type: integer
                         type: object
                       completed:
                         format: date-time
@@ -1539,6 +1554,11 @@ spec:
                               type: string
                             storageClass:
                               type: string
+                            blockSize:
+                              format: int64
+                              type: integer
+                            concurrency:
+                              type: integer
                           type: object
                         containerOptions:
                           properties:

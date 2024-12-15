@@ -13,8 +13,8 @@ IMAGE_BACKUP57=percona/percona-xtradb-cluster-operator:1.16.0-pxc2.4-backup-pxb2
 IMAGE_PROXY=percona/proxysql2:2.7.1
 IMAGE_HAPROXY=percona/haproxy:2.8.11
 IMAGE_LOGCOLLECTOR=percona/percona-xtradb-cluster-operator:1.16.0-logcollector-fluentbit3.2.2
-IMAGE_PMM_CLIENT=percona/pmm-client:2.43.2
-IMAGE_PMM_SERVER=percona/pmm-server:2.43.2
+IMAGE_PMM_CLIENT=percona/pmm-client:2.44.0
+IMAGE_PMM_SERVER=percona/pmm-server:2.44.0
 
 # Supported k8s versions
 GKE_MIN=1.28

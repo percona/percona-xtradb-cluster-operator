@@ -8,7 +8,7 @@ IMAGE_PXC80=percona/percona-xtradb-cluster:8.0.39-30.1
 IMAGE_BACKUP80=percona/percona-xtradb-cluster-operator:1.16.0-pxc8.0-backup-pxb8.0.35
 
 IMAGE_PXC57=percona/percona-xtradb-cluster:5.7.44-31.65
-IMAGE_BACKUP57=percona/percona-xtradb-cluster-operator:1.16.0-pxc2.4-backup-pxb2.4.29
+IMAGE_BACKUP57=percona/percona-xtradb-cluster-operator:1.16.0-pxc5.7-backup-pxb2.4.29
 
 IMAGE_PROXY=percona/proxysql2:2.7.1
 IMAGE_HAPROXY=percona/haproxy:2.8.11

@@ -10,7 +10,8 @@ metadata:
 #  annotations:
 #    percona.com/issue-vault-token: "true"
 spec:
-  crVersion: 1.15.0
+  crVersion: 1.16.0
+#  enableVolumeExpansion: false
 #  ignoreAnnotations:
 #    - iam.amazonaws.com/role
 #  ignoreLabels:
@@ -22,6 +23,10 @@ spec:
 #  logCollectorSecretName: cluster1-log-collector-secrets
 #  initContainer:
 #    image: perconalab/percona-xtradb-cluster-operator:main
+#    containerSecurityContext:
+#      privileged: false
+#      runAsUser: 1001
+#      runAsGroup: 1001
 #    resources:
 #      requests:
 #        memory: 100M
@@ -208,7 +213,7 @@ spec:
 #    livenessDelaySec: 600
 #    configuration: |
 #
-#    the actual default configuration file can be found here https://github.com/percona/percona-docker/blob/main/haproxy/dockerdir/etc/haproxy/haproxy-global.cfg
+#    the actual default configuration file can be found here https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/main/build/haproxy-global.cfg
 #
 #      global
 #        maxconn 2048
@@ -256,7 +261,6 @@ spec:
 #      frontend stats
 #        bind *:8404
 #        mode http
-#        option http-use-htx
 #        http-request use-service prometheus-exporter if { path /metrics }
 #    imagePullSecrets:
 #      - name: private-registry-credentials
@@ -552,9 +556,27 @@ spec:
       requests:
         memory: 100M
         cpu: 200m
+
+#  users:
+#  - name: my-user
+#    dbs:
+#    - db1
+#    - db2
+#    hosts:
+#    - localhost
+#    grants:
+#    - SELECT
+#    - DELETE
+#    - INSERT
+#    withGrantOption: true
+#    passwordSecretRef:
+#      name: my-user-pwd
+#      key: my-user-pwd-key
+#  - name: my-user-two
+
   pmm:
     enabled: false
-    image: percona/pmm-client:2.41.2
+    image: perconalab/pmm-client:dev-latest
     serverHost: monitoring-service
 #    serverUser: admin
 #    pxcParams: "--disable-tablestats-limit=2000"
@@ -569,6 +591,7 @@ spec:
 #    allowParallel: true
     image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0-backup
 #    backoffLimit: 6
+#    activeDeadlineSeconds: 3600
 #    serviceAccountName: percona-xtradb-cluster-operator
 #    imagePullSecrets:
 #      - name: private-registry-credentials

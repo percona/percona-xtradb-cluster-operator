@@ -10,7 +10,5 @@ const (
 	FinalizerDeleteProxysqlPvc    = annotationPrefix + "delete-proxysql-pvc"
 	FinalizerDeletePxcPvc         = annotationPrefix + "delete-pxc-pvc"
 	FinalizerDeleteBackup         = annotationPrefix + "delete-backup"
-
-	// TODO depricated in 1.15.0 should be deleted in 1.18.0
-	FinalizerDeleteS3Backup = annotationPrefix + "delete-s3-backup"
+	FinalizerS3DeleteBackup       = "delete-s3-backup"
 )

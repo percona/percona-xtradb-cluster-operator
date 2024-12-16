@@ -25,7 +25,7 @@ function ensure_default_sc_allows_expansion() {
 
 	local allowVolumeExpansion=$(kubectl_bin get sc -o jsonpath='{.items[?(@.metadata.name=="'"${default_sc}"'")].allowVolumeExpansion}')
 
-	if [[ "${allowVolumeExpansion}" != "true" ]]; then
+	if [[ ${allowVolumeExpansion} != "true" ]]; then
 		echo "Default storageclass ${default_sc} does not allow volume expansion"
 		exit 0
 	fi
@@ -33,14 +33,18 @@ function ensure_default_sc_allows_expansion() {
 
 function apply_resourcequota() {
 	local quota=$1
-	local default_sc=$(get_default_storageclass)
+	if [ "$EKS" == 1 -o -n "$OPENSHIFT" ]; then
+		local sc='gp2-resizable'
+	else
+		local sc=$(get_default_storageclass)
+	fi
 
-	echo "Applying resourcequota for default storageclass ${default_sc} with quota ${quota}"
+	echo "Applying resourcequota for default storageclass ${sc} with quota ${quota}"
 
-	cat ${test_dir}/conf/resourcequota.yml |
-		sed "s/STORAGECLASS/${default_sc}/" |
-		sed "s/QUOTA/${quota}/" |
-		kubectl_bin apply -f -
+	cat ${test_dir}/conf/resourcequota.yml \
+		| sed "s/STORAGECLASS/${sc}/" \
+		| sed "s/QUOTA/${quota}/" \
+		| kubectl_bin apply -f -
 }
 
 function wait_cluster_status() {
@@ -64,9 +68,46 @@ function wait_cluster_status() {
 	echo "pxc/${cluster} status is ${expected}"
 }
 
+function wait_all_pvc_resize() {
+	local expected_size=$1
+	local max_retry=${2:-120}
+	local sleep_time=${3:-5}
+
+	for pvc in $(kubectl_bin get pvc -l app.kubernetes.io/component=pxc -o name); do
+		if ! wait_pvc_resize "$pvc" "$expected_size" "$max_retry" "$sleep_time"; then
+			return 1
+		fi
+	done
+	return 0
+}
+
+function wait_pvc_resize() {
+	local pvc=$1
+	local expected_size=$2
+	local max_retry=${3:-120}
+	local sleep_time=${4:-5}
+
+	local retry=0
+	echo "Waiting for $pvc to be resized"
+	until [[ $(kubectl_bin get "$pvc" -o jsonpath='{.status.capacity.storage}') == "$expected_size" ]]; do
+		if [[ $retry -ge $max_retry ]]; then
+			echo
+			echo "$pvc was not resized, max retries exceeded"
+			return 1
+		fi
+		echo -n "."
+		sleep "$sleep_time"
+
+		retry=$((retry + 1))
+	done
+	echo
+	echo "${pvc} was resized"
+	return 0
+}
+
 set_debug
 
-if [ "$EKS" == 1 ]; then
+if [ "$EKS" == 1 -o -n "$OPENSHIFT" ]; then
 	echo "EKS environment detected, creating storageclass for EBS volumes"
 	kubectl_bin apply -f ${test_dir}/conf/eks-storageclass.yml
 else
@@ -78,7 +119,7 @@ create_infra ${namespace}
 desc 'create first PXC cluster'
 cluster="some-name"
 
-if [ "$EKS" == 1 ]; then
+if [ "$EKS" == 1 -o -n "$OPENSHIFT" ]; then
 	spinup_pxc "${cluster}" "$test_dir/conf/$cluster-eks.yml" "3" "10" "${conf_dir}/secrets.yml"
 else
 	spinup_pxc "${cluster}" "$test_dir/conf/$cluster.yml" "3" "10" "${conf_dir}/secrets.yml"
@@ -86,34 +127,30 @@ fi
 
 desc "test scaling"
 
-patch_pvc_request "${cluster}" "3Gi"
+patch_pvc_request "${cluster}" "3G"
 wait_cluster_consistency "$cluster" 3 2
 
-for pvc in $(kubectl_bin get pvc -l app.kubernetes.io/component=pxc -o name); do
-	retry=0
-	echo -n "Waiting for ${pvc} to be resized"
-	until [[ $(kubectl_bin get ${pvc} -o jsonpath={.status.capacity.storage}) == "3Gi" ]]; do
-		if [[ $retry -ge 60 ]]; then
-			echo
-			echo "pvc/${pvc} was not resized, max retries exceeded"
-			exit 1
-		fi
+if wait_all_pvc_resize "3Gi" 120 1; then
+	echo "PVC was resized, but resize.expansion is disabled"
+	exit 1
+fi
 
-		echo -n "."
-		sleep 5
+echo "Enabling PVC resize"
+kubectl_bin patch pxc "${cluster}" --type=json -p='[{"op": "add", "path": "/spec/enableVolumeExpansion", "value":true }]'
+sleep 10
 
-		retry=$((retry + 1))
-	done
-	echo
-	echo "${pvc} was resized"
-done
+wait_cluster_consistency "$cluster" 3 2
+wait_all_pvc_resize "3Gi"
 
-if [ "$EKS" == 1 ]; then
+if [ "$EKS" == 1 -o -n "$OPENSHIFT" ]; then
 	# EKS rate limits PVC expansion for the same EBS volume (1 expand operation in every 6 hours),
 	# so we need to delete and recreate the cluster
 	echo "Deleting and recreating PXC cluster ${cluster}"
 	kubectl_bin delete pxc ${cluster}
 	spinup_pxc "${cluster}" "$test_dir/conf/$cluster-eks.yml" "3" "10" "${conf_dir}/secrets.yml"
+	echo "Enabling PVC resize for 2nd eks/openshift cluster"
+	kubectl_bin patch pxc "${cluster}" --type=json -p='[{"op": "add", "path": "/spec/enableVolumeExpansion", "value":true }]'
+	sleep 10
 fi
 
 desc 'create resourcequota'
@@ -122,56 +159,29 @@ desc 'create resourcequota'
 # the others should fail to resize due to the exceeded quota but operator should
 # handle the error and keep the cluster ready
 apply_resourcequota 10Gi
-patch_pvc_request "${cluster}" "4Gi"
+patch_pvc_request "${cluster}" "4G"
 wait_cluster_consistency "$cluster" 3 2
 echo
 
-echo -n "Waiting for pvc/datadir-some-name-pxc-0 to be resized"
-until [[ $(kubectl_bin get pvc datadir-some-name-pxc-0 -o jsonpath={.status.capacity.storage}) == "4Gi" ]]; do
-	if [[ $retry -ge 60 ]]; then
-		echo
-		echo "pvc/datadir-some-name-pxc-0 was not resized, max retries exceeded"
-		exit 1
-	fi
-	echo -n "."
-	sleep 5
-
-	retry=$((retry + 1))
-done
-echo
+echo "Waiting for pvc/datadir-some-name-pxc-0 to be resized"
+wait_pvc_resize "persistentvolumeclaim/datadir-some-name-pxc-0" "4Gi"
 echo "pvc/datadir-some-name-pxc-0 was resized"
 
 # We're setting the quota to 16Gi, so we can resize all PVCs to 4Gi
 apply_resourcequota 12Gi
-patch_pvc_request "${cluster}" "4Gi"
+patch_pvc_request "${cluster}" "4G"
 wait_cluster_consistency "$cluster" 3 2
 echo
-for pvc in $(kubectl_bin get pvc -l app.kubernetes.io/component=pxc -o name); do
-	retry=0
-	echo -n "Waiting for pvc/${pvc} to be resized"
-	until [[ $(kubectl_bin get ${pvc} -o jsonpath={.status.capacity.storage}) == "4Gi" ]]; do
-		if [[ $retry -ge 60 ]]; then
-			echo
-			echo "pvc/${pvc} was not resized, max retries exceeded"
-			exit 1
-		fi
-		echo -n "."
-		sleep 5
-
-		retry=$((retry + 1))
-	done
-	echo
-	echo "pvc/${pvc} was resized"
-done
+wait_all_pvc_resize "4Gi"
 
 desc "test downscale"
 
 # operator shouldn't try to downscale the PVCs and set status to error
-patch_pvc_request "${cluster}" "1Gi"
+patch_pvc_request "${cluster}" "1G"
 wait_cluster_status ${cluster} "error"
 
 # user should be able to restore to the previous size and make the cluster ready
-patch_pvc_request "${cluster}" "4Gi"
+patch_pvc_request "${cluster}" "4G"
 wait_cluster_status ${cluster} "ready"
 
 destroy "${namespace}"

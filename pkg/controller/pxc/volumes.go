@@ -2,6 +2,7 @@ package pxc
 
 import (
 	"context"
+	"math"
 	"slices"
 	"strings"
 	"time"
@@ -20,7 +21,12 @@ import (
 
 	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
+)
+
+const (
+	GiB = int64(1024 * 1024 * 1024)
 )
 
 func validatePVCName(pvc corev1.PersistentVolumeClaim, sts *appsv1.StatefulSet) bool {
@@ -31,14 +37,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcilePersistentVolumes(ctx context.C
 	pxcSet := statefulset.NewNode(cr)
 	sts := pxcSet.StatefulSet()
 
-	ls := map[string]string{
-		"app.kubernetes.io/component":  "pxc",
-		"app.kubernetes.io/instance":   cr.Name,
-		"app.kubernetes.io/managed-by": "percona-xtradb-cluster-operator",
-		"app.kubernetes.io/name":       "percona-xtradb-cluster",
-		"app.kubernetes.io/part-of":    "percona-xtradb-cluster",
-	}
-
+	ls := naming.LabelsPXC(cr)
 	log := logf.FromContext(ctx).WithName("PVCResize").WithValues("sts", sts.Name)
 
 	pvcList := &corev1.PersistentVolumeClaimList{}
@@ -57,6 +56,10 @@ func (r *ReconcilePerconaXtraDBCluster) reconcilePersistentVolumes(ctx context.C
 	podList := corev1.PodList{}
 	if err := r.client.List(ctx, &podList, client.InNamespace(cr.Namespace), client.MatchingLabels(ls)); err != nil {
 		return errors.Wrap(err, "list pods")
+	}
+
+	if len(podList.Items) < int(cr.Spec.PXC.Size) {
+		return nil
 	}
 
 	podNames := make([]string, 0, len(podList.Items))
@@ -120,13 +123,12 @@ func (r *ReconcilePerconaXtraDBCluster) reconcilePersistentVolumes(ctx context.C
 
 	configured := volumeTemplate.Spec.Resources.Requests[corev1.ResourceStorage]
 	requested := cr.Spec.PXC.VolumeSpec.PersistentVolumeClaim.Resources.Requests[corev1.ResourceStorage]
-
-	if requested.Format == resource.DecimalSI {
-		requested, err = resource.ParseQuantity(requested.String() + "i")
-		if err != nil {
-			return errors.Wrap(err, "parse requested storage size")
-		}
+	gib, err := RoundUpGiB(requested.Value())
+	if err != nil {
+		return errors.Wrap(err, "round GiB value")
 	}
+
+	requested = *resource.NewQuantity(gib*GiB, resource.BinarySI)
 
 	if cr.PVCResizeInProgress() {
 		resizeStartedAt, err := time.Parse(time.RFC3339, cr.GetAnnotations()[pxcv1.AnnotationPVCResizeInProgress])
@@ -212,13 +214,21 @@ func (r *ReconcilePerconaXtraDBCluster) reconcilePersistentVolumes(ctx context.C
 
 			return nil
 		}
+
+		log.Info("PVC resize in progress", "updated", updatedPVCs, "remaining", len(pvcsToUpdate)-updatedPVCs)
 	}
 
 	if requested.Cmp(actual) < 0 {
 		return errors.Errorf("requested storage (%s) is less than actual storage (%s)", requested.String(), actual.String())
 	}
 
-	if requested.Cmp(configured) == 0 || requested.Cmp(actual) == 0 {
+	if requested.Cmp(actual) == 0 {
+		return nil
+	}
+
+	if !cr.Spec.VolumeExpansionEnabled {
+		// If expansion is disabled we should keep the old value
+		cr.Spec.PXC.VolumeSpec.PersistentVolumeClaim.Resources.Requests[corev1.ResourceStorage] = configured
 		return nil
 	}
 
@@ -296,4 +306,21 @@ func (r *ReconcilePerconaXtraDBCluster) revertVolumeTemplate(ctx context.Context
 	}
 
 	return nil
+}
+
+func roundUpSize(volumeSizeBytes int64, allocationUnitBytes int64) int64 {
+	if allocationUnitBytes == 0 {
+		return 0 // Avoid division by zero
+	}
+	return (volumeSizeBytes + allocationUnitBytes - 1) / allocationUnitBytes
+}
+
+// RoundUpGiB rounds up the volume size in bytes upto multiplications of GiB
+// in the unit of GiB
+func RoundUpGiB(volumeSizeBytes int64) (int64, error) {
+	result := roundUpSize(volumeSizeBytes, GiB)
+	if result > int64(math.MaxInt64) {
+		return 0, errors.Errorf("rounded up size exceeds maximum value of int64: %d", result)
+	}
+	return result, nil
 }

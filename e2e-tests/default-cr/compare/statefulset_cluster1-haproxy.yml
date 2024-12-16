@@ -40,7 +40,11 @@ spec:
                   app.kubernetes.io/part-of: percona-xtradb-cluster
               topologyKey: kubernetes.io/hostname
       containers:
-        - env:
+        - args:
+            - haproxy
+          command:
+            - /opt/percona/haproxy-entrypoint.sh
+          env:
             - name: PXC_SERVICE
               value: cluster1-pxc
             - name: LIVENESS_CHECK_TIMEOUT
@@ -55,7 +59,7 @@ spec:
           livenessProbe:
             exec:
               command:
-                - /usr/local/bin/liveness-check.sh
+                - /opt/percona/haproxy_liveness_check.sh
             failureThreshold: 4
             initialDelaySeconds: 60
             periodSeconds: 30
@@ -81,7 +85,7 @@ spec:
           readinessProbe:
             exec:
               command:
-                - /usr/local/bin/readiness-check.sh
+                - /opt/percona/haproxy_readiness_check.sh
             failureThreshold: 3
             initialDelaySeconds: 15
             periodSeconds: 5
@@ -98,17 +102,23 @@ spec:
               name: haproxy-custom
             - mountPath: /etc/haproxy/pxc
               name: haproxy-auto
+            - mountPath: /opt/percona
+              name: bin
             - mountPath: /etc/mysql/mysql-users-secret
               name: mysql-users-secret-file
             - mountPath: /etc/mysql/haproxy-env-secret
               name: cluster1-env-vars-haproxy
         - args:
-            - /usr/bin/peer-list
-            - -on-change=/usr/bin/add_pxc_nodes.sh
+            - /opt/percona/peer-list
+            - -on-change=/opt/percona/haproxy_add_pxc_nodes.sh
             - -service=$(PXC_SERVICE)
+          command:
+            - /opt/percona/haproxy-entrypoint.sh
           env:
             - name: PXC_SERVICE
               value: cluster1-pxc
+            - name: REPLICAS_SVC_ONLY_READERS
+              value: "false"
           envFrom:
             - secretRef:
                 name: cluster1-env-vars-haproxy
@@ -127,6 +137,8 @@ spec:
               name: mysql-users-secret-file
             - mountPath: /etc/mysql/haproxy-env-secret
               name: cluster1-env-vars-haproxy
+            - mountPath: /opt/percona
+              name: bin
       dnsPolicy: ClusterFirst
       initContainers:
         - command:
@@ -141,6 +153,19 @@ spec:
           terminationMessagePolicy: File
           volumeMounts:
             - mountPath: /var/lib/mysql
+              name: bin
+        - command:
+            - /haproxy-init-entrypoint.sh
+          imagePullPolicy: Always
+          name: haproxy-init
+          resources:
+            limits:
+              cpu: 50m
+              memory: 50M
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /opt/percona
               name: bin
       restartPolicy: Always
       schedulerName: default-scheduler

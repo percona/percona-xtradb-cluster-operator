@@ -47,9 +47,10 @@ type PerconaXtraDBClusterBackup struct {
 }
 
 type PXCBackupSpec struct {
-	PXCCluster       string                  `json:"pxcCluster"`
-	StorageName      string                  `json:"storageName,omitempty"`
-	ContainerOptions *BackupContainerOptions `json:"containerOptions,omitempty"`
+	PXCCluster            string                  `json:"pxcCluster"`
+	StorageName           string                  `json:"storageName,omitempty"`
+	ContainerOptions      *BackupContainerOptions `json:"containerOptions,omitempty"`
+	ActiveDeadlineSeconds *int64                  `json:"activeDeadlineSeconds,omitempty"`
 }
 
 type PXCBackupStatus struct {
@@ -136,7 +137,7 @@ func (status *PXCBackupStatus) GetStorageType(cluster *PerconaXtraDBCluster) Bac
 		return status.StorageType
 	}
 
-	if cluster != nil {
+	if cluster != nil && cluster.Spec.Backup != nil {
 		storage, ok := cluster.Spec.Backup.Storages[status.StorageName]
 		if ok {
 			return storage.Type

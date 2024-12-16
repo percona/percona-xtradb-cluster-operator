@@ -15,10 +15,10 @@ CFG=/etc/mysql/node.cnf
 wantHelp=
 for arg; do
 	case "$arg" in
-		-'?' | --help | --print-defaults | -V | --version)
-			wantHelp=1
-			break
-			;;
+	-'?' | --help | --print-defaults | -V | --version)
+		wantHelp=1
+		break
+		;;
 	esac
 done
 
@@ -58,21 +58,21 @@ process_init_file() {
 	local mysql=("$@")
 
 	case "$f" in
-		*.sh)
-			echo "$0: running $f"
-			. "$f"
-			;;
-		*.sql)
-			echo "$0: running $f"
-			"${mysql[@]}" <"$f"
-			echo
-			;;
-		*.sql.gz)
-			echo "$0: running $f"
-			gunzip -c "$f" | "${mysql[@]}"
-			echo
-			;;
-		*) echo "$0: ignoring $f" ;;
+	*.sh)
+		echo "$0: running $f"
+		. "$f"
+		;;
+	*.sql)
+		echo "$0: running $f"
+		"${mysql[@]}" <"$f"
+		echo
+		;;
+	*.sql.gz)
+		echo "$0: running $f"
+		gunzip -c "$f" | "${mysql[@]}"
+		echo
+		;;
+	*) echo "$0: ignoring $f" ;;
 	esac
 	echo
 }
@@ -97,8 +97,8 @@ _check_config() {
 _get_config() {
 	local conf="$1"
 	shift
-	"$@" --verbose --help --wsrep-provider='none' --log-bin-index="$(mktemp -u)" 2>/dev/null \
-		| awk '$1 == "'"$conf"'" && /^[^ \t]/ { sub(/^[^ \t]+[ \t]+/, ""); print; exit }'
+	"$@" --verbose --help --wsrep-provider='none' --log-bin-index="$(mktemp -u)" 2>/dev/null |
+		awk '$1 == "'"$conf"'" && /^[^ \t]/ { sub(/^[^ \t]+[ \t]+/, ""); print; exit }'
 	# match "datadir      /some/path with/spaces in/it here" but not "--xyz=abc\n     datadir (xyz)"
 }
 
@@ -109,11 +109,11 @@ _get_cnf_config() {
 	local reval=""
 
 	reval=$(
-		my_print_defaults "${group}" \
-			| awk -F= '{st=index($0,"="); cur=$0; if ($1 ~ /_/) { gsub(/_/,"-",$1);} if (st != 0) { print $1"="substr(cur,st+1) } else { print cur }}' \
-			| grep -- "--$var=" \
-			| cut -d= -f2- \
-			| tail -1
+		my_print_defaults "${group}" |
+			awk -F= '{st=index($0,"="); cur=$0; if ($1 ~ /_/) { gsub(/_/,"-",$1);} if (st != 0) { print $1"="substr(cur,st+1) } else { print cur }}' |
+			grep -- "--$var=" |
+			cut -d= -f2- |
+			tail -1
 	)
 
 	if [[ -z $reval ]]; then
@@ -150,10 +150,10 @@ function join {
 
 escape_special() {
 	{ set +x; } 2>/dev/null
-	echo "$1" \
-		| sed 's/\\/\\\\/g' \
-		| sed 's/'\''/'\\\\\''/g' \
-		| sed 's/"/\\\"/g'
+	echo "$1" |
+		sed 's/\\/\\\\/g' |
+		sed 's/'\''/'\\\\\''/g' |
+		sed 's/"/\\\"/g'
 }
 
 MYSQL_VERSION=$(mysqld -V | awk '{print $3}' | awk -F'.' '{print $1"."$2}')
@@ -165,7 +165,7 @@ if [ -f "$vault_secret" ]; then
 	sed -i "/\[mysqld\]/a early-plugin-load=keyring_vault.so" $CFG
 	sed -i "/\[mysqld\]/a keyring_vault_config=$vault_secret" $CFG
 
-	if [ "$MYSQL_VERSION" == '8.0' ]; then
+	if [[ "$MYSQL_VERSION" =~ ^(8\.0|8\.4)$ ]]; then
 		sed -i "/\[mysqld\]/a default_table_encryption=ON" $CFG
 		sed -i "/\[mysqld\]/a table_encryption_privilege_check=ON" $CFG
 		sed -i "/\[mysqld\]/a innodb_undo_log_encrypt=ON" $CFG
@@ -188,19 +188,19 @@ fi
 # add sst.cpat to exclude pxc-entrypoint, unsafe-bootstrap, pxc-configure-pxc from SST cleanup
 grep -q "^progress=" $CFG && sed -i "s|^progress=.*|progress=1|" $CFG
 grep -q "^\[sst\]" "$CFG" || printf '[sst]\n' >>"$CFG"
-grep -q "^cpat=" "$CFG" || sed '/^\[sst\]/a cpat=.*\\.pem$\\|.*init\\.ok$\\|.*galera\\.cache$\\|.*wsrep_recovery_verbose\\.log$\\|.*readiness-check\\.sh$\\|.*liveness-check\\.sh$\\|.*get-pxc-state$\\|.*sst_in_progress$\\|.*sleep-forever$\\|.*pmm-prerun\\.sh$\\|.*sst-xb-tmpdir$\\|.*\\.sst$\\|.*gvwstate\\.dat$\\|.*grastate\\.dat$\\|.*\\.err$\\|.*\\.log$\\|.*RPM_UPGRADE_MARKER$\\|.*RPM_UPGRADE_HISTORY$\\|.*pxc-entrypoint\\.sh$\\|.*unsafe-bootstrap\\.sh$\\|.*pxc-configure-pxc\\.sh\\|.*peer-list$\\|.*auth_plugin$\\|.*version_info$' "$CFG" 1<>"$CFG"
-if [[ $MYSQL_VERSION == '8.0' ]]; then
-	if [[ $MYSQL_PATCH_VERSION -ge 26 ]]; then
-		grep -q "^skip_replica_start=ON" "$CFG" || sed -i "/\[mysqld\]/a skip_replica_start=ON" $CFG
-	else
-		grep -q "^skip_slave_start=ON" "$CFG" || sed -i "/\[mysqld\]/a skip_slave_start=ON" $CFG
-	fi
+grep -q "^cpat=" "$CFG" || sed '/^\[sst\]/a cpat=.*\\.pem$\\|.*init\\.ok$\\|.*galera\\.cache$\\|.*wsrep_recovery_verbose\\.log$\\|.*readiness-check\\.sh$\\|.*liveness-check\\.sh$\\|.*get-pxc-state$\\|.*sst_in_progress$\\|.*sleep-forever$\\|.*pmm-prerun\\.sh$\\|.*sst-xb-tmpdir$\\|.*\\.sst$\\|.*gvwstate\\.dat$\\|.*grastate\\.dat$\\|.*\\.err$\\|.*\\.log$\\|.*RPM_UPGRADE_MARKER$\\|.*RPM_UPGRADE_HISTORY$\\|.*pxc-entrypoint\\.sh$\\|.*unsafe-bootstrap\\.sh$\\|.*pxc-configure-pxc\\.sh\\|.*peer-list$\\|.*auth_plugin$\\|.*version_info$\\|.*mysql-state-monitor$\\|.*mysql-state-monitor\\.log$\\|.*notify\\.sock$\\|.*mysql\\.state$' "$CFG" 1<>"$CFG"
+
+if [[ $MYSQL_VERSION == '8.0' && $MYSQL_PATCH_VERSION -ge 26 ]] || [[ $MYSQL_VERSION == '8.4' ]]; then
+	grep -q "^skip_replica_start=ON" "$CFG" || sed -i "/\[mysqld\]/a skip_replica_start=ON" $CFG
+else
+	grep -q "^skip_slave_start=ON" "$CFG" || sed -i "/\[mysqld\]/a skip_slave_start=ON" $CFG
 fi
 
 auth_plugin=${DEFAULT_AUTHENTICATION_PLUGIN}
 if [[ -f /var/lib/mysql/auth_plugin ]]; then
 	prev_auth_plugin=$(cat /var/lib/mysql/auth_plugin)
 	if [[ ${prev_auth_plugin} != "mysql_native_password" && ${auth_plugin} == "mysql_native_password" ]]; then
+		set +o xtrace
 		echo "FATAL: It's forbidden to switch from ${prev_auth_plugin} to ${auth_plugin}."
 		echo "If ProxySQL is enabled operator uses mysql_native_password since it doesn't work with caching_sha2_password."
 		echo "Using caching_sha2_password will break frontend connections in ProxySQL."
@@ -219,7 +219,7 @@ fi
 echo "${auth_plugin}" >/var/lib/mysql/auth_plugin
 
 sed -i "/default_authentication_plugin/d" $CFG
-if [[ $MYSQL_VERSION == '8.0' && $MYSQL_PATCH_VERSION -ge 27 ]]; then
+if [[ $MYSQL_VERSION == '8.0' && $MYSQL_PATCH_VERSION -ge 27 ]] || [[ $MYSQL_VERSION == "8.4" ]]; then
 	sed -i "/\[mysqld\]/a authentication_policy=${auth_plugin},," $CFG
 else
 	sed -i "/\[mysqld\]/a default_authentication_plugin=${auth_plugin}" $CFG
@@ -293,9 +293,13 @@ if [[ -z ${WSREP_CLUSTER_NAME} || ${WSREP_CLUSTER_NAME} == 'noname' ]]; then
 	exit 1
 fi
 
+if [[ -n ${MYSQL_NOTIFY_SOCKET} && ${MYSQL_VERSION} =~ ^(8\.0|8\.4)$ ]]; then
+	export NOTIFY_SOCKET=${MYSQL_NOTIFY_SOCKET}
+	nohup /var/lib/mysql/mysql-state-monitor >/var/lib/mysql/mysql-state-monitor.log 2>&1 < /dev/null &
+fi
+
 # if we have CLUSTER_JOIN - then we do not need to perform datadir initialize
 # the data will be copied from another node
-
 if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 	# still need to check config, container may have started with --user
 	_check_config "$@"
@@ -323,7 +327,11 @@ if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 		echo 'Initializing database'
 		# we initialize database into $TMPDIR because "--initialize-insecure" option does not work if directory is not empty
 		# in some cases storage driver creates unremovable artifacts (see K8SPXC-286), so $DATADIR cleanup is not possible
-		"$@" --initialize-insecure --skip-ssl --datadir="$TMPDIR"
+		if [[ $MYSQL_VERSION == "8.4" ]]; then
+			"$@" --initialize-insecure --datadir="$TMPDIR"
+		else
+			"$@" --initialize-insecure --skip-ssl --datadir="$TMPDIR"
+		fi
 		mv "$TMPDIR"/* "$DATADIR/"
 		rm -rfv "$TMPDIR"
 		echo 'Database initialized'
@@ -342,7 +350,7 @@ if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 			if [ "$wsrep_local_state" = 'Synced' ]; then
 				break
 			fi
-			echo 'MySQL init process in progress...'
+			echo >&2 "MySQL init process in progress..."
 			sleep 1
 		done
 		if [ "$i" = 0 ]; then
@@ -381,7 +389,7 @@ if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 		file_env 'MONITOR_HOST' 'localhost'
 		file_env 'MONITOR_PASSWORD' 'monitor' 'monitor'
 		file_env 'REPLICATION_PASSWORD' 'replication' 'replication'
-		if [ "$MYSQL_VERSION" == '8.0' ]; then
+		if [[ "$MYSQL_VERSION" =~ ^(8\.0|8\.4)$ ]]; then
 			read -r -d '' monitorConnectGrant <<-EOSQL || true
 				GRANT SERVICE_CONNECTION_ADMIN ON *.* TO 'monitor'@'${MONITOR_HOST}';
 			EOSQL
@@ -389,7 +397,7 @@ if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 
 		# SYSTEM_USER since 8.0.16
 		# https://dev.mysql.com/doc/refman/8.0/en/privileges-provided.html#priv_system-user
-		if [[ $MYSQL_VERSION == "8.0" ]] && ((MYSQL_PATCH_VERSION >= 16)); then
+		if [[ $MYSQL_VERSION == "8.0" ]] && ((MYSQL_PATCH_VERSION >= 16)) || [[ $MYSQL_VERSION == "8.4" ]]; then
 			read -r -d '' systemUserGrant <<-EOSQL || true
 				GRANT SYSTEM_USER ON *.* TO 'monitor'@'${MONITOR_HOST}';
 			EOSQL
@@ -496,12 +504,11 @@ if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 	pxc_version=''
 	if [ -f "$DATADIR/version_info" ]; then
 		pxc_version_file="$DATADIR/version_info"
-		pxc_version=$(cat $pxc_version_file | awk '{print $3}')
+		pxc_version=$(cat "$pxc_version_file" | awk '{print $3}')
 	elif [ -f "$DATADIR/xtrabackup_info" ]; then
 		pxc_version_file="$DATADIR/xtrabackup_info"
-		pxc_version=$(grep 'server_version' $pxc_version_file | awk '{print $3}' | tr -d '\n')
+		pxc_version=$(grep 'server_version' "$pxc_version_file" | awk '{print $3}' | tr -d '\n')
 	fi
-
 
 	if [[ -f $pxc_version_file && -n $pxc_version && $MYSQL_VERSION == '5.7' ]] && [[ $(cat /tmp/version_info) != $pxc_version ]]; then
 		SOCKET="$(_get_config 'socket' "$@")"
@@ -519,17 +526,17 @@ if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 			if echo 'SELECT 1' | "${mysql[@]}" &>/dev/null; then
 				break
 			fi
-			echo 'MySQL init process in progress...'
+			echo >&2 "MySQL upgrade process in progress..."
 			sleep 1
 		done
 		if [ "$i" = 0 ]; then
-			echo >&2 'MySQL init process failed.'
+			echo >&2 'MySQL upgrade process failed.'
 			exit 1
 		fi
 
 		mysql_upgrade --force "${mysql[@]:1}"
 		if ! kill -s TERM "$pid" || ! wait "$pid"; then
-			echo >&2 'MySQL init process failed.'
+			echo >&2 'MySQL upgrade process failed.'
 			exit 1
 		fi
 	fi
@@ -571,9 +578,9 @@ if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 		cat "$wsrep_verbose_logfile" | tee -a "$DATADIR/wsrep_recovery_verbose_history.log"
 		if grep ' Recovered position:' "$wsrep_verbose_logfile"; then
 			start_pos="$(
-				grep ' Recovered position:' "$wsrep_verbose_logfile" \
-					| sed 's/.*\ Recovered\ position://' \
-					| sed 's/^[ \t]*//'
+				grep ' Recovered position:' "$wsrep_verbose_logfile" |
+					sed 's/.*\ Recovered\ position://' |
+					sed 's/^[ \t]*//'
 			)"
 			wsrep_start_position_opt="--wsrep_start_position=$start_pos"
 			seqno=$(echo "$start_pos" | awk -F':' '{print $NF}' || :)
@@ -590,11 +597,11 @@ if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 	fi
 	if [ -n "$PXC_SERVICE" ]; then
 		function get_primary() {
-			/var/lib/mysql/peer-list -on-start=/var/lib/mysql/get-pxc-state -service="$PXC_SERVICE" 2>&1 \
-				| grep wsrep_ready:ON:wsrep_connected:ON:wsrep_local_state_comment:Synced:wsrep_cluster_status:Primary \
-				| sort \
-				| tail -1 \
-				|| true
+			/var/lib/mysql/peer-list -on-start=/var/lib/mysql/get-pxc-state -service="$PXC_SERVICE" 2>&1 |
+				grep wsrep_ready:ON:wsrep_connected:ON:wsrep_local_state_comment:Synced:wsrep_cluster_status:Primary |
+				sort |
+				tail -1 ||
+				true
 		}
 		function node_recovery() {
 			set -o xtrace
@@ -624,9 +631,9 @@ if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 
 		is_primary_exists=$(get_primary)
 		is_manual_recovery
-		if [[ -z $is_primary_exists && -f $grastate_loc && $safe_to_bootstrap != 1 ]] \
-			|| [[ -z $is_primary_exists && -f "${DATADIR}/gvwstate.dat" ]] \
-			|| [[ -z $is_primary_exists && -f $grastate_loc && $safe_to_bootstrap == 1 && -n ${CLUSTER_JOIN} ]]; then
+		if [[ -z $is_primary_exists && -f $grastate_loc && $safe_to_bootstrap != 1 ]] ||
+			[[ -z $is_primary_exists && -f "${DATADIR}/gvwstate.dat" ]] ||
+			[[ -z $is_primary_exists && -f $grastate_loc && $safe_to_bootstrap == 1 && -n ${CLUSTER_JOIN} ]]; then
 			trap '{ node_recovery "$@" ; }' USR1
 			touch /tmp/recovery-case
 			if [[ -z ${seqno} ]]; then

@@ -106,8 +106,8 @@ CONNECTIONS=$(run_mysql \
 	'SELECT @@max_connections;' \
 	"-h $cluster-pxc -uroot -proot_password")
 
-if [[ ${INNODB_SIZE} != 805306368 ]]; then
-	echo "with-template-transform: innodb_buffer_pool_size ${INNODB_SIZE} should be 805306368"
+if [[ ${INNODB_SIZE} != 3221225472 ]]; then
+	echo "with-template-transform: innodb_buffer_pool_size ${INNODB_SIZE} should be 3221225472"
 	exit 1
 fi
 

@@ -10,6 +10,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
@@ -18,15 +19,12 @@ import (
 )
 
 func (*Backup) Job(cr *api.PerconaXtraDBClusterBackup, cluster *api.PerconaXtraDBCluster) *batchv1.Job {
-	// Copy from the original labels to the backup labels
-	labels := make(map[string]string)
-	for key, value := range cluster.Spec.Backup.Storages[cr.Spec.StorageName].Labels {
-		labels[key] = value
+	labelKeyBackupType := "type"
+	if cluster.CompareVersionWith("1.16.0") >= 0 {
+		labelKeyBackupType = naming.LabelPerconaBackupType
 	}
-	labels["type"] = "xtrabackup"
-	labels["cluster"] = cr.Spec.PXCCluster
-	labels["backup-name"] = cr.Name
-	labels["job-name"] = GenName63(cr)
+
+	jobName := naming.BackupJobName(cr.Name, cr.Labels[labelKeyBackupType] == "cron")
 
 	return &batchv1.Job{
 		TypeMeta: metav1.TypeMeta{
@@ -34,9 +32,9 @@ func (*Backup) Job(cr *api.PerconaXtraDBClusterBackup, cluster *api.PerconaXtraD
 			Kind:       "Job",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        labels["job-name"],
+			Name:        jobName,
 			Namespace:   cr.Namespace,
-			Labels:      labels,
+			Labels:      naming.LabelsBackupJob(cr, cluster, jobName),
 			Annotations: cluster.Spec.Backup.Storages[cr.Spec.StorageName].Annotations,
 		},
 	}
@@ -47,6 +45,14 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, cluster *api.PerconaXtraDBClu
 	backoffLimit := int32(10)
 	if cluster.CompareVersionWith("1.11.0") >= 0 && cluster.Spec.Backup.BackoffLimit != nil {
 		backoffLimit = *cluster.Spec.Backup.BackoffLimit
+	}
+	var activeDeadlineSeconds *int64
+	if cluster.CompareVersionWith("1.16.0") >= 0 {
+		if spec.ActiveDeadlineSeconds != nil {
+			activeDeadlineSeconds = spec.ActiveDeadlineSeconds
+		} else if cluster.Spec.Backup.ActiveDeadlineSeconds != nil {
+			activeDeadlineSeconds = cluster.Spec.Backup.ActiveDeadlineSeconds
+		}
 	}
 	verifyTLS := true
 	storage := cluster.Spec.Backup.Storages[spec.StorageName]
@@ -95,12 +101,13 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, cluster *api.PerconaXtraDBClu
 			},
 		)
 
-		initContainers = append(initContainers, statefulset.BackupInitContainer(cluster, storage.Resources, initImage, storage.ContainerSecurityContext))
+		initContainers = append(initContainers, statefulset.BackupInitContainer(cluster, initImage, storage.ContainerSecurityContext))
 	}
 
 	return batchv1.JobSpec{
-		BackoffLimit:   &backoffLimit,
-		ManualSelector: &manualSelector,
+		ActiveDeadlineSeconds: activeDeadlineSeconds,
+		BackoffLimit:          &backoffLimit,
+		ManualSelector:        &manualSelector,
 		Selector: &metav1.LabelSelector{
 			MatchLabels: job.Labels,
 		},

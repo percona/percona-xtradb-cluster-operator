@@ -5,13 +5,7 @@ import (
 	"context"
 	"crypto/sha1"
 	"encoding/hex"
-	"fmt"
-	"hash/crc32"
-	"strconv"
 	"strings"
-	"time"
-
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 
 	"github.com/pkg/errors"
 	"github.com/robfig/cron/v3"
@@ -25,6 +19,7 @@ import (
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/deployment"
 )
 
@@ -117,7 +112,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(ctx context.Context, cr
 		}
 		if spec, ok := backups[item.Name]; ok {
 			if spec.Keep > 0 {
-				oldjobs, err := r.oldScheduledBackups(cr, item.Name, spec.Keep)
+				oldjobs, err := r.oldScheduledBackups(ctx, cr, item.Name, spec.Keep)
 				if err != nil {
 					log.Error(err, "failed to list old backups", "name", item.Name)
 					return true
@@ -149,15 +144,15 @@ func backupJobClusterPrefix(clusterName string) string {
 }
 
 // oldScheduledBackups returns list of the most old pxc-bakups that execeed `keep` limit
-func (r *ReconcilePerconaXtraDBCluster) oldScheduledBackups(cr *api.PerconaXtraDBCluster, ancestor string, keep int) ([]api.PerconaXtraDBClusterBackup, error) {
+func (r *ReconcilePerconaXtraDBCluster) oldScheduledBackups(ctx context.Context, cr *api.PerconaXtraDBCluster, ancestor string, keep int) ([]api.PerconaXtraDBClusterBackup, error) {
 	bcpList := api.PerconaXtraDBClusterBackupList{}
-	err := r.client.List(context.TODO(),
+	err := r.client.List(ctx,
 		&bcpList,
 		&client.ListOptions{
 			Namespace: cr.Namespace,
 			LabelSelector: labels.SelectorFromSet(map[string]string{
-				"cluster":  cr.Name,
-				"ancestor": ancestor,
+				naming.LabelPerconaClusterName:        cr.Name,
+				naming.LabelPerconaBackupAncestorName: ancestor,
 			}),
 		},
 	)
@@ -199,7 +194,7 @@ func (r *ReconcilePerconaXtraDBCluster) createBackupJob(ctx context.Context, cr 
 	switch storageType {
 	case api.BackupStorageS3, api.BackupStorageAzure:
 		if cr.CompareVersionWith("1.15.0") < 0 {
-			fins = append(fins, naming.FinalizerDeleteS3Backup)
+			fins = append(fins, naming.FinalizerS3DeleteBackup)
 		} else {
 			fins = append(fins, naming.FinalizerDeleteBackup)
 		}
@@ -219,12 +214,8 @@ func (r *ReconcilePerconaXtraDBCluster) createBackupJob(ctx context.Context, cr 
 			ObjectMeta: metav1.ObjectMeta{
 				Finalizers: fins,
 				Namespace:  cr.Namespace,
-				Name:       generateBackupName(cr, backupJob.StorageName) + "-" + strconv.FormatUint(uint64(crc32.ChecksumIEEE([]byte(backupJob.Schedule))), 32)[:5],
-				Labels: map[string]string{
-					"ancestor": backupJob.Name,
-					"cluster":  cr.Name,
-					"type":     "cron",
-				},
+				Name:       naming.ScheduledBackupName(cr.Name, backupJob.StorageName, backupJob.Schedule),
+				Labels:     naming.LabelsScheduledBackup(cr, backupJob.Name),
 			},
 			Spec: api.PXCBackupSpec{
 				PXCCluster:  cr.Name,
@@ -244,34 +235,6 @@ func (r *ReconcilePerconaXtraDBCluster) deleteBackupJob(name string) {
 		return
 	}
 	r.crons.crons.Remove(job.(BackupScheduleJob).JobID)
-}
-
-func generateBackupName(cr *api.PerconaXtraDBCluster, storageName string) string {
-	result := "cron-"
-	if len(cr.Name) > 16 {
-		result += cr.Name[:16]
-	} else {
-		result += cr.Name
-	}
-	result += "-" + trimNameRight(storageName, 16) + "-"
-	tnow := time.Now()
-	result += fmt.Sprintf("%d%d%d%d%d%d", tnow.Year(), tnow.Month(), tnow.Day(), tnow.Hour(), tnow.Minute(), tnow.Second())
-	return result
-}
-
-func trimNameRight(name string, ln int) string {
-	if len(name) <= ln {
-		ln = len(name)
-	}
-
-	for ; ln > 0; ln-- {
-		if name[ln-1] >= 'a' && name[ln-1] <= 'z' ||
-			name[ln-1] >= '0' && name[ln-1] <= '9' {
-			break
-		}
-	}
-
-	return name[:ln]
 }
 
 // A minHeap is a min-heap of backup jobs.

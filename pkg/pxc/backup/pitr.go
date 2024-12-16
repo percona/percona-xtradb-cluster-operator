@@ -59,16 +59,12 @@ func CheckPITRErrors(ctx context.Context, cl client.Client, clcmd *clientcmd.Cli
 	stdoutBuf := &bytes.Buffer{}
 	stderrBuf := &bytes.Buffer{}
 
-	err = clcmd.Exec(collectorPod, "pitr", []string{"/bin/bash", "-c", "cat /tmp/gap-detected"}, nil, stdoutBuf, stderrBuf, false)
+	err = clcmd.Exec(collectorPod, "pitr", []string{"/bin/bash", "-c", "cat /tmp/gap-detected || true"}, nil, stdoutBuf, stderrBuf, false)
 	if err != nil {
-		if strings.Contains(stderrBuf.String(), "No such file or directory") {
-			return nil
-		}
-		return errors.Wrapf(err, "check binlog gaps in pod %s", collectorPod.Name)
+		return errors.Wrapf(err, "exec binlog collector pod %s", collectorPod.Name)
 	}
 
 	if stdoutBuf.Len() == 0 {
-		log.Info("Gap detected but GTID set is empty", "collector", collectorPod.Name)
 		return nil
 	}
 
@@ -127,15 +123,16 @@ func UpdatePITRTimeline(ctx context.Context, cl client.Client, clcmd *clientcmd.
 
 	stdoutBuf := &bytes.Buffer{}
 	stderrBuf := &bytes.Buffer{}
-	err = clcmd.Exec(collectorPod, "pitr", []string{"/bin/bash", "-c", "cat /tmp/pitr-timeline"}, nil, stdoutBuf, stderrBuf, false)
+	err = clcmd.Exec(collectorPod, "pitr", []string{"/bin/bash", "-c", "cat /tmp/pitr-timeline || true"}, nil, stdoutBuf, stderrBuf, false)
 	if err != nil {
-		if strings.Contains(stderrBuf.String(), "No such file or directory") {
-			return nil
-		}
-		return errors.Wrapf(err, "check binlog gaps in pod %s", collectorPod.Name)
+		return errors.Wrapf(err, "exec binlog collector pod %s", collectorPod.Name)
 	}
 
 	timelines := strings.Split(stdoutBuf.String(), "\n")
+
+	if len(timelines) < 2 {
+		return nil
+	}
 
 	latest, err := strconv.ParseInt(timelines[1], 10, 64)
 	if err != nil {

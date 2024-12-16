@@ -3,12 +3,17 @@ kind: PerconaXtraDBCluster
 metadata:
   name: minimal-cluster
 spec:
-  crVersion: 1.15.0
+  crVersion: 1.16.0
   secretsName: minimal-cluster-secrets
-  allowUnsafeConfigurations: true
+  unsafeFlags:
+    tls: true
+    pxcSize: true
+    proxySize: true
   upgradeOptions:
     apply: disabled
     schedule: "0 4 * * *"
+  tls:
+    enabled: false
   pxc:
     size: 1
     image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0

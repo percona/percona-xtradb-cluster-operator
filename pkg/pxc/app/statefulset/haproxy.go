@@ -13,64 +13,44 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	app "github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 )
 
 const (
-	haproxyName           = "haproxy"
 	haproxyDataVolumeName = "haproxydata"
 )
 
 type HAProxy struct {
-	sfs     *appsv1.StatefulSet
-	labels  map[string]string
-	service string
+	cr *api.PerconaXtraDBCluster
 }
 
 func NewHAProxy(cr *api.PerconaXtraDBCluster) *HAProxy {
-	sfs := &appsv1.StatefulSet{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "apps/v1",
-			Kind:       "StatefulSet",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-" + haproxyName,
-			Namespace: cr.Namespace,
-		},
-		Spec: appsv1.StatefulSetSpec{
-			PodManagementPolicy: "OrderedReady",
-		},
-	}
-
-	labels := map[string]string{
-		"app.kubernetes.io/name":       "percona-xtradb-cluster",
-		"app.kubernetes.io/instance":   cr.Name,
-		"app.kubernetes.io/component":  haproxyName,
-		"app.kubernetes.io/managed-by": "percona-xtradb-cluster-operator",
-		"app.kubernetes.io/part-of":    "percona-xtradb-cluster",
-	}
-
 	return &HAProxy{
-		sfs:     sfs,
-		labels:  labels,
-		service: cr.Name + "-" + haproxyName,
+		cr: cr.DeepCopy(),
 	}
 }
 
 func (c *HAProxy) Name() string {
-	return haproxyName
+	return naming.ComponentHAProxy
 }
 
 func (c *HAProxy) InitContainers(cr *api.PerconaXtraDBCluster, initImageName string) []corev1.Container {
-	return proxyInitContainers(cr, initImageName)
+	inits := proxyInitContainers(cr, initImageName)
+
+	if cr.CompareVersionWith("1.15.0") >= 0 {
+		inits = append(inits, HaproxyEntrypointInitContainer(cr, initImageName))
+	}
+
+	return inits
 }
 
 func (c *HAProxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster,
 	_ []corev1.Volume,
 ) (corev1.Container, error) {
 	appc := corev1.Container{
-		Name:            haproxyName,
+		Name:            naming.ComponentHAProxy,
 		Image:           spec.Image,
 		ImagePullPolicy: spec.ImagePullPolicy,
 		Ports: []corev1.ContainerPort{
@@ -100,11 +80,21 @@ func (c *HAProxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.Percon
 		Env: []corev1.EnvVar{
 			{
 				Name:  "PXC_SERVICE",
-				Value: c.labels["app.kubernetes.io/instance"] + "-" + "pxc",
+				Value: c.Labels()[naming.LabelAppKubernetesInstance] + "-" + "pxc",
 			},
 		},
 		SecurityContext: spec.ContainerSecurityContext,
 		Resources:       spec.Resources,
+	}
+
+	if cr.CompareVersionWith("1.15.0") >= 0 {
+		appc.Command = []string{"/opt/percona/haproxy-entrypoint.sh"}
+		appc.Args = []string{"haproxy"}
+		appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
+			Name:      app.BinVolumeName,
+			MountPath: app.BinVolumeMountPath,
+		})
+
 	}
 
 	if cr.CompareVersionWith("1.7.0") < 0 {
@@ -116,89 +106,70 @@ func (c *HAProxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.Percon
 		})
 	}
 
-	if cr.CompareVersionWith("1.6.0") >= 0 {
-		redinessDelay := int32(15)
-		if spec.ReadinessInitialDelaySeconds != nil {
-			redinessDelay = *spec.ReadinessInitialDelaySeconds
-		}
-		appc.ReadinessProbe = app.Probe(&corev1.Probe{
-			InitialDelaySeconds: redinessDelay,
-			TimeoutSeconds:      1,
-			PeriodSeconds:       5,
-			FailureThreshold:    3,
-		}, "/usr/local/bin/readiness-check.sh")
+	appc.Ports = append(
+		appc.Ports,
+		corev1.ContainerPort{
+			ContainerPort: 33062,
+			Name:          "mysql-admin",
+		},
+	)
 
-		appc.Ports = append(
-			appc.Ports,
-			corev1.ContainerPort{
-				ContainerPort: 33062,
-				Name:          "mysql-admin",
-			},
-		)
-	}
+	appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
+		Name:      "mysql-users-secret-file",
+		MountPath: "/etc/mysql/mysql-users-secret",
+	})
 
-	if cr.CompareVersionWith("1.7.0") >= 0 {
-		appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
-			Name:      "mysql-users-secret-file",
-			MountPath: "/etc/mysql/mysql-users-secret",
-		})
-
-		livenessDelay := int32(60)
-		if spec.LivenessInitialDelaySeconds != nil {
-			livenessDelay = *spec.LivenessInitialDelaySeconds
-		}
-		appc.LivenessProbe = app.Probe(&corev1.Probe{
-			InitialDelaySeconds: livenessDelay,
-			TimeoutSeconds:      5,
-			PeriodSeconds:       30,
-			FailureThreshold:    4,
-		}, "/usr/local/bin/readiness-check.sh")
-	}
-	if cr.CompareVersionWith("1.9.0") >= 0 {
-		fvar := true
-		appc.EnvFrom = []corev1.EnvFromSource{
-			{
-				SecretRef: &corev1.SecretEnvSource{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: cr.Spec.HAProxy.EnvVarsSecretName,
-					},
-					Optional: &fvar,
+	fvar := true
+	appc.EnvFrom = []corev1.EnvFromSource{
+		{
+			SecretRef: &corev1.SecretEnvSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: cr.Spec.HAProxy.EnvVarsSecretName,
 				},
+				Optional: &fvar,
 			},
-		}
-		appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
-			Name:      cr.Spec.HAProxy.EnvVarsSecretName,
-			MountPath: "/etc/mysql/haproxy-env-secret",
-		})
-
-		appc.Ports = append(
-			appc.Ports,
-			corev1.ContainerPort{
-				ContainerPort: 33060,
-				Name:          "mysqlx",
-			},
-		)
-
-		appc.LivenessProbe = &cr.Spec.HAProxy.LivenessProbes
-		appc.ReadinessProbe = &cr.Spec.HAProxy.ReadinessProbes
-		appc.ReadinessProbe.Exec = &corev1.ExecAction{
-			Command: []string{"/usr/local/bin/readiness-check.sh"},
-		}
-		appc.LivenessProbe.Exec = &corev1.ExecAction{
-			Command: []string{"/usr/local/bin/liveness-check.sh"},
-		}
-		probsEnvs := []corev1.EnvVar{
-			{
-				Name:  "LIVENESS_CHECK_TIMEOUT",
-				Value: fmt.Sprint(cr.Spec.HAProxy.LivenessProbes.TimeoutSeconds),
-			},
-			{
-				Name:  "READINESS_CHECK_TIMEOUT",
-				Value: fmt.Sprint(cr.Spec.HAProxy.ReadinessProbes.TimeoutSeconds),
-			},
-		}
-		appc.Env = append(appc.Env, probsEnvs...)
+		},
 	}
+	appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
+		Name:      cr.Spec.HAProxy.EnvVarsSecretName,
+		MountPath: "/etc/mysql/haproxy-env-secret",
+	})
+
+	appc.Ports = append(
+		appc.Ports,
+		corev1.ContainerPort{
+			ContainerPort: 33060,
+			Name:          "mysqlx",
+		},
+	)
+
+	rsCmd := "/opt/percona/haproxy_readiness_check.sh"
+	lsCmd := "/opt/percona/haproxy_liveness_check.sh"
+	if cr.CompareVersionWith("1.15.0") < 0 {
+		rsCmd = "/usr/local/bin/readiness-check.sh"
+		lsCmd = "/usr/local/bin/liveness-check.sh"
+	}
+	appc.ReadinessProbe = &cr.Spec.HAProxy.ReadinessProbes
+	appc.ReadinessProbe.Exec = &corev1.ExecAction{
+		Command: []string{rsCmd},
+	}
+	appc.LivenessProbe = &cr.Spec.HAProxy.LivenessProbes
+	appc.LivenessProbe.Exec = &corev1.ExecAction{
+		Command: []string{lsCmd},
+	}
+
+	probsEnvs := []corev1.EnvVar{
+		{
+			Name:  "LIVENESS_CHECK_TIMEOUT",
+			Value: fmt.Sprint(cr.Spec.HAProxy.LivenessProbes.TimeoutSeconds),
+		},
+		{
+			Name:  "READINESS_CHECK_TIMEOUT",
+			Value: fmt.Sprint(cr.Spec.HAProxy.ReadinessProbes.TimeoutSeconds),
+		},
+	}
+	appc.Env = append(appc.Env, probsEnvs...)
+
 	if cr.CompareVersionWith("1.11.0") >= 0 && cr.Spec.HAProxy != nil && cr.Spec.HAProxy.HookScript != "" {
 		appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
 			Name:      "hookscript",
@@ -229,14 +200,14 @@ func (c *HAProxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.P
 		Image:           spec.Image,
 		ImagePullPolicy: spec.ImagePullPolicy,
 		Args: []string{
-			"/usr/bin/peer-list",
-			"-on-change=/usr/bin/add_pxc_nodes.sh",
+			"/opt/percona/peer-list",
+			"-on-change=/opt/percona/haproxy_add_pxc_nodes.sh",
 			"-service=$(PXC_SERVICE)",
 		},
 		Env: []corev1.EnvVar{
 			{
 				Name:  "PXC_SERVICE",
-				Value: c.labels["app.kubernetes.io/instance"] + "-" + "pxc",
+				Value: c.Labels()[naming.LabelAppKubernetesInstance] + "-" + "pxc",
 			},
 		},
 		Resources: spec.SidecarResources,
@@ -251,6 +222,18 @@ func (c *HAProxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.P
 			},
 		},
 		SecurityContext: spec.ContainerSecurityContext,
+	}
+
+	if cr.CompareVersionWith("1.15.0") >= 0 {
+		container.Command = []string{"/opt/percona/haproxy-entrypoint.sh"}
+	}
+
+	if cr.CompareVersionWith("1.15.0") < 0 {
+		container.Args = []string{
+			"/usr/bin/peer-list",
+			"-on-change=/usr/bin/add_pxc_nodes.sh",
+			"-service=$(PXC_SERVICE)",
+		}
 	}
 
 	hasKey, err := cr.ConfigHasKey("mysqld", "proxy_protocol_networks")
@@ -299,6 +282,10 @@ func (c *HAProxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.P
 		container.Env = append(container.Env, corev1.EnvVar{
 			Name:  "REPLICAS_SVC_ONLY_READERS",
 			Value: strconv.FormatBool(cr.Spec.HAProxy.ExposeReplicas.OnlyReaders),
+		})
+		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
+			Name:      app.BinVolumeName,
+			MountPath: app.BinVolumeMountPath,
 		})
 	}
 
@@ -421,7 +408,7 @@ func (c *HAProxy) PMMContainer(ctx context.Context, cl client.Client, spec *api.
 
 func (c *HAProxy) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg api.CustomVolumeGetter) (*api.Volume, error) {
 	vol := app.Volumes(podSpec, haproxyDataVolumeName)
-	configVolume, err := vg(cr.Namespace, "haproxy-custom", c.labels["app.kubernetes.io/instance"]+"-haproxy", true)
+	configVolume, err := vg(cr.Namespace, "haproxy-custom", c.Labels()[naming.LabelAppKubernetesInstance]+"-haproxy", true)
 	if err != nil {
 		return nil, err
 	}
@@ -438,7 +425,7 @@ func (c *HAProxy) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg
 	}
 	if cr.CompareVersionWith("1.11.0") >= 0 && cr.Spec.HAProxy != nil && cr.Spec.HAProxy.HookScript != "" {
 		vol.Volumes = append(vol.Volumes,
-			app.GetConfigVolumes("hookscript", c.labels["app.kubernetes.io/instance"]+"-"+c.labels["app.kubernetes.io/component"]+"-hookscript"))
+			app.GetConfigVolumes("hookscript", c.Labels()[naming.LabelAppKubernetesInstance]+"-"+c.Labels()[naming.LabelAppKubernetesComponent]+"-hookscript"))
 	}
 	if cr.CompareVersionWith("1.13.0") >= 0 {
 		vol.Volumes = append(vol.Volumes,
@@ -450,19 +437,37 @@ func (c *HAProxy) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg
 			},
 		)
 	}
+	if cr.CompareVersionWith("1.16.0") >= 0 {
+		for i := range vol.PVCs {
+			vol.PVCs[i].Labels = c.Labels()
+		}
+	}
 	return vol, nil
 }
 
+// StatefulSet returns a new statefulset object with almost empty spec.
 func (c *HAProxy) StatefulSet() *appsv1.StatefulSet {
-	return c.sfs
+	return &appsv1.StatefulSet{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "apps/v1",
+			Kind:       "StatefulSet",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      c.cr.Name + "-" + naming.ComponentHAProxy,
+			Namespace: c.cr.Namespace,
+		},
+		Spec: appsv1.StatefulSetSpec{
+			PodManagementPolicy: "OrderedReady",
+		},
+	}
 }
 
 func (c *HAProxy) Labels() map[string]string {
-	return c.labels
+	return naming.LabelsHAProxy(c.cr)
 }
 
 func (c *HAProxy) Service() string {
-	return c.service
+	return c.cr.Name + "-" + naming.ComponentHAProxy
 }
 
 func (c *HAProxy) UpdateStrategy(cr *api.PerconaXtraDBCluster) appsv1.StatefulSetUpdateStrategy {

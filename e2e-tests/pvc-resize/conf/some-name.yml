@@ -18,7 +18,7 @@ spec:
         memory: 0.1G
         cpu: 100m
       limits:
-        memory: "1G"
+        memory: "2G"
         cpu: "1"
     volumeSpec:
       persistentVolumeClaim:
@@ -58,7 +58,7 @@ spec:
             accessModes: [ "ReadWriteOnce" ]
             resources:
               requests:
-                storage: 1Gi
+                storage: 1G
       aws-s3:
         type: s3
         s3:

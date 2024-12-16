@@ -6,6 +6,7 @@ package version_service
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 
@@ -55,9 +56,46 @@ type VersionServiceProductOK struct {
 	Payload *models.VersionProductResponse
 }
 
-func (o *VersionServiceProductOK) Error() string {
-	return fmt.Sprintf("[GET /versions/v1/{product}][%d] versionServiceProductOK  %+v", 200, o.Payload)
+// IsSuccess returns true when this version service product o k response has a 2xx status code
+func (o *VersionServiceProductOK) IsSuccess() bool {
+	return true
 }
+
+// IsRedirect returns true when this version service product o k response has a 3xx status code
+func (o *VersionServiceProductOK) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this version service product o k response has a 4xx status code
+func (o *VersionServiceProductOK) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this version service product o k response has a 5xx status code
+func (o *VersionServiceProductOK) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this version service product o k response a status code equal to that given
+func (o *VersionServiceProductOK) IsCode(code int) bool {
+	return code == 200
+}
+
+// Code gets the status code for the version service product o k response
+func (o *VersionServiceProductOK) Code() int {
+	return 200
+}
+
+func (o *VersionServiceProductOK) Error() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /versions/v1/{product}][%d] versionServiceProductOK %s", 200, payload)
+}
+
+func (o *VersionServiceProductOK) String() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /versions/v1/{product}][%d] versionServiceProductOK %s", 200, payload)
+}
+
 func (o *VersionServiceProductOK) GetPayload() *models.VersionProductResponse {
 	return o.Payload
 }
@@ -84,12 +122,37 @@ func NewVersionServiceProductDefault(code int) *VersionServiceProductDefault {
 /*
 VersionServiceProductDefault describes a response with status code -1, with default header values.
 
-An unexpected error response
+An unexpected error response.
 */
 type VersionServiceProductDefault struct {
 	_statusCode int
 
 	Payload *models.GooglerpcStatus
+}
+
+// IsSuccess returns true when this version service product default response has a 2xx status code
+func (o *VersionServiceProductDefault) IsSuccess() bool {
+	return o._statusCode/100 == 2
+}
+
+// IsRedirect returns true when this version service product default response has a 3xx status code
+func (o *VersionServiceProductDefault) IsRedirect() bool {
+	return o._statusCode/100 == 3
+}
+
+// IsClientError returns true when this version service product default response has a 4xx status code
+func (o *VersionServiceProductDefault) IsClientError() bool {
+	return o._statusCode/100 == 4
+}
+
+// IsServerError returns true when this version service product default response has a 5xx status code
+func (o *VersionServiceProductDefault) IsServerError() bool {
+	return o._statusCode/100 == 5
+}
+
+// IsCode returns true when this version service product default response a status code equal to that given
+func (o *VersionServiceProductDefault) IsCode(code int) bool {
+	return o._statusCode == code
 }
 
 // Code gets the status code for the version service product default response
@@ -98,8 +161,15 @@ func (o *VersionServiceProductDefault) Code() int {
 }
 
 func (o *VersionServiceProductDefault) Error() string {
-	return fmt.Sprintf("[GET /versions/v1/{product}][%d] VersionService_Product default  %+v", o._statusCode, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /versions/v1/{product}][%d] VersionService_Product default %s", o._statusCode, payload)
 }
+
+func (o *VersionServiceProductDefault) String() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /versions/v1/{product}][%d] VersionService_Product default %s", o._statusCode, payload)
+}
+
 func (o *VersionServiceProductDefault) GetPayload() *models.GooglerpcStatus {
 	return o.Payload
 }

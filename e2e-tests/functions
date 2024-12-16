@@ -16,7 +16,7 @@ SKIP_REMOTE_BACKUPS=${SKIP_REMOTE_BACKUPS:-1}
 PMM_SERVER_VER=${PMM_SERVER_VER:-"9.9.9"}
 IMAGE_PMM_CLIENT=${IMAGE_PMM_CLIENT:-"perconalab/pmm-client:dev-latest"}
 IMAGE_PMM_SERVER=${IMAGE_PMM_SERVER:-"perconalab/pmm-server:dev-latest"}
-CERT_MANAGER_VER="1.14.2"
+CERT_MANAGER_VER="1.15.2"
 tmp_dir=$(mktemp -d)
 sed=$(which gsed || which sed)
 date=$(which gdate || which date)
@@ -177,7 +177,7 @@ wait_pod() {
 	set +o xtrace
 	kubectl_bin wait --for=condition=Ready pod/${pod} --timeout="${max_retry}s" ${ns:+-n $ns} || true
 	retry=0
-	echo -n $pod
+	echo -n "waiting for pod/$pod to become Ready"
 	until kubectl_bin get ${ns:+-n $ns} pod/$pod -o jsonpath='{.status.conditions[?(@.type == "Ready")].status}' 2>/dev/null | grep -q -i 'True' \
 		&& kubectl_bin get ${ns:+-n $ns} pod/$pod | grep -q "^$pod" \
 		&& ! IS_FULL_CRASH=$(kubectl_bin logs --tail=1 ${ns:+-n $ns} pod/$pod ${container:+ -c $container} | grep LAST_LINE); do
@@ -251,22 +251,24 @@ wait_backup() {
 
 wait_backup_restore() {
 	local backup_name=$1
-	local status=${2:-'Succeeded'}
+	local target_state=${2:-'Succeeded'}
 	local wait_time=${3:-720}
 
-	desc "wait backup restore"
 	set +o xtrace
 	retry=0
-	echo -n $backup_name
-	until kubectl_bin get pxc-restore/$backup_name -o jsonpath='{.status.state}' 2>/dev/null | grep $status; do
-		sleep 1
-		echo -n .
-		let retry+=1
-		if [ $retry -ge $wait_time ]; then
-			kubectl_bin logs ${OPERATOR_NS:+-n $OPERATOR_NS} $(get_operator_pod)
-			echo max retry count $retry reached. something went wrong with operator or kubernetes cluster
+	echo "waiting for pxc-restore/${backup_name} to reach ${target_state} state"
+	local current_state=
+	until [[ ${current_state} == ${target_state} ]]; do
+		current_state=$(kubectl_bin get pxc-restore $backup_name -o jsonpath='{.status.state}')
+		if [[ $retry -ge $wait_time || ${current_state} == 'error' ]]; then
+			kubectl_bin get pxc-restore ${backup_name} -o yaml
+			echo "Restore object pxc-restore/${backup_name} is in ${current_state} state."
+			echo something went wrong with operator or kubernetes cluster
 			exit 1
 		fi
+		echo "$(date +%Y-%m-%dT%H:%M:%S) pxc-restore/${backup_name} state: ${current_state}"
+		sleep 1
+		let retry+=1
 	done
 	echo
 	set_debug
@@ -382,10 +384,10 @@ wait_for_generation() {
 wait_for_delete() {
 	local res="$1"
 
-	echo -n "$res - "
+	echo -n "waiting for $res to be deleted"
 	set +o xtrace
 	retry=0
-	until (kubectl_bin get $res || :) 2>&1 | grep NotFound; do
+	until (kubectl get $res || :) 2>&1 | grep NotFound; do
 		sleep 1
 		echo -n .
 		let retry+=1
@@ -411,6 +413,8 @@ compare_kubectl() {
 
 	if [[ $IMAGE_PXC =~ 8\.0 ]] && [ -f ${expected_result//.yml/-80.yml} ]; then
 		expected_result=${expected_result//.yml/-80.yml}
+	elif [[ $IMAGE_PXC =~ 8\.4 ]] && [ -f ${expected_result//.yml/-84.yml} ]; then
+		expected_result=${expected_result//.yml/-84.yml}
 	fi
 
 	if version_gt "1.29" && [ -f ${expected_result//.yml/-k129.yml} ]; then
@@ -427,6 +431,8 @@ compare_kubectl() {
 
 	if [ ! -z "$OPENSHIFT" -a -f ${expected_result//.yml/-oc.yml} ]; then
 		expected_result=${expected_result//.yml/-oc.yml}
+	elif version_gt "1.29" && [ ! -z "$OPENSHIFT" -a -f ${expected_result//.yml/-k129-oc.yml} ]; then
+		expected_result=${expected_result//.yml/-k129-oc.yml}
 	fi
 
 	if [ "$EKS" = 1 -a -f ${expected_result//.yml/-eks.yml} ]; then
@@ -447,12 +453,17 @@ compare_kubectl() {
 			del(.spec.template.spec.containers[].env[] | select(.name == "AZURE_CONTAINER_NAME")) |
 			del(.metadata.selfLink) |
 			del(.metadata.deletionTimestamp) |
+			del(.metadata.annotations."kubectl.kubernetes.io/last-applied-configuration") |
 			del(.metadata.annotations."kubernetes.io/psp") |
 			del(.metadata.annotations."batch.kubernetes.io/job-tracking") |
+			del(.metadata.labels."batch.kubernetes.io/job-name") |
+			del(.metadata.labels."job-name") |
 			del(.metadata.annotations."cloud.google.com/neg") |
 			del(.metadata.annotations."k8s.v1.cni.cncf.io*") |
 			del(.metadata.annotations."k8s.ovn.org/pod-networks") |
 			del(.spec.template.metadata.annotations."last-applied-secret") |
+			del(.spec.template.metadata.labels."batch.kubernetes.io/job-name") |
+			del(.spec.template.metadata.labels."job-name") |
 			del(.. | select(has("batch.kubernetes.io/controller-uid"))."batch.kubernetes.io/controller-uid") |
 			del(.. | select(has("image")).image) |
 			del(.. | select(has("clusterIP")).clusterIP) |
@@ -539,6 +550,8 @@ compare_mysql_cmd() {
 
 	if [[ $IMAGE_PXC =~ 8\.0 ]] && [ -f ${test_dir}/compare/${command_id}${postfix}-80.sql ]; then
 		expected_result=${test_dir}/compare/${command_id}${postfix}-80.sql
+	elif [[ $IMAGE_PXC =~ 8\.4 ]] && [ -f ${test_dir}/compare/${command_id}${postfix}-84.sql ]; then
+		expected_result=${test_dir}/compare/${command_id}${postfix}-84.sql
 	fi
 
 	run_mysql "$command" "$uri" \
@@ -562,6 +575,8 @@ compare_mysql_cmd_local() {
 
 	if [[ $IMAGE_PXC =~ 8\.0 ]] && [ -f ${test_dir}/compare/${command_id}${postfix}-80.sql ]; then
 		expected_result=${test_dir}/compare/${command_id}${postfix}-80.sql
+	elif [[ $IMAGE_PXC =~ 8\.4 ]] && [ -f ${test_dir}/compare/${command_id}${postfix}-84.sql ]; then
+		expected_result=${test_dir}/compare/${command_id}${postfix}-84.sql
 	fi
 
 	run_mysql_local "$command" "$uri" "$pod" "$container_name" \
@@ -605,6 +620,8 @@ compare_mysql_user() {
 
 	if [[ $IMAGE_PXC =~ 8\.0 ]] && [ -f ${test_dir}/compare/$user$postfix-80.sql ]; then
 		expected_result=${test_dir}/compare/$user$postfix-80.sql
+	elif [[ $IMAGE_PXC =~ 8\.4 ]] && [ -f ${test_dir}/compare/$user$postfix-84.sql ]; then
+		expected_result=${test_dir}/compare/$user$postfix-84.sql
 	fi
 
 	(run_mysql "SHOW GRANTS;" "$uri" || :) \
@@ -623,6 +640,8 @@ compare_mysql_user_local() {
 
 	if [[ $IMAGE_PXC =~ 8\.0 ]] && [ -f ${test_dir}/compare/$user$postfix-80.sql ]; then
 		expected_result=${test_dir}/compare/$user$postfix-80.sql
+	elif [[ $IMAGE_PXC =~ 8\.4 ]] && [ -f ${test_dir}/compare/$user$postfix-84.sql ]; then
+		expected_result=${test_dir}/compare/$user$postfix-84.sql
 	fi
 
 	(run_mysql_local "SHOW GRANTS;" "$uri" "$pod" "$container_name" || :) \
@@ -1655,8 +1674,24 @@ run_recovery_check_pitr() {
 		| $sed -e "s/<gtid>/${gtid}/g" \
 		| $sed -e "s~minio-service.#namespace~minio-service.$namespace~" \
 		| kubectl_bin apply -f -
-	wait_backup_restore ${backup}
-	kubectl_bin logs job/restore-job-${backup}-${cluster}
+
+	wait_backup_restore ${restore} "Stopping Cluster"
+	wait_for_delete pod/${cluster}-proxysql-0
+	wait_for_delete pod/${cluster}-proxysql-1
+	wait_for_delete pod/${cluster}-pxc-2
+	wait_for_delete pod/${cluster}-pxc-1
+	wait_for_delete pod/${cluster}-pxc-0
+
+	wait_backup_restore ${restore} "Point-in-time recovering"
+	wait_for_delete pod/${cluster}-proxysql-0
+	wait_for_delete pod/${cluster}-proxysql-1
+	wait_for_delete pod/${cluster}-pxc-2
+	wait_for_delete pod/${cluster}-pxc-1
+
+	wait_pod ${cluster}-pxc-0
+
+	wait_backup_restore ${restore}
+	kubectl_bin logs job/restore-job-${restore}-${cluster}
 	wait_for_running "$cluster-proxysql" 2
 	wait_for_running "$cluster-pxc" 3
 	wait_cluster_consistency "$cluster" 3 2

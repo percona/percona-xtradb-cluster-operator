@@ -40,7 +40,15 @@ spec:
                   app.kubernetes.io/part-of: percona-xtradb-cluster
               topologyKey: kubernetes.io/hostname
       containers:
-        - env:
+        - args:
+            - proxysql
+            - -f
+            - -c
+            - /etc/proxysql/proxysql.cnf
+            - --reload
+          command:
+            - /opt/percona/proxysql-entrypoint.sh
+          env:
             - name: PXC_SERVICE
               value: upgrade-proxysql-pxc
             - name: OPERATOR_PASSWORD
@@ -86,9 +94,11 @@ spec:
               name: ssl
             - mountPath: /etc/proxysql/ssl-internal
               name: ssl-internal
+            - mountPath: /opt/percona
+              name: bin
         - args:
-            - /usr/bin/peer-list
-            - -on-change=/usr/bin/add_pxc_nodes.sh
+            - /opt/percona/peer-list
+            - -on-change=/opt/percona/proxysql_add_pxc_nodes.sh
             - -service=$(PXC_SERVICE)
           env:
             - name: PXC_SERVICE
@@ -119,9 +129,12 @@ spec:
           resources: {}
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /opt/percona
+              name: bin
         - args:
-            - /usr/bin/peer-list
-            - -on-change=/usr/bin/add_proxysql_nodes.sh
+            - /opt/percona/peer-list
+            - -on-change=/opt/percona/proxysql_add_proxysql_nodes.sh
             - -service=$(PROXYSQL_SERVICE)
           env:
             - name: PROXYSQL_SERVICE
@@ -152,6 +165,9 @@ spec:
           resources: {}
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /opt/percona
+              name: bin
       dnsPolicy: ClusterFirst
       initContainers:
         - command:
@@ -166,6 +182,19 @@ spec:
           terminationMessagePolicy: File
           volumeMounts:
             - mountPath: /var/lib/mysql
+              name: bin
+        - command:
+            - /proxysql-init-entrypoint.sh
+          imagePullPolicy: Always
+          name: proxysql-init
+          resources:
+            limits:
+              cpu: 50m
+              memory: 50M
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /opt/percona
               name: bin
       restartPolicy: Always
       schedulerName: default-scheduler

@@ -53,7 +53,7 @@ kubectl_bin patch pxc some-name --type=merge -p='{
 				"name":"user-four",
 				"dbs": ["db1", "db2"],
 				"grants":["SELECT, UPDATE"],
-				"hosts": ["%"] 
+				"hosts": ["%"]
 			}
 		]}
 	}'
@@ -75,7 +75,7 @@ kubectl_bin patch pxc some-name --type=merge -p='{
 				"name":"user-four",
 				"dbs": ["db1", "db2", "db3"],
 				"grants":["SELECT, UPDATE"],
-				"hosts": ["%"] 
+				"hosts": ["%"]
 			}
 		]}
 	}'
@@ -89,7 +89,7 @@ kubectl_bin patch pxc some-name --type=merge -p='{
 				"name":"user-four",
 				"dbs": ["db1", "db2", "db3"],
 				"grants":["SELECT, UPDATE, DELETE"],
-				"hosts": ["%"] 
+				"hosts": ["%"]
 			}
 		]}
 	}'
@@ -115,7 +115,7 @@ kubectl_bin patch pxc some-name --type=merge -p='{
 				"name":"user-five",
 				"dbs": ["db1", "db2", "db3"],
 				"grants":["SELECT, UPDATE, DELETE"],
-				"hosts": ["%"] 
+				"hosts": ["%"]
 			}
 		]}
 	}'

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -14,6 +15,7 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/cmd/pitr/recoverer"
 
 	"github.com/caarlos0/env"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 func main() {
@@ -23,6 +25,13 @@ func main() {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, os.Interrupt)
 	defer stop()
+
+	go func() {
+		http.Handle("/metrics", promhttp.Handler())
+		http.HandleFunc("/health", healthHandler)
+		log.Fatal(http.ListenAndServe(":8080", nil))
+	}()
+
 	switch command {
 	case "collect":
 		runCollector(ctx)
@@ -31,6 +40,13 @@ func main() {
 	default:
 		fmt.Fprintf(os.Stderr, "ERROR: unknown command \"%s\".\nCommands:\n  collect - collect binlogs\n  recover - recover from binlogs\n", command)
 		os.Exit(1)
+	}
+}
+
+func healthHandler(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	if _, err := w.Write([]byte("ok")); err != nil {
+		log.Println("ERROR: writing health response:", err)
 	}
 }
 

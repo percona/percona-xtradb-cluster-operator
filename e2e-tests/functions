@@ -16,7 +16,7 @@ SKIP_REMOTE_BACKUPS=${SKIP_REMOTE_BACKUPS:-1}
 PMM_SERVER_VER=${PMM_SERVER_VER:-"9.9.9"}
 IMAGE_PMM_CLIENT=${IMAGE_PMM_CLIENT:-"perconalab/pmm-client:dev-latest"}
 IMAGE_PMM_SERVER=${IMAGE_PMM_SERVER:-"perconalab/pmm-server:dev-latest"}
-CERT_MANAGER_VER="1.15.2"
+CERT_MANAGER_VER="1.16.2"
 tmp_dir=$(mktemp -d)
 sed=$(which gsed || which sed)
 date=$(which gdate || which date)
@@ -546,12 +546,14 @@ compare_mysql_cmd() {
 	local command="$2"
 	local uri="$3"
 	local postfix="$4"
-	local expected_result=${test_dir}/compare/${command_id}${postfix}.sql
+	local expected_result=$test_dir/compare/$command_id$postfix.sql
 
-	if [[ $IMAGE_PXC =~ 8\.0 ]] && [ -f ${test_dir}/compare/${command_id}${postfix}-80.sql ]; then
-		expected_result=${test_dir}/compare/${command_id}${postfix}-80.sql
-	elif [[ $IMAGE_PXC =~ 8\.4 ]] && [ -f ${test_dir}/compare/${command_id}${postfix}-84.sql ]; then
-		expected_result=${test_dir}/compare/${command_id}${postfix}-84.sql
+	if [[ $IMAGE_PXC =~ 8\.4 && -f $test_dir/compare/$command_id$postfix-84.sql ]]; then
+		expected_result=$test_dir/compare/$command_id$postfix-84.sql
+	elif [[ $IMAGE_PXC =~ 8\.0 && -f $test_dir/compare/$command_id$postfix-80.sql ]]; then
+		expected_result=$test_dir/compare/$command_id$postfix-80.sql
+	elif [[ $IMAGE_PXC =~ 5\.7 && -f $test_dir/compare/$command_id$postfix-57.sql ]]; then
+		expected_result=$test_dir/compare/$command_id$postfix-57.sql
 	fi
 
 	run_mysql "$command" "$uri" \
@@ -618,10 +620,12 @@ compare_mysql_user() {
 	local user=$(echo $uri | sed -e 's/.*-u//; s/ .*//')
 	local expected_result=${test_dir}/compare/$user$postfix.sql
 
-	if [[ $IMAGE_PXC =~ 8\.0 ]] && [ -f ${test_dir}/compare/$user$postfix-80.sql ]; then
-		expected_result=${test_dir}/compare/$user$postfix-80.sql
-	elif [[ $IMAGE_PXC =~ 8\.4 ]] && [ -f ${test_dir}/compare/$user$postfix-84.sql ]; then
-		expected_result=${test_dir}/compare/$user$postfix-84.sql
+	if [[ $IMAGE_PXC =~ 8\.4 && -f $test_dir/compare/$user$postfix-84.sql ]]; then
+		expected_result=$test_dir/compare/$user$postfix-84.sql
+	elif [[ $IMAGE_PXC =~ 8\.0 && -f $test_dir/compare/$user$postfix-80.sql ]]; then
+		expected_result=$test_dir/compare/$user$postfix-80.sql
+	elif [[ $IMAGE_PXC =~ 5\.7 && -f $test_dir/compare/$user$postfix-57.sql ]]; then
+		expected_result=$test_dir/compare/$user$postfix-57.sql
 	fi
 
 	(run_mysql "SHOW GRANTS;" "$uri" || :) \

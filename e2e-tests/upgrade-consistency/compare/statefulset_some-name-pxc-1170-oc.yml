@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  generation: 1
+  generation: 3
   name: some-name-pxc
   ownerReferences:
     - controller: true
@@ -125,6 +125,10 @@ spec:
               value: "15"
             - name: DEFAULT_AUTHENTICATION_PLUGIN
               value: mysql_native_password
+            - name: MYSQL_NOTIFY_SOCKET
+              value: /var/lib/mysql/notify.sock
+            - name: MYSQL_STATE_FILE
+              value: /var/lib/mysql/mysql.state
           envFrom:
             - secretRef:
                 name: some-name-env-vars-pxc
@@ -214,7 +218,6 @@ spec:
       restartPolicy: Always
       schedulerName: default-scheduler
       securityContext:
-        fsGroup: 1001
         supplementalGroups:
           - 1001
       serviceAccount: default

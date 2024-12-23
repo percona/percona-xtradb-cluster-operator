@@ -52,23 +52,22 @@ func trimJobName(name string) string {
 }
 
 func ScheduledBackupName(crName, storageName, schedule string) string {
-	result := "cron-"
+	result := "cron"
 
 	if len(crName) > 16 {
-		result += crName[:16]
+		result += "-" + crName[:16]
 	} else {
-		result += crName
+		result += "-" + crName
 	}
 
 	if len(storageName) > 16 {
-		result += storageName[:16]
+		result += "-" + storageName[:16]
 	} else {
-		result += storageName
+		result += "-" + storageName
 	}
 
-	result += "-" + storageName + "-"
 	tnow := time.Now()
-	result += fmt.Sprintf("%d%d%d%d%d%d", tnow.Year(), tnow.Month(), tnow.Day(), tnow.Hour(), tnow.Minute(), tnow.Second())
+	result += "-" + fmt.Sprintf("%d%d%d%d%d%d", tnow.Year(), tnow.Month(), tnow.Day(), tnow.Hour(), tnow.Minute(), tnow.Second())
 	result += "-" + strconv.FormatUint(uint64(crc32.ChecksumIEEE([]byte(schedule))), 32)[:5]
 	return result
 }

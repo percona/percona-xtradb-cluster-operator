@@ -10,7 +10,7 @@ metadata:
 #  annotations:
 #    percona.com/issue-vault-token: "true"
 spec:
-  crVersion: 1.16.0
+  crVersion: 1.16.1
 #  enableVolumeExpansion: false
 #  ignoreAnnotations:
 #    - iam.amazonaws.com/role
@@ -22,7 +22,7 @@ spec:
 #  sslInternalSecretName: cluster1-ssl-internal
 #  logCollectorSecretName: cluster1-log-collector-secrets
 #  initContainer:
-#    image: percona/percona-xtradb-cluster-operator:1.16.0
+#    image: percona/percona-xtradb-cluster-operator:1.16.1
 #    containerSecurityContext:
 #      privileged: false
 #      runAsUser: 1001
@@ -543,7 +543,7 @@ spec:
 #     - 10.0.0.0/8
   logcollector:
     enabled: true
-    image: percona/percona-xtradb-cluster-operator:1.16.0-logcollector-fluentbit3.2.2
+    image: percona/percona-xtradb-cluster-operator:1.16.1-logcollector-fluentbit3.2.2
 #    configuration: |
 #      [OUTPUT]
 #           Name  es
@@ -589,7 +589,7 @@ spec:
         cpu: 300m
   backup:
 #    allowParallel: true
-    image: percona/percona-xtradb-cluster-operator:1.16.0-pxc8.0-backup-pxb8.0.35
+    image: percona/percona-xtradb-cluster-operator:1.16.1-pxc8.0-backup-pxb8.0.35
 #    backoffLimit: 6
 #    activeDeadlineSeconds: 3600
 #    serviceAccountName: percona-xtradb-cluster-operator

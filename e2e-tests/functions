@@ -496,6 +496,7 @@ compare_kubectl() {
 			(.. | select(tag == "!!str")) |= sub("'$namespace'", "namespace") |
 			(.. | select(tag == "!!str")) |= sub("kube-api-access-.*", "kube-api-access") |
 			del(.. | select(has("annotations")).annotations | select(length==0)) |
+			del(.spec.crVersion) |
 			del(.. | select(.[] == "percona-xtradb-cluster-operator-workload-token*"))' - >${new_result}
 
 	diff -u ${expected_result} ${new_result}

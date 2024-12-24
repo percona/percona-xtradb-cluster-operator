@@ -35,7 +35,6 @@ spec:
             resources:
               requests:
                 storage: 1Gi
-  crVersion: 1.16.0
   logcollector:
     enabled: true
   pmm:

@@ -8,6 +8,9 @@ metadata:
       kind: PerconaXtraDBCluster
       name: upgrade-proxysql
 spec:
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Retain
+    whenScaled: Retain
   podManagementPolicy: OrderedReady
   replicas: 3
   revisionHistoryLimit: 10
@@ -40,7 +43,15 @@ spec:
                   app.kubernetes.io/part-of: percona-xtradb-cluster
               topologyKey: kubernetes.io/hostname
       containers:
-        - env:
+        - args:
+            - proxysql
+            - -f
+            - -c
+            - /etc/proxysql/proxysql.cnf
+            - --reload
+          command:
+            - /opt/percona/proxysql-entrypoint.sh
+          env:
             - name: PXC_SERVICE
               value: upgrade-proxysql-pxc
             - name: OPERATOR_PASSWORD
@@ -214,6 +225,12 @@ spec:
     type: RollingUpdate
   volumeClaimTemplates:
     - metadata:
+        labels:
+          app.kubernetes.io/component: proxysql
+          app.kubernetes.io/instance: upgrade-proxysql
+          app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+          app.kubernetes.io/name: percona-xtradb-cluster
+          app.kubernetes.io/part-of: percona-xtradb-cluster
         name: proxydata
       spec:
         accessModes:

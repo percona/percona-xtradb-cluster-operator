@@ -85,11 +85,12 @@ yq eval '.annotations["operators.operatorframework.io.bundle.channels.v1"] = env
 
 if [ ${DISTRIBUTION} == 'community' ]; then
 	# community-operators
-	yq eval '.annotations["operators.operatorframework.io.bundle.package.v1"] = "percona-xtradb-cluster-operator" |
-         .annotations["org.opencontainers.image.authors"] = "info@percona.com" |
-         .annotations["org.opencontainers.image.url"] = "https://percona.com" |
-         .annotations["org.opencontainers.image.vendor"] = "Percona"' \
-		bundle.annotations.yaml >"${bundle_directory}/metadata/annotations.yaml"
+	yq eval --inplace '
+	.annotations["operators.operatorframework.io.bundle.package.v1"] = "percona-xtradb-cluster-operator" |
+    .annotations["org.opencontainers.image.authors"] = "info@percona.com" |
+    .annotations["org.opencontainers.image.url"] = "https://percona.com" |
+     .annotations["org.opencontainers.image.vendor"] = "Percona"' \
+		"${bundle_directory}/metadata/annotations.yaml"
 
 # certified-operators
 elif [ ${DISTRIBUTION} == 'redhat' ]; then
@@ -110,7 +111,15 @@ fi
 labels=$(yq eval -r '.annotations | to_entries | map("    " + .key + "=" + (.value | tojson)) | join("\n")' \
 	"${bundle_directory}/metadata/annotations.yaml")
 
+labels="${labels}
+
+    com.redhat.delivery.backport=true
+
+    com.redhat.delivery.operator.bundle=true"
+
 ANNOTATIONS="${labels}" envsubst <bundle.Dockerfile >"${bundle_directory}/Dockerfile"
+
+awk '{gsub(/^[ \t]+/, "    "); print}' "${bundle_directory}/Dockerfile" > "${bundle_directory}/Dockerfile.new" && mv "${bundle_directory}/Dockerfile.new" "${bundle_directory}/Dockerfile"
 
 # Include CRDs as manifests.
 crd_names=$(yq eval -o=tsv '.metadata.name' operator_crds.yaml)
@@ -136,9 +145,12 @@ yq eval -i '[.]' operator_roles${suffix}.yaml && yq eval 'length == 1' operator_
 # Render bundle CSV and strip comments.
 csv_stem=$(yq -r '.projectName' "${project_directory}/PROJECT")
 
-cr_example=$(yq eval -o=json '[.]' ../../deploy/cr.yaml)
+cr_example=$(yq eval -o=json ../../deploy/cr.yaml)
+backup_example=$(yq eval -o=json ../../deploy/backup/backup.yaml)
+restore_example=$(yq eval -o=json ../../deploy/backup/restore.yaml)
+full_example=$(jq -n "[${cr_example}, ${backup_example}, ${restore_example}]")
 
-export examples="${cr_example}"
+export examples="${full_example}"
 export deployment=$(yq eval operator_deployments.yaml)
 export account=$(yq eval '.[] | .metadata.name' operator_accounts.yaml)
 export rules=$(yq eval '.[] | .rules' operator_roles${suffix}.yaml)
@@ -150,7 +162,7 @@ export name="${csv_stem}.v${VERSION}${suffix}"
 export name_certified="${csv_stem}-certified.v${VERSION}${suffix}"
 export name_certified_rhmp="${csv_stem}-certified-rhmp.v${VERSION}${suffix}"
 export skip_range="<${VERSION}"
-export containerImage=$(yq eval '.[0].spec.template.spec.containers[1].image' operator_deployments.yaml)
+export containerImage="$(yq eval '.[0].spec.template.spec.containers[0].image' operator_deployments.yaml)"
 export relatedImages=$(yq eval bundle.relatedImages.yaml)
 export rulesLevel=${rulesLevel}
 yq eval '
@@ -186,5 +198,7 @@ elif [ ${DISTRIBUTION} == "marketplace" ]; then
         .spec.relatedImages = env(relatedImages)' \
 		"${bundle_directory}/manifests/${file_name}.clusterserviceversion.yaml"
 fi
+# delete blank lines.
+sed -i '' '/^$/d' "${bundle_directory}/manifests/${file_name}.clusterserviceversion.yaml"
 
 if >/dev/null command -v tree; then tree -C "${bundle_directory}"; fi

@@ -6,9 +6,9 @@
 apiVersion: operators.coreos.com/v1alpha1
 kind: ClusterServiceVersion
 metadata:
-  name: '' # generate.sh
+  name: ''
   annotations:
-    features.operators.openshift.io/disconnected: "true"
+    features.operators.openshift.io/disconnected: "false"
     features.operators.openshift.io/fips-compliant: "false"
     features.operators.openshift.io/proxy-aware: "false"
     features.operators.openshift.io/tls-profiles: "false"
@@ -18,9 +18,7 @@ metadata:
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
-    support: percona.com
-    olm.properties: '[]'
-
+    support: percona/percona.com
     # The following affect how the package is indexed at OperatorHub.io:
     # https://operatorhub.io/?category=Database
     # https://sdk.operatorframework.io/docs/advanced-topics/operator-capabilities/operator-capabilities/
@@ -32,8 +30,8 @@ metadata:
 
     # The following appear on the details page at OperatorHub.io:
     # https://operatorhub.io/operator/postgresql
-    createdAt: 2024-10-07 19:40Z
-    repository: https://github.com/percona/percona-xtradb-cluster-operator
+    createdAt: "%Y-%m-%dT%H:%M:%S.%3Z"
+    repository: 'https://github.com/percona/percona-xtradb-cluster-operator'
     alm-examples: >- 
 
 spec:
@@ -163,7 +161,7 @@ spec:
       * Allowing haproxy-replica Service to cycle through the reader instances only
 
       * Fixing the overloaded allowUnsafeConfigurations flag
-  version: '' # generate.sh
+  version:
   links:
     - name: Percona
       url: https://www.percona.com/
@@ -262,18 +260,19 @@ spec:
   # Note: The minKubeVersion must correspond to the lowest supported OCP version
   minKubeVersion: 1.27.0
   maturity: stable
-  # https://github.com/operator-framework/operator-lifecycle-manager/blob/v0.18.2/doc/design/how-to-update-operators.md#replaces--channels
-  replaces: '' # generate.sh
-
   # https://olm.operatorframework.io/docs/advanced-tasks/operator-scoping-with-operatorgroups/
   installModes:
-    - { type: OwnNamespace,    supported: true  }
-    - { type: SingleNamespace, supported: true  }
-    - { type: MultiNamespace,  supported: true }
-    - { type: AllNamespaces,   supported: true  }
+    - supported: true
+      type: OwnNamespace
+    - supported: true
+      type: SingleNamespace
+    - supported: true
+      type: MultiNamespace
+    - supported: true
+      type: AllNamespaces
 
   install:
     strategy: deployment
     spec:
-      permissions: # kustomize config/operator
-      deployments: # kustomize config/operator
+      permissions:
+      deployments:

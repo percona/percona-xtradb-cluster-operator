@@ -36,6 +36,22 @@ else
 	exit 1
 fi
 
+update_yaml_images() {
+    local yaml_file="$1"
+
+    if [ ! -f "$yaml_file" ]; then
+        echo "Error: File '$yaml_file' does not exist."
+        return 1
+    fi
+
+    local temp_file=$(mktemp)
+
+    sed -E 's/(("image":|containerImage:|image:)[ ]*"?)([^"]+)("?)/\1docker.io\/\3\4/g' "$yaml_file" > "$temp_file"
+    mv "$temp_file" "$yaml_file"
+
+    echo "File '$yaml_file' updated successfully."
+}
+
 kubectl kustomize "../../config/${DISTRIBUTION}" >operator_yamls.yaml
 
 export role="${mode}Role"
@@ -124,9 +140,26 @@ awk '{gsub(/^[ \t]+/, "    "); print}' "${bundle_directory}/Dockerfile" > "${bun
 # Include CRDs as manifests.
 crd_names=$(yq eval -o=tsv '.metadata.name' operator_crds.yaml)
 
-for name in ${crd_names}; do
-	yq eval ". | select(.metadata.name == \"${name}\")" operator_crds.yaml >"${bundle_directory}/manifests/${name}.crd.yaml"
-done
+gawk -v names="${crd_names}" -v bundle_directory="${bundle_directory}" '
+BEGIN {
+    split(names, name_array, " ");
+    idx=1;
+}
+/apiVersion: apiextensions.k8s.io\/v1/ {
+    if (idx in name_array) {
+        current_file = bundle_directory "/manifests/" name_array[idx] ".crd.yaml";
+        idx++;
+    } else {
+        current_file = bundle_directory "/unnamed_" idx ".yaml";
+        idx++;
+    }
+}
+{
+    if (current_file != "") {
+        print > current_file;
+    }
+}
+' ../../deploy/crd.yaml
 
 abort() {
 	echo >&2 "$@"
@@ -176,7 +209,10 @@ yq eval '
   .spec.install.spec.deployments = [( env(deployment) | .[] |{ "name": .metadata.name, "spec": .spec} )] |
   .spec.minKubeVersion = env(minKubeVer)' bundle.csv.yaml >"${bundle_directory}/manifests/${file_name}.clusterserviceversion.yaml"
 
-if [ ${DISTRIBUTION} == "redhat" ]; then
+if [ ${DISTRIBUTION} == "community" ]; then
+    update_yaml_images "bundles/$DISTRIBUTION/manifests/${file_name}.clusterserviceversion.yaml"
+
+elif [ ${DISTRIBUTION} == "redhat" ]; then
 
 	yq eval --inplace '
         .spec.relatedImages = env(relatedImages) |
@@ -198,6 +234,13 @@ elif [ ${DISTRIBUTION} == "marketplace" ]; then
         .spec.relatedImages = env(relatedImages)' \
 		"${bundle_directory}/manifests/${file_name}.clusterserviceversion.yaml"
 fi
+
+sed -i '' '/crVersion/!b
+/crVersion/n
+/crVersion/a\
+  initImage: $initImage
+' "bundles/$DISTRIBUTION/manifests/${file_name}.clusterserviceversion.yaml"
+
 # delete blank lines.
 sed -i '' '/^$/d' "${bundle_directory}/manifests/${file_name}.clusterserviceversion.yaml"
 

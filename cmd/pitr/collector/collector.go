@@ -10,6 +10,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"path"
 	"strings"
 	"syscall"
 	"time"
@@ -118,6 +119,8 @@ func New(ctx context.Context, c Config) (*Collector, error) {
 		if len(bucketArr) > 1 {
 			prefix = strings.TrimPrefix(c.BackupStorageS3.BucketURL, bucketArr[0]+"/") + "/"
 		}
+		// if c.S3BucketURL ends with "/", we need prefix to be like "data/more-data/", not "data/more-data//"
+		prefix = path.Clean(prefix) + "/"
 		s, err = storage.NewS3(ctx, c.BackupStorageS3.Endpoint, c.BackupStorageS3.AccessKeyID, c.BackupStorageS3.AccessKey, bucketArr[0], prefix, c.BackupStorageS3.Region, c.VerifyTLS)
 		if err != nil {
 			return nil, errors.Wrap(err, "new storage manager")
@@ -127,6 +130,7 @@ func New(ctx context.Context, c Config) (*Collector, error) {
 		if prefix != "" {
 			prefix += "/"
 		}
+		prefix = path.Clean(prefix) + "/"
 		s, err = storage.NewAzure(c.BackupStorageAzure.AccountName, c.BackupStorageAzure.AccountKey, c.BackupStorageAzure.Endpoint, container, prefix)
 		if err != nil {
 			return nil, errors.Wrap(err, "new azure storage")

@@ -245,8 +245,18 @@ void runTest(Integer TEST_ID) {
     }
 }
 
+boolean isManualBuild() {
+    def causes = currentBuild.getBuildCauses('hudson.model.Cause$UserIdCause')
+    return !causes.isEmpty()
+}
+
 needToRunTests = true
 void checkE2EIgnoreFiles() {
+    if (isManualBuild()) {
+        echo "This is a manual rebuild. Forcing pipeline execution."
+        return
+    }
+
     def e2eignoreFile = ".e2eignore"
     if (fileExists(e2eignoreFile)) {
         def excludedFiles = readFile(e2eignoreFile).split('\n').collect{it.trim()}
@@ -255,18 +265,14 @@ void checkE2EIgnoreFiles() {
 
         def build = currentBuild.previousBuild
         while (build != null) {
-            if (build.result == 'SUCCESS') {
-                try {
-                    echo "Found a previous successful build: $build.number"
-                    copyArtifacts(projectName: env.JOB_NAME, selector: specific("$build.number"), filter: "$lastProcessedCommitFile")
-                    lastProcessedCommitHash = readFile("$lastProcessedCommitFile").trim()
-                    echo "lastProcessedCommitHash: $lastProcessedCommitHash"
-                    break
-                } catch (Exception e) {
-                    echo "No $lastProcessedCommitFile found in build $build.number. Checking earlier builds."
-                }
-            } else {
-                echo "Build $build.number was not successful. Checking earlier builds."
+            try {
+                echo "Checking previous build: #$build.number"
+                copyArtifacts(projectName: env.JOB_NAME, selector: specific("$build.number"), filter: lastProcessedCommitFile)
+                lastProcessedCommitHash = readFile(lastProcessedCommitFile).trim()
+                echo "Last processed commit hash: $lastProcessedCommitHash"
+                break
+            } catch (Exception e) {
+                echo "No $lastProcessedCommitFile found in build $build.number. Checking earlier builds."
             }
             build = build.previousBuild
         }
@@ -288,13 +294,21 @@ void checkE2EIgnoreFiles() {
         if (needToRunTests) {
             echo "Some changed files are outside of the e2eignore list. Proceeding with execution."
         } else {
-            echo "All changed files are e2eignore files. Aborting pipeline execution."
+            if (currentBuild.previousBuild?.result in ['FAILURE', 'ABORTED', 'UNSTABLE']) {
+                echo "All changed files are e2eignore files, and previous build was unsuccessful. Propagating previous state."
+                currentBuild.result = currentBuild.previousBuild?.result
+                error "Skipping execution as non-significant changes detected and previous build was unsuccessful."
+            } else {
+                echo "All changed files are e2eignore files. Aborting pipeline execution."
+            }
         }
 
         sh """
             echo \$(git rev-parse HEAD) > $lastProcessedCommitFile
         """
         archiveArtifacts "$lastProcessedCommitFile"
+    } else {
+        echo "No $e2eignoreFile file found. Proceeding with execution."
     }
 }
 

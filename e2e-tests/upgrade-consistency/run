@@ -35,8 +35,7 @@ main() {
 	create_infra $namespace
 
 	apply_config "$conf_dir/client.yml"
-	kubectl_bin apply \
-		-f "$test_dir/conf/secrets.yml"
+	kubectl_bin apply -f "$test_dir/conf/secrets.yml"
 	cat_config "$conf_dir/$cluster.yml" \
 		| yq eval '.spec.crVersion = "1.15.1"' - \
 		| kubectl_bin apply -f -
@@ -53,17 +52,17 @@ main() {
 	compare_kubectl statefulset/$cluster-pxc "-1151"
 	compare_kubectl statefulset/$cluster-proxysql "-1151"
 
-	desc "test 1.16.0"
+	desc "test 1.16.1"
 	kubectl_bin patch pxc "$cluster" --type=merge --patch '{
-        "spec": {"crVersion":"1.16.0"}
+        "spec": {"crVersion":"1.16.1"}
     }'
 	wait_cluster_consistency "$cluster" 3 2
 	wait_for_sts_generation "$cluster-pxc" "2" "1"
 	desc "compare k8s objects"
-	compare_kubectl service/$cluster-pxc "-1160"
-	compare_kubectl service/$cluster-proxysql "-1160"
-	compare_kubectl statefulset/$cluster-pxc "-1160"
-	compare_kubectl statefulset/$cluster-proxysql "-1160"
+	compare_kubectl service/$cluster-pxc "-1161"
+	compare_kubectl service/$cluster-proxysql "-1161"
+	compare_kubectl statefulset/$cluster-pxc "-1161"
+	compare_kubectl statefulset/$cluster-proxysql "-1161"
 
 	desc "test 1.17.0"
 	kubectl_bin patch pxc "$cluster" --type=merge --patch '{

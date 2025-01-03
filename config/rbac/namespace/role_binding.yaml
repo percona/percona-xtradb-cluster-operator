@@ -1,0 +1,12 @@
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: service-account-percona-xtradb-cluster-operator
+subjects:
+  - kind: ServiceAccount
+    name: percona-xtradb-cluster-operator
+roleRef:
+  kind: Role
+  name: percona-xtradb-cluster-operator
+  apiGroup: rbac.authorization.k8s.io

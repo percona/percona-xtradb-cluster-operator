@@ -1,0 +1,10 @@
+docs/**
+code-of-conduct.md
+CONTRIBUTING.md
+README.md
+.gitattributes
+.gitignore
+LICENSE
+operator.png
+kubernetes.svg
+.e2eignore

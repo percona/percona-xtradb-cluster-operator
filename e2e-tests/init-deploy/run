@@ -27,6 +27,17 @@ compare_kubectl service/$cluster-pxc
 compare_kubectl service/$cluster-proxysql
 compare_kubectl service/$cluster-proxysql-unready
 
+if [[ ! $IMAGE_PXC =~ 5\.7 ]]; then
+    desc 'check if mysql-state-monitor works as expected'
+    for pod in $(kubectl_bin get pod -l app.kubernetes.io/component=pxc --no-headers | awk '{print $1}'); do
+	state=$(kubectl_bin exec ${pod} -- cat /var/lib/mysql/mysql.state)
+	if [[ ${state} != 'ready' ]]; then
+	    echo "/var/lib/mysql/mysql.state says ${state}, it should be ready"
+	    exit 1
+	fi
+    done
+fi
+
 desc 'check PodDisruptionBudget'
 compare_kubectl pdb/$cluster-pxc
 compare_kubectl pdb/$cluster-proxysql

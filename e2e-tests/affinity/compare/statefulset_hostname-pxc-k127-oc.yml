@@ -78,6 +78,10 @@ spec:
               value: "15"
             - name: DEFAULT_AUTHENTICATION_PLUGIN
               value: mysql_native_password
+            - name: MYSQL_NOTIFY_SOCKET
+              value: /var/lib/mysql/notify.sock
+            - name: MYSQL_STATE_FILE
+              value: /var/lib/mysql/mysql.state
           envFrom:
             - secretRef:
                 name: hostname-env-vars-pxc
@@ -124,7 +128,7 @@ spec:
           resources:
             limits:
               cpu: "1"
-              memory: 1G
+              memory: 2G
             requests:
               cpu: 600m
               memory: 1G
@@ -216,6 +220,12 @@ spec:
     type: RollingUpdate
   volumeClaimTemplates:
     - metadata:
+        labels:
+          app.kubernetes.io/component: pxc
+          app.kubernetes.io/instance: hostname
+          app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+          app.kubernetes.io/name: percona-xtradb-cluster
+          app.kubernetes.io/part-of: percona-xtradb-cluster
         name: datadir
       spec:
         accessModes:

@@ -237,17 +237,18 @@ func (r *ReconcilePerconaXtraDBCluster) getNewVersions(ctx context.Context, cr *
 	}
 
 	vm := versionMeta{
-		Apply:               cr.Spec.UpgradeOptions.Apply,
-		Platform:            string(cr.Spec.Platform),
-		KubeVersion:         r.serverVersion.Info.GitVersion,
-		PXCVersion:          cr.Status.PXC.Version,
-		PMMVersion:          cr.Status.PMM.Version,
-		HAProxyVersion:      cr.Status.HAProxy.Version,
-		ProxySQLVersion:     cr.Status.ProxySQL.Version,
-		BackupVersion:       cr.Status.Backup.Version,
-		LogCollectorVersion: cr.Status.LogCollector.Version,
-		CRUID:               string(cr.GetUID()),
-		ClusterWideEnabled:  watchNs == "",
+		Apply:                 cr.Spec.UpgradeOptions.Apply,
+		Platform:              string(cr.Spec.Platform),
+		KubeVersion:           r.serverVersion.Info.GitVersion,
+		PXCVersion:            cr.Status.PXC.Version,
+		PMMVersion:            cr.Status.PMM.Version,
+		HAProxyVersion:        cr.Status.HAProxy.Version,
+		ProxySQLVersion:       cr.Status.ProxySQL.Version,
+		BackupVersion:         cr.Status.Backup.Version,
+		LogCollectorVersion:   cr.Status.LogCollector.Version,
+		CRUID:                 string(cr.GetUID()),
+		ClusterWideEnabled:    watchNs == "",
+		UserManagementEnabled: len(cr.Spec.Users) > 0,
 	}
 
 	endpoint := apiv1.GetDefaultVersionServiceEndpoint()

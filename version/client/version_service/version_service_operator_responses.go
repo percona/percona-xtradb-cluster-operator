@@ -6,6 +6,7 @@ package version_service
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 
@@ -55,9 +56,46 @@ type VersionServiceOperatorOK struct {
 	Payload *models.VersionOperatorResponse
 }
 
-func (o *VersionServiceOperatorOK) Error() string {
-	return fmt.Sprintf("[GET /versions/v1/{product}/{operatorVersion}][%d] versionServiceOperatorOK  %+v", 200, o.Payload)
+// IsSuccess returns true when this version service operator o k response has a 2xx status code
+func (o *VersionServiceOperatorOK) IsSuccess() bool {
+	return true
 }
+
+// IsRedirect returns true when this version service operator o k response has a 3xx status code
+func (o *VersionServiceOperatorOK) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this version service operator o k response has a 4xx status code
+func (o *VersionServiceOperatorOK) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this version service operator o k response has a 5xx status code
+func (o *VersionServiceOperatorOK) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this version service operator o k response a status code equal to that given
+func (o *VersionServiceOperatorOK) IsCode(code int) bool {
+	return code == 200
+}
+
+// Code gets the status code for the version service operator o k response
+func (o *VersionServiceOperatorOK) Code() int {
+	return 200
+}
+
+func (o *VersionServiceOperatorOK) Error() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /versions/v1/{product}/{operatorVersion}][%d] versionServiceOperatorOK %s", 200, payload)
+}
+
+func (o *VersionServiceOperatorOK) String() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /versions/v1/{product}/{operatorVersion}][%d] versionServiceOperatorOK %s", 200, payload)
+}
+
 func (o *VersionServiceOperatorOK) GetPayload() *models.VersionOperatorResponse {
 	return o.Payload
 }
@@ -84,12 +122,37 @@ func NewVersionServiceOperatorDefault(code int) *VersionServiceOperatorDefault {
 /*
 VersionServiceOperatorDefault describes a response with status code -1, with default header values.
 
-An unexpected error response
+An unexpected error response.
 */
 type VersionServiceOperatorDefault struct {
 	_statusCode int
 
 	Payload *models.GooglerpcStatus
+}
+
+// IsSuccess returns true when this version service operator default response has a 2xx status code
+func (o *VersionServiceOperatorDefault) IsSuccess() bool {
+	return o._statusCode/100 == 2
+}
+
+// IsRedirect returns true when this version service operator default response has a 3xx status code
+func (o *VersionServiceOperatorDefault) IsRedirect() bool {
+	return o._statusCode/100 == 3
+}
+
+// IsClientError returns true when this version service operator default response has a 4xx status code
+func (o *VersionServiceOperatorDefault) IsClientError() bool {
+	return o._statusCode/100 == 4
+}
+
+// IsServerError returns true when this version service operator default response has a 5xx status code
+func (o *VersionServiceOperatorDefault) IsServerError() bool {
+	return o._statusCode/100 == 5
+}
+
+// IsCode returns true when this version service operator default response a status code equal to that given
+func (o *VersionServiceOperatorDefault) IsCode(code int) bool {
+	return o._statusCode == code
 }
 
 // Code gets the status code for the version service operator default response
@@ -98,8 +161,15 @@ func (o *VersionServiceOperatorDefault) Code() int {
 }
 
 func (o *VersionServiceOperatorDefault) Error() string {
-	return fmt.Sprintf("[GET /versions/v1/{product}/{operatorVersion}][%d] VersionService_Operator default  %+v", o._statusCode, o.Payload)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /versions/v1/{product}/{operatorVersion}][%d] VersionService_Operator default %s", o._statusCode, payload)
 }
+
+func (o *VersionServiceOperatorDefault) String() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[GET /versions/v1/{product}/{operatorVersion}][%d] VersionService_Operator default %s", o._statusCode, payload)
+}
+
 func (o *VersionServiceOperatorDefault) GetPayload() *models.GooglerpcStatus {
 	return o.Payload
 }

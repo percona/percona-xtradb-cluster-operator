@@ -21,8 +21,7 @@ Within the [Percona Operator for MySQL based on Percona XtraDB Cluster](https://
 * Automated Password Rotation – use the standard Kubernetes API to enforce password rotation policies for system user
 * Private container image registries
 
-You interact with Percona Operator mostly via the command line tool. If you feel more comfortable with operating the Operator and database clusters via the web interface, there is [Percona Everest](https://docs.percona.com/everest/index.html) - an open-source web-based database provisioning tool available for you. It automates day-to-day database management operations for you, reducing the overall administrative overhead. [Get started with Percona Everest](https://docs.percona.com/everest/quickstart-guide/quick-install.html).
-
+While the Percona Operator is primarily managed through the command line, you can also use **[Percona Everest](https://docs.percona.com/everest/index.html)** for a web-based user interface. This open-source tool provides a streamlined experience for provisioning and managing your databases, simplifying day-to-day tasks and reducing administrative overhead. Learn more about Percona Everest in the [documentation](https://docs.percona.com/everest/index.html) or jump right in with the [quickstart guide](https://docs.percona.com/everest/quickstart-guide/quick-install.html).
 
 # Architecture
 
@@ -57,41 +56,24 @@ kubectl apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluste
 
 See full documentation with examples and various advanced cases on [percona.com](https://www.percona.com/doc/kubernetes-operator-for-pxc/index.html).
 
+# Need help?
+
+**Commercial Support**  | **Community Support** |
+:-: | :-: |
+| <br/>Enterprise-grade assistance for your mission-critical MySQL deployments with the Percona Operator for MySQL. Get expert guidance for complex tasks like multi-cloud replication, database migration and building platforms.<br/><br/>  | <br/>Connect with our engineers and fellow users for general questions, troubleshooting, and sharing feedback and ideas.<br/><br/>  | 
+| **[Get Percona Support](https://hubs.ly/Q02ZTH940)** | **[Visit our Forum](https://forums.percona.com/c/mysql-mariadb/percona-kubernetes-operator-for-mysql/28)** |
+
 # Contributing
 
 Percona welcomes and encourages community contributions to help improve Percona Operator for MySQL.
 
 See the [Contribution Guide](CONTRIBUTING.md) and [Building and Testing Guide](e2e-tests/README.md) for more information on how you can contribute.
 
-## Communication
+## Roadmap
 
-We would love to hear from you! Reach out to us on [Forum](https://forums.percona.com/c/mysql-mariadb/percona-kubernetes-operator-for-mysql/28) with your questions, feedback and ideas
-
-# Join Percona Kubernetes Squad!                                                                              
-```                                                                                     
-                    %                        _____                
-                   %%%                      |  __ \                                          
-                 ###%%%%%%%%%%%%*           | |__) |__ _ __ ___ ___  _ __   __ _             
-                ###  ##%%      %%%%         |  ___/ _ \ '__/ __/ _ \| '_ \ / _` |            
-              ####     ##%       %%%%       | |  |  __/ | | (_| (_) | | | | (_| |            
-             ###        ####      %%%       |_|   \___|_|  \___\___/|_| |_|\__,_|           
-           ,((###         ###     %%%        _      _          _____                       _
-          (((( (###        ####  %%%%       | |   / _ \       / ____|                     | | 
-         (((     ((#         ######         | | _| (_) |___  | (___   __ _ _   _  __ _  __| | 
-       ((((       (((#        ####          | |/ /> _ </ __|  \___ \ / _` | | | |/ _` |/ _` |
-      /((          ,(((        *###         |   <| (_) \__ \  ____) | (_| | |_| | (_| | (_| |
-    ////             (((         ####       |_|\_\\___/|___/ |_____/ \__, |\__,_|\__,_|\__,_|
-   ///                ((((        ####                                  | |                  
- /////////////(((((((((((((((((########                                 |_|   Join @ percona.com/k8s   
-```
-
-You can get early access to new product features, invite-only ”ask me anything” sessions with Percona Kubernetes experts, and monthly swag raffles. Interested? Fill in the form at [percona.com/k8s](https://www.percona.com/k8s).
-
-# Roadmap
-
-We have an experimental public roadmap which can be found [here](https://github.com/percona/roadmap/projects/1). Please feel free to contribute and propose new features by following the roadmap [guidelines](https://github.com/percona/roadmap).
+We have a public roadmap which can be found [here](https://github.com/orgs/percona/projects/10). Please feel free to contribute and propose new features by following the roadmap [guidelines](https://github.com/percona/roadmap).
  
-# Submitting Bug Reports
+## Submitting Bug Reports
 
 If you find a bug in Percona Docker Images or in one of the related projects, please submit a report to that project's [JIRA](https://jira.percona.com/browse/K8SPXC) issue tracker or [create a GitHub issue](https://docs.github.com/en/issues/tracking-your-work-with-issues/creating-an-issue#creating-an-issue-from-a-repository) in this repository. 
 

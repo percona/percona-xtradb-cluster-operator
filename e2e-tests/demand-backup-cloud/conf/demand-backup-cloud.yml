@@ -27,7 +27,7 @@ spec:
         memory: 0.1G
         cpu: 100m
       limits:
-        memory: "1G"
+        memory: "2G"
         cpu: "1"
     volumeSpec:
       persistentVolumeClaim:
@@ -60,6 +60,7 @@ spec:
     serverHost: monitoring-service
     serverUser: pmm
   backup:
+    activeDeadlineSeconds: 3600
     image: -backup
     storages:
       pvc:

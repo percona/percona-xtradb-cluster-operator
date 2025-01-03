@@ -69,7 +69,7 @@ fi
 
 CFG=/etc/mysql/node.cnf
 MYSQL_VERSION=$(mysqld -V | awk '{print $3}' | awk -F'.' '{print $1"."$2}')
-if [ "$MYSQL_VERSION" == '8.0' ]; then
+if [[ "$MYSQL_VERSION" =~ ^(8\.0|8\.4)$ ]]; then
 	grep -E -q "^[#]?admin-address" "$CFG" || sed '/^\[mysqld\]/a admin-address=\n' ${CFG} 1<>${CFG}
 	grep -E -q "^[#]?log_error_suppression_list" "$CFG" || sed '/^\[mysqld\]/a log_error_suppression_list="MY-010055"\n' ${CFG} 1<>${CFG}
 else

@@ -22,12 +22,14 @@ import (
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/queries"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/util"
 )
 
-func (r *ReconcilePerconaXtraDBCluster) updatePod(ctx context.Context, sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, newAnnotations map[string]string) error {
+func (r *ReconcilePerconaXtraDBCluster) updatePod(ctx context.Context, sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, newAnnotations map[string]string, smartUpdate bool) error {
 	log := logf.FromContext(ctx)
 
 	if cr.PVCResizeInProgress() {
@@ -41,7 +43,6 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(ctx context.Context, sfs api.S
 	}
 
 	// embed DB configuration hash
-	// TODO: code duplication with deploy function
 	configHash, err := r.getConfigHash(cr, sfs)
 	if err != nil {
 		return errors.Wrap(err, "getting config hash")
@@ -96,8 +97,8 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(ctx context.Context, sfs api.S
 
 	err = k8sretry.RetryOnConflict(k8sretry.DefaultRetry, func() error {
 		currentSet := sfs.StatefulSet()
-		err := r.client.Get(ctx, types.NamespacedName{Name: currentSet.Name, Namespace: currentSet.Namespace}, currentSet)
-		if err != nil {
+		err := r.client.Get(ctx, client.ObjectKeyFromObject(currentSet), currentSet)
+		if client.IgnoreNotFound(err) != nil {
 			return errors.Wrap(err, "failed to get statefulset")
 		}
 		annotations := currentSet.Spec.Template.Annotations
@@ -107,11 +108,18 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(ctx context.Context, sfs api.S
 		if err != nil {
 			return errors.Wrap(err, "construct statefulset")
 		}
+		// Keep same volumeClaimTemplates labels if statefulset already exists.
+		// We can't update volumeClaimTemplates.
+		if err == nil && cr.CompareVersionWith("1.16.0") >= 0 {
+			for i, pvc := range currentSet.Spec.VolumeClaimTemplates {
+				sts.Spec.VolumeClaimTemplates[i].Labels = pvc.Labels
+			}
+		}
 
-		// support annotation adjustements
-		pxc.MergeMaps(annotations, sts.Spec.Template.Annotations, newAnnotations)
-
-		pxc.MergeMaps(labels, sts.Spec.Template.Labels)
+		// If currentSet is not found, both annotations and labels will be nil.
+		// In such cases, MergeMaps will initialize a new map and return it.
+		annotations = util.MergeMaps(annotations, sts.Spec.Template.Annotations, newAnnotations)
+		labels = util.MergeMaps(labels, sts.Spec.Template.Labels)
 
 		for k, v := range hashAnnotations {
 			if v != "" || k == "percona.com/configuration-hash" {
@@ -121,6 +129,10 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(ctx context.Context, sfs api.S
 
 		sts.Spec.Template.Annotations = annotations
 		sts.Spec.Template.Labels = labels
+
+		if err := setControllerReference(cr, sts, r.scheme); err != nil {
+			return errors.Wrap(err, "set controller reference")
+		}
 		err = r.createOrUpdate(ctx, cr, sts)
 		if err != nil {
 			return errors.Wrap(err, "update error")
@@ -135,7 +147,13 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(ctx context.Context, sfs api.S
 		return nil
 	}
 
-	return r.smartUpdate(ctx, sfs, cr)
+	if smartUpdate {
+		if err := r.smartUpdate(ctx, sfs, cr); err != nil {
+			return errors.Wrap(err, "smart update")
+		}
+	}
+
+	return nil
 }
 
 func (r *ReconcilePerconaXtraDBCluster) smartUpdate(ctx context.Context, sfs api.StatefulApp, cr *api.PerconaXtraDBCluster) error {
@@ -558,15 +576,15 @@ func (r *ReconcilePerconaXtraDBCluster) waitPodRestart(ctx context.Context, cr *
 }
 
 func isPXC(sfs api.StatefulApp) bool {
-	return sfs.Labels()["app.kubernetes.io/component"] == "pxc"
+	return sfs.Labels()[naming.LabelAppKubernetesComponent] == "pxc"
 }
 
 func isHAproxy(sfs api.StatefulApp) bool {
-	return sfs.Labels()["app.kubernetes.io/component"] == "haproxy"
+	return sfs.Labels()[naming.LabelAppKubernetesComponent] == "haproxy"
 }
 
 func isProxySQL(sfs api.StatefulApp) bool {
-	return sfs.Labels()["app.kubernetes.io/component"] == "proxysql"
+	return sfs.Labels()[naming.LabelAppKubernetesComponent] == "proxysql"
 }
 
 func (r *ReconcilePerconaXtraDBCluster) isBackupRunning(cr *api.PerconaXtraDBCluster) (bool, error) {
@@ -639,7 +657,7 @@ func (r *ReconcilePerconaXtraDBCluster) getConfigHash(cr *api.PerconaXtraDBClust
 
 	name := types.NamespacedName{
 		Namespace: cr.Namespace,
-		Name:      ls["app.kubernetes.io/instance"] + "-" + ls["app.kubernetes.io/component"],
+		Name:      ls[naming.LabelAppKubernetesInstance] + "-" + ls[naming.LabelAppKubernetesComponent],
 	}
 
 	obj, err := r.getFirstExisting(name, &corev1.Secret{}, &corev1.ConfigMap{})

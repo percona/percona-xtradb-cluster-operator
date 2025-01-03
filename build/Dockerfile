@@ -1,4 +1,4 @@
-FROM --platform=${BUILDPLATFORM} golang:1.22 AS go_builder
+FROM --platform=${BUILDPLATFORM} golang:1.23 AS go_builder
 WORKDIR /go/src/github.com/percona/percona-xtradb-cluster-operator
 
 COPY go.mod go.sum ./
@@ -30,6 +30,11 @@ RUN GOOS=$GOOS GOARCH=${TARGETARCH} CGO_ENABLED=$CGO_ENABLED GO_LDFLAGS=$GO_LDFL
                cmd/pitr/main.go \
     && cp -r build/_output/bin/pitr /usr/local/bin/pitr
 
+RUN GOOS=$GOOS GOARCH=${TARGETARCH} CGO_ENABLED=$CGO_ENABLED GO_LDFLAGS=$GO_LDFLAGS \
+       go build -ldflags "-w -s -X main.GitCommit=$GIT_COMMIT -X main.GitBranch=$GIT_BRANCH -X main.BuildTime=$BUILD_TIME" \
+            -o build/_output/bin/mysql-state-monitor cmd/mysql-state-monitor/main.go \
+    && cp -r build/_output/bin/mysql-state-monitor /usr/local/bin/mysql-state-monitor
+
 # Looking for all possible License/Notice files and copying them to the image
 RUN find $GOPATH/pkg/mod -regextype posix-extended -iregex '.*(license|notice)(\.md|\.txt|$)' \
          -exec \
@@ -49,6 +54,7 @@ COPY LICENSE /licenses/
 COPY --from=go_builder /usr/local/bin/percona-xtradb-cluster-operator /usr/local/bin/percona-xtradb-cluster-operator
 COPY --from=go_builder /usr/local/bin/peer-list /peer-list
 COPY --from=go_builder /usr/local/bin/pitr /pitr
+COPY --from=go_builder /usr/local/bin/mysql-state-monitor /mysql-state-monitor
 COPY build/pxc-entrypoint.sh /pxc-entrypoint.sh
 COPY build/pxc-init-entrypoint.sh /pxc-init-entrypoint.sh
 COPY build/pitr-init-entrypoint.sh /pitr-init-entrypoint.sh

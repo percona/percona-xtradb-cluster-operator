@@ -16,7 +16,6 @@ MYSQL_PASSWORD="${mysql_pass:-$MONITOR_PASSWORD}"
 DEFAULTS_EXTRA_FILE=${DEFAULTS_EXTRA_FILE:-/etc/my.cnf}
 AVAILABLE_WHEN_DONOR=${AVAILABLE_WHEN_DONOR:-1}
 NODE_IP=$(hostname -I | awk ' { print $1 } ')
-
 #Timeout exists for instances where mysqld may be hung
 TIMEOUT=$((${READINESS_CHECK_TIMEOUT:-10} - 1))
 
@@ -36,8 +35,7 @@ WSREP_STATUS=($(MYSQL_PWD="${MYSQL_PASSWORD}" $MYSQL_CMDLINE --init-command="SET
 	sed -n -e '2p' -e '5p' | tr '\n' ' '))
 set -x
 
-if [[ ${WSREP_STATUS[1]} == 'Primary' && (${WSREP_STATUS[0]} -eq 4 ||
-	(${WSREP_STATUS[0]} -eq 2 && $AVAILABLE_WHEN_DONOR -eq 1)) ]]; then
+if [[ ${WSREP_STATUS[1]} == 'Primary' && (${WSREP_STATUS[0]} -eq 4 || (${WSREP_STATUS[0]} -eq 2 && $AVAILABLE_WHEN_DONOR -eq 1)) ]]; then
 	exit 0
 else
 	exit 1

@@ -126,30 +126,33 @@ check_binlog_gap_restore() {
 	kubectl patch pxc $cluster --type=merge -p '{"spec":{"backup":{"pitr":{"enabled":false}}}}'
 	# try restore, check error
 	if [ "$type" == "error" ]; then
-		kubectl_bin apply -f $test_dir/conf/restore-on-pitr-minio-gap-error.yaml
-		wait_backup_restore "on-pitr-minio-gap-error" "Failed"
-		local backup_error=$(kubectl_bin get pxc-restore on-pitr-minio-gap-error -ojsonpath='{.status.comments}' | grep -c "Backup doesn't guarantee consistent recovery with PITR. Annotate PerconaXtraDBClusterRestore with percona.com/unsafe-pitr to force it.")
+		local restore=restore-on-pitr-minio-gap-error
+		kubectl_bin apply -f $test_dir/conf/${restore}.yaml
+		wait_backup_restore "${restore}" "Failed"
+		local backup_error=$(kubectl_bin get pxc-restore ${restore} -ojsonpath='{.status.comments}' | grep -c "Backup doesn't guarantee consistent recovery with PITR. Annotate PerconaXtraDBClusterRestore with percona.com/unsafe-pitr to force it.")
 		if [[ $backup_error -eq 0 ]]; then
 			echo "ERROR: Backup is not tagged as PITR unready in the backup condition."
 			kubectl_bin get pxc-backup on-pitr-minio-gap -oyaml
 			exit 1
 		fi
-		kubectl_bin delete -f "$test_dir/conf/restore-on-pitr-minio-gap-error.yaml"
+		kubectl_bin delete -f "$test_dir/conf/${restore}.yaml"
 	elif [ "$type" == "force" ]; then
-		kubectl_bin apply -f "$test_dir/conf/restore-on-pitr-minio-gap-force.yaml"
-		wait_backup_restore "on-pitr-minio-gap-force" "Succeeded"
+		local restore=restore-on-pitr-minio-gap-force
+		kubectl_bin apply -f "$test_dir/conf/${restore}.yaml"
+		wait_backup_restore "${restore}" "Succeeded"
 		wait_for_running "$cluster-proxysql" 2
 		wait_for_running "$cluster-pxc" 3
 		wait_cluster_consistency "$cluster" 3 2
-		kubectl_bin logs job/restore-job-on-pitr-minio-gap-force-${cluster}
+		kubectl_bin logs job/restore-job-${restore}-${cluster}
 		compare_mysql_cmd "select-gap" "SELECT * from test.gap;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
 		compare_mysql_cmd "select-gap" "SELECT * from test.gap;" "-h $cluster-pxc-1.$cluster-pxc -uroot -proot_password"
 		compare_mysql_cmd "select-gap" "SELECT * from test.gap;" "-h $cluster-pxc-2.$cluster-pxc -uroot -proot_password"
-		kubectl_bin delete -f "$test_dir/conf/restore-on-pitr-minio-gap-force.yaml"
+		kubectl_bin delete -f "$test_dir/conf/${restore}.yaml"
 	elif [ "$type" == "no-pitr" ]; then
-		kubectl_bin apply -f $test_dir/conf/restore-on-pitr-minio-gap-no-pitr.yaml
-		wait_backup_restore "on-pitr-minio-gap-no-pitr" "Succeeded"
-		local backup_error=$(kubectl_bin get pxc-restore on-pitr-minio-gap-no-pitr -ojsonpath='{.status.comments}' | grep -c "Backup doesn't guarantee consistent recovery with PITR. Annotate PerconaXtraDBClusterRestore with percona.com/unsafe-pitr to force it.")
+		local restore=restore-on-pitr-minio-gap-no-pitr
+		kubectl_bin apply -f $test_dir/conf/${restore}.yaml
+		wait_backup_restore "${restore}" "Succeeded"
+		local backup_error=$(kubectl_bin get pxc-restore ${restore} -ojsonpath='{.status.comments}' | grep -c "Backup doesn't guarantee consistent recovery with PITR. Annotate PerconaXtraDBClusterRestore with percona.com/unsafe-pitr to force it.")
 		if [[ $backup_error -ne 0 ]]; then
 			echo "ERROR: Restore without PiTR is failed because backups is tagged PiTR unready in the backup condition."
 			kubectl_bin get pxc-backup on-pitr-minio-gap -oyaml
@@ -230,7 +233,7 @@ invalid_binlog_test() {
 		| yq eval 'del(.spec.backupSource)' \
 		| yq eval ".spec.backupName=\"$backup\"" \
 		| kubectl_bin apply -f -
-	wait_backup_restore ${backup}
+	wait_backup_restore restore-${backup}
 	wait_for_running "$cluster-proxysql" 2
 	wait_for_running "$cluster-pxc" 3
 	wait_cluster_consistency "$cluster" 3 2

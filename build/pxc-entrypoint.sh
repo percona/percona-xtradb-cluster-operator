@@ -165,7 +165,7 @@ if [ -f "$vault_secret" ]; then
 	sed -i "/\[mysqld\]/a early-plugin-load=keyring_vault.so" $CFG
 	sed -i "/\[mysqld\]/a keyring_vault_config=$vault_secret" $CFG
 
-	if [ "$MYSQL_VERSION" == '8.0' ]; then
+	if [[ "$MYSQL_VERSION" =~ ^(8\.0|8\.4)$ ]]; then
 		sed -i "/\[mysqld\]/a default_table_encryption=ON" $CFG
 		sed -i "/\[mysqld\]/a table_encryption_privilege_check=ON" $CFG
 		sed -i "/\[mysqld\]/a innodb_undo_log_encrypt=ON" $CFG
@@ -188,19 +188,19 @@ fi
 # add sst.cpat to exclude pxc-entrypoint, unsafe-bootstrap, pxc-configure-pxc from SST cleanup
 grep -q "^progress=" $CFG && sed -i "s|^progress=.*|progress=1|" $CFG
 grep -q "^\[sst\]" "$CFG" || printf '[sst]\n' >>"$CFG"
-grep -q "^cpat=" "$CFG" || sed '/^\[sst\]/a cpat=.*\\.pem$\\|.*init\\.ok$\\|.*galera\\.cache$\\|.*wsrep_recovery_verbose\\.log$\\|.*readiness-check\\.sh$\\|.*liveness-check\\.sh$\\|.*get-pxc-state$\\|.*sst_in_progress$\\|.*sleep-forever$\\|.*pmm-prerun\\.sh$\\|.*sst-xb-tmpdir$\\|.*\\.sst$\\|.*gvwstate\\.dat$\\|.*grastate\\.dat$\\|.*\\.err$\\|.*\\.log$\\|.*RPM_UPGRADE_MARKER$\\|.*RPM_UPGRADE_HISTORY$\\|.*pxc-entrypoint\\.sh$\\|.*unsafe-bootstrap\\.sh$\\|.*pxc-configure-pxc\\.sh\\|.*peer-list$\\|.*auth_plugin$\\|.*version_info$' "$CFG" 1<>"$CFG"
-if [[ $MYSQL_VERSION == '8.0' ]]; then
-	if [[ $MYSQL_PATCH_VERSION -ge 26 ]]; then
-		grep -q "^skip_replica_start=ON" "$CFG" || sed -i "/\[mysqld\]/a skip_replica_start=ON" $CFG
-	else
-		grep -q "^skip_slave_start=ON" "$CFG" || sed -i "/\[mysqld\]/a skip_slave_start=ON" $CFG
-	fi
+grep -q "^cpat=" "$CFG" || sed '/^\[sst\]/a cpat=.*\\.pem$\\|.*init\\.ok$\\|.*galera\\.cache$\\|.*wsrep_recovery_verbose\\.log$\\|.*readiness-check\\.sh$\\|.*liveness-check\\.sh$\\|.*get-pxc-state$\\|.*sst_in_progress$\\|.*sleep-forever$\\|.*pmm-prerun\\.sh$\\|.*sst-xb-tmpdir$\\|.*\\.sst$\\|.*gvwstate\\.dat$\\|.*grastate\\.dat$\\|.*\\.err$\\|.*\\.log$\\|.*RPM_UPGRADE_MARKER$\\|.*RPM_UPGRADE_HISTORY$\\|.*pxc-entrypoint\\.sh$\\|.*unsafe-bootstrap\\.sh$\\|.*pxc-configure-pxc\\.sh\\|.*peer-list$\\|.*auth_plugin$\\|.*version_info$\\|.*mysql-state-monitor$\\|.*mysql-state-monitor\\.log$\\|.*notify\\.sock$\\|.*mysql\\.state$' "$CFG" 1<>"$CFG"
+
+if [[ $MYSQL_VERSION == '8.0' && $MYSQL_PATCH_VERSION -ge 26 ]] || [[ $MYSQL_VERSION == '8.4' ]]; then
+	grep -q "^skip_replica_start=ON" "$CFG" || sed -i "/\[mysqld\]/a skip_replica_start=ON" $CFG
+else
+	grep -q "^skip_slave_start=ON" "$CFG" || sed -i "/\[mysqld\]/a skip_slave_start=ON" $CFG
 fi
 
 auth_plugin=${DEFAULT_AUTHENTICATION_PLUGIN}
 if [[ -f /var/lib/mysql/auth_plugin ]]; then
 	prev_auth_plugin=$(cat /var/lib/mysql/auth_plugin)
 	if [[ ${prev_auth_plugin} != "mysql_native_password" && ${auth_plugin} == "mysql_native_password" ]]; then
+		set +o xtrace
 		echo "FATAL: It's forbidden to switch from ${prev_auth_plugin} to ${auth_plugin}."
 		echo "If ProxySQL is enabled operator uses mysql_native_password since it doesn't work with caching_sha2_password."
 		echo "Using caching_sha2_password will break frontend connections in ProxySQL."
@@ -219,7 +219,7 @@ fi
 echo "${auth_plugin}" >/var/lib/mysql/auth_plugin
 
 sed -i "/default_authentication_plugin/d" $CFG
-if [[ $MYSQL_VERSION == '8.0' && $MYSQL_PATCH_VERSION -ge 27 ]]; then
+if [[ $MYSQL_VERSION == '8.0' && $MYSQL_PATCH_VERSION -ge 27 ]] || [[ $MYSQL_VERSION == "8.4" ]]; then
 	sed -i "/\[mysqld\]/a authentication_policy=${auth_plugin},," $CFG
 else
 	sed -i "/\[mysqld\]/a default_authentication_plugin=${auth_plugin}" $CFG
@@ -293,9 +293,13 @@ if [[ -z ${WSREP_CLUSTER_NAME} || ${WSREP_CLUSTER_NAME} == 'noname' ]]; then
 	exit 1
 fi
 
+if [[ -n ${MYSQL_NOTIFY_SOCKET} && ${MYSQL_VERSION} =~ ^(8\.0|8\.4)$ ]]; then
+	export NOTIFY_SOCKET=${MYSQL_NOTIFY_SOCKET}
+	nohup /var/lib/mysql/mysql-state-monitor >/var/lib/mysql/mysql-state-monitor.log 2>&1 < /dev/null &
+fi
+
 # if we have CLUSTER_JOIN - then we do not need to perform datadir initialize
 # the data will be copied from another node
-
 if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 	# still need to check config, container may have started with --user
 	_check_config "$@"
@@ -323,7 +327,11 @@ if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 		echo 'Initializing database'
 		# we initialize database into $TMPDIR because "--initialize-insecure" option does not work if directory is not empty
 		# in some cases storage driver creates unremovable artifacts (see K8SPXC-286), so $DATADIR cleanup is not possible
-		"$@" --initialize-insecure --skip-ssl --datadir="$TMPDIR"
+		if [[ $MYSQL_VERSION == "8.4" ]]; then
+			"$@" --initialize-insecure --datadir="$TMPDIR"
+		else
+			"$@" --initialize-insecure --skip-ssl --datadir="$TMPDIR"
+		fi
 		mv "$TMPDIR"/* "$DATADIR/"
 		rm -rfv "$TMPDIR"
 		echo 'Database initialized'
@@ -342,7 +350,7 @@ if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 			if [ "$wsrep_local_state" = 'Synced' ]; then
 				break
 			fi
-			echo 'MySQL init process in progress...'
+			echo >&2 "MySQL init process in progress..."
 			sleep 1
 		done
 		if [ "$i" = 0 ]; then
@@ -381,7 +389,7 @@ if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 		file_env 'MONITOR_HOST' 'localhost'
 		file_env 'MONITOR_PASSWORD' 'monitor' 'monitor'
 		file_env 'REPLICATION_PASSWORD' 'replication' 'replication'
-		if [ "$MYSQL_VERSION" == '8.0' ]; then
+		if [[ "$MYSQL_VERSION" =~ ^(8\.0|8\.4)$ ]]; then
 			read -r -d '' monitorConnectGrant <<-EOSQL || true
 				GRANT SERVICE_CONNECTION_ADMIN ON *.* TO 'monitor'@'${MONITOR_HOST}';
 			EOSQL
@@ -389,7 +397,7 @@ if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 
 		# SYSTEM_USER since 8.0.16
 		# https://dev.mysql.com/doc/refman/8.0/en/privileges-provided.html#priv_system-user
-		if [[ $MYSQL_VERSION == "8.0" ]] && ((MYSQL_PATCH_VERSION >= 16)); then
+		if [[ $MYSQL_VERSION == "8.0" ]] && ((MYSQL_PATCH_VERSION >= 16)) || [[ $MYSQL_VERSION == "8.4" ]]; then
 			read -r -d '' systemUserGrant <<-EOSQL || true
 				GRANT SYSTEM_USER ON *.* TO 'monitor'@'${MONITOR_HOST}';
 			EOSQL
@@ -518,17 +526,17 @@ if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 			if echo 'SELECT 1' | "${mysql[@]}" &>/dev/null; then
 				break
 			fi
-			echo 'MySQL init process in progress...'
+			echo >&2 "MySQL upgrade process in progress..."
 			sleep 1
 		done
 		if [ "$i" = 0 ]; then
-			echo >&2 'MySQL init process failed.'
+			echo >&2 'MySQL upgrade process failed.'
 			exit 1
 		fi
 
 		mysql_upgrade --force "${mysql[@]:1}"
 		if ! kill -s TERM "$pid" || ! wait "$pid"; then
-			echo >&2 'MySQL init process failed.'
+			echo >&2 'MySQL upgrade process failed.'
 			exit 1
 		fi
 	fi

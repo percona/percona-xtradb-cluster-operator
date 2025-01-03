@@ -13,6 +13,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	app "github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/config"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
@@ -23,35 +24,12 @@ const (
 )
 
 type Node struct {
-	sfs     *appsv1.StatefulSet
-	labels  map[string]string
-	service string
+	cr *api.PerconaXtraDBCluster
 }
 
 func NewNode(cr *api.PerconaXtraDBCluster) *Node {
-	sfs := &appsv1.StatefulSet{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "apps/v1",
-			Kind:       "StatefulSet",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-" + app.Name,
-			Namespace: cr.Namespace,
-		},
-	}
-
-	labels := map[string]string{
-		"app.kubernetes.io/name":       "percona-xtradb-cluster",
-		"app.kubernetes.io/instance":   cr.Name,
-		"app.kubernetes.io/component":  "pxc",
-		"app.kubernetes.io/managed-by": "percona-xtradb-cluster-operator",
-		"app.kubernetes.io/part-of":    "percona-xtradb-cluster",
-	}
-
 	return &Node{
-		sfs:     sfs,
-		labels:  labels,
-		service: cr.Name + "-" + app.Name,
+		cr: cr.DeepCopy(),
 	}
 }
 
@@ -169,7 +147,7 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 		Env: []corev1.EnvVar{
 			{
 				Name:  "PXC_SERVICE",
-				Value: c.labels["app.kubernetes.io/instance"] + "-" + c.labels["app.kubernetes.io/component"] + "-unready",
+				Value: c.Labels()[naming.LabelAppKubernetesInstance] + "-" + c.Labels()[naming.LabelAppKubernetesComponent] + "-unready",
 			},
 			{
 				Name:  "MONITOR_HOST",
@@ -272,6 +250,19 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 
 	if cr.Spec.PXC != nil && (cr.Spec.PXC.Lifecycle.PostStart != nil || cr.Spec.PXC.Lifecycle.PreStop != nil) {
 		appc.Lifecycle = &cr.Spec.PXC.Lifecycle
+	}
+
+	if cr.CompareVersionWith("1.16.0") >= 0 {
+		appc.Env = append(appc.Env, []corev1.EnvVar{
+			{
+				Name:  "MYSQL_NOTIFY_SOCKET",
+				Value: "/var/lib/mysql/notify.sock",
+			},
+			{
+				Name:  "MYSQL_STATE_FILE",
+				Value: "/var/lib/mysql/mysql.state",
+			},
+		}...)
 	}
 
 	return appc, nil
@@ -554,19 +545,35 @@ func (c *Node) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg ap
 		vol.Volumes = append(vol.Volumes, app.GetSecretVolumes("mysql-init-file", cr.Name+"-mysql-init", true))
 	}
 
+	if cr.CompareVersionWith("1.16.0") >= 0 {
+		for i := range vol.PVCs {
+			vol.PVCs[i].Labels = c.Labels()
+		}
+	}
+
 	return vol, nil
 }
 
+// StatefulSet returns a new statefulset object with empty spec.
 func (c *Node) StatefulSet() *appsv1.StatefulSet {
-	return c.sfs
+	return &appsv1.StatefulSet{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "apps/v1",
+			Kind:       "StatefulSet",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      c.cr.Name + "-" + app.Name,
+			Namespace: c.cr.Namespace,
+		},
+	}
 }
 
 func (c *Node) Labels() map[string]string {
-	return c.labels
+	return naming.LabelsPXC(c.cr)
 }
 
 func (c *Node) Service() string {
-	return c.service
+	return c.cr.Name + "-" + app.Name
 }
 
 func (c *Node) UpdateStrategy(cr *api.PerconaXtraDBCluster) appsv1.StatefulSetUpdateStrategy {

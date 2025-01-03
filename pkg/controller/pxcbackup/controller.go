@@ -166,7 +166,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 	}
 
 	if !cluster.Spec.Backup.GetAllowParallel() {
-		isRunning, err := r.isOtherBackupRunning(ctx, cr)
+		isRunning, err := r.isOtherBackupRunning(ctx, cr, cluster)
 		if err != nil {
 			return rr, errors.Wrap(err, "failed to check if other backups running")
 		}
@@ -204,7 +204,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 
 	switch storage.Type {
 	case api.BackupStorageFilesystem:
-		pvc := backup.NewPVC(cr)
+		pvc := backup.NewPVC(cr, cluster)
 		pvc.Spec = *storage.Volume.PersistentVolumeClaim
 
 		cr.Status.Destination.SetPVCDestination(pvc.Name)
@@ -337,7 +337,6 @@ func (r *ReconcilePerconaXtraDBClusterBackup) runDeleteBackupFinalizer(ctx conte
 			log.Info("failed to delete backup", "backup path", cr.Status.Destination, "error", err.Error())
 			finalizers = append(finalizers, f)
 		} else if f == naming.FinalizerDeleteBackup || f == naming.FinalizerS3DeleteBackup {
-
 			log.Info("backup was removed", "name", cr.Name)
 		}
 	}
@@ -547,21 +546,21 @@ func setControllerReference(cr *api.PerconaXtraDBClusterBackup, obj metav1.Objec
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBClusterBackup) isOtherBackupRunning(ctx context.Context, cr *api.PerconaXtraDBClusterBackup) (bool, error) {
+func (r *ReconcilePerconaXtraDBClusterBackup) isOtherBackupRunning(ctx context.Context, cr *api.PerconaXtraDBClusterBackup, cluster *api.PerconaXtraDBCluster) (bool, error) {
 	list := new(batchv1.JobList)
-	lbls := map[string]string{
-		"type":    "xtrabackup",
-		"cluster": cr.Spec.PXCCluster,
-	}
 	if err := r.client.List(ctx, list, &client.ListOptions{
-		Namespace:     cr.Namespace,
-		LabelSelector: labels.SelectorFromSet(lbls),
+		Namespace:     cluster.Namespace,
+		LabelSelector: labels.SelectorFromSet(naming.LabelsBackup(cluster)),
 	}); err != nil {
 		return false, errors.Wrap(err, "list jobs")
 	}
 
 	for _, job := range list.Items {
-		if job.Labels["backup-name"] == cr.Name || job.Labels["backup-name"] == "" {
+		backupNameLabelKey := naming.LabelPerconaBackupName
+		if cluster.CompareVersionWith("1.16.0") < 0 {
+			backupNameLabelKey = "backup-name"
+		}
+		if job.Labels[backupNameLabelKey] == cr.Name {
 			continue
 		}
 		if job.Status.Active == 0 && (jobSucceded(&job) || jobFailed(&job)) {

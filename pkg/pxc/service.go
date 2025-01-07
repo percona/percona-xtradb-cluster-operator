@@ -429,7 +429,7 @@ func NewServiceHAProxyReplicas(cr *api.PerconaXtraDBCluster) *corev1.Service {
 		if cr.CompareVersionWith("1.14.0") >= 0 {
 			if cr.Spec.HAProxy.ExposeReplicas.ServiceExpose.LoadBalancerSourceRanges != nil {
 				loadBalancerSourceRanges = cr.Spec.HAProxy.ExposeReplicas.ServiceExpose.LoadBalancerSourceRanges
-			} else {
+			} else if cr.Spec.HAProxy.ExposeReplicas.ServiceExpose.LoadBalancerSourceRanges == nil && cr.Spec.HAProxy.ExposeReplicas.Enabled && cr.Spec.HAProxy.ExposeReplicas.Type == corev1.ServiceTypeLoadBalancer {
 				loadBalancerSourceRanges = cr.Spec.HAProxy.ExposePrimary.LoadBalancerSourceRanges
 			}
 			loadBalancerIP = cr.Spec.HAProxy.ExposeReplicas.ServiceExpose.LoadBalancerIP

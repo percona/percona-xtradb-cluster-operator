@@ -106,24 +106,25 @@ swagger: ## Download swagger locally if necessary.
 	$(call go-get-tool,$(SWAGGER),github.com/go-swagger/go-swagger/cmd/swagger@latest)
 
 # Prepare release
+include e2e-tests/release_versions
 CERT_MANAGER_VER := $(shell grep -Eo "cert-manager v.*" go.mod|grep -Eo "[0-9]+\.[0-9]+\.[0-9]+")
 release: manifests
 	$(SED) -i "/CERT_MANAGER_VER/s/CERT_MANAGER_VER=\".*/CERT_MANAGER_VER=\"$(CERT_MANAGER_VER)\"/" e2e-tests/functions
 	$(SED) -i "/Version = \"/s/Version = \".*/Version = \"$(VERSION)\"/" version/version.go
 	$(SED) -i \
 		-e "s/crVersion: .*/crVersion: $(VERSION)/" \
-		-e "/^  pxc:/,/^    image:/{s#image: .*#image: percona/percona-xtradb-cluster:@@SET_TAG@@#}" \
-		-e "/^  haproxy:/,/^    image:/{s#image: .*#image: percona/percona-xtradb-cluster-operator:$(VERSION)-haproxy#}" \
-		-e "/^  logcollector:/,/^    image:/{s#image: .*#image: percona/percona-xtradb-cluster-operator:$(VERSION)-logcollector#}" deploy/cr-minimal.yaml
+		-e "/^  pxc:/,/^    image:/{s#image: .*#image: $(IMAGE_PXC80)#}" \
+		-e "/^  haproxy:/,/^    image:/{s#image: .*#image: $(IMAGE_HAPROXY)#}" \
+		-e "/^  logcollector:/,/^    image:/{s#image: .*#image: $(IMAGE_LOGCOLLECTOR)#}" deploy/cr-minimal.yaml
 	$(SED) -i \
 		-e "s/crVersion: .*/crVersion: $(VERSION)/" \
-		-e "/^  pxc:/,/^    image:/{s#image: .*#image: percona/percona-xtradb-cluster:@@SET_TAG@@#}" \
-		-e "/^  haproxy:/,/^    image:/{s#image: .*#image: percona/percona-xtradb-cluster-operator:$(VERSION)-haproxy#}" \
-		-e "/^  proxysql:/,/^    image:/{s#image: .*#image: percona/percona-xtradb-cluster-operator:$(VERSION)-proxysql#}" \
-		-e "/^  logcollector:/,/^    image:/{s#image: .*#image: percona/percona-xtradb-cluster-operator:$(VERSION)-logcollector#}" \
-		-e "/^  backup:/,/^    image:/{s#image: .*#image: percona/percona-xtradb-cluster-operator:$(VERSION)-pxc8.0-backup-pxb@@SET_TAG@@#}" \
-		-e "/initContainer:/,/image:/{s#image: .*#image: percona/percona-xtradb-cluster-operator:$(VERSION)#}" \
-		-e "/^  pmm:/,/^    image:/{s#image: .*#image: percona/pmm-client:@@SET_TAG@@#}" deploy/cr.yaml
+		-e "/^  pxc:/,/^    image:/{s#image: .*#image: $(IMAGE_PXC80)#}" \
+		-e "/^  haproxy:/,/^    image:/{s#image: .*#image: $(IMAGE_HAPROXY)#}" \
+		-e "/^  proxysql:/,/^    image:/{s#image: .*#image: $(IMAGE_PROXY)#}" \
+		-e "/^  logcollector:/,/^    image:/{s#image: .*#image: $(IMAGE_LOGCOLLECTOR)#}" \
+		-e "/^  backup:/,/^    image:/{s#image: .*#image: $(IMAGE_BACKUP80)#}" \
+		-e "/initContainer:/,/image:/{s#image: .*#image: $(IMAGE_OPERATOR)#}" \
+		-e "/^  pmm:/,/^    image:/{s#image: .*#image: $(IMAGE_PMM_CLIENT)#}" deploy/cr.yaml
 
 # Prepare main branch after release
 MAJOR_VER := $(shell grep -oE "crVersion: .*" deploy/cr.yaml|grep -oE "[0-9]+\.[0-9]+\.[0-9]+"|cut -d'.' -f1)

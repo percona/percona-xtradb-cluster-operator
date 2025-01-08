@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/go-sql-driver/mysql"
+	v "github.com/hashicorp/go-version"
 	"github.com/pkg/errors"
 )
 
@@ -17,8 +18,9 @@ const UsingPassErrorMessage = `mysqlbinlog: [Warning] Using a password on the co
 
 // PXC is a type for working with pxc
 type PXC struct {
-	db   *sql.DB // handle for work with database
-	host string  // host for connection
+	db      *sql.DB // handle for work with database
+	host    string  // host for connection
+	version *v.Version
 }
 
 // NewManager return new manager for work with pxc
@@ -31,6 +33,7 @@ func NewPXC(addr string, user, pass string) (*PXC, error) {
 	config.Net = "tcp"
 	config.Addr = addr + ":33062"
 	config.Params = map[string]string{"interpolateParams": "true"}
+	config.DBName = "mysql"
 
 	mysqlDB, err := sql.Open("mysql", config.FormatDSN())
 	if err != nil {
@@ -55,23 +58,10 @@ func (p *PXC) GetHost() string {
 
 // GetGTIDSet return GTID set by binary log file name
 func (p *PXC) GetGTIDSet(ctx context.Context, binlogName string) (string, error) {
-	// select name from mysql.func where name='get_gtid_set_by_binlog'
-	var existFunc string
-	nameRow := p.db.QueryRowContext(ctx, "select name from mysql.func where name='get_gtid_set_by_binlog'")
-	err := nameRow.Scan(&existFunc)
-	if err != nil && err != sql.ErrNoRows {
-		return "", errors.Wrap(err, "get udf name")
-	}
-	if len(existFunc) == 0 {
-		_, err = p.db.ExecContext(ctx, "CREATE FUNCTION get_gtid_set_by_binlog RETURNS STRING SONAME 'binlog_utils_udf.so'")
-		if err != nil {
-			return "", errors.Wrap(err, "create function")
-		}
-	}
 	var binlogSet string
 	row := p.db.QueryRowContext(ctx, "SELECT get_gtid_set_by_binlog(?)", binlogName)
-	err = row.Scan(&binlogSet)
-	if err != nil && !strings.Contains(err.Error(), "Binary log does not exist") {
+
+	if err := row.Scan(&binlogSet); err != nil && !strings.Contains(err.Error(), "Binary log does not exist") {
 		return "", errors.Wrap(err, "scan set")
 	}
 
@@ -108,6 +98,16 @@ func (s *GTIDSet) List() []string {
 	list := strings.Split(s.gtidSet, ",")
 	sort.Strings(list)
 	return list
+}
+
+func (p *PXC) GetVersion(ctx context.Context) (string, error) {
+	var version string
+
+	if err := p.db.QueryRowContext(ctx, "select @@VERSION").Scan(&version); err != nil {
+		return "", errors.Wrap(err, "select @@VERSION")
+	}
+
+	return version, nil
 }
 
 // GetBinLogList return binary log files list
@@ -166,23 +166,10 @@ func (p *PXC) GTIDSubset(ctx context.Context, set1, set2 string) (bool, error) {
 
 // GetBinLogFirstTimestamp return binary log file first timestamp
 func (p *PXC) GetBinLogFirstTimestamp(ctx context.Context, binlog string) (string, error) {
-	var existFunc string
-	nameRow := p.db.QueryRowContext(ctx, "select name from mysql.func where name='get_first_record_timestamp_by_binlog'")
-	err := nameRow.Scan(&existFunc)
-	if err != nil && err != sql.ErrNoRows {
-		return "", errors.Wrap(err, "get udf name")
-	}
-	if len(existFunc) == 0 {
-		_, err = p.db.ExecContext(ctx, "CREATE FUNCTION get_first_record_timestamp_by_binlog RETURNS INTEGER SONAME 'binlog_utils_udf.so'")
-		if err != nil {
-			return "", errors.Wrap(err, "create function")
-		}
-	}
 	var timestamp string
 	row := p.db.QueryRowContext(ctx, "SELECT get_first_record_timestamp_by_binlog(?) DIV 1000000", binlog)
 
-	err = row.Scan(&timestamp)
-	if err != nil {
+	if err := row.Scan(&timestamp); err != nil {
 		return "", errors.Wrap(err, "scan binlog timestamp")
 	}
 
@@ -191,23 +178,10 @@ func (p *PXC) GetBinLogFirstTimestamp(ctx context.Context, binlog string) (strin
 
 // GetBinLogLastTimestamp return binary log file last timestamp
 func (p *PXC) GetBinLogLastTimestamp(ctx context.Context, binlog string) (string, error) {
-	var existFunc string
-	nameRow := p.db.QueryRowContext(ctx, "select name from mysql.func where name='get_last_record_timestamp_by_binlog'")
-	err := nameRow.Scan(&existFunc)
-	if err != nil && err != sql.ErrNoRows {
-		return "", errors.Wrap(err, "get udf name")
-	}
-	if len(existFunc) == 0 {
-		_, err = p.db.ExecContext(ctx, "CREATE FUNCTION get_last_record_timestamp_by_binlog RETURNS INTEGER SONAME 'binlog_utils_udf.so'")
-		if err != nil {
-			return "", errors.Wrap(err, "create function")
-		}
-	}
 	var timestamp string
 	row := p.db.QueryRowContext(ctx, "SELECT get_last_record_timestamp_by_binlog(?) DIV 1000000", binlog)
 
-	err = row.Scan(&timestamp)
-	if err != nil {
+	if err := row.Scan(&timestamp); err != nil {
 		return "", errors.Wrap(err, "scan binlog timestamp")
 	}
 
@@ -217,8 +191,8 @@ func (p *PXC) GetBinLogLastTimestamp(ctx context.Context, binlog string) (string
 func (p *PXC) SubtractGTIDSet(ctx context.Context, set, subSet string) (string, error) {
 	var result string
 	row := p.db.QueryRowContext(ctx, "SELECT GTID_SUBTRACT(?,?)", set, subSet)
-	err := row.Scan(&result)
-	if err != nil {
+
+	if err := row.Scan(&result); err != nil {
 		return "", errors.Wrap(err, "scan gtid subtract result")
 	}
 
@@ -328,6 +302,34 @@ func getBinlogTimeByName(ctx context.Context, db *PXC, binlogName string) (int64
 	}
 
 	return binlogTime, nil
+}
+
+func (p *PXC) InstallBinlogUDFComponent(ctx context.Context) error {
+	_, err := p.db.ExecContext(ctx, "INSTALL COMPONENT 'file://component_binlog_utils_udf'")
+	if err != nil {
+		return errors.Wrap(err, "install component")
+	}
+
+	return nil
+}
+
+func (p *PXC) CreateCollectorFunctions(ctx context.Context) error {
+	_, err := p.db.ExecContext(ctx, "CREATE FUNCTION IF NOT EXISTS get_last_record_timestamp_by_binlog RETURNS INTEGER SONAME 'binlog_utils_udf.so'")
+	if err != nil {
+		return errors.Wrap(err, "create function get_first_record_timestamp_by_binlog")
+	}
+
+	_, err = p.db.ExecContext(ctx, "CREATE FUNCTION get_gtid_set_by_binlog RETURNS STRING SONAME 'binlog_utils_udf.so'")
+	if err != nil {
+		return errors.Wrap(err, "create function get_gtid_set_by_binlog")
+	}
+
+	_, err = p.db.ExecContext(ctx, "CREATE FUNCTION get_first_record_timestamp_by_binlog RETURNS INTEGER SONAME 'binlog_utils_udf.so'")
+	if err != nil {
+		return errors.Wrap(err, "create function get_first_record_timestamp_by_binlog")
+	}
+
+	return nil
 }
 
 func (p *PXC) DropCollectorFunctions(ctx context.Context) error {

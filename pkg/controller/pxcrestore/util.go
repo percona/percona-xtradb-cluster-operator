@@ -8,16 +8,10 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
-)
-
-var (
-	errWaitingPods = errors.New("waiting for pods to be deleted")
-	errWaitingPVC  = errors.New("waiting for pvc to be deleted")
 )
 
 func getBackup(ctx context.Context, cl client.Client, cr *api.PerconaXtraDBClusterRestore) (*api.PerconaXtraDBClusterBackup, error) {
@@ -92,46 +86,6 @@ func isOtherRestoreInProgress(ctx context.Context, cl client.Client, cr *api.Per
 		}
 	}
 	return nil, nil
-}
-
-func isClusterStopped(ctx context.Context, cl client.Client, ls map[string]string, namespace string) (bool, error) {
-	pods := corev1.PodList{}
-
-	err := cl.List(
-		ctx,
-		&pods,
-		&client.ListOptions{
-			Namespace:     namespace,
-			LabelSelector: labels.SelectorFromSet(ls),
-		},
-	)
-	if err != nil {
-		return false, errors.Wrap(err, "get pods list")
-	}
-
-	return len(pods.Items) == 0, nil
-}
-
-func isPVCDeleted(ctx context.Context, cl client.Client, ls map[string]string, namespace string) (bool, error) {
-	pvcs := corev1.PersistentVolumeClaimList{}
-
-	err := cl.List(
-		ctx,
-		&pvcs,
-		&client.ListOptions{
-			Namespace:     namespace,
-			LabelSelector: labels.SelectorFromSet(ls),
-		},
-	)
-	if err != nil {
-		return false, errors.Wrap(err, "get pvc list")
-	}
-
-	if len(pvcs.Items) == 1 {
-		return true, nil
-	}
-
-	return false, nil
 }
 
 func isJobFinished(checkJob *batchv1.Job) (bool, error) {

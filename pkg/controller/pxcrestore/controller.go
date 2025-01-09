@@ -201,14 +201,21 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(ctx context.Context, re
 		log.Info("stopping cluster", "cluster", cr.Spec.PXCCluster)
 		statusState = api.RestoreStopCluster
 	case api.RestoreStopCluster:
-		paused, err := k8s.PauseCluster(ctx, r.client, cluster)
+		// TODO: we should use PauseCluster and delete PVCs
+		err := k8s.PauseClusterWithWait(ctx, r.client, cluster, true)
 		if err != nil {
 			return rr, errors.Wrapf(err, "stop cluster %s", cluster.Name)
 		}
-		if !paused {
-			log.Info("waiting for cluster to stop", "cluster", cr.Spec.PXCCluster, "msg", err.Error())
-			return rr, nil
-		}
+		/*
+			paused, err := k8s.PauseCluster(ctx, r.client, cluster)
+			if err != nil {
+				return rr, errors.Wrapf(err, "stop cluster %s", cluster.Name)
+			}
+			if !paused {
+				log.Info("waiting for cluster to stop", "cluster", cr.Spec.PXCCluster, "msg", err.Error())
+				return rr, nil
+			}
+		*/
 
 		log.Info("starting restore", "cluster", cr.Spec.PXCCluster, "backup", cr.Spec.BackupName)
 		if err := createRestoreJob(ctx, r.client, restorer, false); err != nil {

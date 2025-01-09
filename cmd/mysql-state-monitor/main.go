@@ -8,6 +8,12 @@ import (
 	"strings"
 )
 
+var (
+	GitCommit string
+	GitBranch string
+	BuildTime string
+)
+
 type MySQLState string
 
 const (
@@ -33,27 +39,67 @@ func parseDatum(datum string) MySQLState {
 		switch status {
 		case "Server is operational":
 			return MySQLReady
-		case "Server shutdown in progress":
+		case "Server shutdown in progress",
+			"Forceful shutdown of connections in progress",
+			"Graceful shutdown of connections in progress",
+			"Components initialization unsuccessful",
+			"Execution of SQL Commands from Init-file unsuccessful",
+			"Initialization of dynamic plugins unsuccessful",
+			"Initialization of MySQL system tables unsuccessful",
+			"InnoDB crash recovery unsuccessful",
+			"InnoDB initialization unsuccessful":
 			return MySQLDown
 		case "Server startup in progress",
-			"Data Dictionary upgrade in progress",
-			"Data Dictionary upgrade complete",
+			"Server initialization in progress",
 			"Server upgrade in progress",
 			"Server upgrade complete",
 			"Server downgrade in progress",
 			"Server downgrade complete",
+			"Data Dictionary upgrade in progress",
+			"Data Dictionary upgrade complete",
 			"Data Dictionary upgrade from MySQL 5.7 in progress",
 			"Data Dictionary upgrade from MySQL 5.7 complete",
+			"Components initialization in progress",
+			"Components initialization successful",
+			"Connection shutdown complete",
+			"Execution of SQL Commands from Init-file in progress",
+			"Execution of SQL Commands from Init-file successful",
+			"Initialization of dynamic plugins in progress",
+			"Initialization of dynamic plugins successful",
+			"Initialization of MySQL system tables in progress",
+			"Initialization of MySQL system tables successful",
+			"InnoDB crash recovery in progress",
+			"InnoDB crash recovery successful",
+			"InnoDB initialization in progress",
+			"InnoDB initialization successful",
+			"Shutdown of plugins complete",
+			"Shutdown of components in progress",
+			"Shutdown of components successful",
+			"Shutdown of plugins in progress",
+			"Shutdown of replica threads in progress",
 			"Server shutdown complete": // we treat this as startup because during init, MySQL notifies this even if it's up
 			return MySQLStartup
 		}
+
+		// these statuses have variables in it
+		// that's why we're handling them separately
+		switch {
+		case strings.HasPrefix(status, "Pre DD shutdown of MySQL SE plugin"):
+			return MySQLStartup
+		case strings.HasPrefix(status, "Server shutdown complete"):
+			return MySQLStartup
+		case strings.HasPrefix(status, "Server initialization complete"):
+			return MySQLStartup
+		}
+
 	}
 
 	return MySQLUnknown
 }
 
 func main() {
-	log.Println("Starting mysql-state-monitor")
+	log.Println("Starting mysql-state-monitor...")
+	log.Printf("GitCommit=%s GitBranch=%s BuildTime=%s", GitCommit, GitBranch, BuildTime)
 
 	socketPath, ok := os.LookupEnv("NOTIFY_SOCKET")
 	if !ok {

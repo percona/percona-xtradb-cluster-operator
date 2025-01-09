@@ -2,11 +2,11 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   generation: 2
-  name: sec-context-proxysql
+  name: some-name-proxysql
   ownerReferences:
     - controller: true
       kind: PerconaXtraDBCluster
-      name: sec-context
+      name: some-name
 spec:
   persistentVolumeClaimRetentionPolicy:
     whenDeleted: Retain
@@ -17,20 +17,31 @@ spec:
   selector:
     matchLabels:
       app.kubernetes.io/component: proxysql
-      app.kubernetes.io/instance: sec-context
+      app.kubernetes.io/instance: some-name
       app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
       app.kubernetes.io/name: percona-xtradb-cluster
       app.kubernetes.io/part-of: percona-xtradb-cluster
-  serviceName: sec-context-proxysql-unready
+  serviceName: some-name-proxysql-unready
   template:
     metadata:
       labels:
         app.kubernetes.io/component: proxysql
-        app.kubernetes.io/instance: sec-context
+        app.kubernetes.io/instance: some-name
         app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
         app.kubernetes.io/name: percona-xtradb-cluster
         app.kubernetes.io/part-of: percona-xtradb-cluster
     spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app.kubernetes.io/component: proxysql
+                  app.kubernetes.io/instance: some-name
+                  app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+                  app.kubernetes.io/name: percona-xtradb-cluster
+                  app.kubernetes.io/part-of: percona-xtradb-cluster
+              topologyKey: kubernetes.io/hostname
       containers:
         - args:
             - proxysql
@@ -42,27 +53,27 @@ spec:
             - /opt/percona/proxysql-entrypoint.sh
           env:
             - name: PXC_SERVICE
-              value: sec-context-pxc
+              value: some-name-pxc
             - name: OPERATOR_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: operator
-                  name: internal-sec-context
+                  name: internal-some-name
             - name: PROXY_ADMIN_USER
               value: proxyadmin
             - name: PROXY_ADMIN_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: proxyadmin
-                  name: internal-sec-context
+                  name: internal-some-name
             - name: MONITOR_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: monitor
-                  name: internal-sec-context
+                  name: internal-some-name
           envFrom:
             - secretRef:
-                name: sec-context-env-vars-proxysql
+                name: some-name-env-vars-proxysql
                 optional: true
           imagePullPolicy: Always
           name: proxysql
@@ -74,11 +85,12 @@ spec:
               name: proxyadm
               protocol: TCP
           resources:
+            limits:
+              cpu: 700m
+              memory: 1G
             requests:
               cpu: 100m
               memory: 100M
-          securityContext:
-            privileged: true
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:
@@ -96,27 +108,27 @@ spec:
             - -service=$(PXC_SERVICE)
           env:
             - name: PXC_SERVICE
-              value: sec-context-pxc
+              value: some-name-pxc
             - name: OPERATOR_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: operator
-                  name: internal-sec-context
+                  name: internal-some-name
             - name: PROXY_ADMIN_USER
               value: proxyadmin
             - name: PROXY_ADMIN_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: proxyadmin
-                  name: internal-sec-context
+                  name: internal-some-name
             - name: MONITOR_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: monitor
-                  name: internal-sec-context
+                  name: internal-some-name
           envFrom:
             - secretRef:
-                name: sec-context-env-vars-proxysql
+                name: some-name-env-vars-proxysql
                 optional: true
           imagePullPolicy: Always
           name: pxc-monit
@@ -132,27 +144,27 @@ spec:
             - -service=$(PROXYSQL_SERVICE)
           env:
             - name: PROXYSQL_SERVICE
-              value: sec-context-proxysql-unready
+              value: some-name-proxysql-unready
             - name: OPERATOR_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: operator
-                  name: internal-sec-context
+                  name: internal-some-name
             - name: PROXY_ADMIN_USER
               value: proxyadmin
             - name: PROXY_ADMIN_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: proxyadmin
-                  name: internal-sec-context
+                  name: internal-some-name
             - name: MONITOR_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: monitor
-                  name: internal-sec-context
+                  name: internal-some-name
           envFrom:
             - secretRef:
-                name: sec-context-env-vars-proxysql
+                name: some-name-env-vars-proxysql
                 optional: true
           imagePullPolicy: Always
           name: proxysql-monit
@@ -172,8 +184,6 @@ spec:
             limits:
               cpu: 50m
               memory: 50M
-          securityContext:
-            privileged: true
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:
@@ -187,8 +197,6 @@ spec:
             limits:
               cpu: 50m
               memory: 50M
-          securityContext:
-            privileged: true
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:
@@ -197,24 +205,11 @@ spec:
       restartPolicy: Always
       schedulerName: default-scheduler
       securityContext:
-        runAsGroup: 1001
-        runAsUser: 1001
         supplementalGroups:
           - 1001
-      serviceAccount: percona-xtradb-cluster-operator-workload
-      serviceAccountName: percona-xtradb-cluster-operator-workload
+      serviceAccount: default
+      serviceAccountName: default
       terminationGracePeriodSeconds: 30
-      topologySpreadConstraints:
-        - labelSelector:
-            matchLabels:
-              app.kubernetes.io/component: proxysql
-              app.kubernetes.io/instance: sec-context
-              app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
-              app.kubernetes.io/name: percona-xtradb-cluster
-              app.kubernetes.io/part-of: percona-xtradb-cluster
-          maxSkew: 1
-          topologyKey: kubernetes.io/hostname
-          whenUnsatisfiable: ScheduleAnyway
       volumes:
         - name: ssl-internal
           secret:
@@ -234,18 +229,12 @@ spec:
     type: RollingUpdate
   volumeClaimTemplates:
     - metadata:
-        labels:
-          app.kubernetes.io/component: proxysql
-          app.kubernetes.io/instance: sec-context
-          app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
-          app.kubernetes.io/name: percona-xtradb-cluster
-          app.kubernetes.io/part-of: percona-xtradb-cluster
         name: proxydata
       spec:
         accessModes:
           - ReadWriteOnce
         resources:
           requests:
-            storage: 6Gi
+            storage: 2Gi
       status:
         phase: Pending

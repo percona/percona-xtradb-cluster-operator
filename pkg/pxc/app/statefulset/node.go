@@ -255,7 +255,7 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 	if cr.CompareVersionWith("1.16.0") >= 0 {
 		appc.Env = append(appc.Env, []corev1.EnvVar{
 			{
-				Name:  "NOTIFY_SOCKET",
+				Name:  "MYSQL_NOTIFY_SOCKET",
 				Value: "/var/lib/mysql/notify.sock",
 			},
 			{

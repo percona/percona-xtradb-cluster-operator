@@ -1,3 +1,4 @@
+.github/**
 docs/**
 code-of-conduct.md
 CONTRIBUTING.md
@@ -8,3 +9,4 @@ LICENSE
 operator.png
 kubernetes.svg
 .e2eignore
+release_versions

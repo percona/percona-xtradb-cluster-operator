@@ -415,7 +415,7 @@ pipeline {
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                     sh '''
                         DOCKER_TAG=perconalab/percona-xtradb-cluster-operator:$VERSION
-                        docker_tag_file='./results/docker/TAG'
+                        docker_tag_file='results/docker/TAG'
                         mkdir -p $(dirname ${docker_tag_file})
                         echo ${DOCKER_TAG} > "${docker_tag_file}"
                             sg docker -c "
@@ -482,7 +482,7 @@ pipeline {
 
                 withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_TOKEN')]) {
                     sh """
-                        golicense -plain ./percona-xtradb-cluster-operator \
+                        golicense -plain percona-xtradb-cluster-operator \
                             | grep -v 'license not found' \
                             | sed -r 's/^[^ ]+[ ]+//' \
                             | sort \

@@ -21,6 +21,8 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage"
 )
 
+const collectorPasswordPath = "/etc/mysql/mysql-users-secret/xtrabackup"
+
 type Collector struct {
 	db              *pxc.PXC
 	storage         storage.Storage
@@ -93,11 +95,54 @@ func New(ctx context.Context, c Config) (*Collector, error) {
 		return nil, errors.New("unknown STORAGE_TYPE")
 	}
 
+	file, err := os.Open(collectorPasswordPath)
+	if err != nil {
+		return nil, errors.Wrap(err, "open file")
+	}
+	pxcPass, err := io.ReadAll(file)
+	if err != nil {
+		return nil, errors.Wrap(err, "read password")
+	}
+
 	return &Collector{
 		storage:        s,
 		pxcUser:        c.PXCUser,
+		pxcPass:        string(pxcPass),
 		pxcServiceName: c.PXCServiceName,
 	}, nil
+}
+
+func (c *Collector) Init(ctx context.Context) error {
+	host, err := pxc.GetPXCFirstHost(ctx, c.pxcServiceName)
+	if err != nil {
+		return errors.Wrap(err, "get first PXC host")
+	}
+
+	db, err := pxc.NewPXC(host, c.pxcUser, c.pxcPass)
+	if err != nil {
+		return errors.Wrapf(err, "new manager with host %s", host)
+	}
+	defer db.Close()
+
+	version, err := db.GetVersion(ctx)
+	if err != nil {
+		return errors.Wrap(err, "get version")
+	}
+
+	switch {
+	case strings.HasPrefix(version, "8.0"):
+		log.Println("creating collector functions")
+		if err := db.CreateCollectorFunctions(ctx); err != nil {
+			return errors.Wrap(err, "init 8.0: create collector functions")
+		}
+	case strings.HasPrefix(version, "8.4"):
+		log.Println("installing binlog UDF component")
+		if err := db.InstallBinlogUDFComponent(ctx); err != nil {
+			return errors.Wrap(err, "init 8.4: install component")
+		}
+	}
+
+	return nil
 }
 
 func (c *Collector) Run(ctx context.Context) error {
@@ -136,22 +181,12 @@ func (c *Collector) lastGTIDSet(ctx context.Context, suffix string) (pxc.GTIDSet
 }
 
 func (c *Collector) newDB(ctx context.Context) error {
-	file, err := os.Open("/etc/mysql/mysql-users-secret/xtrabackup")
-	if err != nil {
-		return errors.Wrap(err, "open file")
-	}
-	pxcPass, err := io.ReadAll(file)
-	if err != nil {
-		return errors.Wrap(err, "read password")
-	}
-	c.pxcPass = string(pxcPass)
-
 	host, err := pxc.GetPXCOldestBinlogHost(ctx, c.pxcServiceName, c.pxcUser, c.pxcPass)
 	if err != nil {
 		return errors.Wrap(err, "get host")
 	}
 
-	log.Println("Reading binlogs from pxc with hostname=", host)
+	log.Println("reading binlogs from pxc with hostname=", host)
 
 	c.db, err = pxc.NewPXC(host, c.pxcUser, c.pxcPass)
 	if err != nil {
@@ -317,7 +352,7 @@ func (c *Collector) CollectBinLogs(ctx context.Context) error {
 	}
 
 	if len(lastGTIDSetList) == 0 {
-		log.Println("No binlogs to upload")
+		log.Println("no binlogs to upload")
 		return nil
 	}
 
@@ -381,7 +416,7 @@ func (c *Collector) CollectBinLogs(ctx context.Context) error {
 	}
 
 	if len(list) == 0 {
-		log.Println("No binlogs to upload")
+		log.Println("no binlogs to upload after filter")
 		return nil
 	}
 

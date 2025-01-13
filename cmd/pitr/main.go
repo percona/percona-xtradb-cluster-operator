@@ -41,9 +41,15 @@ func runCollector(ctx context.Context) {
 	}
 	c, err := collector.New(ctx, config)
 	if err != nil {
-		log.Fatalln("ERROR: new controller:", err)
+		log.Fatalln("ERROR: new collector:", err)
 	}
-	log.Println("run binlog collector")
+
+	log.Println("initializing collector")
+	if err := c.Init(ctx); err != nil {
+		log.Fatalln("ERROR: init collector:", err)
+	}
+
+	log.Println("running binlog collector")
 	for {
 		timeout, cancel := context.WithTimeout(ctx, time.Duration(config.CollectSpanSec)*time.Second)
 		defer cancel()

@@ -24,6 +24,9 @@ type VersionVersion struct {
 	// image hash
 	ImageHash string `json:"imageHash,omitempty"`
 
+	// image hash arm64
+	ImageHashArm64 string `json:"imageHashArm64,omitempty"`
+
 	// image path
 	ImagePath string `json:"imagePath,omitempty"`
 
@@ -81,6 +84,11 @@ func (m *VersionVersion) ContextValidate(ctx context.Context, formats strfmt.Reg
 func (m *VersionVersion) contextValidateStatus(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.Status != nil {
+
+		if swag.IsZero(m.Status) { // not required
+			return nil
+		}
+
 		if err := m.Status.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("status")

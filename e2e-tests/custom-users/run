@@ -37,6 +37,15 @@ compare_mysql_user "-h $cluster-haproxy -uuser-one -pnew-password"
 compare_mysql_cmd "user-one-1" "SELECT User, Host from mysql.user WHERE User = 'user-one';" "-h $cluster-haproxy -uroot -proot_password"
 compare_mysql_cmd "user-one-2" "SHOW GRANTS FOR 'user-one'@'127.0.0.1';" "-h $cluster-haproxy -uroot -proot_password"
 
+desc 'check removing secretPasswordRef from user generates user password stored in generated custom-user-secret'
+kubectl_bin patch pxc some-name \
+  --type=json \
+  -p='[{"op": "replace", "path": "/spec/users/1/passwordSecretRef", "value": null}]'
+wait_cluster_consistency "$cluster" 3 3
+
+userTwoPass=$(kubectl_bin get secret $generatedUserSecret -o jsonpath="{.data.user-two}" | base64 -d)
+compare_mysql_user "-h $cluster-haproxy -uuser-two -p'$userTwoPass'"
+
 desc 'delete initial users from CR and create a new one'
 kubectl_bin patch pxc some-name --type=merge -p='{
 		"spec": {"users":[
@@ -44,7 +53,7 @@ kubectl_bin patch pxc some-name --type=merge -p='{
 				"name":"user-four",
 				"dbs": ["db1", "db2"],
 				"grants":["SELECT, UPDATE"],
-				"hosts": ["%"] 
+				"hosts": ["%"]
 			}
 		]}
 	}'
@@ -57,7 +66,7 @@ compare_mysql_cmd "user-four-1" "SELECT User, Host from mysql.user WHERE User = 
 
 # user-one, user-two and three should not be deleted
 compare_mysql_user "-h $cluster-haproxy -uuser-one -pnew-password"
-compare_mysql_user "-h $cluster-haproxy -uuser-two -ptestpass3"
+compare_mysql_user "-h $cluster-haproxy -uuser-two -p'$userTwoPass'"
 
 desc 'check user DBs updated'
 kubectl_bin patch pxc some-name --type=merge -p='{
@@ -66,7 +75,7 @@ kubectl_bin patch pxc some-name --type=merge -p='{
 				"name":"user-four",
 				"dbs": ["db1", "db2", "db3"],
 				"grants":["SELECT, UPDATE"],
-				"hosts": ["%"] 
+				"hosts": ["%"]
 			}
 		]}
 	}'
@@ -80,7 +89,7 @@ kubectl_bin patch pxc some-name --type=merge -p='{
 				"name":"user-four",
 				"dbs": ["db1", "db2", "db3"],
 				"grants":["SELECT, UPDATE, DELETE"],
-				"hosts": ["%"] 
+				"hosts": ["%"]
 			}
 		]}
 	}'
@@ -106,7 +115,7 @@ kubectl_bin patch pxc some-name --type=merge -p='{
 				"name":"user-five",
 				"dbs": ["db1", "db2", "db3"],
 				"grants":["SELECT, UPDATE, DELETE"],
-				"hosts": ["%"] 
+				"hosts": ["%"]
 			}
 		]}
 	}'

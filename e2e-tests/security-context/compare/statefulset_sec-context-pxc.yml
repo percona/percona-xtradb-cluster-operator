@@ -8,6 +8,9 @@ metadata:
       kind: PerconaXtraDBCluster
       name: sec-context
 spec:
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Retain
+    whenScaled: Retain
   podManagementPolicy: OrderedReady
   replicas: 3
   revisionHistoryLimit: 10
@@ -77,7 +80,7 @@ spec:
               value: "15"
             - name: DEFAULT_AUTHENTICATION_PLUGIN
               value: mysql_native_password
-            - name: NOTIFY_SOCKET
+            - name: MYSQL_NOTIFY_SOCKET
               value: /var/lib/mysql/notify.sock
             - name: MYSQL_STATE_FILE
               value: /var/lib/mysql/mysql.state
@@ -127,7 +130,7 @@ spec:
           resources:
             limits:
               cpu: "1"
-              memory: 1G
+              memory: 2G
             requests:
               cpu: 100m
               memory: 100M

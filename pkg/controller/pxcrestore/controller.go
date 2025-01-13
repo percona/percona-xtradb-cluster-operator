@@ -263,12 +263,12 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(ctx context.Context, re
 					current.Spec.Unsafe.PXCSize = true
 					current.Spec.Unsafe.ProxySize = true
 
-					if cluster.Spec.ProxySQL != nil {
-						cluster.Spec.ProxySQL.Size = 0
+					if current.Spec.ProxySQL != nil {
+						current.Spec.ProxySQL.Size = 0
 					}
 
-					if cluster.Spec.HAProxy != nil {
-						cluster.Spec.HAProxy.Size = 0
+					if current.Spec.HAProxy != nil {
+						current.Spec.HAProxy.Size = 0
 					}
 
 					return r.client.Update(ctx, current)
@@ -278,7 +278,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(ctx context.Context, re
 				}
 				return rr, nil
 			} else {
-				if cluster.Status.ObservedGeneration != cluster.Generation || cluster.Status.PXC.Status != api.AppStateReady {
+				if cluster.Status.ObservedGeneration != cluster.Generation || cluster.Status.PXC.Status != api.AppStateReady || cluster.Status.ProxySQL.Size != 0 || cluster.Status.HAProxy.Size != 0 {
 					log.Info("Waiting for cluster to start", "cluster", cluster.Name)
 					return rr, nil
 				}
@@ -338,12 +338,12 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(ctx context.Context, re
 				current.Spec.PXC.Size = cr.Status.PXCSize
 				current.Spec.Unsafe = cr.Status.Unsafe
 
-				if cluster.Spec.ProxySQL != nil {
-					cluster.Spec.ProxySQL.Size = cr.Status.ProxySQLSize
+				if current.Spec.ProxySQL != nil {
+					current.Spec.ProxySQL.Size = cr.Status.ProxySQLSize
 				}
 
-				if cluster.Spec.HAProxy != nil {
-					cluster.Spec.HAProxy.Size = cr.Status.HAProxySize
+				if current.Spec.HAProxy != nil {
+					current.Spec.HAProxy.Size = cr.Status.HAProxySize
 				}
 
 				return r.client.Update(ctx, current)

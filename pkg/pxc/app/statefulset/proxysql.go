@@ -119,6 +119,16 @@ func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaX
 		Resources:       spec.Resources,
 	}
 
+	if cr.CompareVersionWith("1.17.0") >= 0 {
+		appc.Ports = append(
+			appc.Ports,
+			corev1.ContainerPort{
+				ContainerPort: 6070,
+				Name:          "stats",
+			},
+		)
+	}
+
 	fvar := true
 	appc.EnvFrom = []corev1.EnvFromSource{
 		{

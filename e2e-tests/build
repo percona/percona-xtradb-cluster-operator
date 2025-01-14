@@ -1,7 +1,6 @@
 #!/bin/bash
 
 set -o errexit
-set -o xtrace
 
 test_dir="$(dirname $0)"
 . $(dirname $0)/functions

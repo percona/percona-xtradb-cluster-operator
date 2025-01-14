@@ -119,8 +119,12 @@ func StatefulSet(ctx context.Context, cl client.Client, sfs api.StatefulApp, pod
 		}
 	}
 
-	customAnnotations := make(map[string]string)
-	customAnnotations["kubectl.kubernetes.io/default-container"] = sfs.Labels()[naming.LabelAppKubernetesComponent]
+	customAnnotations := podSpec.Annotations
+	if cr.CompareVersionWith("1.17.0") >= 0 {
+		customAnnotations = map[string]string{
+			"kubectl.kubernetes.io/default-container": sfs.Labels()[naming.LabelAppKubernetesComponent],
+		}
+	}
 
 	obj := sfs.StatefulSet()
 	obj.Spec = appsv1.StatefulSetSpec{

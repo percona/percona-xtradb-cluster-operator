@@ -177,6 +177,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(ctx context.Context, re
 			cond := meta.FindStatusCondition(bcp.Status.Conditions, api.BackupConditionPITRReady)
 			if cond != nil && cond.Status == metav1.ConditionFalse && !unsafePITR {
 				statusMsg = fmt.Sprintf("Backup doesn't guarantee consistent recovery with PITR. Annotate PerconaXtraDBClusterRestore with %s to force it.", api.AnnotationUnsafePITR)
+				statusState = api.RestoreFailed
 				return reconcile.Result{}, nil
 			}
 		}
@@ -186,7 +187,8 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(ctx context.Context, re
 			if errors.Is(err, errWaitValidate) {
 				return rr, nil
 			}
-			err = errors.Wrap(err, "failed to validate restore job")
+			statusMsg = fmt.Sprintf("failed to validate restore job: %s", err.Error())
+			statusState = api.RestoreFailed
 			return rr, err
 		}
 		cr.Status.PXCSize = cluster.Spec.PXC.Size
@@ -202,27 +204,30 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(ctx context.Context, re
 		statusState = api.RestoreStopCluster
 	case api.RestoreStopCluster:
 		// TODO: we should use PauseCluster and delete PVCs
-		err := k8s.PauseClusterWithWait(ctx, r.client, cluster, true)
-		if err != nil {
-			return rr, errors.Wrapf(err, "stop cluster %s", cluster.Name)
-		}
-		/*
-			paused, err := k8s.PauseCluster(ctx, r.client, cluster)
+		{
+			err := k8s.PauseClusterWithWait(ctx, r.client, cluster, true)
 			if err != nil {
 				return rr, errors.Wrapf(err, "stop cluster %s", cluster.Name)
 			}
-			if !paused {
-				log.Info("waiting for cluster to stop", "cluster", cr.Spec.PXCCluster, "msg", err.Error())
-				return rr, nil
-			}
-		*/
+			/*
+				paused, err := k8s.PauseCluster(ctx, r.client, cluster)
+				if err != nil {
+					return rr, errors.Wrapf(err, "stop cluster %s", cluster.Name)
+				}
+				if !paused {
+					log.Info("waiting for cluster to stop", "cluster", cr.Spec.PXCCluster, "msg", err.Error())
+					return rr, nil
+				}
+			*/
+		}
 
 		log.Info("starting restore", "cluster", cr.Spec.PXCCluster, "backup", cr.Spec.BackupName)
 		if err := createRestoreJob(ctx, r.client, restorer, false); err != nil {
 			if errors.Is(err, errWaitInit) {
 				return rr, nil
 			}
-			err = errors.Wrap(err, "run restore")
+			statusMsg = fmt.Sprintf("failed to run restore: %s", err.Error())
+			statusState = api.RestoreFailed
 			return rr, err
 		}
 		statusState = api.RestoreRestore

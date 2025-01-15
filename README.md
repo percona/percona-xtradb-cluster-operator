@@ -11,7 +11,7 @@
 
 [Percona Operator for MySQL based on Percona XtraDB Cluster](https://docs.percona.com/percona-operator-for-mysql/pxc/index.html) (PXC) automates the creation and management of highly available, enterprise-ready MySQL database clusters on Kubernetes.
 
-Within the [Percona Operator for MySQL based on Percona XtraDB Cluster](https://www.percona.com/doc/kubernetes-operator-for-pxc/index.html) we have implemented our best practices for deployment and configuration Percona XtraDB Cluster instances in a Kubernetes-based environment on-premises or in the cloud. The Operator provides the following capabilities to keep the cluster healthy:
+Within the [Percona Operator for MySQL based on Percona XtraDB Cluster](https://www.percona.com/doc/kubernetes-operator-for-pxc/index.html) we have implemented our best practices for deployment and configuration of Percona XtraDB Cluster instances in a Kubernetes-based environment on-premises or in the cloud. The Operator provides the following capabilities to keep the cluster healthy:
 
 * Easy deployment with no single point of failure
 * Load balancing and proxy service with either HAProxy or ProxySQL

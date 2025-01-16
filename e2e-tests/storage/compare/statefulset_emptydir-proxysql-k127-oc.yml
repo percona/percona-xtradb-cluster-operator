@@ -84,6 +84,9 @@ spec:
             - containerPort: 6032
               name: proxyadm
               protocol: TCP
+            - containerPort: 6070
+              name: stats
+              protocol: TCP
           resources:
             limits:
               ephemeral-storage: 1G

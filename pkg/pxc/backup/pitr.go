@@ -89,7 +89,7 @@ func CheckPITRErrors(ctx context.Context, cl client.Client, clcmd *clientcmd.Cli
 		return errors.Wrap(err, "update backup status")
 	}
 
-	if err := binlogcollector.RemoveGapFile(ctx, cr, clcmd, collectorPod); err != nil {
+	if err := binlogcollector.RemoveGapFile(clcmd, collectorPod); err != nil {
 		if !errors.Is(err, binlogcollector.GapFileNotFound) {
 			return errors.Wrap(err, "remove gap file")
 		}

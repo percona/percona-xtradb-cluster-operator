@@ -117,7 +117,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 
 	// Fetch the PerconaXtraDBClusterBackup instance
 	cr := &api.PerconaXtraDBClusterBackup{}
-	err := r.client.Get(context.TODO(), request.NamespacedName, cr)
+	err := r.client.Get(ctx, request.NamespacedName, cr)
 	if err != nil {
 		if k8sErrors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
@@ -134,11 +134,11 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 		return reconcile.Result{}, errors.Wrap(err, "failed to run finalizers")
 	}
 
-	if cr.Status.State == api.BackupSucceeded ||
-		cr.Status.State == api.BackupFailed {
+	if cr.Status.State == api.BackupSucceeded || cr.Status.State == api.BackupFailed {
 		if len(cr.GetFinalizers()) > 0 {
 			return rr, nil
 		}
+
 		return reconcile.Result{}, nil
 	}
 
@@ -146,11 +146,13 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 		return rr, nil
 	}
 
-	cluster, err := r.getCluster(cr)
+	cluster, err := r.getCluster(ctx, cr)
 	if err != nil {
 		log.Error(err, "invalid backup cluster")
 		return rr, nil
 	}
+
+	log = log.WithValues("cluster", cluster.Name)
 
 	err = cluster.CheckNSetDefaults(r.serverVersion, log)
 	if err != nil {
@@ -162,24 +164,30 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 	}
 
 	if err := cluster.CanBackup(); err != nil {
-		return rr, errors.Wrap(err, "failed to run backup")
-	}
-
-	if !cluster.Spec.Backup.GetAllowParallel() {
-		isRunning, err := r.isOtherBackupRunning(ctx, cr, cluster)
-		if err != nil {
-			return rr, errors.Wrap(err, "failed to check if other backups running")
-		}
-		if isRunning {
-			log.Info("backup already running, waiting until it's done")
-			return rr, nil
-		}
+		log.Info("Cluster is not ready for backup", "reason", err.Error())
+		return rr, nil
 	}
 
 	storage, ok := cluster.Spec.Backup.Storages[cr.Spec.StorageName]
 	if !ok {
 		return rr, errors.Errorf("storage %s doesn't exist", cr.Spec.StorageName)
 	}
+
+	log = log.WithValues("storage", cr.Spec.StorageName)
+
+	log.V(1).Info("Check if parallel backups are allowed", "allowed", cluster.Spec.Backup.GetAllowParallel())
+	if !cluster.Spec.Backup.GetAllowParallel() {
+		lease, err := k8s.AcquireLease(ctx, r.client, naming.BackupLeaseName(cluster.Name), cr.Namespace, cr.Name)
+		if err != nil {
+			return reconcile.Result{}, errors.Wrap(err, "acquire backup lock")
+		}
+
+		if lease.Spec.HolderIdentity != nil && *lease.Spec.HolderIdentity != cr.Name {
+			log.Info("Another backup is holding the lock", "holder", *lease.Spec.HolderIdentity)
+			return rr, nil
+		}
+	}
+
 	if cr.Status.S3 == nil || cr.Status.Azure == nil {
 		cr.Status.S3 = storage.S3
 		cr.Status.Azure = storage.Azure
@@ -215,10 +223,10 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 		}
 
 		// Check if this PVC already exists
-		err = r.client.Get(context.TODO(), types.NamespacedName{Name: pvc.Name, Namespace: pvc.Namespace}, pvc)
+		err = r.client.Get(ctx, types.NamespacedName{Name: pvc.Name, Namespace: pvc.Namespace}, pvc)
 		if err != nil && k8sErrors.IsNotFound(err) {
 			log.Info("Creating a new volume for backup", "Namespace", pvc.Namespace, "Name", pvc.Name)
-			err = r.client.Create(context.TODO(), pvc)
+			err = r.client.Create(ctx, pvc)
 			if err != nil {
 				return rr, errors.Wrap(err, "create backup pvc")
 			}
@@ -257,14 +265,25 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 		return rr, errors.Wrap(err, "job/setControllerReference")
 	}
 
-	err = r.client.Create(context.TODO(), job)
+	err = r.client.Create(ctx, job)
 	if err != nil && !k8sErrors.IsAlreadyExists(err) {
 		return rr, errors.Wrap(err, "create backup job")
 	} else if err == nil {
-		log.Info("Created a new backup job", "Namespace", job.Namespace, "Name", job.Name)
+		log.Info("Created a new backup job", "namespace", job.Namespace, "name", job.Name)
 	}
 
-	err = r.updateJobStatus(cr, job, cr.Spec.StorageName, storage, cluster)
+	err = r.updateJobStatus(ctx, cr, job, cr.Spec.StorageName, storage, cluster)
+
+	switch cr.Status.State {
+	case api.BackupSucceeded, api.BackupFailed:
+		log.Info("Releasing backup lock", "lease", naming.BackupLeaseName(cluster.Name))
+
+		if err := k8s.ReleaseLease(ctx, r.client, naming.BackupLeaseName(cluster.Name), cr.Namespace); err != nil {
+			return reconcile.Result{}, errors.Wrap(err, "release backup lock")
+		}
+
+		return reconcile.Result{}, nil
+	}
 
 	return rr, err
 }
@@ -440,9 +459,9 @@ func removeBackupObjects(ctx context.Context, s storage.Storage, destination str
 	}
 }
 
-func (r *ReconcilePerconaXtraDBClusterBackup) getCluster(cr *api.PerconaXtraDBClusterBackup) (*api.PerconaXtraDBCluster, error) {
+func (r *ReconcilePerconaXtraDBClusterBackup) getCluster(ctx context.Context, cr *api.PerconaXtraDBClusterBackup) (*api.PerconaXtraDBCluster, error) {
 	cluster := api.PerconaXtraDBCluster{}
-	err := r.client.Get(context.TODO(), types.NamespacedName{Namespace: cr.Namespace, Name: cr.Spec.PXCCluster}, &cluster)
+	err := r.client.Get(ctx, types.NamespacedName{Namespace: cr.Namespace, Name: cr.Spec.PXCCluster}, &cluster)
 	if err != nil {
 		return nil, errors.Wrap(err, "get PXC cluster")
 	}
@@ -450,10 +469,17 @@ func (r *ReconcilePerconaXtraDBClusterBackup) getCluster(cr *api.PerconaXtraDBCl
 	return &cluster, nil
 }
 
-func (r *ReconcilePerconaXtraDBClusterBackup) updateJobStatus(bcp *api.PerconaXtraDBClusterBackup, job *batchv1.Job,
-	storageName string, storage *api.BackupStorageSpec, cluster *api.PerconaXtraDBCluster,
+func (r *ReconcilePerconaXtraDBClusterBackup) updateJobStatus(
+	ctx context.Context,
+	bcp *api.PerconaXtraDBClusterBackup,
+	job *batchv1.Job,
+	storageName string,
+	storage *api.BackupStorageSpec,
+	cluster *api.PerconaXtraDBCluster,
 ) error {
-	err := r.client.Get(context.TODO(), types.NamespacedName{Name: job.Name, Namespace: job.Namespace}, job)
+	log := logf.FromContext(ctx).WithValues("job", job.Name)
+
+	err := r.client.Get(ctx, types.NamespacedName{Name: job.Name, Namespace: job.Namespace}, job)
 	if err != nil {
 		if k8sErrors.IsNotFound(err) {
 			return nil
@@ -500,20 +526,25 @@ func (r *ReconcilePerconaXtraDBClusterBackup) updateJobStatus(bcp *api.PerconaXt
 
 	bcp.Status = status
 
-	if status.State == api.BackupSucceeded {
+	switch status.State {
+	case api.BackupSucceeded:
+		log.Info("Backup succeeded")
+
 		if cluster.PITREnabled() {
-			collectorPod, err := deployment.GetBinlogCollectorPod(context.TODO(), r.client, cluster)
+			collectorPod, err := deployment.GetBinlogCollectorPod(ctx, r.client, cluster)
 			if err != nil {
 				return errors.Wrap(err, "get binlog collector pod")
 			}
 
-			if err := deployment.RemoveGapFile(context.TODO(), cluster, r.clientcmd, collectorPod); err != nil {
+			log.V(1).Info("Removing binlog gap file from binlog collector", "pod", collectorPod.Name)
+			if err := deployment.RemoveGapFile(ctx, cluster, r.clientcmd, collectorPod); err != nil {
 				if !errors.Is(err, deployment.GapFileNotFound) {
 					return errors.Wrap(err, "remove gap file")
 				}
 			}
 
-			if err := deployment.RemoveTimelineFile(context.TODO(), cluster, r.clientcmd, collectorPod); err != nil {
+			log.V(1).Info("Removing binlog timeline file from binlog collector", "pod", collectorPod.Name)
+			if err := deployment.RemoveTimelineFile(ctx, cluster, r.clientcmd, collectorPod); err != nil {
 				return errors.Wrap(err, "remove timeline file")
 			}
 		}
@@ -524,14 +555,17 @@ func (r *ReconcilePerconaXtraDBClusterBackup) updateJobStatus(bcp *api.PerconaXt
 				Namespace: cluster.Namespace,
 			},
 		}
-		if err := r.client.Delete(context.TODO(), &initSecret); client.IgnoreNotFound(err) != nil {
+		log.V(1).Info("Removing mysql-init secret", "secret", initSecret.Name)
+		if err := r.client.Delete(ctx, &initSecret); client.IgnoreNotFound(err) != nil {
 			return errors.Wrap(err, "delete mysql-init secret")
 		}
+	case api.BackupFailed:
+		log.Info("Backup failed")
 	}
 
-	err = r.client.Status().Update(context.TODO(), bcp)
+	err = r.client.Status().Update(ctx, bcp)
 	if err != nil {
-		return errors.Wrap(err, "send update")
+		return errors.Wrap(err, "update status")
 	}
 
 	return nil

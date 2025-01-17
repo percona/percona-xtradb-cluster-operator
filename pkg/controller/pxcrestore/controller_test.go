@@ -333,6 +333,9 @@ func TestOperatorRestart(t *testing.T) {
 	bcp := readDefaultBackup(t, backupName, namespace)
 	crSecret := readDefaultCRSecret(t, clusterName+"-secrets", namespace)
 	cluster := readDefaultCR(t, clusterName, namespace)
+	if err := cluster.CheckNSetDefaults(new(version.ServerVersion), logf.FromContext(ctx)); err != nil {
+		t.Fatal(err)
+	}
 	cluster.Status.PXC.Status = api.AppStateReady
 	cr := readDefaultRestore(t, restoreName, namespace)
 	cr.Spec.BackupName = backupName

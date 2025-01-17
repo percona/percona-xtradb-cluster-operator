@@ -143,6 +143,16 @@ func (c *HAProxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.Percon
 		},
 	)
 
+	if cr.CompareVersionWith("1.17.0") >= 0 {
+		appc.Ports = append(
+			appc.Ports,
+			corev1.ContainerPort{
+				ContainerPort: 8404,
+				Name:          "stats",
+			},
+		)
+	}
+
 	rsCmd := "/opt/percona/haproxy_readiness_check.sh"
 	lsCmd := "/opt/percona/haproxy_liveness_check.sh"
 	if cr.CompareVersionWith("1.15.0") < 0 {

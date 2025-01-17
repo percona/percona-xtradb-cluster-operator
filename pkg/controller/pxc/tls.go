@@ -278,7 +278,7 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLManualy(cr *api.PerconaXtraDBCl
 	data["ca.crt"] = caCert
 	data["tls.crt"] = tlsCert
 	data["tls.key"] = key
-	owner, err := OwnerRef(cr, r.scheme)
+	owner, err := k8s.OwnerRef(cr, r.scheme)
 	if err != nil {
 		return err
 	}

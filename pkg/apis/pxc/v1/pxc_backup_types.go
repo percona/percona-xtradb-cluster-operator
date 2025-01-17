@@ -162,6 +162,7 @@ type PXCBackupState string
 
 const (
 	BackupNew       PXCBackupState = ""
+	BackupWaiting   PXCBackupState = "Waiting"
 	BackupStarting  PXCBackupState = "Starting"
 	BackupRunning   PXCBackupState = "Running"
 	BackupFailed    PXCBackupState = "Failed"

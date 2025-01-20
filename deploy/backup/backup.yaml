@@ -8,6 +8,7 @@ spec:
   pxcCluster: cluster1
   storageName: fs-pvc
 #  activeDeadlineSeconds: 3600
+  passiveDeadlineSeconds: 30
 #  containerOptions:
 #    env:
 #    - name: VERIFY_TLS

@@ -47,14 +47,16 @@ type PerconaXtraDBClusterBackup struct {
 }
 
 type PXCBackupSpec struct {
-	PXCCluster            string                  `json:"pxcCluster"`
-	StorageName           string                  `json:"storageName,omitempty"`
-	ContainerOptions      *BackupContainerOptions `json:"containerOptions,omitempty"`
-	ActiveDeadlineSeconds *int64                  `json:"activeDeadlineSeconds,omitempty"`
+	PXCCluster             string                  `json:"pxcCluster"`
+	StorageName            string                  `json:"storageName,omitempty"`
+	ContainerOptions       *BackupContainerOptions `json:"containerOptions,omitempty"`
+	PassiveDeadlineSeconds *int64                  `json:"passiveDeadlineSeconds,omitempty"`
+	ActiveDeadlineSeconds  *int64                  `json:"activeDeadlineSeconds,omitempty"`
 }
 
 type PXCBackupStatus struct {
 	State                 PXCBackupState          `json:"state,omitempty"`
+	Error                 string                  `json:"error,omitempty"`
 	CompletedAt           *metav1.Time            `json:"completed,omitempty"`
 	LastScheduled         *metav1.Time            `json:"lastscheduled,omitempty"`
 	Destination           PXCBackupDestination    `json:"destination,omitempty"`

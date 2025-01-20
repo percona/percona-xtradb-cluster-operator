@@ -592,6 +592,7 @@ spec:
     image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0-backup
 #    backoffLimit: 6
 #    activeDeadlineSeconds: 3600
+#    passiveDeadlineSeconds: 300
 #    serviceAccountName: percona-xtradb-cluster-operator
 #    imagePullSecrets:
 #      - name: private-registry-credentials

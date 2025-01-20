@@ -391,6 +391,11 @@ func (in *PXCBackupSpec) DeepCopyInto(out *PXCBackupSpec) {
 		*out = new(BackupContainerOptions)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.PassiveDeadlineSeconds != nil {
+		in, out := &in.PassiveDeadlineSeconds, &out.PassiveDeadlineSeconds
+		*out = new(int64)
+		**out = **in
+	}
 	if in.ActiveDeadlineSeconds != nil {
 		in, out := &in.ActiveDeadlineSeconds, &out.ActiveDeadlineSeconds
 		*out = new(int64)
@@ -506,6 +511,11 @@ func (in *PXCScheduledBackup) DeepCopyInto(out *PXCScheduledBackup) {
 	}
 	if in.ActiveDeadlineSeconds != nil {
 		in, out := &in.ActiveDeadlineSeconds, &out.ActiveDeadlineSeconds
+		*out = new(int64)
+		**out = **in
+	}
+	if in.PassiveDeadlineSeconds != nil {
+		in, out := &in.PassiveDeadlineSeconds, &out.PassiveDeadlineSeconds
 		*out = new(int64)
 		**out = **in
 	}

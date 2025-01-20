@@ -150,31 +150,62 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 		return rr, nil
 	}
 
+	if err := r.checkStartingDeadline(ctx, cr); err != nil {
+		if err := r.setFailedStatus(ctx, cr, err); err != nil {
+			return rr, errors.Wrap(err, "update status")
+		}
+
+		return reconcile.Result{}, nil
+	}
+
 	cluster, err := r.getCluster(ctx, cr)
 	if err != nil {
-		log.Error(err, "invalid backup cluster")
-		return rr, nil
+		return reconcile.Result{}, errors.Wrap(err, "get cluster")
 	}
 
 	log = log.WithValues("cluster", cluster.Name)
 
 	err = cluster.CheckNSetDefaults(r.serverVersion, log)
 	if err != nil {
-		return rr, errors.Wrap(err, "wrong PXC options")
+		err := errors.Wrap(err, "wrong PXC options")
+
+		if err := r.setFailedStatus(ctx, cr, err); err != nil {
+			return rr, errors.Wrap(err, "update status")
+		}
+
+		return reconcile.Result{}, err
 	}
 
 	if cluster.Spec.Backup == nil {
-		return rr, errors.New("a backup image should be set in the PXC config")
+		err := errors.New("a backup image should be set in the PXC config")
+
+		if err := r.setFailedStatus(ctx, cr, err); err != nil {
+			return rr, errors.Wrap(err, "update status")
+		}
+
+		return reconcile.Result{}, err
 	}
 
 	if err := cluster.CanBackup(); err != nil {
 		log.Info("Cluster is not ready for backup", "reason", err.Error())
+
+		cr.Status.State = api.BackupWaiting
+		if err := r.updateStatus(ctx, cr); err != nil {
+			return rr, errors.Wrap(err, "update status")
+		}
+
 		return rr, nil
 	}
 
 	storage, ok := cluster.Spec.Backup.Storages[cr.Spec.StorageName]
 	if !ok {
-		return rr, errors.Errorf("storage %s doesn't exist", cr.Spec.StorageName)
+		err := errors.Errorf("storage %s doesn't exist", cr.Spec.StorageName)
+
+		if err := r.setFailedStatus(ctx, cr, err); err != nil {
+			return rr, errors.Wrap(err, "update status")
+		}
+
+		return reconcile.Result{}, err
 	}
 
 	log = log.WithValues("storage", cr.Spec.StorageName)
@@ -188,6 +219,12 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 
 		if lease.Spec.HolderIdentity != nil && *lease.Spec.HolderIdentity != cr.Name {
 			log.Info("Another backup is holding the lock", "holder", *lease.Spec.HolderIdentity)
+
+			cr.Status.State = api.BackupWaiting
+			if err := r.updateStatus(ctx, cr); err != nil {
+				return rr, errors.Wrap(err, "update status")
+			}
+
 			return rr, nil
 		}
 	}
@@ -203,77 +240,15 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 		cr.Status.VerifyTLS = storage.VerifyTLS
 	}
 
-	bcp := backup.New(cluster)
-	job := bcp.Job(cr, cluster)
-	initImage, err := k8s.GetInitImage(ctx, cluster, r.client)
+	job, err := r.createBackupJob(ctx, cr, cluster, storage)
 	if err != nil {
-		return rr, errors.Wrap(err, "failed to get initImage")
-	}
-	job.Spec, err = bcp.JobSpec(cr.Spec, cluster, job, initImage)
-	if err != nil {
-		return rr, errors.Wrap(err, "can't create job spec")
-	}
+		err = errors.Wrap(err, "create backup job")
 
-	switch storage.Type {
-	case api.BackupStorageFilesystem:
-		pvc := backup.NewPVC(cr, cluster)
-		pvc.Spec = *storage.Volume.PersistentVolumeClaim
-
-		cr.Status.Destination.SetPVCDestination(pvc.Name)
-
-		// Set PerconaXtraDBClusterBackup instance as the owner and controller
-		if err := k8s.SetControllerReference(cr, pvc, r.scheme); err != nil {
-			return rr, errors.Wrap(err, "setControllerReference")
+		if err := r.setFailedStatus(ctx, cr, err); err != nil {
+			return rr, errors.Wrap(err, "update status")
 		}
 
-		// Check if this PVC already exists
-		err = r.client.Get(ctx, types.NamespacedName{Name: pvc.Name, Namespace: pvc.Namespace}, pvc)
-		if err != nil && k8sErrors.IsNotFound(err) {
-			log.Info("Creating a new volume for backup", "Namespace", pvc.Namespace, "Name", pvc.Name)
-			err = r.client.Create(ctx, pvc)
-			if err != nil {
-				return rr, errors.Wrap(err, "create backup pvc")
-			}
-		} else if err != nil {
-			return rr, errors.Wrap(err, "get backup pvc")
-		}
-
-		err := backup.SetStoragePVC(&job.Spec, cr, pvc.Name)
-		if err != nil {
-			return rr, errors.Wrap(err, "set storage FS")
-		}
-	case api.BackupStorageS3:
-		if storage.S3 == nil {
-			return rr, errors.New("s3 storage is not specified")
-		}
-		cr.Status.Destination.SetS3Destination(storage.S3.Bucket, cr.Spec.PXCCluster+"-"+cr.CreationTimestamp.Time.Format("2006-01-02-15:04:05")+"-full")
-
-		err := backup.SetStorageS3(&job.Spec, cr)
-		if err != nil {
-			return rr, errors.Wrap(err, "set storage FS")
-		}
-	case api.BackupStorageAzure:
-		if storage.Azure == nil {
-			return rr, errors.New("azure storage is not specified")
-		}
-		cr.Status.Destination.SetAzureDestination(storage.Azure.ContainerPath, cr.Spec.PXCCluster+"-"+cr.CreationTimestamp.Time.Format("2006-01-02-15:04:05")+"-full")
-
-		err := backup.SetStorageAzure(&job.Spec, cr)
-		if err != nil {
-			return rr, errors.Wrap(err, "set storage FS for Azure")
-		}
-	}
-
-	// Set PerconaXtraDBClusterBackup instance as the owner and controller
-	if err := k8s.SetControllerReference(cr, job, r.scheme); err != nil {
-		return rr, errors.Wrap(err, "job/setControllerReference")
-	}
-
-	err = r.client.Create(ctx, job)
-	if err != nil && !k8sErrors.IsAlreadyExists(err) {
-		return rr, errors.Wrap(err, "create backup job")
-	} else if err == nil {
-		log.Info("Created a new backup job", "namespace", job.Namespace, "name", job.Name)
+		return reconcile.Result{}, err
 	}
 
 	err = r.updateJobStatus(ctx, cr, job, cr.Spec.StorageName, storage, cluster)
@@ -290,6 +265,90 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 	}
 
 	return rr, err
+}
+
+func (r *ReconcilePerconaXtraDBClusterBackup) createBackupJob(
+	ctx context.Context,
+	cr *api.PerconaXtraDBClusterBackup,
+	cluster *api.PerconaXtraDBCluster,
+	storage *api.BackupStorageSpec,
+) (*batchv1.Job, error) {
+	log := logf.FromContext(ctx)
+
+	bcp := backup.New(cluster)
+	job := bcp.Job(cr, cluster)
+	initImage, err := k8s.GetInitImage(ctx, cluster, r.client)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get initImage")
+	}
+	job.Spec, err = bcp.JobSpec(cr.Spec, cluster, job, initImage)
+	if err != nil {
+		return nil, errors.Wrap(err, "can't create job spec")
+	}
+
+	switch storage.Type {
+	case api.BackupStorageFilesystem:
+		pvc := backup.NewPVC(cr, cluster)
+		pvc.Spec = *storage.Volume.PersistentVolumeClaim
+
+		cr.Status.Destination.SetPVCDestination(pvc.Name)
+
+		// Set PerconaXtraDBClusterBackup instance as the owner and controller
+		if err := k8s.SetControllerReference(cr, pvc, r.scheme); err != nil {
+			return nil, errors.Wrap(err, "setControllerReference")
+		}
+
+		// Check if this PVC already exists
+		err = r.client.Get(ctx, types.NamespacedName{Name: pvc.Name, Namespace: pvc.Namespace}, pvc)
+		if err != nil && k8sErrors.IsNotFound(err) {
+			log.Info("Creating a new volume for backup", "Namespace", pvc.Namespace, "Name", pvc.Name)
+			err = r.client.Create(ctx, pvc)
+			if err != nil {
+				return nil, errors.Wrap(err, "create backup pvc")
+			}
+		} else if err != nil {
+			return nil, errors.Wrap(err, "get backup pvc")
+		}
+
+		err := backup.SetStoragePVC(&job.Spec, cr, pvc.Name)
+		if err != nil {
+			return nil, errors.Wrap(err, "set storage FS")
+		}
+	case api.BackupStorageS3:
+		if storage.S3 == nil {
+			return nil, errors.New("s3 storage is not specified")
+		}
+		cr.Status.Destination.SetS3Destination(storage.S3.Bucket, cr.Spec.PXCCluster+"-"+cr.CreationTimestamp.Time.Format("2006-01-02-15:04:05")+"-full")
+
+		err := backup.SetStorageS3(&job.Spec, cr)
+		if err != nil {
+			return nil, errors.Wrap(err, "set storage FS")
+		}
+	case api.BackupStorageAzure:
+		if storage.Azure == nil {
+			return nil, errors.New("azure storage is not specified")
+		}
+		cr.Status.Destination.SetAzureDestination(storage.Azure.ContainerPath, cr.Spec.PXCCluster+"-"+cr.CreationTimestamp.Time.Format("2006-01-02-15:04:05")+"-full")
+
+		err := backup.SetStorageAzure(&job.Spec, cr)
+		if err != nil {
+			return nil, errors.Wrap(err, "set storage FS for Azure")
+		}
+	}
+
+	// Set PerconaXtraDBClusterBackup instance as the owner and controller
+	if err := k8s.SetControllerReference(cr, job, r.scheme); err != nil {
+		return nil, errors.Wrap(err, "job/setControllerReference")
+	}
+
+	err = r.client.Create(ctx, job)
+	if err != nil && !k8sErrors.IsAlreadyExists(err) {
+		return nil, errors.Wrap(err, "create backup job")
+	} else if err == nil {
+		log.Info("Created a new backup job", "namespace", job.Namespace, "name", job.Name)
+	}
+
+	return job, nil
 }
 
 func (r *ReconcilePerconaXtraDBClusterBackup) ensureFinalizers(ctx context.Context, cr *api.PerconaXtraDBClusterBackup) error {
@@ -600,10 +659,55 @@ func (r *ReconcilePerconaXtraDBClusterBackup) updateJobStatus(
 		log.Info("Backup failed")
 	}
 
-	err = r.client.Status().Update(ctx, bcp)
-	if err != nil {
+	if err := r.updateStatus(ctx, bcp); err != nil {
 		return errors.Wrap(err, "update status")
 	}
 
 	return nil
+}
+
+func (r *ReconcilePerconaXtraDBClusterBackup) checkStartingDeadline(ctx context.Context, cr *api.PerconaXtraDBClusterBackup) error {
+	log := logf.FromContext(ctx)
+
+	since := time.Since(cr.CreationTimestamp.Time).Seconds()
+
+	if cr.Spec.StartingDeadlineSeconds == nil {
+		return nil
+	}
+
+	if since < float64(*cr.Spec.StartingDeadlineSeconds) {
+		return nil
+	}
+
+	if cr.Status.State == api.BackupNew {
+		log.Info("Backup didn't start in startingDeadlineSeconds, failing the backup",
+			"startingDeadlineSeconds", *cr.Spec.StartingDeadlineSeconds,
+			"passedSeconds", since)
+		return errors.New("starting deadline seconds exceeded")
+	}
+
+	return nil
+}
+
+func (r *ReconcilePerconaXtraDBClusterBackup) updateStatus(ctx context.Context, cr *api.PerconaXtraDBClusterBackup) error {
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		localCr := new(api.PerconaXtraDBClusterBackup)
+		err := r.client.Get(ctx, client.ObjectKeyFromObject(cr), localCr)
+		if err != nil {
+			return err
+		}
+
+		localCr.Status = cr.Status
+
+		return r.client.Status().Update(ctx, localCr)
+	})
+}
+
+func (r *ReconcilePerconaXtraDBClusterBackup) setFailedStatus(
+	ctx context.Context,
+	cr *api.PerconaXtraDBClusterBackup,
+	err error,
+) error {
+	cr.SetFailedStatusWithError(err)
+	return r.updateStatus(ctx, cr)
 }

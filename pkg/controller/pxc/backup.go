@@ -198,8 +198,9 @@ func (r *ReconcilePerconaXtraDBCluster) createBackupJob(ctx context.Context, cr 
 				Labels:     naming.LabelsScheduledBackup(cr, backupJob.Name),
 			},
 			Spec: api.PXCBackupSpec{
-				PXCCluster:  cr.Name,
-				StorageName: backupJob.StorageName,
+				PXCCluster:              cr.Name,
+				StorageName:             backupJob.StorageName,
+				StartingDeadlineSeconds: cr.Spec.Backup.StartingDeadlineSeconds,
 			},
 		}
 		err = r.client.Create(context.TODO(), bcp)

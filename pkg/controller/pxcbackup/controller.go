@@ -14,7 +14,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
@@ -218,7 +217,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 		cr.Status.Destination.SetPVCDestination(pvc.Name)
 
 		// Set PerconaXtraDBClusterBackup instance as the owner and controller
-		if err := setControllerReference(cr, pvc, r.scheme); err != nil {
+		if err := k8s.SetControllerReference(cr, pvc, r.scheme); err != nil {
 			return rr, errors.Wrap(err, "setControllerReference")
 		}
 
@@ -261,7 +260,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 	}
 
 	// Set PerconaXtraDBClusterBackup instance as the owner and controller
-	if err := setControllerReference(cr, job, r.scheme); err != nil {
+	if err := k8s.SetControllerReference(cr, job, r.scheme); err != nil {
 		return rr, errors.Wrap(err, "job/setControllerReference")
 	}
 
@@ -568,66 +567,5 @@ func (r *ReconcilePerconaXtraDBClusterBackup) updateJobStatus(
 		return errors.Wrap(err, "update status")
 	}
 
-	return nil
-}
-
-func setControllerReference(cr *api.PerconaXtraDBClusterBackup, obj metav1.Object, scheme *runtime.Scheme) error {
-	ownerRef, err := cr.OwnerRef(scheme)
-	if err != nil {
-		return err
-	}
-	obj.SetOwnerReferences(append(obj.GetOwnerReferences(), ownerRef))
-	return nil
-}
-
-func (r *ReconcilePerconaXtraDBClusterBackup) isOtherBackupRunning(ctx context.Context, cr *api.PerconaXtraDBClusterBackup, cluster *api.PerconaXtraDBCluster) (bool, error) {
-	list := new(batchv1.JobList)
-	if err := r.client.List(ctx, list, &client.ListOptions{
-		Namespace:     cluster.Namespace,
-		LabelSelector: labels.SelectorFromSet(naming.LabelsBackup(cluster)),
-	}); err != nil {
-		return false, errors.Wrap(err, "list jobs")
-	}
-
-	for _, job := range list.Items {
-		backupNameLabelKey := naming.LabelPerconaBackupName
-		if cluster.CompareVersionWith("1.16.0") < 0 {
-			backupNameLabelKey = "backup-name"
-		}
-		if job.Labels[backupNameLabelKey] == cr.Name {
-			continue
-		}
-		if job.Status.Active == 0 && (jobSucceded(&job) || jobFailed(&job)) {
-			continue
-		}
-
-		return true, nil
-	}
-
-	return false, nil
-}
-
-func jobFailed(job *batchv1.Job) bool {
-	failedCondition := findJobCondition(job.Status.Conditions, batchv1.JobFailed)
-	if failedCondition != nil && failedCondition.Status == corev1.ConditionTrue {
-		return true
-	}
-	return false
-}
-
-func jobSucceded(job *batchv1.Job) bool {
-	succeededCondition := findJobCondition(job.Status.Conditions, batchv1.JobComplete)
-	if succeededCondition != nil && succeededCondition.Status == corev1.ConditionTrue {
-		return true
-	}
-	return false
-}
-
-func findJobCondition(conditions []batchv1.JobCondition, condType batchv1.JobConditionType) *batchv1.JobCondition {
-	for i, cond := range conditions {
-		if cond.Type == condType {
-			return &conditions[i]
-		}
-	}
 	return nil
 }

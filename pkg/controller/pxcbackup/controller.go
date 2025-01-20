@@ -17,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -186,13 +187,12 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 		return reconcile.Result{}, err
 	}
 
+	if err := r.reconcileBackupJob(ctx, cr, cluster); err != nil {
+		return rr, errors.Wrap(err, "reconcile backup job")
+	}
+
 	if err := cluster.CanBackup(); err != nil {
 		log.Info("Cluster is not ready for backup", "reason", err.Error())
-
-		cr.Status.State = api.BackupWaiting
-		if err := r.updateStatus(ctx, cr); err != nil {
-			return rr, errors.Wrap(err, "update status")
-		}
 
 		return rr, nil
 	}
@@ -219,11 +219,6 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 
 		if lease.Spec.HolderIdentity != nil && *lease.Spec.HolderIdentity != cr.Name {
 			log.Info("Another backup is holding the lock", "holder", *lease.Spec.HolderIdentity)
-
-			cr.Status.State = api.BackupWaiting
-			if err := r.updateStatus(ctx, cr); err != nil {
-				return rr, errors.Wrap(err, "update status")
-			}
 
 			return rr, nil
 		}
@@ -710,4 +705,136 @@ func (r *ReconcilePerconaXtraDBClusterBackup) setFailedStatus(
 ) error {
 	cr.SetFailedStatusWithError(err)
 	return r.updateStatus(ctx, cr)
+}
+
+func (r *ReconcilePerconaXtraDBClusterBackup) suspendJobIfNeeded(
+	ctx context.Context,
+	cr *api.PerconaXtraDBClusterBackup,
+	cluster *api.PerconaXtraDBCluster,
+) error {
+	if cluster.Spec.Unsafe.BackupIfUnhealthy {
+		return nil
+	}
+
+	if cluster.Status.Status == api.AppStateReady {
+		return nil
+	}
+
+	if cluster.Status.PXC.Ready == cluster.Status.PXC.Size {
+		return nil
+	}
+
+	log := logf.FromContext(ctx)
+
+	labelKeyBackupType := naming.GetLabelBackupType(cluster)
+	jobName := naming.BackupJobName(cr.Name, cr.Labels[labelKeyBackupType] == "cron")
+
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		job := new(batchv1.Job)
+
+		err := r.client.Get(ctx, types.NamespacedName{Namespace: cr.Namespace, Name: jobName}, job)
+		if err != nil {
+			if k8sErrors.IsNotFound(err) {
+				return nil
+			}
+			return err
+		}
+
+		suspended := false
+		for _, cond := range job.Status.Conditions {
+			if cond.Type == batchv1.JobSuspended && cond.Status == corev1.ConditionTrue {
+				suspended = true
+			}
+		}
+
+		if suspended {
+			return nil
+		}
+
+		log.Info("Suspending backup job",
+			"job", jobName,
+			"clusterStatus", cluster.Status.Status,
+			"readyPXC", cluster.Status.PXC.Ready)
+
+		job.Spec.Suspend = ptr.To(true)
+
+		err = r.client.Update(ctx, job)
+		if err != nil {
+			return err
+		}
+
+		cr.Status.State = api.BackupSuspended
+		return r.updateStatus(ctx, cr)
+	})
+
+	return err
+}
+
+func (r *ReconcilePerconaXtraDBClusterBackup) resumeJobIfNeeded(
+	ctx context.Context,
+	cr *api.PerconaXtraDBClusterBackup,
+	cluster *api.PerconaXtraDBCluster,
+) error {
+	if cluster.Status.Status != api.AppStateReady {
+		return nil
+	}
+
+	if cluster.Status.PXC.Ready != cluster.Status.PXC.Size {
+		return nil
+	}
+
+	log := logf.FromContext(ctx)
+
+	labelKeyBackupType := naming.GetLabelBackupType(cluster)
+	jobName := naming.BackupJobName(cr.Name, cr.Labels[labelKeyBackupType] == "cron")
+
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		job := new(batchv1.Job)
+
+		err := r.client.Get(ctx, types.NamespacedName{Namespace: cr.Namespace, Name: jobName}, job)
+		if err != nil {
+			if k8sErrors.IsNotFound(err) {
+				return nil
+			}
+			return err
+		}
+
+		suspended := false
+		for _, cond := range job.Status.Conditions {
+			if cond.Type == batchv1.JobSuspended && cond.Status == corev1.ConditionTrue {
+				suspended = true
+			}
+		}
+
+		if !suspended {
+			return nil
+		}
+
+		log.Info("Resuming backup job",
+			"job", jobName,
+			"clusterStatus", cluster.Status.Status,
+			"readyPXC", cluster.Status.PXC.Ready)
+
+		job.Spec.Suspend = ptr.To(false)
+
+		return r.client.Update(ctx, job)
+	})
+
+	return err
+}
+
+func (r *ReconcilePerconaXtraDBClusterBackup) reconcileBackupJob(
+	ctx context.Context,
+	cr *api.PerconaXtraDBClusterBackup,
+	cluster *api.PerconaXtraDBCluster,
+) error {
+	if err := r.suspendJobIfNeeded(ctx, cr, cluster); err != nil {
+		return errors.Wrap(err, "suspend job if needed")
+	}
+
+	if err := r.resumeJobIfNeeded(ctx, cr, cluster); err != nil {
+		return errors.Wrap(err, "suspend job if needed")
+	}
+
+	return nil
 }

@@ -2,6 +2,7 @@ package pxc
 
 import (
 	"context"
+	stderrors "errors"
 	"math"
 	"slices"
 	"strings"
@@ -137,6 +138,8 @@ func (r *ReconcilePerconaXtraDBCluster) reconcilePersistentVolumes(ctx context.C
 		}
 
 		updatedPVCs := 0
+		var resizeErrors []error
+		pendingResize := false
 		for _, pvc := range pvcList.Items {
 			if !validatePVCName(pvc, sts) {
 				continue
@@ -181,18 +184,27 @@ func (r *ReconcilePerconaXtraDBCluster) reconcilePersistentVolumes(ctx context.C
 				switch event.Reason {
 				case "Resizing", "ExternalExpanding", "FileSystemResizeRequired":
 					log.Info("PVC resize in progress", "pvc", pvc.Name, "reason", event.Reason, "message", event.Note)
+					pendingResize = true
 				case "FileSystemResizeSuccessful":
 					log.Info("PVC resize completed", "pvc", pvc.Name, "reason", event.Reason, "message", event.Note)
-				case "VolumeResizeFailed":
+				case "VolumeResizeFailed", naming.EventExceededQuota, naming.EventStorageClassNotSupportResize:
 					log.Error(nil, "PVC resize failed", "pvc", pvc.Name, "reason", event.Reason, "message", event.Note)
 
-					if err := r.handlePVCResizeFailure(ctx, cr, configured); err != nil {
-						return err
-					}
-
-					return errors.Errorf("volume resize failed: %s", event.Note)
+					resizeErrors = append(resizeErrors, errors.Errorf("%s pvc resize failed: %s: %s", pvc.Name, event.Reason, event.Note))
+					continue
 				}
 			}
+		}
+
+		if len(resizeErrors) > 0 {
+			if pendingResize {
+				return nil
+			}
+
+			if err := r.handlePVCResizeFailure(ctx, cr, configured); err != nil {
+				return err
+			}
+			return stderrors.Join(resizeErrors...)
 		}
 
 		resizeSucceeded := updatedPVCs == len(pvcsToUpdate)
@@ -255,21 +267,13 @@ func (r *ReconcilePerconaXtraDBCluster) reconcilePersistentVolumes(ctx context.C
 		if err := r.client.Update(ctx, &pvc); err != nil {
 			switch {
 			case strings.Contains(err.Error(), "exceeded quota"):
-				log.Error(err, "PVC resize failed", "reason", "ExceededQuota", "message", err.Error())
+				r.recorder.Event(&pvc, corev1.EventTypeWarning, naming.EventExceededQuota, "PVC resize failed")
 
-				if err := r.handlePVCResizeFailure(ctx, cr, configured); err != nil {
-					return err
-				}
-
-				return errors.Wrapf(err, "update persistentvolumeclaim/%s", pvc.Name)
+				continue
 			case strings.Contains(err.Error(), "the storageclass that provisions the pvc must support resize"):
-				log.Error(err, "PVC resize failed", "reason", "StorageClassNotSupportResize", "message", err.Error())
+				r.recorder.Event(&pvc, corev1.EventTypeWarning, naming.EventStorageClassNotSupportResize, "PVC resize failed")
 
-				if err := r.handlePVCResizeFailure(ctx, cr, configured); err != nil {
-					return err
-				}
-
-				return errors.Wrapf(err, "update persistentvolumeclaim/%s", pvc.Name)
+				continue
 			default:
 				return errors.Wrapf(err, "update persistentvolumeclaim/%s", pvc.Name)
 			}

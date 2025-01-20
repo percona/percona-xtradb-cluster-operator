@@ -16,10 +16,52 @@ import (
 
 	"github.com/go-sql-driver/mysql"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/percona/percona-xtradb-cluster-operator/cmd/pitr/pxc"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage"
 )
+
+var (
+	pxcBinlogCollectorBackupSuccess = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "pxc_binlog_collector_success_total",
+			Help: "Total number of successful binlog backups",
+		},
+	)
+	pxcBinlogCollectorBackupFailure = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "pxc_binlog_collector_failure_total",
+			Help: "Total number of failed binlog backups",
+		},
+	)
+	pxcBinlogCollectorLastProcessingTime = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "pxc_binlog_collector_last_processing_timestamp",
+			Help: "Timestamp of the last successful binlog processing",
+		},
+	)
+	pxcBinlogCollectorLastUploadTime = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "pxc_binlog_collector_last_upload_timestamp",
+			Help: "Timestamp of the last successful binlog upload",
+		},
+	)
+	pxcBinlogCollectorGapDetected = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "pxc_binlog_collector_gap_detected_total",
+			Help: "Total number of times the gap was detected in binlog",
+		},
+	)
+)
+
+func init() {
+	prometheus.MustRegister(pxcBinlogCollectorBackupSuccess)
+	prometheus.MustRegister(pxcBinlogCollectorBackupFailure)
+	prometheus.MustRegister(pxcBinlogCollectorLastProcessingTime)
+	prometheus.MustRegister(pxcBinlogCollectorLastUploadTime)
+	prometheus.MustRegister(pxcBinlogCollectorGapDetected)
+}
 
 type Collector struct {
 	db              *pxc.PXC
@@ -103,6 +145,7 @@ func New(ctx context.Context, c Config) (*Collector, error) {
 func (c *Collector) Run(ctx context.Context) error {
 	err := c.newDB(ctx)
 	if err != nil {
+		pxcBinlogCollectorBackupFailure.Inc()
 		return errors.Wrap(err, "new db connection")
 	}
 	defer c.close()
@@ -113,9 +156,11 @@ func (c *Collector) Run(ctx context.Context) error {
 
 	err = c.CollectBinLogs(ctx)
 	if err != nil {
+		pxcBinlogCollectorBackupFailure.Inc()
 		return errors.Wrap(err, "collect binlog files")
 	}
 
+	pxcBinlogCollectorBackupSuccess.Inc()
 	return nil
 }
 
@@ -369,6 +414,7 @@ func (c *Collector) CollectBinLogs(ctx context.Context) error {
 		if lastUploadedBinlogName == "" {
 			log.Println("ERROR: Couldn't find the binlog that contains GTID set:", c.lastUploadedSet.Raw())
 			log.Println("ERROR: Gap detected in the binary logs. Binary logs will be uploaded anyway, but full backup needed for consistent recovery.")
+			pxcBinlogCollectorGapDetected.Inc()
 			if err := createGapFile(c.lastUploadedSet); err != nil {
 				return errors.Wrap(err, "create gap file")
 			}
@@ -382,6 +428,7 @@ func (c *Collector) CollectBinLogs(ctx context.Context) error {
 
 	if len(list) == 0 {
 		log.Println("No binlogs to upload")
+		pxcBinlogCollectorLastProcessingTime.SetToCurrentTime()
 		return nil
 	}
 
@@ -402,6 +449,8 @@ func (c *Collector) CollectBinLogs(ctx context.Context) error {
 			return errors.Wrap(err, "manage binlog")
 		}
 
+		pxcBinlogCollectorLastUploadTime.SetToCurrentTime()
+
 		lastTs, err := c.db.GetBinLogLastTimestamp(ctx, binlog.Name)
 		if err != nil {
 			return errors.Wrap(err, "get last timestamp")
@@ -411,6 +460,8 @@ func (c *Collector) CollectBinLogs(ctx context.Context) error {
 			return errors.Wrap(err, "update timeline file")
 		}
 	}
+
+	pxcBinlogCollectorLastProcessingTime.SetToCurrentTime()
 	return nil
 }
 

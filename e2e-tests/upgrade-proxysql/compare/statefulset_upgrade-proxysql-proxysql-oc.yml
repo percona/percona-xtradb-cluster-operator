@@ -8,6 +8,9 @@ metadata:
       kind: PerconaXtraDBCluster
       name: upgrade-proxysql
 spec:
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Retain
+    whenScaled: Retain
   podManagementPolicy: OrderedReady
   replicas: 3
   revisionHistoryLimit: 10
@@ -80,6 +83,9 @@ spec:
               protocol: TCP
             - containerPort: 6032
               name: proxyadm
+              protocol: TCP
+            - containerPort: 6070
+              name: stats
               protocol: TCP
           resources:
             requests:
@@ -221,6 +227,12 @@ spec:
     type: RollingUpdate
   volumeClaimTemplates:
     - metadata:
+        labels:
+          app.kubernetes.io/component: proxysql
+          app.kubernetes.io/instance: upgrade-proxysql
+          app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+          app.kubernetes.io/name: percona-xtradb-cluster
+          app.kubernetes.io/part-of: percona-xtradb-cluster
         name: proxydata
       spec:
         accessModes:

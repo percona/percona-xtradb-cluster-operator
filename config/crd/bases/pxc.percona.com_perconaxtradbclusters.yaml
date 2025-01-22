@@ -788,6 +788,8 @@ spec:
                             runAsUser:
                               format: int64
                               type: integer
+                            seLinuxChangePolicy:
+                              type: string
                             seLinuxOptions:
                               properties:
                                 level:
@@ -1949,6 +1951,8 @@ spec:
                       runAsUser:
                         format: int64
                         type: integer
+                      seLinuxChangePolicy:
+                        type: string
                       seLinuxOptions:
                         properties:
                           level:
@@ -5213,6 +5217,8 @@ spec:
                       runAsUser:
                         format: int64
                         type: integer
+                      seLinuxChangePolicy:
+                        type: string
                       seLinuxOptions:
                         properties:
                           level:
@@ -8101,6 +8107,8 @@ spec:
                       runAsUser:
                         format: int64
                         type: integer
+                      seLinuxChangePolicy:
+                        type: string
                       seLinuxOptions:
                         properties:
                           level:
@@ -10233,6 +10241,34 @@ spec:
                   versionServiceEndpoint:
                     type: string
                 type: object
+              users:
+                items:
+                  properties:
+                    dbs:
+                      items:
+                        type: string
+                      type: array
+                    grants:
+                      items:
+                        type: string
+                      type: array
+                    hosts:
+                      items:
+                        type: string
+                      type: array
+                    name:
+                      type: string
+                    passwordSecretRef:
+                      properties:
+                        key:
+                          type: string
+                        name:
+                          type: string
+                      type: object
+                    withGrantOption:
+                      type: boolean
+                  type: object
+                type: array
               vaultSecretName:
                 type: string
             type: object

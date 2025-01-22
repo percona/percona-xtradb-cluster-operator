@@ -29,7 +29,7 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/util"
 )
 
-func (r *ReconcilePerconaXtraDBCluster) updatePod(ctx context.Context, sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, newAnnotations map[string]string) error {
+func (r *ReconcilePerconaXtraDBCluster) updatePod(ctx context.Context, sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, newAnnotations map[string]string, smartUpdate bool) error {
 	log := logf.FromContext(ctx)
 
 	if cr.PVCResizeInProgress() {
@@ -43,7 +43,6 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(ctx context.Context, sfs api.S
 	}
 
 	// embed DB configuration hash
-	// TODO: code duplication with deploy function
 	configHash, err := r.getConfigHash(cr, sfs)
 	if err != nil {
 		return errors.Wrap(err, "getting config hash")
@@ -97,18 +96,17 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(ctx context.Context, sfs api.S
 	}
 
 	err = k8sretry.RetryOnConflict(k8sretry.DefaultRetry, func() error {
+		currentSet := sfs.StatefulSet()
+		err := r.client.Get(ctx, client.ObjectKeyFromObject(currentSet), currentSet)
+		if client.IgnoreNotFound(err) != nil {
+			return errors.Wrap(err, "failed to get statefulset")
+		}
+		annotations := currentSet.Spec.Template.Annotations
+		labels := currentSet.Spec.Template.Labels
+
 		sts, err := pxc.StatefulSet(ctx, r.client, sfs, podSpec, cr, secrets, initImageName, r.getConfigVolume)
 		if err != nil {
 			return errors.Wrap(err, "construct statefulset")
-		}
-		if err = setControllerReference(cr, sts, r.scheme); err != nil {
-			return errors.Wrap(err, "set controller reference")
-		}
-
-		currentSet := sfs.StatefulSet()
-		err = r.client.Get(ctx, types.NamespacedName{Name: currentSet.Name, Namespace: currentSet.Namespace}, currentSet)
-		if err != nil {
-			return errors.Wrap(err, "failed to get statefulset")
 		}
 		// Keep same volumeClaimTemplates labels if statefulset already exists.
 		// We can't update volumeClaimTemplates.
@@ -118,13 +116,10 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(ctx context.Context, sfs api.S
 			}
 		}
 
-		annotations := currentSet.Spec.Template.Annotations
-		labels := currentSet.Spec.Template.Labels
-
-		// support annotation adjustements
-		util.MergeMaps(annotations, sts.Spec.Template.Annotations, newAnnotations)
-
-		util.MergeMaps(labels, sts.Spec.Template.Labels)
+		// If currentSet is not found, both annotations and labels will be nil.
+		// In such cases, MergeMaps will initialize a new map and return it.
+		annotations = util.MergeMaps(annotations, sts.Spec.Template.Annotations, newAnnotations)
+		labels = util.MergeMaps(labels, sts.Spec.Template.Labels)
 
 		for k, v := range hashAnnotations {
 			if v != "" || k == "percona.com/configuration-hash" {
@@ -134,6 +129,10 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(ctx context.Context, sfs api.S
 
 		sts.Spec.Template.Annotations = annotations
 		sts.Spec.Template.Labels = labels
+
+		if err := setControllerReference(cr, sts, r.scheme); err != nil {
+			return errors.Wrap(err, "set controller reference")
+		}
 		err = r.createOrUpdate(ctx, cr, sts)
 		if err != nil {
 			return errors.Wrap(err, "update error")
@@ -148,7 +147,13 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(ctx context.Context, sfs api.S
 		return nil
 	}
 
-	return r.smartUpdate(ctx, sfs, cr)
+	if smartUpdate {
+		if err := r.smartUpdate(ctx, sfs, cr); err != nil {
+			return errors.Wrap(err, "smart update")
+		}
+	}
+
+	return nil
 }
 
 func (r *ReconcilePerconaXtraDBCluster) smartUpdate(ctx context.Context, sfs api.StatefulApp, cr *api.PerconaXtraDBCluster) error {

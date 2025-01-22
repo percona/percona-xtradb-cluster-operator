@@ -67,7 +67,7 @@ spec:
               value: "15"
             - name: DEFAULT_AUTHENTICATION_PLUGIN
               value: mysql_native_password
-            - name: NOTIFY_SOCKET
+            - name: MYSQL_NOTIFY_SOCKET
               value: /var/lib/mysql/notify.sock
             - name: MYSQL_STATE_FILE
               value: /var/lib/mysql/mysql.state
@@ -117,7 +117,7 @@ spec:
           resources:
             limits:
               cpu: 600m
-              memory: 1G
+              memory: 2G
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:

@@ -8,6 +8,9 @@ metadata:
       kind: PerconaXtraDBCluster
       name: sec-context
 spec:
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Retain
+    whenScaled: Retain
   podManagementPolicy: OrderedReady
   replicas: 2
   revisionHistoryLimit: 10
@@ -69,6 +72,9 @@ spec:
               protocol: TCP
             - containerPort: 6032
               name: proxyadm
+              protocol: TCP
+            - containerPort: 6070
+              name: stats
               protocol: TCP
           resources:
             requests:
@@ -171,6 +177,8 @@ spec:
               memory: 50M
           securityContext:
             privileged: true
+            runAsGroup: 1001
+            runAsUser: 1001
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:
@@ -186,6 +194,8 @@ spec:
               memory: 50M
           securityContext:
             privileged: true
+            runAsGroup: 1001
+            runAsUser: 1001
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:

@@ -33,7 +33,6 @@ import (
 
 	"github.com/percona/percona-xtradb-cluster-operator/clientcmd"
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
@@ -225,7 +224,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 				log.Info("The finalizer delete-ssl is deprecated and will be deleted in 1.18.0. Use percona.com/delete-ssl")
 				fallthrough
 			case naming.FinalizerDeleteSSL:
-				err = r.deleteCerts(o)
+				err = r.deleteCerts(ctx, o)
 			case "delete-proxysql-pvc":
 				log.Info("The finalizer delete-proxysql-pvc is deprecated and will be deleted in 1.18.0. Use percona.com/delete-proxysql-pvc")
 				fallthrough
@@ -314,6 +313,11 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 		userReconcileResult = urr
 	}
 
+	err = r.reconcileCustomUsers(ctx, o)
+	if err != nil {
+		return reconcile.Result{}, errors.Wrap(err, "reconcile custom users")
+	}
+
 	r.resyncPXCUsersWithProxySQL(ctx, o)
 
 	if o.Status.PXC.Version == "" || strings.HasSuffix(o.Status.PXC.Version, "intermediate") {
@@ -327,13 +331,18 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 		return reconcile.Result{}, errors.Wrap(err, "reconcile persistent volumes")
 	}
 
+	err = r.reconcileSSL(ctx, o)
+	if err != nil {
+		return reconcile.Result{}, errors.Wrapf(err, "failed to reconcile SSL. Please create your TLS secret %s and %s manually or setup cert-manager correctly", o.Spec.PXC.SSLSecretName, o.Spec.PXC.SSLInternalSecretName)
+	}
+
 	err = r.deploy(ctx, o)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
 	pxcSet := statefulset.NewNode(o)
-	err = r.updatePod(ctx, pxcSet, o.Spec.PXC.PodSpec, o, userReconcileResult.pxcAnnotations)
+	err = r.updatePod(ctx, pxcSet, o.Spec.PXC.PodSpec, o, userReconcileResult.pxcAnnotations, true)
 	if err != nil {
 		return reconcile.Result{}, errors.Wrap(err, "pxc upgrade error")
 	}
@@ -369,7 +378,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 
 	proxysqlSet := statefulset.NewProxy(o)
 	if o.Spec.ProxySQLEnabled() {
-		err = r.updatePod(ctx, proxysqlSet, &o.Spec.ProxySQL.PodSpec, o, userReconcileResult.proxysqlAnnotations)
+		err = r.updatePod(ctx, proxysqlSet, &o.Spec.ProxySQL.PodSpec, o, userReconcileResult.proxysqlAnnotations, true)
 		if err != nil {
 			return reconcile.Result{}, errors.Wrap(err, "ProxySQL upgrade error")
 		}
@@ -482,7 +491,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileHAProxy(ctx context.Context, cr
 	}
 	sts := statefulset.NewHAProxy(cr)
 
-	if err := r.updatePod(ctx, sts, &cr.Spec.HAProxy.PodSpec, cr, templateAnnotations); err != nil {
+	if err := r.updatePod(ctx, sts, &cr.Spec.HAProxy.PodSpec, cr, templateAnnotations, true); err != nil {
 		return errors.Wrap(err, "HAProxy upgrade error")
 	}
 	svc := pxc.NewServiceHAProxy(cr)
@@ -527,266 +536,29 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileHAProxy(ctx context.Context, cr
 }
 
 func (r *ReconcilePerconaXtraDBCluster) deploy(ctx context.Context, cr *api.PerconaXtraDBCluster) error {
-	log := logf.FromContext(ctx)
-
-	if cr.PVCResizeInProgress() {
-		log.V(1).Info("PVC resize in progress, skipping statefulset")
+	deployStatefulApp := func(stsApp api.StatefulApp, podSpec *api.PodSpec) error {
+		if err := r.updatePod(ctx, stsApp, podSpec, cr, nil, false); err != nil {
+			return errors.Wrapf(err, "updatePod for %s", stsApp.Name())
+		}
+		if err := r.reconcilePDB(ctx, cr, podSpec.PodDisruptionBudget, stsApp); err != nil {
+			return errors.Wrapf(err, "failed to reconcile PodDisruptionBudget for %s", stsApp.Name())
+		}
 		return nil
 	}
 
-	stsApp := statefulset.NewNode(cr)
-	err := r.reconcileConfigMap(cr)
-	if err != nil {
-		return err
+	if err := deployStatefulApp(statefulset.NewNode(cr), cr.Spec.PXC.PodSpec); err != nil {
+		return errors.Wrap(err, "failed to deploy pxc")
 	}
-
-	initImageName, err := k8s.GetInitImage(ctx, cr, r.client)
-	if err != nil {
-		return errors.Wrap(err, "failed to get initImage")
-	}
-
-	secretsName := cr.Spec.SecretsName
-	if cr.CompareVersionWith("1.6.0") >= 0 {
-		secretsName = "internal-" + cr.Name
-	}
-	secrets := new(corev1.Secret)
-	err = r.client.Get(context.TODO(), types.NamespacedName{
-		Name: secretsName, Namespace: cr.Namespace,
-	}, secrets)
-	if client.IgnoreNotFound(err) != nil {
-		return errors.Wrap(err, "get internal secret")
-	}
-	nodeSet, err := pxc.StatefulSet(ctx, r.client, stsApp, cr.Spec.PXC.PodSpec, cr, secrets, initImageName, r.getConfigVolume)
-	if err != nil {
-		return errors.Wrap(err, "get pxc statefulset")
-	}
-	currentNodeSet := new(appsv1.StatefulSet)
-	err = r.client.Get(context.TODO(), types.NamespacedName{
-		Namespace: nodeSet.Namespace,
-		Name:      nodeSet.Name,
-	}, currentNodeSet)
-	if client.IgnoreNotFound(err) != nil {
-		return errors.Wrap(err, "get current pxc sts")
-	}
-	// Keep same volumeClaimTemplates labels if statefulset already exists.
-	// We can't update volumeClaimTemplates.
-	if err == nil && cr.CompareVersionWith("1.16.0") >= 0 {
-		for i, pvc := range currentNodeSet.Spec.VolumeClaimTemplates {
-			nodeSet.Spec.VolumeClaimTemplates[i].Labels = pvc.Labels
-		}
-	}
-	// TODO: code duplication with updatePod function
-	if nodeSet.Spec.Template.Annotations == nil {
-		nodeSet.Spec.Template.Annotations = make(map[string]string)
-	}
-	if v, ok := currentNodeSet.Spec.Template.Annotations["last-applied-secret"]; ok {
-		nodeSet.Spec.Template.Annotations["last-applied-secret"] = v
-	}
-	if cr.CompareVersionWith("1.1.0") >= 0 {
-		hash, err := r.getConfigHash(cr, stsApp)
-		if err != nil {
-			return errors.Wrap(err, "getting node config hash")
-		}
-		nodeSet.Spec.Template.Annotations["percona.com/configuration-hash"] = hash
-	}
-
-	err = r.reconcileSSL(cr)
-	if err != nil {
-		return errors.Wrapf(err, "failed to reconcile SSL.Please create your TLS secret %s and %s manually or setup cert-manager correctly",
-			cr.Spec.PXC.SSLSecretName, cr.Spec.PXC.SSLInternalSecretName)
-	}
-
-	sslHash, err := r.getSecretHash(cr, cr.Spec.PXC.SSLSecretName, !cr.TLSEnabled())
-	if err != nil {
-		return errors.Wrap(err, "get secret hash")
-	}
-	if sslHash != "" && cr.CompareVersionWith("1.1.0") >= 0 {
-		nodeSet.Spec.Template.Annotations["percona.com/ssl-hash"] = sslHash
-	}
-
-	sslInternalHash, err := r.getSecretHash(cr, cr.Spec.PXC.SSLInternalSecretName, !cr.TLSEnabled())
-	if err != nil && !k8serrors.IsNotFound(err) {
-		return errors.Wrap(err, "get internal secret hash")
-	}
-	if sslInternalHash != "" && cr.CompareVersionWith("1.1.0") >= 0 {
-		nodeSet.Spec.Template.Annotations["percona.com/ssl-internal-hash"] = sslInternalHash
-	}
-
-	if cr.CompareVersionWith("1.9.0") >= 0 {
-		envVarsHash, err := r.getSecretHash(cr, cr.Spec.PXC.EnvVarsSecretName, true)
-		if err != nil {
-			return errors.Wrap(err, "upgradePod/updateApp error: update secret error")
-		}
-		if envVarsHash != "" {
-			nodeSet.Spec.Template.Annotations["percona.com/env-secret-config-hash"] = envVarsHash
-		}
-	}
-
-	vaultConfigHash, err := r.getSecretHash(cr, cr.Spec.VaultSecretName, true)
-	if err != nil {
-		return errors.Wrap(err, "get vault config hash")
-	}
-	if vaultConfigHash != "" && cr.CompareVersionWith("1.6.0") >= 0 {
-		nodeSet.Spec.Template.Annotations["percona.com/vault-config-hash"] = vaultConfigHash
-	}
-	nodeSet.Spec.Template.Spec.Tolerations = cr.Spec.PXC.Tolerations
-	err = setControllerReference(cr, nodeSet, r.scheme)
-	if err != nil {
-		return err
-	}
-
-	err = r.createOrUpdate(ctx, cr, nodeSet)
-	if err != nil {
-		return errors.Wrap(err, "create newStatefulSetNode")
-	}
-
-	// PodDisruptionBudget object for nodes
-	err = r.client.Get(ctx, types.NamespacedName{Name: nodeSet.Name, Namespace: nodeSet.Namespace}, nodeSet)
-	if err == nil {
-		err := r.reconcilePDB(ctx, cr, cr.Spec.PXC.PodDisruptionBudget, stsApp, nodeSet)
-		if err != nil {
-			return errors.Wrapf(err, "PodDisruptionBudget for %s", nodeSet.Name)
-		}
-	} else if !k8serrors.IsNotFound(err) {
-		return errors.Wrap(err, "get PXC stateful set")
-	}
-
-	// HAProxy StatefulSet
 	if cr.HAProxyEnabled() {
-		sfsHAProxy := statefulset.NewHAProxy(cr)
-		haProxySet, err := pxc.StatefulSet(ctx, r.client, sfsHAProxy, &cr.Spec.HAProxy.PodSpec, cr, secrets, initImageName, r.getConfigVolume)
-		if err != nil {
-			return errors.Wrap(err, "create HAProxy StatefulSet")
-		}
-		err = setControllerReference(cr, haProxySet, r.scheme)
-		if err != nil {
-			return err
-		}
-
-		// TODO: code duplication with updatePod function
-		if haProxySet.Spec.Template.Annotations == nil {
-			haProxySet.Spec.Template.Annotations = make(map[string]string)
-		}
-		hash, err := r.getConfigHash(cr, sfsHAProxy)
-		if err != nil {
-			return errors.Wrap(err, "getting HAProxy config hash")
-		}
-		haProxySet.Spec.Template.Annotations["percona.com/configuration-hash"] = hash
-		if cr.CompareVersionWith("1.5.0") == 0 {
-			if sslHash != "" {
-				haProxySet.Spec.Template.Annotations["percona.com/ssl-hash"] = sslHash
-			}
-			if sslInternalHash != "" {
-				haProxySet.Spec.Template.Annotations["percona.com/ssl-internal-hash"] = sslInternalHash
-			}
-		}
-		if cr.CompareVersionWith("1.9.0") >= 0 {
-			envVarsHash, err := r.getSecretHash(cr, cr.Spec.HAProxy.EnvVarsSecretName, true)
-			if err != nil {
-				return errors.Wrap(err, "upgradePod/updateApp error: update secret error")
-			}
-			if envVarsHash != "" {
-				haProxySet.Spec.Template.Annotations["percona.com/env-secret-config-hash"] = envVarsHash
-			}
-		}
-		// PodDisruptionBudget object for HAProxy
-		currentHAProxySts := new(appsv1.StatefulSet)
-		err = r.client.Get(ctx, types.NamespacedName{Name: haProxySet.Name, Namespace: haProxySet.Namespace}, currentHAProxySts)
-		if client.IgnoreNotFound(err) != nil {
-			return errors.Wrap(err, "get HAProxy stateful set")
-		}
-		if err == nil {
-			err := r.reconcilePDB(ctx, cr, cr.Spec.HAProxy.PodDisruptionBudget, sfsHAProxy, currentHAProxySts)
-			if err != nil {
-				return errors.Wrapf(err, "PodDisruptionBudget for %s", haProxySet.Name)
-			}
-			// Keep same volumeClaimTemplates labels if statefulset already exists.
-			// We can't update volumeClaimTemplates.
-			if cr.CompareVersionWith("1.16.0") >= 0 {
-				for i, pvc := range currentHAProxySts.Spec.VolumeClaimTemplates {
-					haProxySet.Spec.VolumeClaimTemplates[i].Labels = pvc.Labels
-				}
-			}
-		}
-
-		err = r.client.Create(context.TODO(), haProxySet)
-		if err != nil && !k8serrors.IsAlreadyExists(err) {
-			return errors.Wrap(err, "create newStatefulSetHAProxy")
+		if err := deployStatefulApp(statefulset.NewHAProxy(cr), &cr.Spec.HAProxy.PodSpec); err != nil {
+			return errors.Wrap(err, "failed to deploy haproxy")
 		}
 	}
-
-	if cr.Spec.ProxySQLEnabled() {
-		sfsProxy := statefulset.NewProxy(cr)
-		proxySet, err := pxc.StatefulSet(ctx, r.client, sfsProxy, &cr.Spec.ProxySQL.PodSpec, cr, secrets, initImageName, r.getConfigVolume)
-		if err != nil {
-			return errors.Wrap(err, "create ProxySQL Service")
-		}
-		err = setControllerReference(cr, proxySet, r.scheme)
-		if err != nil {
-			return err
-		}
-		currentProxySet := new(appsv1.StatefulSet)
-		err = r.client.Get(context.TODO(), types.NamespacedName{
-			Namespace: proxySet.Namespace,
-			Name:      proxySet.Name,
-		}, currentProxySet)
-		if client.IgnoreNotFound(err) != nil {
-			return errors.Wrap(err, "get current proxy sts")
-		}
-		// Keep same volumeClaimTemplates labels if statefulset already exists.
-		// We can't update volumeClaimTemplates.
-		if err == nil && cr.CompareVersionWith("1.16.0") >= 0 {
-			for i, pvc := range currentProxySet.Spec.VolumeClaimTemplates {
-				proxySet.Spec.VolumeClaimTemplates[i].Labels = pvc.Labels
-			}
-		}
-
-		// TODO: code duplication with updatePod function
-		if proxySet.Spec.Template.Annotations == nil {
-			proxySet.Spec.Template.Annotations = make(map[string]string)
-		}
-		if v, ok := currentProxySet.Spec.Template.Annotations["last-applied-secret"]; ok {
-			proxySet.Spec.Template.Annotations["last-applied-secret"] = v
-		}
-		if cr.CompareVersionWith("1.1.0") >= 0 {
-			hash, err := r.getConfigHash(cr, sfsProxy)
-			if err != nil {
-				return errors.Wrap(err, "getting proxySQL config hash")
-			}
-			proxySet.Spec.Template.Annotations["percona.com/configuration-hash"] = hash
-			if sslHash != "" {
-				proxySet.Spec.Template.Annotations["percona.com/ssl-hash"] = sslHash
-			}
-			if sslInternalHash != "" {
-				proxySet.Spec.Template.Annotations["percona.com/ssl-internal-hash"] = sslInternalHash
-			}
-		}
-		if cr.CompareVersionWith("1.9.0") >= 0 {
-			envVarsHash, err := r.getSecretHash(cr, cr.Spec.ProxySQL.EnvVarsSecretName, true)
-			if err != nil {
-				return errors.Wrap(err, "upgradePod/updateApp error: update secret error")
-			}
-			if envVarsHash != "" {
-				proxySet.Spec.Template.Annotations["percona.com/env-secret-config-hash"] = envVarsHash
-			}
-		}
-		err = r.client.Create(context.TODO(), proxySet)
-		if err != nil && !k8serrors.IsAlreadyExists(err) {
-			return errors.Wrap(err, "create newStatefulSetProxySQL")
-		}
-
-		// PodDisruptionBudget object for ProxySQL
-		err = r.client.Get(ctx, types.NamespacedName{Name: proxySet.Name, Namespace: proxySet.Namespace}, proxySet)
-		if err == nil {
-			err := r.reconcilePDB(ctx, cr, cr.Spec.ProxySQL.PodDisruptionBudget, sfsProxy, proxySet)
-			if err != nil {
-				return errors.Wrapf(err, "PodDisruptionBudget for %s", proxySet.Name)
-			}
-		} else if !k8serrors.IsNotFound(err) {
-			return errors.Wrap(err, "get ProxySQL stateful set")
+	if cr.ProxySQLEnabled() {
+		if err := deployStatefulApp(statefulset.NewProxy(cr), &cr.Spec.ProxySQL.PodSpec); err != nil {
+			return errors.Wrap(err, "failed to deploy proxysql")
 		}
 	}
-
 	return nil
 }
 
@@ -953,14 +725,21 @@ func (r *ReconcilePerconaXtraDBCluster) createHookScriptConfigMap(cr *api.Percon
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) reconcilePDB(ctx context.Context, cr *api.PerconaXtraDBCluster, spec *api.PodDisruptionBudgetSpec, sfs api.StatefulApp, owner runtime.Object) error {
+func (r *ReconcilePerconaXtraDBCluster) reconcilePDB(ctx context.Context, cr *api.PerconaXtraDBCluster, spec *api.PodDisruptionBudgetSpec, sfs api.StatefulApp) error {
 	if spec == nil {
 		return nil
 	}
 
+	sts := new(appsv1.StatefulSet)
+	if err := r.client.Get(ctx, client.ObjectKeyFromObject(sfs.StatefulSet()), sts); err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil
+		}
+		return errors.Wrap(err, "get PXC stateful set")
+	}
+
 	pdb := pxc.PodDisruptionBudget(cr, spec, sfs.Labels())
-	err := setControllerReference(owner, pdb, r.scheme)
-	if err != nil {
+	if err := setControllerReference(sts, pdb, r.scheme); err != nil {
 		return errors.Wrap(err, "set owner reference")
 	}
 
@@ -1134,19 +913,19 @@ func (r *ReconcilePerconaXtraDBCluster) deleteSecrets(cr *api.PerconaXtraDBClust
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) deleteCerts(cr *api.PerconaXtraDBCluster) error {
+func (r *ReconcilePerconaXtraDBCluster) deleteCerts(ctx context.Context, cr *api.PerconaXtraDBCluster) error {
 	issuers := []string{
 		cr.Name + "-pxc-ca-issuer",
 		cr.Name + "-pxc-issuer",
 	}
 	for _, issuerName := range issuers {
 		issuer := &cm.Issuer{}
-		err := r.client.Get(context.TODO(), types.NamespacedName{Namespace: cr.Namespace, Name: issuerName}, issuer)
+		err := r.client.Get(ctx, types.NamespacedName{Namespace: cr.Namespace, Name: issuerName}, issuer)
 		if err != nil {
 			continue
 		}
 
-		err = r.client.Delete(context.TODO(), issuer, &client.DeleteOptions{Preconditions: &metav1.Preconditions{UID: &issuer.UID}})
+		err = r.client.Delete(ctx, issuer, &client.DeleteOptions{Preconditions: &metav1.Preconditions{UID: &issuer.UID}})
 		if err != nil {
 			return errors.Wrapf(err, "delete issuer %s", issuerName)
 		}
@@ -1159,12 +938,12 @@ func (r *ReconcilePerconaXtraDBCluster) deleteCerts(cr *api.PerconaXtraDBCluster
 	}
 	for _, certName := range certs {
 		cert := &cm.Certificate{}
-		err := r.client.Get(context.TODO(), types.NamespacedName{Namespace: cr.Namespace, Name: certName}, cert)
+		err := r.client.Get(ctx, types.NamespacedName{Namespace: cr.Namespace, Name: certName}, cert)
 		if err != nil {
 			continue
 		}
 
-		err = r.client.Delete(context.TODO(), cert, &client.DeleteOptions{Preconditions: &metav1.Preconditions{UID: &cert.UID}})
+		err = r.client.Delete(ctx, cert, &client.DeleteOptions{Preconditions: &metav1.Preconditions{UID: &cert.UID}})
 		if err != nil {
 			return errors.Wrapf(err, "delete certificate %s", certName)
 		}
@@ -1188,12 +967,12 @@ func (r *ReconcilePerconaXtraDBCluster) deleteCerts(cr *api.PerconaXtraDBCluster
 
 	for _, secretName := range secrets {
 		secret := &corev1.Secret{}
-		err := r.client.Get(context.TODO(), types.NamespacedName{Namespace: cr.Namespace, Name: secretName}, secret)
+		err := r.client.Get(ctx, types.NamespacedName{Namespace: cr.Namespace, Name: secretName}, secret)
 		if err != nil {
 			continue
 		}
 
-		err = r.client.Delete(context.TODO(), secret, &client.DeleteOptions{Preconditions: &metav1.Preconditions{UID: &secret.UID}})
+		err = r.client.Delete(ctx, secret, &client.DeleteOptions{Preconditions: &metav1.Preconditions{UID: &secret.UID}})
 		if err != nil {
 			return errors.Wrapf(err, "delete secret %s", secretName)
 		}

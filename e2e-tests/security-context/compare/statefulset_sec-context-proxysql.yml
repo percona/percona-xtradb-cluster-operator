@@ -8,6 +8,9 @@ metadata:
       kind: PerconaXtraDBCluster
       name: sec-context
 spec:
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Retain
+    whenScaled: Retain
   podManagementPolicy: OrderedReady
   replicas: 2
   revisionHistoryLimit: 10
@@ -29,7 +32,15 @@ spec:
         app.kubernetes.io/part-of: percona-xtradb-cluster
     spec:
       containers:
-        - env:
+        - args:
+            - proxysql
+            - -f
+            - -c
+            - /etc/proxysql/proxysql.cnf
+            - --reload
+          command:
+            - /opt/percona/proxysql-entrypoint.sh
+          env:
             - name: PXC_SERVICE
               value: sec-context-pxc
             - name: OPERATOR_PASSWORD
@@ -61,6 +72,9 @@ spec:
               protocol: TCP
             - containerPort: 6032
               name: proxyadm
+              protocol: TCP
+            - containerPort: 6070
+              name: stats
               protocol: TCP
           resources:
             requests:

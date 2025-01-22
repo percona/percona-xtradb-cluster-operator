@@ -91,6 +91,16 @@ func GetBinlogCollectorDeployment(cr *api.PerconaXtraDBCluster, initImage string
 			},
 		},
 	}
+
+	if cr.CompareVersionWith("1.17.0") >= 0 {
+		container.Ports = []corev1.ContainerPort{
+			{
+				ContainerPort: 8080,
+				Name:          "metrics",
+			},
+		}
+	}
+
 	replicas := int32(1)
 
 	var initContainers []corev1.Container

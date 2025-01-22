@@ -56,6 +56,22 @@ type PerconaXtraDBClusterSpec struct {
 	EnableCRValidationWebhook *bool             `json:"enableCRValidationWebhook,omitempty"`
 	IgnoreAnnotations         []string          `json:"ignoreAnnotations,omitempty"`
 	IgnoreLabels              []string          `json:"ignoreLabels,omitempty"`
+
+	Users []User `json:"users,omitempty"`
+}
+
+type SecretKeySelector struct {
+	Name string `json:"name"`
+	Key  string `json:"key,omitempty"`
+}
+
+type User struct {
+	Name              string             `json:"name"`
+	PasswordSecretRef *SecretKeySelector `json:"passwordSecretRef"`
+	DBs               []string           `json:"dbs,omitempty"`
+	Hosts             []string           `json:"hosts,omitempty"`
+	Grants            []string           `json:"grants,omitempty"`
+	WithGrantOption   bool               `json:"withGrantOption,omitempty"`
 }
 
 type UnsafeFlags struct {
@@ -401,6 +417,14 @@ func (cr *PerconaXtraDBCluster) Validate() error {
 		return errors.Errorf("ProxySQL or HAProxy should be enabled if SmartUpdate set")
 	}
 
+	customUsers := make(map[string]int8, len(c.Users))
+	for _, user := range c.Users {
+		customUsers[user.Name]++
+		if customUsers[user.Name] > 1 {
+			return errors.Errorf("user %s is duplicated", user.Name)
+		}
+	}
+
 	return nil
 }
 
@@ -485,6 +509,35 @@ type PodSpec struct {
 	TopologySpreadConstraints    []corev1.TopologySpreadConstraint `json:"topologySpreadConstraints,omitempty"`
 }
 
+func (spec *PodSpec) HasSidecarInternalSecret(secret *corev1.Secret) bool {
+	if spec.Sidecars != nil {
+		for _, container := range spec.Sidecars {
+			for _, env := range container.Env {
+				if env.ValueFrom != nil && env.ValueFrom.SecretKeyRef != nil {
+					if env.ValueFrom.SecretKeyRef.Name == secret.Name {
+						return true
+					}
+				}
+			}
+		}
+	}
+	if spec.SidecarVolumes != nil {
+		for _, volume := range spec.SidecarVolumes {
+			if volume.Secret != nil && volume.Secret.SecretName == secret.Name {
+				return true
+			}
+			if volume.Projected != nil {
+				for _, source := range volume.Projected.Sources {
+					if source.Secret != nil && source.Secret.Name == secret.Name {
+						return true
+					}
+				}
+			}
+		}
+	}
+	return false
+}
+
 type ProxySQLSpec struct {
 	PodSpec `json:",inline"`
 	Expose  ServiceExpose `json:"expose,omitempty"`
@@ -497,7 +550,7 @@ type HAProxySpec struct {
 
 	// Deprecated: Use ExposeReplica.Enabled instead
 	ReplicasServiceEnabled *bool `json:"replicasServiceEnabled,omitempty"`
-	// Deprecated: Use ExposeReplica.LoadBalancerSourceRanges instead
+	// Deprecated: Use ExposeReplicas.LoadBalancerSourceRanges instead
 	ReplicasLoadBalancerSourceRanges []string `json:"replicasLoadBalancerSourceRanges,omitempty"`
 	// Deprecated: Use ExposeReplica.LoadBalancerIP instead
 	ReplicasLoadBalancerIP string `json:"replicasLoadBalancerIP,omitempty"`
@@ -1193,7 +1246,7 @@ func (cr *PerconaXtraDBCluster) setProbesDefaults() {
 }
 
 func (cr *PerconaXtraDBCluster) checkSafeDefaults() error {
-	if !cr.Spec.Unsafe.TLS && !cr.TLSEnabled() {
+	if !cr.Spec.Unsafe.TLS && !*cr.Spec.TLS.Enabled {
 		return errors.New("TLS must be enabled. Set spec.unsafeFlags.tls to true to disable this check")
 	}
 
@@ -1525,6 +1578,17 @@ func (s *PerconaXtraDBClusterStatus) AddCondition(c ClusterCondition) {
 	if len(s.Conditions) > maxStatusesQuantity {
 		s.Conditions = s.Conditions[len(s.Conditions)-maxStatusesQuantity:]
 	}
+}
+
+// FindCondition finds the conditionType in conditions.
+func (s *PerconaXtraDBClusterStatus) FindCondition(conditionType AppState) *ClusterCondition {
+	for i := range s.Conditions {
+		if s.Conditions[i].Type == conditionType {
+			return &s.Conditions[i]
+		}
+	}
+
+	return nil
 }
 
 func (cr *PerconaXtraDBCluster) CanBackup() error {

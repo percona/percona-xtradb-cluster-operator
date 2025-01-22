@@ -1,4 +1,4 @@
-FROM --platform=${BUILDPLATFORM} golang:1.22 AS go_builder
+FROM --platform=${BUILDPLATFORM} golang:1.23 AS go_builder
 WORKDIR /go/src/github.com/percona/percona-xtradb-cluster-operator
 
 COPY go.mod go.sum ./
@@ -31,8 +31,8 @@ RUN GOOS=$GOOS GOARCH=${TARGETARCH} CGO_ENABLED=$CGO_ENABLED GO_LDFLAGS=$GO_LDFL
     && cp -r build/_output/bin/pitr /usr/local/bin/pitr
 
 RUN GOOS=$GOOS GOARCH=${TARGETARCH} CGO_ENABLED=$CGO_ENABLED GO_LDFLAGS=$GO_LDFLAGS \
-       go build -o build/_output/bin/mysql-state-monitor \
-               cmd/mysql-state-monitor/main.go \
+       go build -ldflags "-w -s -X main.GitCommit=$GIT_COMMIT -X main.GitBranch=$GIT_BRANCH -X main.BuildTime=$BUILD_TIME" \
+            -o build/_output/bin/mysql-state-monitor cmd/mysql-state-monitor/main.go \
     && cp -r build/_output/bin/mysql-state-monitor /usr/local/bin/mysql-state-monitor
 
 # Looking for all possible License/Notice files and copying them to the image

@@ -12,27 +12,33 @@ import (
 	k8serr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxctls"
 )
 
-func (r *ReconcilePerconaXtraDBCluster) reconcileSSL(cr *api.PerconaXtraDBCluster) error {
+func (r *ReconcilePerconaXtraDBCluster) reconcileSSL(ctx context.Context, cr *api.PerconaXtraDBCluster) error {
+	if err := r.reconcileTLSToggle(ctx, cr); err != nil {
+		return errors.Wrap(err, "reconcile tls toggle")
+	}
+
 	if !cr.TLSEnabled() {
 		return nil
 	}
 
 	secretObj := corev1.Secret{}
 	secretInternalObj := corev1.Secret{}
-	errSecret := r.client.Get(context.TODO(),
+	errSecret := r.client.Get(ctx,
 		types.NamespacedName{
 			Namespace: cr.Namespace,
 			Name:      cr.Spec.PXC.SSLSecretName,
 		},
 		&secretObj,
 	)
-	errInternalSecret := r.client.Get(context.TODO(),
+	errInternalSecret := r.client.Get(ctx,
 		types.NamespacedName{
 			Namespace: cr.Namespace,
 			Name:      cr.Spec.PXC.SSLInternalSecretName,
@@ -329,5 +335,58 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLManualy(cr *api.PerconaXtraDBCl
 	if err != nil && !k8serr.IsAlreadyExists(err) {
 		return fmt.Errorf("create TLS internal secret: %v", err)
 	}
+	return nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) reconcileTLSToggle(ctx context.Context, cr *api.PerconaXtraDBCluster) error {
+	if cr.CompareVersionWith("1.16.0") < 0 {
+		return nil
+	}
+
+	condition := cr.Status.FindCondition(naming.ConditionTLS)
+	if condition == nil {
+		cr.Status.AddCondition(api.ClusterCondition{
+			Type:               naming.ConditionTLS,
+			Status:             api.ConditionStatus(naming.GetConditionTLSState(cr)),
+			LastTransitionTime: metav1.NewTime(time.Now().Truncate(time.Second)),
+		})
+		return nil
+	}
+
+	if condition.Status == api.ConditionStatus(naming.GetConditionTLSState(cr)) {
+		return nil
+	}
+
+	clusterPaused, err := k8s.PauseCluster(ctx, r.client, cr)
+	if err != nil {
+		return errors.Wrap(err, "failed to pause cluster")
+	}
+	if !clusterPaused {
+		return nil
+	}
+
+	switch naming.ConditionTLSState(condition.Status) {
+	case naming.ConditionTLSStateEnabled:
+		if err := r.deleteCerts(ctx, cr); err != nil {
+			return errors.Wrap(err, "failed to delete tls secrets")
+		}
+	case naming.ConditionTLSStateDisabled:
+	default:
+		return errors.Errorf("unknown value for %s condition status: %s", naming.ConditionTLS, condition.Status)
+	}
+
+	patch := client.MergeFrom(cr.DeepCopy())
+	cr.Spec.Unsafe.TLS = !*cr.Spec.TLS.Enabled
+	if err := r.client.Patch(ctx, cr.DeepCopy(), patch); err != nil {
+		return errors.Wrap(err, "failed to patch cr")
+	}
+
+	_, err = k8s.UnpauseCluster(ctx, r.client, cr)
+	if err != nil {
+		return errors.Wrap(err, "failed to start cluster")
+	}
+
+	condition.Status = api.ConditionStatus(naming.GetConditionTLSState(cr))
+	condition.LastTransitionTime = metav1.NewTime(time.Now().Truncate(time.Second))
 	return nil
 }

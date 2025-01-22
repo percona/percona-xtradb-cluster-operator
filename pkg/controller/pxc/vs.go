@@ -31,22 +31,23 @@ func (vs VersionServiceClient) GetExactVersion(cr *api.PerconaXtraDBCluster, end
 	})
 
 	applyParams := &version_service.VersionServiceApplyParams{
-		Apply:               vm.Apply,
-		BackupVersion:       &vm.BackupVersion,
-		CustomResourceUID:   &vm.CRUID,
-		DatabaseVersion:     &vm.PXCVersion,
-		HaproxyVersion:      &vm.HAProxyVersion,
-		KubeVersion:         &vm.KubeVersion,
-		LogCollectorVersion: &vm.LogCollectorVersion,
-		NamespaceUID:        new(string),
-		OperatorVersion:     cr.Spec.CRVersion,
-		Platform:            &vm.Platform,
-		PmmVersion:          &vm.PMMVersion,
-		Product:             productName,
-		ProxysqlVersion:     &vm.ProxySQLVersion,
-		Context:             nil,
-		ClusterWideEnabled:  &vm.ClusterWideEnabled,
-		HTTPClient:          &http.Client{Timeout: 10 * time.Second},
+		Apply:                 vm.Apply,
+		BackupVersion:         &vm.BackupVersion,
+		CustomResourceUID:     &vm.CRUID,
+		DatabaseVersion:       &vm.PXCVersion,
+		HaproxyVersion:        &vm.HAProxyVersion,
+		KubeVersion:           &vm.KubeVersion,
+		LogCollectorVersion:   &vm.LogCollectorVersion,
+		NamespaceUID:          new(string),
+		OperatorVersion:       cr.Spec.CRVersion,
+		Platform:              &vm.Platform,
+		PmmVersion:            &vm.PMMVersion,
+		Product:               productName,
+		ProxysqlVersion:       &vm.ProxySQLVersion,
+		Context:               nil,
+		ClusterWideEnabled:    &vm.ClusterWideEnabled,
+		HTTPClient:            &http.Client{Timeout: 10 * time.Second},
+		UserManagementEnabled: &vm.UserManagementEnabled,
 	}
 	applyParams = applyParams.WithTimeout(10 * time.Second)
 
@@ -151,15 +152,16 @@ type VersionServiceClient struct {
 }
 
 type versionMeta struct {
-	Apply               string
-	PXCVersion          string
-	KubeVersion         string
-	Platform            string
-	PMMVersion          string
-	BackupVersion       string
-	ProxySQLVersion     string
-	HAProxyVersion      string
-	LogCollectorVersion string
-	CRUID               string
-	ClusterWideEnabled  bool
+	Apply                 string
+	PXCVersion            string
+	KubeVersion           string
+	Platform              string
+	PMMVersion            string
+	BackupVersion         string
+	ProxySQLVersion       string
+	HAProxyVersion        string
+	LogCollectorVersion   string
+	CRUID                 string
+	ClusterWideEnabled    bool
+	UserManagementEnabled bool
 }

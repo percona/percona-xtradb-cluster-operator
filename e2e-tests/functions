@@ -478,6 +478,7 @@ compare_kubectl() {
 			del(.. | select(has("percona.com/env-secret-config-hash"))."percona.com/env-secret-config-hash") |
 			del(.. | select(has("percona.com/ssl-hash"))."percona.com/ssl-hash") |
 			del(.. | select(has("percona.com/ssl-internal-hash"))."percona.com/ssl-internal-hash") |
+			del(.. | select(has("kubectl.kubernetes.io/default-container"))."kubectl.kubernetes.io/default-container") |
 			del(.spec.volumeClaimTemplates[].spec.volumeMode | select(. == "Filesystem")) |
 			del(.. | select(has("healthCheckNodePort")).healthCheckNodePort) |
 			del(.. | select(has("nodePort")).nodePort) |

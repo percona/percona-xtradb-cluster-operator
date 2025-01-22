@@ -32,9 +32,8 @@ func StatefulSet(ctx context.Context, cl client.Client, sfs api.StatefulApp, pod
 		TerminationGracePeriodSeconds: podSpec.TerminationGracePeriodSeconds,
 		RuntimeClassName:              podSpec.RuntimeClassName,
 	}
-	if cr.CompareVersionWith("1.5.0") >= 0 {
-		pod.ServiceAccountName = podSpec.ServiceAccountName
-	}
+
+	pod.ServiceAccountName = podSpec.ServiceAccountName
 	secrets := secret.Name
 	pod.Affinity = PodAffinity(podSpec.Affinity, sfs)
 	pod.TopologySpreadConstraints = PodTopologySpreadConstraints(podSpec.TopologySpreadConstraints, sfs.Labels())
@@ -120,6 +119,14 @@ func StatefulSet(ctx context.Context, cl client.Client, sfs api.StatefulApp, pod
 		}
 	}
 
+	customAnnotations := podSpec.Annotations
+	if cr.CompareVersionWith("1.17.0") >= 0 {
+		if customAnnotations == nil {
+			customAnnotations = make(map[string]string)
+		}
+		customAnnotations["kubectl.kubernetes.io/default-container"] = sfs.Labels()[naming.LabelAppKubernetesComponent]
+	}
+
 	obj := sfs.StatefulSet()
 	obj.Spec = appsv1.StatefulSetSpec{
 		Replicas: &podSpec.Size,
@@ -130,7 +137,7 @@ func StatefulSet(ctx context.Context, cl client.Client, sfs api.StatefulApp, pod
 		Template: corev1.PodTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels:      customLabels,
-				Annotations: podSpec.Annotations,
+				Annotations: customAnnotations,
 			},
 			Spec: pod,
 		},

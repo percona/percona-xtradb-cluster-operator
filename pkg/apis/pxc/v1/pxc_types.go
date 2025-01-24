@@ -550,7 +550,7 @@ type HAProxySpec struct {
 
 	// Deprecated: Use ExposeReplica.Enabled instead
 	ReplicasServiceEnabled *bool `json:"replicasServiceEnabled,omitempty"`
-	// Deprecated: Use ExposeReplica.LoadBalancerSourceRanges instead
+	// Deprecated: Use ExposeReplicas.LoadBalancerSourceRanges instead
 	ReplicasLoadBalancerSourceRanges []string `json:"replicasLoadBalancerSourceRanges,omitempty"`
 	// Deprecated: Use ExposeReplica.LoadBalancerIP instead
 	ReplicasLoadBalancerIP string `json:"replicasLoadBalancerIP,omitempty"`

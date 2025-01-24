@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/go-sql-driver/mysql"
-	v "github.com/hashicorp/go-version"
 	"github.com/pkg/errors"
 )
 
@@ -18,9 +17,8 @@ const UsingPassErrorMessage = `mysqlbinlog: [Warning] Using a password on the co
 
 // PXC is a type for working with pxc
 type PXC struct {
-	db      *sql.DB // handle for work with database
-	host    string  // host for connection
-	version *v.Version
+	db   *sql.DB // handle for work with database
+	host string  // host for connection
 }
 
 // NewManager return new manager for work with pxc
@@ -305,6 +303,17 @@ func getBinlogTimeByName(ctx context.Context, db *PXC, binlogName string) (int64
 }
 
 func (p *PXC) InstallBinlogUDFComponent(ctx context.Context) error {
+	var urn string
+	component := p.db.QueryRowContext(ctx, "SELECT component_urn FROM mysql.component WHERE component_urn = 'file://component_binlog_utils_udf'")
+	if err := component.Scan(&urn); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return errors.Wrap(err, "get component_binlog_utils_udf")
+	}
+
+	if len(urn) > 0 {
+		log.Printf("file://component_binlog_utils_udf is already installed")
+		return nil
+	}
+
 	_, err := p.db.ExecContext(ctx, "INSTALL COMPONENT 'file://component_binlog_utils_udf'")
 	if err != nil {
 		return errors.Wrap(err, "install component")
@@ -319,12 +328,12 @@ func (p *PXC) CreateCollectorFunctions(ctx context.Context) error {
 		return errors.Wrap(err, "create function get_first_record_timestamp_by_binlog")
 	}
 
-	_, err = p.db.ExecContext(ctx, "CREATE FUNCTION get_gtid_set_by_binlog RETURNS STRING SONAME 'binlog_utils_udf.so'")
+	_, err = p.db.ExecContext(ctx, "CREATE FUNCTION IF NOT EXISTS get_gtid_set_by_binlog RETURNS STRING SONAME 'binlog_utils_udf.so'")
 	if err != nil {
 		return errors.Wrap(err, "create function get_gtid_set_by_binlog")
 	}
 
-	_, err = p.db.ExecContext(ctx, "CREATE FUNCTION get_first_record_timestamp_by_binlog RETURNS INTEGER SONAME 'binlog_utils_udf.so'")
+	_, err = p.db.ExecContext(ctx, "CREATE FUNCTION IF NOT EXISTS get_first_record_timestamp_by_binlog RETURNS INTEGER SONAME 'binlog_utils_udf.so'")
 	if err != nil {
 		return errors.Wrap(err, "create function get_first_record_timestamp_by_binlog")
 	}

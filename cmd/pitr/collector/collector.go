@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -329,17 +330,60 @@ func updateTimelineFile(lastTs string) error {
 }
 
 func (c *Collector) addGTIDSets(ctx context.Context, logs []pxc.Binlog) error {
-	for i, v := range logs {
-		set, err := c.db.GetGTIDSet(ctx, v.Name)
-		if err != nil {
-			if errors.Is(err, &mysql.MySQLError{Number: 3200}) {
-				log.Printf("ERROR: Binlog file %s is invalid on host %s: %s\n", v.Name, c.db.GetHost(), err.Error())
-				continue
-			}
-			return errors.Wrap(err, "get GTID set")
-		}
-		logs[i].GTIDSet = pxc.NewGTIDSet(set)
+	numWorkers := len(logs) / 500
+
+	type result struct {
+		index   int
+		gtidSet *pxc.GTIDSet
+		err     error
 	}
+
+	jobs := make(chan int, len(logs))
+	results := make(chan result, len(logs))
+
+	var handled = new(int32)
+
+	for w := 0; w < numWorkers; w++ {
+		go func() {
+			log.Printf("Starting worker %d", w)
+			for i := range jobs {
+				start := time.Now()
+				log.Printf("[worker %d] handling log %s", w, logs[i].Name)
+				set, err := c.db.GetGTIDSet(ctx, logs[i].Name)
+				if err != nil {
+					if errors.Is(err, &mysql.MySQLError{Number: 3200}) {
+						log.Printf("ERROR: Binlog file %s is invalid on host %s: %s\n", logs[i].Name, c.db.GetHost(), err.Error())
+						results <- result{index: i}
+						continue
+					}
+					results <- result{index: i, err: errors.Wrap(err, "get GTID set")}
+					continue
+				}
+				gtidSet := pxc.NewGTIDSet(set)
+				results <- result{index: i, gtidSet: &gtidSet}
+				atomic.AddInt32(handled, 1)
+				duration := time.Since(start)
+				log.Printf("[worker %d] handled log %s in %f seconds", w, logs[i].Name, duration.Seconds())
+			}
+		}()
+	}
+
+	for i := range logs {
+		jobs <- i
+	}
+	close(jobs)
+
+	for res := range results {
+		if res.err != nil {
+			log.Printf("handled count: %d", *handled)
+			return res.err
+		}
+		if res.gtidSet != nil {
+			logs[res.index].GTIDSet = *res.gtidSet
+			log.Printf("log %s gtid set=%s", logs[res.index].Name, logs[res.index].GTIDSet.Raw())
+		}
+	}
+
 	return nil
 }
 

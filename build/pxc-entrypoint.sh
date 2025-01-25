@@ -162,10 +162,19 @@ MYSQL_PATCH_VERSION=$(mysqld -V | awk '{print $3}' | awk -F'.' '{print $3}' | aw
 # if vault secret file exists we assume we need to turn on encryption
 vault_secret="/etc/mysql/vault-keyring-secret/keyring_vault.conf"
 if [ -f "$vault_secret" ]; then
-	sed -i "/\[mysqld\]/a early-plugin-load=keyring_vault.so" $CFG
-	sed -i "/\[mysqld\]/a keyring_vault_config=$vault_secret" $CFG
+	if [[ $MYSQL_VERSION == '8.0' ]]; then
+		sed -i "/\[mysqld\]/a early-plugin-load=keyring_vault.so" $CFG
+		sed -i "/\[mysqld\]/a keyring_vault_config=$vault_secret" $CFG
+	fi
+
+	if [[ $MYSQL_VERSION == '8.4' ]]; then
+		echo -n '{ "components": "file://component_keyring_vault" }' > /var/lib/mysql/mysqld.my
+		cp ${vault_secret} /var/lib/mysql/component_keyring_vault.cnf
+		cp ${vault_secret} /var/lib/mysql/vault.cnf
+	fi
 
 	if [[ "$MYSQL_VERSION" =~ ^(8\.0|8\.4)$ ]]; then
+		echo
 		sed -i "/\[mysqld\]/a default_table_encryption=ON" $CFG
 		sed -i "/\[mysqld\]/a table_encryption_privilege_check=ON" $CFG
 		sed -i "/\[mysqld\]/a innodb_undo_log_encrypt=ON" $CFG
@@ -173,9 +182,25 @@ if [ -f "$vault_secret" ]; then
 		sed -i "/\[mysqld\]/a binlog_encryption=ON" $CFG
 		sed -i "/\[mysqld\]/a binlog_rotate_encryption_master_key_at_startup=ON" $CFG
 		sed -i "/\[mysqld\]/a innodb_temp_tablespace_encrypt=ON" $CFG
-		sed -i "/\[mysqld\]/a innodb_parallel_dblwr_encrypt=ON" $CFG
 		sed -i "/\[mysqld\]/a innodb_encrypt_online_alter_logs=ON" $CFG
 		sed -i "/\[mysqld\]/a encrypt_tmp_files=ON" $CFG
+	fi
+
+	if [[ $MYSQL_VERSION == '8.0' ]]; then
+		# this variable causes mysqld to crash in 8.4
+		sed -i "/\[mysqld\]/a innodb_parallel_dblwr_encrypt=ON" $CFG
+	fi
+else
+	if [[ -f /var/lib/mysql/mysqld.my ]]; then
+		rm /var/lib/mysql/mysqld.my
+	fi
+
+	if [[ -f /var/lib/mysql/component_keyring_vault.cnf ]]; then
+		rm /var/lib/mysql/component_keyring_vault.cnf
+	fi
+
+	if [[ -f /var/lib/mysql/vault.cnf ]]; then
+		rm /var/lib/mysql/vault.cnf
 	fi
 fi
 
@@ -188,7 +213,7 @@ fi
 # add sst.cpat to exclude pxc-entrypoint, unsafe-bootstrap, pxc-configure-pxc from SST cleanup
 grep -q "^progress=" $CFG && sed -i "s|^progress=.*|progress=1|" $CFG
 grep -q "^\[sst\]" "$CFG" || printf '[sst]\n' >>"$CFG"
-grep -q "^cpat=" "$CFG" || sed '/^\[sst\]/a cpat=.*\\.pem$\\|.*init\\.ok$\\|.*galera\\.cache$\\|.*wsrep_recovery_verbose\\.log$\\|.*readiness-check\\.sh$\\|.*liveness-check\\.sh$\\|.*get-pxc-state$\\|.*sst_in_progress$\\|.*sleep-forever$\\|.*pmm-prerun\\.sh$\\|.*sst-xb-tmpdir$\\|.*\\.sst$\\|.*gvwstate\\.dat$\\|.*grastate\\.dat$\\|.*\\.err$\\|.*\\.log$\\|.*RPM_UPGRADE_MARKER$\\|.*RPM_UPGRADE_HISTORY$\\|.*pxc-entrypoint\\.sh$\\|.*unsafe-bootstrap\\.sh$\\|.*pxc-configure-pxc\\.sh\\|.*peer-list$\\|.*auth_plugin$\\|.*version_info$\\|.*mysql-state-monitor$\\|.*mysql-state-monitor\\.log$\\|.*notify\\.sock$\\|.*mysql\\.state$' "$CFG" 1<>"$CFG"
+grep -q "^cpat=" "$CFG" || sed '/^\[sst\]/a cpat=.*\\.pem$\\|.*init\\.ok$\\|.*galera\\.cache$\\|.*wsrep_recovery_verbose\\.log$\\|.*readiness-check\\.sh$\\|.*liveness-check\\.sh$\\|.*get-pxc-state$\\|.*sst_in_progress$\\|.*sleep-forever$\\|.*pmm-prerun\\.sh$\\|.*sst-xb-tmpdir$\\|.*\\.sst$\\|.*gvwstate\\.dat$\\|.*grastate\\.dat$\\|.*\\.err$\\|.*\\.log$\\|.*RPM_UPGRADE_MARKER$\\|.*RPM_UPGRADE_HISTORY$\\|.*pxc-entrypoint\\.sh$\\|.*unsafe-bootstrap\\.sh$\\|.*pxc-configure-pxc\\.sh\\|.*peer-list$\\|.*auth_plugin$\\|.*version_info$\\|.*mysql-state-monitor$\\|.*mysql-state-monitor\\.log$\\|.*notify\\.sock$\\|.*mysql\\.state$\\|.*mysqld\\.my$\\|.*component_keyring_vault\\.cnf$\\|.*vault\\.cnf$' "$CFG" 1<>"$CFG"
 
 if [[ $MYSQL_VERSION == '8.0' && $MYSQL_PATCH_VERSION -ge 26 ]] || [[ $MYSQL_VERSION == '8.4' ]]; then
 	grep -q "^skip_replica_start=ON" "$CFG" || sed -i "/\[mysqld\]/a skip_replica_start=ON" $CFG

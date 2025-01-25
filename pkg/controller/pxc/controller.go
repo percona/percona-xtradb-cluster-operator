@@ -248,7 +248,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 				log.Info("The finalizer delete-pxc-pods-in-order is deprecated and will be deleted in 1.18.0. Use percona.com/delete-pxc-pods-in-order")
 				fallthrough
 			case naming.FinalizerDeletePxcPodsInOrder:
-				err = r.deletePXCPods(o)
+				err = r.deletePXCPods(ctx, o)
 			}
 			if err != nil {
 				finalizers = append(finalizers, fnlz)
@@ -749,14 +749,14 @@ func (r *ReconcilePerconaXtraDBCluster) reconcilePDB(ctx context.Context, cr *ap
 	return errors.Wrap(r.createOrUpdate(ctx, cr, pdb), "reconcile pdb")
 }
 
-func (r *ReconcilePerconaXtraDBCluster) deletePXCPods(cr *api.PerconaXtraDBCluster) error {
+func (r *ReconcilePerconaXtraDBCluster) deletePXCPods(ctx context.Context, cr *api.PerconaXtraDBCluster) error {
 	sfs := statefulset.NewNode(cr)
 	err := r.deleteStatefulSetPods(cr.Namespace, sfs)
 	if err != nil {
 		return errors.Wrap(err, "delete statefulset pods")
 	}
 	if cr.Spec.Backup != nil && cr.Spec.Backup.PITR.Enabled {
-		return errors.Wrap(r.deletePITR(cr), "delete pitr pod")
+		return errors.Wrap(r.deletePITR(ctx, cr), "delete pitr pod")
 	}
 
 	return nil

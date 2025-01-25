@@ -178,7 +178,7 @@ func TestGetS3Options(t *testing.T) {
 			}
 			cl := fake.NewClientBuilder().WithRuntimeObjects(objs...).Build()
 
-			opts, err := getS3Options(ctx, cl, cluster, backup)
+			opts, err := getS3OptionsFromBackup(ctx, cl, cluster, backup)
 			if err != nil && tt.expectedErr != err.Error() {
 				t.Fatal(err)
 			}
@@ -301,7 +301,7 @@ func TestGetAzureOptions(t *testing.T) {
 			}
 			cl := fake.NewClientBuilder().WithRuntimeObjects(objs...).Build()
 
-			opts, err := getAzureOptions(ctx, cl, backup)
+			opts, err := getAzureOptionsFromBackup(ctx, cl, backup)
 			if err != nil && tt.expectedErr != err.Error() {
 				t.Fatal(err)
 			}

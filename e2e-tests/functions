@@ -260,7 +260,7 @@ wait_backup_restore() {
 	local current_state=
 	until [[ ${current_state} == ${target_state} ]]; do
 		current_state=$(kubectl_bin get pxc-restore $backup_name -o jsonpath='{.status.state}')
-		if [[ $retry -ge $wait_time || ${current_state} == 'error' ]]; then
+		if [[ $retry -ge $wait_time || (${current_state} == 'Failed' && ${target_state} != 'Failed') ]]; then
 			kubectl_bin get pxc-restore ${backup_name} -o yaml
 			echo "Restore object pxc-restore/${backup_name} is in ${current_state} state."
 			echo something went wrong with operator or kubernetes cluster
@@ -1689,6 +1689,13 @@ run_recovery_check_pitr() {
 	wait_for_delete pod/${cluster}-pxc-1
 
 	wait_pod ${cluster}-pxc-0
+
+	wait_backup_restore ${restore} "Starting Cluster"
+	local minio_pod=$(kubectl_bin get pods --selector=release=minio-service -o 'jsonpath={.items[].metadata.name}')
+	if kubectl_bin exec ${minio_pod} -- stat /exports/operator-testing/binlogs/gtid-binlog-cache.json 2>&1 1>/dev/null; then
+		echo "Binlog collector cache is not invalidated after restore!"
+		exit 1
+	fi
 
 	wait_backup_restore ${restore}
 	kubectl_bin logs job/restore-job-${restore}-${cluster}

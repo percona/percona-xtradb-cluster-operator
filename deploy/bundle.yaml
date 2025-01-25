@@ -143,6 +143,9 @@ spec:
                       type: object
                     type: array
                 type: object
+              passiveDeadlineSeconds:
+                format: int64
+                type: integer
               pxcCluster:
                 type: string
               storageName:
@@ -201,6 +204,8 @@ spec:
                   type: object
                 type: array
               destination:
+                type: string
+              error:
                 type: string
               image:
                 type: string
@@ -343,6 +348,8 @@ spec:
                       type: object
                     type: array
                   destination:
+                    type: string
+                  error:
                     type: string
                   image:
                     type: string
@@ -517,6 +524,8 @@ spec:
                           type: object
                         type: array
                       destination:
+                        type: string
+                      error:
                         type: string
                       image:
                         type: string
@@ -985,6 +994,9 @@ spec:
                       type: object
                       x-kubernetes-map-type: atomic
                     type: array
+                  passiveDeadlineSeconds:
+                    format: int64
+                    type: integer
                   pitr:
                     properties:
                       enabled:

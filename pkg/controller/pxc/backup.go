@@ -48,7 +48,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(ctx context.Context, cr
 			if err != nil {
 				return errors.Errorf("get binlog collector deployment for cluster '%s': %v", cr.Name, err)
 			}
-			err = setControllerReference(cr, &binlogCollector, r.scheme)
+			err = k8s.SetControllerReference(cr, &binlogCollector, r.scheme)
 			if err != nil {
 				return errors.Wrapf(err, "set controller reference for binlog collector deployment '%s'", binlogCollector.Name)
 			}
@@ -222,8 +222,9 @@ func (r *ReconcilePerconaXtraDBCluster) createBackupJob(ctx context.Context, cr 
 				Labels:     naming.LabelsScheduledBackup(cr, backupJob.Name),
 			},
 			Spec: api.PXCBackupSpec{
-				PXCCluster:  cr.Name,
-				StorageName: backupJob.StorageName,
+				PXCCluster:             cr.Name,
+				StorageName:            backupJob.StorageName,
+				PassiveDeadlineSeconds: cr.Spec.Backup.PassiveDeadlineSeconds,
 			},
 		}
 		err = r.client.Create(context.TODO(), bcp)

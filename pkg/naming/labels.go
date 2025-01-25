@@ -30,6 +30,15 @@ const (
 	LabelPerconaRestoreJobName     = perconaPrefix + "restore-job-name"
 )
 
+func GetLabelBackupType(cr *api.PerconaXtraDBCluster) string {
+	labelKeyBackupType := "type"
+	if cr.CompareVersionWith("1.16.0") >= 0 {
+		labelKeyBackupType = LabelPerconaBackupType
+	}
+
+	return labelKeyBackupType
+}
+
 func LabelsCluster(cr *api.PerconaXtraDBCluster) map[string]string {
 	return map[string]string{
 		LabelAppKubernetesName:      "percona-xtradb-cluster",

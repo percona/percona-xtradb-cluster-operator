@@ -593,6 +593,8 @@ type PMMSpec struct {
 	ContainerSecurityContext *corev1.SecurityContext     `json:"containerSecurityContext,omitempty"`
 	ImagePullPolicy          corev1.PullPolicy           `json:"imagePullPolicy,omitempty"`
 	RuntimeClassName         *string                     `json:"runtimeClassName,omitempty"`
+	LivenessProbes           *corev1.Probe               `json:"livenessProbes,omitempty"`
+	ReadinessProbes          *corev1.Probe               `json:"readinessProbes,omitempty"`
 }
 
 func (spec *PMMSpec) IsEnabled(secret *corev1.Secret) bool {

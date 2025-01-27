@@ -188,7 +188,6 @@ if [[ $MYSQL_VERSION =~ ^(8\.0|8\.4)$ ]]; then
 	sed -i "/\[mysqld\]/a enforce-gtid-consistency" $CFG
 fi
 
-
 # add sst.cpat to exclude pxc-entrypoint, unsafe-bootstrap, pxc-configure-pxc from SST cleanup
 grep -q "^progress=" $CFG && sed -i "s|^progress=.*|progress=1|" $CFG
 grep -q "^\[sst\]" "$CFG" || printf '[sst]\n' >>"$CFG"

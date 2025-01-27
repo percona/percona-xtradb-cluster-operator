@@ -19,6 +19,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -40,6 +41,10 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup"
 	"github.com/percona/percona-xtradb-cluster-operator/version"
+)
+
+const (
+	secretsNameField = ".spec.secretsName"
 )
 
 // Add creates a new PerconaXtraDBCluster Controller and adds it to the Manager. The Manager will set fields on the Controller
@@ -77,10 +82,50 @@ func newReconciler(mgr manager.Manager) (reconcile.Reconciler, error) {
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
+	if err := setupFieldIndexers(mgr); err != nil {
+		return errors.Wrap(err, "setup field indexers")
+	}
 	return builder.ControllerManagedBy(mgr).
 		Named("pxc-controller").
 		Watches(&api.PerconaXtraDBCluster{}, &handler.EnqueueRequestForObject{}).
+		Watches(&corev1.Secret{}, enqueuePXCReferencingSecret(mgr.GetClient())).
 		Complete(r)
+}
+
+func setupFieldIndexers(mgr manager.Manager) error {
+	return mgr.GetFieldIndexer().IndexField(context.TODO(), &api.PerconaXtraDBCluster{}, secretsNameField, func(o client.Object) []string {
+		cluster, ok := o.(*api.PerconaXtraDBCluster)
+		if !ok {
+			return nil
+		}
+		return []string{cluster.Spec.SecretsName}
+	})
+}
+
+// enqueuePXCReferencingSecret returns an EventHandler that returns a list of all
+// pxc-clusters that reference the secret via `.spec.secretsName`.
+func enqueuePXCReferencingSecret(c client.Client) handler.EventHandler {
+	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
+		secret, ok := o.(*corev1.Secret)
+		if !ok {
+			return nil
+		}
+		list := &api.PerconaXtraDBClusterList{}
+		_ = c.List(context.TODO(), list, &client.ListOptions{
+			FieldSelector: fields.OneTermEqualSelector(secretsNameField, secret.GetName()),
+			Namespace:     secret.GetNamespace(),
+		})
+		var requests []reconcile.Request
+		for _, cr := range list.Items {
+			requests = append(requests, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      cr.GetName(),
+					Namespace: cr.GetNamespace(),
+				},
+			})
+		}
+		return requests
+	})
 }
 
 var _ reconcile.Reconciler = &ReconcilePerconaXtraDBCluster{}
@@ -296,7 +341,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 		}
 	}
 
-	err = r.reconcileUsersSecret(ctx, o)
+	userSecret, err := r.reconcileUsersSecret(ctx, o)
 	if err != nil {
 		return reconcile.Result{}, errors.Wrap(err, "reconcile users secret")
 	}
@@ -305,7 +350,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 	// Currently, if an error occurs before the statefulsets are updated with annotations, and reconcileUsers has a different result on the next reconcile, the statefulsets will not have the required annotations.
 	userReconcileResult := &ReconcileUsersResult{}
 
-	urr, err := r.reconcileUsers(ctx, o)
+	urr, err := r.reconcileUsers(ctx, o, userSecret)
 	if err != nil {
 		return reconcile.Result{}, errors.Wrap(err, "reconcile users")
 	}

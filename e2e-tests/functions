@@ -260,7 +260,7 @@ wait_backup_restore() {
 	local current_state=
 	until [[ ${current_state} == ${target_state} ]]; do
 		current_state=$(kubectl_bin get pxc-restore $backup_name -o jsonpath='{.status.state}')
-		if [[ $retry -ge $wait_time || ${current_state} == 'error' ]]; then
+		if [[ $retry -ge $wait_time || ${current_state} == 'Failed' ]]; then
 			kubectl_bin get pxc-restore ${backup_name} -o yaml
 			echo "Restore object pxc-restore/${backup_name} is in ${current_state} state."
 			echo something went wrong with operator or kubernetes cluster

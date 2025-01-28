@@ -322,6 +322,26 @@ func (p *PXC) InstallBinlogUDFComponent(ctx context.Context) error {
 	return nil
 }
 
+func (p *PXC) UninstallBinlogUDFComponent(ctx context.Context) error {
+	var urn string
+	component := p.db.QueryRowContext(ctx, "SELECT component_urn FROM mysql.component WHERE component_urn = 'file://component_binlog_utils_udf'")
+	if err := component.Scan(&urn); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return errors.Wrap(err, "get component_binlog_utils_udf")
+	}
+
+	if len(urn) == 0 {
+		log.Printf("file://component_binlog_utils_udf is already uninstalled")
+		return nil
+	}
+
+	_, err := p.db.ExecContext(ctx, "UNINSTALL COMPONENT 'file://component_binlog_utils_udf'")
+	if err != nil {
+		return errors.Wrap(err, "uninstall component")
+	}
+
+	return nil
+}
+
 func (p *PXC) CreateCollectorFunctions(ctx context.Context) error {
 	_, err := p.db.ExecContext(ctx, "CREATE FUNCTION IF NOT EXISTS get_last_record_timestamp_by_binlog RETURNS INTEGER SONAME 'binlog_utils_udf.so'")
 	if err != nil {

@@ -179,8 +179,11 @@ if [ -f "$vault_secret" ]; then
 	fi
 fi
 
-if [ -f "/usr/lib64/mysql/plugin/binlog_utils_udf.so" ]; then
+if [ "$MYSQL_VERSION" == '8.0' ]; then
 	sed -i '/\[mysqld\]/a plugin_load="binlog_utils_udf=binlog_utils_udf.so"' $CFG
+fi
+
+if [[ $MYSQL_VERSION =~ ^(8\.0|8\.4)$ ]]; then
 	sed -i "/\[mysqld\]/a gtid-mode=ON" $CFG
 	sed -i "/\[mysqld\]/a enforce-gtid-consistency" $CFG
 fi

@@ -307,9 +307,21 @@ func (r *Recoverer) Run(ctx context.Context) error {
 }
 
 func (r *Recoverer) recover(ctx context.Context) (err error) {
-	err = r.db.DropCollectorFunctions(ctx)
+	version, err := r.db.GetVersion(ctx)
 	if err != nil {
-		return errors.Wrap(err, "drop collector funcs")
+		return errors.Wrap(err, "get version")
+	}
+
+	switch {
+	case strings.HasPrefix(version, "8.0"):
+		err = r.db.DropCollectorFunctions(ctx)
+		if err != nil {
+			return errors.Wrap(err, "drop collector funcs")
+		}
+	case strings.HasPrefix(version, "8.4"):
+		if err := r.db.UninstallBinlogUDFComponent(ctx); err != nil {
+			return errors.Wrap(err, "uninstall component")
+		}
 	}
 
 	err = os.Setenv("MYSQL_PWD", os.Getenv("PXC_PASS"))

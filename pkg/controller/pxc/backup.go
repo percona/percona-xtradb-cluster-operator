@@ -18,7 +18,6 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/deployment"
 )
@@ -40,32 +39,8 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(ctx context.Context, cr
 			return errors.Wrap(err, "failed to check if restore is running")
 		}
 		if cr.Status.Status == api.AppStateReady && cr.Spec.Backup.PITR.Enabled && !cr.Spec.Pause && !restoreRunning {
-			initImage, err := k8s.GetInitImage(ctx, cr, r.client)
-			if err != nil {
-				return errors.Wrap(err, "failed to get init image")
-			}
-			binlogCollector, err := deployment.GetBinlogCollectorDeployment(cr, initImage)
-			if err != nil {
-				return errors.Errorf("get binlog collector deployment for cluster '%s': %v", cr.Name, err)
-			}
-			err = setControllerReference(cr, &binlogCollector, r.scheme)
-			if err != nil {
-				return errors.Wrapf(err, "set controller reference for binlog collector deployment '%s'", binlogCollector.Name)
-			}
-
-			currentCollector := appsv1.Deployment{}
-			err = r.client.Get(context.TODO(), types.NamespacedName{Name: binlogCollector.Name, Namespace: binlogCollector.Namespace}, &currentCollector)
-			if err != nil && k8serrors.IsNotFound(err) {
-				if err := r.client.Create(context.TODO(), &binlogCollector); err != nil && !k8serrors.IsAlreadyExists(err) {
-					return errors.Wrapf(err, "create binlog collector deployment for cluster '%s'", cr.Name)
-				}
-			} else if err != nil {
-				return errors.Wrapf(err, "get binlog collector deployment '%s'", binlogCollector.Name)
-			}
-
-			currentCollector.Spec = binlogCollector.Spec
-			if err := r.client.Update(context.TODO(), &currentCollector); err != nil {
-				return errors.Wrapf(err, "update binlog collector deployment '%s'", binlogCollector.Name)
+			if err := r.reconcileBinlogCollector(ctx, cr); err != nil {
+				return errors.Wrap(err, "reconcile binlog collector")
 			}
 		}
 

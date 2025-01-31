@@ -22,6 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/record"
 	k8sretry "k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -72,13 +73,14 @@ func newReconciler(mgr manager.Manager) (reconcile.Reconciler, error) {
 		serverVersion: sv,
 		clientcmd:     cli,
 		lockers:       newLockStore(),
+		recorder:      mgr.GetEventRecorderFor(naming.OperatorController),
 	}, nil
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	return builder.ControllerManagedBy(mgr).
-		Named("pxc-controller").
+		Named(naming.OperatorController).
 		Watches(&api.PerconaXtraDBCluster{}, &handler.EnqueueRequestForObject{}).
 		Complete(r)
 }
@@ -96,6 +98,7 @@ type ReconcilePerconaXtraDBCluster struct {
 	syncUsersState int32
 	serverVersion  *version.ServerVersion
 	lockers        lockStore
+	recorder       record.EventRecorder
 }
 
 type lockStore struct {
@@ -1109,7 +1112,7 @@ func (r *ReconcilePerconaXtraDBCluster) createOrUpdate(ctx context.Context, cr *
 	}
 
 	if k8serrors.IsNotFound(err) {
-		log.V(1).Info("Creating object", "object", obj.GetName())
+		log.V(1).Info("Creating object", "object", obj.GetName(), "kind", obj.GetObjectKind())
 		return r.client.Create(ctx, obj)
 	}
 
@@ -1126,7 +1129,7 @@ func (r *ReconcilePerconaXtraDBCluster) createOrUpdate(ctx context.Context, cr *
 			obj.SetResourceVersion(oldObject.GetResourceVersion())
 		}
 
-		log.V(1).Info("Updating object", "object", obj.GetName())
+		log.V(1).Info("Updating object", "object", obj.GetName(), "kind", obj.GetObjectKind())
 
 		return r.client.Update(ctx, obj)
 	}

@@ -1112,7 +1112,7 @@ func (r *ReconcilePerconaXtraDBCluster) createOrUpdate(ctx context.Context, cr *
 	}
 
 	if k8serrors.IsNotFound(err) {
-		log.V(1).Info("Creating object", "object", obj.GetName())
+		log.V(1).Info("Creating object", "object", obj.GetName(), "kind", obj.GetObjectKind())
 		return r.client.Create(ctx, obj)
 	}
 
@@ -1129,7 +1129,7 @@ func (r *ReconcilePerconaXtraDBCluster) createOrUpdate(ctx context.Context, cr *
 			obj.SetResourceVersion(oldObject.GetResourceVersion())
 		}
 
-		log.V(1).Info("Updating object", "object", obj.GetName())
+		log.V(1).Info("Updating object", "object", obj.GetName(), "kind", obj.GetObjectKind())
 
 		return r.client.Update(ctx, obj)
 	}

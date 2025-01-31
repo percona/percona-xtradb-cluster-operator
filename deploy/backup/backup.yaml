@@ -13,8 +13,6 @@ spec:
 #    - name: VERIFY_TLS
 #      value: "false"
 #    args:
-#      xtrabackup:
-#      - "--someflag=abc"
 #      xbcloud:
 #      - "--someflag=abc"
 #      xbstream:

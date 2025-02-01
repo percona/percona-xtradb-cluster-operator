@@ -126,7 +126,7 @@ func validatePasswords(secret *corev1.Secret) error {
 			if strings.ContainsAny(string(pass), ";:") {
 				return errors.New("invalid proxyadmin password, don't use ';' or ':'")
 			}
-			if string(pass)[0:1] == "*" {
+			if strings.HasPrefix(string(pass), "*") {
 				return errors.New("invalid proxyadmin password, first character must not be '*'")
 			}
 		default:

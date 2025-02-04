@@ -23,6 +23,7 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/clientcmd"
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/binlogcollector"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage"
 	"github.com/percona/percona-xtradb-cluster-operator/version"
@@ -215,6 +216,12 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(ctx context.Context, re
 	if err != nil {
 		err = errors.Wrap(err, "run restore")
 		return rr, err
+	}
+
+	if cluster.Spec.Backup.PITR.Enabled {
+		if err := binlogcollector.InvalidateCache(ctx, r.client, cluster); err != nil {
+			log.Error(err, "failed to invalidate binlog collector cache")
+		}
 	}
 
 	log.Info("starting cluster", "cluster", cr.Spec.PXCCluster)

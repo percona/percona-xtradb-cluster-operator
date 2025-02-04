@@ -19,7 +19,7 @@ import (
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/deployment"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/binlogcollector"
 )
 
 type BackupScheduleJob struct {
@@ -38,6 +38,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(ctx context.Context, cr
 		if err != nil {
 			return errors.Wrap(err, "failed to check if restore is running")
 		}
+
 		if cr.Status.Status == api.AppStateReady && cr.Spec.Backup.PITR.Enabled && !cr.Spec.Pause && !restoreRunning {
 			if err := r.reconcileBinlogCollector(ctx, cr); err != nil {
 				return errors.Wrap(err, "reconcile binlog collector")
@@ -45,7 +46,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(ctx context.Context, cr
 		}
 
 		if !cr.Spec.Backup.PITR.Enabled || cr.Spec.Pause || restoreRunning {
-			err := r.deletePITR(cr)
+			err := r.deletePITR(ctx, cr)
 			if err != nil {
 				return errors.Wrap(err, "delete pitr")
 			}
@@ -239,20 +240,22 @@ func (h *minHeap) Pop() interface{} {
 	return x
 }
 
-func (r *ReconcilePerconaXtraDBCluster) deletePITR(cr *api.PerconaXtraDBCluster) error {
+func (r *ReconcilePerconaXtraDBCluster) deletePITR(ctx context.Context, cr *api.PerconaXtraDBCluster) error {
 	collectorDeployment := appsv1.Deployment{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "apps/v1",
-			Kind:       "Deployment",
-		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      deployment.GetBinlogCollectorDeploymentName(cr),
+			Name:      naming.BinlogCollectorDeploymentName(cr),
 			Namespace: cr.Namespace,
 		},
 	}
-	err := r.client.Delete(context.TODO(), &collectorDeployment)
-	if err != nil && !k8serrors.IsNotFound(err) {
-		return errors.Wrap(err, "delete pitr deployment")
+
+	if err := r.client.Delete(ctx, &collectorDeployment); err != nil && !k8serrors.IsNotFound(err) {
+		return errors.Wrap(err, "delete collector deployment")
+	}
+
+	if !cr.Spec.Backup.PITR.Enabled {
+		if err := r.client.Delete(ctx, binlogcollector.GetService(cr)); err != nil && !k8serrors.IsNotFound(err) {
+			return errors.Wrap(err, "delete collector service")
+		}
 	}
 
 	return nil

@@ -29,6 +29,8 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/util"
 )
 
+var NoProxyDetectedError = errors.New("can't detect enabled proxy, please enable HAProxy or ProxySQL")
+
 func (r *ReconcilePerconaXtraDBCluster) updatePod(ctx context.Context, sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, newAnnotations map[string]string, smartUpdate bool) error {
 	log := logf.FromContext(ctx)
 
@@ -430,7 +432,7 @@ func (r *ReconcilePerconaXtraDBCluster) connectProxy(cr *api.PerconaXtraDBCluste
 			port = 33062
 		}
 	} else {
-		return database, errors.New("can't detect enabled proxy, please enable HAProxy or ProxySQL")
+		return database, NoProxyDetectedError
 	}
 
 	secrets := cr.Spec.SecretsName

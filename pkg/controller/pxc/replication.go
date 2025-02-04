@@ -126,7 +126,9 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(ctx context.Context
 	}
 
 	primary, err := r.getPrimaryPod(cr)
-	if err != nil {
+	if len(podList) == 1 && errors.Is(err, NoProxyDetectedError) {
+		primary = podList[0].Status.PodIP
+	} else if err != nil {
 		return errors.Wrap(err, "get primary pxc pod")
 	}
 

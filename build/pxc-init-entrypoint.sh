@@ -12,3 +12,4 @@ install -o "$(id -u)" -g "$(id -g)" -m 0755 -D /peer-list /var/lib/mysql/peer-li
 install -o "$(id -u)" -g "$(id -g)" -m 0755 -D /get-pxc-state /var/lib/mysql/get-pxc-state
 install -o "$(id -u)" -g "$(id -g)" -m 0755 -D /pmm-prerun.sh /var/lib/mysql/pmm-prerun.sh
 install -o "$(id -u)" -g "$(id -g)" -m 0755 -D /mysql-state-monitor /var/lib/mysql/mysql-state-monitor
+install -o "$(id -u)" -g "$(id -g)" -m 0755 -D /wsrep_cmd_notify_handler.sh /var/lib/mysql/wsrep_cmd_notify_handler.sh

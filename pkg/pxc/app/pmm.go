@@ -1,6 +1,8 @@
 package app
 
 import (
+	"reflect"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
@@ -40,6 +42,26 @@ func PMMClient(cr *api.PerconaXtraDBCluster, spec *api.PMMSpec, secret *corev1.S
 	if spec.ServerUser != "" {
 		pmmEnvs = append(pmmEnvs, pmmEnvServerUser(spec.ServerUser, secret.Name, spec.UseAPI(secret))...)
 	}
+	pmmEnvs = append(pmmEnvs, clientEnvs...)
+
+	pmmAgentEnvs := pmmAgentEnvs(spec.ServerHost, spec.ServerUser, secret.Name, spec.UseAPI(secret))
+	if cr.CompareVersionWith("1.14.0") >= 0 {
+		val := "$(POD_NAMESPASE)-$(POD_NAME)"
+		if len(envVarsSecret.Data["PMM_PREFIX"]) > 0 {
+			val = "$(PMM_PREFIX)$(POD_NAMESPASE)-$(POD_NAME)"
+		}
+		pmmAgentEnvs = append(pmmAgentEnvs, corev1.EnvVar{
+			Name:  "PMM_AGENT_SETUP_NODE_NAME",
+			Value: val,
+		})
+	} else {
+		pmmAgentEnvs = append(pmmAgentEnvs, corev1.EnvVar{
+			Name:  "PMM_AGENT_SETUP_NODE_NAME",
+			Value: "$(POD_NAMESPASE)-$(POD_NAME)",
+		})
+	}
+
+	pmmEnvs = append(pmmEnvs, pmmAgentEnvs...)
 
 	container := corev1.Container{
 		Name:            "pmm-client",
@@ -47,63 +69,8 @@ func PMMClient(cr *api.PerconaXtraDBCluster, spec *api.PMMSpec, secret *corev1.S
 		ImagePullPolicy: spec.ImagePullPolicy,
 		Env:             pmmEnvs,
 		SecurityContext: spec.ContainerSecurityContext,
-	}
-
-	if cr.CompareVersionWith("1.2.0") >= 0 {
-		container.Env = append(container.Env, clientEnvs...)
-		container.Ports = ports
-	}
-
-	if cr.CompareVersionWith("1.7.0") >= 0 {
-		container.LivenessProbe = &corev1.Probe{
-			InitialDelaySeconds: 60,
-			TimeoutSeconds:      5,
-			PeriodSeconds:       10,
-			ProbeHandler: corev1.ProbeHandler{
-				HTTPGet: &corev1.HTTPGetAction{
-					Port: intstr.FromInt(7777),
-					Path: "/local/Status",
-				},
-			},
-		}
-
-		pmmAgentEnvs := pmmAgentEnvs(spec.ServerHost, spec.ServerUser, secret.Name, spec.UseAPI(secret))
-		if cr.CompareVersionWith("1.14.0") >= 0 {
-			val := "$(POD_NAMESPASE)-$(POD_NAME)"
-			if len(envVarsSecret.Data["PMM_PREFIX"]) > 0 {
-				val = "$(PMM_PREFIX)$(POD_NAMESPASE)-$(POD_NAME)"
-			}
-			pmmAgentEnvs = append(pmmAgentEnvs, corev1.EnvVar{
-				Name:  "PMM_AGENT_SETUP_NODE_NAME",
-				Value: val,
-			})
-		} else {
-			pmmAgentEnvs = append(pmmAgentEnvs, corev1.EnvVar{
-				Name:  "PMM_AGENT_SETUP_NODE_NAME",
-				Value: "$(POD_NAMESPASE)-$(POD_NAME)",
-			})
-		}
-
-		container.Env = append(container.Env, pmmAgentEnvs...)
-		container.Lifecycle = &corev1.Lifecycle{
-			PreStop: &corev1.LifecycleHandler{
-				Exec: &corev1.ExecAction{
-					// TODO https://jira.percona.com/browse/PMM-7010
-					Command: []string{"bash", "-c", "pmm-admin inventory remove node --force $(pmm-admin status --json | python -c \"import sys, json; print(json.load(sys.stdin)['pmm_agent_status']['node_id'])\")"},
-				},
-			},
-		}
-	}
-
-	if cr.CompareVersionWith("1.13.0") >= 0 {
-		container.VolumeMounts = []corev1.VolumeMount{
-			{
-				Name:      BinVolumeName,
-				MountPath: "/var/lib/mysql",
-			},
-		}
-
-		container.Lifecycle = &corev1.Lifecycle{
+		Ports:           ports,
+		Lifecycle: &corev1.Lifecycle{
 			PreStop: &corev1.LifecycleHandler{
 				Exec: &corev1.ExecAction{
 					Command: []string{
@@ -113,6 +80,46 @@ func PMMClient(cr *api.PerconaXtraDBCluster, spec *api.PMMSpec, secret *corev1.S
 					},
 				},
 			},
+		},
+		LivenessProbe: &corev1.Probe{
+			InitialDelaySeconds: 60,
+			TimeoutSeconds:      5,
+			PeriodSeconds:       10,
+			ProbeHandler: corev1.ProbeHandler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Port: intstr.FromInt(7777),
+					Path: "/local/Status",
+				},
+			},
+		},
+		VolumeMounts: []corev1.VolumeMount{
+			{
+				Name:      BinVolumeName,
+				MountPath: "/var/lib/mysql",
+			},
+		},
+	}
+
+	if cr.CompareVersionWith("1.17.0") >= 0 {
+		if spec.LivenessProbes != nil {
+			container.LivenessProbe = spec.LivenessProbes
+
+			if reflect.DeepEqual(container.LivenessProbe.ProbeHandler, corev1.ProbeHandler{}) {
+				container.LivenessProbe.ProbeHandler.HTTPGet = &corev1.HTTPGetAction{
+					Port: intstr.FromInt(7777),
+					Path: "/local/Status",
+				}
+			}
+		}
+		if spec.ReadinessProbes != nil {
+			container.ReadinessProbe = spec.ReadinessProbes
+
+			if reflect.DeepEqual(container.ReadinessProbe.ProbeHandler, corev1.ProbeHandler{}) {
+				container.ReadinessProbe.ProbeHandler.HTTPGet = &corev1.HTTPGetAction{
+					Port: intstr.FromInt(7777),
+					Path: "/local/Status",
+				}
+			}
 		}
 	}
 

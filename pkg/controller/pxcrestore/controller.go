@@ -125,7 +125,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(ctx context.Context, re
 		return rr, errors.Wrap(err, "failed to check if other restore is in progress")
 	}
 	if otherRestore != nil {
-		err = errors.Errorf("unable to continue, concurent restore job %s running now", otherRestore.Name)
+		err = errors.Errorf("unable to continue, concurrent restore job %s running now", otherRestore.Name)
 		statusState = api.RestoreFailed
 		statusMsg = err.Error()
 		return rr, err
@@ -204,21 +204,9 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(ctx context.Context, re
 		statusState = api.RestoreStopCluster
 	case api.RestoreStopCluster:
 		// TODO: we should use PauseCluster and delete PVCs
-		{
-			err := k8s.PauseClusterWithWait(ctx, r.client, cluster, true)
-			if err != nil {
-				return rr, errors.Wrapf(err, "stop cluster %s", cluster.Name)
-			}
-			/*
-				paused, err := k8s.PauseCluster(ctx, r.client, cluster)
-				if err != nil {
-					return rr, errors.Wrapf(err, "stop cluster %s", cluster.Name)
-				}
-				if !paused {
-					log.Info("waiting for cluster to stop", "cluster", cr.Spec.PXCCluster, "msg", err.Error())
-					return rr, nil
-				}
-			*/
+		err := k8s.PauseClusterWithWait(ctx, r.client, cluster, true)
+		if err != nil {
+			return rr, errors.Wrapf(err, "stop cluster %s", cluster.Name)
 		}
 
 		log.Info("starting restore", "cluster", cr.Spec.PXCCluster, "backup", cr.Spec.BackupName)

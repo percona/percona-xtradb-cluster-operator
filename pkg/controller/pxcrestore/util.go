@@ -34,14 +34,11 @@ func getBackup(ctx context.Context, cl client.Client, cr *api.PerconaXtraDBClust
 	}
 
 	bcp := &api.PerconaXtraDBClusterBackup{}
-	err := cl.Get(ctx, types.NamespacedName{Name: cr.Spec.BackupName, Namespace: cr.Namespace}, bcp)
-	if err != nil {
-		err = errors.Wrapf(err, "get backup %s", cr.Spec.BackupName)
-		return bcp, err
+	if err := cl.Get(ctx, types.NamespacedName{Name: cr.Spec.BackupName, Namespace: cr.Namespace}, bcp); err != nil {
+		return bcp, errors.Wrapf(err, "get backup %s", cr.Spec.BackupName)
 	}
 	if bcp.Status.State != api.BackupSucceeded {
-		err = errors.Errorf("backup %s didn't finished yet, current state: %s", bcp.Name, bcp.Status.State)
-		return bcp, err
+		return bcp, errors.Errorf("backup %s didn't finished yet, current state: %s", bcp.Name, bcp.Status.State)
 	}
 
 	return bcp, nil
@@ -49,8 +46,7 @@ func getBackup(ctx context.Context, cl client.Client, cr *api.PerconaXtraDBClust
 
 func setStatus(ctx context.Context, cl client.Client, cr *api.PerconaXtraDBClusterRestore, state api.BcpRestoreStates, comments string) error {
 	cr.Status.State = state
-	switch state {
-	case api.RestoreSucceeded:
+	if cr.Status.State == api.RestoreSucceeded {
 		tm := metav1.NewTime(time.Now())
 		cr.Status.CompletedAt = &tm
 	}
@@ -67,14 +63,13 @@ func setStatus(ctx context.Context, cl client.Client, cr *api.PerconaXtraDBClust
 
 func isOtherRestoreInProgress(ctx context.Context, cl client.Client, cr *api.PerconaXtraDBClusterRestore) (*api.PerconaXtraDBClusterRestore, error) {
 	rJobsList := &api.PerconaXtraDBClusterRestoreList{}
-	err := cl.List(
+	if err := cl.List(
 		ctx,
 		rJobsList,
 		&client.ListOptions{
 			Namespace: cr.Namespace,
 		},
-	)
-	if err != nil {
+	); err != nil {
 		return nil, errors.Wrap(err, "get restore jobs list")
 	}
 

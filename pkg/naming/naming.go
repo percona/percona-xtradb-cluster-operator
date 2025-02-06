@@ -12,3 +12,12 @@ const (
 	FinalizerDeleteBackup         = annotationPrefix + "delete-backup"
 	FinalizerS3DeleteBackup       = "delete-s3-backup"
 )
+
+const (
+	OperatorController = "pxc-controller"
+)
+
+const (
+	EventStorageClassNotSupportResize = "StorageClassNotSupportResize"
+	EventExceededQuota                = "ExceededQuota"
+)

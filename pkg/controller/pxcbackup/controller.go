@@ -29,7 +29,7 @@ import (
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/deployment"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/binlogcollector"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage"
 	"github.com/percona/percona-xtradb-cluster-operator/version"
@@ -502,18 +502,18 @@ func (r *ReconcilePerconaXtraDBClusterBackup) updateJobStatus(bcp *api.PerconaXt
 
 	if status.State == api.BackupSucceeded {
 		if cluster.PITREnabled() {
-			collectorPod, err := deployment.GetBinlogCollectorPod(context.TODO(), r.client, cluster)
+			collectorPod, err := binlogcollector.GetPod(context.TODO(), r.client, cluster)
 			if err != nil {
 				return errors.Wrap(err, "get binlog collector pod")
 			}
 
-			if err := deployment.RemoveGapFile(context.TODO(), cluster, r.clientcmd, collectorPod); err != nil {
-				if !errors.Is(err, deployment.GapFileNotFound) {
+			if err := binlogcollector.RemoveGapFile(context.TODO(), cluster, r.clientcmd, collectorPod); err != nil {
+				if !errors.Is(err, binlogcollector.GapFileNotFound) {
 					return errors.Wrap(err, "remove gap file")
 				}
 			}
 
-			if err := deployment.RemoveTimelineFile(context.TODO(), cluster, r.clientcmd, collectorPod); err != nil {
+			if err := binlogcollector.RemoveTimelineFile(context.TODO(), cluster, r.clientcmd, collectorPod); err != nil {
 				return errors.Wrap(err, "remove timeline file")
 			}
 		}

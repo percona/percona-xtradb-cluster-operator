@@ -23,6 +23,7 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/clientcmd"
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/binlogcollector"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage"
 	"github.com/percona/percona-xtradb-cluster-operator/version"
@@ -300,6 +301,12 @@ func (r *ReconcilePerconaXtraDBClusterRestore) reconcileStateRestore(ctx context
 	if !finished {
 		log.Info("Waiting for restore job to finish", "job", job.Name)
 		return rr, nil
+	}
+
+	if cluster.Spec.Backup.PITR.Enabled {
+		if err := binlogcollector.InvalidateCache(ctx, r.client, cluster); err != nil {
+			log.Error(err, "failed to invalidate binlog collector cache")
+		}
 	}
 
 	if cr.Spec.PITR != nil {

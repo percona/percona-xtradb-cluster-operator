@@ -44,14 +44,11 @@ func getBackup(ctx context.Context, cl client.Client, cr *api.PerconaXtraDBClust
 	return bcp, nil
 }
 
-func setStatus(ctx context.Context, cl client.Client, cr *api.PerconaXtraDBClusterRestore, state api.BcpRestoreStates, comments string) error {
-	cr.Status.State = state
+func setStatus(ctx context.Context, cl client.Client, cr *api.PerconaXtraDBClusterRestore) error {
 	if cr.Status.State == api.RestoreSucceeded {
 		tm := metav1.NewTime(time.Now())
 		cr.Status.CompletedAt = &tm
 	}
-
-	cr.Status.Comments = comments
 
 	err := cl.Status().Update(ctx, cr)
 	if err != nil {

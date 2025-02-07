@@ -103,6 +103,11 @@ type ReconcilePerconaXtraDBClusterBackup struct {
 	bcpDeleteInProgress *sync.Map
 }
 
+var (
+	errSuspendedDeadlineExceeded = errors.New("suspended deadline seconds exceeded")
+	errStartingDeadlineExceeded  = errors.New("starting deadline seconds exceeded")
+)
+
 // Reconcile reads that state of the cluster for a PerconaXtraDBClusterBackup object and makes changes based on the state read
 // and what is in the PerconaXtraDBClusterBackup.Spec
 // Note:
@@ -151,14 +156,6 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 		return rr, nil
 	}
 
-	if err := r.checkStartingDeadline(ctx, cr); err != nil {
-		if err := r.setFailedStatus(ctx, cr, err); err != nil {
-			return rr, errors.Wrap(err, "update status")
-		}
-
-		return reconcile.Result{}, nil
-	}
-
 	cluster, err := r.getCluster(ctx, cr)
 	if err != nil {
 		return reconcile.Result{}, errors.Wrap(err, "get cluster")
@@ -185,6 +182,21 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 		}
 
 		return reconcile.Result{}, err
+	}
+
+	if err := r.checkDeadlines(ctx, cluster, cr); err != nil {
+		if err := r.setFailedStatus(ctx, cr, err); err != nil {
+			return rr, errors.Wrap(err, "update status")
+		}
+
+		if errors.Is(err, errSuspendedDeadlineExceeded) {
+			log.Info("cleaning up suspended backup job")
+			if err := r.cleanUpSuspendedJob(ctx, cluster, cr); err != nil {
+				return reconcile.Result{}, errors.Wrap(err, "clean up suspended job")
+			}
+		}
+
+		return reconcile.Result{}, nil
 	}
 
 	if err := r.reconcileBackupJob(ctx, cr, cluster); err != nil {
@@ -661,24 +673,86 @@ func (r *ReconcilePerconaXtraDBClusterBackup) updateJobStatus(
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBClusterBackup) checkStartingDeadline(ctx context.Context, cr *api.PerconaXtraDBClusterBackup) error {
+func (r *ReconcilePerconaXtraDBClusterBackup) checkDeadlines(ctx context.Context, cluster *api.PerconaXtraDBCluster, cr *api.PerconaXtraDBClusterBackup) error {
+	if err := checkStartingDeadline(ctx, cluster, cr); err != nil {
+		return err
+	}
+
+	if err := r.checkSuspendedDeadline(ctx, cluster, cr); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func checkStartingDeadline(ctx context.Context, cluster *api.PerconaXtraDBCluster, cr *api.PerconaXtraDBClusterBackup) error {
 	log := logf.FromContext(ctx)
 
+	if cr.Status.State != api.BackupNew {
+		return nil
+	}
+
+	var deadlineSeconds *int64
+	if cr.Spec.StartingDeadlineSeconds != nil {
+		deadlineSeconds = cr.Spec.StartingDeadlineSeconds
+	} else if cluster.Spec.Backup.StartingDeadlineSeconds != nil {
+		deadlineSeconds = cluster.Spec.Backup.StartingDeadlineSeconds
+	}
+
+	if deadlineSeconds == nil {
+		return nil
+	}
+
 	since := time.Since(cr.CreationTimestamp.Time).Seconds()
-
-	if cr.Spec.StartingDeadlineSeconds == nil {
+	if since < float64(*deadlineSeconds) {
 		return nil
 	}
 
-	if since < float64(*cr.Spec.StartingDeadlineSeconds) {
+	log.Info("Backup didn't start in startingDeadlineSeconds, failing the backup",
+		"startingDeadlineSeconds", *deadlineSeconds,
+		"passedSeconds", since)
+
+	return errStartingDeadlineExceeded
+}
+
+func (r *ReconcilePerconaXtraDBClusterBackup) checkSuspendedDeadline(
+	ctx context.Context,
+	cluster *api.PerconaXtraDBCluster,
+	cr *api.PerconaXtraDBClusterBackup,
+) error {
+	log := logf.FromContext(ctx)
+
+	job, err := r.getBackupJob(ctx, cluster, cr)
+	if err != nil {
+		if k8sErrors.IsNotFound(err) {
+			return nil
+		}
+
+		return err
+	}
+
+	var deadlineSeconds *int64
+	if cr.Spec.SuspendedDeadlineSeconds != nil {
+		deadlineSeconds = cr.Spec.SuspendedDeadlineSeconds
+	} else if cluster.Spec.Backup.SuspendedDeadlineSeconds != nil {
+		deadlineSeconds = cluster.Spec.Backup.SuspendedDeadlineSeconds
+	}
+
+	if deadlineSeconds == nil {
 		return nil
 	}
 
-	if cr.Status.State == api.BackupNew {
-		log.Info("Backup didn't start in startingDeadlineSeconds, failing the backup",
-			"startingDeadlineSeconds", *cr.Spec.StartingDeadlineSeconds,
-			"passedSeconds", since)
-		return errors.New("starting deadline seconds exceeded")
+	for _, cond := range job.Status.Conditions {
+		if cond.Type != batchv1.JobSuspended || cond.Status != corev1.ConditionTrue {
+			continue
+		}
+
+		if since := time.Since(cond.LastTransitionTime.Time).Seconds(); since > float64(*deadlineSeconds) {
+			log.Info("Backup didn't resume in suspendedDeadlineSeconds, failing the backup",
+				"suspendedDeadlineSeconds", *deadlineSeconds,
+				"passedSeconds", since)
+			return errSuspendedDeadlineExceeded
+		}
 	}
 
 	return nil
@@ -726,13 +800,8 @@ func (r *ReconcilePerconaXtraDBClusterBackup) suspendJobIfNeeded(
 
 	log := logf.FromContext(ctx)
 
-	labelKeyBackupType := naming.GetLabelBackupType(cluster)
-	jobName := naming.BackupJobName(cr.Name, cr.Labels[labelKeyBackupType] == "cron")
-
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		job := new(batchv1.Job)
-
-		err := r.client.Get(ctx, types.NamespacedName{Namespace: cr.Namespace, Name: jobName}, job)
+		job, err := r.getBackupJob(ctx, cluster, cr)
 		if err != nil {
 			if k8sErrors.IsNotFound(err) {
 				return nil
@@ -752,7 +821,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) suspendJobIfNeeded(
 		}
 
 		log.Info("Suspending backup job",
-			"job", jobName,
+			"job", job.Name,
 			"clusterStatus", cluster.Status.Status,
 			"readyPXC", cluster.Status.PXC.Ready)
 
@@ -785,13 +854,8 @@ func (r *ReconcilePerconaXtraDBClusterBackup) resumeJobIfNeeded(
 
 	log := logf.FromContext(ctx)
 
-	labelKeyBackupType := naming.GetLabelBackupType(cluster)
-	jobName := naming.BackupJobName(cr.Name, cr.Labels[labelKeyBackupType] == "cron")
-
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		job := new(batchv1.Job)
-
-		err := r.client.Get(ctx, types.NamespacedName{Namespace: cr.Namespace, Name: jobName}, job)
+		job, err := r.getBackupJob(ctx, cluster, cr)
 		if err != nil {
 			if k8sErrors.IsNotFound(err) {
 				return nil
@@ -811,7 +875,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) resumeJobIfNeeded(
 		}
 
 		log.Info("Resuming backup job",
-			"job", jobName,
+			"job", job.Name,
 			"clusterStatus", cluster.Status.Status,
 			"readyPXC", cluster.Status.PXC.Ready)
 
@@ -834,6 +898,41 @@ func (r *ReconcilePerconaXtraDBClusterBackup) reconcileBackupJob(
 
 	if err := r.resumeJobIfNeeded(ctx, cr, cluster); err != nil {
 		return errors.Wrap(err, "suspend job if needed")
+	}
+
+	return nil
+}
+
+func (r *ReconcilePerconaXtraDBClusterBackup) getBackupJob(
+	ctx context.Context,
+	cluster *api.PerconaXtraDBCluster,
+	cr *api.PerconaXtraDBClusterBackup,
+) (*batchv1.Job, error) {
+	labelKeyBackupType := naming.GetLabelBackupType(cluster)
+	jobName := naming.BackupJobName(cr.Name, cr.Labels[labelKeyBackupType] == "cron")
+
+	job := new(batchv1.Job)
+
+	err := r.client.Get(ctx, types.NamespacedName{Namespace: cr.Namespace, Name: jobName}, job)
+	if err != nil {
+		return nil, err
+	}
+
+	return job, nil
+}
+
+func (r *ReconcilePerconaXtraDBClusterBackup) cleanUpSuspendedJob(
+	ctx context.Context,
+	cluster *api.PerconaXtraDBCluster,
+	cr *api.PerconaXtraDBClusterBackup,
+) error {
+	job, err := r.getBackupJob(ctx, cluster, cr)
+	if err != nil {
+		return errors.Wrap(err, "get job")
+	}
+
+	if err := r.client.Delete(ctx, job); err != nil {
+		return errors.Wrap(err, "delete job")
 	}
 
 	return nil

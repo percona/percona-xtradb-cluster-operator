@@ -99,6 +99,8 @@ func getAzureOptionsFromBackup(ctx context.Context, cl client.Client, backup *ap
 		Endpoint:       backup.Status.Azure.Endpoint,
 		Container:      container,
 		Prefix:         prefix,
+		BlockSize:      backup.Status.Azure.BlockSize,
+		Concurrency:    backup.Status.Azure.Concurrency,
 	}, nil
 }
 
@@ -219,6 +221,8 @@ type AzureOptions struct {
 	Endpoint       string
 	Container      string
 	Prefix         string
+	BlockSize      int64
+	Concurrency    int
 }
 
 func (o *AzureOptions) Type() api.BackupStorageType {

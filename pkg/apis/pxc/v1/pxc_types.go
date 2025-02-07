@@ -728,6 +728,8 @@ type BackupStorageAzureSpec struct {
 	ContainerPath     string `json:"container"`
 	Endpoint          string `json:"endpointUrl"`
 	StorageClass      string `json:"storageClass"`
+	BlockSize         int64  `json:"blockSize"`
+	Concurrency       int    `json:"concurrency"`
 }
 
 const (

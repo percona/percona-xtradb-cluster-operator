@@ -18,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	k8sretry "k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
@@ -130,7 +131,7 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(ctx context.Context, sfs api.S
 		sts.Spec.Template.Annotations = annotations
 		sts.Spec.Template.Labels = labels
 
-		if err := k8s.SetControllerReference(cr, sts, r.scheme); err != nil {
+		if err := controllerutil.SetControllerReference(cr, sts, r.scheme); err != nil {
 			return errors.Wrap(err, "set controller reference")
 		}
 		err = r.createOrUpdate(ctx, cr, sts)

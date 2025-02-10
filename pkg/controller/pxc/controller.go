@@ -25,6 +25,7 @@ import (
 	k8sretry "k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -32,7 +33,6 @@ import (
 
 	"github.com/percona/percona-xtradb-cluster-operator/clientcmd"
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
@@ -574,7 +574,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDB
 			return errors.Wrap(err, "new autotune configmap")
 		}
 
-		err = k8s.SetControllerReference(cr, configMap, r.scheme)
+		err = controllerutil.SetControllerReference(cr, configMap, r.scheme)
 		if err != nil {
 			return errors.Wrap(err, "set autotune configmap controller ref")
 		}
@@ -592,7 +592,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDB
 	pxcConfigName := config.CustomConfigMapName(cr.Name, "pxc")
 	if cr.Spec.PXC.Configuration != "" {
 		configMap := config.NewConfigMap(cr, pxcConfigName, "init.cnf", cr.Spec.PXC.Configuration)
-		err := k8s.SetControllerReference(cr, configMap, r.scheme)
+		err := controllerutil.SetControllerReference(cr, configMap, r.scheme)
 		if err != nil {
 			return errors.Wrap(err, "set controller ref")
 		}
@@ -659,7 +659,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDB
 	if cr.Spec.ProxySQLEnabled() {
 		if cr.Spec.ProxySQL.Configuration != "" {
 			configMap := config.NewConfigMap(cr, proxysqlConfigName, "proxysql.cnf", cr.Spec.ProxySQL.Configuration)
-			err := k8s.SetControllerReference(cr, configMap, r.scheme)
+			err := controllerutil.SetControllerReference(cr, configMap, r.scheme)
 			if err != nil {
 				return errors.Wrap(err, "set controller ref ProxySQL")
 			}
@@ -678,7 +678,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDB
 	haproxyConfigName := config.CustomConfigMapName(cr.Name, "haproxy")
 	if cr.HAProxyEnabled() && cr.Spec.HAProxy.Configuration != "" {
 		configMap := config.NewConfigMap(cr, haproxyConfigName, "haproxy-global.cfg", cr.Spec.HAProxy.Configuration)
-		err := k8s.SetControllerReference(cr, configMap, r.scheme)
+		err := controllerutil.SetControllerReference(cr, configMap, r.scheme)
 		if err != nil {
 			return errors.Wrap(err, "set controller ref HAProxy")
 		}
@@ -696,7 +696,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDB
 	logCollectorConfigName := config.CustomConfigMapName(cr.Name, "logcollector")
 	if cr.Spec.LogCollector != nil && cr.Spec.LogCollector.Configuration != "" {
 		configMap := config.NewConfigMap(cr, logCollectorConfigName, "fluentbit_custom.conf", cr.Spec.LogCollector.Configuration)
-		err := k8s.SetControllerReference(cr, configMap, r.scheme)
+		err := controllerutil.SetControllerReference(cr, configMap, r.scheme)
 		if err != nil {
 			return errors.Wrap(err, "set controller ref LogCollector")
 		}
@@ -715,7 +715,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDB
 
 func (r *ReconcilePerconaXtraDBCluster) createHookScriptConfigMap(cr *api.PerconaXtraDBCluster, hookScript string, configMapName string) error {
 	configMap := config.NewConfigMap(cr, configMapName, "hook.sh", hookScript)
-	err := k8s.SetControllerReference(cr, configMap, r.scheme)
+	err := controllerutil.SetControllerReference(cr, configMap, r.scheme)
 	if err != nil {
 		return errors.Wrap(err, "set controller ref")
 	}
@@ -741,7 +741,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcilePDB(ctx context.Context, cr *ap
 	}
 
 	pdb := pxc.PodDisruptionBudget(cr, spec, sfs.Labels())
-	if err := k8s.SetControllerReference(sts, pdb, r.scheme); err != nil {
+	if err := controllerutil.SetControllerReference(sts, pdb, r.scheme); err != nil {
 		return errors.Wrap(err, "set owner reference")
 	}
 
@@ -1149,7 +1149,7 @@ func mergeMaps(x, y map[string]string) map[string]string {
 }
 
 func (r *ReconcilePerconaXtraDBCluster) createOrUpdateService(ctx context.Context, cr *api.PerconaXtraDBCluster, svc *corev1.Service, saveOldMeta bool) error {
-	err := k8s.SetControllerReference(cr, svc, r.scheme)
+	err := controllerutil.SetControllerReference(cr, svc, r.scheme)
 	if err != nil {
 		return errors.Wrap(err, "set controller reference")
 	}

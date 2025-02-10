@@ -141,7 +141,7 @@ spec:
               path: /local/Status
               port: 7777
               scheme: HTTP
-            initialDelaySeconds: 60
+            initialDelaySeconds: 300
             periodSeconds: 10
             successThreshold: 1
             timeoutSeconds: 5
@@ -161,6 +161,16 @@ spec:
               protocol: TCP
             - containerPort: 30105
               protocol: TCP
+          readinessProbe:
+            failureThreshold: 5
+            httpGet:
+              path: /local/Status
+              port: 7777
+              scheme: HTTP
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            successThreshold: 1
+            timeoutSeconds: 15
           resources:
             limits:
               cpu: "1"
@@ -214,6 +224,9 @@ spec:
               protocol: TCP
             - containerPort: 33060
               name: mysqlx
+              protocol: TCP
+            - containerPort: 8404
+              name: stats
               protocol: TCP
           readinessProbe:
             exec:

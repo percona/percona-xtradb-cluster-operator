@@ -18,9 +18,8 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/deployment"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/binlogcollector"
 )
 
 type BackupScheduleJob struct {
@@ -39,38 +38,15 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(ctx context.Context, cr
 		if err != nil {
 			return errors.Wrap(err, "failed to check if restore is running")
 		}
+
 		if cr.Status.Status == api.AppStateReady && cr.Spec.Backup.PITR.Enabled && !cr.Spec.Pause && !restoreRunning {
-			initImage, err := k8s.GetInitImage(ctx, cr, r.client)
-			if err != nil {
-				return errors.Wrap(err, "failed to get init image")
-			}
-			binlogCollector, err := deployment.GetBinlogCollectorDeployment(cr, initImage)
-			if err != nil {
-				return errors.Errorf("get binlog collector deployment for cluster '%s': %v", cr.Name, err)
-			}
-			err = setControllerReference(cr, &binlogCollector, r.scheme)
-			if err != nil {
-				return errors.Wrapf(err, "set controller reference for binlog collector deployment '%s'", binlogCollector.Name)
-			}
-
-			currentCollector := appsv1.Deployment{}
-			err = r.client.Get(context.TODO(), types.NamespacedName{Name: binlogCollector.Name, Namespace: binlogCollector.Namespace}, &currentCollector)
-			if err != nil && k8serrors.IsNotFound(err) {
-				if err := r.client.Create(context.TODO(), &binlogCollector); err != nil && !k8serrors.IsAlreadyExists(err) {
-					return errors.Wrapf(err, "create binlog collector deployment for cluster '%s'", cr.Name)
-				}
-			} else if err != nil {
-				return errors.Wrapf(err, "get binlog collector deployment '%s'", binlogCollector.Name)
-			}
-
-			currentCollector.Spec = binlogCollector.Spec
-			if err := r.client.Update(context.TODO(), &currentCollector); err != nil {
-				return errors.Wrapf(err, "update binlog collector deployment '%s'", binlogCollector.Name)
+			if err := r.reconcileBinlogCollector(ctx, cr); err != nil {
+				return errors.Wrap(err, "reconcile binlog collector")
 			}
 		}
 
 		if !cr.Spec.Backup.PITR.Enabled || cr.Spec.Pause || restoreRunning {
-			err := r.deletePITR(cr)
+			err := r.deletePITR(ctx, cr)
 			if err != nil {
 				return errors.Wrap(err, "delete pitr")
 			}
@@ -222,8 +198,9 @@ func (r *ReconcilePerconaXtraDBCluster) createBackupJob(ctx context.Context, cr 
 				Labels:     naming.LabelsScheduledBackup(cr, backupJob.Name),
 			},
 			Spec: api.PXCBackupSpec{
-				PXCCluster:  cr.Name,
-				StorageName: backupJob.StorageName,
+				PXCCluster:              cr.Name,
+				StorageName:             backupJob.StorageName,
+				StartingDeadlineSeconds: cr.Spec.Backup.StartingDeadlineSeconds,
 			},
 		}
 		err = r.client.Create(context.TODO(), bcp)
@@ -264,20 +241,22 @@ func (h *minHeap) Pop() interface{} {
 	return x
 }
 
-func (r *ReconcilePerconaXtraDBCluster) deletePITR(cr *api.PerconaXtraDBCluster) error {
+func (r *ReconcilePerconaXtraDBCluster) deletePITR(ctx context.Context, cr *api.PerconaXtraDBCluster) error {
 	collectorDeployment := appsv1.Deployment{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "apps/v1",
-			Kind:       "Deployment",
-		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      deployment.GetBinlogCollectorDeploymentName(cr),
+			Name:      naming.BinlogCollectorDeploymentName(cr),
 			Namespace: cr.Namespace,
 		},
 	}
-	err := r.client.Delete(context.TODO(), &collectorDeployment)
-	if err != nil && !k8serrors.IsNotFound(err) {
-		return errors.Wrap(err, "delete pitr deployment")
+
+	if err := r.client.Delete(ctx, &collectorDeployment); err != nil && !k8serrors.IsNotFound(err) {
+		return errors.Wrap(err, "delete collector deployment")
+	}
+
+	if !cr.Spec.Backup.PITR.Enabled {
+		if err := r.client.Delete(ctx, binlogcollector.GetService(cr)); err != nil && !k8serrors.IsNotFound(err) {
+			return errors.Wrap(err, "delete collector service")
+		}
 	}
 
 	return nil

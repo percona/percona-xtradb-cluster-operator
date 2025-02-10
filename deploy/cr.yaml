@@ -94,6 +94,7 @@ spec:
 #      [mysqld]
 #      wsrep_debug=CLIENT
 #      wsrep_provider_options="gcache.size=1G; gcache.recover=yes"
+#      log_error_suppression_list=MY-013360
 #      [sst]
 #      xbstream-opts=--decompress
 #      [xtrabackup]
@@ -583,6 +584,18 @@ spec:
 #    proxysqlParams: "--custom-labels=CUSTOM-LABELS"
 #    containerSecurityContext:
 #      privileged: false
+#    readinessProbes:
+#      initialDelaySeconds: 15
+#      timeoutSeconds: 15
+#      periodSeconds: 30
+#      successThreshold: 1
+#      failureThreshold: 5
+#    livenessProbes:
+#      initialDelaySeconds: 300
+#      timeoutSeconds: 5
+#      periodSeconds: 10
+#      successThreshold: 1
+#      failureThreshold: 3
     resources:
       requests:
         memory: 150M
@@ -592,6 +605,7 @@ spec:
     image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0-backup
 #    backoffLimit: 6
 #    activeDeadlineSeconds: 3600
+#    startingDeadlineSeconds: 300
 #    serviceAccountName: percona-xtradb-cluster-operator
 #    imagePullSecrets:
 #      - name: private-registry-credentials

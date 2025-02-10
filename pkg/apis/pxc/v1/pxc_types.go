@@ -160,17 +160,18 @@ const (
 )
 
 type PXCScheduledBackup struct {
-	AllowParallel         *bool                         `json:"allowParallel,omitempty"`
-	Image                 string                        `json:"image,omitempty"`
-	ImagePullSecrets      []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
-	ImagePullPolicy       corev1.PullPolicy             `json:"imagePullPolicy,omitempty"`
-	Schedule              []PXCScheduledBackupSchedule  `json:"schedule,omitempty"`
-	Storages              map[string]*BackupStorageSpec `json:"storages,omitempty"`
-	ServiceAccountName    string                        `json:"serviceAccountName,omitempty"`
-	Annotations           map[string]string             `json:"annotations,omitempty"`
-	PITR                  PITRSpec                      `json:"pitr,omitempty"`
-	BackoffLimit          *int32                        `json:"backoffLimit,omitempty"`
-	ActiveDeadlineSeconds *int64                        `json:"activeDeadlineSeconds,omitempty"`
+	AllowParallel           *bool                         `json:"allowParallel,omitempty"`
+	Image                   string                        `json:"image,omitempty"`
+	ImagePullSecrets        []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
+	ImagePullPolicy         corev1.PullPolicy             `json:"imagePullPolicy,omitempty"`
+	Schedule                []PXCScheduledBackupSchedule  `json:"schedule,omitempty"`
+	Storages                map[string]*BackupStorageSpec `json:"storages,omitempty"`
+	ServiceAccountName      string                        `json:"serviceAccountName,omitempty"`
+	Annotations             map[string]string             `json:"annotations,omitempty"`
+	PITR                    PITRSpec                      `json:"pitr,omitempty"`
+	BackoffLimit            *int32                        `json:"backoffLimit,omitempty"`
+	ActiveDeadlineSeconds   *int64                        `json:"activeDeadlineSeconds,omitempty"`
+	StartingDeadlineSeconds *int64                        `json:"startingDeadlineSeconds,omitempty"`
 }
 
 func (b *PXCScheduledBackup) GetAllowParallel() bool {
@@ -550,7 +551,7 @@ type HAProxySpec struct {
 
 	// Deprecated: Use ExposeReplica.Enabled instead
 	ReplicasServiceEnabled *bool `json:"replicasServiceEnabled,omitempty"`
-	// Deprecated: Use ExposeReplica.LoadBalancerSourceRanges instead
+	// Deprecated: Use ExposeReplicas.LoadBalancerSourceRanges instead
 	ReplicasLoadBalancerSourceRanges []string `json:"replicasLoadBalancerSourceRanges,omitempty"`
 	// Deprecated: Use ExposeReplica.LoadBalancerIP instead
 	ReplicasLoadBalancerIP string `json:"replicasLoadBalancerIP,omitempty"`
@@ -593,6 +594,8 @@ type PMMSpec struct {
 	ContainerSecurityContext *corev1.SecurityContext     `json:"containerSecurityContext,omitempty"`
 	ImagePullPolicy          corev1.PullPolicy           `json:"imagePullPolicy,omitempty"`
 	RuntimeClassName         *string                     `json:"runtimeClassName,omitempty"`
+	LivenessProbes           *corev1.Probe               `json:"livenessProbes,omitempty"`
+	ReadinessProbes          *corev1.Probe               `json:"readinessProbes,omitempty"`
 }
 
 func (spec *PMMSpec) IsEnabled(secret *corev1.Secret) bool {

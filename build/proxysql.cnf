@@ -5,6 +5,8 @@ admin_variables =
 	admin_credentials="admin:admin"
 	mysql_ifaces="0.0.0.0:6032"
 	refresh_interval=2000
+	restapi_enabled=true
+	restapi_port=6070
 
 	cluster_username="admin"
 	cluster_password="admin"

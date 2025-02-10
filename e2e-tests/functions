@@ -60,6 +60,11 @@ set_debug() {
 	fi
 }
 
+log() {
+       echo "[$(date +%Y-%m-%dT%H:%M:%S%z)]" $*
+}
+
+
 HELM_VERSION=$(helm version -c | $sed -re 's/.*SemVer:"([^"]+)".*/\1/; s/.*\bVersion:"([^"]+)".*/\1/')
 if [ "${HELM_VERSION:0:2}" == "v2" ]; then
 	HELM_ARGS="--name"
@@ -98,10 +103,11 @@ wait_cluster_consistency() {
 	local i=0
 	local max=36
 	sleep 7 # wait for two reconcile loops ;)  3 sec x 2 times + 1 sec = 7 seconds
+	echo -n "waiting for pxc/${cluster_name} to be ready"
 	until [[ "$(kubectl_bin get pxc "${cluster_name}" -o jsonpath='{.status.state}')" == "ready" &&
 	"$(kubectl_bin get pxc "${cluster_name}" -o jsonpath='{.status.pxc.ready}')" == "${cluster_size}" &&
 	"$(kubectl_bin get pxc "${cluster_name}" -o jsonpath='{.status.'$(get_proxy_engine ${cluster_name})'.ready}')" == "${proxy_size}" ]]; do
-		echo 'waiting for cluster readyness'
+		echo -n .
 		sleep 20
 		if [[ $i -ge $max ]]; then
 			echo "Something went wrong waiting for cluster consistency!"
@@ -109,6 +115,7 @@ wait_cluster_consistency() {
 		fi
 		let i+=1
 	done
+	echo
 }
 
 create_namespace() {
@@ -235,7 +242,7 @@ wait_backup() {
 
 	set +o xtrace
 	retry=0
-	echo -n $backup
+	echo -n "waiting for pxc-backup/${backup} to reach ${status} state"
 	until kubectl_bin get pxc-backup/$backup -o jsonpath='{.status.state}' 2>/dev/null | grep $status; do
 		sleep 1
 		echo -n .
@@ -260,7 +267,7 @@ wait_backup_restore() {
 	local current_state=
 	until [[ ${current_state} == ${target_state} ]]; do
 		current_state=$(kubectl_bin get pxc-restore $backup_name -o jsonpath='{.status.state}')
-		if [[ $retry -ge $wait_time || ${current_state} == 'error' ]]; then
+		if [[ $retry -ge $wait_time || (${current_state} == 'Failed' && ${target_state} != 'Failed') ]]; then
 			kubectl_bin get pxc-restore ${backup_name} -o yaml
 			echo "Restore object pxc-restore/${backup_name} is in ${current_state} state."
 			echo something went wrong with operator or kubernetes cluster
@@ -478,6 +485,7 @@ compare_kubectl() {
 			del(.. | select(has("percona.com/env-secret-config-hash"))."percona.com/env-secret-config-hash") |
 			del(.. | select(has("percona.com/ssl-hash"))."percona.com/ssl-hash") |
 			del(.. | select(has("percona.com/ssl-internal-hash"))."percona.com/ssl-internal-hash") |
+			del(.. | select(has("kubectl.kubernetes.io/default-container"))."kubectl.kubernetes.io/default-container") |
 			del(.spec.volumeClaimTemplates[].spec.volumeMode | select(. == "Filesystem")) |
 			del(.. | select(has("healthCheckNodePort")).healthCheckNodePort) |
 			del(.. | select(has("nodePort")).nodePort) |
@@ -1688,6 +1696,13 @@ run_recovery_check_pitr() {
 	wait_for_delete pod/${cluster}-pxc-1
 
 	wait_pod ${cluster}-pxc-0
+
+	wait_backup_restore ${restore} "Starting Cluster"
+	local minio_pod=$(kubectl_bin get pods --selector=release=minio-service -o 'jsonpath={.items[].metadata.name}')
+	if kubectl_bin exec ${minio_pod} -- stat /exports/operator-testing/binlogs/gtid-binlog-cache.json 2>&1 1>/dev/null; then
+		echo "Binlog collector cache is not invalidated after restore!"
+		exit 1
+	fi
 
 	wait_backup_restore ${restore}
 	kubectl_bin logs job/restore-job-${restore}-${cluster}

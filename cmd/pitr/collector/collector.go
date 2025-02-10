@@ -23,6 +23,8 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage"
 )
 
+const collectorPasswordPath = "/etc/mysql/mysql-users-secret/xtrabackup"
+
 var (
 	pxcBinlogCollectorBackupSuccess = prometheus.NewCounter(
 		prometheus.CounterOpts{
@@ -71,6 +73,7 @@ type Collector struct {
 	pxcServiceName  string      // k8s service name for PXC, its for get correct host for connection
 	pxcUser         string      // user for connection to PXC
 	pxcPass         string      // password for connection to PXC
+	gtidCacheKey    string      // filename of gtid cache json
 }
 
 type Config struct {
@@ -84,6 +87,7 @@ type Config struct {
 	CollectSpanSec     float64 `env:"COLLECT_SPAN_SEC" envDefault:"60"`
 	VerifyTLS          bool    `env:"VERIFY_TLS" envDefault:"true"`
 	TimeoutSeconds     float64 `env:"TIMEOUT_SECONDS" envDefault:"60"`
+	GTIDCacheKey       string  `env:"GTID_CACHE_KEY,required"`
 }
 
 type BackupS3 struct {
@@ -139,11 +143,63 @@ func New(ctx context.Context, c Config) (*Collector, error) {
 		return nil, errors.New("unknown STORAGE_TYPE")
 	}
 
+	file, err := os.Open(collectorPasswordPath)
+	if err != nil {
+		return nil, errors.Wrap(err, "open file")
+	}
+	pxcPass, err := io.ReadAll(file)
+	if err != nil {
+		return nil, errors.Wrap(err, "read password")
+	}
+
 	return &Collector{
 		storage:        s,
 		pxcUser:        c.PXCUser,
+		pxcPass:        string(pxcPass),
 		pxcServiceName: c.PXCServiceName,
+		gtidCacheKey:   c.GTIDCacheKey,
 	}, nil
+}
+
+func (c *Collector) GetStorage() storage.Storage {
+	return c.storage
+}
+
+func (c *Collector) GetGTIDCacheKey() string {
+	return c.gtidCacheKey
+}
+
+func (c *Collector) Init(ctx context.Context) error {
+	host, err := pxc.GetPXCFirstHost(ctx, c.pxcServiceName)
+	if err != nil {
+		return errors.Wrap(err, "get first PXC host")
+	}
+
+	db, err := pxc.NewPXC(host, c.pxcUser, c.pxcPass)
+	if err != nil {
+		return errors.Wrapf(err, "new manager with host %s", host)
+	}
+	defer db.Close()
+
+	version, err := db.GetVersion(ctx)
+	if err != nil {
+		return errors.Wrap(err, "get version")
+	}
+
+	switch {
+	case strings.HasPrefix(version, "8.0"):
+		log.Println("creating collector functions")
+		if err := db.CreateCollectorFunctions(ctx); err != nil {
+			return errors.Wrap(err, "init 8.0: create collector functions")
+		}
+	case strings.HasPrefix(version, "8.4"):
+		log.Println("installing binlog UDF component")
+		if err := db.InstallBinlogUDFComponent(ctx); err != nil {
+			return errors.Wrap(err, "init 8.4: install component")
+		}
+	}
+
+	return nil
 }
 
 func (c *Collector) Run(ctx context.Context) error {
@@ -185,22 +241,12 @@ func (c *Collector) lastGTIDSet(ctx context.Context, suffix string) (pxc.GTIDSet
 }
 
 func (c *Collector) newDB(ctx context.Context) error {
-	file, err := os.Open("/etc/mysql/mysql-users-secret/xtrabackup")
-	if err != nil {
-		return errors.Wrap(err, "open file")
-	}
-	pxcPass, err := io.ReadAll(file)
-	if err != nil {
-		return errors.Wrap(err, "read password")
-	}
-	c.pxcPass = string(pxcPass)
-
 	host, err := pxc.GetPXCOldestBinlogHost(ctx, c.pxcServiceName, c.pxcUser, c.pxcPass)
 	if err != nil {
 		return errors.Wrap(err, "get host")
 	}
 
-	log.Println("Reading binlogs from pxc with hostname=", host)
+	log.Println("reading binlogs from pxc with hostname=", host)
 
 	c.db, err = pxc.NewPXC(host, c.pxcUser, c.pxcPass)
 	if err != nil {
@@ -244,6 +290,7 @@ func (c *Collector) filterBinLogs(ctx context.Context, logs []pxc.Binlog, lastBi
 	if err != nil {
 		return nil, errors.Wrap(err, "get gtid set of last uploaded binlog")
 	}
+
 	// we don't need to reupload last file
 	// if gtid set is not changed
 	if set == c.lastUploadedSet.Raw() {
@@ -332,33 +379,93 @@ func updateTimelineFile(lastTs string) error {
 	return nil
 }
 
-func (c *Collector) addGTIDSets(ctx context.Context, logs []pxc.Binlog) error {
-	for i, v := range logs {
-		set, err := c.db.GetGTIDSet(ctx, v.Name)
+func (c *Collector) addGTIDSets(ctx context.Context, cache *HostBinlogCache, binlogs []pxc.Binlog) error {
+	hostCache, ok := cache.Entries[c.db.GetHost()]
+	if ok {
+		cacheNeedsUpdate := false
+
+		for i, binlog := range binlogs {
+			gtidSet, ok := hostCache.Get(binlog.Name)
+			if !ok {
+				log.Printf("no cache entry for %s", binlog.Name)
+
+				set, err := c.db.GetGTIDSet(ctx, binlog.Name)
+				if errors.Is(err, &mysql.MySQLError{Number: 3200}) {
+					log.Printf("ERROR: Binlog file %s is invalid on host %s: %s\n", binlog.Name, c.db.GetHost(), err.Error())
+					continue
+				}
+
+				gtidSet = set
+				hostCache.Set(binlog.Name, gtidSet)
+				cacheNeedsUpdate = true
+			}
+
+			binlogs[i].GTIDSet = pxc.NewGTIDSet(gtidSet)
+
+			log.Println(binlogs[i])
+		}
+
+		if cacheNeedsUpdate {
+			if err := saveCache(ctx, c.storage, cache, c.gtidCacheKey); err != nil {
+				return errors.Wrap(err, "update binlog cache")
+			}
+		}
+
+		return nil
+	}
+
+	// cache not found
+	hostCache = &BinlogCacheEntry{
+		Binlogs: make(map[string]string),
+	}
+	cache.Entries[c.db.GetHost()] = hostCache
+
+	for i, binlog := range binlogs {
+		set, err := c.db.GetGTIDSet(ctx, binlog.Name)
 		if err != nil {
 			if errors.Is(err, &mysql.MySQLError{Number: 3200}) {
-				log.Printf("ERROR: Binlog file %s is invalid on host %s: %s\n", v.Name, c.db.GetHost(), err.Error())
+				log.Printf("ERROR: Binlog file %s is invalid on host %s: %s\n", binlog.Name, c.db.GetHost(), err.Error())
 				continue
 			}
 			return errors.Wrap(err, "get GTID set")
 		}
-		logs[i].GTIDSet = pxc.NewGTIDSet(set)
+
+		binlogs[i].GTIDSet = pxc.NewGTIDSet(set)
+		hostCache.Set(binlog.Name, binlogs[i].GTIDSet.Raw())
+
+		log.Println(binlogs[i])
 	}
+
+	if err := saveCache(ctx, c.storage, cache, c.gtidCacheKey); err != nil {
+		return errors.Wrap(err, "update binlog cache")
+	}
+
 	return nil
 }
 
 func (c *Collector) CollectBinLogs(ctx context.Context) error {
-	list, err := c.db.GetBinLogList(ctx)
+	cache, err := loadCache(ctx, c.storage, c.gtidCacheKey)
+	if err != nil {
+		return errors.Wrap(err, "load binlog cache")
+	}
+
+	if _, ok := cache.Entries[c.db.GetHost()]; !ok {
+		log.Println("WARNING: ignoring timeout to populate the cache, this might take some time...")
+		ctx = context.Background()
+	}
+
+	binlogList, err := c.db.GetBinLogList(ctx)
 	if err != nil {
 		return errors.Wrap(err, "get binlog list")
 	}
-	err = c.addGTIDSets(ctx, list)
+
+	err = c.addGTIDSets(ctx, cache, binlogList)
 	if err != nil {
 		return errors.Wrap(err, "get GTID sets")
 	}
 	var lastGTIDSetList []string
-	for i := len(list) - 1; i >= 0 && len(lastGTIDSetList) == 0; i-- {
-		gtidSetList := list[i].GTIDSet.List()
+	for i := len(binlogList) - 1; i >= 0 && len(lastGTIDSetList) == 0; i-- {
+		gtidSetList := binlogList[i].GTIDSet.List()
 		if gtidSetList == nil {
 			continue
 		}
@@ -366,7 +473,7 @@ func (c *Collector) CollectBinLogs(ctx context.Context) error {
 	}
 
 	if len(lastGTIDSetList) == 0 {
-		log.Println("No binlogs to upload")
+		log.Println("no binlogs to upload")
 		return nil
 	}
 
@@ -389,18 +496,27 @@ func (c *Collector) CollectBinLogs(ctx context.Context) error {
 	lastUploadedBinlogName := ""
 
 	if !c.lastUploadedSet.IsEmpty() {
-		for i := len(list) - 1; i >= 0 && lastUploadedBinlogName == ""; i-- {
-			for _, gtidSet := range list[i].GTIDSet.List() {
+		log.Printf("last uploaded GTID set: %s", c.lastUploadedSet.Raw())
+
+		for i := len(binlogList) - 1; i >= 0 && lastUploadedBinlogName == ""; i-- {
+			log.Printf("checking %s (%s) against last uploaded set", binlogList[i].Name, binlogList[i].GTIDSet.Raw())
+			for _, gtidSet := range binlogList[i].GTIDSet.List() {
 				if lastUploadedBinlogName != "" {
 					break
 				}
 				for _, lastUploaded := range c.lastUploadedSet.List() {
+					if lastUploaded == gtidSet {
+						log.Printf("last uploaded %s is equal to %s in %s", lastUploaded, gtidSet, binlogList[i].Name)
+						lastUploadedBinlogName = binlogList[i].Name
+						break
+					}
 					isSubset, err := c.db.GTIDSubset(ctx, lastUploaded, gtidSet)
 					if err != nil {
 						return errors.Wrap(err, "check if gtid set is subset")
 					}
 					if isSubset {
-						lastUploadedBinlogName = list[i].Name
+						log.Printf("last uploaded %s is subset of %s in %s", lastUploaded, gtidSet, binlogList[i].Name)
+						lastUploadedBinlogName = binlogList[i].Name
 						break
 					}
 					isSubset, err = c.db.GTIDSubset(ctx, gtidSet, lastUploaded)
@@ -408,9 +524,11 @@ func (c *Collector) CollectBinLogs(ctx context.Context) error {
 						return errors.Wrap(err, "check if gtid set is subset")
 					}
 					if isSubset {
-						lastUploadedBinlogName = list[i].Name
+						log.Printf("%s in %s is subset of last uploaded %s", gtidSet, binlogList[i].Name, lastUploaded)
+						lastUploadedBinlogName = binlogList[i].Name
 						break
 					}
+					log.Printf("last uploaded %s is not subset of %s in %s or vice versa", lastUploaded, gtidSet, binlogList[i].Name)
 				}
 			}
 		}
@@ -425,19 +543,21 @@ func (c *Collector) CollectBinLogs(ctx context.Context) error {
 		}
 	}
 
-	list, err = c.filterBinLogs(ctx, list, lastUploadedBinlogName)
+	log.Printf("last uploaded binlog: %s", lastUploadedBinlogName)
+
+	binlogList, err = c.filterBinLogs(ctx, binlogList, lastUploadedBinlogName)
 	if err != nil {
 		return errors.Wrap(err, "filter empty binlogs")
 	}
 
-	if len(list) == 0 {
-		log.Println("No binlogs to upload")
+	if len(binlogList) == 0 {
+		log.Println("no binlogs to upload after filter")
 		pxcBinlogCollectorLastProcessingTime.SetToCurrentTime()
 		return nil
 	}
 
 	if exists, err := fileExists(timelinePath); !exists && err == nil {
-		firstTs, err := c.db.GetBinLogFirstTimestamp(ctx, list[0].Name)
+		firstTs, err := c.db.GetBinLogFirstTimestamp(ctx, binlogList[0].Name)
 		if err != nil {
 			return errors.Wrap(err, "get first timestamp")
 		}
@@ -447,7 +567,7 @@ func (c *Collector) CollectBinLogs(ctx context.Context) error {
 		}
 	}
 
-	for _, binlog := range list {
+	for _, binlog := range binlogList {
 		err = c.manageBinlog(ctx, binlog)
 		if err != nil {
 			return errors.Wrap(err, "manage binlog")
@@ -466,6 +586,7 @@ func (c *Collector) CollectBinLogs(ctx context.Context) error {
 	}
 
 	pxcBinlogCollectorLastProcessingTime.SetToCurrentTime()
+
 	return nil
 }
 
@@ -516,7 +637,7 @@ func (c *Collector) manageBinlog(ctx context.Context, binlog pxc.Binlog) (err er
 		return errors.Wrap(err, "run mysqlbinlog command")
 	}
 
-	log.Println("Starting to process binlog with name", binlog.Name)
+	log.Println("starting to process binlog with name", binlog.Name)
 
 	file, err := os.OpenFile(tmpDir+binlog.Name, os.O_RDONLY, os.ModeNamedPipe)
 	if err != nil {
@@ -546,7 +667,7 @@ func (c *Collector) manageBinlog(ctx context.Context, binlog pxc.Binlog) (err er
 		return errors.Wrapf(err, "put %s object", binlog.Name)
 	}
 
-	log.Println("Successfully wrote binlog file", binlog.Name, "to storage with name", binlogName)
+	log.Println("successfully wrote binlog file", binlog.Name, "to storage with name", binlogName)
 
 	err = cmd.Wait()
 	if err != nil {

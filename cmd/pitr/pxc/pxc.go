@@ -3,6 +3,7 @@ package pxc
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"log"
 	"os/exec"
 	"sort"
@@ -71,6 +72,10 @@ type Binlog struct {
 	Size      int64
 	Encrypted string
 	GTIDSet   GTIDSet
+}
+
+func (b Binlog) String() string {
+	return fmt.Sprintf("%s (%d bytes) [E:%s]: %s", b.Name, b.Size, b.Encrypted, b.GTIDSet.Raw())
 }
 
 type GTIDSet struct {

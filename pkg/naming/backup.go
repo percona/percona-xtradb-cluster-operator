@@ -9,6 +9,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation"
 )
 
+func BackupLeaseName(clusterName string) string {
+	return "pxc-" + clusterName + "-backup-lock"
+}
+
 // BackupJobName generates legit name for backup resources.
 // k8s sets the `job-name` label for the created by job pod.
 // So we have to be sure that job name won't be longer than 63 symbols.

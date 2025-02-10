@@ -101,6 +101,8 @@ spec:
                     type: array
                   destination:
                     type: string
+                  error:
+                    type: string
                   image:
                     type: string
                   lastscheduled:
@@ -274,6 +276,8 @@ spec:
                           type: object
                         type: array
                       destination:
+                        type: string
+                      error:
                         type: string
                       image:
                         type: string

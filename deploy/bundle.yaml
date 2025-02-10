@@ -145,6 +145,9 @@ spec:
                 type: object
               pxcCluster:
                 type: string
+              startingDeadlineSeconds:
+                format: int64
+                type: integer
               storageName:
                 type: string
             type: object
@@ -201,6 +204,8 @@ spec:
                   type: object
                 type: array
               destination:
+                type: string
+              error:
                 type: string
               image:
                 type: string
@@ -343,6 +348,8 @@ spec:
                       type: object
                     type: array
                   destination:
+                    type: string
+                  error:
                     type: string
                   image:
                     type: string
@@ -517,6 +524,8 @@ spec:
                           type: object
                         type: array
                       destination:
+                        type: string
+                      error:
                         type: string
                       image:
                         type: string
@@ -1068,6 +1077,9 @@ spec:
                     type: array
                   serviceAccountName:
                     type: string
+                  startingDeadlineSeconds:
+                    format: int64
+                    type: integer
                   storages:
                     additionalProperties:
                       properties:

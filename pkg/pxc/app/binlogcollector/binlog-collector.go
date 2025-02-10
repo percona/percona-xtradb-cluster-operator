@@ -346,7 +346,7 @@ func GetPod(ctx context.Context, c client.Client, cr *api.PerconaXtraDBCluster) 
 
 var GapFileNotFound = errors.New("gap file not found")
 
-func RemoveGapFile(ctx context.Context, cr *api.PerconaXtraDBCluster, c *clientcmd.Client, pod *corev1.Pod) error {
+func RemoveGapFile(c *clientcmd.Client, pod *corev1.Pod) error {
 	stderrBuf := &bytes.Buffer{}
 	err := c.Exec(pod, "pitr", []string{"/bin/bash", "-c", "rm /tmp/gap-detected"}, nil, nil, stderrBuf, false)
 	if err != nil {
@@ -359,7 +359,7 @@ func RemoveGapFile(ctx context.Context, cr *api.PerconaXtraDBCluster, c *clientc
 	return nil
 }
 
-func RemoveTimelineFile(ctx context.Context, cr *api.PerconaXtraDBCluster, c *clientcmd.Client, pod *corev1.Pod) error {
+func RemoveTimelineFile(c *clientcmd.Client, pod *corev1.Pod) error {
 	stderrBuf := &bytes.Buffer{}
 	err := c.Exec(pod, "pitr", []string{"/bin/bash", "-c", "rm /tmp/pitr-timeline"}, nil, nil, stderrBuf, false)
 	if err != nil {

@@ -60,6 +60,11 @@ set_debug() {
 	fi
 }
 
+log() {
+       echo "[$(date +%Y-%m-%dT%H:%M:%S%z)]" $*
+}
+
+
 HELM_VERSION=$(helm version -c | $sed -re 's/.*SemVer:"([^"]+)".*/\1/; s/.*\bVersion:"([^"]+)".*/\1/')
 if [ "${HELM_VERSION:0:2}" == "v2" ]; then
 	HELM_ARGS="--name"
@@ -98,10 +103,11 @@ wait_cluster_consistency() {
 	local i=0
 	local max=36
 	sleep 7 # wait for two reconcile loops ;)  3 sec x 2 times + 1 sec = 7 seconds
+	echo -n "waiting for pxc/${cluster_name} to be ready"
 	until [[ "$(kubectl_bin get pxc "${cluster_name}" -o jsonpath='{.status.state}')" == "ready" &&
 	"$(kubectl_bin get pxc "${cluster_name}" -o jsonpath='{.status.pxc.ready}')" == "${cluster_size}" &&
 	"$(kubectl_bin get pxc "${cluster_name}" -o jsonpath='{.status.'$(get_proxy_engine ${cluster_name})'.ready}')" == "${proxy_size}" ]]; do
-		echo 'waiting for cluster readyness'
+		echo -n .
 		sleep 20
 		if [[ $i -ge $max ]]; then
 			echo "Something went wrong waiting for cluster consistency!"
@@ -109,6 +115,7 @@ wait_cluster_consistency() {
 		fi
 		let i+=1
 	done
+	echo
 }
 
 create_namespace() {
@@ -235,7 +242,7 @@ wait_backup() {
 
 	set +o xtrace
 	retry=0
-	echo -n $backup
+	echo -n "waiting for pxc-backup/${backup} to reach ${status} state"
 	until kubectl_bin get pxc-backup/$backup -o jsonpath='{.status.state}' 2>/dev/null | grep $status; do
 		sleep 1
 		echo -n .

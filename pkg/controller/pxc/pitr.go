@@ -25,7 +25,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBinlogCollector(ctx context.Con
 		return errors.Wrapf(err, "get binlog collector deployment for cluster '%s'", cr.Name)
 	}
 
-	err = setControllerReference(cr, &collector, r.scheme)
+	err = k8s.SetControllerReference(cr, &collector, r.scheme)
 	if err != nil {
 		return errors.Wrapf(err, "set controller reference for binlog collector deployment '%s'", collector.Name)
 	}

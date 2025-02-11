@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/pkg/errors"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
@@ -26,7 +25,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBinlogCollector(ctx context.Con
 		return errors.Wrapf(err, "get binlog collector deployment for cluster '%s'", cr.Name)
 	}
 
-	err = controllerutil.SetControllerReference(cr, &collector, r.scheme)
+	err = k8s.SetControllerReference(cr, &collector, r.scheme)
 	if err != nil {
 		return errors.Wrapf(err, "set controller reference for binlog collector deployment '%s'", collector.Name)
 	}

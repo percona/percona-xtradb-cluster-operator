@@ -20,7 +20,6 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -290,7 +289,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) createBackupJob(
 		cr.Status.Destination.SetPVCDestination(pvc.Name)
 
 		// Set PerconaXtraDBClusterBackup instance as the owner and controller
-		if err := controllerutil.SetControllerReference(cr, pvc, r.scheme); err != nil {
+		if err := k8s.SetControllerReference(cr, pvc, r.scheme); err != nil {
 			return nil, errors.Wrap(err, "setControllerReference")
 		}
 
@@ -333,7 +332,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) createBackupJob(
 	}
 
 	// Set PerconaXtraDBClusterBackup instance as the owner and controller
-	if err := controllerutil.SetControllerReference(cr, job, r.scheme); err != nil {
+	if err := k8s.SetControllerReference(cr, job, r.scheme); err != nil {
 		return nil, errors.Wrap(err, "job/setControllerReference")
 	}
 

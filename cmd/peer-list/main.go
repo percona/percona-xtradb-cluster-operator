@@ -36,6 +36,7 @@ import (
 
 const (
 	pollPeriod = 1 * time.Second
+	waitPeriod = 30 * time.Second
 )
 
 var (
@@ -140,6 +141,10 @@ func main() {
 	}
 	newPeers := sets.NewString()
 	var err error
+
+	isFirstUpdate := true
+	lastChangeTime := time.Now()
+
 	for peers := sets.NewString(); script != ""; time.Sleep(pollPeriod) {
 		newPeers, err = lookup(*svc)
 		if err != nil {
@@ -154,9 +159,15 @@ func main() {
 		peerList := newPeers.List()
 		sort.Strings(peerList)
 		if strings.Join(peers.List(), ":") != strings.Join(newPeers.List(), ":") {
-			log.Printf("Peer list updated\nwas %v\nnow %v", peers.List(), newPeers.List())
-			shellOut(strings.Join(peerList, "\n"), script)
-			peers = newPeers
+			if isFirstUpdate || time.Since(lastChangeTime) >= waitPeriod {
+				log.Printf("Peer list updated\nwas %v\nnow %v", peers.List(), newPeers.List())
+				shellOut(strings.Join(peerList, "\n"), script)
+				peers = newPeers
+				lastChangeTime = time.Now()
+				isFirstUpdate = false
+			} else {
+				log.Printf("Ignoring peer list update, last change was %v ago", time.Since(lastChangeTime))
+			}
 		}
 		script = *onChange
 	}

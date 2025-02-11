@@ -7,6 +7,16 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 )
 
+// SetControllerReference sets owner as a owner for the object obj
+func SetControllerReference(owner runtime.Object, obj metav1.Object, scheme *runtime.Scheme) error {
+	ownerRef, err := OwnerRef(owner, scheme)
+	if err != nil {
+		return err
+	}
+	obj.SetOwnerReferences(append(obj.GetOwnerReferences(), ownerRef))
+	return nil
+}
+
 // OwnerRef returns OwnerReference to object
 func OwnerRef(ro runtime.Object, scheme *runtime.Scheme) (metav1.OwnerReference, error) {
 	gvk, err := apiutil.GVKForObject(ro, scheme)

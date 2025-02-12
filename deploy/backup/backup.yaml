@@ -8,13 +8,13 @@ spec:
   pxcCluster: cluster1
   storageName: fs-pvc
 #  activeDeadlineSeconds: 3600
+#  startingDeadlineSeconds: 300
+#  suspendedDeadlineSeconds: 1200
 #  containerOptions:
 #    env:
 #    - name: VERIFY_TLS
 #      value: "false"
 #    args:
-#      xtrabackup:
-#      - "--someflag=abc"
 #      xbcloud:
 #      - "--someflag=abc"
 #      xbstream:

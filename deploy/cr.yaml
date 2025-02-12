@@ -584,6 +584,18 @@ spec:
 #    proxysqlParams: "--custom-labels=CUSTOM-LABELS"
 #    containerSecurityContext:
 #      privileged: false
+#    readinessProbes:
+#      initialDelaySeconds: 15
+#      timeoutSeconds: 15
+#      periodSeconds: 30
+#      successThreshold: 1
+#      failureThreshold: 5
+#    livenessProbes:
+#      initialDelaySeconds: 300
+#      timeoutSeconds: 5
+#      periodSeconds: 10
+#      successThreshold: 1
+#      failureThreshold: 3
     resources:
       requests:
         memory: 150M
@@ -593,6 +605,8 @@ spec:
     image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0-backup
 #    backoffLimit: 6
 #    activeDeadlineSeconds: 3600
+#    startingDeadlineSeconds: 300
+#    suspendedDeadlineSeconds: 1200
 #    serviceAccountName: percona-xtradb-cluster-operator
 #    imagePullSecrets:
 #      - name: private-registry-credentials

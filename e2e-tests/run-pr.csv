@@ -5,6 +5,7 @@ custom-users,8.0
 demand-backup-cloud,8.0
 demand-backup-encrypted-with-tls,8.0
 demand-backup,8.0
+demand-backup-parallel,8.0
 haproxy,5.7
 haproxy,8.0
 init-deploy,5.7

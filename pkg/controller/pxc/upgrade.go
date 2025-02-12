@@ -130,7 +130,7 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(ctx context.Context, sfs api.S
 		sts.Spec.Template.Annotations = annotations
 		sts.Spec.Template.Labels = labels
 
-		if err := setControllerReference(cr, sts, r.scheme); err != nil {
+		if err := k8s.SetControllerReference(cr, sts, r.scheme); err != nil {
 			return errors.Wrap(err, "set controller reference")
 		}
 		err = r.createOrUpdate(ctx, cr, sts)
@@ -168,12 +168,10 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(ctx context.Context, sfs api
 	}
 
 	if cr.HAProxyEnabled() && cr.Status.HAProxy.Status != api.AppStateReady {
-		log.V(1).Info("Waiting for HAProxy to be ready before smart update")
 		return nil
 	}
 
 	if cr.ProxySQLEnabled() && cr.Status.ProxySQL.Status != api.AppStateReady {
-		log.V(1).Info("Waiting for ProxySQL to be ready before smart update")
 		return nil
 	}
 

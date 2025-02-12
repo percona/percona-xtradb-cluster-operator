@@ -150,6 +150,9 @@ spec:
                 type: integer
               storageName:
                 type: string
+              suspendedDeadlineSeconds:
+                format: int64
+                type: integer
             type: object
           status:
             properties:
@@ -2017,6 +2020,9 @@ spec:
                           type: object
                       type: object
                     type: object
+                  suspendedDeadlineSeconds:
+                    format: int64
+                    type: integer
                 type: object
               crVersion:
                 type: string

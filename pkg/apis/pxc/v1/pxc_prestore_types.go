@@ -23,6 +23,10 @@ type PerconaXtraDBClusterRestoreStatus struct {
 	Comments      string           `json:"comments,omitempty"`
 	CompletedAt   *metav1.Time     `json:"completed,omitempty"`
 	LastScheduled *metav1.Time     `json:"lastscheduled,omitempty"`
+	PXCSize       int32            `json:"clusterSize,omitempty"`
+	HAProxySize   int32            `json:"haproxySize,omitempty"`
+	ProxySQLSize  int32            `json:"proxysqlSize,omitempty"`
+	Unsafe        UnsafeFlags      `json:"unsafeFlags,omitempty"`
 }
 
 type PITR struct {
@@ -63,7 +67,6 @@ type BcpRestoreStates string
 
 const (
 	RestoreNew          BcpRestoreStates = ""
-	RestoreStarting     BcpRestoreStates = "Starting"
 	RestoreStopCluster  BcpRestoreStates = "Stopping Cluster"
 	RestoreRestore      BcpRestoreStates = "Restoring"
 	RestoreStartCluster BcpRestoreStates = "Starting Cluster"

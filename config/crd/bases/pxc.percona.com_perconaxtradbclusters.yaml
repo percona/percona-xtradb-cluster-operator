@@ -143,6 +143,9 @@ spec:
                     type: array
                   serviceAccountName:
                     type: string
+                  startingDeadlineSeconds:
+                    format: int64
+                    type: integer
                   storages:
                     additionalProperties:
                       properties:
@@ -1080,6 +1083,9 @@ spec:
                           type: object
                       type: object
                     type: object
+                  suspendedDeadlineSeconds:
+                    format: int64
+                    type: integer
                 type: object
               crVersion:
                 type: string

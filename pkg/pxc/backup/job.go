@@ -19,11 +19,7 @@ import (
 )
 
 func (*Backup) Job(cr *api.PerconaXtraDBClusterBackup, cluster *api.PerconaXtraDBCluster) *batchv1.Job {
-	labelKeyBackupType := "type"
-	if cluster.CompareVersionWith("1.16.0") >= 0 {
-		labelKeyBackupType = naming.LabelPerconaBackupType
-	}
-
+	labelKeyBackupType := naming.GetLabelBackupType(cluster)
 	jobName := naming.BackupJobName(cr.Name, cr.Labels[labelKeyBackupType] == "cron")
 
 	return &batchv1.Job{

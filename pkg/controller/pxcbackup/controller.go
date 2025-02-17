@@ -14,10 +14,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -117,7 +117,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 
 	// Fetch the PerconaXtraDBClusterBackup instance
 	cr := &api.PerconaXtraDBClusterBackup{}
-	err := r.client.Get(context.TODO(), request.NamespacedName, cr)
+	err := r.client.Get(ctx, request.NamespacedName, cr)
 	if err != nil {
 		if k8sErrors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
@@ -129,16 +129,21 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 		return reconcile.Result{}, err
 	}
 
-	err = r.tryRunBackupFinalizers(ctx, cr)
+	err = r.ensureFinalizers(ctx, cr)
 	if err != nil {
-		return reconcile.Result{}, errors.Wrap(err, "failed to run finalizers")
+		return reconcile.Result{}, errors.Wrap(err, "ensure finalizers")
 	}
 
-	if cr.Status.State == api.BackupSucceeded ||
-		cr.Status.State == api.BackupFailed {
+	err = r.tryRunBackupFinalizers(ctx, cr)
+	if err != nil {
+		return reconcile.Result{}, errors.Wrap(err, "run finalizers")
+	}
+
+	if cr.Status.State == api.BackupSucceeded || cr.Status.State == api.BackupFailed {
 		if len(cr.GetFinalizers()) > 0 {
 			return rr, nil
 		}
+
 		return reconcile.Result{}, nil
 	}
 
@@ -146,40 +151,86 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 		return rr, nil
 	}
 
-	cluster, err := r.getCluster(cr)
+	cluster, err := r.getCluster(ctx, cr)
 	if err != nil {
-		log.Error(err, "invalid backup cluster")
-		return rr, nil
+		return reconcile.Result{}, errors.Wrap(err, "get cluster")
 	}
+
+	log = log.WithValues("cluster", cluster.Name)
 
 	err = cluster.CheckNSetDefaults(r.serverVersion, log)
 	if err != nil {
-		return rr, errors.Wrap(err, "wrong PXC options")
+		err := errors.Wrap(err, "wrong PXC options")
+
+		if err := r.setFailedStatus(ctx, cr, err); err != nil {
+			return rr, errors.Wrap(err, "update status")
+		}
+
+		return reconcile.Result{}, err
 	}
 
 	if cluster.Spec.Backup == nil {
-		return rr, errors.New("a backup image should be set in the PXC config")
+		err := errors.New("a backup image should be set in the PXC config")
+
+		if err := r.setFailedStatus(ctx, cr, err); err != nil {
+			return rr, errors.Wrap(err, "update status")
+		}
+
+		return reconcile.Result{}, err
+	}
+
+	if err := r.checkDeadlines(ctx, cluster, cr); err != nil {
+		if err := r.setFailedStatus(ctx, cr, err); err != nil {
+			return rr, errors.Wrap(err, "update status")
+		}
+
+		if errors.Is(err, errSuspendedDeadlineExceeded) {
+			log.Info("cleaning up suspended backup job")
+			if err := r.cleanUpSuspendedJob(ctx, cluster, cr); err != nil {
+				return reconcile.Result{}, errors.Wrap(err, "clean up suspended job")
+			}
+		}
+
+		return reconcile.Result{}, nil
+	}
+
+	if err := r.reconcileBackupJob(ctx, cr, cluster); err != nil {
+		return rr, errors.Wrap(err, "reconcile backup job")
 	}
 
 	if err := cluster.CanBackup(); err != nil {
-		return rr, errors.Wrap(err, "failed to run backup")
-	}
+		log.Info("Cluster is not ready for backup", "reason", err.Error())
 
-	if !cluster.Spec.Backup.GetAllowParallel() {
-		isRunning, err := r.isOtherBackupRunning(ctx, cr, cluster)
-		if err != nil {
-			return rr, errors.Wrap(err, "failed to check if other backups running")
-		}
-		if isRunning {
-			log.Info("backup already running, waiting until it's done")
-			return rr, nil
-		}
+		return rr, nil
 	}
 
 	storage, ok := cluster.Spec.Backup.Storages[cr.Spec.StorageName]
 	if !ok {
-		return rr, errors.Errorf("storage %s doesn't exist", cr.Spec.StorageName)
+		err := errors.Errorf("storage %s doesn't exist", cr.Spec.StorageName)
+
+		if err := r.setFailedStatus(ctx, cr, err); err != nil {
+			return rr, errors.Wrap(err, "update status")
+		}
+
+		return reconcile.Result{}, err
 	}
+
+	log = log.WithValues("storage", cr.Spec.StorageName)
+
+	log.V(1).Info("Check if parallel backups are allowed", "allowed", cluster.Spec.Backup.GetAllowParallel())
+	if !cluster.Spec.Backup.GetAllowParallel() {
+		lease, err := k8s.AcquireLease(ctx, r.client, naming.BackupLeaseName(cluster.Name), cr.Namespace, cr.Name)
+		if err != nil {
+			return reconcile.Result{}, errors.Wrap(err, "acquire backup lock")
+		}
+
+		if lease.Spec.HolderIdentity != nil && *lease.Spec.HolderIdentity != cr.Name {
+			log.Info("Another backup is holding the lock", "holder", *lease.Spec.HolderIdentity)
+
+			return rr, nil
+		}
+	}
+
 	if cr.Status.S3 == nil || cr.Status.Azure == nil {
 		cr.Status.S3 = storage.S3
 		cr.Status.Azure = storage.Azure
@@ -191,15 +242,50 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 		cr.Status.VerifyTLS = storage.VerifyTLS
 	}
 
+	job, err := r.createBackupJob(ctx, cr, cluster, storage)
+	if err != nil {
+		err = errors.Wrap(err, "create backup job")
+
+		if err := r.setFailedStatus(ctx, cr, err); err != nil {
+			return rr, errors.Wrap(err, "update status")
+		}
+
+		return reconcile.Result{}, err
+	}
+
+	err = r.updateJobStatus(ctx, cr, job, cr.Spec.StorageName, storage, cluster)
+
+	switch cr.Status.State {
+	case api.BackupSucceeded, api.BackupFailed:
+		log.Info("Releasing backup lock", "lease", naming.BackupLeaseName(cluster.Name))
+
+		if err := k8s.ReleaseLease(ctx, r.client, naming.BackupLeaseName(cluster.Name), cr.Namespace); err != nil {
+			return reconcile.Result{}, errors.Wrap(err, "release backup lock")
+		}
+
+		return reconcile.Result{}, nil
+	}
+
+	return rr, err
+}
+
+func (r *ReconcilePerconaXtraDBClusterBackup) createBackupJob(
+	ctx context.Context,
+	cr *api.PerconaXtraDBClusterBackup,
+	cluster *api.PerconaXtraDBCluster,
+	storage *api.BackupStorageSpec,
+) (*batchv1.Job, error) {
+	log := logf.FromContext(ctx)
+
 	bcp := backup.New(cluster)
 	job := bcp.Job(cr, cluster)
 	initImage, err := k8s.GetInitImage(ctx, cluster, r.client)
 	if err != nil {
-		return rr, errors.Wrap(err, "failed to get initImage")
+		return nil, errors.Wrap(err, "failed to get initImage")
 	}
 	job.Spec, err = bcp.JobSpec(cr.Spec, cluster, job, initImage)
 	if err != nil {
-		return rr, errors.Wrap(err, "can't create job spec")
+		return nil, errors.Wrap(err, "can't create job spec")
 	}
 
 	switch storage.Type {
@@ -210,63 +296,77 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 		cr.Status.Destination.SetPVCDestination(pvc.Name)
 
 		// Set PerconaXtraDBClusterBackup instance as the owner and controller
-		if err := setControllerReference(cr, pvc, r.scheme); err != nil {
-			return rr, errors.Wrap(err, "setControllerReference")
+		if err := k8s.SetControllerReference(cr, pvc, r.scheme); err != nil {
+			return nil, errors.Wrap(err, "setControllerReference")
 		}
 
 		// Check if this PVC already exists
-		err = r.client.Get(context.TODO(), types.NamespacedName{Name: pvc.Name, Namespace: pvc.Namespace}, pvc)
+		err = r.client.Get(ctx, types.NamespacedName{Name: pvc.Name, Namespace: pvc.Namespace}, pvc)
 		if err != nil && k8sErrors.IsNotFound(err) {
 			log.Info("Creating a new volume for backup", "Namespace", pvc.Namespace, "Name", pvc.Name)
-			err = r.client.Create(context.TODO(), pvc)
+			err = r.client.Create(ctx, pvc)
 			if err != nil {
-				return rr, errors.Wrap(err, "create backup pvc")
+				return nil, errors.Wrap(err, "create backup pvc")
 			}
 		} else if err != nil {
-			return rr, errors.Wrap(err, "get backup pvc")
+			return nil, errors.Wrap(err, "get backup pvc")
 		}
 
 		err := backup.SetStoragePVC(&job.Spec, cr, pvc.Name)
 		if err != nil {
-			return rr, errors.Wrap(err, "set storage FS")
+			return nil, errors.Wrap(err, "set storage FS")
 		}
 	case api.BackupStorageS3:
 		if storage.S3 == nil {
-			return rr, errors.New("s3 storage is not specified")
+			return nil, errors.New("s3 storage is not specified")
 		}
 		cr.Status.Destination.SetS3Destination(storage.S3.Bucket, cr.Spec.PXCCluster+"-"+cr.CreationTimestamp.Time.Format("2006-01-02-15:04:05")+"-full")
 
 		err := backup.SetStorageS3(&job.Spec, cr)
 		if err != nil {
-			return rr, errors.Wrap(err, "set storage FS")
+			return nil, errors.Wrap(err, "set storage FS")
 		}
 	case api.BackupStorageAzure:
 		if storage.Azure == nil {
-			return rr, errors.New("azure storage is not specified")
+			return nil, errors.New("azure storage is not specified")
 		}
 		cr.Status.Destination.SetAzureDestination(storage.Azure.ContainerPath, cr.Spec.PXCCluster+"-"+cr.CreationTimestamp.Time.Format("2006-01-02-15:04:05")+"-full")
 
 		err := backup.SetStorageAzure(&job.Spec, cr)
 		if err != nil {
-			return rr, errors.Wrap(err, "set storage FS for Azure")
+			return nil, errors.Wrap(err, "set storage FS for Azure")
 		}
 	}
 
 	// Set PerconaXtraDBClusterBackup instance as the owner and controller
-	if err := setControllerReference(cr, job, r.scheme); err != nil {
-		return rr, errors.Wrap(err, "job/setControllerReference")
+	if err := k8s.SetControllerReference(cr, job, r.scheme); err != nil {
+		return nil, errors.Wrap(err, "job/setControllerReference")
 	}
 
-	err = r.client.Create(context.TODO(), job)
+	err = r.client.Create(ctx, job)
 	if err != nil && !k8sErrors.IsAlreadyExists(err) {
-		return rr, errors.Wrap(err, "create backup job")
+		return nil, errors.Wrap(err, "create backup job")
 	} else if err == nil {
-		log.Info("Created a new backup job", "Namespace", job.Namespace, "Name", job.Name)
+		log.Info("Created a new backup job", "namespace", job.Namespace, "name", job.Name)
 	}
 
-	err = r.updateJobStatus(cr, job, cr.Spec.StorageName, storage, cluster)
+	return job, nil
+}
 
-	return rr, err
+func (r *ReconcilePerconaXtraDBClusterBackup) ensureFinalizers(ctx context.Context, cr *api.PerconaXtraDBClusterBackup) error {
+	for _, f := range cr.GetFinalizers() {
+		if f == naming.FinalizerReleaseLock {
+			return nil
+		}
+	}
+
+	orig := cr.DeepCopy()
+	cr.SetFinalizers(append(cr.GetFinalizers(), naming.FinalizerReleaseLock))
+	if err := r.client.Patch(ctx, cr.DeepCopy(), client.MergeFrom(orig)); err != nil {
+		return errors.Wrap(err, "patch finalizers")
+	}
+
+	return nil
 }
 
 func (r *ReconcilePerconaXtraDBClusterBackup) tryRunBackupFinalizers(ctx context.Context, cr *api.PerconaXtraDBClusterBackup) error {
@@ -282,7 +382,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) tryRunBackupFinalizers(ctx context
 			return nil
 		}
 
-		go r.runDeleteBackupFinalizer(ctx, cr)
+		go r.runBackupFinalizers(ctx, cr)
 	default:
 		if _, ok := r.bcpDeleteInProgress.Load(cr.Name); !ok {
 			inprog := []string{}
@@ -299,7 +399,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) tryRunBackupFinalizers(ctx context
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBClusterBackup) runDeleteBackupFinalizer(ctx context.Context, cr *api.PerconaXtraDBClusterBackup) {
+func (r *ReconcilePerconaXtraDBClusterBackup) runBackupFinalizers(ctx context.Context, cr *api.PerconaXtraDBClusterBackup) {
 	log := logf.FromContext(ctx)
 
 	defer func() {
@@ -315,10 +415,10 @@ func (r *ReconcilePerconaXtraDBClusterBackup) runDeleteBackupFinalizer(ctx conte
 			log.Info("The finalizer delete-s3-backup is deprecated and will be deleted in 1.18.0. Use percona.com/delete-backup")
 			fallthrough
 		case naming.FinalizerDeleteBackup:
-
 			if (cr.Status.S3 == nil && cr.Status.Azure == nil) || cr.Status.Destination == "" {
 				continue
 			}
+
 			switch cr.Status.GetStorageType(nil) {
 			case api.BackupStorageS3:
 				if cr.Status.Destination.StorageTypePrefix() != api.AwsBlobStoragePrefix {
@@ -330,15 +430,24 @@ func (r *ReconcilePerconaXtraDBClusterBackup) runDeleteBackupFinalizer(ctx conte
 			default:
 				continue
 			}
+
+			if err != nil {
+				log.Info("failed to delete backup", "backup path", cr.Status.Destination, "error", err.Error())
+				finalizers = append(finalizers, f)
+				continue
+			}
+
+			log.Info("backup was removed", "name", cr.Name)
+		case naming.FinalizerReleaseLock:
+			err = r.runReleaseLockFinalizer(ctx, cr)
+			if err != nil {
+				log.Error(err, "failed to release backup lock")
+				finalizers = append(finalizers, f)
+			}
 		default:
 			finalizers = append(finalizers, f)
 		}
-		if err != nil {
-			log.Info("failed to delete backup", "backup path", cr.Status.Destination, "error", err.Error())
-			finalizers = append(finalizers, f)
-		} else if f == naming.FinalizerDeleteBackup || f == naming.FinalizerS3DeleteBackup {
-			log.Info("backup was removed", "name", cr.Name)
-		}
+
 	}
 	cr.SetFinalizers(finalizers)
 
@@ -409,6 +518,14 @@ func (r *ReconcilePerconaXtraDBClusterBackup) runAzureBackupFinalizer(ctx contex
 	return nil
 }
 
+func (r *ReconcilePerconaXtraDBClusterBackup) runReleaseLockFinalizer(ctx context.Context, cr *api.PerconaXtraDBClusterBackup) error {
+	err := k8s.ReleaseLease(ctx, r.client, naming.BackupLeaseName(cr.Spec.PXCCluster), cr.Namespace)
+	if k8sErrors.IsNotFound(err) {
+		return nil
+	}
+	return errors.Wrap(err, "release backup lock")
+}
+
 func removeBackupObjects(ctx context.Context, s storage.Storage, destination string) func() error {
 	return func() error {
 		blobs, err := s.ListObjects(ctx, destination)
@@ -440,9 +557,9 @@ func removeBackupObjects(ctx context.Context, s storage.Storage, destination str
 	}
 }
 
-func (r *ReconcilePerconaXtraDBClusterBackup) getCluster(cr *api.PerconaXtraDBClusterBackup) (*api.PerconaXtraDBCluster, error) {
+func (r *ReconcilePerconaXtraDBClusterBackup) getCluster(ctx context.Context, cr *api.PerconaXtraDBClusterBackup) (*api.PerconaXtraDBCluster, error) {
 	cluster := api.PerconaXtraDBCluster{}
-	err := r.client.Get(context.TODO(), types.NamespacedName{Namespace: cr.Namespace, Name: cr.Spec.PXCCluster}, &cluster)
+	err := r.client.Get(ctx, types.NamespacedName{Namespace: cr.Namespace, Name: cr.Spec.PXCCluster}, &cluster)
 	if err != nil {
 		return nil, errors.Wrap(err, "get PXC cluster")
 	}
@@ -450,10 +567,17 @@ func (r *ReconcilePerconaXtraDBClusterBackup) getCluster(cr *api.PerconaXtraDBCl
 	return &cluster, nil
 }
 
-func (r *ReconcilePerconaXtraDBClusterBackup) updateJobStatus(bcp *api.PerconaXtraDBClusterBackup, job *batchv1.Job,
-	storageName string, storage *api.BackupStorageSpec, cluster *api.PerconaXtraDBCluster,
+func (r *ReconcilePerconaXtraDBClusterBackup) updateJobStatus(
+	ctx context.Context,
+	bcp *api.PerconaXtraDBClusterBackup,
+	job *batchv1.Job,
+	storageName string,
+	storage *api.BackupStorageSpec,
+	cluster *api.PerconaXtraDBCluster,
 ) error {
-	err := r.client.Get(context.TODO(), types.NamespacedName{Name: job.Name, Namespace: job.Namespace}, job)
+	log := logf.FromContext(ctx).WithValues("job", job.Name)
+
+	err := r.client.Get(ctx, types.NamespacedName{Name: job.Name, Namespace: job.Namespace}, job)
 	if err != nil {
 		if k8sErrors.IsNotFound(err) {
 			return nil
@@ -500,20 +624,25 @@ func (r *ReconcilePerconaXtraDBClusterBackup) updateJobStatus(bcp *api.PerconaXt
 
 	bcp.Status = status
 
-	if status.State == api.BackupSucceeded {
+	switch status.State {
+	case api.BackupSucceeded:
+		log.Info("Backup succeeded")
+
 		if cluster.PITREnabled() {
-			collectorPod, err := binlogcollector.GetPod(context.TODO(), r.client, cluster)
+			collectorPod, err := binlogcollector.GetPod(ctx, r.client, cluster)
 			if err != nil {
 				return errors.Wrap(err, "get binlog collector pod")
 			}
 
-			if err := binlogcollector.RemoveGapFile(context.TODO(), cluster, r.clientcmd, collectorPod); err != nil {
+			log.V(1).Info("Removing binlog gap file from binlog collector", "pod", collectorPod.Name)
+			if err := binlogcollector.RemoveGapFile(r.clientcmd, collectorPod); err != nil {
 				if !errors.Is(err, binlogcollector.GapFileNotFound) {
 					return errors.Wrap(err, "remove gap file")
 				}
 			}
 
-			if err := binlogcollector.RemoveTimelineFile(context.TODO(), cluster, r.clientcmd, collectorPod); err != nil {
+			log.V(1).Info("Removing binlog timeline file from binlog collector", "pod", collectorPod.Name)
+			if err := binlogcollector.RemoveTimelineFile(r.clientcmd, collectorPod); err != nil {
 				return errors.Wrap(err, "remove timeline file")
 			}
 		}
@@ -524,76 +653,197 @@ func (r *ReconcilePerconaXtraDBClusterBackup) updateJobStatus(bcp *api.PerconaXt
 				Namespace: cluster.Namespace,
 			},
 		}
-		if err := r.client.Delete(context.TODO(), &initSecret); client.IgnoreNotFound(err) != nil {
+		log.V(1).Info("Removing mysql-init secret", "secret", initSecret.Name)
+		if err := r.client.Delete(ctx, &initSecret); client.IgnoreNotFound(err) != nil {
 			return errors.Wrap(err, "delete mysql-init secret")
 		}
+	case api.BackupFailed:
+		log.Info("Backup failed")
 	}
 
-	err = r.client.Status().Update(context.TODO(), bcp)
-	if err != nil {
-		return errors.Wrap(err, "send update")
+	if err := r.updateStatus(ctx, bcp); err != nil {
+		return errors.Wrap(err, "update status")
 	}
 
 	return nil
 }
 
-func setControllerReference(cr *api.PerconaXtraDBClusterBackup, obj metav1.Object, scheme *runtime.Scheme) error {
-	ownerRef, err := cr.OwnerRef(scheme)
-	if err != nil {
-		return err
+func (r *ReconcilePerconaXtraDBClusterBackup) updateStatus(ctx context.Context, cr *api.PerconaXtraDBClusterBackup) error {
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		localCr := new(api.PerconaXtraDBClusterBackup)
+		err := r.client.Get(ctx, client.ObjectKeyFromObject(cr), localCr)
+		if err != nil {
+			return err
+		}
+
+		localCr.Status = cr.Status
+
+		return r.client.Status().Update(ctx, localCr)
+	})
+}
+
+func (r *ReconcilePerconaXtraDBClusterBackup) setFailedStatus(
+	ctx context.Context,
+	cr *api.PerconaXtraDBClusterBackup,
+	err error,
+) error {
+	cr.SetFailedStatusWithError(err)
+	return r.updateStatus(ctx, cr)
+}
+
+func (r *ReconcilePerconaXtraDBClusterBackup) suspendJobIfNeeded(
+	ctx context.Context,
+	cr *api.PerconaXtraDBClusterBackup,
+	cluster *api.PerconaXtraDBCluster,
+) error {
+	if cluster.Spec.Unsafe.BackupIfUnhealthy {
+		return nil
 	}
-	obj.SetOwnerReferences(append(obj.GetOwnerReferences(), ownerRef))
+
+	if cluster.Status.Status == api.AppStateReady {
+		return nil
+	}
+
+	if cluster.Status.PXC.Ready == cluster.Status.PXC.Size {
+		return nil
+	}
+
+	log := logf.FromContext(ctx)
+
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		job, err := r.getBackupJob(ctx, cluster, cr)
+		if err != nil {
+			if k8sErrors.IsNotFound(err) {
+				return nil
+			}
+			return err
+		}
+
+		suspended := false
+		for _, cond := range job.Status.Conditions {
+			if cond.Type == batchv1.JobSuspended && cond.Status == corev1.ConditionTrue {
+				suspended = true
+			}
+		}
+
+		if suspended {
+			return nil
+		}
+
+		log.Info("Suspending backup job",
+			"job", job.Name,
+			"clusterStatus", cluster.Status.Status,
+			"readyPXC", cluster.Status.PXC.Ready)
+
+		job.Spec.Suspend = ptr.To(true)
+
+		err = r.client.Update(ctx, job)
+		if err != nil {
+			return err
+		}
+
+		cr.Status.State = api.BackupSuspended
+		return r.updateStatus(ctx, cr)
+	})
+
+	return err
+}
+
+func (r *ReconcilePerconaXtraDBClusterBackup) resumeJobIfNeeded(
+	ctx context.Context,
+	cr *api.PerconaXtraDBClusterBackup,
+	cluster *api.PerconaXtraDBCluster,
+) error {
+	if cluster.Status.Status != api.AppStateReady {
+		return nil
+	}
+
+	if cluster.Status.PXC.Ready != cluster.Status.PXC.Size {
+		return nil
+	}
+
+	log := logf.FromContext(ctx)
+
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		job, err := r.getBackupJob(ctx, cluster, cr)
+		if err != nil {
+			if k8sErrors.IsNotFound(err) {
+				return nil
+			}
+			return err
+		}
+
+		suspended := false
+		for _, cond := range job.Status.Conditions {
+			if cond.Type == batchv1.JobSuspended && cond.Status == corev1.ConditionTrue {
+				suspended = true
+			}
+		}
+
+		if !suspended {
+			return nil
+		}
+
+		log.Info("Resuming backup job",
+			"job", job.Name,
+			"clusterStatus", cluster.Status.Status,
+			"readyPXC", cluster.Status.PXC.Ready)
+
+		job.Spec.Suspend = ptr.To(false)
+
+		return r.client.Update(ctx, job)
+	})
+
+	return err
+}
+
+func (r *ReconcilePerconaXtraDBClusterBackup) reconcileBackupJob(
+	ctx context.Context,
+	cr *api.PerconaXtraDBClusterBackup,
+	cluster *api.PerconaXtraDBCluster,
+) error {
+	if err := r.suspendJobIfNeeded(ctx, cr, cluster); err != nil {
+		return errors.Wrap(err, "suspend job if needed")
+	}
+
+	if err := r.resumeJobIfNeeded(ctx, cr, cluster); err != nil {
+		return errors.Wrap(err, "suspend job if needed")
+	}
+
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBClusterBackup) isOtherBackupRunning(ctx context.Context, cr *api.PerconaXtraDBClusterBackup, cluster *api.PerconaXtraDBCluster) (bool, error) {
-	list := new(batchv1.JobList)
-	if err := r.client.List(ctx, list, &client.ListOptions{
-		Namespace:     cluster.Namespace,
-		LabelSelector: labels.SelectorFromSet(naming.LabelsBackup(cluster)),
-	}); err != nil {
-		return false, errors.Wrap(err, "list jobs")
+func (r *ReconcilePerconaXtraDBClusterBackup) getBackupJob(
+	ctx context.Context,
+	cluster *api.PerconaXtraDBCluster,
+	cr *api.PerconaXtraDBClusterBackup,
+) (*batchv1.Job, error) {
+	labelKeyBackupType := naming.GetLabelBackupType(cluster)
+	jobName := naming.BackupJobName(cr.Name, cr.Labels[labelKeyBackupType] == "cron")
+
+	job := new(batchv1.Job)
+
+	err := r.client.Get(ctx, types.NamespacedName{Namespace: cr.Namespace, Name: jobName}, job)
+	if err != nil {
+		return nil, err
 	}
 
-	for _, job := range list.Items {
-		backupNameLabelKey := naming.LabelPerconaBackupName
-		if cluster.CompareVersionWith("1.16.0") < 0 {
-			backupNameLabelKey = "backup-name"
-		}
-		if job.Labels[backupNameLabelKey] == cr.Name {
-			continue
-		}
-		if job.Status.Active == 0 && (jobSucceded(&job) || jobFailed(&job)) {
-			continue
-		}
-
-		return true, nil
-	}
-
-	return false, nil
+	return job, nil
 }
 
-func jobFailed(job *batchv1.Job) bool {
-	failedCondition := findJobCondition(job.Status.Conditions, batchv1.JobFailed)
-	if failedCondition != nil && failedCondition.Status == corev1.ConditionTrue {
-		return true
+func (r *ReconcilePerconaXtraDBClusterBackup) cleanUpSuspendedJob(
+	ctx context.Context,
+	cluster *api.PerconaXtraDBCluster,
+	cr *api.PerconaXtraDBClusterBackup,
+) error {
+	job, err := r.getBackupJob(ctx, cluster, cr)
+	if err != nil {
+		return errors.Wrap(err, "get job")
 	}
-	return false
-}
 
-func jobSucceded(job *batchv1.Job) bool {
-	succeededCondition := findJobCondition(job.Status.Conditions, batchv1.JobComplete)
-	if succeededCondition != nil && succeededCondition.Status == corev1.ConditionTrue {
-		return true
+	if err := r.client.Delete(ctx, job); err != nil {
+		return errors.Wrap(err, "delete job")
 	}
-	return false
-}
 
-func findJobCondition(conditions []batchv1.JobCondition, condType batchv1.JobConditionType) *batchv1.JobCondition {
-	for i, cond := range conditions {
-		if cond.Type == condType {
-			return &conditions[i]
-		}
-	}
 	return nil
 }

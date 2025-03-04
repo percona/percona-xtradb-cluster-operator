@@ -138,7 +138,7 @@ func reconciler(cl client.Client) *ReconcilePerconaXtraDBClusterRestore {
 	return &ReconcilePerconaXtraDBClusterRestore{
 		client:               cl,
 		scheme:               cl.Scheme(),
-		newStorageClientFunc: fakestorage.NewFakeClient,
+		newStorageClientFunc: fakestorage.NewStorage,
 		serverVersion: &version.ServerVersion{
 			Platform: version.PlatformKubernetes,
 		},

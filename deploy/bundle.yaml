@@ -158,6 +158,11 @@ spec:
             properties:
               azure:
                 properties:
+                  blockSize:
+                    format: int64
+                    type: integer
+                  concurrency:
+                    type: integer
                   container:
                     type: string
                   credentialsSecret:
@@ -166,11 +171,6 @@ spec:
                     type: string
                   storageClass:
                     type: string
-                  blockSize:
-                    format: int64
-                    type: integer
-                  concurrency:
-                    type: integer
                 type: object
               completed:
                 format: date-time
@@ -307,6 +307,11 @@ spec:
                 properties:
                   azure:
                     properties:
+                      blockSize:
+                        format: int64
+                        type: integer
+                      concurrency:
+                        type: integer
                       container:
                         type: string
                       credentialsSecret:
@@ -315,11 +320,6 @@ spec:
                         type: string
                       storageClass:
                         type: string
-                      blockSize:
-                        format: int64
-                        type: integer
-                      concurrency:
-                        type: integer
                     type: object
                   completed:
                     format: date-time
@@ -488,6 +488,11 @@ spec:
                     properties:
                       azure:
                         properties:
+                          blockSize:
+                            format: int64
+                            type: integer
+                          concurrency:
+                            type: integer
                           container:
                             type: string
                           credentialsSecret:
@@ -496,11 +501,6 @@ spec:
                             type: string
                           storageClass:
                             type: string
-                          blockSize:
-                            format: int64
-                            type: integer
-                          concurrency:
-                            type: integer
                         type: object
                       completed:
                         format: date-time
@@ -1546,6 +1546,11 @@ spec:
                           type: object
                         azure:
                           properties:
+                            blockSize:
+                              format: int64
+                              type: integer
+                            concurrency:
+                              type: integer
                             container:
                               type: string
                             credentialsSecret:
@@ -1554,11 +1559,6 @@ spec:
                               type: string
                             storageClass:
                               type: string
-                            blockSize:
-                              format: int64
-                              type: integer
-                            concurrency:
-                              type: integer
                           type: object
                         containerOptions:
                           properties:

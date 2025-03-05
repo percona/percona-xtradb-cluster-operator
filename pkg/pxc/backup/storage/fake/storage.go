@@ -8,7 +8,7 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage"
 )
 
-func NewFakeClient(ctx context.Context, opts storage.Options) (storage.Storage, error) {
+func NewStorage(_ context.Context, opts storage.Options) (storage.Storage, error) {
 	switch opts := opts.(type) {
 	case *storage.S3Options:
 		if opts.BucketName == "" {
@@ -19,22 +19,29 @@ func NewFakeClient(ctx context.Context, opts storage.Options) (storage.Storage, 
 			return nil, errors.New("container name is empty")
 		}
 	}
-	return &FakeStorageClient{}, nil
+	return &Storage{}, nil
 }
 
-type FakeStorageClient struct{}
+// Storage is a mock implementation of the storage.Storage interface
+// used for testing purposes without performing real storage operations.
+type Storage struct{}
 
-func (c *FakeStorageClient) GetObject(ctx context.Context, objectName string) (io.ReadCloser, error) {
+func (c *Storage) GetObject(_ context.Context, _ string) (io.ReadCloser, error) {
 	return nil, nil
 }
 
-func (c *FakeStorageClient) PutObject(ctx context.Context, name string, data io.Reader, size int64) error {
+func (c *Storage) PutObject(_ context.Context, _ string, _ io.Reader, _ int64) error {
 	return nil
 }
 
-func (c *FakeStorageClient) ListObjects(ctx context.Context, prefix string) ([]string, error) {
+func (c *Storage) ListObjects(_ context.Context, _ string) ([]string, error) {
 	return nil, nil
 }
-func (c *FakeStorageClient) DeleteObject(ctx context.Context, objectName string) error { return nil }
-func (c *FakeStorageClient) SetPrefix(prefix string)                                   {}
-func (c *FakeStorageClient) GetPrefix() string                                         { return "" }
+
+func (c *Storage) DeleteObject(_ context.Context, _ string) error {
+	return nil
+}
+
+func (c *Storage) SetPrefix(_ string) {}
+
+func (c *Storage) GetPrefix() string { return "" }

@@ -687,6 +687,8 @@ spec:
           container: test
 #          endpointUrl: https://accountName.blob.core.windows.net
 #          storageClass: Hot
+#          blockSize: 4194304
+#          concurrency: 4
       fs-pvc:
         type: filesystem
 #        nodeSelector:

@@ -104,6 +104,8 @@ type BackupAzure struct {
 	StorageClass  string `env:"AZURE_STORAGE_CLASS"`
 	AccountName   string `env:"AZURE_STORAGE_ACCOUNT,required"`
 	AccountKey    string `env:"AZURE_ACCESS_KEY,required"`
+	BlockSize     int64  `env:"AZURE_BLOCK_SIZE"`
+	Concurrency   int    `env:"AZURE_CONCURRENCY"`
 }
 
 const (
@@ -135,7 +137,7 @@ func New(ctx context.Context, c Config) (*Collector, error) {
 			prefix += "/"
 		}
 		prefix = path.Clean(prefix) + "/"
-		s, err = storage.NewAzure(c.BackupStorageAzure.AccountName, c.BackupStorageAzure.AccountKey, c.BackupStorageAzure.Endpoint, container, prefix)
+		s, err = storage.NewAzure(c.BackupStorageAzure.AccountName, c.BackupStorageAzure.AccountKey, c.BackupStorageAzure.Endpoint, container, prefix, c.BackupStorageAzure.BlockSize, c.BackupStorageAzure.Concurrency)
 		if err != nil {
 			return nil, errors.Wrap(err, "new azure storage")
 		}

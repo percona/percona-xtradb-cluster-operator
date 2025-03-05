@@ -250,7 +250,7 @@ func TestValidate(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.fakeStorageClientFunc == nil {
 				tt.fakeStorageClientFunc = func(ctx context.Context, opts storage.Options) (storage.Storage, error) {
-					defaultFakeClient, err := fakestorage.NewFakeClient(ctx, opts)
+					defaultFakeClient, err := fakestorage.NewStorage(ctx, opts)
 					if err != nil {
 						return nil, err
 					}
@@ -445,7 +445,7 @@ func TestOperatorRestart(t *testing.T) {
 
 				r := reconciler(cl)
 				r.newStorageClientFunc = func(ctx context.Context, opts storage.Options) (storage.Storage, error) {
-					defaultFakeClient, err := fakestorage.NewFakeClient(ctx, opts)
+					defaultFakeClient, err := fakestorage.NewStorage(ctx, opts)
 					if err != nil {
 						return nil, err
 					}

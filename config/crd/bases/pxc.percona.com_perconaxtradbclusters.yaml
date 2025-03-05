@@ -594,6 +594,11 @@ spec:
                           type: object
                         azure:
                           properties:
+                            blockSize:
+                              format: int64
+                              type: integer
+                            concurrency:
+                              type: integer
                             container:
                               type: string
                             credentialsSecret:

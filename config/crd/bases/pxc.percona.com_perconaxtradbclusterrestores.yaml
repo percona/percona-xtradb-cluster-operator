@@ -51,6 +51,11 @@ spec:
                 properties:
                   azure:
                     properties:
+                      blockSize:
+                        format: int64
+                        type: integer
+                      concurrency:
+                        type: integer
                       container:
                         type: string
                       credentialsSecret:
@@ -227,6 +232,11 @@ spec:
                     properties:
                       azure:
                         properties:
+                          blockSize:
+                            format: int64
+                            type: integer
+                          concurrency:
+                            type: integer
                           container:
                             type: string
                           credentialsSecret:

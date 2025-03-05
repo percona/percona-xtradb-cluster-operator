@@ -623,7 +623,7 @@ func (r *ReconcilePerconaXtraDBCluster) isRestoreRunning(clusterName, namespace 
 		}
 
 		switch v.Status.State {
-		case api.RestoreStarting, api.RestoreStopCluster, api.RestoreRestore,
+		case api.RestoreStopCluster, api.RestoreRestore,
 			api.RestoreStartCluster, api.RestorePITR:
 			return true, nil
 		}

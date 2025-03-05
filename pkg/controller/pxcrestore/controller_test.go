@@ -4,14 +4,21 @@ import (
 	"context"
 	"testing"
 
+	"github.com/pkg/errors"
+	batchv1 "k8s.io/api/batch/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage"
 	fakestorage "github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage/fake"
 	"github.com/percona/percona-xtradb-cluster-operator/version"
-	"github.com/pkg/errors"
 )
 
 func TestValidate(t *testing.T) {
@@ -266,11 +273,15 @@ func TestValidate(t *testing.T) {
 			r := reconciler(cl)
 			r.newStorageClientFunc = tt.fakeStorageClientFunc
 
-			bcp, err := r.getBackup(ctx, tt.cr)
+			bcp, err := getBackup(ctx, cl, tt.cr)
 			if err != nil {
 				t.Fatal(err)
 			}
-			err = r.validate(ctx, tt.cr, bcp, tt.cluster)
+			restorer, err := r.getRestorer(ctx, tt.cr, bcp, tt.cluster)
+			if err != nil {
+				t.Fatal(err)
+			}
+			err = validate(ctx, restorer, tt.cr)
 			errStr := ""
 			if err != nil {
 				errStr = err.Error()
@@ -296,4 +307,215 @@ func (c *fakeStorageClient) ListObjects(_ context.Context, _ string) ([]string, 
 		return nil, errors.New("failListObjects")
 	}
 	return []string{"some-dest/backup1", "some-dest/backup2"}, nil
+}
+
+// TestOperatorRestart checks that the operator can catch up with the restore process after a restart.
+// This test is run for each restore state. It runs reconcile twice for each state. Each reconcile operator should change the restore state.
+// This test helps to eliminate errors such as creating an existing Pod without handling the AlreadyExists error.
+func TestOperatorRestart(t *testing.T) {
+	ctx := context.Background()
+
+	const clusterName = "test-cluster"
+	const namespace = "namespace"
+	const backupName = clusterName + "-backup"
+	const restoreName = clusterName + "-restore"
+	const s3SecretName = "my-cluster-name-backup-s3"
+	const azureSecretName = "my-cluster-name-backup-azure"
+
+	states := []api.BcpRestoreStates{
+		api.RestoreNew,
+		api.RestoreStopCluster,
+		api.RestoreRestore,
+		api.RestoreStartCluster,
+		api.RestorePITR,
+	}
+
+	bcp := readDefaultBackup(t, backupName, namespace)
+	crSecret := readDefaultCRSecret(t, clusterName+"-secrets", namespace)
+	cluster := readDefaultCR(t, clusterName, namespace)
+	if err := cluster.CheckNSetDefaults(new(version.ServerVersion), logf.FromContext(ctx)); err != nil {
+		t.Fatal(err)
+	}
+	cluster.Status.PXC.Status = api.AppStateReady
+	cr := readDefaultRestore(t, restoreName, namespace)
+	cr.Spec.BackupName = backupName
+	cr.Spec.PXCCluster = clusterName
+
+	tests := []struct {
+		name    string
+		bcp     *api.PerconaXtraDBClusterBackup
+		objects []runtime.Object
+	}{
+		{
+			name: "s3",
+			bcp: updateResource(bcp, func(bcp *api.PerconaXtraDBClusterBackup) {
+				bcp.Status.State = api.BackupSucceeded
+				bcp.Status.Destination.SetS3Destination("some-dest", "dest")
+				bcp.Spec.StorageName = "s3-us-west"
+				bcp.Status.S3 = &api.BackupStorageS3Spec{
+					Bucket:            "some-bucket",
+					CredentialsSecret: s3SecretName,
+				}
+			}),
+			objects: []runtime.Object{readDefaultS3Secret(t, s3SecretName, namespace)},
+		},
+		{
+			name: "azure",
+			bcp: updateResource(bcp, func(bcp *api.PerconaXtraDBClusterBackup) {
+				bcp.Status.State = api.BackupSucceeded
+				bcp.Status.Destination.SetAzureDestination("some-dest", "dest")
+				bcp.Spec.StorageName = "azure-blob"
+				bcp.Status.Azure = &api.BackupStorageAzureSpec{
+					ContainerPath:     "some-bucket",
+					CredentialsSecret: azureSecretName,
+				}
+			}),
+			objects: []runtime.Object{
+				updateResource(readDefaultS3Secret(t, azureSecretName, namespace), func(secret *corev1.Secret) {
+					secret.Data = map[string][]byte{
+						"AZURE_STORAGE_ACCOUNT_NAME": []byte("some-account"),
+						"AZURE_STORAGE_ACCOUNT_KEY":  []byte("some-key"),
+					}
+				}),
+			},
+		},
+		{
+			name: "pvc",
+			bcp: updateResource(bcp, func(bcp *api.PerconaXtraDBClusterBackup) {
+				bcp.Status.State = api.BackupSucceeded
+				bcp.Status.Destination.SetPVCDestination("some-dest")
+				bcp.Status.StorageType = api.BackupStorageFilesystem
+			}),
+			objects: []runtime.Object{
+				&corev1.Pod{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "v1",
+						Kind:       "Pod",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "restore-src-" + cr.Name + "-" + cr.Spec.PXCCluster,
+						Namespace: cr.Namespace,
+					},
+					Status: corev1.PodStatus{
+						Phase: corev1.PodRunning,
+					},
+				},
+				&corev1.Pod{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "v1",
+						Kind:       "Pod",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "restore-src-" + cr.Name + "-" + cr.Spec.PXCCluster + "-verify",
+						Namespace: cr.Namespace,
+					},
+					Status: corev1.PodStatus{
+						Phase: corev1.PodSucceeded,
+					},
+				},
+				backup.PVCRestoreService(cr, cluster),
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		for _, state := range states {
+			if tt.bcp.Status.StorageType == api.BackupStorageFilesystem && state == api.RestorePITR {
+				continue
+			}
+			t.Run(tt.name+" state "+string(state), func(t *testing.T) {
+				cr := cr.DeepCopy()
+				cluster := cluster.DeepCopy()
+				if state == api.RestorePITR {
+					cr.Spec.PITR = &api.PITR{
+						BackupSource: &api.PXCBackupStatus{
+							StorageName: tt.bcp.Spec.StorageName,
+						},
+					}
+				}
+				cr.Status.State = state
+				objects := append(tt.objects, tt.bcp, cr, cluster, crSecret, &corev1.PersistentVolumeClaim{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "pvc1",
+						Namespace: namespace,
+						Labels:    statefulset.NewNode(cluster).Labels(),
+					},
+				})
+				cl := buildFakeClient(objects...)
+
+				r := reconciler(cl)
+				r.newStorageClientFunc = func(ctx context.Context, opts storage.Options) (storage.Storage, error) {
+					defaultFakeClient, err := fakestorage.NewFakeClient(ctx, opts)
+					if err != nil {
+						return nil, err
+					}
+					return &fakeStorageClient{defaultFakeClient, false, false}, nil
+				}
+
+				if state == api.RestoreRestore || state == api.RestorePITR {
+					restorer, err := r.getRestorer(ctx, cr, tt.bcp, cluster)
+					if err != nil {
+						t.Fatal(err)
+					}
+					job, err := restorer.Job()
+					if err != nil {
+						t.Fatal(err)
+					}
+					if state == api.RestorePITR {
+						job, err = restorer.PITRJob()
+						if err != nil {
+							t.Fatal(err)
+						}
+					}
+					job.Status.Conditions = []batchv1.JobCondition{
+						{
+							Type:   batchv1.JobComplete,
+							Status: corev1.ConditionTrue,
+						},
+					}
+					if err := r.client.Create(ctx, job); err != nil {
+						t.Fatal(err)
+					}
+				}
+
+				nn := types.NamespacedName{
+					Name:      cr.Name,
+					Namespace: cr.Namespace,
+				}
+				req := reconcile.Request{
+					NamespacedName: nn,
+				}
+
+				_, err := r.Reconcile(ctx, req)
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				restore := new(api.PerconaXtraDBClusterRestore)
+				if err := r.client.Get(ctx, nn, restore); err != nil {
+					t.Fatal(err)
+				}
+				if restore.Status.State == state {
+					t.Fatal("state not changed")
+				}
+
+				// Assuming that the operator restarted just before the status update
+				restore.Status.State = state
+				if err := r.client.Status().Update(ctx, restore); err != nil {
+					t.Fatal(err)
+				}
+				_, err = r.Reconcile(ctx, req)
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				if err := r.client.Get(ctx, nn, restore); err != nil {
+					t.Fatal(err)
+				}
+				if restore.Status.State == state {
+					t.Fatal("state not changed")
+				}
+			})
+		}
+	}
 }

@@ -358,16 +358,36 @@ spec:
             type: object
           status:
             properties:
+              clusterSize:
+                format: int32
+                type: integer
               comments:
                 type: string
               completed:
                 format: date-time
                 type: string
+              haproxySize:
+                format: int32
+                type: integer
               lastscheduled:
                 format: date-time
                 type: string
+              proxysqlSize:
+                format: int32
+                type: integer
               state:
                 type: string
+              unsafeFlags:
+                properties:
+                  backupIfUnhealthy:
+                    type: boolean
+                  proxySize:
+                    type: boolean
+                  pxcSize:
+                    type: boolean
+                  tls:
+                    type: boolean
+                type: object
             type: object
         type: object
     served: true

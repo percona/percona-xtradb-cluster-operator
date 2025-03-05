@@ -7,6 +7,7 @@ import (
 	"crypto/md5"
 	"fmt"
 	"io"
+	"io/fs"
 	"log"
 	"os"
 	"os/exec"
@@ -18,6 +19,7 @@ import (
 	"github.com/go-sql-driver/mysql"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
+	"golang.org/x/sys/unix"
 
 	"github.com/percona/percona-xtradb-cluster-operator/cmd/pitr/pxc"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage"
@@ -639,10 +641,14 @@ func (c *Collector) manageBinlog(ctx context.Context, binlog pxc.Binlog) (err er
 
 	log.Println("starting to process binlog with name", binlog.Name)
 
-	file, err := os.OpenFile(tmpDir+binlog.Name, os.O_RDONLY, os.ModeNamedPipe)
+	namedPipeFile := tmpDir + binlog.Name
+
+	fd, err := unix.Open(namedPipeFile, unix.O_RDONLY|unix.O_NONBLOCK, uint32(fs.ModeNamedPipe))
 	if err != nil {
-		return errors.Wrap(err, "open named pipe file error")
+		return errors.Wrapf(err, "open named pipe %s", namedPipeFile)
 	}
+
+	file := os.NewFile(uintptr(fd), namedPipeFile)
 
 	defer func() {
 		errC := file.Close()
@@ -650,7 +656,7 @@ func (c *Collector) manageBinlog(ctx context.Context, binlog pxc.Binlog) (err er
 			err = mergeErrors(err, errors.Wrapf(errC, "close tmp file for %s", binlog.Name))
 			return
 		}
-		errR := os.Remove(tmpDir + binlog.Name)
+		errR := os.Remove(namedPipeFile)
 		if errR != nil {
 			err = mergeErrors(err, errors.Wrapf(errR, "remove tmp file for %s", binlog.Name))
 			return
@@ -660,7 +666,7 @@ func (c *Collector) manageBinlog(ctx context.Context, binlog pxc.Binlog) (err er
 	// create a pipe to transfer data from the binlog pipe to s3
 	pr, pw := io.Pipe()
 
-	go readBinlog(file, pw, errBuf, binlog.Name)
+	go readBinlog(ctx, file, pw, errBuf, binlog.Name)
 
 	err = c.storage.PutObject(ctx, binlogName, pr, -1)
 	if err != nil {
@@ -699,49 +705,59 @@ func (c *Collector) manageBinlog(ctx context.Context, binlog pxc.Binlog) (err er
 	return nil
 }
 
-func readBinlog(file *os.File, pipe *io.PipeWriter, errBuf *bytes.Buffer, binlogName string) {
+func readBinlog(ctx context.Context, file *os.File, pipe *io.PipeWriter, errBuf *bytes.Buffer, binlogName string) {
 	b := make([]byte, 10485760) // alloc buffer for 10mb
 
 	// in case of binlog is slow and hasn't written anything to the file yet
 	// we have to skip this error and try to read again until some data appears
-	isEmpty := true
-	for {
-		if errBuf.Len() != 0 {
-			// stop reading since we receive error from binlog command in stderr
-			// no error handling because CloseWithError() always return nil error
-			// nolint:errcheck
-			pipe.CloseWithError(errors.Errorf("Error: mysqlbinlog %s", errBuf.String()))
-			return
-		}
-		n, err := file.Read(b)
-		if err == io.EOF {
-			// If we got EOF immediately after starting to read a file we should skip it since
-			// data has not appeared yet. If we receive EOF error after already got some data - then exit.
-			if isEmpty {
-				time.Sleep(10 * time.Millisecond)
-				continue
+	read := func() error {
+		isEmpty := true
+		for {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			default:
+				if errBuf.Len() != 0 {
+					return errors.Errorf("mysqlbinlog %s", errBuf.String())
+				}
+
+				n, err := file.Read(b)
+				if err == io.EOF {
+					// If we got EOF immediately after starting to read a file we should skip it since
+					// data has not appeared yet. If we receive EOF error after already got some data - then exit.
+					if isEmpty {
+						time.Sleep(10 * time.Millisecond)
+						continue
+					}
+					return nil
+				}
+
+				if err != nil && !strings.Contains(err.Error(), "file already closed") {
+					return errors.Wrapf(err, "reading named pipe for %s", binlogName)
+				}
+
+				if n == 0 {
+					time.Sleep(10 * time.Millisecond)
+					continue
+				}
+
+				_, err = pipe.Write(b[:n])
+				if err != nil {
+					return errors.Wrapf(err, "Error: write to pipe for %s", binlogName)
+				}
+
+				isEmpty = false
 			}
-			break
 		}
-		if err != nil && !strings.Contains(err.Error(), "file already closed") {
-			// no error handling because CloseWithError() always return nil error
-			// nolint:errcheck
-			pipe.CloseWithError(errors.Wrapf(err, "Error: reading named pipe for %s", binlogName))
-			return
-		}
-		if n == 0 {
-			time.Sleep(10 * time.Millisecond)
-			continue
-		}
-		_, err = pipe.Write(b[:n])
-		if err != nil {
-			// no error handling because CloseWithError() always return nil error
-			// nolint:errcheck
-			pipe.CloseWithError(errors.Wrapf(err, "Error: write to pipe for %s", binlogName))
-			return
-		}
-		isEmpty = false
 	}
+
+	if err := read(); err != nil {
+		// no error handling because CloseWithError() always return nil error
+		// nolint:errcheck
+		pipe.CloseWithError(err)
+		return
+	}
+
 	// in case of any errors from mysqlbinlog it sends EOF to pipe
 	// to prevent this, need to check error buffer before closing pipe without error
 	if errBuf.Len() != 0 {
@@ -750,6 +766,7 @@ func readBinlog(file *os.File, pipe *io.PipeWriter, errBuf *bytes.Buffer, binlog
 		pipe.CloseWithError(errors.New("mysqlbinlog error:" + errBuf.String()))
 		return
 	}
+
 	// no error handling because Close() always return nil error
 	// nolint:errcheck
 	pipe.Close()

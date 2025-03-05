@@ -83,7 +83,7 @@ func newReconciler(mgr manager.Manager) (reconcile.Reconciler, error) {
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
-	if err := setupFieldIndexers(mgr); err != nil {
+	if err := setupSecretNameFieldIndexer(mgr); err != nil {
 		return errors.Wrap(err, "setup field indexers")
 	}
 	return builder.ControllerManagedBy(mgr).
@@ -93,10 +93,10 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		Complete(r)
 }
 
-func setupFieldIndexers(mgr manager.Manager) error {
+func setupSecretNameFieldIndexer(mgr manager.Manager) error {
 	return mgr.GetFieldIndexer().IndexField(context.TODO(), &api.PerconaXtraDBCluster{}, secretsNameField, func(o client.Object) []string {
 		cluster, ok := o.(*api.PerconaXtraDBCluster)
-		if !ok {
+		if !ok || cluster.Spec.SecretsName == "" {
 			return nil
 		}
 		return []string{cluster.Spec.SecretsName}
@@ -112,10 +112,14 @@ func enqueuePXCReferencingSecret(c client.Client) handler.EventHandler {
 			return nil
 		}
 		list := &api.PerconaXtraDBClusterList{}
-		_ = c.List(context.TODO(), list, &client.ListOptions{
+		err := c.List(ctx, list, &client.ListOptions{
 			FieldSelector: fields.OneTermEqualSelector(secretsNameField, secret.GetName()),
 			Namespace:     secret.GetNamespace(),
 		})
+		log := logf.FromContext(ctx)
+		if err != nil {
+			log.Error(err, "failed to list clusters referencing secret", "secret", secret.GetName())
+		}
 		var requests []reconcile.Request
 		for _, cr := range list.Items {
 			requests = append(requests, reconcile.Request{

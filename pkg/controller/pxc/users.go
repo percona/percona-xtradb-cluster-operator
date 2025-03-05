@@ -55,7 +55,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(
 
 	internalSecretName := internalSecretsPrefix + cr.Name
 	internalSecrets := corev1.Secret{}
-	err := r.client.Get(context.TODO(),
+	err := r.client.Get(ctx,
 		types.NamespacedName{
 			Namespace: cr.Namespace,
 			Name:      internalSecretName,

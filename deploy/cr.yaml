@@ -22,7 +22,7 @@ spec:
 #  sslInternalSecretName: cluster1-ssl-internal
 #  logCollectorSecretName: cluster1-log-collector-secrets
 #  initContainer:
-#    image: percona/percona-xtradb-cluster-operator:1.16.1
+#    image: perconalab/percona-xtradb-cluster-operator:1.16.1-custom-206
 #    containerSecurityContext:
 #      privileged: false
 #      runAsUser: 1001

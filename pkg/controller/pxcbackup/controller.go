@@ -129,11 +129,6 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 		return reconcile.Result{}, err
 	}
 
-	err = r.ensureFinalizers(ctx, cr)
-	if err != nil {
-		return reconcile.Result{}, errors.Wrap(err, "ensure finalizers")
-	}
-
 	err = r.tryRunBackupFinalizers(ctx, cr)
 	if err != nil {
 		return reconcile.Result{}, errors.Wrap(err, "run finalizers")
@@ -177,6 +172,11 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 		}
 
 		return reconcile.Result{}, err
+	}
+
+	err = r.ensureFinalizers(ctx, cluster, cr)
+	if err != nil {
+		return reconcile.Result{}, errors.Wrap(err, "ensure finalizers")
 	}
 
 	if err := r.checkDeadlines(ctx, cluster, cr); err != nil {
@@ -255,15 +255,17 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 
 	err = r.updateJobStatus(ctx, cr, job, cr.Spec.StorageName, storage, cluster)
 
-	switch cr.Status.State {
-	case api.BackupSucceeded, api.BackupFailed:
-		log.Info("Releasing backup lock", "lease", naming.BackupLeaseName(cluster.Name))
+	if !cluster.Spec.Backup.GetAllowParallel() {
+		switch cr.Status.State {
+		case api.BackupSucceeded, api.BackupFailed:
+			log.Info("Releasing backup lock", "lease", naming.BackupLeaseName(cluster.Name))
 
-		if err := k8s.ReleaseLease(ctx, r.client, naming.BackupLeaseName(cluster.Name), cr.Namespace); err != nil {
-			return reconcile.Result{}, errors.Wrap(err, "release backup lock")
+			if err := k8s.ReleaseLease(ctx, r.client, naming.BackupLeaseName(cluster.Name), cr.Namespace); err != nil {
+				return reconcile.Result{}, errors.Wrap(err, "release backup lock")
+			}
+
+			return reconcile.Result{}, nil
 		}
-
-		return reconcile.Result{}, nil
 	}
 
 	return rr, err
@@ -353,7 +355,11 @@ func (r *ReconcilePerconaXtraDBClusterBackup) createBackupJob(
 	return job, nil
 }
 
-func (r *ReconcilePerconaXtraDBClusterBackup) ensureFinalizers(ctx context.Context, cr *api.PerconaXtraDBClusterBackup) error {
+func (r *ReconcilePerconaXtraDBClusterBackup) ensureFinalizers(ctx context.Context, cluster *api.PerconaXtraDBCluster, cr *api.PerconaXtraDBClusterBackup) error {
+	if cluster.Spec.Backup.GetAllowParallel() {
+		return nil
+	}
+
 	for _, f := range cr.GetFinalizers() {
 		if f == naming.FinalizerReleaseLock {
 			return nil

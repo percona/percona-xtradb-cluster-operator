@@ -471,6 +471,7 @@ type PodSpec struct {
 	EnvVarsSecretName             string                        `json:"envVarsSecret,omitempty"`
 	TerminationGracePeriodSeconds *int64                        `json:"gracePeriod,omitempty"`
 	ForceUnsafeBootstrap          bool                          `json:"forceUnsafeBootstrap,omitempty"`
+    MySqlAllocator                string                        `json:"mySqlAllocator,omitempty"`
 
 	// Deprecated: Use ServiceExpose.Type instead
 	ServiceType corev1.ServiceType `json:"serviceType,omitempty"`
@@ -795,7 +796,7 @@ var NoCustomVolumeErr = errors.New("no custom volume found")
 // +kubebuilder:object:generate=false
 type App interface {
 	InitContainers(cr *PerconaXtraDBCluster, initImageName string) []corev1.Container
-	AppContainer(spec *PodSpec, secrets string, cr *PerconaXtraDBCluster, availableVolumes []corev1.Volume) (corev1.Container, error)
+	AppContainer(ctx context.Context, cl client.Client, spec *PodSpec, secrets string, cr *PerconaXtraDBCluster, availableVolumes []corev1.Volume) (corev1.Container, error)
 	SidecarContainers(spec *PodSpec, secrets string, cr *PerconaXtraDBCluster) ([]corev1.Container, error)
 	PMMContainer(ctx context.Context, cl client.Client, spec *PMMSpec, secret *corev1.Secret, cr *PerconaXtraDBCluster) (*corev1.Container, error)
 	LogCollectorContainer(spec *LogCollectorSpec, logPsecrets string, logRsecrets string, cr *PerconaXtraDBCluster) ([]corev1.Container, error)

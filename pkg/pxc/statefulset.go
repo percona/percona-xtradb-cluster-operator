@@ -52,7 +52,7 @@ func StatefulSet(ctx context.Context, cl client.Client, sfs api.StatefulApp, pod
 		pod.Volumes = sfsVolume.Volumes
 	}
 
-	appC, err := sfs.AppContainer(podSpec, secrets, cr, pod.Volumes)
+	appC, err := sfs.AppContainer(ctx, cl, podSpec, secrets, cr, pod.Volumes)
 	if err != nil {
 		return nil, errors.Wrap(err, "app container")
 	}

@@ -60,6 +60,8 @@ spec:
     size: 3
     image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0
     autoRecovery: true
+#    mySqlAllocator: jemalloc
+#    mySqlAllocator: malloc
 #    expose:
 #      enabled: true
 #      type: LoadBalancer

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"hash/fnv"
+	"regexp"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -266,73 +267,50 @@ func (c *Node) AppContainer(ctx context.Context, cl client.Client, spec *api.Pod
 		}...)
 	}
 
-	if cr.CompareVersionWith("1.17.0") >= 0 {
+	if cr.CompareVersionWith("1.18.0") >= 0 {
 		const LD_PRELOAD_KEY = "LD_PRELOAD"
 		const LIBJEMALLOC_PATH = "/usr/lib64/libjemalloc.so.1"
-		activateJemalloc :=false
-		ldPreloadSetViaSecret := false
+		activateJemalloc := false
+		ldPreloadValue := ""
 
 		if cr.Spec.PXC.MySqlAllocator == "" || strings.ToLower(cr.Spec.PXC.MySqlAllocator) == "jemalloc" {
 			activateJemalloc = true
 		}
 
-		// If LD_PRELOAD is set via secret we have to modify it in secret.
-		// In such a case we can't set LD_PRELOAD via appc.Env as it would override
-		// the secret's LD_PRELOAD and it may contain other libs.
-		// So the logic is:
-		// 1. If LD_PRELOAD is set in secret - update it accordingly if needed
-		// 2. If LD_PRELOAD is not set in secret - set it via appc.Env, if needed
+		// Let's set LD_PRELOAD via appc.Env always. It takes precedence over EnvFrom
+
 		envVarsSecret := &corev1.Secret{}
 		err := cl.Get(ctx, types.NamespacedName{Name: cr.Spec.PXC.EnvVarsSecretName, Namespace: cr.Namespace}, envVarsSecret)
 		if client.IgnoreNotFound(err) == nil {
 			// Env vars are set via secret. Check if LD_PRELOAD is set.
-			newEnvVarSecret := &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      cr.Spec.PXC.EnvVarsSecretName,
-					Namespace: cr.Namespace,
-				},
-				StringData: map[string]string{},
-				Type: corev1.SecretTypeOpaque,
-			}
-
-			updateSecret := false
 			for key, value := range envVarsSecret.Data {
-				val := string(value)
 				if key == LD_PRELOAD_KEY {
-					ldPreloadSetViaSecret = true
-					jemallocActive := strings.Contains(val, LIBJEMALLOC_PATH)
-
-					if jemallocActive && !activateJemalloc {
-						// deactivate jemalloc
-						val = strings.Replace(val, LIBJEMALLOC_PATH, "", -1)
-						// prefix/suffix : that may be left does not do any harm
-						// but remove it for sanity
-						val = strings.TrimSuffix(val, ":")
-						val = strings.TrimPrefix(val, ":")
-						updateSecret = true
-					} else if !jemallocActive && activateJemalloc {
-						// activate jemalloc
-						val += ":" + LIBJEMALLOC_PATH
-						updateSecret = true
-					}
-					// nothing to do in other cases
+					ldPreloadValue = string(value)
+					break
 				}
-				newEnvVarSecret.StringData[key] = val
-			}
-
-			if updateSecret {
-				cl.Update(ctx, newEnvVarSecret)
 			}
 		}
 
-		if activateJemalloc && !ldPreloadSetViaSecret {
-			appc.Env = append(appc.Env, []corev1.EnvVar{
-				{
-					Name: LD_PRELOAD_KEY,
-					Value: LIBJEMALLOC_PATH,
-				},
-			}...)
+		if !activateJemalloc {
+			// deactivate jemalloc
+			ldPreloadValue = strings.Replace(ldPreloadValue, LIBJEMALLOC_PATH, "", -1)
+		} else if !strings.Contains(ldPreloadValue, LIBJEMALLOC_PATH){
+			// activate jemalloc
+			ldPreloadValue += ":" + LIBJEMALLOC_PATH
 		}
+
+		// prefix/suffix and consecutive : (colons) don't do any harm
+		// but remove them for sanity.
+		re := regexp.MustCompile(":+")
+		ldPreloadValue = re.ReplaceAllString(ldPreloadValue, ":")
+		ldPreloadValue = strings.Trim(ldPreloadValue, ":")
+
+		appc.Env = append(appc.Env, []corev1.EnvVar{
+			{
+				Name: LD_PRELOAD_KEY,
+				Value: ldPreloadValue,
+			},
+		}...)
 	}
 
 	return appc, nil

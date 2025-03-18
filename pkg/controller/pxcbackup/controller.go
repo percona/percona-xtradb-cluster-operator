@@ -179,6 +179,21 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 		return reconcile.Result{}, errors.Wrap(err, "ensure finalizers")
 	}
 
+	defer func() {
+		if cluster.Spec.Backup.GetAllowParallel() {
+			return
+		}
+
+		switch cr.Status.State {
+		case api.BackupSucceeded, api.BackupFailed:
+			log.Info("Releasing backup lock", "lease", naming.BackupLeaseName(cluster.Name))
+
+			if err := k8s.ReleaseLease(ctx, r.client, naming.BackupLeaseName(cluster.Name), cr.Namespace); err != nil {
+				log.Error(err, "failed to release the lock")
+			}
+		}
+	}()
+
 	if err := r.checkDeadlines(ctx, cluster, cr); err != nil {
 		if err := r.setFailedStatus(ctx, cr, err); err != nil {
 			return rr, errors.Wrap(err, "update status")
@@ -254,19 +269,6 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 	}
 
 	err = r.updateJobStatus(ctx, cr, job, cr.Spec.StorageName, storage, cluster)
-
-	if !cluster.Spec.Backup.GetAllowParallel() {
-		switch cr.Status.State {
-		case api.BackupSucceeded, api.BackupFailed:
-			log.Info("Releasing backup lock", "lease", naming.BackupLeaseName(cluster.Name))
-
-			if err := k8s.ReleaseLease(ctx, r.client, naming.BackupLeaseName(cluster.Name), cr.Namespace); err != nil {
-				return reconcile.Result{}, errors.Wrap(err, "release backup lock")
-			}
-
-			return reconcile.Result{}, nil
-		}
-	}
 
 	return rr, err
 }

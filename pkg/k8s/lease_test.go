@@ -22,7 +22,7 @@ var _ = Describe("Lease", func() {
 
 		name := "backup-lock"
 		namespace := "test"
-		holder := "backup1"
+		holder := "backup1-a96b4d1c-c0ea-424a-b13c-2e1f351c6e61"
 
 		lease, err := k8s.AcquireLease(ctx, cl, name, namespace, holder)
 		Expect(err).ToNot(HaveOccurred())
@@ -43,7 +43,7 @@ var _ = Describe("Lease", func() {
 
 		name := "backup-lock"
 		namespace := "test"
-		holder := "backup1"
+		holder := "backup1-a96b4d1c-c0ea-424a-b13c-2e1f351c6e61"
 
 		lease := &coordv1.Lease{
 			ObjectMeta: metav1.ObjectMeta{

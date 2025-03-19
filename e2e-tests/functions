@@ -247,7 +247,7 @@ wait_backup() {
 		sleep 0.5
 		echo -n .
 		let retry+=1
-		if [ $retry -ge 120 ]; then
+		if [ $retry -ge 360 ]; then
 			kubectl_bin logs ${OPERATOR_NS:+-n $OPERATOR_NS} $(get_operator_pod)
 			echo max retry count $retry reached. something went wrong with operator or kubernetes cluster
 			exit 1

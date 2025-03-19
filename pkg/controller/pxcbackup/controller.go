@@ -188,7 +188,8 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 		case api.BackupSucceeded, api.BackupFailed:
 			log.Info("Releasing backup lock", "lease", naming.BackupLeaseName(cluster.Name))
 
-			if err := k8s.ReleaseLease(ctx, r.client, naming.BackupLeaseName(cluster.Name), cr.Namespace, string(cr.UID)); err != nil {
+			err := k8s.ReleaseLease(ctx, r.client, naming.BackupLeaseName(cluster.Name), cr.Namespace, naming.BackupHolderId(cr))
+			if err != nil {
 				log.Error(err, "failed to release the lock")
 			}
 		}
@@ -234,12 +235,12 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 
 	log.V(1).Info("Check if parallel backups are allowed", "allowed", cluster.Spec.Backup.GetAllowParallel())
 	if !cluster.Spec.Backup.GetAllowParallel() {
-		lease, err := k8s.AcquireLease(ctx, r.client, naming.BackupLeaseName(cluster.Name), cr.Namespace, string(cr.UID))
+		lease, err := k8s.AcquireLease(ctx, r.client, naming.BackupLeaseName(cluster.Name), cr.Namespace, naming.BackupHolderId(cr))
 		if err != nil {
 			return reconcile.Result{}, errors.Wrap(err, "acquire backup lock")
 		}
 
-		if lease.Spec.HolderIdentity != nil && *lease.Spec.HolderIdentity != string(cr.UID) {
+		if lease.Spec.HolderIdentity != nil && *lease.Spec.HolderIdentity != naming.BackupHolderId(cr) {
 			log.Info("Another backup is holding the lock", "holder", *lease.Spec.HolderIdentity)
 
 			return rr, nil
@@ -527,8 +528,8 @@ func (r *ReconcilePerconaXtraDBClusterBackup) runAzureBackupFinalizer(ctx contex
 }
 
 func (r *ReconcilePerconaXtraDBClusterBackup) runReleaseLockFinalizer(ctx context.Context, cr *api.PerconaXtraDBClusterBackup) error {
-	err := k8s.ReleaseLease(ctx, r.client, naming.BackupLeaseName(cr.Spec.PXCCluster), cr.Namespace, string(cr.UID))
-	if k8sErrors.IsNotFound(err) {
+	err := k8s.ReleaseLease(ctx, r.client, naming.BackupLeaseName(cr.Spec.PXCCluster), cr.Namespace, naming.BackupHolderId(cr))
+	if k8sErrors.IsNotFound(err) || errors.Is(err, k8s.ErrNotTheHolder) {
 		return nil
 	}
 	return errors.Wrap(err, "release backup lock")

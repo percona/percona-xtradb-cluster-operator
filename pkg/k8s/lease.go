@@ -12,6 +12,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+var (
+	ErrNotTheHolder = errors.New("not the holder")
+)
+
 func AcquireLease(ctx context.Context, c client.Client, name, namespace, holder string) (*coordv1.Lease, error) {
 	lease := new(coordv1.Lease)
 
@@ -41,11 +45,19 @@ func AcquireLease(ctx context.Context, c client.Client, name, namespace, holder 
 	return lease, nil
 }
 
-func ReleaseLease(ctx context.Context, c client.Client, name, namespace string) error {
+func ReleaseLease(ctx context.Context, c client.Client, name, namespace, holder string) error {
 	lease := new(coordv1.Lease)
 
 	if err := c.Get(ctx, types.NamespacedName{Namespace: namespace, Name: name}, lease); err != nil {
 		return errors.Wrap(err, "get lease")
+	}
+
+	if lease.Spec.HolderIdentity == nil {
+		// TODO: What to do?
+	}
+
+	if lease.Spec.HolderIdentity != nil && *lease.Spec.HolderIdentity != holder {
+		return ErrNotTheHolder
 	}
 
 	if err := c.Delete(ctx, lease); err != nil {

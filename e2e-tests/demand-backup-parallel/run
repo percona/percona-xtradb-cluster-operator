@@ -62,3 +62,5 @@ wait_backup backup3
 wait_backup backup4
 
 log "test passed"
+
+destroy $namespace

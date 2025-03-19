@@ -58,7 +58,7 @@ var _ = Describe("Lease", func() {
 
 		cl := fake.NewFakeClient(lease)
 
-		err := k8s.ReleaseLease(ctx, cl, name, namespace)
+		err := k8s.ReleaseLease(ctx, cl, name, namespace, holder)
 		Expect(err).ToNot(HaveOccurred())
 
 		freshLease := new(coordv1.Lease)

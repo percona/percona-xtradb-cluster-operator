@@ -5,6 +5,7 @@ cross-site
 custom-users
 default-cr
 demand-backup
+demand-backup-flow-control
 demand-backup-parallel
 demand-backup-cloud
 demand-backup-encrypted-with-tls

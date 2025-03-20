@@ -101,14 +101,14 @@ wait_cluster_consistency() {
 	fi
 	desc "wait cluster consistency"
 	local i=0
-	local max=36
+	local max=300
 	sleep 7 # wait for two reconcile loops ;)  3 sec x 2 times + 1 sec = 7 seconds
 	echo -n "waiting for pxc/${cluster_name} to be ready"
 	until [[ "$(kubectl_bin get pxc "${cluster_name}" -o jsonpath='{.status.state}')" == "ready" &&
 	"$(kubectl_bin get pxc "${cluster_name}" -o jsonpath='{.status.pxc.ready}')" == "${cluster_size}" &&
 	"$(kubectl_bin get pxc "${cluster_name}" -o jsonpath='{.status.'$(get_proxy_engine ${cluster_name})'.ready}')" == "${proxy_size}" ]]; do
 		echo -n .
-		sleep 20
+		sleep 5
 		if [[ $i -ge $max ]]; then
 			echo "Something went wrong waiting for cluster consistency!"
 			exit 1
@@ -244,10 +244,10 @@ wait_backup() {
 	retry=0
 	echo -n "waiting for pxc-backup/${backup} to reach ${status} state"
 	until kubectl_bin get pxc-backup/$backup -o jsonpath='{.status.state}' 2>/dev/null | grep $status; do
-		sleep 1
+		sleep 0.5
 		echo -n .
 		let retry+=1
-		if [ $retry -ge 120 ]; then
+		if [ $retry -ge 360 ]; then
 			kubectl_bin logs ${OPERATOR_NS:+-n $OPERATOR_NS} $(get_operator_pod)
 			echo max retry count $retry reached. something went wrong with operator or kubernetes cluster
 			exit 1

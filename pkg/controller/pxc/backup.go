@@ -99,7 +99,8 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(ctx context.Context, cr
 				}
 
 				for _, todel := range oldjobs {
-					err = r.client.Delete(context.TODO(), &todel)
+					log.Info("deleting outdated backup", "backup", todel.Name)
+					err = r.client.Delete(ctx, &todel)
 					if err != nil {
 						log.Error(err, "failed to delete old backup", "name", todel.Name)
 					}

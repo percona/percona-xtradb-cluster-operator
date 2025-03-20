@@ -179,6 +179,8 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 		return reconcile.Result{}, errors.Wrap(err, "ensure finalizers")
 	}
 
+	// we need to defer this before checking deadlines
+	// to properly release the lock if backup fails due to a deadline
 	defer func() {
 		if cluster.Spec.Backup.GetAllowParallel() {
 			return
@@ -234,7 +236,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 	log = log.WithValues("storage", cr.Spec.StorageName)
 
 	log.V(1).Info("Check if parallel backups are allowed", "allowed", cluster.Spec.Backup.GetAllowParallel())
-	if !cluster.Spec.Backup.GetAllowParallel() {
+	if cr.Status.State == api.BackupNew && !cluster.Spec.Backup.GetAllowParallel() {
 		lease, err := k8s.AcquireLease(ctx, r.client, naming.BackupLeaseName(cluster.Name), cr.Namespace, naming.BackupHolderId(cr))
 		if err != nil {
 			return reconcile.Result{}, errors.Wrap(err, "acquire backup lock")

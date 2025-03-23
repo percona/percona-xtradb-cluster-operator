@@ -25,7 +25,8 @@ DOCKER_DEFAULT_PLATFORM ?= linux/amd64
 SHELL := /bin/bash
 REPO_ROOT = $(shell git rev-parse --show-toplevel)
 
-distros = community redhat marketplace
+GREEN := $(shell tput setaf 2)
+RESET := $(shell tput sgr0)
 
 export VERSION
 export BUNDLE_REPO
@@ -36,6 +37,8 @@ export DOCKER_DEFAULT_PLATFORM
 export MODE
 
 REPO_ROOT = $(shell git rev-parse --show-toplevel)
+
+distros = community redhat marketplace
 
 check-version:
 ifndef VERSION
@@ -59,12 +62,14 @@ bundles/community:
 
 	env operator-sdk bundle validate $@ --select-optional='suite=operatorframework'
 	env operator-sdk bundle validate $@ --select-optional='name=community' --optional-values='index-path=$@/Dockerfile'
+	@echo "$(GREEN)!!!!!!!!!!! Build stored in installers/olm/bundles/community !!!!!!!!!!!!!!!$(RESET)"
 
 .PHONY: bundles/redhat
 bundles/redhat:
 	cd ../../config/manager/$(MODE)/ && $(KUSTOMIZE) edit set image pxc-operator=$(IMAGE)
 	./generate.sh redhat
 	env operator-sdk bundle validate $@ --select-optional='suite=operatorframework'
+	@echo "$(GREEN)!!!!!!!!!!! Build stored in installers/olm/bundles/redhat !!!!!!!!!!!!!!!$(RESET)"
 
 # The 'marketplace' configuration is currently identical to the 'redhat', so we just copy it here.
 .PHONY: bundles/marketplace
@@ -72,6 +77,7 @@ bundles/marketplace:
 	cd ../../config/manager/$(MODE)/ && $(KUSTOMIZE) edit set image pxc-operator=$(IMAGE)
 	./generate.sh marketplace
 	env operator-sdk bundle validate $@ --select-optional='suite=operatorframework'
+	@echo "$(GREEN)!!!!!!!!!!! Build stored in installers/olm/bundles/marketplace !!!!!!!!!!!!!!!$(RESET)"
 
 .PHONY: clean
 clean: clean-deprecated
@@ -106,20 +112,20 @@ tools/$(SYSTEM)/jq:
 tools: tools/$(SYSTEM)/kubectl
 tools/$(SYSTEM)/kubectl:
 	install -d '$(dir $@)'
-	curl -fSL -o '$@' 'https://dl.k8s.io/release/$(shell curl -Ls https://dl.k8s.io/release/stable-1.21.txt)/bin/$(OS_KERNEL)/$(OS_MACHINE)/kubectl'
+	curl -fSL -o '$@' 'https://dl.k8s.io/release/$(shell curl -Ls https://dl.k8s.io/release/stable-1.31.txt)/bin/$(OS_KERNEL)/$(OS_MACHINE)/kubectl'
 	chmod u+x '$@'
 
 # quay.io/operator-framework/operator-sdk
 tools: tools/$(SYSTEM)/operator-sdk
 tools/$(SYSTEM)/operator-sdk:
 	install -d '$(dir $@)'
-	curl -fSL -o '$@' 'https://github.com/operator-framework/operator-sdk/releases/download/v1.19.1/operator-sdk_$(OS_KERNEL)_$(OS_MACHINE)'
+	curl -fSL -o '$@' 'https://github.com/operator-framework/operator-sdk/releases/download/v1.39.1/operator-sdk_$(OS_KERNEL)_$(OS_MACHINE)'
 	chmod u+x '$@'
 
 tools: tools/$(SYSTEM)/opm
 tools/$(SYSTEM)/opm:
 	install -d '$(dir $@)'
-	curl -fSL -o '$@' 'https://github.com/operator-framework/operator-registry/releases/download/v1.33.0/$(OS_KERNEL)-$(OS_MACHINE)-opm'
+	curl -fSL -o '$@' 'https://github.com/operator-framework/operator-registry/releases/download/v1.50.0/$(OS_KERNEL)-$(OS_MACHINE)-opm'
 	chmod u+x '$@'
 
 tools/$(SYSTEM)/venv:

@@ -9,8 +9,7 @@ COPY metadata/ /build/metadata/
 
 FROM scratch
 
-# ANNOTATIONS is replaced with bundle.annotations.yaml
-LABEL \
-	${ANNOTATIONS}
+# LABELS is replaced with bundle.annotations.yaml
+${LABELS}
 
 COPY --from=builder /build/ /

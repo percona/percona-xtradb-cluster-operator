@@ -7,10 +7,16 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/validation"
+
+	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 )
 
 func BackupLeaseName(clusterName string) string {
 	return "pxc-" + clusterName + "-backup-lock"
+}
+
+func BackupHolderId(cr *pxcv1.PerconaXtraDBClusterBackup) string {
+	return fmt.Sprintf("%s-%s", cr.Name, cr.UID)
 }
 
 // BackupJobName generates legit name for backup resources.

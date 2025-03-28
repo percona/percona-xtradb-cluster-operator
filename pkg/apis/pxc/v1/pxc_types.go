@@ -471,7 +471,7 @@ type PodSpec struct {
 	EnvVarsSecretName             string                        `json:"envVarsSecret,omitempty"`
 	TerminationGracePeriodSeconds *int64                        `json:"gracePeriod,omitempty"`
 	ForceUnsafeBootstrap          bool                          `json:"forceUnsafeBootstrap,omitempty"`
-    MySqlAllocator                string                        `json:"mySqlAllocator,omitempty"`
+	MySQLAllocator                string                        `json:"mysqlAllocator,omitempty"`
 
 	// Deprecated: Use ServiceExpose.Type instead
 	ServiceType corev1.ServiceType `json:"serviceType,omitempty"`

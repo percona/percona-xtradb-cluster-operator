@@ -273,7 +273,7 @@ func (c *Node) AppContainer(ctx context.Context, cl client.Client, spec *api.Pod
 		activateJemalloc := false
 		ldPreloadValue := ""
 
-		if cr.Spec.PXC.MySqlAllocator == "" || strings.ToLower(cr.Spec.PXC.MySqlAllocator) == "jemalloc" {
+		if cr.Spec.PXC.MySQLAllocator == "" || strings.ToLower(cr.Spec.PXC.MySQLAllocator) == "jemalloc" {
 			activateJemalloc = true
 		}
 
@@ -294,7 +294,7 @@ func (c *Node) AppContainer(ctx context.Context, cl client.Client, spec *api.Pod
 		if !activateJemalloc {
 			// deactivate jemalloc
 			ldPreloadValue = strings.Replace(ldPreloadValue, LIBJEMALLOC_PATH, "", -1)
-		} else if !strings.Contains(ldPreloadValue, LIBJEMALLOC_PATH){
+		} else if !strings.Contains(ldPreloadValue, LIBJEMALLOC_PATH) {
 			// activate jemalloc
 			ldPreloadValue += ":" + LIBJEMALLOC_PATH
 		}
@@ -307,7 +307,7 @@ func (c *Node) AppContainer(ctx context.Context, cl client.Client, spec *api.Pod
 
 		appc.Env = append(appc.Env, []corev1.EnvVar{
 			{
-				Name: LD_PRELOAD_KEY,
+				Name:  LD_PRELOAD_KEY,
 				Value: ldPreloadValue,
 			},
 		}...)

@@ -268,12 +268,15 @@ func (c *Node) AppContainer(ctx context.Context, cl client.Client, spec *api.Pod
 	}
 
 	if cr.CompareVersionWith("1.18.0") >= 0 {
-		const LD_PRELOAD_KEY = "LD_PRELOAD"
-		const LIBJEMALLOC_PATH = "/usr/lib64/libjemalloc.so.1"
+		const (
+			ldPreloadKey    = "LD_PRELOAD"
+			libJemallocPath = "/usr/lib64/libjemalloc.so.1"
+		)
+
 		activateJemalloc := false
 		ldPreloadValue := ""
 
-		if cr.Spec.PXC.MySqlAllocator == "" || strings.ToLower(cr.Spec.PXC.MySqlAllocator) == "jemalloc" {
+		if cr.Spec.PXC.MySQLAllocator == "" || strings.ToLower(cr.Spec.PXC.MySQLAllocator) == "jemalloc" {
 			activateJemalloc = true
 		}
 
@@ -283,20 +286,17 @@ func (c *Node) AppContainer(ctx context.Context, cl client.Client, spec *api.Pod
 		err := cl.Get(ctx, types.NamespacedName{Name: cr.Spec.PXC.EnvVarsSecretName, Namespace: cr.Namespace}, envVarsSecret)
 		if client.IgnoreNotFound(err) == nil {
 			// Env vars are set via secret. Check if LD_PRELOAD is set.
-			for key, value := range envVarsSecret.Data {
-				if key == LD_PRELOAD_KEY {
-					ldPreloadValue = string(value)
-					break
-				}
+			if val, ok := envVarsSecret.Data[ldPreloadKey]; ok {
+				ldPreloadValue = string(val)
 			}
 		}
 
 		if !activateJemalloc {
 			// deactivate jemalloc
-			ldPreloadValue = strings.Replace(ldPreloadValue, LIBJEMALLOC_PATH, "", -1)
-		} else if !strings.Contains(ldPreloadValue, LIBJEMALLOC_PATH){
+			ldPreloadValue = strings.Replace(ldPreloadValue, libJemallocPath, "", -1)
+		} else if !strings.Contains(ldPreloadValue, libJemallocPath) {
 			// activate jemalloc
-			ldPreloadValue += ":" + LIBJEMALLOC_PATH
+			ldPreloadValue += ":" + libJemallocPath
 		}
 
 		// prefix/suffix and consecutive : (colons) don't do any harm
@@ -305,12 +305,10 @@ func (c *Node) AppContainer(ctx context.Context, cl client.Client, spec *api.Pod
 		ldPreloadValue = re.ReplaceAllString(ldPreloadValue, ":")
 		ldPreloadValue = strings.Trim(ldPreloadValue, ":")
 
-		appc.Env = append(appc.Env, []corev1.EnvVar{
-			{
-				Name: LD_PRELOAD_KEY,
-				Value: ldPreloadValue,
-			},
-		}...)
+		appc.Env = append(appc.Env, corev1.EnvVar{
+			Name:  ldPreloadKey,
+			Value: ldPreloadValue,
+		})
 	}
 
 	return appc, nil

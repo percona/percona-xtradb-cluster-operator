@@ -115,7 +115,6 @@ check_cloud_storage_cleanup() {
 	fi
 }
 
-
 run_backup_with_delete() {
 	local cluster=$1
 	local backup1=$2

@@ -69,7 +69,7 @@ run_recovery_from_source() {
 }
 
 # If backup upload was started and failed for some reaason the cloud storage should be cleaned up during second try
-delete_backup_pod(){
+delete_backup_pod() {
 	local backup_name=$1
 	local max_retry=120
 

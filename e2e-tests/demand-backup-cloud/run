@@ -89,7 +89,6 @@ delete_backup_pod() {
 			exit 1
 		fi
 	done
-	
 	echo -n "Deleting pod/$backup_pod during SST upload"
 	while IFS= read -r line; do
 		if [[ $line =~ 'successfully uploaded chunk' ]]; then

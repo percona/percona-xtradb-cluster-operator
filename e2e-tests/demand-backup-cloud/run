@@ -68,6 +68,67 @@ run_recovery_from_source() {
 	compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-2.$cluster-pxc -uroot -proot_password"
 }
 
+# If backup upload was started and failed for some reaason the cloud storage should be cleaned up during second try
+delete_backup_pod(){
+	local backup_name=$1
+	local max_retry=120
+
+	local backup_pod=$(kubectl get pods --selector=percona.com/backup-job-name=xb-${backup_name} -o jsonpath='{.items[].metadata.name}')
+
+	echo -n "Waiting for ${backup_pod} to become Running"
+	set -o xtrace
+	retry=0
+	echo -n "waiting for pod/${backup_pod} to become Running"
+	until kubectl_bin get pod/${backup_pod} -o jsonpath='{.status.phase}' 2>/dev/null | grep -q -i 'Running'; do
+		sleep 1
+		echo -n .
+		let retry+=1
+
+		if [[ $retry -ge $max_retry ]]; then
+			echo max retry count $retry reached. something went wrong with operator or kubernetes cluster
+			exit 1
+		fi
+	done
+	
+	echo -n "Deleting pod/$backup_pod during SST upload"
+	while IFS= read -r line; do
+		if [[ $line =~ 'successfully uploaded chunk' ]]; then
+			# give time to upload some data
+			kubectl_bin delete pod $backup_pod --force
+			break
+		fi
+	done < <(kubectl_bin logs -f ${backup_pod})
+
+	# sleep till new backup pod starts
+	sleep 3
+}
+
+check_cloud_storage_cleanup(){
+	local backup_name=$1
+	local max_retry=120
+
+	local backup_pod=$(kubectl get pods --selector=percona.com/backup-job-name=xb-${backup_name} -o jsonpath='{.items[].metadata.name}')
+	if kubectl_bin logs $backup_pod | egrep -i 'xbcloud delete|Delete completed.'; then
+		echo "Bucket cleanup was successful"
+	else
+		echo "Bucket cleanup was not performed!"
+		exit 1
+	fi
+}
+
+
+run_backup_with_delete() {
+	local cluster=$1
+	local backup1=$2
+
+	desc "make backup $backup1"
+	kubectl_bin apply \
+		-f $test_dir/conf/$backup1.yml
+	delete_backup_pod $backup1
+	wait_backup "${backup1}"
+	check_cloud_storage_cleanup "${backup1}"
+}
+
 main() {
 	if [ -n "$SKIP_REMOTE_BACKUPS" ]; then
 		echo "Skipping test because SKIP_REMOTE_BACKUPS variable is set!"
@@ -83,7 +144,7 @@ main() {
 		backup_name_azure="on-demand-backup-azure-blob"
 
 		desc "Run backup ${backup_name_aws} for $cluster cluster"
-		run_backup "$cluster" "${backup_name_aws}"
+		run_backup_with_delete "$cluster" "${backup_name_aws}"
 
 		desc "Run recovery from s3 for $cluster cluster"
 		run_recovery_check "$cluster" "${backup_name_aws}"
@@ -100,13 +161,13 @@ main() {
 		compare_kubectl job.batch/restore-job-on-demand-backup-s3-demand-backup-cloud
 
 		desc "Run backup ${backup_name_gcp} for $cluster cluster"
-		run_backup "$cluster" "${backup_name_gcp}"
+		run_backup_with_delete "$cluster" "${backup_name_gcp}"
 
 		desc "Run recovery from s3 for $cluster cluster"
 		run_recovery_check "$cluster" "${backup_name_gcp}"
 
 		desc "Run backup ${backup_name_azure} for $cluster cluster"
-		run_backup "$cluster" "${backup_name_azure}"
+		run_backup_with_delete "$cluster" "${backup_name_azure}"
 
 		desc "Run recovery from azure for $cluster cluster"
 		run_recovery_check "$cluster" "${backup_name_azure}"

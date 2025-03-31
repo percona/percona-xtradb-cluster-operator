@@ -73,13 +73,10 @@ delete_backup_pod() {
 	local backup_name=$1
 	local max_retry=120
 
-	local backup_pod=$(kubectl get pods --selector=percona.com/backup-job-name=xb-${backup_name} -o jsonpath='{.items[].metadata.name}')
-
-	echo -n "Waiting for ${backup_pod} to become Running"
+	echo "Waiting for ${backup_pod} to become Running"
 	set -o xtrace
 	retry=0
-	echo -n "waiting for pod/${backup_pod} to become Running"
-	until kubectl_bin get pod/${backup_pod} -o jsonpath='{.status.phase}' 2>/dev/null | grep -q -i 'Running'; do
+	until kubectl get pods --selector=percona.com/backup-job-name=xb-${backup_name} -o jsonpath='{.items[].status.phase}' 2>/dev/null | grep -q -i 'Running'; do
 		sleep 1
 		echo -n .
 		let retry+=1
@@ -89,14 +86,19 @@ delete_backup_pod() {
 			exit 1
 		fi
 	done
-	echo -n "Deleting pod/$backup_pod during SST upload"
-	while IFS= read -r line; do
+
+	backup_pod=$(kubectl get pods --selector=percona.com/backup-job-name=xb-${backup_name} -o jsonpath='{.items[].metadata.name}')
+
+	log echo "Deleting pod/$backup_pod during SST upload"
+	kubectl logs -f ${backup_pod} | while IFS= read -r line; do
 		if [[ $line =~ 'successfully uploaded chunk' ]]; then
 			# give time to upload some data
-			kubectl_bin delete pod $backup_pod --force
+			kubectl delete pod --force $backup_pod
 			break
 		fi
-	done < <(kubectl_bin logs -f ${backup_pod})
+	done
+
+	kubectl logs -f ${backup_pod}
 
 	# sleep till new backup pod starts
 	sleep 3
@@ -104,10 +106,13 @@ delete_backup_pod() {
 
 check_cloud_storage_cleanup() {
 	local backup_name=$1
-	local max_retry=120
 
+	if [ $(kubectl get events --field-selector involvedObject.kind=Job,involvedObject.name=xb-${backup_name} | grep -c "Created pod" ) -ne '2' ]; then
+		echo "There should be 2 pods started by job. First backup finished too quick"
+		exit 1
+	fi
 	local backup_pod=$(kubectl get pods --selector=percona.com/backup-job-name=xb-${backup_name} -o jsonpath='{.items[].metadata.name}')
-	if kubectl_bin logs $backup_pod | egrep -i 'xbcloud delete|Delete completed.'; then
+	if kubectl logs $backup_pod | egrep -i 'xbcloud delete|Delete completed.'; then
 		echo "Bucket cleanup was successful"
 	else
 		echo "Bucket cleanup was not performed!"
@@ -136,6 +141,13 @@ main() {
 
 		cluster="demand-backup-cloud"
 		spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml"
+
+		# echo "Write more data for bigger backup"
+		# run_mysql \
+		# 	'CREATE DATABASE IF NOT EXISTS sbtest;' \
+		# 	"-h $cluster-pxc -uroot -proot_password"
+		# kubectl run -it --rm sysbench-client-${RANDOM} --image=perconalab/sysbench:latest --restart=Never -- \
+		# 	sysbench oltp_read_only --tables=50 --table_size=500 --mysql-host=$cluster-pxc  --mysql-port=3306 --mysql-user=root --mysql-password=root_password --mysql-db=sbtest prepare
 
 		backup_name_aws="on-demand-backup-aws-s3"
 		backup_name_gcp="on-demand-backup-gcp-cs"

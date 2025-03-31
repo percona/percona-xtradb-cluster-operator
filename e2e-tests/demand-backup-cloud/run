@@ -75,17 +75,19 @@ delete_backup_pod() {
 
 	echo "Waiting for ${backup_pod} to become Running"
 	set -o xtrace
-	retry=0
-	until kubectl get pods --selector=percona.com/backup-job-name=xb-${backup_name} -o jsonpath='{.items[].status.phase}' 2>/dev/null | grep -q -i 'Running'; do
-		sleep 1
-		echo -n .
-		let retry+=1
+	# retry=0
+	sleep 1
+	kubectl wait --for=jsonpath='{.status.phase}'=Running pod --selector=percona.com/backup-job-name=xb-${backup_name} --timeout=120s
+	# until kubectl get pods --selector=percona.com/backup-job-name=xb-${backup_name} -o jsonpath='{.items[].status.phase}' 2>/dev/null | grep -q -i 'Running'; do
+	# 	sleep 1
+	# 	echo -n .
+	# 	let retry+=1
 
-		if [[ $retry -ge $max_retry ]]; then
-			echo max retry count $retry reached. something went wrong with operator or kubernetes cluster
-			exit 1
-		fi
-	done
+	# 	if [[ $retry -ge $max_retry ]]; then
+	# 		echo max retry count $retry reached. something went wrong with operator or kubernetes cluster
+	# 		exit 1
+	# 	fi
+	# done
 
 	backup_pod=$(kubectl get pods --selector=percona.com/backup-job-name=xb-${backup_name} -o jsonpath='{.items[].metadata.name}')
 
@@ -97,8 +99,6 @@ delete_backup_pod() {
 			break
 		fi
 	done
-
-	kubectl logs -f ${backup_pod}
 
 	# sleep till new backup pod starts
 	sleep 3

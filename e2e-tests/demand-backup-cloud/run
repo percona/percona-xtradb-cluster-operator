@@ -107,7 +107,7 @@ delete_backup_pod() {
 check_cloud_storage_cleanup() {
 	local backup_name=$1
 
-	if [ $(kubectl get events --field-selector involvedObject.kind=Job,involvedObject.name=xb-${backup_name} | grep -c "Created pod" ) -ne '2' ]; then
+	if [ $(kubectl get events --field-selector involvedObject.kind=Job,involvedObject.name=xb-${backup_name} | grep -c "Created pod") -ne '2' ]; then
 		echo "There should be 2 pods started by job. First backup finished too quick"
 		exit 1
 	fi

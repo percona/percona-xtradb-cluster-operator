@@ -102,7 +102,7 @@ delete_backup_pod() {
 	sleep 3
 }
 
-check_cloud_storage_cleanup(){
+check_cloud_storage_cleanup() {
 	local backup_name=$1
 	local max_retry=120
 

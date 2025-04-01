@@ -31,13 +31,19 @@ var (
 	pxcBinlogCollectorBackupSuccess = prometheus.NewCounter(
 		prometheus.CounterOpts{
 			Name: "pxc_binlog_collector_success_total",
-			Help: "Total number of successful binlog backups",
+			Help: "Total number of successful binlog collection cycles",
 		},
 	)
 	pxcBinlogCollectorBackupFailure = prometheus.NewCounter(
 		prometheus.CounterOpts{
 			Name: "pxc_binlog_collector_failure_total",
-			Help: "Total number of failed binlog backups",
+			Help: "Total number of failed binlog collection cycles",
+		},
+	)
+	pxcBinlogCollectorUploadedTotal = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "pxc_binlog_collector_uploaded_total",
+			Help: "Total number of successfully uploaded binlogs",
 		},
 	)
 	pxcBinlogCollectorLastProcessingTime = prometheus.NewGauge(
@@ -66,6 +72,7 @@ func init() {
 	prometheus.MustRegister(pxcBinlogCollectorLastProcessingTime)
 	prometheus.MustRegister(pxcBinlogCollectorLastUploadTime)
 	prometheus.MustRegister(pxcBinlogCollectorGapDetected)
+	prometheus.MustRegister(pxcBinlogCollectorUploadedTotal)
 }
 
 type Collector struct {
@@ -577,6 +584,7 @@ func (c *Collector) CollectBinLogs(ctx context.Context) error {
 			return errors.Wrap(err, "manage binlog")
 		}
 
+		pxcBinlogCollectorUploadedTotal.Inc()
 		pxcBinlogCollectorLastUploadTime.SetToCurrentTime()
 
 		lastTs, err := c.db.GetBinLogLastTimestamp(ctx, binlog.Name)

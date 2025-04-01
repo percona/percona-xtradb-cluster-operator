@@ -1,0 +1,7 @@
+apiVersion: coordination.k8s.io/v1
+kind: Lease
+metadata:
+  name: pxc-some-name-backup-lock
+spec:
+  acquireTime: "2025-03-18T16:47:25.407800Z"
+  holderIdentity: dummy-backup

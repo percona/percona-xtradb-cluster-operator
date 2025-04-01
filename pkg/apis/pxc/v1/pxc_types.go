@@ -95,7 +95,7 @@ type PXCSpec struct {
 }
 
 type ServiceExpose struct {
-	// Deprecated: Use ExposeReplica.Enabled instead, for ExposePrimary you don't need to specify this flag.
+	// Deprecated: for ExposePrimary you don't need to specify this flag.
 	Enabled                  bool                                    `json:"enabled,omitempty"`
 	Type                     corev1.ServiceType                      `json:"type,omitempty"`
 	LoadBalancerSourceRanges []string                                `json:"loadBalancerSourceRanges,omitempty"`

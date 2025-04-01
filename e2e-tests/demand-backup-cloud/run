@@ -93,7 +93,7 @@ delete_backup_pod() {
 
 	log echo "Deleting pod/$backup_pod during SST upload"
 	kubectl logs -f ${backup_pod} | while IFS= read -r line; do
-		if [[ $line =~ 'successfully uploaded chunk' ]]; then
+		if [[ $line =~ \.ibd\. ]]; then
 			# give time to upload some data
 			kubectl delete pod --force $backup_pod
 			break
@@ -116,6 +116,7 @@ check_cloud_storage_cleanup() {
 		echo "Bucket cleanup was successful"
 	else
 		echo "Bucket cleanup was not performed!"
+		kubectl logs $backup_pod
 		exit 1
 	fi
 }

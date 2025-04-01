@@ -562,7 +562,6 @@ type HAProxySpec struct {
 type ReplicasServiceExpose struct {
 	ServiceExpose `json:",inline"`
 	OnlyReaders   bool `json:"onlyReaders,omitempty"`
-	Enabled       bool `json:"enabled,omitempty"`
 }
 
 type PodDisruptionBudgetSpec struct {

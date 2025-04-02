@@ -95,13 +95,13 @@ check_cloud_storage_cleanup() {
 	local backup_name=$1
 
 	desc "Check storage cleanup of ${backup_name}"
-	if [ $(kubectl get events --field-selector involvedObject.kind=Job,involvedObject.name=xb-${backup_name} | grep -c "Created pod") -ne '2' ]; then
+	if [[ $(kubectl get events --field-selector involvedObject.kind=Job,involvedObject.name=xb-${backup_name} | grep -c "Created pod") -ne '2' ]]; then
 		echo "There should be 2 pods started by job. First backup finished too quick"
 		exit 1
 	fi
 	local backup_pod=$(kubectl get pods --selector=percona.com/backup-job-name=xb-${backup_name} -o jsonpath='{.items[].metadata.name}')
 	# There are 2 deletes during backup: $backup_dir_sst_info & $backup_dir
-	if [ $(kubectl logs ${backup_pod} | grep -c 'Delete completed.') -eq '2' ]; then
+	if [[ $(kubectl logs ${backup_pod} | grep -c 'Delete completed.') -eq '2' ]]; then
 		echo "Bucket cleanup was successful"
 	else
 		echo "Bucket cleanup was not performed!"

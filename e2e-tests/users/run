@@ -52,7 +52,7 @@ wait_for_password_propagation() {
 	done
 }
 
-create_infra $namespace
+# create_infra $namespace
 
 desc 'create PXC cluster with 1-password secret'
 
@@ -65,27 +65,31 @@ spinup_pxc "$cluster" "$conf_dir/$cluster.yml" "" "" "$conf_dir/secrets_one_pass
 desc 'Compare generated passwords'
 empty_pwds=()
 wrong_pwds=()
+kubectl_bin patch pxc some-name --type=merge -p="{\"spec\":{\"proxysql\":{\"size\":3}}}"
 for user in root xtrabackup monitor proxyadmin operator replication; do
     echo "Checking $user"
 	secret_pass=$(getSecretData "my-cluster-secrets" "$user")
 	int_secret_pass=$(getSecretData "internal-some-name" "$user")
-	if [[ -z $secret_pass ]]; then
-		empty_pwds+=("$user")
+	if [[ -z ${secret_pass} ]]; then
+		empty_pwds+=("${user}")
 	fi
 	if [[ "${secret_pass}" != "${int_secret_pass}" ]]; then
-		wrong_pwds+=("$user")
+		wrong_pwds+=("${user}")
+	fi
+	if [[ ${user} != 'proxyadmin' ]] && ! [[ "${empty_pwds[@]}" =~ ${user} ]] && ! [[ "${wrong_pwds[@]}" =~ ${user} ]]; then
+		echo "Running compare fro ${user}"
+		compare_mysql_cmd "select-4" "SHOW TABLES;" "-h ${cluster}-proxysql -u${user} -p'${secret_pass}'"
+	elif [[ ${user} == 'proxyadmin' ]] && ! [[ "${empty_pwds[@]}" =~ 'proxyadmin' ]] && ! [[ "${wrong_pwds[@]}" =~ 'proxyadmin' ]]; then
+		compare_mysql_cmd_local "select-2" "SHOW TABLES;" "-h127.0.0.1 -P6032 -u${user} -p'${secret_pass}'" "${cluster}-proxysql-0" "" 'proxysql'
 	fi
 done
-if [[ -n ${empty_pwds} ]]; then
-	echo "Passwords for the following users were empty: $empty_pwds"
-	exit 1
-fi
-if [[ -n ${wrong_pwds} ]]; then
-	echo "Passwords for the following users were wrong: $wrong_pwds"
+if [[ -n ${empty_pwds} || -n ${wrong_pwds} ]]; then
+	echo "Passwords for the following users were empty: ${empty_pwds[@]:-none}"
+    echo "Passwords for the following users were wrong: ${wrong_pwds[@]:-none}"
 	exit 1
 fi
 
-# desc 'test missed passwords were created'
+desc 'test missed passwords were created'
 
 desc 'test root'
 patch_secret "my-cluster-secrets" "root" "$newpassencrypted"

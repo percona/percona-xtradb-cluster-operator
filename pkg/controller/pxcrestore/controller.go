@@ -120,6 +120,10 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(ctx context.Context, re
 		}
 	}()
 
+	if cr.Status.State == api.RestoreNew {
+		cr.Status.State = api.RestoreStarting
+	}
+
 	otherRestore, err := isOtherRestoreInProgress(ctx, r.client, cr)
 	if err != nil {
 		return rr, errors.Wrap(err, "failed to check if other restore is in progress")
@@ -165,7 +169,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(ctx context.Context, re
 	}
 
 	switch cr.Status.State {
-	case api.RestoreNew:
+	case api.RestoreStarting:
 		return r.reconcileStateNew(ctx, restorer, cr, cluster, bcp)
 	case api.RestoreStopCluster:
 		return r.reconcileStateStopCluster(ctx, restorer, cr, cluster)
@@ -235,6 +239,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) reconcileStateNew(ctx context.Con
 		// TODO: do not depend on the RequeueAfter
 		RequeueAfter: time.Second * 5,
 	}
+	cr.Status.State = api.RestoreStarting
 
 	if cr.Spec.PITR != nil {
 		if err := backup.CheckPITRErrors(ctx, r.client, r.clientcmd, cluster); err != nil {

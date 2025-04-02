@@ -67,7 +67,7 @@ empty_pwds=()
 wrong_pwds=()
 kubectl_bin patch pxc some-name --type=merge -p="{\"spec\":{\"proxysql\":{\"size\":3}}}"
 for user in root xtrabackup monitor proxyadmin operator replication; do
-    echo "Checking $user"
+	echo "Checking $user"
 	secret_pass=$(getSecretData "my-cluster-secrets" "$user")
 	int_secret_pass=$(getSecretData "internal-some-name" "$user")
 	if [[ -z ${secret_pass} ]]; then

@@ -68,34 +68,21 @@ run_recovery_from_source() {
 	compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-2.$cluster-pxc -uroot -proot_password"
 }
 
-# If backup upload was started and failed for some reaason the cloud storage should be cleaned up during second try
+# If backup upload was started and failed for some reason the cloud storage should be cleaned up during second try
 delete_backup_pod() {
 	local backup_name=$1
-	local max_retry=120
 
-	echo "Waiting for ${backup_pod} to become Running"
-	set -o xtrace
-	# retry=0
+	desc "Delete ${backup_name} pod during SST"
+	echo "Waiting for ${backup_name} pod to become Running"
 	sleep 1
 	kubectl wait --for=jsonpath='{.status.phase}'=Running pod --selector=percona.com/backup-job-name=xb-${backup_name} --timeout=120s
-	# until kubectl get pods --selector=percona.com/backup-job-name=xb-${backup_name} -o jsonpath='{.items[].status.phase}' 2>/dev/null | grep -q -i 'Running'; do
-	# 	sleep 1
-	# 	echo -n .
-	# 	let retry+=1
-
-	# 	if [[ $retry -ge $max_retry ]]; then
-	# 		echo max retry count $retry reached. something went wrong with operator or kubernetes cluster
-	# 		exit 1
-	# 	fi
-	# done
 
 	backup_pod=$(kubectl get pods --selector=percona.com/backup-job-name=xb-${backup_name} -o jsonpath='{.items[].metadata.name}')
 
-	log echo "Deleting pod/$backup_pod during SST upload"
+	echo "Deleting pod/${backup_pod} during SST upload"
 	kubectl logs -f ${backup_pod} | while IFS= read -r line; do
 		if [[ $line =~ \.ibd\. ]]; then
-			# give time to upload some data
-			kubectl delete pod --force $backup_pod
+			kubectl delete pod --force ${backup_pod}
 			break
 		fi
 	done
@@ -107,30 +94,31 @@ delete_backup_pod() {
 check_cloud_storage_cleanup() {
 	local backup_name=$1
 
+	desc "Check storage cleanup of ${backup_name}"
 	if [ $(kubectl get events --field-selector involvedObject.kind=Job,involvedObject.name=xb-${backup_name} | grep -c "Created pod") -ne '2' ]; then
 		echo "There should be 2 pods started by job. First backup finished too quick"
 		exit 1
 	fi
 	local backup_pod=$(kubectl get pods --selector=percona.com/backup-job-name=xb-${backup_name} -o jsonpath='{.items[].metadata.name}')
-	if kubectl logs $backup_pod | egrep -i 'xbcloud delete|Delete completed.'; then
+	# There are 2 deletes during backup: $backup_dir_sst_info & $backup_dir
+	if [ $(kubectl logs ${backup_pod} | grep -c 'Delete completed.') -eq '2' ]; then
 		echo "Bucket cleanup was successful"
 	else
 		echo "Bucket cleanup was not performed!"
-		kubectl logs $backup_pod
+		kubectl logs ${backup_pod}
 		exit 1
 	fi
 }
 
 run_backup_with_delete() {
-	local cluster=$1
-	local backup1=$2
+	local backup_name=$1
 
-	desc "make backup $backup1"
+	desc "make backup ${backup_name}"
 	kubectl_bin apply \
-		-f $test_dir/conf/$backup1.yml
-	delete_backup_pod $backup1
-	wait_backup "${backup1}"
-	check_cloud_storage_cleanup "${backup1}"
+		-f $test_dir/conf/${backup_name}.yml
+	delete_backup_pod ${backup_name}
+	wait_backup "${backup_name}"
+	check_cloud_storage_cleanup "${backup_name}"
 }
 
 main() {
@@ -143,19 +131,12 @@ main() {
 		cluster="demand-backup-cloud"
 		spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml"
 
-		# echo "Write more data for bigger backup"
-		# run_mysql \
-		# 	'CREATE DATABASE IF NOT EXISTS sbtest;' \
-		# 	"-h $cluster-pxc -uroot -proot_password"
-		# kubectl run -it --rm sysbench-client-${RANDOM} --image=perconalab/sysbench:latest --restart=Never -- \
-		# 	sysbench oltp_read_only --tables=50 --table_size=500 --mysql-host=$cluster-pxc  --mysql-port=3306 --mysql-user=root --mysql-password=root_password --mysql-db=sbtest prepare
-
 		backup_name_aws="on-demand-backup-aws-s3"
 		backup_name_gcp="on-demand-backup-gcp-cs"
 		backup_name_azure="on-demand-backup-azure-blob"
 
 		desc "Run backup ${backup_name_aws} for $cluster cluster"
-		run_backup_with_delete "$cluster" "${backup_name_aws}"
+		run_backup_with_delete "${backup_name_aws}"
 
 		desc "Run recovery from s3 for $cluster cluster"
 		run_recovery_check "$cluster" "${backup_name_aws}"
@@ -172,13 +153,13 @@ main() {
 		compare_kubectl job.batch/restore-job-on-demand-backup-s3-demand-backup-cloud
 
 		desc "Run backup ${backup_name_gcp} for $cluster cluster"
-		run_backup_with_delete "$cluster" "${backup_name_gcp}"
+		run_backup_with_delete "${backup_name_gcp}"
 
 		desc "Run recovery from s3 for $cluster cluster"
 		run_recovery_check "$cluster" "${backup_name_gcp}"
 
 		desc "Run backup ${backup_name_azure} for $cluster cluster"
-		run_backup_with_delete "$cluster" "${backup_name_azure}"
+		run_backup_with_delete "${backup_name_azure}"
 
 		desc "Run recovery from azure for $cluster cluster"
 		run_recovery_check "$cluster" "${backup_name_azure}"

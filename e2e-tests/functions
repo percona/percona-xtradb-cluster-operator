@@ -915,16 +915,16 @@ spinup_pxc() {
 	local port="${7:-3306}"
 
 	desc 'create first PXC cluster'
-	# kubectl_bin apply -f $secretsFile
-	# apply_config "$pxcClientFile"
-	# if [[ $IMAGE_PXC =~ 5\.7 ]] && [[ $cluster == 'demand-backup' || $cluster == 'demand-backup-cloud' ]]; then
-	# 	cat_config "$config" \
-	# 		| $sed '/\[sst\]/,+1d' \
-	# 		| $sed 's|compress=lz4|compress|' \
-	# 		| kubectl_bin apply -f -
-	# else
-	# 	apply_config "$config"
-	# fi
+	kubectl_bin apply -f $secretsFile
+	apply_config "$pxcClientFile"
+	if [[ $IMAGE_PXC =~ 5\.7 ]] && [[ $cluster == 'demand-backup' || $cluster == 'demand-backup-cloud' ]]; then
+		cat_config "$config" \
+			| $sed '/\[sst\]/,+1d' \
+			| $sed 's|compress=lz4|compress|' \
+			| kubectl_bin apply -f -
+	else
+		apply_config "$config"
+	fi
 
 	desc 'check if all 3 Pods started'
 	local proxy=$(get_proxy "$cluster")

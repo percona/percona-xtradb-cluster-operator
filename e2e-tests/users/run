@@ -52,7 +52,7 @@ wait_for_password_propagation() {
 	done
 }
 
-# create_infra $namespace
+create_infra $namespace
 
 desc 'create PXC cluster with 1-password secret'
 

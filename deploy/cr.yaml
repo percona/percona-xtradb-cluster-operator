@@ -282,7 +282,6 @@ spec:
 #      successThreshold: 1
 #      failureThreshold: 4
 #    exposePrimary:
-#      enabled: false
 #      type: ClusterIP
 #      annotations:
 #        service.beta.kubernetes.io/aws-load-balancer-backend-protocol: tcp

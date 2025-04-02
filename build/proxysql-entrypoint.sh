@@ -7,9 +7,9 @@ function sed_in_place() {
 	local file=$2
 	local tmp=$(mktemp)
 
-	sed "${cmd}" "${file}" >${tmp}
-	cat ${tmp} >${file}
-	rm ${tmp}
+	sed "${cmd}" "${file}" >"${tmp}"
+	cat "${tmp}" >"${file}"
+	rm "${tmp}"
 }
 
 cp /opt/percona/proxysql.cnf /etc/proxysql

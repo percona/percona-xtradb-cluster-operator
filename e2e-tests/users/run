@@ -86,7 +86,7 @@ for user in root xtrabackup monitor proxyadmin operator replication; do
 done
 if [[ -n ${empty_pwds} || -n ${wrong_pwds} ]]; then
 	echo "Passwords for the following users were empty: ${empty_pwds[@]:-none}"
-    echo "Passwords for the following users were wrong: ${wrong_pwds[@]:-none}"
+	echo "Passwords for the following users were wrong: ${wrong_pwds[@]:-none}"
 	exit 1
 fi
 

@@ -239,7 +239,6 @@ func (r *ReconcilePerconaXtraDBClusterRestore) reconcileStateNew(ctx context.Con
 		// TODO: do not depend on the RequeueAfter
 		RequeueAfter: time.Second * 5,
 	}
-	cr.Status.State = api.RestoreStarting
 
 	if cr.Spec.PITR != nil {
 		if err := backup.CheckPITRErrors(ctx, r.client, r.clientcmd, cluster); err != nil {

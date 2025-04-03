@@ -57,7 +57,9 @@ function main() {
 		SSL_ARG="--use-ssl=yes"
 	fi
 
-	sed "s/WRITE_NODE=.*/WRITE_NODE='$pod_zero.$service:3306'/g" /etc/proxysql-admin.cnf 1<>/etc/proxysql-admin.cnf
+	local tmp=$(mktemp)
+	sed "s/WRITE_NODE=.*/WRITE_NODE='$pod_zero.$service:3306'/g" /etc/proxysql-admin.cnf >${tmp}
+	cat ${tmp} >/etc/proxysql-admin.cnf
 
 	proxysql-admin \
 		--config-file=/etc/proxysql-admin.cnf \

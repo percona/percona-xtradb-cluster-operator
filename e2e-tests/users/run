@@ -65,7 +65,6 @@ spinup_pxc "$cluster" "$conf_dir/$cluster.yml" "" "" "$conf_dir/secrets_one_pass
 desc 'test missing passwords were created and present in internal secrets'
 empty_pwds=()
 wrong_pwds=()
-kubectl_bin patch pxc some-name --type=merge -p="{\"spec\":{\"proxysql\":{\"size\":3}}}"
 for user in root xtrabackup monitor proxyadmin operator replication; do
 	echo "Checking $user"
 	secret_pass=$(getSecretData "my-cluster-secrets" "$user")

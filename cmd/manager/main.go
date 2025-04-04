@@ -217,7 +217,7 @@ func getLogLevel(log logr.Logger) zapcore.LevelEnabler {
 	}
 
 	switch strings.ToUpper(l) {
-	case "DEBUG":
+	case "VERBOSE", "DEBUG":
 		return zapcore.DebugLevel
 	case "INFO":
 		return zapcore.InfoLevel

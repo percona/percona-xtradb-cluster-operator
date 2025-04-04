@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"reflect"
 	"strings"
 	"sync"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	cm "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
+	"github.com/google/go-cmp/cmp"
 	"github.com/pkg/errors"
 	"github.com/robfig/cron/v3"
 	appsv1 "k8s.io/api/apps/v1"
@@ -40,6 +42,7 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/config"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/util"
 	"github.com/percona/percona-xtradb-cluster-operator/version"
 )
 
@@ -1132,9 +1135,14 @@ func (r *ReconcilePerconaXtraDBCluster) createOrUpdate(ctx context.Context, cr *
 		return r.client.Create(ctx, obj)
 	}
 
-	if oldObject.GetAnnotations()["percona.com/last-config-hash"] != hash ||
-		!isObjectMetaEqual(obj, oldObject) {
+	switch obj.(type) {
+	case *appsv1.Deployment:
+		objAnnotations := oldObject.GetAnnotations()
+		delete(objAnnotations, "deployment.kubernetes.io/revision")
+		oldObject.SetAnnotations(objAnnotations)
+	}
 
+	if oldObject.GetAnnotations()["percona.com/last-config-hash"] != hash || !isObjectMetaEqual(obj, oldObject) {
 		switch object := obj.(type) {
 		case *corev1.Service:
 			object.Spec.ClusterIP = oldObject.(*corev1.Service).Spec.ClusterIP
@@ -1145,7 +1153,15 @@ func (r *ReconcilePerconaXtraDBCluster) createOrUpdate(ctx context.Context, cr *
 			obj.SetResourceVersion(oldObject.GetResourceVersion())
 		}
 
-		log.V(1).Info("Updating object", "object", obj.GetName(), "kind", obj.GetObjectKind())
+		log.V(1).Info("Updating object",
+			"object", obj.GetName(),
+			"kind", obj.GetObjectKind(),
+			"hashChanged", oldObject.GetAnnotations()["percona.com/last-config-hash"] != hash,
+			"metaChanged", !isObjectMetaEqual(obj, oldObject),
+		)
+		if util.IsLogLevelVerbose() && !util.IsLogStructured() {
+			fmt.Println(cmp.Diff(oldObject, obj))
+		}
 
 		return r.client.Update(ctx, obj)
 	}

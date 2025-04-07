@@ -67,6 +67,7 @@ type BcpRestoreStates string
 
 const (
 	RestoreNew          BcpRestoreStates = ""
+	RestoreStarting     BcpRestoreStates = "Starting"
 	RestoreStopCluster  BcpRestoreStates = "Stopping Cluster"
 	RestoreRestore      BcpRestoreStates = "Restoring"
 	RestoreStartCluster BcpRestoreStates = "Starting Cluster"

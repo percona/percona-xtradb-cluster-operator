@@ -19,7 +19,8 @@ import (
 
 	"github.com/percona/percona-xtradb-cluster-operator/clientcmd"
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/deployment"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/binlogcollector"
 )
 
 func CheckPITRErrors(ctx context.Context, cl client.Client, clcmd *clientcmd.Client, cr *api.PerconaXtraDBCluster) error {
@@ -43,7 +44,11 @@ func CheckPITRErrors(ctx context.Context, cl client.Client, clcmd *clientcmd.Cli
 		}
 	}
 
-	err = cl.Get(ctx, types.NamespacedName{Namespace: cr.Namespace, Name: deployment.GetBinlogCollectorDeploymentName(cr)}, new(appsv1.Deployment))
+	err = cl.Get(ctx,
+		types.NamespacedName{
+			Namespace: cr.Namespace,
+			Name:      naming.BinlogCollectorDeploymentName(cr),
+		}, new(appsv1.Deployment))
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil
@@ -51,7 +56,7 @@ func CheckPITRErrors(ctx context.Context, cl client.Client, clcmd *clientcmd.Cli
 		return errors.Wrap(err, "get binlog collector deployment")
 	}
 
-	collectorPod, err := deployment.GetBinlogCollectorPod(ctx, cl, cr)
+	collectorPod, err := binlogcollector.GetPod(ctx, cl, cr)
 	if err != nil {
 		return errors.Wrap(err, "get binlog collector pod")
 	}
@@ -84,8 +89,8 @@ func CheckPITRErrors(ctx context.Context, cl client.Client, clcmd *clientcmd.Cli
 		return errors.Wrap(err, "update backup status")
 	}
 
-	if err := deployment.RemoveGapFile(ctx, cr, clcmd, collectorPod); err != nil {
-		if !errors.Is(err, deployment.GapFileNotFound) {
+	if err := binlogcollector.RemoveGapFile(clcmd, collectorPod); err != nil {
+		if !errors.Is(err, binlogcollector.GapFileNotFound) {
 			return errors.Wrap(err, "remove gap file")
 		}
 	}
@@ -108,7 +113,11 @@ func UpdatePITRTimeline(ctx context.Context, cl client.Client, clcmd *clientcmd.
 		return errors.Wrap(err, "get latest successful backup")
 	}
 
-	err = cl.Get(ctx, types.NamespacedName{Namespace: cr.Namespace, Name: deployment.GetBinlogCollectorDeploymentName(cr)}, new(appsv1.Deployment))
+	err = cl.Get(ctx,
+		types.NamespacedName{
+			Namespace: cr.Namespace,
+			Name:      naming.BinlogCollectorDeploymentName(cr),
+		}, new(appsv1.Deployment))
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil
@@ -116,7 +125,7 @@ func UpdatePITRTimeline(ctx context.Context, cl client.Client, clcmd *clientcmd.
 		return errors.Wrap(err, "get binlog collector deployment")
 	}
 
-	collectorPod, err := deployment.GetBinlogCollectorPod(ctx, cl, cr)
+	collectorPod, err := binlogcollector.GetPod(ctx, cl, cr)
 	if err != nil {
 		return errors.Wrap(err, "get binlog collector pod")
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"reflect"
 	"strings"
 	"sync"
@@ -11,21 +12,22 @@ import (
 	"time"
 
 	cm "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
+	"github.com/google/go-cmp/cmp"
 	"github.com/pkg/errors"
 	"github.com/robfig/cron/v3"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	policyv1 "k8s.io/api/policy/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/record"
 	k8sretry "k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -33,13 +35,19 @@ import (
 
 	"github.com/percona/percona-xtradb-cluster-operator/clientcmd"
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/config"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/util"
 	"github.com/percona/percona-xtradb-cluster-operator/version"
+)
+
+const (
+	secretsNameField = ".spec.secretsName"
 )
 
 // Add creates a new PerconaXtraDBCluster Controller and adds it to the Manager. The Manager will set fields on the Controller
@@ -72,15 +80,60 @@ func newReconciler(mgr manager.Manager) (reconcile.Reconciler, error) {
 		serverVersion: sv,
 		clientcmd:     cli,
 		lockers:       newLockStore(),
+		recorder:      mgr.GetEventRecorderFor(naming.OperatorController),
 	}, nil
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
+	if err := setupSecretNameFieldIndexer(mgr); err != nil {
+		return errors.Wrap(err, "setup field indexers")
+	}
 	return builder.ControllerManagedBy(mgr).
-		Named("pxc-controller").
+		Named(naming.OperatorController).
 		Watches(&api.PerconaXtraDBCluster{}, &handler.EnqueueRequestForObject{}).
+		Watches(&corev1.Secret{}, enqueuePXCReferencingSecret(mgr.GetClient())).
 		Complete(r)
+}
+
+func setupSecretNameFieldIndexer(mgr manager.Manager) error {
+	return mgr.GetFieldIndexer().IndexField(context.TODO(), &api.PerconaXtraDBCluster{}, secretsNameField, func(o client.Object) []string {
+		cluster, ok := o.(*api.PerconaXtraDBCluster)
+		if !ok || cluster.Spec.SecretsName == "" {
+			return nil
+		}
+		return []string{cluster.Spec.SecretsName}
+	})
+}
+
+// enqueuePXCReferencingSecret returns an EventHandler that returns a list of all
+// pxc-clusters that reference the secret via `.spec.secretsName`.
+func enqueuePXCReferencingSecret(c client.Client) handler.EventHandler {
+	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
+		secret, ok := o.(*corev1.Secret)
+		if !ok {
+			return nil
+		}
+		list := &api.PerconaXtraDBClusterList{}
+		err := c.List(ctx, list, &client.ListOptions{
+			FieldSelector: fields.OneTermEqualSelector(secretsNameField, secret.GetName()),
+			Namespace:     secret.GetNamespace(),
+		})
+		log := logf.FromContext(ctx)
+		if err != nil {
+			log.Error(err, "failed to list clusters referencing secret", "secret", secret.GetName())
+		}
+		var requests []reconcile.Request
+		for _, cr := range list.Items {
+			requests = append(requests, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      cr.GetName(),
+					Namespace: cr.GetNamespace(),
+				},
+			})
+		}
+		return requests
+	})
 }
 
 var _ reconcile.Reconciler = &ReconcilePerconaXtraDBCluster{}
@@ -96,6 +149,7 @@ type ReconcilePerconaXtraDBCluster struct {
 	syncUsersState int32
 	serverVersion  *version.ServerVersion
 	lockers        lockStore
+	recorder       record.EventRecorder
 }
 
 type lockStore struct {
@@ -245,7 +299,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 				log.Info("The finalizer delete-pxc-pods-in-order is deprecated and will be deleted in 1.18.0. Use percona.com/delete-pxc-pods-in-order")
 				fallthrough
 			case naming.FinalizerDeletePxcPodsInOrder:
-				err = r.deletePXCPods(o)
+				err = r.deletePXCPods(ctx, o)
 			}
 			if err != nil {
 				finalizers = append(finalizers, fnlz)
@@ -296,7 +350,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 		}
 	}
 
-	err = r.reconcileUsersSecret(ctx, o)
+	userSecret, err := r.reconcileUsersSecret(ctx, o)
 	if err != nil {
 		return reconcile.Result{}, errors.Wrap(err, "reconcile users secret")
 	}
@@ -305,7 +359,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 	// Currently, if an error occurs before the statefulsets are updated with annotations, and reconcileUsers has a different result on the next reconcile, the statefulsets will not have the required annotations.
 	userReconcileResult := &ReconcileUsersResult{}
 
-	urr, err := r.reconcileUsers(ctx, o)
+	urr, err := r.reconcileUsers(ctx, o, userSecret)
 	if err != nil {
 		return reconcile.Result{}, errors.Wrap(err, "reconcile users")
 	}
@@ -572,7 +626,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDB
 			return errors.Wrap(err, "new autotune configmap")
 		}
 
-		err = setControllerReference(cr, configMap, r.scheme)
+		err = k8s.SetControllerReference(cr, configMap, r.scheme)
 		if err != nil {
 			return errors.Wrap(err, "set autotune configmap controller ref")
 		}
@@ -590,7 +644,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDB
 	pxcConfigName := config.CustomConfigMapName(cr.Name, "pxc")
 	if cr.Spec.PXC.Configuration != "" {
 		configMap := config.NewConfigMap(cr, pxcConfigName, "init.cnf", cr.Spec.PXC.Configuration)
-		err := setControllerReference(cr, configMap, r.scheme)
+		err := k8s.SetControllerReference(cr, configMap, r.scheme)
 		if err != nil {
 			return errors.Wrap(err, "set controller ref")
 		}
@@ -657,7 +711,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDB
 	if cr.Spec.ProxySQLEnabled() {
 		if cr.Spec.ProxySQL.Configuration != "" {
 			configMap := config.NewConfigMap(cr, proxysqlConfigName, "proxysql.cnf", cr.Spec.ProxySQL.Configuration)
-			err := setControllerReference(cr, configMap, r.scheme)
+			err := k8s.SetControllerReference(cr, configMap, r.scheme)
 			if err != nil {
 				return errors.Wrap(err, "set controller ref ProxySQL")
 			}
@@ -676,7 +730,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDB
 	haproxyConfigName := config.CustomConfigMapName(cr.Name, "haproxy")
 	if cr.HAProxyEnabled() && cr.Spec.HAProxy.Configuration != "" {
 		configMap := config.NewConfigMap(cr, haproxyConfigName, "haproxy-global.cfg", cr.Spec.HAProxy.Configuration)
-		err := setControllerReference(cr, configMap, r.scheme)
+		err := k8s.SetControllerReference(cr, configMap, r.scheme)
 		if err != nil {
 			return errors.Wrap(err, "set controller ref HAProxy")
 		}
@@ -694,7 +748,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDB
 	logCollectorConfigName := config.CustomConfigMapName(cr.Name, "logcollector")
 	if cr.Spec.LogCollector != nil && cr.Spec.LogCollector.Configuration != "" {
 		configMap := config.NewConfigMap(cr, logCollectorConfigName, "fluentbit_custom.conf", cr.Spec.LogCollector.Configuration)
-		err := setControllerReference(cr, configMap, r.scheme)
+		err := k8s.SetControllerReference(cr, configMap, r.scheme)
 		if err != nil {
 			return errors.Wrap(err, "set controller ref LogCollector")
 		}
@@ -713,7 +767,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDB
 
 func (r *ReconcilePerconaXtraDBCluster) createHookScriptConfigMap(cr *api.PerconaXtraDBCluster, hookScript string, configMapName string) error {
 	configMap := config.NewConfigMap(cr, configMapName, "hook.sh", hookScript)
-	err := setControllerReference(cr, configMap, r.scheme)
+	err := k8s.SetControllerReference(cr, configMap, r.scheme)
 	if err != nil {
 		return errors.Wrap(err, "set controller ref")
 	}
@@ -739,21 +793,21 @@ func (r *ReconcilePerconaXtraDBCluster) reconcilePDB(ctx context.Context, cr *ap
 	}
 
 	pdb := pxc.PodDisruptionBudget(cr, spec, sfs.Labels())
-	if err := setControllerReference(sts, pdb, r.scheme); err != nil {
+	if err := k8s.SetControllerReference(sts, pdb, r.scheme); err != nil {
 		return errors.Wrap(err, "set owner reference")
 	}
 
 	return errors.Wrap(r.createOrUpdate(ctx, cr, pdb), "reconcile pdb")
 }
 
-func (r *ReconcilePerconaXtraDBCluster) deletePXCPods(cr *api.PerconaXtraDBCluster) error {
+func (r *ReconcilePerconaXtraDBCluster) deletePXCPods(ctx context.Context, cr *api.PerconaXtraDBCluster) error {
 	sfs := statefulset.NewNode(cr)
 	err := r.deleteStatefulSetPods(cr.Namespace, sfs)
 	if err != nil {
 		return errors.Wrap(err, "delete statefulset pods")
 	}
 	if cr.Spec.Backup != nil && cr.Spec.Backup.PITR.Enabled {
-		return errors.Wrap(r.deletePITR(cr), "delete pitr pod")
+		return errors.Wrap(r.deletePITR(ctx, cr), "delete pitr pod")
 	}
 
 	return nil
@@ -981,38 +1035,6 @@ func (r *ReconcilePerconaXtraDBCluster) deleteCerts(ctx context.Context, cr *api
 	return nil
 }
 
-func setControllerReference(ro runtime.Object, obj metav1.Object, scheme *runtime.Scheme) error {
-	ownerRef, err := OwnerRef(ro, scheme)
-	if err != nil {
-		return err
-	}
-	obj.SetOwnerReferences(append(obj.GetOwnerReferences(), ownerRef))
-	return nil
-}
-
-// OwnerRef returns OwnerReference to object
-func OwnerRef(ro runtime.Object, scheme *runtime.Scheme) (metav1.OwnerReference, error) {
-	gvk, err := apiutil.GVKForObject(ro, scheme)
-	if err != nil {
-		return metav1.OwnerReference{}, err
-	}
-
-	trueVar := true
-
-	ca, err := meta.Accessor(ro)
-	if err != nil {
-		return metav1.OwnerReference{}, err
-	}
-
-	return metav1.OwnerReference{
-		APIVersion: gvk.GroupVersion().String(),
-		Kind:       gvk.Kind,
-		Name:       ca.GetName(),
-		UID:        ca.GetUID(),
-		Controller: &trueVar,
-	}, nil
-}
-
 // resyncPXCUsersWithProxySQL calls the method of synchronizing users and makes sure that only one Goroutine works at a time
 func (r *ReconcilePerconaXtraDBCluster) resyncPXCUsersWithProxySQL(ctx context.Context, cr *api.PerconaXtraDBCluster) {
 	if !cr.Spec.ProxySQLEnabled() {
@@ -1109,13 +1131,18 @@ func (r *ReconcilePerconaXtraDBCluster) createOrUpdate(ctx context.Context, cr *
 	}
 
 	if k8serrors.IsNotFound(err) {
-		log.V(1).Info("Creating object", "object", obj.GetName())
+		log.V(1).Info("Creating object", "object", obj.GetName(), "kind", obj.GetObjectKind())
 		return r.client.Create(ctx, obj)
 	}
 
-	if oldObject.GetAnnotations()["percona.com/last-config-hash"] != hash ||
-		!isObjectMetaEqual(obj, oldObject) {
+	switch obj.(type) {
+	case *appsv1.Deployment:
+		objAnnotations := oldObject.GetAnnotations()
+		delete(objAnnotations, "deployment.kubernetes.io/revision")
+		oldObject.SetAnnotations(objAnnotations)
+	}
 
+	if oldObject.GetAnnotations()["percona.com/last-config-hash"] != hash || !isObjectMetaEqual(obj, oldObject) {
 		switch object := obj.(type) {
 		case *corev1.Service:
 			object.Spec.ClusterIP = oldObject.(*corev1.Service).Spec.ClusterIP
@@ -1126,7 +1153,15 @@ func (r *ReconcilePerconaXtraDBCluster) createOrUpdate(ctx context.Context, cr *
 			obj.SetResourceVersion(oldObject.GetResourceVersion())
 		}
 
-		log.V(1).Info("Updating object", "object", obj.GetName())
+		log.V(1).Info("Updating object",
+			"object", obj.GetName(),
+			"kind", obj.GetObjectKind(),
+			"hashChanged", oldObject.GetAnnotations()["percona.com/last-config-hash"] != hash,
+			"metaChanged", !isObjectMetaEqual(obj, oldObject),
+		)
+		if util.IsLogLevelVerbose() && !util.IsLogStructured() {
+			fmt.Println(cmp.Diff(oldObject, obj))
+		}
 
 		return r.client.Update(ctx, obj)
 	}
@@ -1179,7 +1214,7 @@ func mergeMaps(x, y map[string]string) map[string]string {
 }
 
 func (r *ReconcilePerconaXtraDBCluster) createOrUpdateService(ctx context.Context, cr *api.PerconaXtraDBCluster, svc *corev1.Service, saveOldMeta bool) error {
-	err := setControllerReference(cr, svc, r.scheme)
+	err := k8s.SetControllerReference(cr, svc, r.scheme)
 	if err != nil {
 		return errors.Wrap(err, "set controller reference")
 	}

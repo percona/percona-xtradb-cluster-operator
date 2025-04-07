@@ -145,13 +145,24 @@ spec:
                 type: object
               pxcCluster:
                 type: string
+              startingDeadlineSeconds:
+                format: int64
+                type: integer
               storageName:
                 type: string
+              suspendedDeadlineSeconds:
+                format: int64
+                type: integer
             type: object
           status:
             properties:
               azure:
                 properties:
+                  blockSize:
+                    format: int64
+                    type: integer
+                  concurrency:
+                    type: integer
                   container:
                     type: string
                   credentialsSecret:
@@ -201,6 +212,8 @@ spec:
                   type: object
                 type: array
               destination:
+                type: string
+              error:
                 type: string
               image:
                 type: string
@@ -294,6 +307,11 @@ spec:
                 properties:
                   azure:
                     properties:
+                      blockSize:
+                        format: int64
+                        type: integer
+                      concurrency:
+                        type: integer
                       container:
                         type: string
                       credentialsSecret:
@@ -343,6 +361,8 @@ spec:
                       type: object
                     type: array
                   destination:
+                    type: string
+                  error:
                     type: string
                   image:
                     type: string
@@ -468,6 +488,11 @@ spec:
                     properties:
                       azure:
                         properties:
+                          blockSize:
+                            format: int64
+                            type: integer
+                          concurrency:
+                            type: integer
                           container:
                             type: string
                           credentialsSecret:
@@ -517,6 +542,8 @@ spec:
                           type: object
                         type: array
                       destination:
+                        type: string
+                      error:
                         type: string
                       image:
                         type: string
@@ -597,16 +624,36 @@ spec:
             type: object
           status:
             properties:
+              clusterSize:
+                format: int32
+                type: integer
               comments:
                 type: string
               completed:
                 format: date-time
                 type: string
+              haproxySize:
+                format: int32
+                type: integer
               lastscheduled:
                 format: date-time
                 type: string
+              proxysqlSize:
+                format: int32
+                type: integer
               state:
                 type: string
+              unsafeFlags:
+                properties:
+                  backupIfUnhealthy:
+                    type: boolean
+                  proxySize:
+                    type: boolean
+                  pxcSize:
+                    type: boolean
+                  tls:
+                    type: boolean
+                type: object
             type: object
         type: object
     served: true
@@ -1048,6 +1095,9 @@ spec:
                     type: array
                   serviceAccountName:
                     type: string
+                  startingDeadlineSeconds:
+                    format: int64
+                    type: integer
                   storages:
                     additionalProperties:
                       properties:
@@ -1496,6 +1546,11 @@ spec:
                           type: object
                         azure:
                           properties:
+                            blockSize:
+                              format: int64
+                              type: integer
+                            concurrency:
+                              type: integer
                             container:
                               type: string
                             credentialsSecret:
@@ -1985,6 +2040,9 @@ spec:
                           type: object
                       type: object
                     type: object
+                  suspendedDeadlineSeconds:
+                    format: int64
+                    type: integer
                 type: object
               crVersion:
                 type: string
@@ -5243,10 +5301,172 @@ spec:
                     type: string
                   imagePullPolicy:
                     type: string
+                  livenessProbes:
+                    properties:
+                      exec:
+                        properties:
+                          command:
+                            items:
+                              type: string
+                            type: array
+                            x-kubernetes-list-type: atomic
+                        type: object
+                      failureThreshold:
+                        format: int32
+                        type: integer
+                      grpc:
+                        properties:
+                          port:
+                            format: int32
+                            type: integer
+                          service:
+                            default: ""
+                            type: string
+                        required:
+                        - port
+                        type: object
+                      httpGet:
+                        properties:
+                          host:
+                            type: string
+                          httpHeaders:
+                            items:
+                              properties:
+                                name:
+                                  type: string
+                                value:
+                                  type: string
+                              required:
+                              - name
+                              - value
+                              type: object
+                            type: array
+                            x-kubernetes-list-type: atomic
+                          path:
+                            type: string
+                          port:
+                            anyOf:
+                            - type: integer
+                            - type: string
+                            x-kubernetes-int-or-string: true
+                          scheme:
+                            type: string
+                        required:
+                        - port
+                        type: object
+                      initialDelaySeconds:
+                        format: int32
+                        type: integer
+                      periodSeconds:
+                        format: int32
+                        type: integer
+                      successThreshold:
+                        format: int32
+                        type: integer
+                      tcpSocket:
+                        properties:
+                          host:
+                            type: string
+                          port:
+                            anyOf:
+                            - type: integer
+                            - type: string
+                            x-kubernetes-int-or-string: true
+                        required:
+                        - port
+                        type: object
+                      terminationGracePeriodSeconds:
+                        format: int64
+                        type: integer
+                      timeoutSeconds:
+                        format: int32
+                        type: integer
+                    type: object
                   proxysqlParams:
                     type: string
                   pxcParams:
                     type: string
+                  readinessProbes:
+                    properties:
+                      exec:
+                        properties:
+                          command:
+                            items:
+                              type: string
+                            type: array
+                            x-kubernetes-list-type: atomic
+                        type: object
+                      failureThreshold:
+                        format: int32
+                        type: integer
+                      grpc:
+                        properties:
+                          port:
+                            format: int32
+                            type: integer
+                          service:
+                            default: ""
+                            type: string
+                        required:
+                        - port
+                        type: object
+                      httpGet:
+                        properties:
+                          host:
+                            type: string
+                          httpHeaders:
+                            items:
+                              properties:
+                                name:
+                                  type: string
+                                value:
+                                  type: string
+                              required:
+                              - name
+                              - value
+                              type: object
+                            type: array
+                            x-kubernetes-list-type: atomic
+                          path:
+                            type: string
+                          port:
+                            anyOf:
+                            - type: integer
+                            - type: string
+                            x-kubernetes-int-or-string: true
+                          scheme:
+                            type: string
+                        required:
+                        - port
+                        type: object
+                      initialDelaySeconds:
+                        format: int32
+                        type: integer
+                      periodSeconds:
+                        format: int32
+                        type: integer
+                      successThreshold:
+                        format: int32
+                        type: integer
+                      tcpSocket:
+                        properties:
+                          host:
+                            type: string
+                          port:
+                            anyOf:
+                            - type: integer
+                            - type: string
+                            x-kubernetes-int-or-string: true
+                        required:
+                        - port
+                        type: object
+                      terminationGracePeriodSeconds:
+                        format: int64
+                        type: integer
+                      timeoutSeconds:
+                        format: int32
+                        type: integer
+                    type: object
                   resources:
                     properties:
                       claims:

@@ -47,14 +47,17 @@ type PerconaXtraDBClusterBackup struct {
 }
 
 type PXCBackupSpec struct {
-	PXCCluster            string                  `json:"pxcCluster"`
-	StorageName           string                  `json:"storageName,omitempty"`
-	ContainerOptions      *BackupContainerOptions `json:"containerOptions,omitempty"`
-	ActiveDeadlineSeconds *int64                  `json:"activeDeadlineSeconds,omitempty"`
+	PXCCluster               string                  `json:"pxcCluster"`
+	StorageName              string                  `json:"storageName,omitempty"`
+	ContainerOptions         *BackupContainerOptions `json:"containerOptions,omitempty"`
+	ActiveDeadlineSeconds    *int64                  `json:"activeDeadlineSeconds,omitempty"`
+	StartingDeadlineSeconds  *int64                  `json:"startingDeadlineSeconds,omitempty"`
+	SuspendedDeadlineSeconds *int64                  `json:"suspendedDeadlineSeconds,omitempty"`
 }
 
 type PXCBackupStatus struct {
 	State                 PXCBackupState          `json:"state,omitempty"`
+	Error                 string                  `json:"error,omitempty"`
 	CompletedAt           *metav1.Time            `json:"completed,omitempty"`
 	LastScheduled         *metav1.Time            `json:"lastscheduled,omitempty"`
 	Destination           PXCBackupDestination    `json:"destination,omitempty"`
@@ -162,6 +165,7 @@ type PXCBackupState string
 
 const (
 	BackupNew       PXCBackupState = ""
+	BackupSuspended PXCBackupState = "Suspended"
 	BackupStarting  PXCBackupState = "Starting"
 	BackupRunning   PXCBackupState = "Running"
 	BackupFailed    PXCBackupState = "Failed"
@@ -184,4 +188,9 @@ func (cr *PerconaXtraDBClusterBackup) OwnerRef(scheme *runtime.Scheme) (metav1.O
 		UID:        cr.GetUID(),
 		Controller: &trueVar,
 	}, nil
+}
+
+func (cr *PerconaXtraDBClusterBackup) SetFailedStatusWithError(err error) {
+	cr.Status.State = BackupFailed
+	cr.Status.Error = err.Error()
 }

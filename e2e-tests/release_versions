@@ -1,28 +1,28 @@
 # Images versions
-IMAGE_OPERATOR=percona/percona-xtradb-cluster-operator:1.16.1
+IMAGE_OPERATOR=percona/percona-xtradb-cluster-operator:1.17.0
 
-IMAGE_PXC84=percona/percona-xtradb-cluster:8.4.2-2.1
-IMAGE_BACKUP84=percona/percona-xtradb-cluster-operator:1.16.1-pxc8.4-backup-pxb8.4.0
+IMAGE_PXC84=percona/percona-xtradb-cluster:8.4.3-3.1
+IMAGE_BACKUP84=percona/percona-xtradb-cluster-operator:1.17.0-pxc8.4-backup-pxb8.4.0
 
-IMAGE_PXC80=percona/percona-xtradb-cluster:8.0.39-30.1
-IMAGE_BACKUP80=percona/percona-xtradb-cluster-operator:1.16.1-pxc8.0-backup-pxb8.0.35
+IMAGE_PXC80=percona/percona-xtradb-cluster:8.0.41-32.1
+IMAGE_BACKUP80=percona/percona-xtradb-cluster-operator:1.17.0-pxc8.0-backup-pxb8.0.35
 
 IMAGE_PXC57=percona/percona-xtradb-cluster:5.7.44-31.65
-IMAGE_BACKUP57=percona/percona-xtradb-cluster-operator:1.16.1-pxc5.7-backup-pxb2.4.29
+IMAGE_BACKUP57=percona/percona-xtradb-cluster-operator:1.17.0-pxc5.7-backup-pxb2.4.29
 
 IMAGE_PROXY=percona/proxysql2:2.7.1
-IMAGE_HAPROXY=percona/haproxy:2.8.11
-IMAGE_LOGCOLLECTOR=percona/percona-xtradb-cluster-operator:1.16.1-logcollector-fluentbit3.2.2
+IMAGE_HAPROXY=percona/haproxy:2.8.14
+IMAGE_LOGCOLLECTOR=percona/percona-xtradb-cluster-operator:1.17.0-logcollector-fluentbit4.0.0
 IMAGE_PMM_CLIENT=percona/pmm-client:2.44.0
 IMAGE_PMM_SERVER=percona/pmm-server:2.44.0
 
 # Supported k8s versions
-GKE_MIN=1.28
-GKE_MAX=1.30
-EKS_MIN=1.28
-EKS_MAX=1.31
-AKS_MIN=1.28
-AKS_MAX=1.31
-OPENSHIFT_MIN=4.14.42
-OPENSHIFT_MAX=4.17.8
-MINIKUBE_REL=1.31.0
+GKE_MIN=1.29
+GKE_MAX=1.32
+EKS_MIN=1.30
+EKS_MAX=1.32
+AKS_MIN=1.30
+AKS_MAX=1.32
+OPENSHIFT_MIN=4.14.50
+OPENSHIFT_MAX=4.18.8
+MINIKUBE_REL=1.35.0

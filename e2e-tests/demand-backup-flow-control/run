@@ -38,7 +38,14 @@ log "creating cluster secrets"
 kubectl_bin apply -f ${conf_dir}/secrets.yml
 
 log "create PXC cluster: ${cluster}"
-apply_config ${test_dir}/conf/cr.yml
+if [[ $IMAGE_PXC =~ 5\.7 ]]; then
+	cat_config ${test_dir}/conf/cr.yml \
+		| $sed '/\[sst\]/,+1d' \
+		| $sed 's|compress=lz4|compress|' \
+		| kubectl_bin apply -f -
+else
+	apply_config ${test_dir}/conf/cr.yml
+fi
 wait_cluster_consistency ${cluster} 3 2
 
 desc "CASE 1: startingDeadlineSeconds"

@@ -1,0 +1,600 @@
+# https://olm.operatorframework.io/docs/concepts/crds/clusterserviceversion/
+# https://docs.openshift.com/container-platform/4.7/operators/operator_sdk/osdk-generating-csvs.html
+# https://redhat-connect.gitbook.io/certified-operator-guide/ocp-deployment/operator-metadata/creating-the-csv
+# https://pkg.go.dev/github.com/operator-framework/api@v0.10.1/pkg/operators/v1alpha1#ClusterServiceVersion
+apiVersion: operators.coreos.com/v1alpha1
+kind: ClusterServiceVersion
+metadata:
+  name: 'percona-xtradb-cluster-operator.v1.17.0'
+  annotations:
+    features.operators.openshift.io/disconnected: "false"
+    features.operators.openshift.io/fips-compliant: "false"
+    features.operators.openshift.io/proxy-aware: "false"
+    features.operators.openshift.io/tls-profiles: "false"
+    features.operators.openshift.io/token-auth-aws: "false"
+    features.operators.openshift.io/token-auth-azure: "false"
+    features.operators.openshift.io/token-auth-gcp: "false"
+    features.operators.openshift.io/cnf: "false"
+    features.operators.openshift.io/cni: "false"
+    features.operators.openshift.io/csi: "false"
+    support: percona/percona.com
+    # The following affect how the package is indexed at OperatorHub.io:
+    # https://operatorhub.io/?category=Database
+    # https://sdk.operatorframework.io/docs/advanced-topics/operator-capabilities/operator-capabilities/
+    categories: Database
+    capabilities: Deep Insights
+    description: >-
+      Percona Operator for MySQL based on Percona XtraDB Cluster manages the lifecycle of Percona XtraDB cluster instances.
+    # The following appear on the details page at OperatorHub.io:
+    # https://operatorhub.io/operator/postgresql
+    createdAt: 2025-04-08T07:32:10.3Z
+    repository: 'https://github.com/percona/percona-xtradb-cluster-operator'
+    alm-examples: >-
+      [
+        {
+          "apiVersion": "pxc.percona.com/v1",
+          "kind": "PerconaXtraDBCluster",
+          "metadata": {
+            "name": "cluster1",
+            "finalizers": [
+              "percona.com/delete-pxc-pods-in-order"
+            ]
+          },
+          "spec": {
+            "crVersion": "1.17.0",
+            "tls": {
+              "enabled": true
+            },
+            "updateStrategy": "SmartUpdate",
+            "upgradeOptions": {
+              "versionServiceEndpoint": "https://check.percona.com",
+              "apply": "disabled",
+              "schedule": "0 4 * * *"
+            },
+            "pxc": {
+              "size": 3,
+              "image": "docker.io/percona/percona-xtradb-cluster:8.0.41-32.1",
+              "autoRecovery": true,
+              "resources": {
+                "requests": {
+                  "memory": "1G",
+                  "cpu": "600m"
+                }
+              },
+              "affinity": {
+                "antiAffinityTopologyKey": "kubernetes.io/hostname"
+              },
+              "podDisruptionBudget": {
+                "maxUnavailable": 1
+              },
+              "volumeSpec": {
+                "persistentVolumeClaim": {
+                  "resources": {
+                    "requests": {
+                      "storage": "6G"
+                    }
+                  }
+                }
+              },
+              "gracePeriod": 600
+            },
+            "haproxy": {
+              "enabled": true,
+              "size": 3,
+              "image": "docker.io/percona/haproxy:2.8.14",
+              "resources": {
+                "requests": {
+                  "memory": "1G",
+                  "cpu": "600m"
+                }
+              },
+              "affinity": {
+                "antiAffinityTopologyKey": "kubernetes.io/hostname"
+              },
+              "podDisruptionBudget": {
+                "maxUnavailable": 1
+              },
+              "gracePeriod": 30
+            },
+            "proxysql": {
+              "enabled": false,
+              "size": 3,
+              "image": "docker.io/percona/proxysql2:2.7.1",
+              "resources": {
+                "requests": {
+                  "memory": "1G",
+                  "cpu": "600m"
+                }
+              },
+              "affinity": {
+                "antiAffinityTopologyKey": "kubernetes.io/hostname"
+              },
+              "volumeSpec": {
+                "persistentVolumeClaim": {
+                  "resources": {
+                    "requests": {
+                      "storage": "2G"
+                    }
+                  }
+                }
+              },
+              "podDisruptionBudget": {
+                "maxUnavailable": 1
+              },
+              "gracePeriod": 30
+            },
+            "logcollector": {
+              "enabled": true,
+              "image": "docker.io/percona/percona-xtradb-cluster-operator:1.17.0-logcollector-fluentbit4.0.0",
+              "resources": {
+                "requests": {
+                  "memory": "100M",
+                  "cpu": "200m"
+                }
+              }
+            },
+            "pmm": {
+              "enabled": false,
+              "image": "docker.io/percona/pmm-client:2.44.0",
+              "serverHost": "monitoring-service",
+              "resources": {
+                "requests": {
+                  "memory": "150M",
+                  "cpu": "300m"
+                }
+              }
+            },
+            "backup": {
+              "image": "docker.io/percona/percona-xtradb-cluster-operator:1.17.0-pxc8.0-backup-pxb8.0.35",
+              "pitr": {
+                "enabled": false,
+                "storageName": "STORAGE-NAME-HERE",
+                "timeBetweenUploads": 60,
+                "timeoutSeconds": 60
+              },
+              "storages": {
+                "s3-us-west": {
+                  "type": "s3",
+                  "verifyTLS": true,
+                  "s3": {
+                    "bucket": "S3-BACKUP-BUCKET-NAME-HERE",
+                    "credentialsSecret": "my-cluster-name-backup-s3",
+                    "region": "us-west-2"
+                  }
+                },
+                "azure-blob": {
+                  "type": "azure",
+                  "azure": {
+                    "credentialsSecret": "azure-secret",
+                    "container": "test"
+                  }
+                },
+                "fs-pvc": {
+                  "type": "filesystem",
+                  "volume": {
+                    "persistentVolumeClaim": {
+                      "accessModes": [
+                        "ReadWriteOnce"
+                      ],
+                      "resources": {
+                        "requests": {
+                          "storage": "6G"
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "schedule": [
+                {
+                  "name": "daily-backup",
+                  "schedule": "0 0 * * *",
+                  "keep": 5,
+                  "storageName": "fs-pvc"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "apiVersion": "pxc.percona.com/v1",
+          "kind": "PerconaXtraDBClusterBackup",
+          "metadata": {
+            "name": "backup1"
+          },
+          "spec": {
+            "pxcCluster": "cluster1",
+            "storageName": "fs-pvc"
+          }
+        },
+        {
+          "apiVersion": "pxc.percona.com/v1",
+          "kind": "PerconaXtraDBClusterRestore",
+          "metadata": {
+            "name": "restore1"
+          },
+          "spec": {
+            "pxcCluster": "cluster1",
+            "backupName": "backup1"
+          }
+        }
+      ]
+    containerImage: docker.io/percona/percona-xtradb-cluster-operator:1.17.0
+    olm.skipRange: <1.17.0
+spec:
+  # The following affect how the package is indexed at OperatorHub.io:
+  # https://operatorhub.io/
+  displayName: Percona Operator for MySQL based on Percona XtraDB Cluster
+  provider:
+    # These values become labels on the PackageManifest.
+    name: Percona
+    url: https://www.percona.com/
+  keywords:
+    - mysql
+    - percona
+    - database
+    - pxc
+    - galera
+    - database
+    - sql
+    - operator
+  # The following appear on the details page at OperatorHub.io:
+  # https://operatorhub.io/operator/percona-xtradb-cluster-operator
+  description: |2-
+    ## Percona is Cloud Native
+    Percona Operator for MySQL based on Percona XtraDB Cluster is an open-source drop in replacement for
+    MySQL Enterprise with synchronous replication running on Kubernetes. It
+    automates the deployment and management of the members in your Percona
+    XtraDB Cluster environment. It can be used to instantiate a new Percona
+    XtraDB Cluster, or to scale an existing environment.
+    Consult the
+    [documentation](https://percona.github.io/percona-xtradb-cluster-operator/)
+    on the Percona Operator for MySQL based on Percona XtraDB Cluster for complete
+    details on capabilities and options.
+    ### Supported Features
+    * **Scale Your Cluster**  change the `size` parameter to [add or remove
+    members](https://percona.github.io/percona-xtradb-cluster-operator/install/scaling)
+    of the cluster. Three is the minimum recommended size for a functioning
+    cluster.
+    * **Manage Your Users**  [add, remove, or
+    change](https://percona.github.io/percona-xtradb-cluster-operator/configure/users)
+    the privileges of database users
+    * **Automate Your Backups**  [configure cluster
+    backups](https://percona.github.io/percona-xtradb-cluster-operator/configure/operator)
+    to run on a scheduled basis. Backups can be stored on a persistent volume or S3-compatible
+    storage. Leverage [Point-in-time recovery](https://www.percona.com/doc/kubernetes-operator-for-pxc/backups.html#storing-binary-logs-for-point-in-time-recovery)
+    to reduce RPO/RTO.
+    * **Proxy integration**  choose HAProxy or ProxySQL as a proxy in front of
+    the Percona XtraDB Cluster. Proxies are deployed and configured automatically
+    with the Operator.
+    ### Common Configurations
+    * **Set Resource Limits** - set limitation on requests to CPU and memory
+    resources.
+    * **Customize Storage** - set the desired Storage Class and Access Mode for
+    your database cluster data.
+    * **Control Scheduling** - define how your PXC Pods are scheduled onto the
+    K8S cluster with tolerations, pod disruption budgets, node selector and
+    affinity settings.
+    * Automatic synchronization of MySQL users with ProxySQL
+    * HAProxy Support
+    * Fully automated minor version updates (Smart Update)
+    * Update Reader members before Writer member at cluster upgrades
+    * Support MySQL versions 5.7 and 8.0
+    ### Before You Start
+    Add the PXC user `Secret` to Kubernetes. User information must be placed in
+    the data section of the `secrets.yaml`
+    file with Base64-encoded logins and passwords for the user accounts.
+    Below is a sample `secrets.yaml` file for the correct formatting.
+    ```
+    apiVersion: v1
+    kind: Secret
+    metadata:
+      name: my-cluster-secrets
+    type: Opaque
+    data:
+      root: cm9vdF9wYXNzd29yZA==
+      xtrabackup: YmFja3VwX3Bhc3N3b3Jk
+      monitor: bW9uaXRvcg==
+      clustercheck: Y2x1c3RlcmNoZWNrcGFzc3dvcmQ=
+      proxyadmin: YWRtaW5fcGFzc3dvcmQ=
+      pmmserver: c3VwYXxefHBheno=
+      operator: b3BlcmF0b3JhZG1pbg==
+      replication: cmVwbF9wYXNzd29yZAo=
+    ```
+    ###  Release Highlights
+    * General availability of the automated volume resizing
+    * Allowing haproxy-replica Service to cycle through the reader instances only
+    * Fixing the overloaded allowUnsafeConfigurations flag
+  version: 1.17.0
+  links:
+    - name: Percona
+      url: https://www.percona.com/
+    - name: Documentation
+      url: https://docs.percona.com/percona-operator-for-mysql/pxc/index.html
+  maintainers:
+    - name: Percona
+      email: info@percona.com
+  icon:
+    - base64data: >-
+        PHN2ZyB3aWR0aD0iMjI3IiBoZWlnaHQ9IjE5NCIgdmlld0JveD0iMCAwIDIyNyAxOTQiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxwYXRoIGQ9Ik01OS4yODk5IDE5My40M0w0My41NDk5IDE2NS4xMkw1Ny42NDk5IDEzOS43MUw0NS4wNjk5IDExNi45NUgxNi4zMjk5TDAuNjI5ODgzIDg5LjAxTDE2LjA1OTkgNjAuNzlINDkuMDA5OUw2Mi44Mjk5IDg1LjgzSDg4LjAxOTlMMTAyLjQxIDYwLjU2SDEzNC45NkwxNTAuMzUgODguNTJMMTM2LjI3IDExNC4wM0wxNDkuMjEgMTM2Ljc2TDE3OC4yMiAxMzYuODRMMTkzLjYzIDE2NC44OEwxNzguMSAxOTMuMDhMMTQ1Ljg4IDE5My4wNEwxMzEuMTQgMTY3LjQ4SDEwNi4wOUMxMDYuMDkgMTY3LjQ4IDkzLjAwOTkgMTkwLjQ4IDkxLjMxOTkgMTkzLjQzSDU5LjI2OTlINTkuMjg5OVpNNTEuNTA5OSAxNjguMTJMNjIuNTY5OSAxODcuNTdIODQuNjg5OUw3My41Nzk5IDE2OC4wNEw1MS41MTk5IDE2OC4xMkg1MS41MDk5Wk0xODMuODYgMTY3Ljk1QzE4Mi4xOCAxNjcuOTcgMTgwLjU3IDE2Ny45OSAxNzguOTYgMTY4TDE3My4wNSAxNjguMDVDMTY5Ljk5IDE2OC4wOCAxNjYuOTIgMTY4LjEgMTYzLjg2IDE2OC4xMkgxNjMuMzlMMTYzLjE2IDE2OC41M0MxNjAuNDEgMTczLjM5IDE1Ny42NSAxNzguMjUgMTU0Ljg4IDE4My4xMUwxNTIuNDggMTg3LjMzSDE3NC42TDE3NC44MyAxODYuOTJDMTc3LjAxIDE4My4wNiAxNzkuMjIgMTc5LjE5IDE4MS40MiAxNzUuMzFMMTgxLjM0IDE3NS4zNUMxODEuNTggMTc1LjAyIDE4MS45NCAxNzQuMzggMTgyLjYzIDE3My4xOEwxODUuNjIgMTY3LjkzTDE4My44NyAxNjcuOTVIMTgzLjg2Wk03OC40OTk5IDE2NC45Nkw4OS42OTk5IDE4NC41OUwxMDAuOTcgMTY0LjgzTDg5LjkyOTkgMTQ1LjQ4TDc4LjQ5OTkgMTY0Ljk2Wk0xMzYuMzggMTY0LjkzTDE0Ny40NSAxODQuMzRMMTU4LjM3IDE2NS4xOUwxNDcuMyAxNDUuNzdMMTM2LjM4IDE2NC45M1pNNTEuNDk5OSAxNjIuMjZMNzAuMTg5OSAxNjIuMTdMNjkuNDk5OSAxNjAuOTdDNjkuNDk5OSAxNjAuOTcgNjQuMzQ5OSAxNTEuOTMgNjEuNzQ5OSAxNDcuMzdMNjAuODY5OSAxNDUuODJMNTEuNDk5OSAxNjIuMjdWMTYyLjI2Wk0xNjYuNzggMTYyLjIyTDE4NS42NCAxNjIuMDZMMTg0Ljk3IDE2MC44N0MxODIuOCAxNTYuOTkgMTc5LjIgMTUwLjY5IDE3Ni45NSAxNDYuODFMMTc2LjI0IDE0NS41OUwxNjYuNzcgMTYyLjIySDE2Ni43OFpNMTA5LjI5IDE2MS42NkgxMzEuMjdMMTQyLjMzIDE0Mi4yMUgxMjAuOThMMTA5LjMgMTYxLjY2SDEwOS4yOVpNMTYxLjcyIDE1OS4zTDE3MS4yMiAxNDIuNkgxNTIuMkwxNjEuNzEgMTU5LjNIMTYxLjcyWk02Ni4zNTk5IDE0My40MUM2Ny4wNjk5IDE0NC42NyA2Ny45Mzk5IDE0Ni4yNSA2OC44Nzk5IDE0Ny45NEM3MC43ODk5IDE1MS4zOCA3Mi45NDk5IDE1NS4yOCA3NC40Njk5IDE1Ny44OUw3NS4xNjk5IDE1OS4wOUw3NS44Njk5IDE1Ny45Qzc3LjQxOTkgMTU1LjI1IDg0LjI3OTkgMTQzLjQzIDg0LjI3OTkgMTQzLjQzTDg0Ljk4OTkgMTQyLjIxSDY1LjY3OTlMNjYuMzU5OSAxNDMuNDJWMTQzLjQxWk0xMDQuMjEgMTU4LjhMMTE0LjE1IDE0Mi4yQzExNC4xNSAxNDIuMiAxMDkuMDQgMTQyLjIgMTA3LjIxIDE0Mi4ySDk0Ljc5OTlMMTA0LjIyIDE1OC43OUwxMDQuMjEgMTU4LjhaTTY2LjY0OTkgMTM0Ljc5TDY1LjcwOTkgMTM2LjY4TDg4LjAyOTkgMTM2LjRMOTkuMTE5OSAxMTYuOTFINzUuNDc5OUM3NS40Nzk5IDExNi45MSA2OS41Mjk5IDEyOC45NyA2Ni42NDk5IDEzNC43OVpNMTIwLjk3IDEzNi4zNkgxNDIuMzJMMTQxLjYzIDEzNS4xNUMxMzguMjUgMTI5LjIxIDEzNC44NyAxMjMuMjggMTMxLjUgMTE3LjM0TDEzMS4yNyAxMTYuOTNIMTA5LjMxTDEyMC45NyAxMzYuMzZaTTEwMy41IDEyMC45NUMxMDEuMjQgMTI0Ljg2IDk3LjYyOTkgMTMxLjIzIDk1LjQ1OTkgMTM1LjE1TDk0Ljc4OTkgMTM2LjM2SDk2LjE2OTlDMTAxLjcgMTM2LjM1IDEwNy4yMiAxMzYuMzUgMTEyLjczIDEzNi4zNUgxMTQuMTZMMTA0LjE5IDExOS43N0wxMDMuNSAxMjAuOTZWMTIwLjk1Wk02MC44Mjk5IDEzMy40Mkw2OC45Njk5IDExNi45OEg1MS43NTk5TDYwLjgyOTkgMTMzLjQyWk0yMi45OTk5IDExMS4wOUw0MS43MDk5IDExMS4wNEwzMi4zNDk5IDk0LjYyTDIyLjk4OTkgMTExLjFMMjIuOTk5OSAxMTEuMDlaTTEwOS45MiAxMTEuMDVIMTMxLjI4TDE0Mi4xNCA5MS42SDEyMS4wMkwxMDkuOTIgMTExLjA1Wk03NS40NTk5IDExMS4wNUg5OS4xMjk5TDg4LjA2OTkgOTEuNkg2NS44NTk5TDc1LjQ1OTkgMTExLjA1Wk01MS44NTk5IDExMS4wMkg2OC45Mzk5TDYxLjAxOTkgOTQuOTFMNTEuODU5OSAxMTEuMDJaTTk0Ljc3OTkgOTEuNjhMMTA0LjUgMTA4Ljc3TDExNC4zIDkxLjZMOTQuNzc5OSA5MS42OFpNNi45Mzk4OCA4OC43MkwxNy45ODk5IDEwOC4xTDI5LjA1OTkgODguNjhMMTcuOTg5OSA2OS4yOEw2LjkzOTg4IDg4LjcyWk00Ni43ODk5IDEwOC4wOUw1Ni4xNDk5IDkxLjY1SDM3LjQxOTlMNDYuNzc5OSAxMDguMDlINDYuNzg5OVpNMzQuMDg5OSA4NS43OUg1Ni4xNzk5TDQ1LjExOTkgNjYuMzRIMjMuMDM5OUwzNC4wODk5IDg1Ljc5Wk0xMjAuOTkgODUuNzZIMTQyLjM0TDEzMS4yOSA2Ni4zM0gxMDkuMzRMMTIwLjk5IDg1Ljc2Wk05NC44MDk5IDg1LjczSDExNC4xOEwxMDQuMjQgNjkuMTdMOTQuODA5OSA4NS43M1oiIGZpbGw9InVybCgjcGFpbnQwX2xpbmVhcl8xMjAyXzExNDU3KSIvPgo8cGF0aCBvcGFjaXR5PSIwLjUiIGQ9Ik0xMDkuNzcgMTc1LjA5SDEyNy41OEwxMzMuNDMgMTg1LjIySDEwNC4wNEwxMDkuNzcgMTc1LjA5WiIgZmlsbD0iIzYyQUVGRiIvPgo8cGF0aCBvcGFjaXR5PSIwLjUiIGQ9Ik00OS45NDk5IDE0MC4wNkwyOS43Mjk5IDE3NS4wOUg0MS4wNjk5TDQ2Ljc1OTkgMTg1LjIySDEyLjE1OTlMNDQuMjA5OSAxMjkuNzNMNDkuOTQ5OSAxNDAuMDZaIiBmaWxsPSIjNjJBRUZGIi8+CjxwYXRoIG9wYWNpdHk9IjAuNSIgZD0iTTE5NS45NiAxNzUuMDlIMjA4LjVMMTE5LjEyIDIwLjI3TDg1LjI5OTggNzguODRMNzMuNTk5OSA3OC44M0wxMTkuMTIgMEwyMjYuMDYgMTg1LjIySDE5MC4zNEwxOTUuOTYgMTc1LjA5WiIgZmlsbD0iIzYyQUVGRiIvPgo8ZGVmcz4KPGxpbmVhckdyYWRpZW50IGlkPSJwYWludDBfbGluZWFyXzEyMDJfMTE0NTciIHgxPSIxNjMuNjIiIHkxPSI2MC40IiB4Mj0iMjAuOTE5OSIgeTI9IjIwMy4xMSIgZ3JhZGllbnRVbml0cz0idXNlclNwYWNlT25Vc2UiPgo8c3RvcCBvZmZzZXQ9IjAuMDMiIHN0b3AtY29sb3I9IiM0MzlFRkYiLz4KPHN0b3Agb2Zmc2V0PSIwLjE2IiBzdG9wLWNvbG9yPSIjM0I5NEY0Ii8+CjxzdG9wIG9mZnNldD0iMC4zOSIgc3RvcC1jb2xvcj0iIzI2N0NENyIvPgo8c3RvcCBvZmZzZXQ9IjAuNjIiIHN0b3AtY29sb3I9IiMwRTVGQjUiLz4KPC9saW5lYXJHcmFkaWVudD4KPC9kZWZzPgo8L3N2Zz4=
+      mediatype: image/svg+xml
+  customresourcedefinitions:
+    owned:
+      - description: Instance of a Percona XtraDB Cluster
+        displayName: PerconaXtraDBCluster
+        kind: PerconaXtraDBCluster
+        name: perconaxtradbclusters.pxc.percona.com
+        version: v1
+        specDescriptors: []
+        statusDescriptors: []
+        resources:
+          - version: v1
+            kind: Deployment
+            name: ''
+          - version: v1
+            kind: Service
+            name: ''
+          - version: v1
+            kind: ReplicaSet
+            name: ''
+          - version: v1
+            kind: Pod
+            name: ''
+          - version: v1
+            kind: Secret
+            name: ''
+          - version: v1
+            kind: ConfigMap
+            name: ''
+      - description: Instance of a Percona XtraDB Cluster Backup
+        displayName: PerconaXtraDBClusterBackup
+        kind: PerconaXtraDBClusterBackup
+        name: perconaxtradbclusterbackups.pxc.percona.com
+        version: v1
+        specDescriptors: []
+        statusDescriptors: []
+        resources:
+          - version: v1
+            kind: Deployment
+            name: ''
+          - version: v1
+            kind: Service
+            name: ''
+          - version: v1
+            kind: ReplicaSet
+            name: ''
+          - version: v1
+            kind: Pod
+            name: ''
+          - version: v1
+            kind: Secret
+            name: ''
+          - version: v1
+            kind: ConfigMap
+            name: ''
+      - description: Instance of a Percona XtraDB Cluster Restore
+        displayName: PerconaXtraDBClusterRestore
+        kind: PerconaXtraDBClusterRestore
+        name: perconaxtradbclusterrestores.pxc.percona.com
+        version: v1
+        specDescriptors: []
+        statusDescriptors: []
+        resources:
+          - version: v1
+            kind: Deployment
+            name: ''
+          - version: v1
+            kind: Service
+            name: ''
+          - version: v1
+            kind: ReplicaSet
+            name: ''
+          - version: v1
+            kind: Pod
+            name: ''
+          - version: v1
+            kind: Secret
+            name: ''
+          - version: v1
+            kind: ConfigMap
+            name: ''
+    required: []
+  # https://olm.operatorframework.io/docs/best-practices/common/
+  # Note: The minKubeVersion must correspond to the lowest supported OCP version
+  minKubeVersion: 1.29.0
+  maturity: stable
+  # https://olm.operatorframework.io/docs/advanced-tasks/operator-scoping-with-operatorgroups/
+  installModes:
+    - supported: true
+      type: OwnNamespace
+    - supported: true
+      type: SingleNamespace
+    - supported: true
+      type: MultiNamespace
+    - supported: true
+      type: AllNamespaces
+  install:
+    strategy: deployment
+    spec:
+      permissions:
+        - serviceAccountName: percona-xtradb-cluster-operator
+          rules:
+            - apiGroups:
+                - pxc.percona.com
+              resources:
+                - perconaxtradbclusters
+                - perconaxtradbclusters/status
+                - perconaxtradbclusterbackups
+                - perconaxtradbclusterbackups/status
+                - perconaxtradbclusterrestores
+                - perconaxtradbclusterrestores/status
+                - perconaxtradbclusterrestores/finalizers
+              verbs:
+                - get
+                - list
+                - watch
+                - create
+                - update
+                - patch
+                - delete
+            - apiGroups:
+                - ""
+              resources:
+                - pods
+                - pods/exec
+                - pods/log
+                - configmaps
+                - services
+                - persistentvolumeclaims
+                - secrets
+              verbs:
+                - get
+                - list
+                - watch
+                - create
+                - update
+                - patch
+                - delete
+            - apiGroups:
+                - apps
+              resources:
+                - deployments
+                - replicasets
+                - statefulsets
+              verbs:
+                - get
+                - list
+                - watch
+                - create
+                - update
+                - patch
+                - delete
+            - apiGroups:
+                - batch
+              resources:
+                - jobs
+                - cronjobs
+              verbs:
+                - get
+                - list
+                - watch
+                - create
+                - update
+                - patch
+                - delete
+            - apiGroups:
+                - policy
+              resources:
+                - poddisruptionbudgets
+              verbs:
+                - get
+                - list
+                - watch
+                - create
+                - update
+                - patch
+                - delete
+            - apiGroups:
+                - coordination.k8s.io
+              resources:
+                - leases
+              verbs:
+                - get
+                - list
+                - watch
+                - create
+                - update
+                - patch
+                - delete
+            - apiGroups:
+                - events.k8s.io
+                - ""
+              resources:
+                - events
+              verbs:
+                - create
+                - patch
+                - get
+                - list
+                - watch
+            - apiGroups:
+                - certmanager.k8s.io
+                - cert-manager.io
+              resources:
+                - issuers
+                - certificates
+              verbs:
+                - get
+                - list
+                - watch
+                - create
+                - update
+                - patch
+                - delete
+                - deletecollection
+      deployments:
+        - name: percona-xtradb-cluster-operator
+          spec:
+            replicas: 1
+            selector:
+              matchLabels:
+                app.kubernetes.io/component: operator
+                app.kubernetes.io/instance: percona-xtradb-cluster-operator
+                app.kubernetes.io/name: percona-xtradb-cluster-operator
+                app.kubernetes.io/part-of: percona-xtradb-cluster-operator
+            strategy:
+              rollingUpdate:
+                maxUnavailable: 1
+              type: RollingUpdate
+            template:
+              metadata:
+                labels:
+                  app.kubernetes.io/component: operator
+                  app.kubernetes.io/instance: percona-xtradb-cluster-operator
+                  app.kubernetes.io/name: percona-xtradb-cluster-operator
+                  app.kubernetes.io/part-of: percona-xtradb-cluster-operator
+              spec:
+                containers:
+                  - command:
+                      - percona-xtradb-cluster-operator
+                    env:
+                      - name: LOG_STRUCTURED
+                        value: "false"
+                      - name: LOG_LEVEL
+                        value: INFO
+                      - name: WATCH_NAMESPACE
+                        valueFrom:
+                          fieldRef:
+                            apiVersion: v1
+                            fieldPath: metadata.namespace
+                      - name: POD_NAME
+                        valueFrom:
+                          fieldRef:
+                            apiVersion: v1
+                            fieldPath: metadata.name
+                      - name: OPERATOR_NAME
+                        value: percona-xtradb-cluster-operator
+                      - name: DISABLE_TELEMETRY
+                        value: "false"
+                    image: docker.io/percona/percona-xtradb-cluster-operator:1.17.0
+                    imagePullPolicy: Always
+                    livenessProbe:
+                      failureThreshold: 3
+                      httpGet:
+                        path: /metrics
+                        port: metrics
+                        scheme: HTTP
+                    name: percona-xtradb-cluster-operator
+                    ports:
+                      - containerPort: 8080
+                        name: metrics
+                        protocol: TCP
+                    resources:
+                      limits:
+                        cpu: 200m
+                        memory: 500Mi
+                      requests:
+                        cpu: 100m
+                        memory: 20Mi
+                serviceAccountName: percona-xtradb-cluster-operator
+                terminationGracePeriodSeconds: 600

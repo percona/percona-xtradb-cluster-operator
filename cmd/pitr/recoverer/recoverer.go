@@ -76,11 +76,11 @@ func (c Config) storages(ctx context.Context) (storage.Storage, storage.Storage,
 	case "azure":
 		var err error
 		container, prefix := getContainerAndPrefix(c.BinlogStorageAzure.ContainerPath)
-		binlogStorage, err = storage.NewAzure(c.BinlogStorageAzure.AccountName, c.BinlogStorageAzure.AccountKey, c.BinlogStorageAzure.Endpoint, container, prefix)
+		binlogStorage, err = storage.NewAzure(c.BinlogStorageAzure.AccountName, c.BinlogStorageAzure.AccountKey, c.BinlogStorageAzure.Endpoint, container, prefix, c.BinlogStorageAzure.BlockSize, c.BinlogStorageAzure.Concurrency)
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "new azure storage")
 		}
-		defaultStorage, err = storage.NewAzure(c.BackupStorageAzure.AccountName, c.BackupStorageAzure.AccountKey, c.BackupStorageAzure.Endpoint, c.BackupStorageAzure.ContainerName, c.BackupStorageAzure.BackupDest+".sst_info/")
+		defaultStorage, err = storage.NewAzure(c.BackupStorageAzure.AccountName, c.BackupStorageAzure.AccountKey, c.BackupStorageAzure.Endpoint, c.BackupStorageAzure.ContainerName, c.BackupStorageAzure.BackupDest+".sst_info/", c.BackupStorageAzure.BlockSize, c.BackupStorageAzure.Concurrency)
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "new azure storage")
 		}
@@ -105,6 +105,8 @@ type BackupAzure struct {
 	AccountName   string `env:"AZURE_STORAGE_ACCOUNT,required"`
 	AccountKey    string `env:"AZURE_ACCESS_KEY,required"`
 	BackupDest    string `env:"BACKUP_PATH,required"`
+	BlockSize     int64  `env:"AZURE_BLOCK_SIZE"`
+	Concurrency   int    `env:"AZURE_CONCURRENCY"`
 }
 
 type BinlogS3 struct {
@@ -121,6 +123,8 @@ type BinlogAzure struct {
 	StorageClass  string `env:"BINLOG_AZURE_STORAGE_CLASS"`
 	AccountName   string `env:"BINLOG_AZURE_STORAGE_ACCOUNT,required"`
 	AccountKey    string `env:"BINLOG_AZURE_ACCESS_KEY,required"`
+	BlockSize     int64  `env:"BINLOG_AZURE_BLOCK_SIZE"`
+	Concurrency   int    `env:"BINLOG_AZURE_CONCURRENCY"`
 }
 
 func (c *Config) Verify() {
@@ -307,9 +311,21 @@ func (r *Recoverer) Run(ctx context.Context) error {
 }
 
 func (r *Recoverer) recover(ctx context.Context) (err error) {
-	err = r.db.DropCollectorFunctions(ctx)
+	version, err := r.db.GetVersion(ctx)
 	if err != nil {
-		return errors.Wrap(err, "drop collector funcs")
+		return errors.Wrap(err, "get version")
+	}
+
+	switch {
+	case strings.HasPrefix(version, "8.0"):
+		err = r.db.DropCollectorFunctions(ctx)
+		if err != nil {
+			return errors.Wrap(err, "drop collector funcs")
+		}
+	case strings.HasPrefix(version, "8.4"):
+		if err := r.db.UninstallBinlogUDFComponent(ctx); err != nil {
+			return errors.Wrap(err, "uninstall component")
+		}
 	}
 
 	err = os.Setenv("MYSQL_PWD", os.Getenv("PXC_PASS"))

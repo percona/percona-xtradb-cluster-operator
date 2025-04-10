@@ -45,7 +45,7 @@ func NewClient(ctx context.Context, opts Options) (Storage, error) {
 		if !ok {
 			return nil, errors.New("invalid options type")
 		}
-		return NewAzure(opts.StorageAccount, opts.AccessKey, opts.Endpoint, opts.Container, opts.Prefix)
+		return NewAzure(opts.StorageAccount, opts.AccessKey, opts.Endpoint, opts.Container, opts.Prefix, opts.BlockSize, opts.Concurrency)
 	}
 	return nil, errors.New("invalid storage type")
 }
@@ -188,12 +188,14 @@ func (s *S3) DeleteObject(ctx context.Context, objectName string) error {
 
 // Azure is a type for working with Azure Blob storages
 type Azure struct {
-	client    *azblob.Client // azure client for work with storage
-	container string
-	prefix    string
+	client      *azblob.Client // azure client for work with storage
+	container   string
+	prefix      string
+	blockSize   int64
+	concurrency int
 }
 
-func NewAzure(storageAccount, accessKey, endpoint, container, prefix string) (Storage, error) {
+func NewAzure(storageAccount, accessKey, endpoint, container, prefix string, blockSize int64, concurrency int) (Storage, error) {
 	credential, err := azblob.NewSharedKeyCredential(storageAccount, accessKey)
 	if err != nil {
 		return nil, errors.Wrap(err, "new credentials")
@@ -207,9 +209,11 @@ func NewAzure(storageAccount, accessKey, endpoint, container, prefix string) (St
 	}
 
 	return &Azure{
-		client:    cli,
-		container: container,
-		prefix:    prefix,
+		client:      cli,
+		container:   container,
+		prefix:      prefix,
+		blockSize:   blockSize,
+		concurrency: concurrency,
 	}, nil
 }
 
@@ -227,7 +231,11 @@ func (a *Azure) GetObject(ctx context.Context, name string) (io.ReadCloser, erro
 
 func (a *Azure) PutObject(ctx context.Context, name string, data io.Reader, _ int64) error {
 	objPath := path.Join(a.prefix, name)
-	_, err := a.client.UploadStream(ctx, a.container, objPath, data, nil)
+	uploadOptions := azblob.UploadStreamOptions{
+		BlockSize:   a.blockSize,
+		Concurrency: a.concurrency,
+	}
+	_, err := a.client.UploadStream(ctx, a.container, objPath, data, &uploadOptions)
 	if err != nil {
 		return errors.Wrapf(err, "upload stream: %s", objPath)
 	}

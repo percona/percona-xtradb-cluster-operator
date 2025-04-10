@@ -1,4 +1,4 @@
-package deployment
+package binlogcollector
 
 import (
 	"bytes"
@@ -14,6 +14,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/percona/percona-xtradb-cluster-operator/clientcmd"
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
@@ -21,11 +22,35 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 )
 
-func GetBinlogCollectorDeployment(cr *api.PerconaXtraDBCluster, initImage string) (appsv1.Deployment, error) {
-	binlogCollectorName := GetBinlogCollectorDeploymentName(cr)
+const gtidCacheKey = "gtid-binlog-cache.json"
+
+func GetService(cr *api.PerconaXtraDBCluster) *corev1.Service {
+	labels := naming.LabelsPITR(cr)
+
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      naming.BinlogCollectorServiceName(cr),
+			Namespace: cr.Namespace,
+		},
+		Spec: corev1.ServiceSpec{
+			Selector: labels,
+			Type:     corev1.ServiceTypeClusterIP,
+			Ports: []corev1.ServicePort{
+				{
+					Port: 8080,
+					Name: "http",
+				},
+			},
+		},
+	}
+}
+
+func GetDeployment(cr *api.PerconaXtraDBCluster, initImage string) (appsv1.Deployment, error) {
+	binlogCollectorName := naming.BinlogCollectorDeploymentName(cr)
 	pxcUser := users.Xtrabackup
 	sleepTime := fmt.Sprintf("%.2f", cr.Spec.Backup.PITR.TimeBetweenUploads)
 
@@ -35,8 +60,10 @@ func GetBinlogCollectorDeployment(cr *api.PerconaXtraDBCluster, initImage string
 	}
 
 	labels := naming.LabelsPITR(cr)
-	for key, value := range cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName].Labels {
-		labels[key] = value
+	if stg, ok := cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName]; ok {
+		for key, value := range stg.Labels {
+			labels[key] = value
+		}
 	}
 	envs, err := getStorageEnvs(cr)
 	if err != nil {
@@ -76,6 +103,13 @@ func GetBinlogCollectorDeployment(cr *api.PerconaXtraDBCluster, initImage string
 		})
 	}
 
+	if cr.CompareVersionWith("1.17.0") >= 0 {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "GTID_CACHE_KEY",
+			Value: gtidCacheKey,
+		})
+	}
+
 	container := corev1.Container{
 		Name:            "pitr",
 		Image:           cr.Spec.Backup.Image,
@@ -91,6 +125,16 @@ func GetBinlogCollectorDeployment(cr *api.PerconaXtraDBCluster, initImage string
 			},
 		},
 	}
+
+	if cr.CompareVersionWith("1.17.0") >= 0 {
+		container.Ports = []corev1.ContainerPort{
+			{
+				ContainerPort: 8080,
+				Name:          "metrics",
+			},
+		}
+	}
+
 	replicas := int32(1)
 
 	var initContainers []corev1.Container
@@ -165,7 +209,11 @@ func GetBinlogCollectorDeployment(cr *api.PerconaXtraDBCluster, initImage string
 }
 
 func getStorageEnvs(cr *api.PerconaXtraDBCluster) ([]corev1.EnvVar, error) {
-	storage := cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName]
+	storage, ok := cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName]
+	if !ok {
+		return nil, errors.Errorf("storage %s does not exist", cr.Spec.Backup.PITR.StorageName)
+	}
+
 	verifyTLS := "true"
 	if storage.VerifyTLS != nil && !*storage.VerifyTLS {
 		verifyTLS = "false"
@@ -257,10 +305,6 @@ func getStorageEnvs(cr *api.PerconaXtraDBCluster) ([]corev1.EnvVar, error) {
 	return envs, nil
 }
 
-func GetBinlogCollectorDeploymentName(cr *api.PerconaXtraDBCluster) string {
-	return cr.Name + "-pitr"
-}
-
 func getBufferSize(cluster api.PerconaXtraDBClusterSpec) (mem int64, err error) {
 	res := cluster.Backup.PITR.Resources
 	if res.Size() == 0 {
@@ -280,7 +324,7 @@ func getBufferSize(cluster api.PerconaXtraDBClusterSpec) (mem int64, err error) 
 	return memory.Value() / int64(100) * int64(75), nil
 }
 
-func GetBinlogCollectorPod(ctx context.Context, c client.Client, cr *api.PerconaXtraDBCluster) (*corev1.Pod, error) {
+func GetPod(ctx context.Context, c client.Client, cr *api.PerconaXtraDBCluster) (*corev1.Pod, error) {
 	collectorPodList := corev1.PodList{}
 
 	err := c.List(ctx, &collectorPodList,
@@ -302,7 +346,7 @@ func GetBinlogCollectorPod(ctx context.Context, c client.Client, cr *api.Percona
 
 var GapFileNotFound = errors.New("gap file not found")
 
-func RemoveGapFile(ctx context.Context, cr *api.PerconaXtraDBCluster, c *clientcmd.Client, pod *corev1.Pod) error {
+func RemoveGapFile(c *clientcmd.Client, pod *corev1.Pod) error {
 	stderrBuf := &bytes.Buffer{}
 	err := c.Exec(pod, "pitr", []string{"/bin/bash", "-c", "rm /tmp/gap-detected"}, nil, nil, stderrBuf, false)
 	if err != nil {
@@ -315,7 +359,7 @@ func RemoveGapFile(ctx context.Context, cr *api.PerconaXtraDBCluster, c *clientc
 	return nil
 }
 
-func RemoveTimelineFile(ctx context.Context, cr *api.PerconaXtraDBCluster, c *clientcmd.Client, pod *corev1.Pod) error {
+func RemoveTimelineFile(c *clientcmd.Client, pod *corev1.Pod) error {
 	stderrBuf := &bytes.Buffer{}
 	err := c.Exec(pod, "pitr", []string{"/bin/bash", "-c", "rm /tmp/pitr-timeline"}, nil, nil, stderrBuf, false)
 	if err != nil {
@@ -326,4 +370,29 @@ func RemoveTimelineFile(ctx context.Context, cr *api.PerconaXtraDBCluster, c *cl
 	}
 
 	return nil
+}
+
+func InvalidateCache(
+	ctx context.Context,
+	cl client.Client,
+	cluster *api.PerconaXtraDBCluster,
+) error {
+	log := logf.FromContext(ctx)
+
+	opts, err := storage.GetOptions(ctx, cl, cluster, cluster.Spec.Backup.PITR.StorageName)
+	if err != nil {
+		return errors.Wrap(err, "get pitr storage options")
+	}
+
+	stg, err := storage.NewClient(ctx, opts)
+	if err != nil {
+		return errors.Wrap(err, "new storage client")
+	}
+
+	log.Info("invalidating binlog collector cache",
+		"storage", cluster.Spec.Backup.PITR.StorageName,
+		"file", gtidCacheKey)
+
+	return stg.DeleteObject(ctx, gtidCacheKey)
+
 }

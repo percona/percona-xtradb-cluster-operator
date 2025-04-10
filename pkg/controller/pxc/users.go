@@ -46,27 +46,16 @@ type ReconcileUsersResult struct {
 	updateReplicationPassword bool
 }
 
-func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(ctx context.Context, cr *api.PerconaXtraDBCluster) (*ReconcileUsersResult, error) {
+func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(
+	ctx context.Context,
+	cr *api.PerconaXtraDBCluster,
+	secrets *corev1.Secret,
+) (*ReconcileUsersResult, error) {
 	log := logf.FromContext(ctx)
 
-	secrets := corev1.Secret{}
-	err := r.client.Get(context.TODO(),
-		types.NamespacedName{
-			Namespace: cr.Namespace,
-			Name:      cr.Spec.SecretsName,
-		},
-		&secrets,
-	)
-	if err != nil && k8serrors.IsNotFound(err) {
-		return nil, nil
-	} else if err != nil {
-		return nil, errors.Wrapf(err, "get sys users secret '%s'", cr.Spec.SecretsName)
-	}
-
 	internalSecretName := internalSecretsPrefix + cr.Name
-
 	internalSecrets := corev1.Secret{}
-	err = r.client.Get(context.TODO(),
+	err := r.client.Get(ctx,
 		types.NamespacedName{
 			Namespace: cr.Namespace,
 			Name:      internalSecretName,
@@ -109,12 +98,12 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(ctx context.Context, cr *
 
 	var actions *userUpdateActions
 	if ver.GreaterThanOrEqual(mysql80) {
-		actions, err = r.updateUsers(ctx, cr, &secrets, &internalSecrets)
+		actions, err = r.updateUsers(ctx, cr, secrets, &internalSecrets)
 		if err != nil {
 			return nil, errors.Wrap(err, "manage sys users")
 		}
 	} else {
-		actions, err = r.updateUsersWithoutDP(ctx, cr, &secrets, &internalSecrets)
+		actions, err = r.updateUsersWithoutDP(ctx, cr, secrets, &internalSecrets)
 		if err != nil {
 			return nil, errors.Wrap(err, "manage sys users")
 		}

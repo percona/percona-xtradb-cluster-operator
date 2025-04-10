@@ -224,6 +224,10 @@ func NewServiceProxySQL(cr *api.PerconaXtraDBCluster) *corev1.Service {
 					Port: 3306,
 					Name: "mysql",
 				},
+				{
+					Port: 33062,
+					Name: "mysql-admin",
+				},
 			},
 			Selector:                 naming.SelectorProxySQL(cr),
 			LoadBalancerSourceRanges: loadBalancerSourceRanges,
@@ -259,12 +263,12 @@ func NewServiceProxySQL(cr *api.PerconaXtraDBCluster) *corev1.Service {
 		}
 	}
 
-	if cr.CompareVersionWith("1.6.0") >= 0 {
+	if cr.CompareVersionWith("1.17.0") >= 0 {
 		obj.Spec.Ports = append(
 			obj.Spec.Ports,
 			corev1.ServicePort{
-				Port: 33062,
-				Name: "mysql-admin",
+				Port: 6070,
+				Name: "stats",
 			},
 		)
 	}
@@ -326,6 +330,16 @@ func NewServiceHAProxy(cr *api.PerconaXtraDBCluster) *corev1.Service {
 					TargetPort: intstr.FromInt(3309),
 					Name:       "proxy-protocol",
 				},
+				{
+					Port:       33062,
+					TargetPort: intstr.FromInt(33062),
+					Name:       "mysql-admin",
+				},
+				{
+					Port:       33060,
+					TargetPort: intstr.FromInt(33060),
+					Name:       "mysqlx",
+				},
 			},
 			Selector:                 naming.SelectorHAProxy(cr),
 			LoadBalancerSourceRanges: loadBalancerSourceRanges,
@@ -347,24 +361,13 @@ func NewServiceHAProxy(cr *api.PerconaXtraDBCluster) *corev1.Service {
 		obj.Spec.ExternalTrafficPolicy = svcTrafficPolicyType
 	}
 
-	if cr.CompareVersionWith("1.6.0") >= 0 {
+	if cr.CompareVersionWith("1.17.0") >= 0 {
 		obj.Spec.Ports = append(
 			obj.Spec.Ports,
 			corev1.ServicePort{
-				Port:       33062,
-				TargetPort: intstr.FromInt(33062),
-				Name:       "mysql-admin",
-			},
-		)
-	}
-
-	if cr.CompareVersionWith("1.9.0") >= 0 {
-		obj.Spec.Ports = append(
-			obj.Spec.Ports,
-			corev1.ServicePort{
-				Port:       33060,
-				TargetPort: intstr.FromInt(33060),
-				Name:       "mysqlx",
+				Port:       8404,
+				TargetPort: intstr.FromInt(8404),
+				Name:       "stats",
 			},
 		)
 	}
@@ -429,7 +432,7 @@ func NewServiceHAProxyReplicas(cr *api.PerconaXtraDBCluster) *corev1.Service {
 		if cr.CompareVersionWith("1.14.0") >= 0 {
 			if cr.Spec.HAProxy.ExposeReplicas.ServiceExpose.LoadBalancerSourceRanges != nil {
 				loadBalancerSourceRanges = cr.Spec.HAProxy.ExposeReplicas.ServiceExpose.LoadBalancerSourceRanges
-			} else {
+			} else if cr.Spec.HAProxy.ExposeReplicas.ServiceExpose.LoadBalancerSourceRanges == nil && cr.Spec.HAProxy.ExposeReplicas.Type == corev1.ServiceTypeLoadBalancer {
 				loadBalancerSourceRanges = cr.Spec.HAProxy.ExposePrimary.LoadBalancerSourceRanges
 			}
 			loadBalancerIP = cr.Spec.HAProxy.ExposeReplicas.ServiceExpose.LoadBalancerIP

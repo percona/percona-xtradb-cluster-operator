@@ -25,6 +25,10 @@ spec:
       port: 33062
       protocol: TCP
       targetPort: 33062
+    - name: stats
+      port: 6070
+      protocol: TCP
+      targetPort: 6070
   selector:
     app.kubernetes.io/component: proxysql
     app.kubernetes.io/instance: side-car

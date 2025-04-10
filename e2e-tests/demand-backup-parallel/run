@@ -1,0 +1,66 @@
+#!/bin/bash
+
+# This test checks if spec.backup.allowParallel=false works as expected.
+
+set -o errexit
+
+test_dir=$(realpath $(dirname $0))
+. ${test_dir}/../functions
+
+set_debug
+
+function run_backup() {
+	local name=$1
+	yq eval ".metadata.name = \"${name}\"" ${test_dir}/conf/backup.yml \
+		| kubectl_bin apply -f -
+}
+
+function check_active_backup_count() {
+	active_backup_count=$(kubectl_bin get pxc-backup | grep -E 'Starting|Running' | wc -l)
+	if [[ ${active_backup_count} -gt 1 ]]; then
+		log "There are ${active_backup_count} active backups. 'allowParallel: false' doesn't work properly"
+		exit 1
+	fi
+}
+
+create_infra ${namespace}
+
+start_minio
+
+log "creating PXC client"
+kubectl_bin apply -f ${conf_dir}/client.yml
+
+log "creating cluster secrets"
+kubectl_bin apply -f ${conf_dir}/secrets.yml
+
+cluster="demand-backup-parallel"
+log "create PXC cluster: ${cluster}"
+apply_config ${test_dir}/conf/cr.yml
+
+desc 'creating backups'
+run_backup backup1
+run_backup backup2
+run_backup backup3
+run_backup backup4
+
+wait_cluster_consistency ${cluster} 3 2
+sleep 5
+check_active_backup_count
+
+for i in $(seq 0 3); do
+	sleep 5
+	check_active_backup_count
+	holder=$(kubectl_bin get lease pxc-${cluster}-backup-lock -o jsonpath={.spec.holderIdentity} | cut -d'-' -f1)
+	log "Backup lock holder: ${holder}"
+	wait_backup ${holder}
+done
+
+# explicitly check all backups to ensure all succeeded
+wait_backup backup1
+wait_backup backup2
+wait_backup backup3
+wait_backup backup4
+
+log "test passed"
+
+destroy $namespace

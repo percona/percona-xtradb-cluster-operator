@@ -16,7 +16,10 @@ SKIP_REMOTE_BACKUPS=${SKIP_REMOTE_BACKUPS:-1}
 PMM_SERVER_VER=${PMM_SERVER_VER:-"9.9.9"}
 IMAGE_PMM_CLIENT=${IMAGE_PMM_CLIENT:-"perconalab/pmm-client:dev-latest"}
 IMAGE_PMM_SERVER=${IMAGE_PMM_SERVER:-"perconalab/pmm-server:dev-latest"}
-CERT_MANAGER_VER="1.16.2"
+CERT_MANAGER_VER="1.17.1"
+MINIO_VER="5.4.0"
+CHAOS_MESH_VER="2.7.1"
+VAULT_VER="0.30.0"
 tmp_dir=$(mktemp -d)
 sed=$(which gsed || which sed)
 date=$(which gdate || which date)
@@ -60,6 +63,11 @@ set_debug() {
 	fi
 }
 
+log() {
+       echo "[$(date +%Y-%m-%dT%H:%M:%S%z)]" $*
+}
+
+
 HELM_VERSION=$(helm version -c | $sed -re 's/.*SemVer:"([^"]+)".*/\1/; s/.*\bVersion:"([^"]+)".*/\1/')
 if [ "${HELM_VERSION:0:2}" == "v2" ]; then
 	HELM_ARGS="--name"
@@ -96,19 +104,21 @@ wait_cluster_consistency() {
 	fi
 	desc "wait cluster consistency"
 	local i=0
-	local max=36
+	local max=300
 	sleep 7 # wait for two reconcile loops ;)  3 sec x 2 times + 1 sec = 7 seconds
+	echo -n "waiting for pxc/${cluster_name} to be ready"
 	until [[ "$(kubectl_bin get pxc "${cluster_name}" -o jsonpath='{.status.state}')" == "ready" &&
 	"$(kubectl_bin get pxc "${cluster_name}" -o jsonpath='{.status.pxc.ready}')" == "${cluster_size}" &&
 	"$(kubectl_bin get pxc "${cluster_name}" -o jsonpath='{.status.'$(get_proxy_engine ${cluster_name})'.ready}')" == "${proxy_size}" ]]; do
-		echo 'waiting for cluster readyness'
-		sleep 20
+		echo -n .
+		sleep 5
 		if [[ $i -ge $max ]]; then
 			echo "Something went wrong waiting for cluster consistency!"
 			exit 1
 		fi
 		let i+=1
 	done
+	echo
 }
 
 create_namespace() {
@@ -235,12 +245,12 @@ wait_backup() {
 
 	set +o xtrace
 	retry=0
-	echo -n $backup
+	echo -n "waiting for pxc-backup/${backup} to reach ${status} state"
 	until kubectl_bin get pxc-backup/$backup -o jsonpath='{.status.state}' 2>/dev/null | grep $status; do
-		sleep 1
+		sleep 0.5
 		echo -n .
 		let retry+=1
-		if [ $retry -ge 120 ]; then
+		if [ $retry -ge 360 ]; then
 			kubectl_bin logs ${OPERATOR_NS:+-n $OPERATOR_NS} $(get_operator_pod)
 			echo max retry count $retry reached. something went wrong with operator or kubernetes cluster
 			exit 1
@@ -260,7 +270,7 @@ wait_backup_restore() {
 	local current_state=
 	until [[ ${current_state} == ${target_state} ]]; do
 		current_state=$(kubectl_bin get pxc-restore $backup_name -o jsonpath='{.status.state}')
-		if [[ $retry -ge $wait_time || ${current_state} == 'error' ]]; then
+		if [[ $retry -ge $wait_time || (${current_state} == 'Failed' && ${target_state} != 'Failed') ]]; then
 			kubectl_bin get pxc-restore ${backup_name} -o yaml
 			echo "Restore object pxc-restore/${backup_name} is in ${current_state} state."
 			echo something went wrong with operator or kubernetes cluster
@@ -478,6 +488,7 @@ compare_kubectl() {
 			del(.. | select(has("percona.com/env-secret-config-hash"))."percona.com/env-secret-config-hash") |
 			del(.. | select(has("percona.com/ssl-hash"))."percona.com/ssl-hash") |
 			del(.. | select(has("percona.com/ssl-internal-hash"))."percona.com/ssl-internal-hash") |
+			del(.. | select(has("kubectl.kubernetes.io/default-container"))."kubectl.kubernetes.io/default-container") |
 			del(.spec.volumeClaimTemplates[].spec.volumeMode | select(. == "Filesystem")) |
 			del(.. | select(has("healthCheckNodePort")).healthCheckNodePort) |
 			del(.. | select(has("nodePort")).nodePort) |
@@ -925,19 +936,22 @@ spinup_pxc() {
 	wait_for_running "$cluster-pxc" "$size"
 	sleep $sleep
 
+	local secret_name=$(kubectl get pxc $cluster -o jsonpath='{.spec.secretsName}')
+	local root_pass=$(getSecretData $secret_name "root")
+
 	desc 'write data'
 	if [[ $IMAGE_PXC =~ 5\.7 ]] && [[ "$(is_keyring_plugin_in_use "$cluster")" ]]; then
 		encrypt='ENCRYPTION=\"Y\"'
 	fi
 	run_mysql \
 		"CREATE DATABASE IF NOT EXISTS myApp; use myApp; CREATE TABLE IF NOT EXISTS myApp (id int PRIMARY KEY) $encrypt;" \
-		"-h $proxy -uroot -proot_password -P$port"
+		"-h $proxy -uroot -p'${root_pass}' -P$port"
 	run_mysql \
 		'INSERT myApp.myApp (id) VALUES (100500)' \
-		"-h $proxy -uroot -proot_password -P$port"
+		"-h $proxy -uroot -p'${root_pass}' -P$port"
 	sleep 30
 	for i in $(seq 0 $((size - 1))); do
-		compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-$i.$cluster-pxc -uroot -proot_password -P$port"
+		compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-$i.$cluster-pxc -uroot -p'${root_pass}' -P$port"
 	done
 
 	if [ "$(is_keyring_plugin_in_use "$cluster")" ]; then
@@ -1195,7 +1209,7 @@ start_vault() {
 		vault_tls "$name"
 		helm install $name hashicorp/vault \
 			--disable-openapi-validation \
-			--version 0.16.1 \
+			--version $VAULT_VER \
 			--namespace "$name" \
 			--set dataStorage.enabled=false \
 			--set global.tlsDisable=false \
@@ -1219,7 +1233,7 @@ storage \"file\" {
 	else
 		helm install $name hashicorp/vault \
 			--disable-openapi-validation \
-			--version 0.16.1 \
+			--version $VAULT_VER \
 			--namespace "$name" \
 			--set dataStorage.enabled=false \
 			--set global.platform="${platform}"
@@ -1282,7 +1296,7 @@ start_minio() {
 
 	local endpoint="http://minio-service:9000"
 	local minio_args=(
-		--version 5.0.14
+		--version $MINIO_VER
 		--set replicas=1
 		--set mode=standalone
 		--set resources.requests.memory=256Mi
@@ -1329,7 +1343,7 @@ deploy_chaos_mesh() {
 
 	desc 'install chaos-mesh'
 	helm repo add chaos-mesh https://charts.chaos-mesh.org
-	helm install chaos-mesh chaos-mesh/chaos-mesh --namespace=${chaos_mesh_ns} --set chaosDaemon.runtime=containerd --set chaosDaemon.socketPath=/run/containerd/containerd.sock --set dashboard.create=false --version 2.5.1
+	helm install chaos-mesh chaos-mesh/chaos-mesh --namespace=${chaos_mesh_ns} --set chaosDaemon.runtime=containerd --set chaosDaemon.socketPath=/run/containerd/containerd.sock --set dashboard.create=false --version $CHAOS_MESH_VER
 	sleep 10
 }
 
@@ -1688,6 +1702,13 @@ run_recovery_check_pitr() {
 	wait_for_delete pod/${cluster}-pxc-1
 
 	wait_pod ${cluster}-pxc-0
+
+	wait_backup_restore ${restore} "Starting Cluster"
+	local minio_pod=$(kubectl_bin get pods --selector=release=minio-service -o 'jsonpath={.items[].metadata.name}')
+	if kubectl_bin exec ${minio_pod} -- stat /exports/operator-testing/binlogs/gtid-binlog-cache.json 2>&1 1>/dev/null; then
+		echo "Binlog collector cache is not invalidated after restore!"
+		exit 1
+	fi
 
 	wait_backup_restore ${restore}
 	kubectl_bin logs job/restore-job-${restore}-${cluster}

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -14,6 +15,7 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/cmd/pitr/recoverer"
 
 	"github.com/caarlos0/env"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 func main() {
@@ -23,6 +25,24 @@ func main() {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, os.Interrupt)
 	defer stop()
+
+	srv := &http.Server{Addr: ":8080"}
+	go func() {
+		http.Handle("/metrics", promhttp.Handler())
+		http.HandleFunc("/health", healthHandler)
+		http.HandleFunc("/invalidate-cache/", cacheInvalidationHandler)
+		if err := srv.ListenAndServe(); err != http.ErrServerClosed {
+			log.Printf("ERROR: HTTP server error: %v", err)
+		}
+	}()
+
+	go func() {
+		<-ctx.Done()
+		if err := srv.Shutdown(context.Background()); err != nil {
+			log.Printf("ERROR: HTTP server shutdown: %v", err)
+		}
+	}()
+
 	switch command {
 	case "collect":
 		runCollector(ctx)
@@ -34,6 +54,67 @@ func main() {
 	}
 }
 
+func healthHandler(w http.ResponseWriter, _ *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	if _, err := w.Write([]byte("ok")); err != nil {
+		log.Println("ERROR: writing health response:", err)
+	}
+}
+
+func cacheInvalidationHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		if _, err := w.Write([]byte("only POST method is allowed")); err != nil {
+			log.Println("ERROR: writing response:", err)
+		}
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		if _, err := w.Write([]byte("failed to parse form")); err != nil {
+			log.Println("ERROR: writing response:", err)
+		}
+		return
+	}
+
+	hostname := r.FormValue("hostname")
+	if hostname == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		if _, err := w.Write([]byte("hostname is required")); err != nil {
+			log.Println("ERROR: writing response:", err)
+		}
+		return
+	}
+
+	ctx := r.Context()
+
+	config, err := getCollectorConfig()
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		log.Println("ERROR: get collector config:", err)
+		return
+	}
+
+	c, err := collector.New(ctx, config)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		log.Println("ERROR: get new collector:", err)
+		return
+	}
+
+	if err := collector.InvalidateCache(ctx, c, hostname); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		log.Println("ERROR: invalidate cache:", err)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	if _, err := w.Write([]byte(fmt.Sprintf("cache invalidated for host: %s", hostname))); err != nil {
+		log.Println("ERROR: writing response:", err)
+	}
+}
+
 func runCollector(ctx context.Context) {
 	config, err := getCollectorConfig()
 	if err != nil {
@@ -41,11 +122,17 @@ func runCollector(ctx context.Context) {
 	}
 	c, err := collector.New(ctx, config)
 	if err != nil {
-		log.Fatalln("ERROR: new controller:", err)
+		log.Fatalln("ERROR: new collector:", err)
 	}
-	log.Println("run binlog collector")
+
+	log.Println("initializing collector")
+	if err := c.Init(ctx); err != nil {
+		log.Fatalln("ERROR: init collector:", err)
+	}
+
+	log.Println("running binlog collector")
 	for {
-		timeout, cancel := context.WithTimeout(ctx, time.Duration(config.CollectSpanSec)*time.Second)
+		timeout, cancel := context.WithTimeout(ctx, time.Duration(config.TimeoutSeconds)*time.Second)
 		defer cancel()
 
 		err := c.Run(timeout)

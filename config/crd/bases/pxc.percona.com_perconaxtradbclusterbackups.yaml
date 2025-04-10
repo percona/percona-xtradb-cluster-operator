@@ -146,13 +146,24 @@ spec:
                 type: object
               pxcCluster:
                 type: string
+              startingDeadlineSeconds:
+                format: int64
+                type: integer
               storageName:
                 type: string
+              suspendedDeadlineSeconds:
+                format: int64
+                type: integer
             type: object
           status:
             properties:
               azure:
                 properties:
+                  blockSize:
+                    format: int64
+                    type: integer
+                  concurrency:
+                    type: integer
                   container:
                     type: string
                   credentialsSecret:
@@ -202,6 +213,8 @@ spec:
                   type: object
                 type: array
               destination:
+                type: string
+              error:
                 type: string
               image:
                 type: string

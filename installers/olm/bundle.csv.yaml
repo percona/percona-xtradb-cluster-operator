@@ -42,6 +42,7 @@ spec:
     # These values become labels on the PackageManifest.
     name: Percona
     url: https://www.percona.com/
+  labels: {}
   keywords:
     - mysql
     - percona
@@ -258,7 +259,6 @@ spec:
     required: [ ]
   # https://olm.operatorframework.io/docs/best-practices/common/
   # Note: The minKubeVersion must correspond to the lowest supported OCP version
-  minKubeVersion: 1.27.0
   maturity: stable
   # https://olm.operatorframework.io/docs/advanced-tasks/operator-scoping-with-operatorgroups/
   installModes:

@@ -232,7 +232,6 @@ export deployment=$deployment
 export account=$account
 export rules=$rules
 export version="${version}"
-export minKubeVer="${MIN_KUBE_VERSION}"
 export stem="${csv_stem}"
 export timestamp=$timestamp
 export name="${csv_stem}.v${VERSION}${suffix}"
@@ -249,10 +248,9 @@ yq eval '
   .metadata.annotations["olm.skipRange"] = env(skip_range) |
   .metadata.annotations["createdAt"] = env(timestamp) |
   .metadata.name = env(name) |
-  .spec.version = env(version) |
   .spec.install.spec[strenv(rulesLevel)] = [{ "serviceAccountName": env(account), "rules": env(rules) }] |
   .spec.install.spec.deployments = [( env(deployment) | .[] |{ "name": .metadata.name, "spec": .spec} )] |
-  .spec.minKubeVersion = env(minKubeVer)' bundle.csv.yaml >"${bundle_directory}/manifests/${file_name}.clusterserviceversion.yaml"
+  .spec.version = env(version)' bundle.csv.yaml >"${bundle_directory}/manifests/${file_name}.clusterserviceversion.yaml"
 
 if [ "${DISTRIBUTION}" == "community" ]; then
 	update_yaml_images "bundles/$DISTRIBUTION/manifests/${file_name}.clusterserviceversion.yaml"

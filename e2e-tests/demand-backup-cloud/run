@@ -104,13 +104,13 @@ check_cloud_storage_cleanup() {
 		if [[ ${deletes_num} -ge '2' ]]; then
 			echo "Bucket cleanup was successful"
 		else
-			echo "Smth went wrong. Delete was performed for $deletes_num. Expected: 2."
+			echo "Something went wrong. Delete was performed for $deletes_num. Expected: 2."
 			kubectl_bin logs ${backup_pod}
 			exit 1
 		fi
 	else
 		if kubectl_bin logs ${backup_pod} | grep 'Object deleted successfully before attempt 1. Exiting.'; then
-			echo "Smth went wrong. Delete was not performed."
+			echo "Something went wrong. Delete was not performed."
 			kubectl_bin logs ${backup_pod}
 			exit 1
 		else

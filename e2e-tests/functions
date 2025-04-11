@@ -564,7 +564,7 @@ compare_mysql_cmd() {
 
 	run_mysql "$command" "$uri" \
 		>$tmp_dir/${command_id}.sql
-	if [ ! -s "$tmp_dir/${command_id}.sql" ]; then
+	if [[ ! -s "$tmp_dir/${command_id}.sql" || $(cat "$tmp_dir/${command_id}.sql" | grep 'Unknown MySQL server host') ]]; then
 		sleep 20
 		run_mysql "$command" "$uri" \
 			>$tmp_dir/${command_id}.sql

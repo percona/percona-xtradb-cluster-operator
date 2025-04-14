@@ -1,0 +1,21 @@
+- name: pxc5.7
+  image: registry.connect.redhat.com/percona/percona-xtradb-cluster-operator-containers@sha256:<update_pxc5.7_SHA_value>
+- name: pxc5.7-backup
+  image: registry.connect.redhat.com/percona/percona-xtradb-cluster-operator-containers@sha256:<update_pxc5.7-backup_SHA_value>
+- name: pxc8.0
+  image: registry.connect.redhat.com/percona/percona-xtradb-cluster-operator-containers@sha256:<update_pxc8.0_SHA_value>
+- name: pxc8.0-backup
+  image: registry.connect.redhat.com/percona/percona-xtradb-cluster-operator-containers@sha256:<update_pxc8.0-backup_SHA_value>
+- name: operator
+  image: registry.connect.redhat.com/percona/percona-xtradb-cluster-operator@sha256:<update_operator_SHA_value>
+- name: haproxy
+  image: registry.connect.redhat.com/percona/percona-xtradb-cluster-operator-containers@sha256:<update_haproxy_SHA_value>
+- name: proxysql
+  image: registry.connect.redhat.com/percona/percona-xtradb-cluster-operator-containers@sha256:<update_proxysql_SHA_value>
+- name: logcollector
+  image: registry.connect.redhat.com/percona/percona-xtradb-cluster-operator-containers@sha256:<update_logcollector_SHA_value>
+- name: pmmclient
+  image: registry.connect.redhat.com/percona/percona-xtradb-cluster-operator-containers@sha256:<update_pmmclient_SHA_value>
+
+
+

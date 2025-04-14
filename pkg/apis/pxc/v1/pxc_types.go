@@ -4,6 +4,7 @@ package v1
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"strings"
 
@@ -94,10 +95,16 @@ type PXCSpec struct {
 	*PodSpec            `json:",inline"`
 }
 
+// ServiceExpose defines the configuration options for exposing a k8s Service.
+// +kubebuilder:validation:XValidation:rule="!(has(self.loadBalancerClass)) || self.type == 'LoadBalancer'",message="'loadBalancerClass' can only be set when service type is 'LoadBalancer'"
 type ServiceExpose struct {
 	// Deprecated: for ExposePrimary you don't need to specify this flag.
-	Enabled                  bool                                    `json:"enabled,omitempty"`
-	Type                     corev1.ServiceType                      `json:"type,omitempty"`
+	Enabled bool               `json:"enabled,omitempty"`
+	Type    corev1.ServiceType `json:"type,omitempty"`
+	// LoadBalancerClass enables to use a load balancer implementation other than the cloud provider default.
+	// This field can only be set when the Service type is 'LoadBalancer', and only when creating or updating
+	// a Service to type 'LoadBalancer'. Once set, it can not be changed.
+	LoadBalancerClass        *string                                 `json:"loadBalancerClass,omitempty"`
 	LoadBalancerSourceRanges []string                                `json:"loadBalancerSourceRanges,omitempty"`
 	LoadBalancerIP           string                                  `json:"loadBalancerIP,omitempty"`
 	Annotations              map[string]string                       `json:"annotations,omitempty"`
@@ -107,6 +114,17 @@ type ServiceExpose struct {
 
 	// Deprecated: Use ExternalTrafficPolicy instead
 	TrafficPolicy corev1.ServiceExternalTrafficPolicyType `json:"trafficPolicy,omitempty"`
+}
+
+// GetLoadBalancerClass returns the configured LoadBalancer class.
+func (s *ServiceExpose) GetLoadBalancerClass() (*string, error) {
+	if s.Type != corev1.ServiceTypeLoadBalancer {
+		return nil, fmt.Errorf("expose type %s is not LoadBalancer", s.Type)
+	}
+	if s.LoadBalancerClass != nil && *s.LoadBalancerClass == "" {
+		return nil, errors.New("load balancer class not provided or is empty")
+	}
+	return s.LoadBalancerClass, nil
 }
 
 type ReplicationChannel struct {
@@ -246,7 +264,6 @@ func (s PXCScheduledBackupRetention) IsValidCountRetention() bool {
 type AppState string
 
 const (
-	AppStateUnknown  AppState = "unknown"
 	AppStateInit     AppState = "initializing"
 	AppStatePaused   AppState = "paused"
 	AppStateStopping AppState = "stopping"
@@ -285,9 +302,7 @@ type ReplicationChannelStatus struct {
 type ConditionStatus string
 
 const (
-	ConditionTrue    ConditionStatus = "True"
-	ConditionFalse   ConditionStatus = "False"
-	ConditionUnknown ConditionStatus = "Unknown"
+	ConditionTrue ConditionStatus = "True"
 )
 
 type ClusterCondition struct {
@@ -828,8 +843,6 @@ func ContainsVolume(vs []corev1.Volume, name string) bool {
 	return false
 }
 
-const WorkloadSA = "default"
-
 // +kubebuilder:object:generate=false
 type CustomVolumeGetter func(nsName, cvName, cmName string, useDefaultVolume bool) (corev1.Volume, error)
 
@@ -904,7 +917,7 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 	}
 	workloadSA := "percona-xtradb-cluster-operator-workload"
 	if cr.CompareVersionWith("1.6.0") >= 0 {
-		workloadSA = WorkloadSA
+		workloadSA = "default"
 	}
 
 	c := &cr.Spec

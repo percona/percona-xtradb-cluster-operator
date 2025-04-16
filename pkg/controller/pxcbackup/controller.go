@@ -179,6 +179,24 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 		return reconcile.Result{}, errors.Wrap(err, "ensure finalizers")
 	}
 
+	// we need to defer this before checking deadlines
+	// to properly release the lock if backup fails due to a deadline
+	defer func() {
+		if cluster.Spec.Backup.GetAllowParallel() {
+			return
+		}
+
+		switch cr.Status.State {
+		case api.BackupSucceeded, api.BackupFailed:
+			log.Info("Releasing backup lock", "lease", naming.BackupLeaseName(cluster.Name))
+
+			err := k8s.ReleaseLease(ctx, r.client, naming.BackupLeaseName(cluster.Name), cr.Namespace, naming.BackupHolderId(cr))
+			if err != nil {
+				log.Error(err, "failed to release the lock")
+			}
+		}
+	}()
+
 	if err := r.checkDeadlines(ctx, cluster, cr); err != nil {
 		if err := r.setFailedStatus(ctx, cr, err); err != nil {
 			return rr, errors.Wrap(err, "update status")
@@ -218,13 +236,13 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 	log = log.WithValues("storage", cr.Spec.StorageName)
 
 	log.V(1).Info("Check if parallel backups are allowed", "allowed", cluster.Spec.Backup.GetAllowParallel())
-	if !cluster.Spec.Backup.GetAllowParallel() {
-		lease, err := k8s.AcquireLease(ctx, r.client, naming.BackupLeaseName(cluster.Name), cr.Namespace, cr.Name)
+	if cr.Status.State == api.BackupNew && !cluster.Spec.Backup.GetAllowParallel() {
+		lease, err := k8s.AcquireLease(ctx, r.client, naming.BackupLeaseName(cluster.Name), cr.Namespace, naming.BackupHolderId(cr))
 		if err != nil {
 			return reconcile.Result{}, errors.Wrap(err, "acquire backup lock")
 		}
 
-		if lease.Spec.HolderIdentity != nil && *lease.Spec.HolderIdentity != cr.Name {
+		if lease.Spec.HolderIdentity != nil && *lease.Spec.HolderIdentity != naming.BackupHolderId(cr) {
 			log.Info("Another backup is holding the lock", "holder", *lease.Spec.HolderIdentity)
 
 			return rr, nil
@@ -254,19 +272,6 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 	}
 
 	err = r.updateJobStatus(ctx, cr, job, cr.Spec.StorageName, storage, cluster)
-
-	if !cluster.Spec.Backup.GetAllowParallel() {
-		switch cr.Status.State {
-		case api.BackupSucceeded, api.BackupFailed:
-			log.Info("Releasing backup lock", "lease", naming.BackupLeaseName(cluster.Name))
-
-			if err := k8s.ReleaseLease(ctx, r.client, naming.BackupLeaseName(cluster.Name), cr.Namespace); err != nil {
-				return reconcile.Result{}, errors.Wrap(err, "release backup lock")
-			}
-
-			return reconcile.Result{}, nil
-		}
-	}
 
 	return rr, err
 }
@@ -525,8 +530,8 @@ func (r *ReconcilePerconaXtraDBClusterBackup) runAzureBackupFinalizer(ctx contex
 }
 
 func (r *ReconcilePerconaXtraDBClusterBackup) runReleaseLockFinalizer(ctx context.Context, cr *api.PerconaXtraDBClusterBackup) error {
-	err := k8s.ReleaseLease(ctx, r.client, naming.BackupLeaseName(cr.Spec.PXCCluster), cr.Namespace)
-	if k8sErrors.IsNotFound(err) {
+	err := k8s.ReleaseLease(ctx, r.client, naming.BackupLeaseName(cr.Spec.PXCCluster), cr.Namespace, naming.BackupHolderId(cr))
+	if k8sErrors.IsNotFound(err) || errors.Is(err, k8s.ErrNotTheHolder) {
 		return nil
 	}
 	return errors.Wrap(err, "release backup lock")
@@ -725,15 +730,15 @@ func (r *ReconcilePerconaXtraDBClusterBackup) suspendJobIfNeeded(
 			return err
 		}
 
-		suspended := false
 		for _, cond := range job.Status.Conditions {
-			if cond.Type == batchv1.JobSuspended && cond.Status == corev1.ConditionTrue {
-				suspended = true
+			if cond.Status != corev1.ConditionTrue {
+				continue
 			}
-		}
 
-		if suspended {
-			return nil
+			switch cond.Type {
+			case batchv1.JobSuspended, batchv1.JobComplete:
+				return nil
+			}
 		}
 
 		log.Info("Suspending backup job",
@@ -797,7 +802,13 @@ func (r *ReconcilePerconaXtraDBClusterBackup) resumeJobIfNeeded(
 
 		job.Spec.Suspend = ptr.To(false)
 
-		return r.client.Update(ctx, job)
+		err = r.client.Update(ctx, job)
+		if err != nil {
+			return err
+		}
+
+		cr.Status.State = api.BackupStarting
+		return r.updateStatus(ctx, cr)
 	})
 
 	return err
@@ -813,7 +824,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) reconcileBackupJob(
 	}
 
 	if err := r.resumeJobIfNeeded(ctx, cr, cluster); err != nil {
-		return errors.Wrap(err, "suspend job if needed")
+		return errors.Wrap(err, "resume job if needed")
 	}
 
 	return nil

@@ -35,7 +35,14 @@ kubectl_bin apply -f ${conf_dir}/secrets.yml
 
 cluster="demand-backup-parallel"
 log "create PXC cluster: ${cluster}"
-apply_config ${test_dir}/conf/cr.yml
+if [[ $IMAGE_PXC =~ 5\.7 ]]; then
+	cat_config ${test_dir}/conf/cr.yml \
+		| $sed '/\[sst\]/,+1d' \
+		| $sed 's|compress=lz4|compress|' \
+		| kubectl_bin apply -f -
+else
+	apply_config ${test_dir}/conf/cr.yml
+fi
 
 desc 'creating backups'
 run_backup backup1
@@ -50,7 +57,7 @@ check_active_backup_count
 for i in $(seq 0 3); do
 	sleep 5
 	check_active_backup_count
-	holder=$(kubectl_bin get lease pxc-${cluster}-backup-lock -o jsonpath={.spec.holderIdentity})
+	holder=$(kubectl_bin get lease pxc-${cluster}-backup-lock -o jsonpath={.spec.holderIdentity} | cut -d'-' -f1)
 	log "Backup lock holder: ${holder}"
 	wait_backup ${holder}
 done
@@ -62,3 +69,5 @@ wait_backup backup3
 wait_backup backup4
 
 log "test passed"
+
+destroy $namespace

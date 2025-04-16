@@ -10,7 +10,7 @@ metadata:
 #  annotations:
 #    percona.com/issue-vault-token: "true"
 spec:
-  crVersion: 1.17.0
+  crVersion: 1.18.0
 #  enableVolumeExpansion: false
 #  ignoreAnnotations:
 #    - iam.amazonaws.com/role
@@ -283,7 +283,6 @@ spec:
 #      successThreshold: 1
 #      failureThreshold: 4
 #    exposePrimary:
-#      enabled: false
 #      type: ClusterIP
 #      annotations:
 #        service.beta.kubernetes.io/aws-load-balancer-backend-protocol: tcp

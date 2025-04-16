@@ -67,7 +67,6 @@ spec:
 #      internalTrafficPolicy: Local
 #      loadBalancerSourceRanges:
 #        - 10.0.0.0/8
-#      loadBalancerIP: 127.0.0.1
 #      annotations:
 #        networking.gke.io/load-balancer-type: "Internal"
 #      labels:
@@ -291,7 +290,6 @@ spec:
 #        rack: rack-22
 #      loadBalancerSourceRanges:
 #        - 10.0.0.0/8
-#      loadBalancerIP: 127.0.0.1
 #    exposeReplicas:
 #      enabled: true
 #      onlyReaders: false
@@ -304,7 +302,6 @@ spec:
 #        rack: rack-22
 #      loadBalancerSourceRanges:
 #        - 10.0.0.0/8
-#      loadBalancerIP: 127.0.0.1
 #    runtimeClassName: image-rc
 #    sidecars:
 #    - image: busybox
@@ -454,7 +451,6 @@ spec:
 #        rack: rack-22
 #      loadBalancerSourceRanges:
 #        - 10.0.0.0/8
-#      loadBalancerIP: 127.0.0.1
 #    runtimeClassName: image-rc
 #    sidecars:
 #    - image: busybox

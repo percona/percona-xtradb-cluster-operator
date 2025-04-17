@@ -322,7 +322,7 @@ func TestOperatorRestart(t *testing.T) {
 	const s3SecretName = "my-cluster-name-backup-s3"
 	const azureSecretName = "my-cluster-name-backup-azure"
 
-	states := []api.BcpRestoreStates{
+	states := []api.RestoreState{
 		api.RestoreNew,
 		api.RestoreStopCluster,
 		api.RestoreRestore,

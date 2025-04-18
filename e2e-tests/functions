@@ -1066,37 +1066,40 @@ check_pvc_md5() {
 
 run_backup() {
 	local cluster=$1
-	local backup1=$2
+	local backup=$2
 
-	desc "make backup $backup1"
+	log "run pxc-backup/${backup}"
 	kubectl_bin apply \
-		-f $test_dir/conf/$backup1.yml
-	wait_backup $backup1
+		-f ${test_dir}/conf/${backup}.yml
+	wait_backup ${backup}
 }
 
 run_recovery_check() {
 	local cluster=$1
-	local backup1=$2
+	local backup=$2
 	local proxy=$(get_proxy_engine $cluster)
 
-	desc "recover backup $backup1"
-	cat "$test_dir/conf/restore-${backup1}.yaml" \
+	log "run pxc-restore/${backup}"
+	cat "$test_dir/conf/restore-${backup}.yaml" \
 		| $sed -e "s~minio-service.#namespace~minio-service.$namespace~" \
 		| kubectl_bin apply -f -
-	wait_backup_restore ${backup1}
-	kubectl_bin logs job/restore-job-${backup1}-${cluster}
+	wait_backup_restore ${backup}
+	kubectl_bin logs job/restore-job-${backup}-${cluster}
 	wait_for_running "$cluster-$proxy" 1
 	wait_for_running "$cluster-pxc" 3
 
-	sleep 35
-	desc 'check data after backup'
-	compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
-	compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-1.$cluster-pxc -uroot -proot_password"
-	compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-2.$cluster-pxc -uroot -proot_password"
+	local secret_name=$(kubectl_bin get pxc ${cluster} -o jsonpath='{.spec.secretsName}')
+	local root_pass=$(getSecretData ${secret_name} "root")
 
-	if [ "$backup1" != "on-demand-backup-minio" ]; then
-		desc 'copy backup'
-		bash $src_dir/deploy/backup/copy-backup.sh $backup1 $tmp_dir/backup
+	sleep 35
+	log "check data after pxc-restore/${backup}"
+	compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -p${root_pass}"
+	compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-1.$cluster-pxc -uroot -p${root_pass}"
+	compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-2.$cluster-pxc -uroot -p${root_pass}"
+
+	if [ "$backup" != "on-demand-backup-minio" ]; then
+		log 'copy backup'
+		bash $src_dir/deploy/backup/copy-backup.sh $backup $tmp_dir/backup
 	fi
 }
 

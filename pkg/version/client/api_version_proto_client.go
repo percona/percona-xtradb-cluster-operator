@@ -10,7 +10,7 @@ import (
 	httptransport "github.com/go-openapi/runtime/client"
 	"github.com/go-openapi/strfmt"
 
-	"github.com/percona/percona-xtradb-cluster-operator/version/client/version_service"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/version/client/version_service"
 )
 
 // Default API version proto HTTP client.

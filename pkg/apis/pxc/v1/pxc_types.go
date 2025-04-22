@@ -1340,6 +1340,12 @@ func (cr *PerconaXtraDBCluster) CompareVersionWith(ver string) int {
 	return cr.Version().Compare(v.Must(v.NewVersion(ver)))
 }
 
+// CompareMySQLVersion compares given version to current MySQL version.
+// Returns -1, 0, or 1 if given version is smaller, equal, or larger than the current version, respectively.
+func (cr *PerconaXtraDBCluster) CompareMySQLVersion(ver string) int {
+	return v.Must(v.NewVersion(cr.Status.PXC.Version)).Compare(v.Must(v.NewVersion(ver)))
+}
+
 // ConfigHasKey check if cr.Spec.PXC.Configuration has given key in given section
 func (cr *PerconaXtraDBCluster) ConfigHasKey(section, key string) (bool, error) {
 	file, err := ini.LoadSources(ini.LoadOptions{AllowBooleanKeys: true}, []byte(cr.Spec.PXC.Configuration))

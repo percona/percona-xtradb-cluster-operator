@@ -232,12 +232,20 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(ctx context.Context
 		}
 	}
 
-	authPlugin, err := primaryDB.ReadVariable("default_authentication_plugin")
+	authPluginVar := "default_authentication_plugin"
+	if cr.CompareMySQLVersion("8.4.0") >= 0 {
+		authPluginVar = "authentication_policy"
+	}
+
+	authPlugin, err := primaryDB.ReadVariable(authPluginVar)
 	if err != nil {
-		return errors.Wrap(err, "failed to get default_authentication_plugin variable value")
+		return errors.Wrapf(err, "failed to get %s variable value", authPluginVar)
 	}
 
 	shouldGetMasterKey := authPlugin == "caching_sha2_password"
+	if cr.CompareMySQLVersion("8.4.0") >= 0 {
+		shouldGetMasterKey = strings.Contains(authPlugin, "caching_sha2_password")
+	}
 
 	for _, channel := range cr.Spec.PXC.ReplicationChannels {
 		if channel.IsSource {

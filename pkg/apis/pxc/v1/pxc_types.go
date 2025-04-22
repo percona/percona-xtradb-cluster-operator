@@ -239,7 +239,7 @@ func (s PXCScheduledBackupSchedule) GetRetention() PXCScheduledBackupRetention {
 	}
 }
 
-// IsValidCountRetention check if the retention is of type count and the count has a non-zero value.
+// IsValidCountRetention checks if the retention is of type count and the count has a non-zero value.
 func (s PXCScheduledBackupRetention) IsValidCountRetention() bool {
 	return s.Type == pxcScheduledBackupRetentionCount && s.Count > 0
 }

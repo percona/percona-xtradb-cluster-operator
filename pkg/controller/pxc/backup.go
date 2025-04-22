@@ -92,7 +92,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(ctx context.Context, cr
 		}
 		if spec, ok := backups[item.Name]; ok {
 			if spec.GetRetention().IsValidCountRetention() {
-				oldjobs, err := r.oldScheduledBackups(ctx, cr, item.Name, spec.Keep)
+				oldjobs, err := r.oldScheduledBackups(ctx, cr, item.Name, spec.GetRetention().Count)
 				if err != nil {
 					log.Error(err, "failed to list old backups", "name", item.Name)
 					return true

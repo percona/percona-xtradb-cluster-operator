@@ -144,6 +144,7 @@ spec:
                               - count
                               type: string
                           required:
+                          - deleteFromStorage
                           - type
                           type: object
                         schedule:

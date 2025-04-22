@@ -197,7 +197,6 @@ type PXCScheduledBackupSchedule struct {
 	// +kubebuilder:validation:Required
 	Schedule string `json:"schedule,omitempty"`
 	// Deprecated: Use Retention instead. This field will be removed after version 1.21.
-	// +optional
 	Keep int `json:"keep,omitempty"`
 	// +optional
 	Retention *PXCScheduledBackupRetention `json:"retention,omitempty"`
@@ -221,7 +220,7 @@ type PXCScheduledBackupRetention struct {
 	Count int `json:"count,omitempty"`
 
 	// When set to true (the default), backups will be deleted from storage.
-	// +optional
+	// +kubebuilder:validation:Required
 	// +kubebuilder:default=true
 	DeleteFromStorage bool `json:"deleteFromStorage,omitempty"`
 }

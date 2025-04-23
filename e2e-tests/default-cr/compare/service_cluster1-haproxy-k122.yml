@@ -31,6 +31,10 @@ spec:
       port: 33060
       protocol: TCP
       targetPort: 33060
+    - name: stats
+      port: 8404
+      protocol: TCP
+      targetPort: 8404
   selector:
     app.kubernetes.io/component: haproxy
     app.kubernetes.io/instance: cluster1

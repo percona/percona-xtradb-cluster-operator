@@ -16,7 +16,10 @@ SKIP_REMOTE_BACKUPS=${SKIP_REMOTE_BACKUPS:-1}
 PMM_SERVER_VER=${PMM_SERVER_VER:-"9.9.9"}
 IMAGE_PMM_CLIENT=${IMAGE_PMM_CLIENT:-"perconalab/pmm-client:dev-latest"}
 IMAGE_PMM_SERVER=${IMAGE_PMM_SERVER:-"perconalab/pmm-server:dev-latest"}
-CERT_MANAGER_VER="1.16.2"
+CERT_MANAGER_VER="1.17.1"
+MINIO_VER="5.4.0"
+CHAOS_MESH_VER="2.7.1"
+VAULT_VER="0.30.0"
 tmp_dir=$(mktemp -d)
 sed=$(which gsed || which sed)
 date=$(which gdate || which date)
@@ -933,19 +936,22 @@ spinup_pxc() {
 	wait_for_running "$cluster-pxc" "$size"
 	sleep $sleep
 
+	local secret_name=$(kubectl get pxc $cluster -o jsonpath='{.spec.secretsName}')
+	local root_pass=$(getSecretData $secret_name "root")
+
 	desc 'write data'
 	if [[ $IMAGE_PXC =~ 5\.7 ]] && [[ "$(is_keyring_plugin_in_use "$cluster")" ]]; then
 		encrypt='ENCRYPTION=\"Y\"'
 	fi
 	run_mysql \
 		"CREATE DATABASE IF NOT EXISTS myApp; use myApp; CREATE TABLE IF NOT EXISTS myApp (id int PRIMARY KEY) $encrypt;" \
-		"-h $proxy -uroot -proot_password -P$port"
+		"-h $proxy -uroot -p'${root_pass}' -P$port"
 	run_mysql \
 		'INSERT myApp.myApp (id) VALUES (100500)' \
-		"-h $proxy -uroot -proot_password -P$port"
+		"-h $proxy -uroot -p'${root_pass}' -P$port"
 	sleep 30
 	for i in $(seq 0 $((size - 1))); do
-		compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-$i.$cluster-pxc -uroot -proot_password -P$port"
+		compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-$i.$cluster-pxc -uroot -p'${root_pass}' -P$port"
 	done
 
 	if [ "$(is_keyring_plugin_in_use "$cluster")" ]; then
@@ -1203,7 +1209,7 @@ start_vault() {
 		vault_tls "$name"
 		helm install $name hashicorp/vault \
 			--disable-openapi-validation \
-			--version 0.16.1 \
+			--version $VAULT_VER \
 			--namespace "$name" \
 			--set dataStorage.enabled=false \
 			--set global.tlsDisable=false \
@@ -1227,7 +1233,7 @@ storage \"file\" {
 	else
 		helm install $name hashicorp/vault \
 			--disable-openapi-validation \
-			--version 0.16.1 \
+			--version $VAULT_VER \
 			--namespace "$name" \
 			--set dataStorage.enabled=false \
 			--set global.platform="${platform}"
@@ -1290,7 +1296,7 @@ start_minio() {
 
 	local endpoint="http://minio-service:9000"
 	local minio_args=(
-		--version 5.0.14
+		--version $MINIO_VER
 		--set replicas=1
 		--set mode=standalone
 		--set resources.requests.memory=256Mi
@@ -1337,7 +1343,7 @@ deploy_chaos_mesh() {
 
 	desc 'install chaos-mesh'
 	helm repo add chaos-mesh https://charts.chaos-mesh.org
-	helm install chaos-mesh chaos-mesh/chaos-mesh --namespace=${chaos_mesh_ns} --set chaosDaemon.runtime=containerd --set chaosDaemon.socketPath=/run/containerd/containerd.sock --set dashboard.create=false --version 2.5.1
+	helm install chaos-mesh chaos-mesh/chaos-mesh --namespace=${chaos_mesh_ns} --set chaosDaemon.runtime=containerd --set chaosDaemon.socketPath=/run/containerd/containerd.sock --set dashboard.create=false --version $CHAOS_MESH_VER
 	sleep 10
 }
 

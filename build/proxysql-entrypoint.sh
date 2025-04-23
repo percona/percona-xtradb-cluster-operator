@@ -2,6 +2,16 @@
 
 set -o xtrace
 
+function sed_in_place() {
+	local cmd=$1
+	local file=$2
+	local tmp=$(mktemp)
+
+	sed "${cmd}" "${file}" >"${tmp}"
+	cat "${tmp}" >"${file}"
+	rm "${tmp}"
+}
+
 cp /opt/percona/proxysql.cnf /etc/proxysql
 cp /opt/percona/proxysql-admin.cnf /etc
 
@@ -10,28 +20,28 @@ PROXY_ADMIN_CFG=/etc/proxysql-admin.cnf
 
 MYSQL_INTERFACES='0.0.0.0:3306;0.0.0.0:33062'
 CLUSTER_PORT='33062'
-sed "s/#export WRITERS_ARE_READERS=.*$/export WRITERS_ARE_READERS='yes'/g" ${PROXY_ADMIN_CFG} 1<>${PROXY_ADMIN_CFG}
+sed_in_place "s/#export WRITERS_ARE_READERS=.*$/export WRITERS_ARE_READERS='yes'/g" ${PROXY_ADMIN_CFG}
 
-sed "s/interfaces=\"0.0.0.0:3306\"/interfaces=\"${MYSQL_INTERFACES:-0.0.0.0:3306}\"/g" ${PROXY_CFG} 1<>${PROXY_CFG}
-sed "s/stacksize=1048576/stacksize=${MYSQL_STACKSIZE:-1048576}/g" ${PROXY_CFG} 1<>${PROXY_CFG}
-sed "s/threads=2/threads=${MYSQL_THREADS:-2}/g" ${PROXY_CFG} 1<>${PROXY_CFG}
+sed_in_place "s/interfaces=\"0.0.0.0:3306\"/interfaces=\"${MYSQL_INTERFACES:-0.0.0.0:3306}\"/g" ${PROXY_CFG}
+sed_in_place "s/stacksize=1048576/stacksize=${MYSQL_STACKSIZE:-1048576}/g" ${PROXY_CFG}
+sed_in_place "s/threads=2/threads=${MYSQL_THREADS:-2}/g" ${PROXY_CFG}
 
 set +o xtrace # hide sensitive information
 OPERATOR_PASSWORD_ESCAPED=$(sed 's/[][\-\!\#\$\%\&\(\)\*\+\,\.\:\;\<\=\>\?\@\^\_\~\{\}]/\\&/g' <<<"${OPERATOR_PASSWORD}")
 MONITOR_PASSWORD_ESCAPED=$(sed 's/[][\-\!\#\$\%\&\(\)\*\+\,\.\:\;\<\=\>\?\@\^\_\~\{\}]/\\&/g' <<<"${MONITOR_PASSWORD}")
 PROXY_ADMIN_PASSWORD_ESCAPED=$(sed 's/[][\-\!\#\$\%\&\(\)\*\+\,\.\:\;\<\=\>\?\@\^\_\~\{\}]/\\&/g' <<<"${PROXY_ADMIN_PASSWORD}")
 
-sed "s/\"admin:admin\"/\"${PROXY_ADMIN_USER:-admin}:${PROXY_ADMIN_PASSWORD_ESCAPED:-admin}\"/g" ${PROXY_CFG} 1<>${PROXY_CFG}
-sed "s/cluster_username=\"admin\"/cluster_username=\"${PROXY_ADMIN_USER:-admin}\"/g" ${PROXY_CFG} 1<>${PROXY_CFG}
-sed "s/cluster_password=\"admin\"/cluster_password=\"${PROXY_ADMIN_PASSWORD_ESCAPED:-admin}\"/g" ${PROXY_CFG} 1<>${PROXY_CFG}
-sed "s/monitor_password=\"monitor\"/monitor_password=\"${MONITOR_PASSWORD_ESCAPED:-monitor}\"/g" ${PROXY_CFG} 1<>${PROXY_CFG}
-sed "s/PROXYSQL_USERNAME='admin'/PROXYSQL_USERNAME='${PROXY_ADMIN_USER:-admin}'/g" ${PROXY_ADMIN_CFG} 1<>${PROXY_ADMIN_CFG}
-sed "s/PROXYSQL_PASSWORD='admin'/PROXYSQL_PASSWORD='${PROXY_ADMIN_PASSWORD_ESCAPED:-admin}'/g" ${PROXY_ADMIN_CFG} 1<>${PROXY_ADMIN_CFG}
-sed "s/CLUSTER_USERNAME='admin'/CLUSTER_USERNAME='${OPERATOR_USERNAME:-operator}'/g" ${PROXY_ADMIN_CFG} 1<>${PROXY_ADMIN_CFG}
-sed "s/CLUSTER_PASSWORD='admin'/CLUSTER_PASSWORD='${OPERATOR_PASSWORD_ESCAPED:-operator}'/g" ${PROXY_ADMIN_CFG} 1<>${PROXY_ADMIN_CFG}
-sed "s/CLUSTER_PORT='3306'/CLUSTER_PORT='${CLUSTER_PORT:-3306}'/g" ${PROXY_ADMIN_CFG} 1<>${PROXY_ADMIN_CFG}
-sed "s/MONITOR_USERNAME='monitor'/MONITOR_USERNAME='${MONITOR_USERNAME:-monitor}'/g" ${PROXY_ADMIN_CFG} 1<>${PROXY_ADMIN_CFG}
-sed "s/MONITOR_PASSWORD='monitor'/MONITOR_PASSWORD='${MONITOR_PASSWORD_ESCAPED:-monitor}'/g" ${PROXY_ADMIN_CFG} 1<>${PROXY_ADMIN_CFG}
+sed_in_place "s/\"admin:admin\"/\"${PROXY_ADMIN_USER:-admin}:${PROXY_ADMIN_PASSWORD_ESCAPED:-admin}\"/g" ${PROXY_CFG}
+sed_in_place "s/cluster_username=\"admin\"/cluster_username=\"${PROXY_ADMIN_USER:-admin}\"/g" ${PROXY_CFG}
+sed_in_place "s/cluster_password=\"admin\"/cluster_password=\"${PROXY_ADMIN_PASSWORD_ESCAPED:-admin}\"/g" ${PROXY_CFG}
+sed_in_place "s/monitor_password=\"monitor\"/monitor_password=\"${MONITOR_PASSWORD_ESCAPED:-monitor}\"/g" ${PROXY_CFG}
+sed_in_place "s/PROXYSQL_USERNAME='admin'/PROXYSQL_USERNAME='${PROXY_ADMIN_USER:-admin}'/g" ${PROXY_ADMIN_CFG}
+sed_in_place "s/PROXYSQL_PASSWORD='admin'/PROXYSQL_PASSWORD='${PROXY_ADMIN_PASSWORD_ESCAPED:-admin}'/g" ${PROXY_ADMIN_CFG}
+sed_in_place "s/CLUSTER_USERNAME='admin'/CLUSTER_USERNAME='${OPERATOR_USERNAME:-operator}'/g" ${PROXY_ADMIN_CFG}
+sed_in_place "s/CLUSTER_PASSWORD='admin'/CLUSTER_PASSWORD='${OPERATOR_PASSWORD_ESCAPED:-operator}'/g" ${PROXY_ADMIN_CFG}
+sed_in_place "s/CLUSTER_PORT='3306'/CLUSTER_PORT='${CLUSTER_PORT:-3306}'/g" ${PROXY_ADMIN_CFG}
+sed_in_place "s/MONITOR_USERNAME='monitor'/MONITOR_USERNAME='${MONITOR_USERNAME:-monitor}'/g" ${PROXY_ADMIN_CFG}
+sed_in_place "s/MONITOR_PASSWORD='monitor'/MONITOR_PASSWORD='${MONITOR_PASSWORD_ESCAPED:-monitor}'/g" ${PROXY_ADMIN_CFG}
 set -o xtrace
 
 ## SSL/TLS support
@@ -56,11 +66,11 @@ if [ -f "${SSL_INTERNAL_DIR}/tls.key" ] && [ -f "${SSL_INTERNAL_DIR}/tls.crt" ];
 fi
 
 if [ -f "$CA" ] && [ -f "$KEY" ] && [ -f "$CERT" ] && [ -n "$PXC_SERVICE" ]; then
-	sed "s^have_ssl=false^have_ssl=true^" ${PROXY_CFG} 1<>${PROXY_CFG}
-	sed "s^ssl_p2s_ca=\"\"^ssl_p2s_ca=\"$CA\"^" ${PROXY_CFG} 1<>${PROXY_CFG}
-	sed "s^ssl_p2s_ca=\"\"^ssl_p2s_ca=\"$CA\"^" ${PROXY_CFG} 1<>${PROXY_CFG}
-	sed "s^ssl_p2s_key=\"\"^ssl_p2s_key=\"$KEY\"^" ${PROXY_CFG} 1<>${PROXY_CFG}
-	sed "s^ssl_p2s_cert=\"\"^ssl_p2s_cert=\"$CERT\"^" ${PROXY_CFG} 1<>${PROXY_CFG}
+	sed_in_place "s^have_ssl=false^have_ssl=true^" ${PROXY_CFG}
+	sed_in_place "s^ssl_p2s_ca=\"\"^ssl_p2s_ca=\"$CA\"^" ${PROXY_CFG}
+	sed_in_place "s^ssl_p2s_ca=\"\"^ssl_p2s_ca=\"$CA\"^" ${PROXY_CFG}
+	sed_in_place "s^ssl_p2s_key=\"\"^ssl_p2s_key=\"$KEY\"^" ${PROXY_CFG}
+	sed_in_place "s^ssl_p2s_cert=\"\"^ssl_p2s_cert=\"$CERT\"^" ${PROXY_CFG}
 fi
 
 if [ -f "${SSL_DIR}/tls.key" ] && [ -f "${SSL_DIR}/tls.crt" ]; then

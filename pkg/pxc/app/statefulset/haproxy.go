@@ -307,8 +307,9 @@ func (c *HAProxy) LogCollectorContainer(_ *api.LogCollectorSpec, _ string, _ str
 }
 
 func (c *HAProxy) PMMContainer(ctx context.Context, cl client.Client, spec *api.PMMSpec, secret *corev1.Secret, cr *api.PerconaXtraDBCluster) (*corev1.Container, error) {
-	if cr.CompareVersionWith("1.9.0") < 0 {
-		return nil, nil
+	clusterName := cr.Name
+	if cr.CompareVersionWith("1.18.0") >= 0 && cr.Spec.PMM.CustomClusterName != "" {
+		clusterName = cr.Spec.PMM.CustomClusterName
 	}
 
 	envVarsSecret := &corev1.Secret{}
@@ -358,7 +359,7 @@ func (c *HAProxy) PMMContainer(ctx context.Context, cl client.Client, spec *api.
 		},
 		{
 			Name:  "CLUSTER_NAME",
-			Value: cr.Name,
+			Value: clusterName,
 		},
 		{
 			Name:  "PMM_ADMIN_CUSTOM_PARAMS",
@@ -367,48 +368,46 @@ func (c *HAProxy) PMMContainer(ctx context.Context, cl client.Client, spec *api.
 	}
 	ct.Env = append(ct.Env, pmmEnvs...)
 
-	pmmAgentScriptEnv := app.PMMAgentScript(cr, "haproxy")
-	ct.Env = append(ct.Env, pmmAgentScriptEnv...)
-
-	if cr.CompareVersionWith("1.10.0") >= 0 {
-		// PMM team added these flags which allows us to avoid
-		// container crash, but just restart pmm-agent till it recovers
-		// the connection.
-		sidecarEnvs := []corev1.EnvVar{
-			{
-				Name:  "PMM_AGENT_SIDECAR",
-				Value: "true",
-			},
-			{
-				Name:  "PMM_AGENT_SIDECAR_SLEEP",
-				Value: "5",
-			},
-		}
-		ct.Env = append(ct.Env, sidecarEnvs...)
+	pmmAgentScriptEnv := []corev1.EnvVar{
+		{
+			Name:  "PMM_AGENT_PRERUN_SCRIPT",
+			Value: "/var/lib/mysql/pmm-prerun.sh",
+		},
 	}
 
-	if cr.CompareVersionWith("1.14.0") >= 0 {
-		// PMM team moved temp directory to /usr/local/percona/pmm2/tmp
-		// but it doesn't work on OpenShift so we set it back to /tmp
-		sidecarEnvs := []corev1.EnvVar{
-			{
-				Name:  "PMM_AGENT_PATHS_TEMPDIR",
-				Value: "/tmp",
-			},
-		}
-		ct.Env = append(ct.Env, sidecarEnvs...)
+	ct.Env = append(ct.Env, pmmAgentScriptEnv...)
 
-		fvar := true
-		ct.EnvFrom = []corev1.EnvFromSource{
-			{
-				SecretRef: &corev1.SecretEnvSource{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: cr.Spec.HAProxy.EnvVarsSecretName,
-					},
-					Optional: &fvar,
+	// PMM team added these flags which allows us to avoid
+	// container crash, but just restart pmm-agent till it recovers
+	// the connection.
+	// PMM team moved temp directory to /usr/local/percona/pmm2/tmp
+	// but it doesn't work on OpenShift so we set it back to /tmp
+	sidecarEnvs := []corev1.EnvVar{
+		{
+			Name:  "PMM_AGENT_SIDECAR",
+			Value: "true",
+		},
+		{
+			Name:  "PMM_AGENT_SIDECAR_SLEEP",
+			Value: "5",
+		},
+		{
+			Name:  "PMM_AGENT_PATHS_TEMPDIR",
+			Value: "/tmp",
+		},
+	}
+	ct.Env = append(ct.Env, sidecarEnvs...)
+
+	fvar := true
+	ct.EnvFrom = []corev1.EnvFromSource{
+		{
+			SecretRef: &corev1.SecretEnvSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: cr.Spec.HAProxy.EnvVarsSecretName,
 				},
+				Optional: &fvar,
 			},
-		}
+		},
 	}
 
 	ct.Resources = spec.Resources

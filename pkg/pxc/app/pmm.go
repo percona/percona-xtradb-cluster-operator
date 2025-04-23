@@ -208,37 +208,6 @@ func pmmAgentEnvs(pmmServerHost, pmmServerUser, secrets string, useAPI bool) []c
 	}
 }
 
-func PMMAgentScript(cr *api.PerconaXtraDBCluster, dbType string) []corev1.EnvVar {
-	if cr.CompareVersionWith("1.13.0") < 0 {
-		pmmServerArgs := " $(PMM_ADMIN_CUSTOM_PARAMS) --skip-connection-check --metrics-mode=push"
-		pmmServerArgs += " --username=$(DB_USER) --password=$(DB_PASSWORD) --cluster=$(CLUSTER_NAME)"
-		if dbType != "haproxy" {
-			pmmServerArgs += " --service-name=$(PMM_AGENT_SETUP_NODE_NAME) --host=$(POD_NAME) --port=$(DB_PORT)"
-		}
-
-		if dbType == "mysql" {
-			pmmServerArgs += " $(DB_ARGS)"
-		}
-
-		if dbType == "haproxy" {
-			pmmServerArgs += " $(PMM_AGENT_SETUP_NODE_NAME)"
-		}
-		return []corev1.EnvVar{
-			{
-				Name:  "PMM_AGENT_PRERUN_SCRIPT",
-				Value: "pmm-admin status --wait=10s;\npmm-admin add $(DB_TYPE)" + pmmServerArgs + ";\npmm-admin annotate --service-name=$(PMM_AGENT_SETUP_NODE_NAME) 'Service restarted'",
-			},
-		}
-	}
-
-	return []corev1.EnvVar{
-		{
-			Name:  "PMM_AGENT_PRERUN_SCRIPT",
-			Value: "/var/lib/mysql/pmm-prerun.sh",
-		},
-	}
-}
-
 func pmmEnvServerUser(user, secrets string, useAPI bool) []corev1.EnvVar {
 	var passKey string
 	if useAPI {

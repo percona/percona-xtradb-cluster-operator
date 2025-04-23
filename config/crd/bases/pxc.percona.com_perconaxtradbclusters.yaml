@@ -4343,6 +4343,8 @@ spec:
                             type: string
                         type: object
                     type: object
+                  customClusterName:
+                    type: string
                   enabled:
                     type: boolean
                   image:

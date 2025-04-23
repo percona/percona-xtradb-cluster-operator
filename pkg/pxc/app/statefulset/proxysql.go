@@ -339,6 +339,12 @@ func (c *Proxy) PMMContainer(ctx context.Context, cl client.Client, spec *api.PM
 
 	ct := app.PMMClient(cr, spec, secret, envVarsSecret)
 
+	clusterName := cr.Name
+
+	if cr.CompareVersionWith("1.18.0") >= 0 && cr.Spec.PMM.CustomClusterName != "" {
+		clusterName = cr.Spec.PMM.CustomClusterName
+	}
+
 	pmmEnvs := []corev1.EnvVar{
 		{
 			Name:  "DB_TYPE",
@@ -381,83 +387,66 @@ func (c *Proxy) PMMContainer(ctx context.Context, cl client.Client, spec *api.PM
 		},
 	}
 
-	dbArgsEnv := []corev1.EnvVar{
+	ct.Env = append(ct.Env, pmmEnvs...)
+
+	ct.Env = append(ct.Env, dbEnvs...)
+	ct.Resources = spec.Resources
+
+	fvar := true
+	ct.EnvFrom = []corev1.EnvFromSource{
 		{
-			Name:  "DB_ARGS",
-			Value: "--dsn $(MONITOR_USER):$(MONITOR_PASSWORD)@tcp(localhost:6032)/",
+			SecretRef: &corev1.SecretEnvSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: cr.Spec.ProxySQL.EnvVarsSecretName,
+				},
+				Optional: &fvar,
+			},
 		},
 	}
 
-	ct.Env = append(ct.Env, pmmEnvs...)
-	if cr.CompareVersionWith("1.2.0") >= 0 {
-		ct.Env = append(ct.Env, dbEnvs...)
-		ct.Resources = spec.Resources
-	} else {
-		ct.Env = append(ct.Env, dbArgsEnv...)
+	PmmProxysqlParams := ""
+	if spec.ProxysqlParams != "" {
+		PmmProxysqlParams = spec.ProxysqlParams
 	}
+	clusterPmmEnvs := []corev1.EnvVar{
+		{
+			Name:  "CLUSTER_NAME",
+			Value: clusterName,
+		},
+		{
+			Name:  "PMM_ADMIN_CUSTOM_PARAMS",
+			Value: PmmProxysqlParams,
+		},
+	}
+	ct.Env = append(ct.Env, clusterPmmEnvs...)
+	pmmAgentScriptEnv := []corev1.EnvVar{
+		{
+			Name:  "PMM_AGENT_PRERUN_SCRIPT",
+			Value: "/var/lib/mysql/pmm-prerun.sh",
+		},
+	}
+	ct.Env = append(ct.Env, pmmAgentScriptEnv...)
 
-	if cr.CompareVersionWith("1.9.0") >= 0 {
-		fvar := true
-		ct.EnvFrom = []corev1.EnvFromSource{
-			{
-				SecretRef: &corev1.SecretEnvSource{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: cr.Spec.ProxySQL.EnvVarsSecretName,
-					},
-					Optional: &fvar,
-				},
-			},
-		}
+	// PMM team added these flags which allows us to avoid
+	// container crash, but just restart pmm-agent till it recovers
+	// the connection.
+	// PMM team moved temp directory to /usr/local/percona/pmm2/tmp
+	// but it doesn't work on OpenShift so we set it back to /tmp
+	sidecarEnvs := []corev1.EnvVar{
+		{
+			Name:  "PMM_AGENT_SIDECAR",
+			Value: "true",
+		},
+		{
+			Name:  "PMM_AGENT_SIDECAR_SLEEP",
+			Value: "5",
+		},
+		{
+			Name:  "PMM_AGENT_PATHS_TEMPDIR",
+			Value: "/tmp",
+		},
 	}
-
-	if cr.CompareVersionWith("1.7.0") >= 0 {
-		PmmProxysqlParams := ""
-		if spec.ProxysqlParams != "" {
-			PmmProxysqlParams = spec.ProxysqlParams
-		}
-		clusterPmmEnvs := []corev1.EnvVar{
-			{
-				Name:  "CLUSTER_NAME",
-				Value: cr.Name,
-			},
-			{
-				Name:  "PMM_ADMIN_CUSTOM_PARAMS",
-				Value: PmmProxysqlParams,
-			},
-		}
-		ct.Env = append(ct.Env, clusterPmmEnvs...)
-		pmmAgentScriptEnv := app.PMMAgentScript(cr, "proxysql")
-		ct.Env = append(ct.Env, pmmAgentScriptEnv...)
-	}
-
-	if cr.CompareVersionWith("1.10.0") >= 0 {
-		// PMM team added these flags which allows us to avoid
-		// container crash, but just restart pmm-agent till it recovers
-		// the connection.
-		sidecarEnvs := []corev1.EnvVar{
-			{
-				Name:  "PMM_AGENT_SIDECAR",
-				Value: "true",
-			},
-			{
-				Name:  "PMM_AGENT_SIDECAR_SLEEP",
-				Value: "5",
-			},
-		}
-		ct.Env = append(ct.Env, sidecarEnvs...)
-	}
-
-	if cr.CompareVersionWith("1.14.0") >= 0 {
-		// PMM team moved temp directory to /usr/local/percona/pmm2/tmp
-		// but it doesn't work on OpenShift so we set it back to /tmp
-		sidecarEnvs := []corev1.EnvVar{
-			{
-				Name:  "PMM_AGENT_PATHS_TEMPDIR",
-				Value: "/tmp",
-			},
-		}
-		ct.Env = append(ct.Env, sidecarEnvs...)
-	}
+	ct.Env = append(ct.Env, sidecarEnvs...)
 
 	return &ct, nil
 }

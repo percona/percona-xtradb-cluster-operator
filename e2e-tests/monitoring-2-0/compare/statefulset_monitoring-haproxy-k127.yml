@@ -112,7 +112,7 @@ spec:
             - name: DB_PORT
               value: "3306"
             - name: CLUSTER_NAME
-              value: monitoring
+              value: monitoring-test
             - name: PMM_ADMIN_CUSTOM_PARAMS
               value: --listen-port=8404
             - name: PMM_AGENT_PRERUN_SCRIPT

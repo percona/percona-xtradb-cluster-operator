@@ -381,6 +381,12 @@ func (c *Node) PMMContainer(ctx context.Context, cl client.Client, spec *api.PMM
 
 	ct := app.PMMClient(cr, spec, secret, envVarsSecret)
 
+	clusterName := cr.Name
+
+	if cr.CompareVersionWith("1.18.0") >= 0 && cr.Spec.PMM.CustomClusterName != "" {
+		clusterName = cr.Spec.PMM.CustomClusterName
+	}
+
 	pmmEnvs := []corev1.EnvVar{
 		{
 			Name:  "DB_TYPE",
@@ -404,91 +410,85 @@ func (c *Node) PMMContainer(ctx context.Context, cl client.Client, spec *api.PMM
 
 	ct.Env = append(ct.Env, pmmEnvs...)
 
-	if cr.CompareVersionWith("1.2.0") >= 0 {
-		clusterEnvs := []corev1.EnvVar{
-			{
-				Name:  "DB_CLUSTER",
-				Value: app.Name,
-			},
-			{
-				Name:  "DB_HOST",
-				Value: "localhost",
-			},
-			{
-				Name:  "DB_PORT",
-				Value: "3306",
-			},
-		}
-		ct.Env = append(ct.Env, clusterEnvs...)
-		ct.Resources = spec.Resources
+	clusterEnvs := []corev1.EnvVar{
+		{
+			Name:  "DB_CLUSTER",
+			Value: app.Name,
+		},
+		{
+			Name:  "DB_HOST",
+			Value: "localhost",
+		},
+		{
+			Name:  "DB_PORT",
+			Value: "3306",
+		},
 	}
-	if cr.CompareVersionWith("1.7.0") >= 0 {
-		for k, v := range ct.Env {
-			if v.Name == "DB_PORT" {
-				ct.Env[k].Value = "33062"
-				break
-			}
+	ct.Env = append(ct.Env, clusterEnvs...)
+	ct.Resources = spec.Resources
+
+	for k, v := range ct.Env {
+		if v.Name == "DB_PORT" {
+			ct.Env[k].Value = "33062"
+			break
 		}
-		PmmPxcParams := ""
-		if spec.PxcParams != "" {
-			PmmPxcParams = spec.PxcParams
-		}
-		clusterPmmEnvs := []corev1.EnvVar{
-			{
-				Name:  "CLUSTER_NAME",
-				Value: cr.Name,
-			},
-			{
-				Name:  "PMM_ADMIN_CUSTOM_PARAMS",
-				Value: PmmPxcParams,
-			},
-		}
-		ct.Env = append(ct.Env, clusterPmmEnvs...)
-		pmmAgentScriptEnv := app.PMMAgentScript(cr, "mysql")
-		ct.Env = append(ct.Env, pmmAgentScriptEnv...)
 	}
-	if cr.CompareVersionWith("1.9.0") >= 0 {
-		fvar := true
-		ct.EnvFrom = []corev1.EnvFromSource{
-			{
-				SecretRef: &corev1.SecretEnvSource{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: cr.Spec.PXC.EnvVarsSecretName,
-					},
-					Optional: &fvar,
+	PmmPxcParams := ""
+	if spec.PxcParams != "" {
+		PmmPxcParams = spec.PxcParams
+	}
+	clusterPmmEnvs := []corev1.EnvVar{
+		{
+			Name:  "CLUSTER_NAME",
+			Value: clusterName,
+		},
+		{
+			Name:  "PMM_ADMIN_CUSTOM_PARAMS",
+			Value: PmmPxcParams,
+		},
+	}
+	ct.Env = append(ct.Env, clusterPmmEnvs...)
+
+	pmmAgentScriptEnv := []corev1.EnvVar{
+		{
+			Name:  "PMM_AGENT_PRERUN_SCRIPT",
+			Value: "/var/lib/mysql/pmm-prerun.sh",
+		},
+	}
+	ct.Env = append(ct.Env, pmmAgentScriptEnv...)
+
+	fvar := true
+	ct.EnvFrom = []corev1.EnvFromSource{
+		{
+			SecretRef: &corev1.SecretEnvSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: cr.Spec.PXC.EnvVarsSecretName,
 				},
+				Optional: &fvar,
 			},
-		}
-
-	}
-	if cr.CompareVersionWith("1.10.0") >= 0 {
-		// PMM team added these flags which allows us to avoid
-		// container crash, but just restart pmm-agent till it recovers
-		// the connection.
-		sidecarEnvs := []corev1.EnvVar{
-			{
-				Name:  "PMM_AGENT_SIDECAR",
-				Value: "true",
-			},
-			{
-				Name:  "PMM_AGENT_SIDECAR_SLEEP",
-				Value: "5",
-			},
-		}
-		ct.Env = append(ct.Env, sidecarEnvs...)
+		},
 	}
 
-	if cr.CompareVersionWith("1.14.0") >= 0 {
-		// PMM team moved temp directory to /usr/local/percona/pmm2/tmp
-		// but it doesn't work on OpenShift so we set it back to /tmp
-		sidecarEnvs := []corev1.EnvVar{
-			{
-				Name:  "PMM_AGENT_PATHS_TEMPDIR",
-				Value: "/tmp",
-			},
-		}
-		ct.Env = append(ct.Env, sidecarEnvs...)
+	// PMM team added these flags which allows us to avoid
+	// container crash, but just restart pmm-agent till it recovers
+	// the connection.
+	// PMM team moved temp directory to /usr/local/percona/pmm2/tmp
+	// but it doesn't work on OpenShift so we set it back to /tmp
+	sidecarEnvs := []corev1.EnvVar{
+		{
+			Name:  "PMM_AGENT_SIDECAR",
+			Value: "true",
+		},
+		{
+			Name:  "PMM_AGENT_SIDECAR_SLEEP",
+			Value: "5",
+		},
+		{
+			Name:  "PMM_AGENT_PATHS_TEMPDIR",
+			Value: "/tmp",
+		},
 	}
+	ct.Env = append(ct.Env, sidecarEnvs...)
 
 	ct.VolumeMounts = []corev1.VolumeMount{
 		{

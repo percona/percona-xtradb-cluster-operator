@@ -104,7 +104,7 @@ spec:
             - name: DB_PORT
               value: "33062"
             - name: CLUSTER_NAME
-              value: monitoring
+              value: monitoring-test
             - name: PMM_ADMIN_CUSTOM_PARAMS
               value: --disable-tablestats-limit=2000
             - name: PMM_AGENT_PRERUN_SCRIPT

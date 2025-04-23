@@ -194,5 +194,8 @@ spec:
     schedule:
       - name: each-min-gcp-cs
         schedule: "* * * * *"
-        keep: 1
+        retention:
+          type: "count"
+          count: 1
+          deleteFromStorage: true
         storageName: gcp-cs

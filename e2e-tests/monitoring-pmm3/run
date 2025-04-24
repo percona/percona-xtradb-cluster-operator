@@ -1,0 +1,160 @@
+#!/bin/bash
+
+set -o errexit
+
+test_dir=$(realpath $(dirname $0))
+. ${test_dir}/../functions
+
+set_debug
+
+spinup_pxc() {
+	local cluster=$1
+	local config=$2
+	local size="${3:-3}"
+	local sleep="${4:-10}"
+  local pxcClientFile="${5:-$conf_dir/client.yml}"
+  local port="${6:-3306}"
+
+	desc 'create first PXC cluster'
+	apply_config "$pxcClientFile"
+	if [[ $IMAGE_PXC =~ 5\.7 ]] && [[ $cluster == 'demand-backup' || $cluster == 'demand-backup-cloud' ]]; then
+		cat_config "$config" \
+			| $sed '/\[sst\]/,+1d' \
+			| $sed 's|compress=lz4|compress|' \
+			| kubectl_bin apply -f -
+	else
+		apply_config "$config"
+	fi
+
+	desc 'check if all 3 Pods started'
+	local proxy=$(get_proxy "$cluster")
+	kubectl_bin wait --for=condition=Ready pod -l app.kubernetes.io/instance=monitoring,app.kubernetes.io/managed-by=percona-xtradb-cluster-operator --timeout=300s -n ${namespace} || true
+	wait_for_running "$proxy" 1
+	wait_for_running "$cluster-pxc" "$size"
+	sleep $sleep
+
+	local secret_name=$(kubectl get pxc $cluster -o jsonpath='{.spec.secretsName}')
+	local root_pass=$(getSecretData $secret_name "root")
+
+	desc 'write data'
+	if [[ $IMAGE_PXC =~ 5\.7 ]] && [[ "$(is_keyring_plugin_in_use "$cluster")" ]]; then
+		encrypt='ENCRYPTION=\"Y\"'
+	fi
+	run_mysql \
+		"CREATE DATABASE IF NOT EXISTS myApp; use myApp; CREATE TABLE IF NOT EXISTS myApp (id int PRIMARY KEY) $encrypt;" \
+		"-h $proxy -uroot -p'${root_pass}' -P$port"
+	run_mysql \
+		'INSERT myApp.myApp (id) VALUES (100500)' \
+		"-h $proxy -uroot -p'${root_pass}' -P$port"
+	sleep 30
+	for i in $(seq 0 $((size - 1))); do
+		compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-$i.$cluster-pxc -uroot -p'${root_pass}' -P$port"
+	done
+
+	if [ "$(is_keyring_plugin_in_use "$cluster")" ]; then
+		table_must_be_encrypted "$cluster" "myApp"
+	fi
+
+}
+
+get_pmm3_server_token() {
+	local key_name=$1
+	local admin_password=$2
+
+	if [[ -z $key_name ]]; then
+		key_name="operator"
+	fi
+
+	if [[ -z $admin_password ]]; then
+		echo "Error: admin_password is empty!" >&2
+		return 1
+	fi
+
+	local create_response create_status_code create_json_response
+	create_response=$(curl --insecure -s -X POST -H 'Content-Type: application/json' -H 'Accept: application/json' \
+		-d "{\"name\":\"${key_name}\", \"role\":\"Admin\", \"isDisabled\":false}" \
+		--user "admin:${admin_password}" \
+		"https://$(get_service_ip monitoring-service)/graph/api/serviceaccounts" \
+		-w "\n%{http_code}")
+
+	create_status_code=$(echo "$create_response" | tail -n1)
+	create_json_response=$(echo "$create_response" | sed '$ d')
+
+	if [[ $create_status_code -ne 201 ]]; then
+		echo "Error: Failed to create PMM service account. HTTP Status: $create_status_code" >&2
+		echo "Response: $create_json_response" >&2
+		return 1
+	fi
+
+	local service_account_id
+	service_account_id=$(echo "$create_json_response" | jq -r '.id')
+
+	if [[ -z $service_account_id || $service_account_id == "null" ]]; then
+		echo "Error: Failed to extract service account ID!" >&2
+		return 1
+	fi
+
+	local token_response token_status_code token_json_response
+	token_response=$(curl --insecure -s -X POST -H 'Content-Type: application/json' \
+		-d "{\"name\":\"${key_name}\"}" \
+		--user "admin:${admin_password}" \
+		"https://$(get_service_ip monitoring-service)/graph/api/serviceaccounts/${service_account_id}/tokens" \
+		-w "\n%{http_code}")
+
+	token_status_code=$(echo "$token_response" | tail -n1)
+	token_json_response=$(echo "$token_response" | sed '$ d')
+
+	if [[ $token_status_code -ne 200 ]]; then
+		echo "Error: Failed to create token. HTTP Status: $token_status_code" >&2
+		echo "Response: $token_json_response" >&2
+		return 1
+	fi
+
+	echo "$token_json_response" | jq -r '.key'
+}
+
+cluster="monitoring"
+
+create_infra $namespace
+deploy_helm $namespace
+
+desc 'install PMM Server'
+deploy_pmm3_server
+kubectl_bin wait --for=condition=Ready pod/${cluster}-0 --timeout=120s
+until kubectl_bin exec monitoring-0 -- bash -c "ls -l /proc/*/exe 2>/dev/null| grep postgres >/dev/null"; do
+	echo "Retry $retry"
+	sleep 5
+	let retry+=1
+	if [ $retry -ge 20 ]; then
+		echo "Max retry count $retry reached. PMM3-server can't start"
+		exit 1
+	fi
+done
+
+desc 'create secret'
+kubectl_bin apply -f "$test_dir/conf/secrets.yaml"
+
+desc 'add PMM3 token to secret'
+ADMIN_PASSWORD=$(kubectl_bin get secret pmm-secret -o jsonpath="{.data.PMM_ADMIN_PASSWORD}" | base64 --decode)
+TOKEN=$(get_pmm3_server_token "operator" $ADMIN_PASSWORD)
+kubectl_bin patch secret my-cluster-secrets --type merge --patch '{"stringData": {"pmmservertoken": "'"$TOKEN"'"}}'
+
+desc 'create PXC cluster'
+spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml" 3 120
+
+wait_for_generation "sts/$cluster-pxc" 1
+wait_for_generation "sts/$cluster-haproxy" 1
+sleep 10
+kubectl wait pod -l 'app.kubernetes.io/managed-by=percona-xtradb-cluster-operator' --for=condition=ready --timeout=600s
+wait_cluster_consistency ${cluster} 3 2
+
+compare_kubectl statefulset/$cluster-pxc "-no-prefix"
+compare_kubectl statefulset/$cluster-haproxy "-no-prefix"
+
+desc 'apply my-env-var-secrets to add PMM_PREFIX'
+kubectl_bin apply -f "$test_dir/conf/envsecrets.yaml"
+
+wait_for_generation "sts/$cluster-pxc" 2
+wait_for_generation "sts/$cluster-haproxy" 2
+
+desc "test passed"

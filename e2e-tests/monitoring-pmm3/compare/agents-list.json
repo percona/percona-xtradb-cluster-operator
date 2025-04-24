@@ -1,0 +1,214 @@
+[
+  {
+    "service_type": "haproxy",
+    "service_name": "monitoring-haproxy-0",
+    "node_name": "monitoring-haproxy-0",
+    "cluster": "monitoring",
+    "agents": [
+      {
+        "agent_type": "external-exporter"
+      },
+      {
+        "agent_type": "pmm-agent"
+      },
+      {
+        "agent_type": "vmagent",
+        "status": "RUNNING"
+      }
+    ]
+  },
+  {
+    "service_type": "mysql",
+    "service_name": "monitoring-pxc-0",
+    "node_name": "monitoring-pxc-0",
+    "cluster": "monitoring",
+    "address": "monitoring-pxc-0",
+    "port": 33062,
+    "agents": [
+      {
+        "agent_type": "mysqld_exporter",
+        "status": "RUNNING"
+      },
+      {
+        "agent_type": "pmm-agent"
+      },
+      {
+        "agent_type": "qan-mysql-perfschema-agent",
+        "status": "RUNNING"
+      },
+      {
+        "agent_type": "vmagent",
+        "status": "RUNNING"
+      }
+    ]
+  },
+  {
+    "service_type": "mysql",
+    "service_name": "monitoring-pxc-1",
+    "node_name": "monitoring-pxc-1",
+    "cluster": "monitoring",
+    "address": "monitoring-pxc-1",
+    "port": 33062,
+    "agents": [
+      {
+        "agent_type": "mysqld_exporter",
+        "status": "RUNNING"
+      },
+      {
+        "agent_type": "pmm-agent"
+      },
+      {
+        "agent_type": "qan-mysql-perfschema-agent",
+        "status": "RUNNING"
+      },
+      {
+        "agent_type": "vmagent",
+        "status": "RUNNING"
+      }
+    ]
+  },
+  {
+    "service_type": "postgresql",
+    "service_name": "pmm-server-postgresql",
+    "database_name": "postgres",
+    "node_name": "pmm-server",
+    "address": "127.0.0.1",
+    "port": 5432,
+    "agents": [
+      {
+        "agent_type": "pmm-agent",
+        "is_connected": true
+      },
+      {
+        "agent_type": "postgres_exporter",
+        "status": "RUNNING"
+      },
+      {
+        "agent_type": "qan-postgresql-pgstatements-agent",
+        "status": "RUNNING"
+      }
+    ],
+    "status": "UP"
+  },
+  {
+    "service_type": "haproxy",
+    "service_name": "pxc-prefix-monitoring-haproxy-0",
+    "node_name": "pxc-prefix-monitoring-haproxy-0",
+    "cluster": "pxc-prefix-monitoring",
+    "agents": [
+      {
+        "agent_type": "external-exporter"
+      },
+      {
+        "agent_type": "pmm-agent",
+        "is_connected": true
+      },
+      {
+        "agent_type": "vmagent",
+        "status": "RUNNING"
+      }
+    ],
+    "status": "UP"
+  },
+  {
+    "service_type": "haproxy",
+    "service_name": "pxc-prefix-monitoring-haproxy-1",
+    "node_name": "pxc-prefix-monitoring-haproxy-1",
+    "cluster": "pxc-prefix-monitoring",
+    "agents": [
+      {
+        "agent_type": "external-exporter"
+      },
+      {
+        "agent_type": "pmm-agent",
+        "is_connected": true
+      },
+      {
+        "agent_type": "vmagent",
+        "status": "RUNNING"
+      }
+    ],
+    "status": "UP"
+  },
+  {
+    "service_type": "mysql",
+    "service_name": "pxc-prefix-monitoring-pxc-0",
+    "node_name": "pxc-prefix-monitoring-pxc-0",
+    "cluster": "pxc-prefix-monitoring",
+    "address": "monitoring-pxc-0",
+    "port": 33062,
+    "agents": [
+      {
+        "agent_type": "mysqld_exporter",
+        "status": "RUNNING"
+      },
+      {
+        "agent_type": "pmm-agent",
+        "is_connected": true
+      },
+      {
+        "agent_type": "qan-mysql-perfschema-agent",
+        "status": "RUNNING"
+      },
+      {
+        "agent_type": "vmagent",
+        "status": "RUNNING"
+      }
+    ],
+    "status": "UP"
+  },
+  {
+    "service_type": "mysql",
+    "service_name": "pxc-prefix-monitoring-pxc-1",
+    "node_name": "pxc-prefix-monitoring-pxc-1",
+    "cluster": "pxc-prefix-monitoring",
+    "address": "monitoring-pxc-1",
+    "port": 33062,
+    "agents": [
+      {
+        "agent_type": "mysqld_exporter",
+        "status": "RUNNING"
+      },
+      {
+        "agent_type": "pmm-agent",
+        "is_connected": true
+      },
+      {
+        "agent_type": "qan-mysql-perfschema-agent",
+        "status": "RUNNING"
+      },
+      {
+        "agent_type": "vmagent",
+        "status": "RUNNING"
+      }
+    ],
+    "status": "UP"
+  },
+  {
+    "service_type": "mysql",
+    "service_name": "pxc-prefix-monitoring-pxc-2",
+    "node_name": "pxc-prefix-monitoring-pxc-2",
+    "cluster": "pxc-prefix-monitoring",
+    "address": "monitoring-pxc-2",
+    "port": 33062,
+    "agents": [
+      {
+        "agent_type": "mysqld_exporter",
+        "status": "RUNNING"
+      },
+      {
+        "agent_type": "pmm-agent",
+        "is_connected": true
+      },
+      {
+        "agent_type": "qan-mysql-perfschema-agent",
+        "status": "RUNNING"
+      },
+      {
+        "agent_type": "vmagent",
+        "status": "RUNNING"
+      }
+    ],
+    "status": "UP"
+  }
+]

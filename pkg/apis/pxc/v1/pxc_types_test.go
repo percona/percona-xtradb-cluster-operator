@@ -75,3 +75,64 @@ func TestReconcileAffinity(t *testing.T) {
 		}
 	}
 }
+
+func TestGetRetention(t *testing.T) {
+	tests := map[string]struct {
+		input    PXCScheduledBackupSchedule
+		expected *PXCScheduledBackupRetention
+	}{
+		"both keep and retention are configured - the retention config is used": {
+			input: PXCScheduledBackupSchedule{
+				Keep: 3,
+				Retention: &PXCScheduledBackupRetention{
+					Type:              pxcScheduledBackupRetentionCount,
+					Count:             4,
+					DeleteFromStorage: false,
+				},
+			},
+			expected: &PXCScheduledBackupRetention{
+				Type:              pxcScheduledBackupRetentionCount,
+				Count:             4,
+				DeleteFromStorage: false,
+			},
+		},
+		"only keep is configured - the keep config is transformed to PXCScheduledBackupRetention": {
+			input: PXCScheduledBackupSchedule{
+				Keep: 10,
+			},
+			expected: &PXCScheduledBackupRetention{
+				Type:              "count",
+				Count:             10,
+				DeleteFromStorage: true,
+			},
+		},
+		"nothing is configure - return zero count": {
+			input: PXCScheduledBackupSchedule{
+				Keep: 0,
+			},
+			expected: &PXCScheduledBackupRetention{
+				Type:              "count",
+				Count:             0,
+				DeleteFromStorage: true,
+			},
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			actual := tc.input.GetRetention()
+
+			if actual.Type != tc.expected.Type {
+				t.Errorf("unexpected Type: got %q, want %q", actual.Type, tc.expected.Type)
+			}
+
+			if actual.Count != tc.expected.Count {
+				t.Errorf("unexpected Count: got %d, want %d", actual.Count, tc.expected.Count)
+			}
+
+			if actual.DeleteFromStorage != tc.expected.DeleteFromStorage {
+				t.Errorf("unexpected DeleteFromStorage: got %t, want %t", actual.DeleteFromStorage, tc.expected.DeleteFromStorage)
+			}
+		})
+	}
+}

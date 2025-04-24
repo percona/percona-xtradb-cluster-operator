@@ -196,9 +196,51 @@ type PXCScheduledBackupSchedule struct {
 	Name string `json:"name,omitempty"`
 	// +kubebuilder:validation:Required
 	Schedule string `json:"schedule,omitempty"`
-	Keep     int    `json:"keep,omitempty"`
+	// Deprecated: Use Retention instead. This field will be removed after version 1.21.
+	Keep int `json:"keep,omitempty"`
+	// +optional
+	Retention *PXCScheduledBackupRetention `json:"retention,omitempty"`
 	// +kubebuilder:validation:Required
 	StorageName string `json:"storageName,omitempty"`
+}
+
+type PXCScheduledBackupRetentionType string
+
+const (
+	pxcScheduledBackupRetentionCount PXCScheduledBackupRetentionType = "count"
+)
+
+// PXCScheduledBackupRetention defines how backups are retained.
+type PXCScheduledBackupRetention struct {
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Enum=count
+	Type PXCScheduledBackupRetentionType `json:"type,omitempty"`
+
+	// +kubebuilder:validation:Minimum=0
+	Count int `json:"count,omitempty"`
+
+	// When set to true (the default), backups will be deleted from storage.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:default=true
+	DeleteFromStorage bool `json:"deleteFromStorage,omitempty"`
+}
+
+// GetRetention resolves the retention configuration of the PXCScheduledBackupSchedule spec.
+func (s PXCScheduledBackupSchedule) GetRetention() PXCScheduledBackupRetention {
+	if s.Retention != nil {
+		return *s.Retention
+	}
+	return PXCScheduledBackupRetention{
+		Type:  pxcScheduledBackupRetentionCount,
+		Count: s.Keep,
+		// with the legacy configuration, we always deleted old backups through the finalizers
+		DeleteFromStorage: true,
+	}
+}
+
+// IsValidCountRetention checks if the retention is of type count and the count has a non-zero value.
+func (s PXCScheduledBackupRetention) IsValidCountRetention() bool {
+	return s.Type == pxcScheduledBackupRetentionCount && s.Count > 0
 }
 
 type AppState string

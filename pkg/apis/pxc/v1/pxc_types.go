@@ -4,6 +4,7 @@ package v1
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"strings"
 
@@ -94,10 +95,16 @@ type PXCSpec struct {
 	*PodSpec            `json:",inline"`
 }
 
+// ServiceExpose defines the configuration options for exposing a k8s Service.
+// +kubebuilder:validation:XValidation:rule="!(has(self.loadBalancerClass)) || self.type == 'LoadBalancer'",message="'loadBalancerClass' can only be set when service type is 'LoadBalancer'"
 type ServiceExpose struct {
 	// Deprecated: for ExposePrimary you don't need to specify this flag.
-	Enabled                  bool                                    `json:"enabled,omitempty"`
-	Type                     corev1.ServiceType                      `json:"type,omitempty"`
+	Enabled bool               `json:"enabled,omitempty"`
+	Type    corev1.ServiceType `json:"type,omitempty"`
+	// LoadBalancerClass enables to use a load balancer implementation other than the cloud provider default.
+	// This field can only be set when the Service type is 'LoadBalancer', and only when creating or updating
+	// a Service to type 'LoadBalancer'. Once set, it can not be changed.
+	LoadBalancerClass        *string                                 `json:"loadBalancerClass,omitempty"`
 	LoadBalancerSourceRanges []string                                `json:"loadBalancerSourceRanges,omitempty"`
 	LoadBalancerIP           string                                  `json:"loadBalancerIP,omitempty"`
 	Annotations              map[string]string                       `json:"annotations,omitempty"`
@@ -107,6 +114,17 @@ type ServiceExpose struct {
 
 	// Deprecated: Use ExternalTrafficPolicy instead
 	TrafficPolicy corev1.ServiceExternalTrafficPolicyType `json:"trafficPolicy,omitempty"`
+}
+
+// GetLoadBalancerClass returns the configured LoadBalancer class.
+func (s *ServiceExpose) GetLoadBalancerClass() (*string, error) {
+	if s.Type != corev1.ServiceTypeLoadBalancer {
+		return nil, fmt.Errorf("expose type %s is not LoadBalancer", s.Type)
+	}
+	if s.LoadBalancerClass != nil && *s.LoadBalancerClass == "" {
+		return nil, errors.New("load balancer class not provided or is empty")
+	}
+	return s.LoadBalancerClass, nil
 }
 
 type ReplicationChannel struct {
@@ -196,15 +214,56 @@ type PXCScheduledBackupSchedule struct {
 	Name string `json:"name,omitempty"`
 	// +kubebuilder:validation:Required
 	Schedule string `json:"schedule,omitempty"`
-	Keep     int    `json:"keep,omitempty"`
+	// Deprecated: Use Retention instead. This field will be removed after version 1.21.
+	Keep int `json:"keep,omitempty"`
+	// +optional
+	Retention *PXCScheduledBackupRetention `json:"retention,omitempty"`
 	// +kubebuilder:validation:Required
 	StorageName string `json:"storageName,omitempty"`
+}
+
+type PXCScheduledBackupRetentionType string
+
+const (
+	pxcScheduledBackupRetentionCount PXCScheduledBackupRetentionType = "count"
+)
+
+// PXCScheduledBackupRetention defines how backups are retained.
+type PXCScheduledBackupRetention struct {
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Enum=count
+	Type PXCScheduledBackupRetentionType `json:"type,omitempty"`
+
+	// +kubebuilder:validation:Minimum=0
+	Count int `json:"count,omitempty"`
+
+	// When set to true (the default), backups will be deleted from storage.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:default=true
+	DeleteFromStorage bool `json:"deleteFromStorage,omitempty"`
+}
+
+// GetRetention resolves the retention configuration of the PXCScheduledBackupSchedule spec.
+func (s PXCScheduledBackupSchedule) GetRetention() PXCScheduledBackupRetention {
+	if s.Retention != nil {
+		return *s.Retention
+	}
+	return PXCScheduledBackupRetention{
+		Type:  pxcScheduledBackupRetentionCount,
+		Count: s.Keep,
+		// with the legacy configuration, we always deleted old backups through the finalizers
+		DeleteFromStorage: true,
+	}
+}
+
+// IsValidCountRetention checks if the retention is of type count and the count has a non-zero value.
+func (s PXCScheduledBackupRetention) IsValidCountRetention() bool {
+	return s.Type == pxcScheduledBackupRetentionCount && s.Count > 0
 }
 
 type AppState string
 
 const (
-	AppStateUnknown  AppState = "unknown"
 	AppStateInit     AppState = "initializing"
 	AppStatePaused   AppState = "paused"
 	AppStateStopping AppState = "stopping"
@@ -243,9 +302,7 @@ type ReplicationChannelStatus struct {
 type ConditionStatus string
 
 const (
-	ConditionTrue    ConditionStatus = "True"
-	ConditionFalse   ConditionStatus = "False"
-	ConditionUnknown ConditionStatus = "Unknown"
+	ConditionTrue ConditionStatus = "True"
 )
 
 type ClusterCondition struct {
@@ -786,8 +843,6 @@ func ContainsVolume(vs []corev1.Volume, name string) bool {
 	return false
 }
 
-const WorkloadSA = "default"
-
 // +kubebuilder:object:generate=false
 type CustomVolumeGetter func(nsName, cvName, cmName string, useDefaultVolume bool) (corev1.Volume, error)
 
@@ -862,7 +917,7 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 	}
 	workloadSA := "percona-xtradb-cluster-operator-workload"
 	if cr.CompareVersionWith("1.6.0") >= 0 {
-		workloadSA = WorkloadSA
+		workloadSA = "default"
 	}
 
 	c := &cr.Spec
@@ -1338,6 +1393,12 @@ func (cr *PerconaXtraDBCluster) Version() *v.Version {
 // Returns -1, 0, or 1 if given version is smaller, equal, or larger than the current version, respectively.
 func (cr *PerconaXtraDBCluster) CompareVersionWith(ver string) int {
 	return cr.Version().Compare(v.Must(v.NewVersion(ver)))
+}
+
+// CompareMySQLVersion compares given version to current MySQL version.
+// Returns -1, 0, or 1 if given version is smaller, equal, or larger than the current version, respectively.
+func (cr *PerconaXtraDBCluster) CompareMySQLVersion(ver string) int {
+	return v.Must(v.NewVersion(cr.Status.PXC.Version)).Compare(v.Must(v.NewVersion(ver)))
 }
 
 // ConfigHasKey check if cr.Spec.PXC.Configuration has given key in given section

@@ -1083,6 +1083,22 @@ spec:
                           type: integer
                         name:
                           type: string
+                        retention:
+                          properties:
+                            count:
+                              minimum: 0
+                              type: integer
+                            deleteFromStorage:
+                              default: true
+                              type: boolean
+                            type:
+                              enum:
+                              - count
+                              type: string
+                          required:
+                          - deleteFromStorage
+                          - type
+                          type: object
                         schedule:
                           type: string
                         storageName:
@@ -2594,6 +2610,8 @@ spec:
                         additionalProperties:
                           type: string
                         type: object
+                      loadBalancerClass:
+                        type: string
                       loadBalancerIP:
                         type: string
                       loadBalancerSourceRanges:
@@ -2605,6 +2623,10 @@ spec:
                       type:
                         type: string
                     type: object
+                    x-kubernetes-validations:
+                    - message: '''loadBalancerClass'' can only be set when service
+                        type is ''LoadBalancer'''
+                      rule: '!(has(self.loadBalancerClass)) || self.type == ''LoadBalancer'''
                   exposeReplicas:
                     properties:
                       annotations:
@@ -2621,6 +2643,8 @@ spec:
                         additionalProperties:
                           type: string
                         type: object
+                      loadBalancerClass:
+                        type: string
                       loadBalancerIP:
                         type: string
                       loadBalancerSourceRanges:
@@ -2634,6 +2658,10 @@ spec:
                       type:
                         type: string
                     type: object
+                    x-kubernetes-validations:
+                    - message: '''loadBalancerClass'' can only be set when service
+                        type is ''LoadBalancer'''
+                      rule: '!(has(self.loadBalancerClass)) || self.type == ''LoadBalancer'''
                   externalTrafficPolicy:
                     type: string
                   forceUnsafeBootstrap:
@@ -6055,6 +6083,8 @@ spec:
                         additionalProperties:
                           type: string
                         type: object
+                      loadBalancerClass:
+                        type: string
                       loadBalancerIP:
                         type: string
                       loadBalancerSourceRanges:
@@ -6066,6 +6096,10 @@ spec:
                       type:
                         type: string
                     type: object
+                    x-kubernetes-validations:
+                    - message: '''loadBalancerClass'' can only be set when service
+                        type is ''LoadBalancer'''
+                      rule: '!(has(self.loadBalancerClass)) || self.type == ''LoadBalancer'''
                   externalTrafficPolicy:
                     type: string
                   forceUnsafeBootstrap:
@@ -8949,6 +8983,8 @@ spec:
                         additionalProperties:
                           type: string
                         type: object
+                      loadBalancerClass:
+                        type: string
                       loadBalancerIP:
                         type: string
                       loadBalancerSourceRanges:
@@ -8960,6 +8996,10 @@ spec:
                       type:
                         type: string
                     type: object
+                    x-kubernetes-validations:
+                    - message: '''loadBalancerClass'' can only be set when service
+                        type is ''LoadBalancer'''
+                      rule: '!(has(self.loadBalancerClass)) || self.type == ''LoadBalancer'''
                   externalTrafficPolicy:
                     type: string
                   forceUnsafeBootstrap:

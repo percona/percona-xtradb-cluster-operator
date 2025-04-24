@@ -194,5 +194,8 @@ spec:
     schedule:
       - name: "each-min-azure-every"
         schedule: "* * * * *"
-        keep: 1
+        retention:
+          type: "count"
+          count: 1
+          deleteFromStorage: true
         storageName: azure-blob

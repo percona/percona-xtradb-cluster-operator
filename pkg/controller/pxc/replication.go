@@ -558,6 +558,13 @@ func NewExposedPXCService(svcName string, cr *api.PerconaXtraDBCluster) *corev1.
 		svc.Spec.Type = corev1.ServiceTypeClusterIP
 	}
 
+	if cr.CompareVersionWith("1.18.0") >= 0 {
+		loadBalancerClass, err := cr.Spec.PXC.Expose.GetLoadBalancerClass()
+		if err == nil {
+			svc.Spec.LoadBalancerClass = loadBalancerClass
+		}
+	}
+
 	return svc
 }
 

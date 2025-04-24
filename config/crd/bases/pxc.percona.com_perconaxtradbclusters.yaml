@@ -1658,6 +1658,8 @@ spec:
                         additionalProperties:
                           type: string
                         type: object
+                      loadBalancerClass:
+                        type: string
                       loadBalancerIP:
                         type: string
                       loadBalancerSourceRanges:
@@ -1669,6 +1671,10 @@ spec:
                       type:
                         type: string
                     type: object
+                    x-kubernetes-validations:
+                    - message: '''loadBalancerClass'' can only be set when service
+                        type is ''LoadBalancer'''
+                      rule: '!(has(self.loadBalancerClass)) || self.type == ''LoadBalancer'''
                   exposeReplicas:
                     properties:
                       annotations:
@@ -1685,6 +1691,8 @@ spec:
                         additionalProperties:
                           type: string
                         type: object
+                      loadBalancerClass:
+                        type: string
                       loadBalancerIP:
                         type: string
                       loadBalancerSourceRanges:
@@ -1698,6 +1706,10 @@ spec:
                       type:
                         type: string
                     type: object
+                    x-kubernetes-validations:
+                    - message: '''loadBalancerClass'' can only be set when service
+                        type is ''LoadBalancer'''
+                      rule: '!(has(self.loadBalancerClass)) || self.type == ''LoadBalancer'''
                   externalTrafficPolicy:
                     type: string
                   forceUnsafeBootstrap:
@@ -5115,6 +5127,8 @@ spec:
                         additionalProperties:
                           type: string
                         type: object
+                      loadBalancerClass:
+                        type: string
                       loadBalancerIP:
                         type: string
                       loadBalancerSourceRanges:
@@ -5126,6 +5140,10 @@ spec:
                       type:
                         type: string
                     type: object
+                    x-kubernetes-validations:
+                    - message: '''loadBalancerClass'' can only be set when service
+                        type is ''LoadBalancer'''
+                      rule: '!(has(self.loadBalancerClass)) || self.type == ''LoadBalancer'''
                   externalTrafficPolicy:
                     type: string
                   forceUnsafeBootstrap:
@@ -8005,6 +8023,8 @@ spec:
                         additionalProperties:
                           type: string
                         type: object
+                      loadBalancerClass:
+                        type: string
                       loadBalancerIP:
                         type: string
                       loadBalancerSourceRanges:
@@ -8016,6 +8036,10 @@ spec:
                       type:
                         type: string
                     type: object
+                    x-kubernetes-validations:
+                    - message: '''loadBalancerClass'' can only be set when service
+                        type is ''LoadBalancer'''
+                      rule: '!(has(self.loadBalancerClass)) || self.type == ''LoadBalancer'''
                   externalTrafficPolicy:
                     type: string
                   forceUnsafeBootstrap:

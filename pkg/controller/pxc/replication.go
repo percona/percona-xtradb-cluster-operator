@@ -242,10 +242,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(ctx context.Context
 		return errors.Wrapf(err, "failed to get %s variable value", authPluginVar)
 	}
 
-	shouldGetMasterKey := authPlugin == "caching_sha2_password"
-	if cr.CompareMySQLVersion("8.4.0") >= 0 {
-		shouldGetMasterKey = strings.Contains(authPlugin, "caching_sha2_password")
-	}
+	shouldGetMasterKey := strings.Contains(authPlugin, "caching_sha2_password")
 
 	for _, channel := range cr.Spec.PXC.ReplicationChannels {
 		if channel.IsSource {

@@ -1093,9 +1093,9 @@ run_recovery_check() {
 
 	sleep 35
 	log "check data after pxc-restore/${backup}"
-	compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -p${root_pass}"
-	compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-1.$cluster-pxc -uroot -p${root_pass}"
-	compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-2.$cluster-pxc -uroot -p${root_pass}"
+	compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -p'${root_pass}'"
+	compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-1.$cluster-pxc -uroot -p'${root_pass}'"
+	compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-2.$cluster-pxc -uroot -p'${root_pass}'"
 
 	if [ "$backup" != "on-demand-backup-minio" ]; then
 		log 'copy backup'

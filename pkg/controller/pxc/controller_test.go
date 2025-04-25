@@ -103,7 +103,6 @@ var _ = Describe("Finalizer delete-ssl", Ordered, func() {
 	})
 
 	Context("delete-ssl finalizer specified", Ordered, func() {
-
 		cr, err := readDefaultCR(crName, ns)
 
 		It("should read default cr.yaml", func() {
@@ -139,31 +138,24 @@ var _ = Describe("Finalizer delete-ssl", Ordered, func() {
 		It("controller should create issuers and certificates", func() {
 			issuers := &cm.IssuerList{}
 			Eventually(func() bool {
-
 				opts := &client.ListOptions{Namespace: cr.Namespace}
 				err := k8sClient.List(ctx, issuers, opts)
-
 				return err == nil
 			}, time.Second*30, time.Millisecond*250).Should(BeTrue())
-
 			Expect(issuers.Items).ShouldNot(BeEmpty())
 
 			certs := &cm.CertificateList{}
 			Eventually(func() bool {
-
 				opts := &client.ListOptions{Namespace: cr.Namespace}
 				err := k8sClient.List(ctx, certs, opts)
-
 				return err == nil
 			}, time.Second*30, time.Millisecond*250).Should(BeTrue())
-
 			Expect(certs.Items).ShouldNot(BeEmpty())
 		})
 
 		When("PXC cluster is deleted with delete-ssl finalizer certs should be removed", func() {
 			It("should delete PXC cluster and reconcile changes", func() {
 				Expect(k8sClient.Delete(ctx, cr)).Should(Succeed())
-
 				_, err := reconciler().Reconcile(ctx, ctrl.Request{NamespacedName: crNamespacedName})
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -175,7 +167,6 @@ var _ = Describe("Finalizer delete-ssl", Ordered, func() {
 						Namespace: cr.Namespace,
 						Name:      cr.Spec.SSLSecretName,
 					}, secret)
-
 					return k8serrors.IsNotFound(err)
 				}, time.Second*15, time.Millisecond*250).Should(BeTrue())
 
@@ -184,7 +175,6 @@ var _ = Describe("Finalizer delete-ssl", Ordered, func() {
 						Namespace: cr.Namespace,
 						Name:      cr.Spec.SSLInternalSecretName,
 					}, secret)
-
 					return k8serrors.IsNotFound(err)
 				}, time.Second*15, time.Millisecond*250).Should(BeTrue())
 
@@ -193,7 +183,6 @@ var _ = Describe("Finalizer delete-ssl", Ordered, func() {
 						Namespace: cr.Namespace,
 						Name:      cr.Name + "-ca-cert",
 					}, secret)
-
 					return k8serrors.IsNotFound(err)
 				}, time.Second*15, time.Millisecond*250).Should(BeTrue())
 			})
@@ -201,26 +190,84 @@ var _ = Describe("Finalizer delete-ssl", Ordered, func() {
 			It("controller should delete issuers and certificates", func() {
 				issuers := &cm.IssuerList{}
 				Eventually(func() bool {
-
 					opts := &client.ListOptions{Namespace: cr.Namespace}
 					err := k8sClient.List(ctx, issuers, opts)
-
 					return err == nil
 				}, time.Second*30, time.Millisecond*250).Should(BeTrue())
-
 				Expect(issuers.Items).Should(BeEmpty())
 
 				certs := &cm.CertificateList{}
 				Eventually(func() bool {
-
 					opts := &client.ListOptions{Namespace: cr.Namespace}
 					err := k8sClient.List(ctx, certs, opts)
-
 					return err == nil
 				}, time.Second*30, time.Millisecond*250).Should(BeTrue())
-
 				Expect(certs.Items).Should(BeEmpty())
 			})
+		})
+	})
+
+	Context("delete-ssl finalizer is not specified", Ordered, func() {
+		cr, err := readDefaultCR(crName+"-no", ns)
+
+		It("should read default cr.yaml", func() {
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		cr.Spec.SSLSecretName = "cluster1-ssl"
+		cr.Spec.SSLInternalSecretName = "cluster1-ssl-internal"
+
+		It("Should create PerconaXtraDBCluster", func() {
+			Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
+		})
+
+		It("should reconcile once to create user secret", func() {
+			_, err := reconciler().Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}})
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("controller should create ssl-secrets, issuers and certs", func() {
+			secret := &corev1.Secret{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Namespace: cr.Namespace,
+				Name:      cr.Spec.SSLSecretName,
+			}, secret)).Should(Succeed())
+
+			issuers := &cm.IssuerList{}
+			Eventually(func() bool {
+				err := k8sClient.List(ctx, issuers, &client.ListOptions{Namespace: cr.Namespace})
+				return err == nil && len(issuers.Items) > 0
+			}, time.Second*30, time.Millisecond*250).Should(BeTrue())
+
+			certs := &cm.CertificateList{}
+			Eventually(func() bool {
+				err := k8sClient.List(ctx, certs, &client.ListOptions{Namespace: cr.Namespace})
+				return err == nil && len(certs.Items) > 0
+			}, time.Second*30, time.Millisecond*250).Should(BeTrue())
+		})
+
+		It("should delete PXC cluster and resources should remain", func() {
+			Expect(k8sClient.Delete(ctx, cr)).Should(Succeed())
+			_, err := reconciler().Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}})
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("controller should NOT delete ssl-secrets", func() {
+			secret := &corev1.Secret{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Namespace: cr.Namespace,
+				Name:      cr.Spec.SSLSecretName,
+			}, secret)).Should(Succeed())
+		})
+
+		It("controller should NOT delete issuers and certs", func() {
+			issuers := &cm.IssuerList{}
+			Expect(k8sClient.List(ctx, issuers, &client.ListOptions{Namespace: cr.Namespace})).Should(Succeed())
+			Expect(issuers.Items).ShouldNot(BeEmpty())
+
+			certs := &cm.CertificateList{}
+			Expect(k8sClient.List(ctx, certs, &client.ListOptions{Namespace: cr.Namespace})).Should(Succeed())
+			Expect(certs.Items).ShouldNot(BeEmpty())
 		})
 	})
 })

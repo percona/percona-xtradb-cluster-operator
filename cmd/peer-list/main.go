@@ -45,11 +45,12 @@ var (
 	svc       = flag.String("service", "", "Governing service responsible for the DNS records of the domain this pod is in.")
 	namespace = flag.String("ns", "", "The namespace this pod is running in. If unspecified, the POD_NAMESPACE env var is used.")
 	domain    = flag.String("domain", "", "The Cluster Domain which is used by the Cluster, if not set tries to determine it from /etc/resolv.conf file.")
+	protocol  = flag.String("protocol", "", "The protocol used for SRV lookups. The default value is empty string. Acceptable values are also tcp and udp.")
 )
 
-func lookup(svcName string) (sets.String, error) {
+func lookup(svcName, protocol string) (sets.String, error) {
 	endpoints := sets.NewString()
-	_, srvRecords, err := net.LookupSRV("", "", svcName)
+	_, srvRecords, err := net.LookupSRV("", protocol, svcName)
 	if err != nil {
 		return endpoints, err
 	}
@@ -145,8 +146,14 @@ func main() {
 	isFirstUpdate := true
 	lastChangeTime := time.Now()
 
+	normalizedProtocol, err := normalizeAndValidateProtocol(*protocol)
+	if err != nil {
+		log.Fatal(err)
+	}
+	proto := normalizedProtocol
+
 	for peers := sets.NewString(); script != ""; time.Sleep(pollPeriod) {
-		newPeers, err = lookup(*svc)
+		newPeers, err = lookup(*svc, proto)
 		if err != nil {
 			log.Printf("%v", err)
 
@@ -173,4 +180,20 @@ func main() {
 	}
 	// TODO: Exit if there's no on-change?
 	log.Printf("Peer finder exiting")
+}
+
+func normalizeAndValidateProtocol(protocol string) (string, error) {
+	// An empty protocol is accepted for backward compatibility,
+	// as it was the implicit default before protocol configuration was introduced.
+	// The current default is also an empty string, so it remains a valid value.
+	if protocol == "" {
+		return protocol, nil
+	}
+
+	normalizedProtocol := strings.ToLower(protocol)
+
+	if normalizedProtocol != "udp" && normalizedProtocol != "tcp" {
+		return "", fmt.Errorf("protocol must be either 'udp' or 'tcp'")
+	}
+	return normalizedProtocol, nil
 }

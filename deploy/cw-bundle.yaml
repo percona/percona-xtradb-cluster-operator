@@ -2810,6 +2810,8 @@ spec:
                             - port
                             type: object
                         type: object
+                      stopSignal:
+                        type: string
                     type: object
                   livenessDelaySec:
                     format: int32
@@ -4366,6 +4368,8 @@ spec:
                                   - port
                                   type: object
                               type: object
+                            stopSignal:
+                              type: string
                           type: object
                         livenessProbe:
                           properties:
@@ -6246,6 +6250,8 @@ spec:
                             - port
                             type: object
                         type: object
+                      stopSignal:
+                        type: string
                     type: object
                   livenessDelaySec:
                     format: int32
@@ -7794,6 +7800,8 @@ spec:
                                   - port
                                   type: object
                               type: object
+                            stopSignal:
+                              type: string
                           type: object
                         livenessProbe:
                           properties:
@@ -9142,6 +9150,8 @@ spec:
                             - port
                             type: object
                         type: object
+                      stopSignal:
+                        type: string
                     type: object
                   livenessDelaySec:
                     format: int32
@@ -10723,6 +10733,8 @@ spec:
                                   - port
                                   type: object
                               type: object
+                            stopSignal:
+                              type: string
                           type: object
                         livenessProbe:
                           properties:

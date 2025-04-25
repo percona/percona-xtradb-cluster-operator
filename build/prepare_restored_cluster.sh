@@ -17,6 +17,14 @@ function get_password() {
 	escape_special $(</etc/mysql/mysql-users-secret/${user})
 }
 
+CFG=/etc/mysql/node.cnf
+
+vault_secret="/etc/mysql/vault-keyring-secret/keyring_vault.conf"
+if [ -f "${vault_secret}" ]; then
+	sed -i "/\[mysqld\]/a early-plugin-load=keyring_vault.so" $CFG
+	sed -i "/\[mysqld\]/a keyring_vault_config=${vault_secret}" $CFG
+fi
+
 mysqld --skip-grant-tables --skip-networking &
 
 # TODO: Is there a better way?

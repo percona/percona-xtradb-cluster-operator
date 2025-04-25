@@ -2612,8 +2612,6 @@ spec:
                         type: object
                       loadBalancerClass:
                         type: string
-                      loadBalancerIP:
-                        type: string
                       loadBalancerSourceRanges:
                         items:
                           type: string
@@ -2644,8 +2642,6 @@ spec:
                           type: string
                         type: object
                       loadBalancerClass:
-                        type: string
-                      loadBalancerIP:
                         type: string
                       loadBalancerSourceRanges:
                         items:
@@ -2897,8 +2893,6 @@ spec:
                         format: int32
                         type: integer
                     type: object
-                  loadBalancerIP:
-                    type: string
                   loadBalancerSourceRanges:
                     items:
                       type: string
@@ -3086,8 +3080,6 @@ spec:
                         type: integer
                     type: object
                   replicasExternalTrafficPolicy:
-                    type: string
-                  replicasLoadBalancerIP:
                     type: string
                   replicasLoadBalancerSourceRanges:
                     items:
@@ -6085,8 +6077,6 @@ spec:
                         type: object
                       loadBalancerClass:
                         type: string
-                      loadBalancerIP:
-                        type: string
                       loadBalancerSourceRanges:
                         items:
                           type: string
@@ -6335,8 +6325,6 @@ spec:
                         format: int32
                         type: integer
                     type: object
-                  loadBalancerIP:
-                    type: string
                   loadBalancerSourceRanges:
                     items:
                       type: string
@@ -8985,8 +8973,6 @@ spec:
                         type: object
                       loadBalancerClass:
                         type: string
-                      loadBalancerIP:
-                        type: string
                       loadBalancerSourceRanges:
                         items:
                           type: string
@@ -9235,8 +9221,6 @@ spec:
                         format: int32
                         type: integer
                     type: object
-                  loadBalancerIP:
-                    type: string
                   loadBalancerSourceRanges:
                     items:
                       type: string

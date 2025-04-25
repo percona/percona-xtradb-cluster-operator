@@ -14,6 +14,7 @@ import (
 	cm "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	"github.com/google/go-cmp/cmp"
 	"github.com/pkg/errors"
+	"github.com/robfig/cron/v3"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	policyv1 "k8s.io/api/policy/v1"

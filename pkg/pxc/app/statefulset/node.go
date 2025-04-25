@@ -381,12 +381,6 @@ func (c *Node) PMMContainer(ctx context.Context, cl client.Client, spec *api.PMM
 
 	ct := app.PMMClient(cr, spec, secret, envVarsSecret)
 
-	clusterName := cr.Name
-
-	if cr.CompareVersionWith("1.18.0") >= 0 && cr.Spec.PMM.CustomClusterName != "" {
-		clusterName = cr.Spec.PMM.CustomClusterName
-	}
-
 	pmmEnvs := []corev1.EnvVar{
 		{
 			Name:  "DB_TYPE",
@@ -406,11 +400,6 @@ func (c *Node) PMMContainer(ctx context.Context, cl client.Client, spec *api.PMM
 			Name:  "DB_ARGS",
 			Value: "--query-source=perfschema",
 		},
-	}
-
-	ct.Env = append(ct.Env, pmmEnvs...)
-
-	clusterEnvs := []corev1.EnvVar{
 		{
 			Name:  "DB_CLUSTER",
 			Value: app.Name,
@@ -421,41 +410,15 @@ func (c *Node) PMMContainer(ctx context.Context, cl client.Client, spec *api.PMM
 		},
 		{
 			Name:  "DB_PORT",
-			Value: "3306",
-		},
-	}
-	ct.Env = append(ct.Env, clusterEnvs...)
-	ct.Resources = spec.Resources
-
-	for k, v := range ct.Env {
-		if v.Name == "DB_PORT" {
-			ct.Env[k].Value = "33062"
-			break
-		}
-	}
-	PmmPxcParams := ""
-	if spec.PxcParams != "" {
-		PmmPxcParams = spec.PxcParams
-	}
-	clusterPmmEnvs := []corev1.EnvVar{
-		{
-			Name:  "CLUSTER_NAME",
-			Value: clusterName,
+			Value: "33062",
 		},
 		{
 			Name:  "PMM_ADMIN_CUSTOM_PARAMS",
-			Value: PmmPxcParams,
+			Value: spec.PxcParams,
 		},
 	}
-	ct.Env = append(ct.Env, clusterPmmEnvs...)
 
-	pmmAgentScriptEnv := []corev1.EnvVar{
-		{
-			Name:  "PMM_AGENT_PRERUN_SCRIPT",
-			Value: "/var/lib/mysql/pmm-prerun.sh",
-		},
-	}
-	ct.Env = append(ct.Env, pmmAgentScriptEnv...)
+	ct.Env = append(ct.Env, pmmEnvs...)
 
 	fvar := true
 	ct.EnvFrom = []corev1.EnvFromSource{
@@ -468,27 +431,6 @@ func (c *Node) PMMContainer(ctx context.Context, cl client.Client, spec *api.PMM
 			},
 		},
 	}
-
-	// PMM team added these flags which allows us to avoid
-	// container crash, but just restart pmm-agent till it recovers
-	// the connection.
-	// PMM team moved temp directory to /usr/local/percona/pmm2/tmp
-	// but it doesn't work on OpenShift so we set it back to /tmp
-	sidecarEnvs := []corev1.EnvVar{
-		{
-			Name:  "PMM_AGENT_SIDECAR",
-			Value: "true",
-		},
-		{
-			Name:  "PMM_AGENT_SIDECAR_SLEEP",
-			Value: "5",
-		},
-		{
-			Name:  "PMM_AGENT_PATHS_TEMPDIR",
-			Value: "/tmp",
-		},
-	}
-	ct.Env = append(ct.Env, sidecarEnvs...)
 
 	ct.VolumeMounts = []corev1.VolumeMount{
 		{

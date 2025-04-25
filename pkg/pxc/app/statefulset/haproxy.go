@@ -307,10 +307,6 @@ func (c *HAProxy) LogCollectorContainer(_ *api.LogCollectorSpec, _ string, _ str
 }
 
 func (c *HAProxy) PMMContainer(ctx context.Context, cl client.Client, spec *api.PMMSpec, secret *corev1.Secret, cr *api.PerconaXtraDBCluster) (*corev1.Container, error) {
-	clusterName := cr.Name
-	if cr.CompareVersionWith("1.18.0") >= 0 && cr.Spec.PMM.CustomClusterName != "" {
-		clusterName = cr.Spec.PMM.CustomClusterName
-	}
 
 	envVarsSecret := &corev1.Secret{}
 	err := cl.Get(ctx, types.NamespacedName{Name: cr.Spec.HAProxy.EnvVarsSecretName, Namespace: cr.Namespace}, envVarsSecret)
@@ -358,45 +354,11 @@ func (c *HAProxy) PMMContainer(ctx context.Context, cl client.Client, spec *api.
 			Value: "3306",
 		},
 		{
-			Name:  "CLUSTER_NAME",
-			Value: clusterName,
-		},
-		{
 			Name:  "PMM_ADMIN_CUSTOM_PARAMS",
 			Value: "--listen-port=8404",
 		},
 	}
 	ct.Env = append(ct.Env, pmmEnvs...)
-
-	pmmAgentScriptEnv := []corev1.EnvVar{
-		{
-			Name:  "PMM_AGENT_PRERUN_SCRIPT",
-			Value: "/var/lib/mysql/pmm-prerun.sh",
-		},
-	}
-
-	ct.Env = append(ct.Env, pmmAgentScriptEnv...)
-
-	// PMM team added these flags which allows us to avoid
-	// container crash, but just restart pmm-agent till it recovers
-	// the connection.
-	// PMM team moved temp directory to /usr/local/percona/pmm2/tmp
-	// but it doesn't work on OpenShift so we set it back to /tmp
-	sidecarEnvs := []corev1.EnvVar{
-		{
-			Name:  "PMM_AGENT_SIDECAR",
-			Value: "true",
-		},
-		{
-			Name:  "PMM_AGENT_SIDECAR_SLEEP",
-			Value: "5",
-		},
-		{
-			Name:  "PMM_AGENT_PATHS_TEMPDIR",
-			Value: "/tmp",
-		},
-	}
-	ct.Env = append(ct.Env, sidecarEnvs...)
 
 	fvar := true
 	ct.EnvFrom = []corev1.EnvFromSource{
@@ -409,8 +371,6 @@ func (c *HAProxy) PMMContainer(ctx context.Context, cl client.Client, spec *api.
 			},
 		},
 	}
-
-	ct.Resources = spec.Resources
 
 	return &ct, nil
 }

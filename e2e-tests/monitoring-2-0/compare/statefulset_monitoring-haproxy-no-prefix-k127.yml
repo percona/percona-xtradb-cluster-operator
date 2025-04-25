@@ -48,6 +48,16 @@ spec:
               value: "30100"
             - name: CLIENT_PORT_MAX
               value: "30105"
+            - name: CLUSTER_NAME
+              value: monitoring-test
+            - name: PMM_AGENT_PRERUN_SCRIPT
+              value: /var/lib/mysql/pmm-prerun.sh
+            - name: PMM_AGENT_SIDECAR
+              value: "true"
+            - name: PMM_AGENT_SIDECAR_SLEEP
+              value: "5"
+            - name: PMM_AGENT_PATHS_TEMPDIR
+              value: /tmp
             - name: POD_NAME
               valueFrom:
                 fieldRef:
@@ -111,18 +121,8 @@ spec:
               value: localhost
             - name: DB_PORT
               value: "3306"
-            - name: CLUSTER_NAME
-              value: monitoring-test
             - name: PMM_ADMIN_CUSTOM_PARAMS
               value: --listen-port=8404
-            - name: PMM_AGENT_PRERUN_SCRIPT
-              value: /var/lib/mysql/pmm-prerun.sh
-            - name: PMM_AGENT_SIDECAR
-              value: "true"
-            - name: PMM_AGENT_SIDECAR_SLEEP
-              value: "5"
-            - name: PMM_AGENT_PATHS_TEMPDIR
-              value: /tmp
           envFrom:
             - secretRef:
                 name: my-env-var-secrets

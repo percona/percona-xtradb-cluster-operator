@@ -17,6 +17,11 @@ func PMMClient(cr *api.PerconaXtraDBCluster, spec *api.PMMSpec, secret *corev1.S
 		ports = append(ports, corev1.ContainerPort{ContainerPort: int32(i)})
 	}
 
+	clusterName := cr.Name
+	if cr.CompareVersionWith("1.18.0") >= 0 && cr.Spec.PMM.CustomClusterName != "" {
+		clusterName = cr.Spec.PMM.CustomClusterName
+	}
+
 	pmmEnvs := []corev1.EnvVar{
 		{
 			Name:  "PMM_SERVER",
@@ -37,6 +42,31 @@ func PMMClient(cr *api.PerconaXtraDBCluster, spec *api.PMMSpec, secret *corev1.S
 			Name:  "CLIENT_PORT_MAX",
 			Value: "30105",
 		},
+		{
+			Name:  "CLUSTER_NAME",
+			Value: clusterName,
+		},
+		{
+			Name:  "PMM_AGENT_PRERUN_SCRIPT",
+			Value: "/var/lib/mysql/pmm-prerun.sh",
+		},
+		// PMM team added these flags which allows us to avoid
+		// container crash, but just restart pmm-agent till it recovers
+		// the connection.
+		{
+			Name:  "PMM_AGENT_SIDECAR",
+			Value: "true",
+		},
+		{
+			Name:  "PMM_AGENT_SIDECAR_SLEEP",
+			Value: "5",
+		},
+		// PMM team moved temp directory to /usr/local/percona/pmm2/tmp
+		// but it doesn't work on OpenShift so we set it back to /tmp
+		{
+			Name:  "PMM_AGENT_PATHS_TEMPDIR",
+			Value: "/tmp",
+		},
 	}
 
 	if spec.ServerUser != "" {
@@ -45,21 +75,15 @@ func PMMClient(cr *api.PerconaXtraDBCluster, spec *api.PMMSpec, secret *corev1.S
 	pmmEnvs = append(pmmEnvs, clientEnvs...)
 
 	pmmAgentEnvs := pmmAgentEnvs(spec.ServerHost, spec.ServerUser, secret.Name, spec.UseAPI(secret))
-	if cr.CompareVersionWith("1.14.0") >= 0 {
-		val := "$(POD_NAMESPASE)-$(POD_NAME)"
-		if len(envVarsSecret.Data["PMM_PREFIX"]) > 0 {
-			val = "$(PMM_PREFIX)$(POD_NAMESPASE)-$(POD_NAME)"
-		}
-		pmmAgentEnvs = append(pmmAgentEnvs, corev1.EnvVar{
-			Name:  "PMM_AGENT_SETUP_NODE_NAME",
-			Value: val,
-		})
-	} else {
-		pmmAgentEnvs = append(pmmAgentEnvs, corev1.EnvVar{
-			Name:  "PMM_AGENT_SETUP_NODE_NAME",
-			Value: "$(POD_NAMESPASE)-$(POD_NAME)",
-		})
+
+	val := "$(POD_NAMESPASE)-$(POD_NAME)"
+	if len(envVarsSecret.Data["PMM_PREFIX"]) > 0 {
+		val = "$(PMM_PREFIX)$(POD_NAMESPASE)-$(POD_NAME)"
 	}
+	pmmAgentEnvs = append(pmmAgentEnvs, corev1.EnvVar{
+		Name:  "PMM_AGENT_SETUP_NODE_NAME",
+		Value: val,
+	})
 
 	pmmEnvs = append(pmmEnvs, pmmAgentEnvs...)
 
@@ -70,6 +94,7 @@ func PMMClient(cr *api.PerconaXtraDBCluster, spec *api.PMMSpec, secret *corev1.S
 		Env:             pmmEnvs,
 		SecurityContext: spec.ContainerSecurityContext,
 		Ports:           ports,
+		Resources:       spec.Resources,
 		Lifecycle: &corev1.Lifecycle{
 			PreStop: &corev1.LifecycleHandler{
 				Exec: &corev1.ExecAction{

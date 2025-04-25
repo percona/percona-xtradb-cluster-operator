@@ -339,12 +339,6 @@ func (c *Proxy) PMMContainer(ctx context.Context, cl client.Client, spec *api.PM
 
 	ct := app.PMMClient(cr, spec, secret, envVarsSecret)
 
-	clusterName := cr.Name
-
-	if cr.CompareVersionWith("1.18.0") >= 0 && cr.Spec.PMM.CustomClusterName != "" {
-		clusterName = cr.Spec.PMM.CustomClusterName
-	}
-
 	pmmEnvs := []corev1.EnvVar{
 		{
 			Name:  "DB_TYPE",
@@ -360,9 +354,6 @@ func (c *Proxy) PMMContainer(ctx context.Context, cl client.Client, spec *api.PM
 				SecretKeyRef: app.SecretKeySelector(secret.Name, users.Monitor),
 			},
 		},
-	}
-
-	dbEnvs := []corev1.EnvVar{
 		{
 			Name:  "DB_USER",
 			Value: users.Monitor,
@@ -385,12 +376,13 @@ func (c *Proxy) PMMContainer(ctx context.Context, cl client.Client, spec *api.PM
 			Name:  "DB_PORT",
 			Value: "6032",
 		},
+		{
+			Name:  "PMM_ADMIN_CUSTOM_PARAMS",
+			Value: spec.ProxysqlParams,
+		},
 	}
 
 	ct.Env = append(ct.Env, pmmEnvs...)
-
-	ct.Env = append(ct.Env, dbEnvs...)
-	ct.Resources = spec.Resources
 
 	fvar := true
 	ct.EnvFrom = []corev1.EnvFromSource{
@@ -403,51 +395,6 @@ func (c *Proxy) PMMContainer(ctx context.Context, cl client.Client, spec *api.PM
 			},
 		},
 	}
-
-	PmmProxysqlParams := ""
-	if spec.ProxysqlParams != "" {
-		PmmProxysqlParams = spec.ProxysqlParams
-	}
-	clusterPmmEnvs := []corev1.EnvVar{
-		{
-			Name:  "CLUSTER_NAME",
-			Value: clusterName,
-		},
-		{
-			Name:  "PMM_ADMIN_CUSTOM_PARAMS",
-			Value: PmmProxysqlParams,
-		},
-	}
-	ct.Env = append(ct.Env, clusterPmmEnvs...)
-	pmmAgentScriptEnv := []corev1.EnvVar{
-		{
-			Name:  "PMM_AGENT_PRERUN_SCRIPT",
-			Value: "/var/lib/mysql/pmm-prerun.sh",
-		},
-	}
-	ct.Env = append(ct.Env, pmmAgentScriptEnv...)
-
-	// PMM team added these flags which allows us to avoid
-	// container crash, but just restart pmm-agent till it recovers
-	// the connection.
-	// PMM team moved temp directory to /usr/local/percona/pmm2/tmp
-	// but it doesn't work on OpenShift so we set it back to /tmp
-	sidecarEnvs := []corev1.EnvVar{
-		{
-			Name:  "PMM_AGENT_SIDECAR",
-			Value: "true",
-		},
-		{
-			Name:  "PMM_AGENT_SIDECAR_SLEEP",
-			Value: "5",
-		},
-		{
-			Name:  "PMM_AGENT_PATHS_TEMPDIR",
-			Value: "/tmp",
-		},
-	}
-	ct.Env = append(ct.Env, sidecarEnvs...)
-
 	return &ct, nil
 }
 

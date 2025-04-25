@@ -59,8 +59,8 @@ ALTER USER IF EXISTS 'monitor'@'%' IDENTIFIED BY '$(get_password monitor)';
 CREATE USER IF NOT EXISTS 'monitor'@'%' IDENTIFIED BY '$(get_password monitor)' WITH MAX_USER_CONNECTIONS 100 PASSWORD EXPIRE NEVER;
 GRANT SELECT, PROCESS, SUPER, REPLICATION CLIENT, RELOAD ON *.* TO 'monitor'@'%';
 GRANT SELECT ON performance_schema.* TO 'monitor'@'%';
-GRANT SERVICE_CONNECTION_ADMIN ON *.* TO 'monitor'@'%';
-GRANT SYSTEM_USER ON *.* TO 'monitor'@'%';
+/*!80016 GRANT SERVICE_CONNECTION_ADMIN ON *.* TO 'monitor'@'%' */;
+/*!80016 GRANT SYSTEM_USER ON *.* TO 'monitor'@'%' */;
 
 FLUSH PRIVILEGES;
 EOF

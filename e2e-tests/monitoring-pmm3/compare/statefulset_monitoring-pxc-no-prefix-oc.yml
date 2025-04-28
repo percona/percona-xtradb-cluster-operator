@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  generation: 2
+  generation: 1
   name: monitoring-pxc
   ownerReferences:
     - controller: true
@@ -100,10 +100,6 @@ spec:
               value: --query-source=perfschema
             - name: PMM_ADMIN_CUSTOM_PARAMS
               value: --disable-tablestats-limit=2000
-          envFrom:
-            - secretRef:
-                name: my-env-var-secrets
-                optional: true
           imagePullPolicy: Always
           lifecycle:
             preStop:

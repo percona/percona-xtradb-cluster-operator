@@ -1660,8 +1660,6 @@ spec:
                         type: object
                       loadBalancerClass:
                         type: string
-                      loadBalancerIP:
-                        type: string
                       loadBalancerSourceRanges:
                         items:
                           type: string
@@ -1692,8 +1690,6 @@ spec:
                           type: string
                         type: object
                       loadBalancerClass:
-                        type: string
-                      loadBalancerIP:
                         type: string
                       loadBalancerSourceRanges:
                         items:
@@ -1858,6 +1854,8 @@ spec:
                             - port
                             type: object
                         type: object
+                      stopSignal:
+                        type: string
                     type: object
                   livenessDelaySec:
                     format: int32
@@ -1943,8 +1941,6 @@ spec:
                         format: int32
                         type: integer
                     type: object
-                  loadBalancerIP:
-                    type: string
                   loadBalancerSourceRanges:
                     items:
                       type: string
@@ -2132,8 +2128,6 @@ spec:
                         type: integer
                     type: object
                   replicasExternalTrafficPolicy:
-                    type: string
-                  replicasLoadBalancerIP:
                     type: string
                   replicasLoadBalancerSourceRanges:
                     items:
@@ -3414,6 +3408,8 @@ spec:
                                   - port
                                   type: object
                               type: object
+                            stopSignal:
+                              type: string
                           type: object
                         livenessProbe:
                           properties:
@@ -5129,8 +5125,6 @@ spec:
                         type: object
                       loadBalancerClass:
                         type: string
-                      loadBalancerIP:
-                        type: string
                       loadBalancerSourceRanges:
                         items:
                           type: string
@@ -5292,6 +5286,8 @@ spec:
                             - port
                             type: object
                         type: object
+                      stopSignal:
+                        type: string
                     type: object
                   livenessDelaySec:
                     format: int32
@@ -5377,8 +5373,6 @@ spec:
                         format: int32
                         type: integer
                     type: object
-                  loadBalancerIP:
-                    type: string
                   loadBalancerSourceRanges:
                     items:
                       type: string
@@ -6840,6 +6834,8 @@ spec:
                                   - port
                                   type: object
                               type: object
+                            stopSignal:
+                              type: string
                           type: object
                         livenessProbe:
                           properties:
@@ -8025,8 +8021,6 @@ spec:
                         type: object
                       loadBalancerClass:
                         type: string
-                      loadBalancerIP:
-                        type: string
                       loadBalancerSourceRanges:
                         items:
                           type: string
@@ -8188,6 +8182,8 @@ spec:
                             - port
                             type: object
                         type: object
+                      stopSignal:
+                        type: string
                     type: object
                   livenessDelaySec:
                     format: int32
@@ -8273,8 +8269,6 @@ spec:
                         format: int32
                         type: integer
                     type: object
-                  loadBalancerIP:
-                    type: string
                   loadBalancerSourceRanges:
                     items:
                       type: string
@@ -9769,6 +9763,8 @@ spec:
                                   - port
                                   type: object
                               type: object
+                            stopSignal:
+                              type: string
                           type: object
                         livenessProbe:
                           properties:

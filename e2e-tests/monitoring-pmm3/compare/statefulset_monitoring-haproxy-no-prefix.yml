@@ -30,26 +30,6 @@ spec:
     spec:
       containers:
         - env:
-            - name: PMM_SERVER
-              value: monitoring-service
-            - name: PMM_USER
-              value: api_key
-            - name: PMM_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  key: pmmserverkey
-                  name: internal-monitoring
-            - name: CLIENT_PORT_LISTEN
-              value: "7777"
-            - name: CLIENT_PORT_MIN
-              value: "30100"
-            - name: CLIENT_PORT_MAX
-              value: "30105"
-            - name: POD_NAME
-              valueFrom:
-                fieldRef:
-                  apiVersion: v1
-                  fieldPath: metadata.name
             - name: POD_NAMESPASE
               valueFrom:
                 fieldRef:
@@ -58,11 +38,11 @@ spec:
             - name: PMM_AGENT_SERVER_ADDRESS
               value: monitoring-service
             - name: PMM_AGENT_SERVER_USERNAME
-              value: api_key
+              value: service_token
             - name: PMM_AGENT_SERVER_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  key: pmmserverkey
+                  key: pmmservertoken
                   name: internal-monitoring
             - name: PMM_AGENT_LISTEN_PORT
               value: "7777"
@@ -71,7 +51,7 @@ spec:
             - name: PMM_AGENT_PORTS_MAX
               value: "30105"
             - name: PMM_AGENT_CONFIG_FILE
-              value: /usr/local/percona/pmm2/config/pmm-agent.yaml
+              value: /usr/local/percona/pmm/config/pmm-agent.yaml
             - name: PMM_AGENT_SERVER_INSECURE_TLS
               value: "1"
             - name: PMM_AGENT_LISTEN_ADDRESS

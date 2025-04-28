@@ -57,23 +57,25 @@ spinup_pxc() {
 
 }
 
-get_pmm3_server_token() {
+get_pmm_server_token() {
 	local key_name=$1
-	local admin_password=$2
 
 	if [[ -z $key_name ]]; then
 		key_name="operator"
 	fi
 
-	if [[ -z $admin_password ]]; then
-		echo "Error: admin_password is empty!" >&2
+	local ADMIN_PASSWORD
+	ADMIN_PASSWORD=$(kubectl get secret pmm-secret -o jsonpath="{.data.PMM_ADMIN_PASSWORD}" | base64 --decode)
+
+	if [[ -z $ADMIN_PASSWORD ]]; then
+		echo "Error: ADMIN_PASSWORD is empty or not found!" >&2
 		return 1
 	fi
 
 	local create_response create_status_code create_json_response
 	create_response=$(curl --insecure -s -X POST -H 'Content-Type: application/json' -H 'Accept: application/json' \
 		-d "{\"name\":\"${key_name}\", \"role\":\"Admin\", \"isDisabled\":false}" \
-		--user "admin:${admin_password}" \
+		--user "admin:${ADMIN_PASSWORD}" \
 		"https://$(get_service_ip monitoring-service)/graph/api/serviceaccounts" \
 		-w "\n%{http_code}")
 
@@ -97,7 +99,7 @@ get_pmm3_server_token() {
 	local token_response token_status_code token_json_response
 	token_response=$(curl --insecure -s -X POST -H 'Content-Type: application/json' \
 		-d "{\"name\":\"${key_name}\"}" \
-		--user "admin:${admin_password}" \
+		--user "admin:${ADMIN_PASSWORD}" \
 		"https://$(get_service_ip monitoring-service)/graph/api/serviceaccounts/${service_account_id}/tokens" \
 		-w "\n%{http_code}")
 
@@ -112,6 +114,82 @@ get_pmm3_server_token() {
 
 	echo "$token_json_response" | jq -r '.key'
 }
+
+delete_pmm_server_token() {
+	local key_name=$1
+
+	if [[ -z $key_name ]]; then
+		key_name="operator"
+	fi
+
+	local ADMIN_PASSWORD
+	ADMIN_PASSWORD=$(kubectl get secret pmm-secret -o jsonpath="{.data.PMM_ADMIN_PASSWORD}" | base64 --decode)
+
+	if [[ -z $ADMIN_PASSWORD ]]; then
+		echo "Error: ADMIN_PASSWORD is empty or not found!" >&2
+		return 1
+	fi
+
+	local user_credentials="admin:${ADMIN_PASSWORD}"
+
+	local service_accounts_response service_accounts_status
+	service_accounts_response=$(curl --insecure -s -X GET --user "${user_credentials}" \
+		"https://$(get_service_ip monitoring-service)/graph/api/serviceaccounts/search" \
+		-w "\n%{http_code}")
+
+	service_accounts_status=$(echo "$service_accounts_response" | tail -n1)
+	service_accounts_json=$(echo "$service_accounts_response" | sed '$ d')
+
+	if [[ $service_accounts_status -ne 200 ]]; then
+		echo "Error: Failed to fetch service accounts. HTTP Status: $service_accounts_status" >&2
+		echo "Response: $service_accounts_json" >&2
+		return 1
+	fi
+
+	local service_account_id
+	service_account_id=$(echo "$service_accounts_json" | jq -r ".serviceAccounts[] | select(.name == \"${key_name}\").id")
+
+	if [[ -z $service_account_id || $service_account_id == "null" ]]; then
+		echo "Service account '${key_name}' not found."
+		return 1
+	fi
+
+	local tokens_response tokens_status tokens_json
+	tokens_response=$(curl --insecure -s -X GET --user "${user_credentials}" \
+		"https://$(get_service_ip monitoring-service)/graph/api/serviceaccounts/${service_account_id}/tokens" \
+		-w "\n%{http_code}")
+
+	tokens_status=$(echo "$tokens_response" | tail -n1)
+	tokens_json=$(echo "$tokens_response" | sed '$ d')
+
+	if [[ $tokens_status -ne 200 ]]; then
+		echo "Error: Failed to fetch tokens. HTTP Status: $tokens_status" >&2
+		echo "Response: $tokens_json" >&2
+		return 1
+	fi
+
+	local token_id
+	token_id=$(echo "$tokens_json" | jq -r ".[] | select(.name == \"${key_name}\").id")
+
+	if [[ -z $token_id || $token_id == "null" ]]; then
+		echo "Token for service account '${key_name}' not found."
+		return 1
+	fi
+
+	local delete_response delete_status
+	delete_response=$(curl --insecure -s -X DELETE --user "${user_credentials}" \
+		"https://$(get_service_ip monitoring-service)/graph/api/serviceaccounts/${service_account_id}/tokens/${token_id}" \
+		-w "\n%{http_code}")
+
+	delete_status=$(echo "$delete_response" | tail -n1)
+
+	if [[ $delete_status -ne 200 ]]; then
+		echo "Error: Failed to delete token. HTTP Status: $delete_status" >&2
+		echo "Response: $delete_response" >&2
+		return 1
+	fi
+}
+
 
 cluster="monitoring"
 
@@ -135,8 +213,7 @@ desc 'create secret'
 kubectl_bin apply -f "$test_dir/conf/secrets.yaml"
 
 desc 'add PMM3 token to secret'
-ADMIN_PASSWORD=$(kubectl_bin get secret pmm-secret -o jsonpath="{.data.PMM_ADMIN_PASSWORD}" | base64 --decode)
-TOKEN=$(get_pmm3_server_token "operator" $ADMIN_PASSWORD)
+TOKEN=$(get_pmm_server_token "operator")
 kubectl_bin patch secret my-cluster-secrets --type merge --patch '{"stringData": {"pmmservertoken": "'"$TOKEN"'"}}'
 
 desc 'create PXC cluster'
@@ -156,5 +233,23 @@ kubectl_bin apply -f "$test_dir/conf/envsecrets.yaml"
 
 wait_for_generation "sts/$cluster-pxc" 2
 wait_for_generation "sts/$cluster-haproxy" 2
+
+desc 'create new PMM token and add it to the secret'
+NEW_TOKEN=$(get_pmm3_server_token "operator_new")
+kubectl_bin patch secret my-cluster-secrets --type merge --patch '{"stringData": {"pmmservertoken": "'"$NEW_TOKEN"'"}}'
+
+desc 'delete old PMM token'
+delete_pmm_server_token "operator"
+sleep 3
+
+wait_for_generation "sts/$cluster-pxc" 3
+wait_for_generation "sts/$cluster-haproxy" 3
+
+sleep 10
+kubectl wait pod -l 'app.kubernetes.io/managed-by=percona-xtradb-cluster-operator' --for=condition=ready --timeout=600s
+
+desc 'check if pmm-client container enabled'
+compare_kubectl statefulset/$cluster-pxc
+compare_kubectl statefulset/$cluster-haproxy
 
 desc "test passed"

@@ -58,11 +58,11 @@ spec:
             - name: PMM_AGENT_SERVER_ADDRESS
               value: monitoring-service
             - name: PMM_AGENT_SERVER_USERNAME
-              value: api_key
+              value: service_token
             - name: PMM_AGENT_SERVER_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  key: pmmserverkey
+                  key: pmmservertoken
                   name: internal-monitoring
             - name: PMM_AGENT_LISTEN_PORT
               value: "7777"
@@ -71,7 +71,7 @@ spec:
             - name: PMM_AGENT_PORTS_MAX
               value: "30105"
             - name: PMM_AGENT_CONFIG_FILE
-              value: /usr/local/percona/pmm2/config/pmm-agent.yaml
+              value: /usr/local/percona/pmm/config/pmm-agent.yaml
             - name: PMM_AGENT_SERVER_INSECURE_TLS
               value: "1"
             - name: PMM_AGENT_LISTEN_ADDRESS

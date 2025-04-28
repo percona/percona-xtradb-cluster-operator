@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  generation: 2
+  generation: 1
   name: monitoring-pxc
   ownerReferences:
     - controller: true
@@ -33,21 +33,6 @@ spec:
     spec:
       containers:
         - env:
-            - name: PMM_SERVER
-              value: monitoring-service
-            - name: PMM_USER
-              value: api_key
-            - name: PMM_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  key: pmmserverkey
-                  name: internal-monitoring
-            - name: CLIENT_PORT_LISTEN
-              value: "7777"
-            - name: CLIENT_PORT_MIN
-              value: "30100"
-            - name: CLIENT_PORT_MAX
-              value: "30105"
             - name: POD_NAME
               valueFrom:
                 fieldRef:
@@ -61,11 +46,11 @@ spec:
             - name: PMM_AGENT_SERVER_ADDRESS
               value: monitoring-service
             - name: PMM_AGENT_SERVER_USERNAME
-              value: api_key
+              value: service_token
             - name: PMM_AGENT_SERVER_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  key: pmmserverkey
+                  key: pmmservertoken
                   name: internal-monitoring
             - name: PMM_AGENT_LISTEN_PORT
               value: "7777"
@@ -74,7 +59,7 @@ spec:
             - name: PMM_AGENT_PORTS_MAX
               value: "30105"
             - name: PMM_AGENT_CONFIG_FILE
-              value: /usr/local/percona/pmm2/config/pmm-agent.yaml
+              value: /usr/local/percona/pmm/config/pmm-agent.yaml
             - name: PMM_AGENT_SERVER_INSECURE_TLS
               value: "1"
             - name: PMM_AGENT_LISTEN_ADDRESS
@@ -87,10 +72,16 @@ spec:
               value: "1"
             - name: PMM_AGENT_SETUP_NODE_TYPE
               value: container
-            - name: PMM_AGENT_SETUP_NODE_NAME
-              value: $(POD_NAMESPASE)-$(POD_NAME)
-            - name: DB_TYPE
-              value: mysql
+            - name: PMM_AGENT_SIDECAR
+              value: "true"
+            - name: PMM_AGENT_SIDECAR_SLEEP
+              value: "5"
+            - name: PMM_AGENT_PATHS_TEMPDIR
+              value: /tmp
+            - name: PMM_AGENT_PRERUN_SCRIPT
+              value: /var/lib/mysql/pmm-prerun.sh
+            - name: DB_CLUSTER
+              value: pxc
             - name: DB_USER
               value: monitor
             - name: DB_PASSWORD
@@ -98,26 +89,20 @@ spec:
                 secretKeyRef:
                   key: monitor
                   name: internal-monitoring
-            - name: DB_ARGS
-              value: --query-source=perfschema
-            - name: DB_CLUSTER
-              value: pxc
             - name: DB_HOST
               value: localhost
-            - name: DB_PORT
-              value: "33062"
             - name: CLUSTER_NAME
               value: monitoring
+            - name: PMM_AGENT_SETUP_NODE_NAME
+              value: $(POD_NAMESPASE)-$(POD_NAME)
+            - name: DB_PORT
+              value: "33062"
+            - name: DB_TYPE
+              value: mysql
+            - name: DB_ARGS
+              value: --query-source=perfschema
             - name: PMM_ADMIN_CUSTOM_PARAMS
               value: --disable-tablestats-limit=2000
-            - name: PMM_AGENT_PRERUN_SCRIPT
-              value: /var/lib/mysql/pmm-prerun.sh
-            - name: PMM_AGENT_SIDECAR
-              value: "true"
-            - name: PMM_AGENT_SIDECAR_SLEEP
-              value: "5"
-            - name: PMM_AGENT_PATHS_TEMPDIR
-              value: /tmp
           envFrom:
             - secretRef:
                 name: my-env-var-secrets

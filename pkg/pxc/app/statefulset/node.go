@@ -389,7 +389,7 @@ func (c *Node) PMMContainer(ctx context.Context, cl client.Client, spec *api.PMM
 			return nil, errors.Wrap(err, "get pmm3 container")
 		}
 
-		pmm3Container.Env = append(pmm3Container.Env, pmm3PXCNodeEnvVars()...)
+		pmm3Container.Env = append(pmm3Container.Env, pmm3PXCNodeEnvVars(cr.Spec.PMM.PxcParams)...)
 
 		pmm3Container.VolumeMounts = []corev1.VolumeMount{
 			{
@@ -528,11 +528,11 @@ func (c *Node) PMMContainer(ctx context.Context, cl client.Client, spec *api.PMM
 }
 
 // pmm3PXCNodeEnvVars returns a list of environment variables to configure the PMM3 container for monitoring pxc node.
-func pmm3PXCNodeEnvVars() []corev1.EnvVar {
+func pmm3PXCNodeEnvVars(PmmPxcParams string) []corev1.EnvVar {
 	return []corev1.EnvVar{
 		{
 			Name:  "DB_PORT",
-			Value: "3306",
+			Value: "33062",
 		},
 		{
 			Name:  "DB_TYPE",
@@ -541,6 +541,9 @@ func pmm3PXCNodeEnvVars() []corev1.EnvVar {
 		{
 			Name:  "DB_ARGS",
 			Value: "--query-source=perfschema",
+		}, {
+			Name:  "PMM_ADMIN_CUSTOM_PARAMS",
+			Value: PmmPxcParams,
 		},
 	}
 }

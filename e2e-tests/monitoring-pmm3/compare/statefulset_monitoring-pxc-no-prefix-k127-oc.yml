@@ -103,6 +103,10 @@ spec:
               value: --query-source=perfschema
             - name: PMM_ADMIN_CUSTOM_PARAMS
               value: --disable-tablestats-limit=2000
+          envFrom:
+            - secretRef:
+                name: my-env-var-secrets
+                optional: true
           imagePullPolicy: Always
           lifecycle:
             preStop:

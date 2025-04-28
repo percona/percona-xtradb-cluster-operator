@@ -108,6 +108,10 @@ spec:
               value: --listen-port=8404
             - name: DB_PORT
               value: "3306"
+          envFrom:
+            - secretRef:
+                name: my-env-var-secrets
+                optional: true
           imagePullPolicy: Always
           lifecycle:
             preStop:

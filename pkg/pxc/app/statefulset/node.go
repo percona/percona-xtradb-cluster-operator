@@ -398,6 +398,18 @@ func (c *Node) PMMContainer(ctx context.Context, cl client.Client, spec *api.PMM
 			},
 		}
 
+		pBool := true
+		pmm3Container.EnvFrom = []corev1.EnvFromSource{
+			{
+				SecretRef: &corev1.SecretEnvSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: cr.Spec.PXC.EnvVarsSecretName,
+					},
+					Optional: &pBool,
+				},
+			},
+		}
+
 		return &pmm3Container, nil
 	}
 

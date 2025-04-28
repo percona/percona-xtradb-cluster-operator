@@ -325,6 +325,18 @@ func (c *HAProxy) PMMContainer(ctx context.Context, cl client.Client, spec *api.
 
 		pmm3Container.Env = append(pmm3Container.Env, pmm3HaproxyEnvVars(secret.Name)...)
 
+		pBool := true
+		pmm3Container.EnvFrom = []corev1.EnvFromSource{
+			{
+				SecretRef: &corev1.SecretEnvSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: cr.Spec.HAProxy.EnvVarsSecretName,
+					},
+					Optional: &pBool,
+				},
+			},
+		}
+
 		return &pmm3Container, nil
 	}
 

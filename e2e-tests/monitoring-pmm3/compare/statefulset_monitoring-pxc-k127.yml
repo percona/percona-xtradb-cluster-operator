@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  generation: 4
+  generation: 2
   name: monitoring-pxc
   ownerReferences:
     - controller: true

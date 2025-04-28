@@ -242,8 +242,8 @@ desc 'delete old PMM token'
 delete_pmm_server_token "operator"
 sleep 3
 
-wait_for_generation "sts/$cluster-pxc" 3
-wait_for_generation "sts/$cluster-haproxy" 3
+wait_for_generation "sts/$cluster-pxc" 2
+wait_for_generation "sts/$cluster-haproxy" 2
 
 sleep 10
 kubectl wait pod -l 'app.kubernetes.io/managed-by=percona-xtradb-cluster-operator' --for=condition=ready --timeout=600s

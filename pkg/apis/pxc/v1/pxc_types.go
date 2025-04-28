@@ -106,7 +106,6 @@ type ServiceExpose struct {
 	// a Service to type 'LoadBalancer'. Once set, it can not be changed.
 	LoadBalancerClass        *string                                 `json:"loadBalancerClass,omitempty"`
 	LoadBalancerSourceRanges []string                                `json:"loadBalancerSourceRanges,omitempty"`
-	LoadBalancerIP           string                                  `json:"loadBalancerIP,omitempty"`
 	Annotations              map[string]string                       `json:"annotations,omitempty"`
 	Labels                   map[string]string                       `json:"labels,omitempty"`
 	ExternalTrafficPolicy    corev1.ServiceExternalTrafficPolicyType `json:"externalTrafficPolicy,omitempty"`
@@ -540,8 +539,6 @@ type PodSpec struct {
 	ReplicasExternalTrafficPolicy corev1.ServiceExternalTrafficPolicyType `json:"replicasExternalTrafficPolicy,omitempty"`
 	// Deprecated: Use ServiceExpose.LoadBalancerSourceRanges instead
 	LoadBalancerSourceRanges []string `json:"loadBalancerSourceRanges,omitempty"`
-	// Deprecated: Use ServiceExpose.LoadBalancerIP instead
-	LoadBalancerIP string `json:"loadBalancerIP,omitempty"`
 	// Deprecated: Use ServiceExpose.Annotations instead
 	ServiceAnnotations map[string]string `json:"serviceAnnotations,omitempty"`
 	// Deprecated: Use ServiceExpose.Labels instead
@@ -612,8 +609,6 @@ type HAProxySpec struct {
 	ReplicasServiceEnabled *bool `json:"replicasServiceEnabled,omitempty"`
 	// Deprecated: Use ExposeReplicas.LoadBalancerSourceRanges instead
 	ReplicasLoadBalancerSourceRanges []string `json:"replicasLoadBalancerSourceRanges,omitempty"`
-	// Deprecated: Use ExposeReplica.LoadBalancerIP instead
-	ReplicasLoadBalancerIP string `json:"replicasLoadBalancerIP,omitempty"`
 }
 
 type ReplicasServiceExpose struct {

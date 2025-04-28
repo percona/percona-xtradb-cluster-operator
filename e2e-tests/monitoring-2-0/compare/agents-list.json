@@ -3,7 +3,25 @@
     "service_type": "haproxy",
     "service_name": "monitoring-haproxy-0",
     "node_name": "monitoring-haproxy-0",
-    "cluster": "monitoring-test",
+    "cluster": "monitoring",
+    "agents": [
+      {
+        "agent_type": "external-exporter"
+      },
+      {
+        "agent_type": "pmm-agent"
+      },
+      {
+        "agent_type": "vmagent",
+        "status": "RUNNING"
+      }
+    ]
+  },
+  {
+    "service_type": "haproxy",
+    "service_name": "monitoring-haproxy-1",
+    "node_name": "monitoring-haproxy-1",
+    "cluster": "pxc-prefix-monitoring-custom",
     "agents": [
       {
         "agent_type": "external-exporter"
@@ -21,7 +39,7 @@
     "service_type": "mysql",
     "service_name": "monitoring-pxc-0",
     "node_name": "monitoring-pxc-0",
-    "cluster": "monitoring-test",
+    "cluster": "monitoring",
     "address": "monitoring-pxc-0",
     "port": 33062,
     "agents": [
@@ -46,7 +64,7 @@
     "service_type": "mysql",
     "service_name": "monitoring-pxc-1",
     "node_name": "monitoring-pxc-1",
-    "cluster": "monitoring-test",
+    "cluster": "monitoring",
     "address": "monitoring-pxc-1",
     "port": 33062,
     "agents": [
@@ -94,7 +112,7 @@
     "service_type": "haproxy",
     "service_name": "pxc-prefix-monitoring-haproxy-0",
     "node_name": "pxc-prefix-monitoring-haproxy-0",
-    "cluster": "pxc-prefix-monitoring-test",
+    "cluster": "pxc-prefix-monitoring-custom",
     "agents": [
       {
         "agent_type": "external-exporter"
@@ -114,7 +132,7 @@
     "service_type": "haproxy",
     "service_name": "pxc-prefix-monitoring-haproxy-1",
     "node_name": "pxc-prefix-monitoring-haproxy-1",
-    "cluster": "pxc-prefix-monitoring-test",
+    "cluster": "pxc-prefix-monitoring-custom",
     "agents": [
       {
         "agent_type": "external-exporter"
@@ -134,7 +152,7 @@
     "service_type": "mysql",
     "service_name": "pxc-prefix-monitoring-pxc-0",
     "node_name": "pxc-prefix-monitoring-pxc-0",
-    "cluster": "pxc-prefix-monitoring-test",
+    "cluster": "pxc-prefix-monitoring-custom",
     "address": "monitoring-pxc-0",
     "port": 33062,
     "agents": [
@@ -161,7 +179,7 @@
     "service_type": "mysql",
     "service_name": "pxc-prefix-monitoring-pxc-1",
     "node_name": "pxc-prefix-monitoring-pxc-1",
-    "cluster": "pxc-prefix-monitoring-test",
+    "cluster": "pxc-prefix-monitoring-custom",
     "address": "monitoring-pxc-1",
     "port": 33062,
     "agents": [
@@ -188,7 +206,7 @@
     "service_type": "mysql",
     "service_name": "pxc-prefix-monitoring-pxc-2",
     "node_name": "pxc-prefix-monitoring-pxc-2",
-    "cluster": "pxc-prefix-monitoring-test",
+    "cluster": "pxc-prefix-monitoring-custom",
     "address": "monitoring-pxc-2",
     "port": 33062,
     "agents": [

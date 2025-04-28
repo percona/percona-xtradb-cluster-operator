@@ -80,11 +80,22 @@ wait_cluster_consistency ${cluster} 3 2
 compare_kubectl statefulset/$cluster-pxc "-no-prefix"
 compare_kubectl statefulset/$cluster-haproxy "-no-prefix"
 
-desc 'apply my-env-var-secrets to add PMM_PREFIX'
-kubectl_bin apply -f "$test_dir/conf/envsecrets.yaml"
+
+ desc 'apply customClusterName for pmm'
+ custom_name="monitoring-custom"
+ kubectl_bin patch pxc ${cluster} --type json -p='[{"op":"add","path":"/spec/pmm/customClusterName","value":'$custom_name'}]'
 
 wait_for_generation "sts/$cluster-pxc" 3
 wait_for_generation "sts/$cluster-haproxy" 3
+
+compare_kubectl statefulset/$cluster-pxc "-custom"
+compare_kubectl statefulset/$cluster-haproxy "-custom"
+
+desc 'apply my-env-var-secrets to add PMM_PREFIX'
+kubectl_bin apply -f "$test_dir/conf/envsecrets.yaml"
+
+wait_for_generation "sts/$cluster-pxc" 4
+wait_for_generation "sts/$cluster-haproxy" 4
 
 desc 'add new PMM API key to secret'
 API_KEY_NEW=$(curl --insecure -X POST -H "Content-Type: application/json" -d '{"name":"operator-new", "role": "Admin"}' "https://admin:$ADMIN_PASSWORD@$(get_service_endpoint monitoring-service)/graph/api/auth/keys" | jq .key)
@@ -94,8 +105,8 @@ desc 'delete old PMM key'
 ID_API_KEY_OLD=$(curl --insecure -X GET "https://admin:$ADMIN_PASSWORD@$(get_service_endpoint monitoring-service)/graph/api/auth/keys" | jq '.[] | select( .name == "operator").id')
 curl --insecure -X DELETE "https://admin:$ADMIN_PASSWORD@$(get_service_endpoint monitoring-service)/graph/api/auth/keys/$ID_API_KEY_OLD"
 
-wait_for_generation "sts/$cluster-pxc" 4
-wait_for_generation "sts/$cluster-haproxy" 4
+wait_for_generation "sts/$cluster-pxc" 5
+wait_for_generation "sts/$cluster-haproxy" 5
 
 sleep 10
 kubectl wait pod -l 'app.kubernetes.io/managed-by=percona-xtradb-cluster-operator' --for=condition=ready --timeout=600s
@@ -108,6 +119,8 @@ desc 'verify clients agents statuses'
 # wait for proper agents statuses
 sleep 300
 API_KEY=$(getSecretData "my-cluster-secrets" "pmmserverkey")
+test_agent=$(get_mgmnt_service_list ${API_KEY} $(get_service_endpoint monitoring-service) ${namespace})
+cat $test_agent
 diff -u ${test_dir}/compare/agents-list.json $(get_mgmnt_service_list ${API_KEY} $(get_service_endpoint monitoring-service) ${namespace})
 
 desc 'check mysql metrics'

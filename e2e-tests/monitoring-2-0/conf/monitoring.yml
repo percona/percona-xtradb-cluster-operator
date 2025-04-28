@@ -36,7 +36,6 @@ spec:
     image: -pmm
     serverHost: monitoring-service
     serverUser: admin
-    customClusterName: "monitoring-test"
     pxcParams: "--disable-tablestats-limit=2000"
     resources:
       limits:

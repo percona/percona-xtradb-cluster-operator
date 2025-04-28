@@ -46,7 +46,7 @@ spec:
             - name: CLIENT_PORT_MAX
               value: "30105"
             - name: CLUSTER_NAME
-              value: monitoring-test
+              value: monitoring
             - name: PMM_AGENT_PRERUN_SCRIPT
               value: /var/lib/mysql/pmm-prerun.sh
             - name: PMM_AGENT_SIDECAR

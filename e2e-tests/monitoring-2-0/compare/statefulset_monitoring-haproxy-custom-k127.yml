@@ -1,13 +1,16 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  generation: 2
+  generation: 3
   name: monitoring-haproxy
   ownerReferences:
     - controller: true
       kind: PerconaXtraDBCluster
       name: monitoring
 spec:
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Retain
+    whenScaled: Retain
   podManagementPolicy: OrderedReady
   replicas: 2
   revisionHistoryLimit: 10
@@ -46,7 +49,7 @@ spec:
             - name: CLIENT_PORT_MAX
               value: "30105"
             - name: CLUSTER_NAME
-              value: monitoring
+              value: monitoring-custom
             - name: PMM_AGENT_PRERUN_SCRIPT
               value: /var/lib/mysql/pmm-prerun.sh
             - name: PMM_AGENT_SIDECAR

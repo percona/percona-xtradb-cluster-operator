@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  generation: 2
+  generation: 3
   name: monitoring-haproxy
   ownerReferences:
     - controller: true
@@ -46,7 +46,7 @@ spec:
             - name: CLIENT_PORT_MAX
               value: "30105"
             - name: CLUSTER_NAME
-              value: monitoring
+              value: monitoring-custom
             - name: PMM_AGENT_PRERUN_SCRIPT
               value: /var/lib/mysql/pmm-prerun.sh
             - name: PMM_AGENT_SIDECAR
@@ -180,11 +180,7 @@ spec:
           volumeMounts:
             - mountPath: /var/lib/mysql
               name: bin
-        - args:
-            - haproxy
-          command:
-            - /opt/percona/haproxy-entrypoint.sh
-          env:
+        - env:
             - name: PXC_SERVICE
               value: monitoring-pxc
             - name: LIVENESS_CHECK_TIMEOUT
@@ -255,8 +251,6 @@ spec:
             - /opt/percona/peer-list
             - -on-change=/opt/percona/haproxy_add_pxc_nodes.sh
             - -service=$(PXC_SERVICE)
-          command:
-            - /opt/percona/haproxy-entrypoint.sh
           env:
             - name: PXC_SERVICE
               value: monitoring-pxc

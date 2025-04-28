@@ -80,10 +80,9 @@ wait_cluster_consistency ${cluster} 3 2
 compare_kubectl statefulset/$cluster-pxc "-no-prefix"
 compare_kubectl statefulset/$cluster-haproxy "-no-prefix"
 
-
- desc 'apply customClusterName for pmm'
- custom_name="monitoring-custom"
- kubectl_bin patch pxc ${cluster} --type json -p='[{"op":"add","path":"/spec/pmm/customClusterName","value":'$custom_name'}]'
+desc 'apply customClusterName for pmm'
+custom_name="monitoring-custom"
+kubectl_bin patch pxc ${cluster} --type json -p='[{"op":"add","path":"/spec/pmm/customClusterName","value":'$custom_name'}]'
 
 wait_for_generation "sts/$cluster-pxc" 3
 wait_for_generation "sts/$cluster-haproxy" 3

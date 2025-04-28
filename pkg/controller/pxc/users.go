@@ -899,7 +899,7 @@ func (r *ReconcilePerconaXtraDBCluster) handlePMM3User(ctx context.Context, cr *
 		if _, ok := internalSecrets.Data[users.PMMServerToken]; !ok {
 			internalSecrets.Data[users.PMMServerToken] = key
 
-			err := r.client.Update(context.TODO(), internalSecrets)
+			err := r.client.Update(ctx, internalSecrets)
 			if err != nil {
 				return errors.Wrap(err, "update internal users secrets pmm user token")
 			}

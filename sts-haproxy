@@ -1,0 +1,166 @@
+Name:               monitoring-haproxy
+Namespace:          monitoring-pmm3-4435
+CreationTimestamp:  Mon, 28 Apr 2025 12:52:15 +0300
+Selector:           app.kubernetes.io/component=haproxy,app.kubernetes.io/instance=monitoring,app.kubernetes.io/managed-by=percona-xtradb-cluster-operator,app.kubernetes.io/name=percona-xtradb-cluster,app.kubernetes.io/part-of=percona-xtradb-cluster
+Labels:             <none>
+Annotations:        percona.com/last-config-hash:
+                      eyJyZXBsaWNhcyI6Miwic2VsZWN0b3IiOnsibWF0Y2hMYWJlbHMiOnsiYXBwLmt1YmVybmV0ZXMuaW8vY29tcG9uZW50IjoiaGFwcm94eSIsImFwcC5rdWJlcm5ldGVzLmlvL2luc3...
+Replicas:           2 desired | 2 total
+Update Strategy:    RollingUpdate
+  Partition:        0
+Pods Status:        2 Running / 0 Waiting / 0 Succeeded / 0 Failed
+Pod Template:
+  Labels:           app.kubernetes.io/component=haproxy
+                    app.kubernetes.io/instance=monitoring
+                    app.kubernetes.io/managed-by=percona-xtradb-cluster-operator
+                    app.kubernetes.io/name=percona-xtradb-cluster
+                    app.kubernetes.io/part-of=percona-xtradb-cluster
+  Annotations:      kubectl.kubernetes.io/default-container: haproxy
+                    percona.com/configuration-hash: d41d8cd98f00b204e9800998ecf8427e
+  Service Account:  default
+  Init Containers:
+   pxc-init:
+    Image:      perconalab/percona-xtradb-cluster-operator:K8SPXC-1553-6
+    Port:       <none>
+    Host Port:  <none>
+    Command:
+      /pxc-init-entrypoint.sh
+    Limits:
+      cpu:        50m
+      memory:     50M
+    Environment:  <none>
+    Mounts:
+      /var/lib/mysql from bin (rw)
+   haproxy-init:
+    Image:      perconalab/percona-xtradb-cluster-operator:K8SPXC-1553-6
+    Port:       <none>
+    Host Port:  <none>
+    Command:
+      /haproxy-init-entrypoint.sh
+    Limits:
+      cpu:        50m
+      memory:     50M
+    Environment:  <none>
+    Mounts:
+      /opt/percona from bin (rw)
+  Containers:
+   pmm-client:
+    Image:       perconalab/pmm-client:3-dev-latest
+    Ports:       7777/TCP, 30100/TCP, 30101/TCP, 30102/TCP, 30103/TCP, 30104/TCP, 30105/TCP
+    Host Ports:  0/TCP, 0/TCP, 0/TCP, 0/TCP, 0/TCP, 0/TCP, 0/TCP
+    Limits:
+      cpu:     1
+      memory:  1G
+    Requests:
+      cpu:      308m
+      memory:   508M
+    Liveness:   http-get http://:7777/local/Status delay=300s timeout=5s period=10s #success=1 #failure=3
+    Readiness:  http-get http://:7777/local/Status delay=15s timeout=15s period=30s #success=1 #failure=5
+    Environment:
+      POD_NAME:                        (v1:metadata.name)
+      POD_NAMESPASE:                   (v1:metadata.namespace)
+      PMM_AGENT_SERVER_ADDRESS:       monitoring-service
+      PMM_AGENT_SERVER_USERNAME:      service_token
+      PMM_AGENT_SERVER_PASSWORD:      <set to the key 'pmmservertoken' in secret 'internal-monitoring'>  Optional: false
+      PMM_AGENT_LISTEN_PORT:          7777
+      PMM_AGENT_PORTS_MIN:            30100
+      PMM_AGENT_PORTS_MAX:            30105
+      PMM_AGENT_CONFIG_FILE:          /usr/local/percona/pmm/config/pmm-agent.yaml
+      PMM_AGENT_SERVER_INSECURE_TLS:  1
+      PMM_AGENT_LISTEN_ADDRESS:       0.0.0.0
+      PMM_AGENT_SETUP_METRICS_MODE:   push
+      PMM_AGENT_SETUP:                1
+      PMM_AGENT_SETUP_FORCE:          1
+      PMM_AGENT_SETUP_NODE_TYPE:      container
+      PMM_AGENT_SIDECAR:              true
+      PMM_AGENT_SIDECAR_SLEEP:        5
+      PMM_AGENT_PATHS_TEMPDIR:        /tmp
+      PMM_AGENT_PRERUN_SCRIPT:        /var/lib/mysql/pmm-prerun.sh
+      DB_CLUSTER:                     pxc
+      DB_USER:                        monitor
+      DB_PASSWORD:                    <set to the key 'monitor' in secret 'internal-monitoring'>  Optional: false
+      DB_HOST:                        localhost
+      CLUSTER_NAME:                   monitoring
+      PMM_AGENT_SETUP_NODE_NAME:      $(POD_NAMESPASE)-$(POD_NAME)
+      DB_TYPE:                        haproxy
+      MONITOR_USER:                   monitor
+      MONITOR_PASSWORD:               <set to the key 'monitor' in secret 'internal-monitoring'>  Optional: false
+      PMM_ADMIN_CUSTOM_PARAMS:        --listen-port=8404
+      DB_PORT:                        3306
+    Mounts:
+      /var/lib/mysql from bin (rw)
+   haproxy:
+    Image:       perconalab/percona-xtradb-cluster-operator:main-haproxy
+    Ports:       3306/TCP, 3307/TCP, 3309/TCP, 33062/TCP, 33060/TCP, 8404/TCP
+    Host Ports:  0/TCP, 0/TCP, 0/TCP, 0/TCP, 0/TCP, 0/TCP
+    Command:
+      /opt/percona/haproxy-entrypoint.sh
+    Args:
+      haproxy
+    Requests:
+      cpu:      300m
+      memory:   500M
+    Liveness:   exec [/opt/percona/haproxy_liveness_check.sh] delay=60s timeout=5s period=30s #success=1 #failure=4
+    Readiness:  exec [/opt/percona/haproxy_readiness_check.sh] delay=15s timeout=1s period=5s #success=1 #failure=3
+    Environment Variables from:
+      my-env-var-secrets  Secret  Optional: true
+    Environment:
+      PXC_SERVICE:              monitoring-pxc
+      LIVENESS_CHECK_TIMEOUT:   5
+      READINESS_CHECK_TIMEOUT:  1
+    Mounts:
+      /etc/haproxy-custom/ from haproxy-custom (rw)
+      /etc/haproxy/pxc from haproxy-auto (rw)
+      /etc/mysql/haproxy-env-secret from my-env-var-secrets (rw)
+      /etc/mysql/mysql-users-secret from mysql-users-secret-file (rw)
+      /opt/percona from bin (rw)
+   pxc-monit:
+    Image:      perconalab/percona-xtradb-cluster-operator:main-haproxy
+    Port:       <none>
+    Host Port:  <none>
+    Command:
+      /opt/percona/haproxy-entrypoint.sh
+    Args:
+      /opt/percona/peer-list
+      -on-change=/opt/percona/haproxy_add_pxc_nodes.sh
+      -service=$(PXC_SERVICE)
+    Environment Variables from:
+      my-env-var-secrets  Secret  Optional: true
+    Environment:
+      PXC_SERVICE:                monitoring-pxc
+      REPLICAS_SVC_ONLY_READERS:  false
+    Mounts:
+      /etc/haproxy-custom/ from haproxy-custom (rw)
+      /etc/haproxy/pxc from haproxy-auto (rw)
+      /etc/mysql/haproxy-env-secret from my-env-var-secrets (rw)
+      /etc/mysql/mysql-users-secret from mysql-users-secret-file (rw)
+      /opt/percona from bin (rw)
+  Volumes:
+   haproxy-custom:
+    Type:      ConfigMap (a volume populated by a ConfigMap)
+    Name:      monitoring-haproxy
+    Optional:  true
+   haproxy-auto:
+    Type:       EmptyDir (a temporary directory that shares a pod's lifetime)
+    Medium:     
+    SizeLimit:  <unset>
+   mysql-users-secret-file:
+    Type:        Secret (a volume populated by a Secret)
+    SecretName:  internal-monitoring
+    Optional:    false
+   my-env-var-secrets:
+    Type:        Secret (a volume populated by a Secret)
+    SecretName:  my-env-var-secrets
+    Optional:    true
+   bin:
+    Type:          EmptyDir (a temporary directory that shares a pod's lifetime)
+    Medium:        
+    SizeLimit:     <unset>
+  Node-Selectors:  <none>
+  Tolerations:     <none>
+Volume Claims:     <none>
+Events:
+  Type    Reason            Age   From                    Message
+  ----    ------            ----  ----                    -------
+  Normal  SuccessfulCreate  12m   statefulset-controller  create Pod monitoring-haproxy-0 in StatefulSet monitoring-haproxy successful
+  Normal  SuccessfulCreate  10m   statefulset-controller  create Pod monitoring-haproxy-1 in StatefulSet monitoring-haproxy successful

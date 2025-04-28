@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  generation: 4
+  generation: 3
   name: monitoring-haproxy
   ownerReferences:
     - controller: true
@@ -30,21 +30,6 @@ spec:
     spec:
       containers:
         - env:
-            - name: PMM_SERVER
-              value: monitoring-service
-            - name: PMM_USER
-              value: api_key
-            - name: PMM_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  key: pmmserverkey
-                  name: internal-monitoring
-            - name: CLIENT_PORT_LISTEN
-              value: "7777"
-            - name: CLIENT_PORT_MIN
-              value: "30100"
-            - name: CLIENT_PORT_MAX
-              value: "30105"
             - name: POD_NAME
               valueFrom:
                 fieldRef:
@@ -84,6 +69,27 @@ spec:
               value: "1"
             - name: PMM_AGENT_SETUP_NODE_TYPE
               value: container
+            - name: PMM_AGENT_SIDECAR
+              value: "true"
+            - name: PMM_AGENT_SIDECAR_SLEEP
+              value: "5"
+            - name: PMM_AGENT_PATHS_TEMPDIR
+              value: /tmp
+            - name: PMM_AGENT_PRERUN_SCRIPT
+              value: /var/lib/mysql/pmm-prerun.sh
+            - name: DB_CLUSTER
+              value: pxc
+            - name: DB_USER
+              value: monitor
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: monitor
+                  name: internal-monitoring
+            - name: DB_HOST
+              value: localhost
+            - name: CLUSTER_NAME
+              value: monitoring
             - name: PMM_AGENT_SETUP_NODE_NAME
               value: $(PMM_PREFIX)$(POD_NAMESPASE)-$(POD_NAME)
             - name: DB_TYPE
@@ -95,31 +101,10 @@ spec:
                 secretKeyRef:
                   key: monitor
                   name: internal-monitoring
-            - name: DB_USER
-              value: monitor
-            - name: DB_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  key: monitor
-                  name: internal-monitoring
-            - name: DB_CLUSTER
-              value: pxc
-            - name: DB_HOST
-              value: localhost
-            - name: DB_PORT
-              value: "3306"
-            - name: CLUSTER_NAME
-              value: monitoring
             - name: PMM_ADMIN_CUSTOM_PARAMS
               value: --listen-port=8404
-            - name: PMM_AGENT_PRERUN_SCRIPT
-              value: /var/lib/mysql/pmm-prerun.sh
-            - name: PMM_AGENT_SIDECAR
-              value: "true"
-            - name: PMM_AGENT_SIDECAR_SLEEP
-              value: "5"
-            - name: PMM_AGENT_PATHS_TEMPDIR
-              value: /tmp
+            - name: DB_PORT
+              value: "3306"
           envFrom:
             - secretRef:
                 name: my-env-var-secrets

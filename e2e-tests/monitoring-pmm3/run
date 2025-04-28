@@ -235,7 +235,7 @@ wait_for_generation "sts/$cluster-pxc" 2
 wait_for_generation "sts/$cluster-haproxy" 2
 
 desc 'create new PMM token and add it to the secret'
-NEW_TOKEN=$(get_pmm3_server_token "operator_new")
+NEW_TOKEN=$(get_pmm_server_token "operator_new")
 kubectl_bin patch secret my-cluster-secrets --type merge --patch '{"stringData": {"pmmservertoken": "'"$NEW_TOKEN"'"}}'
 
 desc 'delete old PMM token'

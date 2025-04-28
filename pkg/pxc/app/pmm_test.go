@@ -11,7 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-func TestPMMContainer(t *testing.T) {
+func TestPMM3Client(t *testing.T) {
 	tests := map[string]struct {
 		secret         *corev1.Secret
 		envVarsSecret  *corev1.Secret

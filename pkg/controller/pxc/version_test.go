@@ -106,7 +106,7 @@ func TestVersionMeta(t *testing.T) {
 				t.Setenv(k8s.WatchNamespaceEnvVar, tt.watchNamespaces)
 			}
 
-			cr, err := readDefaultCR("cluster1", "pxc-operator")
+			cr, _ := readDefaultCR("cluster1", "pxc-operator")
 
 			tt.modify(cr)
 			scheme := k8sruntime.NewScheme()

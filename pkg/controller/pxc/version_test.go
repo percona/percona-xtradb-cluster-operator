@@ -2,28 +2,19 @@ package pxc
 
 import (
 	"context"
-	"fmt"
-	gwRuntime "github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/apis"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
 	"github.com/percona/percona-xtradb-cluster-operator/version"
-	"go.nhat.io/grpcmock"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	"net"
-	"net/http"
-	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"testing"
 
-	pbVersion "github.com/Percona-Lab/percona-version-service/versionpb"
 	apiv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
-	"github.com/pkg/errors"
-	"google.golang.org/grpc"
 )
 
 func TestVersionMeta(t *testing.T) {
@@ -151,138 +142,4 @@ func TestVersionMeta(t *testing.T) {
 			}
 		})
 	}
-}
-
-func (vs *fakeVS) Apply(_ context.Context, req any) (any, error) {
-	if vs.unimplemented {
-		return nil, errors.New("unimplemented")
-	}
-	r := req.(*pbVersion.ApplyRequest)
-	switch r.Apply {
-	case string(apiv1.UpgradeStrategyDisabled), string(apiv1.UpgradeStrategyNever):
-		return &pbVersion.VersionResponse{}, nil
-	}
-
-	have := &pbVersion.ApplyRequest{
-		BackupVersion:     r.GetBackupVersion(),
-		CustomResourceUid: r.GetCustomResourceUid(),
-		DatabaseVersion:   r.GetDatabaseVersion(),
-		KubeVersion:       r.GetKubeVersion(),
-		NamespaceUid:      r.GetNamespaceUid(),
-		OperatorVersion:   r.GetOperatorVersion(),
-		Platform:          r.GetPlatform(),
-		Product:           r.GetProduct(),
-		HaproxyVersion:    r.GetHaproxyVersion(),
-		PmmVersion:        r.GetPmmVersion(),
-	}
-	want := &pbVersion.ApplyRequest{
-		BackupVersion:     "backup-version",
-		CustomResourceUid: "custom-resource-uid",
-		DatabaseVersion:   "database-version",
-		KubeVersion:       "kube-version",
-		OperatorVersion:   version.Version,
-		Product:           "ps-operator",
-		Platform:          string(version.PlatformKubernetes),
-		HaproxyVersion:    "haproxy-version",
-		PmmVersion:        "pmm-version",
-	}
-
-	if !reflect.DeepEqual(have, want) {
-		return nil, errors.Errorf("Have: %v; Want: %v", have, want)
-	}
-
-	return &pbVersion.VersionResponse{
-		Versions: []*pbVersion.OperatorVersion{
-			{
-				Matrix: &pbVersion.VersionMatrix{
-					Mysql: map[string]*pbVersion.Version{
-						"mysql-version": {
-							ImagePath: "mysql-image",
-						},
-					},
-					Backup: map[string]*pbVersion.Version{
-						"backup-version": {
-							ImagePath: "backup-image",
-						},
-					},
-					Pmm: map[string]*pbVersion.Version{
-						"pmm-version": {
-							ImagePath: "pmm-image",
-						},
-					},
-					Orchestrator: map[string]*pbVersion.Version{
-						"orchestrator-version": {
-							ImagePath: "orchestrator-image",
-						},
-					},
-					Router: map[string]*pbVersion.Version{
-						"router-version": {
-							ImagePath: "router-image",
-						},
-					},
-					Haproxy: map[string]*pbVersion.Version{
-						"haproxy-version": {
-							ImagePath: "haproxy-image",
-						},
-					},
-				},
-			},
-		},
-	}, nil
-}
-
-type fakeVS struct {
-	addr          string
-	gwPort        int
-	unimplemented bool
-}
-
-func fakeVersionService(addr string, gwport int, unimplemented bool) *fakeVS {
-	return &fakeVS{
-		addr:          addr,
-		gwPort:        gwport,
-		unimplemented: unimplemented,
-	}
-}
-
-type mockClientConn struct {
-	dialer grpcmock.ContextDialer
-}
-
-func (m *mockClientConn) Invoke(ctx context.Context, method string, args, reply any, opts ...grpc.CallOption) error {
-	return grpcmock.InvokeUnary(ctx, method, args, reply, grpcmock.WithInsecure(), grpcmock.WithCallOptions(opts...), grpcmock.WithContextDialer(m.dialer))
-}
-
-func (m *mockClientConn) NewStream(ctx context.Context, desc *grpc.StreamDesc, method string, opts ...grpc.CallOption) (grpc.ClientStream, error) {
-	return nil, errors.New("unimplemented")
-}
-
-func (vs *fakeVS) Start(t *testing.T) error {
-	_, d := grpcmock.MockServerWithBufConn(
-		grpcmock.RegisterServiceFromInstance("version.VersionService", (*pbVersion.VersionServiceServer)(nil)),
-		func(s *grpcmock.Server) {
-			s.ExpectUnary("/version.VersionService/Apply").Run(vs.Apply)
-		},
-	)(t)
-
-	gwmux := gwRuntime.NewServeMux()
-	err := pbVersion.RegisterVersionServiceHandlerClient(context.Background(), gwmux, pbVersion.NewVersionServiceClient(&mockClientConn{d}))
-	if err != nil {
-		return errors.Wrap(err, "failed to register gateway")
-	}
-	gwServer := &http.Server{
-		Addr:    fmt.Sprintf("%s:%d", vs.addr, vs.gwPort),
-		Handler: gwmux,
-	}
-	gwLis, err := net.Listen("tcp", gwServer.Addr)
-	if err != nil {
-		return errors.Wrap(err, "failed to listen gateway")
-	}
-	go func() {
-		if err := gwServer.Serve(gwLis); err != nil {
-			t.Error("failed to serve gRPC-Gateway", err)
-		}
-	}()
-
-	return nil
 }

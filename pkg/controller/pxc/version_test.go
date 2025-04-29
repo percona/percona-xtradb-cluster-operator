@@ -142,8 +142,6 @@ func TestVersionMeta(t *testing.T) {
 			}
 
 			vm, err := r.getVersionMeta(cr)
-			log := logf.FromContext(ctx)
-			log.Info("VM", "vm", vm)
 
 			if err != nil {
 				t.Fatal(err)

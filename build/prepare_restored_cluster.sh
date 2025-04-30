@@ -1,6 +1,5 @@
 #!/bin/bash
 
-set -o xtrace
 set -o errexit
 
 function escape_special() {

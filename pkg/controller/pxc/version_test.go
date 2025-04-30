@@ -1,7 +1,6 @@
 package pxc
 
 import (
-	"context"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/apis"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
 	"github.com/percona/percona-xtradb-cluster-operator/version"
@@ -11,55 +10,40 @@ import (
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"testing"
-
-	apiv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 )
 
 func TestVersionMeta(t *testing.T) {
 	tests := []struct {
 		name            string
-		modify          func(cr *apiv1.PerconaXtraDBCluster)
 		want            versionMeta
-		clusterWide     bool
 		namespace       string
 		watchNamespaces string
 	}{
 		{
 			name: "Cluster-wide turn off",
-			modify: func(cr *apiv1.PerconaXtraDBCluster) {
-			},
 			want: versionMeta{
 				Apply:              "disabled",
-				Platform:           string(version.PlatformKubernetes),
 				ClusterWideEnabled: false,
 			},
-			clusterWide:     false,
 			namespace:       "test-namespace",
 			watchNamespaces: "test-namespace",
 		},
 		{
-			name:   "Cluster-wide with specified namespaces",
-			modify: func(cr *apiv1.PerconaXtraDBCluster) {},
+			name: "Cluster-wide with specified namespaces",
 			want: versionMeta{
 				Apply:              "disabled",
-				Platform:           string(version.PlatformKubernetes),
 				ClusterWideEnabled: true,
 			},
-			clusterWide:     true,
 			namespace:       "test-namespace",
 			watchNamespaces: "test-namespace,another-namespace",
 		},
 		{
-			name:   "Cluster-wide with empty namespaces",
-			modify: func(cr *apiv1.PerconaXtraDBCluster) {},
+			name: "Cluster-wide with empty namespaces",
 			want: versionMeta{
 				Apply:              "disabled",
-				Platform:           string(version.PlatformKubernetes),
 				ClusterWideEnabled: true,
 			},
-			clusterWide:     true,
 			namespace:       "test-namespace",
 			watchNamespaces: "",
 		},
@@ -70,7 +54,7 @@ func TestVersionMeta(t *testing.T) {
 	operatorDepl := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      operatorName,
-			Namespace: "",
+			Namespace: "pxc-operator",
 			Labels:    make(map[string]string),
 		},
 		Spec: appsv1.DeploymentSpec{
@@ -99,16 +83,15 @@ func TestVersionMeta(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		ctx := context.Background()
 		t.Run(tt.name, func(t *testing.T) {
-			t.Setenv(k8s.WatchNamespaceEnvVar, tt.namespace)
-			if tt.clusterWide {
-				t.Setenv(k8s.WatchNamespaceEnvVar, tt.watchNamespaces)
+
+			t.Setenv(k8s.WatchNamespaceEnvVar, tt.watchNamespaces)
+
+			cr, err := readDefaultCR("cluster1", tt.namespace)
+			if err != nil {
+				t.Fatalf("failed to read default CR: %v", err)
 			}
 
-			cr, _ := readDefaultCR("cluster1", "pxc-operator")
-
-			tt.modify(cr)
 			scheme := k8sruntime.NewScheme()
 			if err := clientgoscheme.AddToScheme(scheme); err != nil {
 				t.Fatal(err, "failed to add client-go scheme")
@@ -123,13 +106,6 @@ func TestVersionMeta(t *testing.T) {
 				client:        cl,
 				scheme:        scheme,
 				serverVersion: sv,
-			}
-
-			if err := r.setCRVersion(context.TODO(), cr); err != nil {
-				t.Fatal(err, "set CR version")
-			}
-			if err := cr.CheckNSetDefaults(new(version.ServerVersion), logf.FromContext(ctx)); err != nil {
-				t.Fatal(err)
 			}
 
 			vm, err := r.getVersionMeta(cr)

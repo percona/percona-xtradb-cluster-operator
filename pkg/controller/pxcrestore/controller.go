@@ -250,7 +250,7 @@ func validate(ctx context.Context, restorer Restorer, cr *api.PerconaXtraDBClust
 			return errors.Wrap(err, "failed to create pitr restore job")
 		}
 		if err := restorer.ValidateJob(ctx, job); err != nil {
-			return errors.Wrap(err, "failed to validate job")
+			return errors.Wrap(err, "failed to validate pitr job")
 		}
 	}
 	if err := restorer.Validate(ctx); err != nil {

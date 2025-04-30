@@ -4,10 +4,10 @@ set -o errexit
 
 function escape_special() {
 	{ set +x; } 2>/dev/null
-	echo "$1" |
-		sed 's/\\/\\\\/g' |
-		sed 's/'\''/'\\\\\''/g' |
-		sed 's/"/\\\"/g'
+	echo "$1" \
+		| sed 's/\\/\\\\/g' \
+		| sed 's/'\''/'\\\\\''/g' \
+		| sed 's/"/\\\"/g'
 }
 
 function get_password() {

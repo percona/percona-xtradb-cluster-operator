@@ -1696,7 +1696,7 @@ deploy_pmm3_server() {
 
   retry 10 60 helm install monitoring percona/pmm -n "${NAMESPACE}" \
     --set fullnameOverride=monitoring \
-    --set image.tag=3-dev-latest \
+    --set image.tag=3.1.0 \
     --set image.repository=perconalab/pmm-server \
     --set service.type=LoadBalancer \
     $additional_params \

@@ -33,7 +33,7 @@ spec:
     envVarsSecret: my-env-var-secrets
   pmm:
     enabled: true
-    image: perconalab/pmm-client:3-dev-latest
+    image: perconalab/pmm-client:3.1.0
     serverHost: monitoring-service
     pxcParams: "--disable-tablestats-limit=2000"
     resources:

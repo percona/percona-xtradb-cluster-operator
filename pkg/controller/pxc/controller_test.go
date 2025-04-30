@@ -1702,3 +1702,112 @@ var _ = Describe("Liveness/Readiness Probes", Ordered, func() {
 		}),
 	)
 })
+
+var _ = Describe("CR validations", Ordered, func() {
+	ctx := context.Background()
+
+	ns := "validate"
+
+	namespace := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      ns,
+			Namespace: ns,
+		},
+	}
+
+	BeforeAll(func() {
+		By("Creating the Namespace to perform the tests")
+		err := k8sClient.Create(ctx, namespace)
+		Expect(err).To(Not(HaveOccurred()))
+	})
+
+	AfterAll(func() {
+		By("Deleting the Namespace to perform the tests")
+		_ = k8sClient.Delete(ctx, namespace)
+	})
+
+	ldClass := "lb-class"
+
+	Context("pxc cluster configuration for service expose", Ordered, func() {
+		When("the cr is configured using default values", Ordered, func() {
+			cr, err := readDefaultCR("cr-validation-1", ns)
+			Expect(err).NotTo(HaveOccurred())
+
+			It("should create the cluster", func() {
+				Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
+			})
+		})
+
+		When("the cr is configured using lb type LoadBalancer and specific lb class for haproxy", Ordered, func() {
+			cr, err := readDefaultCR("cr-validation-2", ns)
+			Expect(err).NotTo(HaveOccurred())
+
+			cr.Spec.HAProxy.ExposePrimary.Type = "LoadBalancer"
+			cr.Spec.HAProxy.ExposePrimary.LoadBalancerClass = &ldClass
+			It("should create the cluster", func() {
+				Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
+			})
+		})
+
+		When("the cr is configured using lb type ClusterIP and specific lb class for haproxy", Ordered, func() {
+			cr, err := readDefaultCR("cr-validations-3", ns)
+			Expect(err).NotTo(HaveOccurred())
+
+			cr.Spec.HAProxy.ExposePrimary.Type = "ClusterIP"
+			cr.Spec.HAProxy.ExposePrimary.LoadBalancerClass = &ldClass
+			It("should throw and error and the cluster should not be created", func() {
+				createErr := k8sClient.Create(ctx, cr)
+				Expect(createErr).To(HaveOccurred())
+				Expect(createErr.Error()).To(ContainSubstring("Invalid value: \"object\": 'loadBalancerClass' can only be set when service type is 'LoadBalancer"))
+			})
+		})
+
+		When("the cr is configured using lb type ClusterIP and specific lb class for proxysql", Ordered, func() {
+			cr, err := readDefaultCR("cr-validations-4", ns)
+			Expect(err).NotTo(HaveOccurred())
+
+			cr.Spec.ProxySQL.Expose.Type = "ClusterIP"
+			cr.Spec.ProxySQL.Expose.LoadBalancerClass = &ldClass
+			It("the creation of the cluster should fail with error message", func() {
+				createErr := k8sClient.Create(ctx, cr)
+				Expect(createErr).To(HaveOccurred())
+				Expect(createErr.Error()).To(ContainSubstring("Invalid value: \"object\": 'loadBalancerClass' can only be set when service type is 'LoadBalancer"))
+			})
+		})
+
+		When("the cr is configured using lb type LoadBalancer and specific lb class for proxysql", Ordered, func() {
+			cr, err := readDefaultCR("cr-validations-5", ns)
+			Expect(err).NotTo(HaveOccurred())
+
+			cr.Spec.ProxySQL.Expose.Type = "LoadBalancer"
+			cr.Spec.ProxySQL.Expose.LoadBalancerClass = &ldClass
+			It("should create the cluster", func() {
+				Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
+			})
+		})
+
+		When("the cr is configured using lb type ClusterIP and specific lb class for pxc pods", Ordered, func() {
+			cr, err := readDefaultCR("cr-validations-6", ns)
+			Expect(err).NotTo(HaveOccurred())
+
+			cr.Spec.PXC.Expose.Type = "ClusterIP"
+			cr.Spec.PXC.Expose.LoadBalancerClass = &ldClass
+			It("the creation of the cluster should fail with error message", func() {
+				createErr := k8sClient.Create(ctx, cr)
+				Expect(createErr).To(HaveOccurred())
+				Expect(createErr.Error()).To(ContainSubstring("Invalid value: \"object\": 'loadBalancerClass' can only be set when service type is 'LoadBalancer"))
+			})
+		})
+
+		When("the cr is configured using lb type LoadBalancer and specific lb class for pxc replicas", Ordered, func() {
+			cr, err := readDefaultCR("cr-validations-7", ns)
+			Expect(err).NotTo(HaveOccurred())
+
+			cr.Spec.PXC.Expose.Type = "LoadBalancer"
+			cr.Spec.PXC.Expose.LoadBalancerClass = &ldClass
+			It("should create the cluster", func() {
+				Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
+			})
+		})
+	})
+})

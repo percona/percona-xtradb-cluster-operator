@@ -7,13 +7,45 @@ test_dir=$(realpath $(dirname $0))
 
 set_debug
 
+deploy_pmm3_server() {
+	if [ ! -z "$OPENSHIFT" ]; then
+		platform=openshift
+		oc create sa pmm-server
+		oc adm policy add-scc-to-user privileged -z pmm-server
+		if [[ $OPERATOR_NS ]]; then
+			timeout 30 oc delete clusterrolebinding $(kubectl get clusterrolebinding | grep 'pmm-pxc-operator-' | awk '{print $1}') || :
+			oc create clusterrolebinding pmm-pxc-operator-cluster-wide --clusterrole=percona-xtradb-cluster-operator --serviceaccount=$namespace:pmm-server
+			oc patch clusterrole/percona-xtradb-cluster-operator --type json -p='[{"op":"add","path": "/rules/-","value":{"apiGroups":["security.openshift.io"],"resources":["securitycontextconstraints"],"verbs":["use"],"resourceNames":["privileged"]}}]' -n $OPERATOR_NS
+		else
+			oc create rolebinding pmm-pxc-operator-namespace-only --role percona-xtradb-cluster-operator --serviceaccount=$namespace:pmm-server
+			oc patch role/percona-xtradb-cluster-operator --type json -p='[{"op":"add","path": "/rules/-","value":{"apiGroups":["security.openshift.io"],"resources":["securitycontextconstraints"],"verbs":["use"],"resourceNames":["privileged"]}}]'
+		fi
+		local additional_params="--set platform=openshift --set sa=pmm-server --set supresshttp2=false"
+	fi
+
+	helm uninstall -n "${NAMESPACE}" monitoring || :
+	helm repo remove percona || :
+	kubectl delete clusterrole monitoring --ignore-not-found
+	kubectl delete clusterrolebinding monitoring --ignore-not-found
+	helm repo add percona https://percona.github.io/percona-helm-charts/
+	helm repo update
+
+	retry 10 60 helm install monitoring percona/pmm -n "${NAMESPACE}" \
+		--set fullnameOverride=monitoring \
+		--set image.tag=3.1.0 \
+		--set image.repository=perconalab/pmm-server \
+		--set service.type=LoadBalancer \
+		$additional_params \
+		--force
+}
+
 spinup_pxc() {
 	local cluster=$1
 	local config=$2
 	local size="${3:-3}"
 	local sleep="${4:-10}"
-  local pxcClientFile="${5:-$conf_dir/client.yml}"
-  local port="${6:-3306}"
+	local pxcClientFile="${5:-$conf_dir/client.yml}"
+	local port="${6:-3306}"
 
 	desc 'create first PXC cluster'
 	apply_config "$pxcClientFile"
@@ -54,7 +86,6 @@ spinup_pxc() {
 	if [ "$(is_keyring_plugin_in_use "$cluster")" ]; then
 		table_must_be_encrypted "$cluster" "myApp"
 	fi
-
 }
 
 get_pmm_server_token() {
@@ -190,6 +221,60 @@ delete_pmm_server_token() {
 	fi
 }
 
+get_metric_values() {
+	local metric=$1
+	local instance=$2
+	local token=$3
+	local start=$($date -u "+%s" -d "-1 minute")
+	local end=$($date -u "+%s")
+	local endpoint=$(get_service_endpoint monitoring-service)
+
+	local result=$(curl -s -k -H "Authorization: Bearer ${token}" "https://$endpoint/graph/api/datasources/proxy/1/api/v1/query_range?query=min%28$metric%7Bnode_name%3D%7E%22$instance%22%7d%20or%20$metric%7Bnode_name%3D%7E%22$instance%22%7D%29&start=$start&end=$end&step=60" | jq '.data.result[0]')
+	if [ "$result" = "null" ]; then
+		echo "no values for metric $metric"
+		exit 1
+	fi
+	echo -n "$result" | jq '.values[][1]' \
+		| grep '^"[0-9]'
+
+}
+
+get_qan20_values() {
+	local instance=$1
+	local token=$2
+	local start=$($date -u "+%Y-%m-%dT%H:%M:%S" -d "-30 minute")
+	local end=$($date -u "+%Y-%m-%dT%H:%M:%S")
+	local endpoint=$(get_service_endpoint monitoring-service)
+
+	cat >payload.json <<EOF
+{
+   "columns":[
+      "load",
+      "num_queries",
+      "query_time"
+   ],
+   "first_seen": false,
+   "group_by": "queryid",
+   "include_only_fields": [],
+   "keyword": "",
+   "labels": [
+       {
+           "key": "cluster",
+           "value": ["pxc"]
+   }],
+   "limit": 10,
+   "offset": 0,
+   "order_by": "-load",
+   "main_metric": "load",
+   "period_start_from": "$($date -u -d '-12 hour' '+%Y-%m-%dT%H:%M:%S%:z')",
+   "period_start_to": "$($date -u '+%Y-%m-%dT%H:%M:%S%:z')"
+}
+EOF
+
+	curl -s -k -H "Authorization: Bearer ${token}" -XPOST -d @payload.json "https://$endpoint/v1/qan/metrics:getReport" \
+		| jq '.rows[].fingerprint'
+	rm -f payload.json
+}
 
 cluster="monitoring"
 
@@ -252,4 +337,49 @@ desc 'check if pmm-client container enabled'
 compare_kubectl statefulset/$cluster-pxc
 compare_kubectl statefulset/$cluster-haproxy
 
+desc 'check mysql metrics'
+get_metric_values node_boot_time_seconds pxc-prefix-$namespace-$cluster-pxc-0 $NEW_TOKEN
+get_metric_values mysql_global_status_uptime pxc-prefix-$namespace-$cluster-pxc-0 $NEW_TOKEN
+
+desc 'check haproxy metrics'
+get_metric_values haproxy_backend_status pxc-prefix-$namespace-$cluster-haproxy-0 $NEW_TOKEN
+get_metric_values haproxy_backend_active_servers pxc-prefix-$namespace-$cluster-haproxy-0 $NEW_TOKEN
+
+desc 'check QAN data'
+get_qan20_values $cluster-pxc-0 $NEW_TOKEN
+
+nodeList=($(get_node_id_from_pmm))
+nodeList_from_pmm=($(does_node_id_exists "${nodeList[@]}"))
+for node_id in "${nodeList_from_pmm[@]}"; do
+	if [ -z "$node_id" ]; then
+		echo "Can't get $node_id node_id from PMM server"
+		exit 1
+	fi
+done
+
+kubectl_bin patch pxc ${cluster} --type json -p='[{"op":"add","path":"/spec/pause","value":true}]'
+wait_for_delete "pod/${cluster}-pxc-0"
+
+does_node_id_exists_in_pmm=($(does_node_id_exists "${nodeList[@]}"))
+for instance in "${does_node_id_exists_in_pmm[@]}"; do
+	if [ -n "$instance" ]; then
+		echo "The $instance pod was not deleted from server inventory"
+		exit 1
+	fi
+done
+
+if [[ -n ${OPENSHIFT} ]]; then
+	oc adm policy remove-scc-from-user privileged -z pmm-server
+	if [ -n "$OPERATOR_NS" ]; then
+		oc delete clusterrolebinding pmm-pxc-operator-cluster-wide
+	else
+		oc delete rolebinding pmm-pxc-operator-namespace-only
+	fi
+fi
+
+desc 'check for passwords leak'
+check_passwords_leak
+
+helm uninstall monitoring
+destroy $namespace
 desc "test passed"

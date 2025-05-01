@@ -379,6 +379,11 @@ func (c *Node) PMMContainer(ctx context.Context, cl client.Client, spec *api.PMM
 		return nil, errors.Wrap(err, "get env vars secret")
 	}
 
+	clusterName := cr.Name
+	if cr.CompareVersionWith("1.18.0") >= 0 && cr.Spec.PMM.CustomClusterName != "" {
+		clusterName = cr.Spec.PMM.CustomClusterName
+	}
+
 	ct := app.PMMClient(cr, spec, secret, envVarsSecret)
 
 	pmmEnvs := []corev1.EnvVar{
@@ -436,7 +441,7 @@ func (c *Node) PMMContainer(ctx context.Context, cl client.Client, spec *api.PMM
 		clusterPmmEnvs := []corev1.EnvVar{
 			{
 				Name:  "CLUSTER_NAME",
-				Value: cr.Name,
+				Value: clusterName,
 			},
 			{
 				Name:  "PMM_ADMIN_CUSTOM_PARAMS",

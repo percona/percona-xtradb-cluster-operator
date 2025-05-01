@@ -578,6 +578,7 @@ spec:
     enabled: false
     image: perconalab/pmm-client:dev-latest
     serverHost: monitoring-service
+#    customClusterName: "testClusterName"
 #    serverUser: admin
 #    pxcParams: "--disable-tablestats-limit=2000"
 #    proxysqlParams: "--custom-labels=CUSTOM-LABELS"

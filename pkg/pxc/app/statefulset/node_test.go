@@ -16,7 +16,6 @@ func TestSidecarContainers_PXCNode(t *testing.T) {
 		crVersion       string
 		expectedName    string
 		expectedImage   string
-		expectedArgs    []string
 		expectedEnvFrom []corev1.EnvFromSource
 		expectError     bool
 	}{
@@ -30,12 +29,6 @@ func TestSidecarContainers_PXCNode(t *testing.T) {
 			crVersion:     "1.18.0",
 			expectedName:  "pxc",
 			expectedImage: "test-image",
-			expectedArgs: []string{
-				"/opt/percona/peer-list",
-				"-on-change=/opt/percona/haproxy_add_pxc_nodes.sh",
-				"-service=$(PXC_SERVICE)",
-				"-protocol=$(PEER_LIST_SRV_PROTOCOL)",
-			},
 			expectedEnvFrom: []corev1.EnvFromSource{
 				{
 					SecretRef: &corev1.SecretEnvSource{

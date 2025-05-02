@@ -13,7 +13,7 @@ haproxy
 init-deploy
 limits
 monitoring-2-0
-monitoring-pmm3,8.0
+monitoring-pmm3
 one-pod
 operator-self-healing-chaos
 pitr

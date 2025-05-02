@@ -24,7 +24,7 @@ import (
 
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/util"
-	"github.com/percona/percona-xtradb-cluster-operator/version"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/version"
 )
 
 // PerconaXtraDBClusterSpec defines the desired state of PerconaXtraDBCluster
@@ -642,6 +642,7 @@ type PMMSpec struct {
 	ServerHost               string                      `json:"serverHost,omitempty"`
 	Image                    string                      `json:"image,omitempty"`
 	ServerUser               string                      `json:"serverUser,omitempty"`
+	CustomClusterName        string                      `json:"customClusterName,omitempty"`
 	PxcParams                string                      `json:"pxcParams,omitempty"`
 	ProxysqlParams           string                      `json:"proxysqlParams,omitempty"`
 	Resources                corev1.ResourceRequirements `json:"resources,omitempty"`

@@ -13,7 +13,7 @@ import (
 	"github.com/go-openapi/runtime"
 	"github.com/go-openapi/strfmt"
 
-	"github.com/percona/percona-xtradb-cluster-operator/version/client/models"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/version/client/models"
 )
 
 // VersionServiceMetadataReader is a Reader for the VersionServiceMetadata structure.
@@ -101,7 +101,6 @@ func (o *VersionServiceMetadataOK) GetPayload() *models.VersionMetadataResponse 
 }
 
 func (o *VersionServiceMetadataOK) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
-
 	o.Payload = new(models.VersionMetadataResponse)
 
 	// response payload
@@ -175,7 +174,6 @@ func (o *VersionServiceMetadataDefault) GetPayload() *models.GooglerpcStatus {
 }
 
 func (o *VersionServiceMetadataDefault) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
-
 	o.Payload = new(models.GooglerpcStatus)
 
 	// response payload

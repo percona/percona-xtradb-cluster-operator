@@ -15,10 +15,12 @@ import (
 
 func TestVersionMeta(t *testing.T) {
 	tests := []struct {
-		name            string
-		want            versionMeta
-		namespace       string
-		watchNamespaces string
+		name              string
+		want              versionMeta
+		namespace         string
+		watchNamespaces   string
+		expectError       bool
+		setWatchNamespace bool
 	}{
 		{
 			name: "Cluster-wide turn off",
@@ -26,8 +28,18 @@ func TestVersionMeta(t *testing.T) {
 				Apply:              "disabled",
 				ClusterWideEnabled: false,
 			},
-			namespace:       "test-namespace",
-			watchNamespaces: "test-namespace",
+			namespace:         "test-namespace",
+			watchNamespaces:   "test-namespace",
+			setWatchNamespace: true,
+			expectError:       false,
+		},
+		{
+			name:              "Cluster-wide unset (env var not set)",
+			want:              versionMeta{},
+			namespace:         "test-namespace",
+			watchNamespaces:   "",
+			setWatchNamespace: false,
+			expectError:       true,
 		},
 		{
 			name: "Cluster-wide with specified namespaces",
@@ -35,8 +47,10 @@ func TestVersionMeta(t *testing.T) {
 				Apply:              "disabled",
 				ClusterWideEnabled: true,
 			},
-			namespace:       "test-namespace",
-			watchNamespaces: "test-namespace,another-namespace",
+			namespace:         "test-namespace",
+			watchNamespaces:   "test-namespace,another-namespace",
+			setWatchNamespace: true,
+			expectError:       false,
 		},
 		{
 			name: "Cluster-wide with empty namespaces",
@@ -44,8 +58,10 @@ func TestVersionMeta(t *testing.T) {
 				Apply:              "disabled",
 				ClusterWideEnabled: true,
 			},
-			namespace:       "test-namespace",
-			watchNamespaces: "",
+			namespace:         "test-namespace",
+			watchNamespaces:   "",
+			setWatchNamespace: true,
+			expectError:       false,
 		},
 	}
 
@@ -84,8 +100,9 @@ func TestVersionMeta(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-
-			t.Setenv(k8s.WatchNamespaceEnvVar, tt.watchNamespaces)
+			if tt.setWatchNamespace {
+				t.Setenv(k8s.WatchNamespaceEnvVar, tt.watchNamespaces)
+			}
 
 			cr, err := readDefaultCR("cluster1", tt.namespace)
 			if err != nil {
@@ -110,11 +127,19 @@ func TestVersionMeta(t *testing.T) {
 
 			vm, err := r.getVersionMeta(cr)
 
-			if err != nil {
-				t.Fatal(err)
+			if tt.expectError {
+				if err == nil {
+					t.Fatal("expected error but got none")
+				}
+				return
 			}
-			if vm != tt.want {
-				t.Fatalf("Have: %v; Want: %v", vm, tt.want)
+
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			if vm.Apply != tt.want.Apply || vm.ClusterWideEnabled != tt.want.ClusterWideEnabled {
+				t.Fatalf("Have: %+v; Want: %+v", vm, tt.want)
 			}
 		})
 	}

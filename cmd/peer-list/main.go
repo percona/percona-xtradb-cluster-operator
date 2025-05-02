@@ -146,7 +146,7 @@ func main() {
 	isFirstUpdate := true
 	lastChangeTime := time.Now()
 
-	normalizedProtocol, err := normalizeAndValidateProtocol(*protocol)
+	normalizedProtocol, err := normalizeAndValidateProtocol(protocol)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -182,18 +182,21 @@ func main() {
 	log.Printf("Peer finder exiting")
 }
 
-func normalizeAndValidateProtocol(protocol string) (string, error) {
+func normalizeAndValidateProtocol(protocol *string) (string, error) {
 	// An empty protocol is accepted for backward compatibility,
 	// as it was the implicit default before protocol configuration was introduced.
 	// The current default is also an empty string, so it remains a valid value.
-	if protocol == "" {
-		return protocol, nil
+	if protocol == nil {
+		return "", nil
+	}
+	if *protocol == "" {
+		return *protocol, nil
 	}
 
-	normalizedProtocol := strings.ToLower(protocol)
+	normalizedProtocol := strings.ToLower(*protocol)
 
 	if normalizedProtocol != "udp" && normalizedProtocol != "tcp" {
-		return "", fmt.Errorf("protocol must be either 'udp' or 'tcp'")
+		return "", fmt.Errorf("protocol must be either 'udp' or 'tcp', provided %v", *protocol)
 	}
 	return normalizedProtocol, nil
 }

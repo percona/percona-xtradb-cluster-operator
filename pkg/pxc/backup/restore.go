@@ -68,7 +68,7 @@ func pvcRestoreSvcName(cr *api.PerconaXtraDBClusterRestore) string {
 	return "restore-src-" + cr.Name + "-" + cr.Spec.PXCCluster
 }
 
-func PVCRestorePod(cr *api.PerconaXtraDBClusterRestore, bcpStorageName, pvcName string, cluster *api.PerconaXtraDBCluster) (*corev1.Pod, error) {
+func PVCRestorePod(cr *api.PerconaXtraDBClusterRestore, bcpStorageName, pvcName string, cluster *api.PerconaXtraDBCluster, initImage string) (*corev1.Pod, error) {
 	if _, ok := cluster.Spec.Backup.Storages[bcpStorageName]; !ok {
 		log.Info("storage " + bcpStorageName + " doesn't exist")
 		if len(cluster.Spec.Backup.Storages) == 0 {
@@ -85,6 +85,58 @@ func PVCRestorePod(cr *api.PerconaXtraDBClusterRestore, bcpStorageName, pvcName 
 	restoreSvcName := pvcRestoreSvcName(cr)
 
 	labels := naming.LabelsRestorePVCPod(cluster, bcpStorageName, restoreSvcName)
+
+	volumes := []corev1.Volume{
+		{
+			Name: "backup",
+			VolumeSource: corev1.VolumeSource{
+				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+					ClaimName: pvcName,
+				},
+			},
+		},
+		app.GetSecretVolumes("ssl-internal", cluster.Spec.PXC.SSLInternalSecretName, true),
+		sslVolume,
+		app.GetSecretVolumes("vault-keyring-secret", cluster.Spec.PXC.VaultSecretName, true),
+	}
+	volumeMounts := []corev1.VolumeMount{
+		{
+			Name:      "backup",
+			MountPath: "/backup",
+		},
+		{
+			Name:      "ssl",
+			MountPath: "/etc/mysql/ssl",
+		},
+		{
+			Name:      "ssl-internal",
+			MountPath: "/etc/mysql/ssl-internal",
+		},
+		{
+			Name:      "vault-keyring-secret",
+			MountPath: "/etc/mysql/vault-keyring-secret",
+		},
+	}
+
+	var initContainers []corev1.Container
+	if cluster.CompareVersionWith("1.17.0") >= 0 {
+		volumes = append(volumes,
+			corev1.Volume{
+				Name: app.BinVolumeName,
+				VolumeSource: corev1.VolumeSource{
+					EmptyDir: &corev1.EmptyDirVolumeSource{},
+				},
+			},
+		)
+
+		volumeMounts = append(volumeMounts,
+			corev1.VolumeMount{
+				Name:      app.BinVolumeName,
+				MountPath: app.BinVolumeMountPath,
+			},
+		)
+		initContainers = []corev1.Container{statefulset.BackupInitContainer(cluster, initImage, cluster.Spec.PXC.ContainerSecurityContext)}
+	}
 	return &corev1.Pod{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",
@@ -99,47 +151,19 @@ func PVCRestorePod(cr *api.PerconaXtraDBClusterRestore, bcpStorageName, pvcName 
 		Spec: corev1.PodSpec{
 			ImagePullSecrets: cluster.Spec.Backup.ImagePullSecrets,
 			SecurityContext:  cluster.Spec.Backup.Storages[bcpStorageName].PodSecurityContext,
+			InitContainers:   initContainers,
 			Containers: []corev1.Container{
 				{
 					Name:            "ncat",
 					Image:           cluster.Spec.Backup.Image,
 					ImagePullPolicy: cluster.Spec.Backup.ImagePullPolicy,
-					Command:         []string{"recovery-pvc-donor.sh"},
+					Command:         []string{"/opt/percona/backup/recovery-pvc-donor.sh"},
 					SecurityContext: cluster.Spec.Backup.Storages[bcpStorageName].ContainerSecurityContext,
-					VolumeMounts: []corev1.VolumeMount{
-						{
-							Name:      "backup",
-							MountPath: "/backup",
-						},
-						{
-							Name:      "ssl",
-							MountPath: "/etc/mysql/ssl",
-						},
-						{
-							Name:      "ssl-internal",
-							MountPath: "/etc/mysql/ssl-internal",
-						},
-						{
-							Name:      "vault-keyring-secret",
-							MountPath: "/etc/mysql/vault-keyring-secret",
-						},
-					},
-					Resources: cr.Spec.Resources,
+					VolumeMounts:    volumeMounts,
+					Resources:       cr.Spec.Resources,
 				},
 			},
-			Volumes: []corev1.Volume{
-				{
-					Name: "backup",
-					VolumeSource: corev1.VolumeSource{
-						PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-							ClaimName: pvcName,
-						},
-					},
-				},
-				app.GetSecretVolumes("ssl-internal", cluster.Spec.PXC.SSLInternalSecretName, true),
-				sslVolume,
-				app.GetSecretVolumes("vault-keyring-secret", cluster.Spec.PXC.VaultSecretName, true),
-			},
+			Volumes:                   volumes,
 			RestartPolicy:             corev1.RestartPolicyAlways,
 			NodeSelector:              cluster.Spec.Backup.Storages[bcpStorageName].NodeSelector,
 			Affinity:                  cluster.Spec.Backup.Storages[bcpStorageName].Affinity,
@@ -199,7 +223,7 @@ func RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClust
 	var command []string
 	switch bcp.Status.GetStorageType(cluster) {
 	case api.BackupStorageFilesystem:
-		command = []string{"recovery-pvc-joiner.sh"}
+		command = []string{"/opt/percona/backup/recovery-pvc-joiner.sh"}
 		volumeMounts = append(volumeMounts, []corev1.VolumeMount{
 			{
 				Name:      "ssl",
@@ -215,9 +239,9 @@ func RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClust
 			sslVolume,
 		}...)
 	case api.BackupStorageAzure, api.BackupStorageS3:
-		command = []string{"recovery-cloud.sh"}
+		command = []string{"/opt/percona/backup/recovery-cloud.sh"}
 		if bcp.Status.GetStorageType(cluster) == api.BackupStorageS3 && cluster.CompareVersionWith("1.12.0") < 0 {
-			command = []string{"recovery-s3.sh"}
+			command = []string{"/opt/percona/backup/recovery-s3.sh"}
 		}
 		if pitr {
 			if cluster.Spec.Backup == nil && len(cluster.Spec.Backup.Storages) == 0 {
@@ -260,6 +284,26 @@ func RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClust
 	envs, err := restoreJobEnvs(bcp, cr, cluster, destination, pitr)
 	if err != nil {
 		return nil, errors.Wrap(err, "restore job envs")
+	}
+
+	if cluster.CompareVersionWith("1.17.0") >= 0 {
+		volumes = append(volumes,
+			corev1.Volume{
+				Name: app.BinVolumeName,
+				VolumeSource: corev1.VolumeSource{
+					EmptyDir: &corev1.EmptyDirVolumeSource{},
+				},
+			},
+		)
+
+		volumeMounts = append(volumeMounts,
+			corev1.VolumeMount{
+				Name:      app.BinVolumeName,
+				MountPath: app.BinVolumeMountPath,
+			},
+		)
+
+		initContainers = []corev1.Container{statefulset.BackupInitContainer(cluster, initImage, cluster.Spec.PXC.ContainerSecurityContext)}
 	}
 
 	job := &batchv1.Job{

@@ -84,4 +84,6 @@ COPY build/proxysql_add_cluster_nodes.sh /proxysql_add_cluster_nodes.sh
 COPY build/proxysql_add_proxysql_nodes.sh /proxysql_add_proxysql_nodes.sh
 COPY build/proxysql_add_pxc_nodes.sh /proxysql_add_pxc_nodes.sh
 
+COPY build/backup /backup
+
 USER 2

@@ -34,7 +34,7 @@ spec:
     spec:
       containers:
         - command:
-            - recovery-cloud.sh
+            - /opt/percona/backup/recovery-cloud.sh
           env:
             - name: PXC_SERVICE
               value: sec-context-pxc

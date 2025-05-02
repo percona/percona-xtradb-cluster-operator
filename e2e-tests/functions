@@ -10,7 +10,7 @@ MYSQL_VERSION=${MYSQL_VERSION:-"8.0"}
 IMAGE_PXC=${IMAGE_PXC:-"perconalab/percona-xtradb-cluster-operator:main-pxc${MYSQL_VERSION}"}
 IMAGE_PROXY=${IMAGE_PROXY:-"perconalab/percona-xtradb-cluster-operator:main-proxysql"}
 IMAGE_HAPROXY=${IMAGE_HAPROXY:-"perconalab/percona-xtradb-cluster-operator:main-haproxy"}
-IMAGE_BACKUP=${IMAGE_BACKUP:-"perconalab/percona-xtradb-cluster-operator:main-pxc${MYSQL_VERSION}-backup"}
+IMAGE_BACKUP=${IMAGE_BACKUP:-"percona/percona-xtrabackup:${MYSQL_VERSION}"}
 IMAGE_LOGCOLLECTOR=${IMAGE_LOGCOLLECTOR:-"perconalab/percona-xtradb-cluster-operator:main-logcollector"}
 SKIP_REMOTE_BACKUPS=${SKIP_REMOTE_BACKUPS:-1}
 PMM_SERVER_VER=${PMM_SERVER_VER:-"9.9.9"}
@@ -61,9 +61,8 @@ set_debug() {
 }
 
 log() {
-       echo "[$(date +%Y-%m-%dT%H:%M:%S%z)]" $*
+	echo "[$(date +%Y-%m-%dT%H:%M:%S%z)]" $*
 }
-
 
 HELM_VERSION=$(helm version -c | $sed -re 's/.*SemVer:"([^"]+)".*/\1/; s/.*\bVersion:"([^"]+)".*/\1/')
 if [ "${HELM_VERSION:0:2}" == "v2" ]; then
@@ -526,6 +525,7 @@ run_mysql() {
 	kubectl_bin exec $client_pod -- \
 		bash -c "printf '%s\n' \"${command}\" | mysql -sN $uri" 2>&1 \
 		| sed -e 's/mysql: //' \
+		| grep -v 'Defaulted container "pxc-client" out of:' \
 		| (grep -v 'Using a password on the command line interface can be insecure.' || :)
 
 	set_debug
@@ -540,6 +540,7 @@ run_mysql_local() {
 	kubectl_bin exec $pod ${container_name:+-c $container_name} -- \
 		bash -c "printf \"$command\n\" | mysql -sN $uri" 2>&1 \
 		| sed -e 's/mysql: //' \
+		| grep -v 'Defaulted container "pxc-client" out of:' \
 		| (egrep -v 'Using a password on the command line interface can be insecure.|Defaulted container|Defaulting container name|see all of the containers in this pod' || :)
 	set_debug
 }

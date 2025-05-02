@@ -34,7 +34,7 @@ spec:
     spec:
       containers:
         - command:
-            - recovery-pvc-joiner.sh
+            - /opt/percona/backup/recovery-pvc-joiner.sh
           env:
             - name: RESTORE_SRC_SERVICE
               value: restore-src-restore-pvc-sec-context

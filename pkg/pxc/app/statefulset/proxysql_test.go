@@ -80,7 +80,7 @@ func TestSidecarContainers_ProxySQL(t *testing.T) {
 			}
 
 			if len(containers) != 2 {
-				t.Errorf("expected 1 container, got %d", len(containers))
+				t.Errorf("expected 2 container, got %d", len(containers))
 			}
 
 			for _, c := range containers {

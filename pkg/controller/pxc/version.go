@@ -23,7 +23,7 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/queries"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
-	"github.com/percona/percona-xtradb-cluster-operator/version"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/version"
 )
 
 type Schedule struct {
@@ -509,7 +509,7 @@ func (r *ReconcilePerconaXtraDBCluster) setCRVersion(ctx context.Context, cr *ap
 	}
 
 	orig := cr.DeepCopy()
-	cr.Spec.CRVersion = version.Version
+	cr.Spec.CRVersion = version.Version()
 
 	if err := r.client.Patch(ctx, cr, client.MergeFrom(orig)); err != nil {
 		return errors.Wrap(err, "patch CR")

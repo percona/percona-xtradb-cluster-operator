@@ -139,7 +139,7 @@ func TestPMM3Client(t *testing.T) {
 			assert.Equal(t, "/tmp", envMap["PMM_AGENT_PATHS_TEMPDIR"])
 			assert.Equal(t, "/var/lib/mysql/pmm-prerun.sh", envMap["PMM_AGENT_PRERUN_SCRIPT"])
 			assert.Equal(t, "test-cluster", envMap["CLUSTER_NAME"])
-			assert.Equal(t, "$(PMM_PREFIX)$(POD_NAMESPASE)-$(POD_NAME)", envMap["PMM_AGENT_SETUP_NODE_NAME"])
+			assert.Equal(t, "$(PMM_PREFIX)$(POD_NAMESPACE)-$(POD_NAME)", envMap["PMM_AGENT_SETUP_NODE_NAME"])
 
 			assert.NotNil(t, container.Lifecycle)
 			assert.NotNil(t, container.Lifecycle.PreStop)

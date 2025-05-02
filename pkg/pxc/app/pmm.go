@@ -288,7 +288,7 @@ func PMM3Client(cr *api.PerconaXtraDBCluster, secret *corev1.Secret, envVarsSecr
 			},
 		},
 		{
-			Name: "POD_NAMESPASE",
+			Name: "POD_NAMESPACE",
 			ValueFrom: &corev1.EnvVarSource{
 				FieldRef: &corev1.ObjectFieldSelector{
 					FieldPath: "metadata.namespace",
@@ -389,9 +389,9 @@ func PMM3Client(cr *api.PerconaXtraDBCluster, secret *corev1.Secret, envVarsSecr
 		},
 	}
 
-	pmmAgentSetupNodeName := "$(POD_NAMESPASE)-$(POD_NAME)"
+	pmmAgentSetupNodeName := "$(POD_NAMESPACE)-$(POD_NAME)"
 	if len(envVarsSecret.Data["PMM_PREFIX"]) > 0 {
-		pmmAgentSetupNodeName = "$(PMM_PREFIX)$(POD_NAMESPASE)-$(POD_NAME)"
+		pmmAgentSetupNodeName = "$(PMM_PREFIX)$(POD_NAMESPACE)-$(POD_NAME)"
 	}
 	envs = append(envs, corev1.EnvVar{
 		Name:  "PMM_AGENT_SETUP_NODE_NAME",

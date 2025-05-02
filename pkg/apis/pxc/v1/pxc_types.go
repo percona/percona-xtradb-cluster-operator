@@ -24,7 +24,7 @@ import (
 
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/util"
-	"github.com/percona/percona-xtradb-cluster-operator/version"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/version"
 )
 
 // PerconaXtraDBClusterSpec defines the desired state of PerconaXtraDBCluster

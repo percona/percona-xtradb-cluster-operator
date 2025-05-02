@@ -8,9 +8,9 @@ import (
 	"time"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
-	vsc "github.com/percona/percona-xtradb-cluster-operator/version/client"
-	"github.com/percona/percona-xtradb-cluster-operator/version/client/models"
-	"github.com/percona/percona-xtradb-cluster-operator/version/client/version_service"
+	vsc "github.com/percona/percona-xtradb-cluster-operator/pkg/version/client"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/version/client/models"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/version/client/version_service"
 )
 
 const productName = "pxc-operator"
@@ -52,7 +52,6 @@ func (vs VersionServiceClient) GetExactVersion(cr *api.PerconaXtraDBCluster, end
 	applyParams = applyParams.WithTimeout(10 * time.Second)
 
 	resp, err := srvCl.VersionService.VersionServiceApply(applyParams)
-
 	if err != nil {
 		return DepVersion{}, err
 	}

@@ -19,8 +19,7 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/clientcmd"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/apis"
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
-	"github.com/percona/percona-xtradb-cluster-operator/version"
-	//+kubebuilder:scaffold:imports
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/version"
 )
 
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to

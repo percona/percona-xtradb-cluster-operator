@@ -301,9 +301,9 @@ func (p *Database) StartReplication(replicaPass string, config ReplicationConfig
 	}
 
 	if shouldGetMasterKey {
-		_, err = p.db.Exec(`CHANGE MASTER TO GET_MASTER_PUBLIC_KEY=1 FOR CHANNEL ?`, config.Source.Name)
+		_, err = p.db.Exec(`CHANGE REPLICATION SOURCE TO GET_SOURCE_PUBLIC_KEY=1 FOR CHANNEL ?`, config.Source.Name)
 		if err != nil {
-			return errors.Wrapf(err, "change master to GET_MASTER_PUBLIC_KEY for channel %s", config.Source.Name)
+			return errors.Wrapf(err, "change replication source to GET_SOURCE_PUBLIC_KEY for channel %s", config.Source.Name)
 		}
 	}
 

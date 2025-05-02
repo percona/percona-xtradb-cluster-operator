@@ -307,8 +307,9 @@ func (c *HAProxy) LogCollectorContainer(_ *api.LogCollectorSpec, _ string, _ str
 }
 
 func (c *HAProxy) PMMContainer(ctx context.Context, cl client.Client, spec *api.PMMSpec, secret *corev1.Secret, cr *api.PerconaXtraDBCluster) (*corev1.Container, error) {
-	if cr.CompareVersionWith("1.9.0") < 0 {
-		return nil, nil
+	clusterName := cr.Name
+	if cr.CompareVersionWith("1.18.0") >= 0 && cr.Spec.PMM.CustomClusterName != "" {
+		clusterName = cr.Spec.PMM.CustomClusterName
 	}
 
 	envVarsSecret := &corev1.Secret{}
@@ -358,7 +359,7 @@ func (c *HAProxy) PMMContainer(ctx context.Context, cl client.Client, spec *api.
 		},
 		{
 			Name:  "CLUSTER_NAME",
-			Value: cr.Name,
+			Value: clusterName,
 		},
 		{
 			Name:  "PMM_ADMIN_CUSTOM_PARAMS",

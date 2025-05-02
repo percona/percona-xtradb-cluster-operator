@@ -30,6 +30,10 @@ const (
 	LabelPerconaRestoreJobName     = perconaPrefix + "restore-job-name"
 )
 
+const (
+	LabelOperatorVersion = perconaPrefix + "version"
+)
+
 func GetLabelBackupType(cr *api.PerconaXtraDBCluster) string {
 	if cr.CompareVersionWith("1.16.0") < 0 {
 		return "type"

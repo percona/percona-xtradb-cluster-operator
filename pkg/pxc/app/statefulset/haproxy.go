@@ -340,6 +340,11 @@ func (c *HAProxy) PMMContainer(ctx context.Context, cl client.Client, spec *api.
 		return &pmm3Container, nil
 	}
 
+	clusterName := cr.Name
+	if cr.CompareVersionWith("1.18.0") >= 0 && cr.Spec.PMM.CustomClusterName != "" {
+		clusterName = cr.Spec.PMM.CustomClusterName
+	}
+
 	// Checking the secret to determine if the PMM2 container can be constructed.
 	if !cr.Spec.PMM.HasSecret(secret) {
 		return nil, errors.New("can't enable PMM2: either pmmserverkey key doesn't exist in the secrets, or secrets and internal secrets are out of sync")
@@ -386,7 +391,7 @@ func (c *HAProxy) PMMContainer(ctx context.Context, cl client.Client, spec *api.
 		},
 		{
 			Name:  "CLUSTER_NAME",
-			Value: cr.Name,
+			Value: clusterName,
 		},
 		{
 			Name:  "PMM_ADMIN_CUSTOM_PARAMS",

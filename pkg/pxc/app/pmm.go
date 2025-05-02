@@ -278,6 +278,11 @@ func PMM3Client(cr *api.PerconaXtraDBCluster, secret *corev1.Secret, envVarsSecr
 		ports = append(ports, corev1.ContainerPort{ContainerPort: int32(i)})
 	}
 
+	clusterName := cr.Name
+	if cr.Spec.PMM.CustomClusterName != "" {
+		clusterName = cr.Spec.PMM.CustomClusterName
+	}
+
 	envs := []corev1.EnvVar{
 		{
 			Name: "POD_NAME",
@@ -385,7 +390,7 @@ func PMM3Client(cr *api.PerconaXtraDBCluster, secret *corev1.Secret, envVarsSecr
 		},
 		{
 			Name:  "CLUSTER_NAME",
-			Value: cr.Name,
+			Value: clusterName,
 		},
 	}
 

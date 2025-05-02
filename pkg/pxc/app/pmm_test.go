@@ -87,8 +87,9 @@ func TestPMM3Client(t *testing.T) {
 								corev1.ResourceCPU:    resource.MustParse("50m"),
 							},
 						},
-						LivenessProbes:  tt.livenessProbe,
-						ReadinessProbes: tt.readinessProbe,
+						LivenessProbes:    tt.livenessProbe,
+						ReadinessProbes:   tt.readinessProbe,
+						CustomClusterName: "foo-cluster",
 					},
 				},
 			}
@@ -138,7 +139,7 @@ func TestPMM3Client(t *testing.T) {
 			assert.Equal(t, "5", envMap["PMM_AGENT_SIDECAR_SLEEP"])
 			assert.Equal(t, "/tmp", envMap["PMM_AGENT_PATHS_TEMPDIR"])
 			assert.Equal(t, "/var/lib/mysql/pmm-prerun.sh", envMap["PMM_AGENT_PRERUN_SCRIPT"])
-			assert.Equal(t, "test-cluster", envMap["CLUSTER_NAME"])
+			assert.Equal(t, "foo-cluster", envMap["CLUSTER_NAME"])
 			assert.Equal(t, "$(PMM_PREFIX)$(POD_NAMESPACE)-$(POD_NAME)", envMap["PMM_AGENT_SETUP_NODE_NAME"])
 
 			assert.NotNil(t, container.Lifecycle)

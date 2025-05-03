@@ -6,7 +6,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake" //nolint
 
-	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 )
 
 // BuildFakeClient creates a fake client to mock API calls with the mock objects
@@ -14,13 +14,13 @@ func BuildFakeClient(objs ...runtime.Object) client.Client {
 	s := scheme.Scheme
 
 	types := []runtime.Object{
-		new(api.PerconaXtraDBClusterRestore),
-		new(api.PerconaXtraDBClusterRestoreList),
-		new(api.PerconaXtraDBClusterBackup),
-		new(api.PerconaXtraDBCluster),
+		new(pxcv1.PerconaXtraDBClusterRestore),
+		new(pxcv1.PerconaXtraDBClusterRestoreList),
+		new(pxcv1.PerconaXtraDBClusterBackup),
+		new(pxcv1.PerconaXtraDBCluster),
 	}
 
-	s.AddKnownTypes(api.SchemeGroupVersion, types...)
+	s.AddKnownTypes(pxcv1.SchemeGroupVersion, types...)
 
 	toClientObj := func(objs []runtime.Object) []client.Object {
 		cliObjs := make([]client.Object, 0, len(objs))

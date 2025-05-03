@@ -12,6 +12,7 @@ import (
 	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/test"
 	"github.com/percona/percona-xtradb-cluster-operator/version"
+	k8sversion "k8s.io/apimachinery/pkg/version"
 )
 
 func TestPrepareJob(t *testing.T) {
@@ -54,10 +55,12 @@ func TestPrepareJob(t *testing.T) {
 		},
 	}
 
-	sv, err := version.Server()
-	assert.NoError(t, err)
+	sv := &version.ServerVersion{
+		Platform: version.PlatformKubernetes,
+		Info:     k8sversion.Info{},
+	}
 
-	err = cluster.CheckNSetDefaults(sv, log)
+	err := cluster.CheckNSetDefaults(sv, log)
 	assert.NoError(t, err)
 
 	backup := pxcv1.PerconaXtraDBClusterBackup{

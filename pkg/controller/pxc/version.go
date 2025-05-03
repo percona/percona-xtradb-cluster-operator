@@ -23,7 +23,7 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/queries"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
-	"github.com/percona/percona-xtradb-cluster-operator/version"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/version"
 )
 
 type Schedule struct {
@@ -228,15 +228,13 @@ func (r *ReconcilePerconaXtraDBCluster) scheduleEnsurePXCVersion(ctx context.Con
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) getNewVersions(ctx context.Context, cr *apiv1.PerconaXtraDBCluster, vs VersionService) (DepVersion, error) {
-	log := logf.FromContext(ctx)
-
+func (r *ReconcilePerconaXtraDBCluster) getVersionMeta(cr *apiv1.PerconaXtraDBCluster) (versionMeta, error) {
 	watchNs, err := k8s.GetWatchNamespace()
 	if err != nil {
-		return DepVersion{}, errors.Wrap(err, "get WATCH_NAMESPACE env variable")
+		return versionMeta{}, errors.Wrap(err, "get WATCH_NAMESPACE env variable")
 	}
 
-	vm := versionMeta{
+	return versionMeta{
 		Apply:                 cr.Spec.UpgradeOptions.Apply,
 		Platform:              string(cr.Spec.Platform),
 		KubeVersion:           r.serverVersion.Info.GitVersion,
@@ -247,8 +245,17 @@ func (r *ReconcilePerconaXtraDBCluster) getNewVersions(ctx context.Context, cr *
 		BackupVersion:         cr.Status.Backup.Version,
 		LogCollectorVersion:   cr.Status.LogCollector.Version,
 		CRUID:                 string(cr.GetUID()),
-		ClusterWideEnabled:    watchNs == "",
+		ClusterWideEnabled:    len(watchNs) == 0 || len(strings.Split(watchNs, ",")) > 1,
 		UserManagementEnabled: len(cr.Spec.Users) > 0,
+	}, nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) getNewVersions(ctx context.Context, cr *apiv1.PerconaXtraDBCluster, vs VersionService) (DepVersion, error) {
+	log := logf.FromContext(ctx)
+
+	vm, err := r.getVersionMeta(cr)
+	if err != nil {
+		return DepVersion{}, errors.Wrap(err, "build version metadata")
 	}
 
 	endpoint := apiv1.GetDefaultVersionServiceEndpoint()
@@ -502,7 +509,7 @@ func (r *ReconcilePerconaXtraDBCluster) setCRVersion(ctx context.Context, cr *ap
 	}
 
 	orig := cr.DeepCopy()
-	cr.Spec.CRVersion = version.Version
+	cr.Spec.CRVersion = version.Version()
 
 	if err := r.client.Patch(ctx, cr, client.MergeFrom(orig)); err != nil {
 		return errors.Wrap(err, "patch CR")

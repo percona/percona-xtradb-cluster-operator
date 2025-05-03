@@ -175,11 +175,16 @@ func (r *ReconcilePerconaXtraDBCluster) createBackupJob(ctx context.Context, cr 
 
 	return func() {
 		localCr := &api.PerconaXtraDBCluster{}
-		err := r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, localCr)
+		err := r.client.Get(ctx, types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, localCr)
 		if k8serrors.IsNotFound(err) {
 			log.Info("cluster is not found, deleting the job",
 				"name", backupJob.Name, "cluster", cr.Name, "namespace", cr.Namespace)
 			r.deleteBackupJob(backupJob.Name)
+			return
+		}
+
+		if err := localCr.CanBackup(); err != nil {
+			log.Info("Cluster is not ready for backup. Scheduled backup is not created", "error", err.Error(), "name", backupJob.Name, "cluster", cr.Name, "namespace", cr.Namespace)
 			return
 		}
 
@@ -196,7 +201,7 @@ func (r *ReconcilePerconaXtraDBCluster) createBackupJob(ctx context.Context, cr 
 				StartingDeadlineSeconds: cr.Spec.Backup.StartingDeadlineSeconds,
 			},
 		}
-		err = r.client.Create(context.TODO(), bcp)
+		err = r.client.Create(ctx, bcp)
 		if err != nil {
 			log.Error(err, "failed to create backup")
 		}

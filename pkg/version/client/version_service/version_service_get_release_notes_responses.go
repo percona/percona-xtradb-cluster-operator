@@ -13,7 +13,7 @@ import (
 	"github.com/go-openapi/runtime"
 	"github.com/go-openapi/strfmt"
 
-	"github.com/percona/percona-xtradb-cluster-operator/version/client/models"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/version/client/models"
 )
 
 // VersionServiceGetReleaseNotesReader is a Reader for the VersionServiceGetReleaseNotes structure.
@@ -101,7 +101,6 @@ func (o *VersionServiceGetReleaseNotesOK) GetPayload() *models.VersionGetRelease
 }
 
 func (o *VersionServiceGetReleaseNotesOK) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
-
 	o.Payload = new(models.VersionGetReleaseNotesResponse)
 
 	// response payload
@@ -175,7 +174,6 @@ func (o *VersionServiceGetReleaseNotesDefault) GetPayload() *models.GooglerpcSta
 }
 
 func (o *VersionServiceGetReleaseNotesDefault) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
-
 	o.Payload = new(models.GooglerpcStatus)
 
 	// response payload

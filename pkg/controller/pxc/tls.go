@@ -278,16 +278,13 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLManualy(cr *api.PerconaXtraDBCl
 	data["ca.crt"] = caCert
 	data["tls.crt"] = tlsCert
 	data["tls.key"] = key
-	owner, err := k8s.OwnerRef(cr, r.scheme)
 	if err != nil {
 		return err
 	}
-	ownerReferences := []metav1.OwnerReference{owner}
 	secretObj := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            cr.Spec.PXC.SSLSecretName,
-			Namespace:       cr.Namespace,
-			OwnerReferences: ownerReferences,
+			Name:      cr.Spec.PXC.SSLSecretName,
+			Namespace: cr.Namespace,
 		},
 		Data: data,
 		Type: corev1.SecretTypeTLS,
@@ -321,9 +318,8 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLManualy(cr *api.PerconaXtraDBCl
 	data["tls.key"] = key
 	secretObjInternal := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            cr.Spec.PXC.SSLInternalSecretName,
-			Namespace:       cr.Namespace,
-			OwnerReferences: ownerReferences,
+			Name:      cr.Spec.PXC.SSLInternalSecretName,
+			Namespace: cr.Namespace,
 		},
 		Data: data,
 		Type: corev1.SecretTypeTLS,

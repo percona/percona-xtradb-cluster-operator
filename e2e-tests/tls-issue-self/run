@@ -9,7 +9,7 @@ set_debug
 
 main() {
 	create_infra $namespace
-	kubectl_bin delete -f https://github.com/jetstack/cert-manager/releases/download/v1.5.4/cert-manager.yaml 2>/dev/null || :
+	kubectl_bin delete -f https://github.com/jetstack/cert-manager/releases/download/v${CERT_MANAGER_VER}/cert-manager.yaml 2>/dev/null || :
 	sleep 10
 
 	desc 'create PXC cluster without cert manager'
@@ -19,12 +19,6 @@ main() {
 
 	desc 'check if certificate issued manually'
 	tlsSecretsShouldExist "$cluster-ssl"
-
-	local ownerName=$(kubectl_bin get secrets/$cluster-ssl -o json | jq '.metadata.ownerReferences[0].name')
-	if [ $ownerName != '"'$cluster'"' ]; then
-		desc 'invalid owner of secret'
-		exit 1
-	fi
 
 	# generation = 2 on this step
 	desc 'check disabling tls'

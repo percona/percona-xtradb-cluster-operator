@@ -406,9 +406,15 @@ spec:
     schedule:
       - name: "sat-night-backup"
         schedule: "0 0 * * 6"
-        keep: 3
+        retention:
+          type: "count"
+          count: 3
+          deleteFromStorage: true
         storageName: s3-us-west
       - name: "daily-backup"
         schedule: "0 0 * * *"
-        keep: 5
+        retention:
+          type: "count"
+          count: 5
+          deleteFromStorage: true
         storageName: fs-pvc

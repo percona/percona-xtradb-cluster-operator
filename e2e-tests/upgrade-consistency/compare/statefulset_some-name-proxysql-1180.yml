@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  generation: 1
+  generation: 3
   name: some-name-proxysql
   ownerReferences:
     - controller: true
@@ -83,6 +83,9 @@ spec:
               protocol: TCP
             - containerPort: 6032
               name: proxyadm
+              protocol: TCP
+            - containerPort: 6070
+              name: stats
               protocol: TCP
           resources:
             limits:
@@ -230,6 +233,12 @@ spec:
     type: RollingUpdate
   volumeClaimTemplates:
     - metadata:
+        labels:
+          app.kubernetes.io/component: proxysql
+          app.kubernetes.io/instance: some-name
+          app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+          app.kubernetes.io/name: percona-xtradb-cluster
+          app.kubernetes.io/part-of: percona-xtradb-cluster
         name: proxydata
       spec:
         accessModes:

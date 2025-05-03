@@ -26,7 +26,7 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/binlogcollector"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage"
-	"github.com/percona/percona-xtradb-cluster-operator/version"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/version"
 )
 
 // Add creates a new PerconaXtraDBClusterRestore Controller and adds it to the Manager. The Manager will set fields on the Controller
@@ -120,6 +120,10 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(ctx context.Context, re
 		}
 	}()
 
+	if cr.Status.State == api.RestoreNew {
+		cr.Status.State = api.RestoreStarting
+	}
+
 	otherRestore, err := isOtherRestoreInProgress(ctx, r.client, cr)
 	if err != nil {
 		return rr, errors.Wrap(err, "failed to check if other restore is in progress")
@@ -165,7 +169,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(ctx context.Context, re
 	}
 
 	switch cr.Status.State {
-	case api.RestoreNew:
+	case api.RestoreStarting:
 		return r.reconcileStateNew(ctx, restorer, cr, cluster, bcp)
 	case api.RestoreStopCluster:
 		return r.reconcileStateStopCluster(ctx, restorer, cr, cluster)

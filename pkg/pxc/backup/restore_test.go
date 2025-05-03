@@ -12,8 +12,7 @@ import (
 
 	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/test"
-	"github.com/percona/percona-xtradb-cluster-operator/version"
-	k8sversion "k8s.io/apimachinery/pkg/version"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/version"
 )
 
 func TestPrepareJob(t *testing.T) {
@@ -23,7 +22,7 @@ func TestPrepareJob(t *testing.T) {
 			Namespace: "test-ns",
 		},
 		Spec: pxcv1.PerconaXtraDBClusterSpec{
-			CRVersion: version.Version,
+			CRVersion: version.Version(),
 			Backup: &pxcv1.PXCScheduledBackup{
 				Image: "percona/percona-xtrabackup:8.0",
 				Storages: map[string]*pxcv1.BackupStorageSpec{

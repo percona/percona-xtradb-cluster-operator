@@ -45,10 +45,16 @@ func TestCRDVersionLabel(t *testing.T) {
 		if !slices.Contains(crdNames, crd.Name) {
 			continue
 		}
-		expected := "v" + version.Version()
-		if crd.Labels[naming.LabelOperatorVersion] != expected {
-			t.Logf("invalid version is specified in %s label of %s CustomResourceDefinition: have: %s, expected: %s", naming.LabelOperatorVersion, crd.Name, crd.Labels[naming.LabelOperatorVersion], expected)
-			t.Log([]byte(crd.Labels[naming.LabelOperatorVersion]), []byte(expected))
+		expectedVersion := "v" + version.Version()
+		expectedLabels := naming.Labels()
+		expectedLabels[naming.LabelOperatorVersion] = expectedVersion
+
+		for k, expectedValue := range expectedLabels {
+			if crd.Labels[k] == expectedValue {
+				continue
+			}
+			t.Logf("invalid value is specified in %s label of %s CustomResourceDefinition: have: %s, expected: %s", k, crd.Name, crd.Labels[k], expectedValue)
+			t.Log([]byte(crd.Labels[k]), []byte(expectedValue))
 			t.Fail()
 		}
 	}

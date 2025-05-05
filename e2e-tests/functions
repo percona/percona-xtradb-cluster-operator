@@ -16,6 +16,8 @@ SKIP_REMOTE_BACKUPS=${SKIP_REMOTE_BACKUPS:-1}
 PMM_SERVER_VER=${PMM_SERVER_VER:-"9.9.9"}
 IMAGE_PMM_CLIENT=${IMAGE_PMM_CLIENT:-"perconalab/pmm-client:dev-latest"}
 IMAGE_PMM_SERVER=${IMAGE_PMM_SERVER:-"perconalab/pmm-server:dev-latest"}
+IMAGE_PMM3_CLIENT=${IMAGE_PMM3_CLIENT:-"perconalab/pmm-client:3.1.0"}
+IMAGE_PMM3_SERVER=${IMAGE_PMM3_SERVER:-"perconalab/pmm-server:3.1.0"}
 CERT_MANAGER_VER="1.17.1"
 MINIO_VER="5.4.0"
 CHAOS_MESH_VER="2.7.1"
@@ -796,22 +798,6 @@ get_metric_values() {
 	echo -n "$result" | jq '.values[][1]' \
 		| grep '^"[0-9]'
 
-}
-
-get_qan_values() {
-	local instance=$1
-	local start=$($date -u "+%Y-%m-%dT%H:%M:%S" -d "-30 minute")
-	local end=$($date -u "+%Y-%m-%dT%H:%M:%S")
-	local endpoint=$(get_service_endpoint monitoring-service)
-
-	local uuid=$(
-		curl -s -k "https://$endpoint/qan-api/instances?deleted=no" \
-			| jq '.[] | select(.Subsystem == "mysql" and .Name == "'$instance'") | .UUID' \
-			| sed -e 's/^"//; s/"$//;'
-	)
-
-	curl -s -k "https://$endpoint/qan-api/qan/profile/$uuid?begin=$start&end=$end&offset=0" \
-		| jq '.Query[].Fingerprint'
 }
 
 get_qan20_values() {

@@ -189,11 +189,16 @@ func normalizeAndValidateProtocol(protocol *string) (string, error) {
 	if protocol == nil {
 		return "", nil
 	}
-	if *protocol == "" {
-		return *protocol, nil
+
+	proto := strings.TrimSpace(*protocol)
+
+	// If the env var PEER_LIST_SRV_PROTOCOL does not exist in
+	// the container env, 'protocol' will remain a literal string.
+	if proto == "" || proto == "$(PEER_LIST_SRV_PROTOCOL)" {
+		return "", nil
 	}
 
-	normalizedProtocol := strings.ToLower(*protocol)
+	normalizedProtocol := strings.ToLower(proto)
 
 	if normalizedProtocol != "udp" && normalizedProtocol != "tcp" {
 		return "", fmt.Errorf("protocol must be either 'udp' or 'tcp', provided %v", *protocol)

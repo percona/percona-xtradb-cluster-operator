@@ -87,16 +87,6 @@ func StatefulSet(ctx context.Context, cl client.Client, sfs api.StatefulApp, pod
 		pod.InitContainers = append(pod.InitContainers, initContainers...)
 	}
 
-	if podSpec.ForceUnsafeBootstrap && cr.CompareVersionWith("1.10.0") < 0 {
-		ic := appC.DeepCopy()
-		ic.Name = ic.Name + "-init-unsafe"
-		ic.Resources = podSpec.Resources
-		ic.ReadinessProbe = nil
-		ic.LivenessProbe = nil
-		ic.Command = []string{"/var/lib/mysql/unsafe-bootstrap.sh"}
-		pod.InitContainers = append(pod.InitContainers, *ic)
-	}
-
 	sideC, err := sfs.SidecarContainers(podSpec, secrets, cr)
 	if err != nil {
 		return nil, errors.Wrap(err, "sidecar container")

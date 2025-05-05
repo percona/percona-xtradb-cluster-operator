@@ -527,7 +527,6 @@ type PodSpec struct {
 	SSLInternalSecretName         string                        `json:"sslInternalSecretName,omitempty"`
 	EnvVarsSecretName             string                        `json:"envVarsSecret,omitempty"`
 	TerminationGracePeriodSeconds *int64                        `json:"gracePeriod,omitempty"`
-	ForceUnsafeBootstrap          bool                          `json:"forceUnsafeBootstrap,omitempty"`
 
 	// Deprecated: Use ServiceExpose.Type instead
 	ServiceType corev1.ServiceType `json:"serviceType,omitempty"`

@@ -1,0 +1,42 @@
+#!/bin/bash
+
+set -o errexit
+
+test_dir=$(realpath $(dirname $0))
+. ${test_dir}/../functions
+
+set_debug
+
+cluster="some-name"
+
+function write_data() {
+	local proxy=$(get_proxy "${cluster}")
+	local secret_name=$(kubectl_bin get pxc ${cluster} -o jsonpath='{.spec.secretsName}')
+	local root_pass=$(getSecretData ${secret_name} "root")
+
+	run_mysql \
+		"CREATE DATABASE IF NOT EXISTS myApp; use myApp; CREATE TABLE IF NOT EXISTS myApp (id int PRIMARY KEY);" \
+		"-h ${proxy} -uroot -p'${root_pass}'"
+	run_mysql \
+		'INSERT myApp.myApp (id) VALUES (100500)' \
+		"-h ${proxy} -uroot -p'${root_pass}'"
+}
+
+create_infra ${namespace}
+kubectl_bin apply -f ${conf_dir}/client.yml
+apply_config "${test_dir}/conf/${cluster}.yml"
+wait_cluster_consistency "${cluster}" 3 2
+write_data
+
+run_backup "${cluster}" "backup1"
+
+log "deleting pxc/${cluster}"
+kubectl_bin delete pxc ${cluster}
+
+log "recreating pxc/${cluster}"
+apply_config "${test_dir}/conf/${cluster}.yml"
+
+run_recovery_check "${cluster}" "backup1"
+wait_cluster_consistency "${cluster}" 3 2
+
+desc "test passed"

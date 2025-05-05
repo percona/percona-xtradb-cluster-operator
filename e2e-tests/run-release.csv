@@ -9,6 +9,7 @@ demand-backup-flow-control
 demand-backup-parallel
 demand-backup-cloud
 demand-backup-encrypted-with-tls
+demand-backup-without-passwords
 haproxy
 init-deploy
 limits

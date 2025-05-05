@@ -50,7 +50,15 @@ var (
 
 func lookup(svcName, protocol string) (sets.String, error) {
 	endpoints := sets.NewString()
-	_, srvRecords, err := net.LookupSRV("mysql", protocol, svcName)
+
+	// setting 'service' a value only when protocol is non-empty
+	// because `LookupSRV` internally has a condition on its default
+	// resolver for checking if service == "" && proto == "".
+	service := ""
+	if protocol != "" {
+		service = "mysql"
+	}
+	_, srvRecords, err := net.LookupSRV(service, protocol, svcName)
 	if err != nil {
 		return endpoints, err
 	}

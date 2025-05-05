@@ -3,4 +3,4 @@ kind: CustomResourceDefinition
 metadata:
   name: perconaxtradbclusterbackups.pxc.percona.com
   labels:
-    percona.com/version: v1.18.0
+    app.kubernetes.io/version: v1.18.0

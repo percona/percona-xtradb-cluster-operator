@@ -16,6 +16,8 @@ const (
 	LabelAppKubernetesComponent = appKuberenetesPrefix + "component"
 	LabelAppKubernetesManagedBy = appKuberenetesPrefix + "managed-by"
 	LabelAppKubernetesPartOf    = appKuberenetesPrefix + "part-of"
+
+	LabelOperatorVersion = appKuberenetesPrefix + "version"
 )
 
 const (
@@ -28,10 +30,6 @@ const (
 
 	LabelPerconaRestoreServiceName = perconaPrefix + "restore-svc-name"
 	LabelPerconaRestoreJobName     = perconaPrefix + "restore-job-name"
-)
-
-const (
-	LabelOperatorVersion = perconaPrefix + "version"
 )
 
 func GetLabelBackupType(cr *api.PerconaXtraDBCluster) string {

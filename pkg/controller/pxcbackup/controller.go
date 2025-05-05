@@ -13,7 +13,6 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
@@ -653,17 +652,6 @@ func (r *ReconcilePerconaXtraDBClusterBackup) updateJobStatus(
 			if err := binlogcollector.RemoveTimelineFile(r.clientcmd, collectorPod); err != nil {
 				return errors.Wrap(err, "remove timeline file")
 			}
-		}
-
-		initSecret := corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      cluster.Name + "-mysql-init",
-				Namespace: cluster.Namespace,
-			},
-		}
-		log.V(1).Info("Removing mysql-init secret", "secret", initSecret.Name)
-		if err := r.client.Delete(ctx, &initSecret); client.IgnoreNotFound(err) != nil {
-			return errors.Wrap(err, "delete mysql-init secret")
 		}
 	case api.BackupFailed:
 		log.Info("Backup failed")

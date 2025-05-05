@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"hash/fnv"
+	"regexp"
+	"strings"
 
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
@@ -44,7 +46,7 @@ func (c *Node) InitContainers(cr *api.PerconaXtraDBCluster, initImageName string
 	return inits
 }
 
-func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster, _ []corev1.Volume) (corev1.Container, error) {
+func (c *Node) AppContainer(ctx context.Context, cl client.Client, spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster, _ []corev1.Volume) (corev1.Container, error) {
 	redinessDelay := int32(15)
 	if spec.ReadinessInitialDelaySeconds != nil {
 		redinessDelay = *spec.ReadinessInitialDelaySeconds
@@ -263,6 +265,50 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 				Value: "/var/lib/mysql/mysql.state",
 			},
 		}...)
+	}
+
+	if cr.CompareVersionWith("1.18.0") >= 0 {
+		const (
+			ldPreloadKey    = "LD_PRELOAD"
+			libJemallocPath = "/usr/lib64/libjemalloc.so.1"
+		)
+
+		activateJemalloc := false
+		ldPreloadValue := ""
+
+		if cr.Spec.PXC.MySQLAllocator == "" || strings.ToLower(cr.Spec.PXC.MySQLAllocator) == "jemalloc" {
+			activateJemalloc = true
+		}
+
+		// Let's set LD_PRELOAD via appc.Env always. It takes precedence over EnvFrom
+
+		envVarsSecret := &corev1.Secret{}
+		err := cl.Get(ctx, types.NamespacedName{Name: cr.Spec.PXC.EnvVarsSecretName, Namespace: cr.Namespace}, envVarsSecret)
+		if client.IgnoreNotFound(err) == nil {
+			// Env vars are set via secret. Check if LD_PRELOAD is set.
+			if val, ok := envVarsSecret.Data[ldPreloadKey]; ok {
+				ldPreloadValue = string(val)
+			}
+		}
+
+		if !activateJemalloc {
+			// deactivate jemalloc
+			ldPreloadValue = strings.Replace(ldPreloadValue, libJemallocPath, "", -1)
+		} else if !strings.Contains(ldPreloadValue, libJemallocPath) {
+			// activate jemalloc
+			ldPreloadValue += ":" + libJemallocPath
+		}
+
+		// prefix/suffix and consecutive : (colons) don't do any harm
+		// but remove them for sanity.
+		re := regexp.MustCompile(":+")
+		ldPreloadValue = re.ReplaceAllString(ldPreloadValue, ":")
+		ldPreloadValue = strings.Trim(ldPreloadValue, ":")
+
+		appc.Env = append(appc.Env, corev1.EnvVar{
+			Name:  ldPreloadKey,
+			Value: ldPreloadValue,
+		})
 	}
 
 	return appc, nil

@@ -50,7 +50,7 @@ var (
 
 func lookup(svcName, protocol string) (sets.String, error) {
 	endpoints := sets.NewString()
-	_, srvRecords, err := net.LookupSRV("", protocol, svcName)
+	_, srvRecords, err := net.LookupSRV("mysql", protocol, svcName)
 	if err != nil {
 		return endpoints, err
 	}

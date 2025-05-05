@@ -219,6 +219,7 @@ func GetPXCFirstHost(ctx context.Context, pxcServiceName string) (string, error)
 	sort.Strings(nodes)
 	lastHost := ""
 	for _, node := range nodes {
+		log.Printf("PXC Node: %s", node)
 		if strings.Contains(node, "wsrep_ready:ON:wsrep_connected:ON:wsrep_local_state_comment:Synced:wsrep_cluster_status:Primary") {
 			nodeArr := strings.Split(node, ":")
 			lastHost = nodeArr[0]
@@ -228,6 +229,8 @@ func GetPXCFirstHost(ctx context.Context, pxcServiceName string) (string, error)
 	if len(lastHost) == 0 {
 		return "", errors.New("can't find host")
 	}
+
+	log.Printf("connecting to %s", lastHost)
 
 	return lastHost, nil
 }

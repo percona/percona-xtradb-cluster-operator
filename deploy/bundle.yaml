@@ -4,7 +4,9 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.16.3
   labels:
-    percona.com/version: v1.18.0
+    app.kubernetes.io/name: percona-xtradb-cluster
+    app.kubernetes.io/part-of: percona-xtradb-cluster
+    app.kubernetes.io/version: v1.18.0
   name: perconaxtradbclusterbackups.pxc.percona.com
 spec:
   group: pxc.percona.com
@@ -263,7 +265,9 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.16.3
   labels:
-    percona.com/version: v1.18.0
+    app.kubernetes.io/name: percona-xtradb-cluster
+    app.kubernetes.io/part-of: percona-xtradb-cluster
+    app.kubernetes.io/version: v1.18.0
   name: perconaxtradbclusterrestores.pxc.percona.com
 spec:
   group: pxc.percona.com
@@ -671,7 +675,9 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.16.3
   labels:
-    percona.com/version: v1.18.0
+    app.kubernetes.io/name: percona-xtradb-cluster
+    app.kubernetes.io/part-of: percona-xtradb-cluster
+    app.kubernetes.io/version: v1.18.0
   name: perconaxtradbclusters.pxc.percona.com
 spec:
   group: pxc.percona.com

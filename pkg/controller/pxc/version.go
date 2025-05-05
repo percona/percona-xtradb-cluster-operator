@@ -228,15 +228,13 @@ func (r *ReconcilePerconaXtraDBCluster) scheduleEnsurePXCVersion(ctx context.Con
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) getNewVersions(ctx context.Context, cr *apiv1.PerconaXtraDBCluster, vs VersionService) (DepVersion, error) {
-	log := logf.FromContext(ctx)
-
+func (r *ReconcilePerconaXtraDBCluster) getVersionMeta(cr *apiv1.PerconaXtraDBCluster) (versionMeta, error) {
 	watchNs, err := k8s.GetWatchNamespace()
 	if err != nil {
-		return DepVersion{}, errors.Wrap(err, "get WATCH_NAMESPACE env variable")
+		return versionMeta{}, errors.Wrap(err, "get WATCH_NAMESPACE env variable")
 	}
 
-	vm := versionMeta{
+	return versionMeta{
 		Apply:                 cr.Spec.UpgradeOptions.Apply,
 		Platform:              string(cr.Spec.Platform),
 		KubeVersion:           r.serverVersion.Info.GitVersion,
@@ -247,8 +245,17 @@ func (r *ReconcilePerconaXtraDBCluster) getNewVersions(ctx context.Context, cr *
 		BackupVersion:         cr.Status.Backup.Version,
 		LogCollectorVersion:   cr.Status.LogCollector.Version,
 		CRUID:                 string(cr.GetUID()),
-		ClusterWideEnabled:    watchNs == "",
+		ClusterWideEnabled:    len(watchNs) == 0 || len(strings.Split(watchNs, ",")) > 1,
 		UserManagementEnabled: len(cr.Spec.Users) > 0,
+	}, nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) getNewVersions(ctx context.Context, cr *apiv1.PerconaXtraDBCluster, vs VersionService) (DepVersion, error) {
+	log := logf.FromContext(ctx)
+
+	vm, err := r.getVersionMeta(cr)
+	if err != nil {
+		return DepVersion{}, errors.Wrap(err, "build version metadata")
 	}
 
 	endpoint := apiv1.GetDefaultVersionServiceEndpoint()

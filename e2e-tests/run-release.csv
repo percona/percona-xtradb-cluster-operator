@@ -9,10 +9,12 @@ demand-backup-flow-control
 demand-backup-parallel
 demand-backup-cloud
 demand-backup-encrypted-with-tls
+demand-backup-without-passwords
 haproxy
 init-deploy
 limits
 monitoring-2-0
+monitoring-pmm3
 one-pod
 operator-self-healing-chaos
 pitr

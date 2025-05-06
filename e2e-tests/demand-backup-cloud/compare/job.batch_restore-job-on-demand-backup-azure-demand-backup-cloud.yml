@@ -81,9 +81,6 @@ spec:
             limits:
               cpu: 50m
               memory: 50M
-            requests:
-              cpu: 50m
-              memory: 50M
           securityContext:
             privileged: true
           terminationMessagePath: /dev/termination-log
@@ -91,9 +88,6 @@ spec:
           volumeMounts:
             - mountPath: /opt/percona
               name: bin
-            - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
-              name: kube-api-access
-              readOnly: true
       restartPolicy: Never
       schedulerName: default-scheduler
       securityContext:

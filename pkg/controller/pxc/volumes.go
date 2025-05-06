@@ -244,10 +244,15 @@ func (r *ReconcilePerconaXtraDBCluster) reconcilePersistentVolumes(ctx context.C
 		return nil
 	}
 
-	err = k8s.AnnotateObject(ctx, r.client, cr, map[string]string{pxcv1.AnnotationPVCResizeInProgress: metav1.Now().Format(time.RFC3339)})
+	now := metav1.Now().Format(time.RFC3339)
+
+	err = k8s.AnnotateObject(ctx, r.client, cr, map[string]string{pxcv1.AnnotationPVCResizeInProgress: now})
 	if err != nil {
 		return errors.Wrap(err, "annotate pxc")
 	}
+	// AnnotateObject will not add an annotation to the current cr reference.
+	// We should annotate it manually so that other reconcile functions can see it.
+	cr.Annotations[pxcv1.AnnotationPVCResizeInProgress] = now
 
 	log.Info("Resizing PVCs", "requested", requested, "actual", actual, "pvcList", strings.Join(pvcsToUpdate, ","))
 

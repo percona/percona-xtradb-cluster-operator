@@ -236,11 +236,6 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.Per
 
 	if cr.CompareVersionWith("1.18.0") >= 0 {
 		pxcMonit.Args = append(pxcMonit.Args, "-protocol=$(PEER_LIST_SRV_PROTOCOL)")
-
-		pxcMonit.Env = append(pxcMonit.Env, corev1.EnvVar{
-			Name:  "PEER_LIST_SRV_PROTOCOL",
-			Value: "",
-		})
 	}
 
 	proxysqlMonit := corev1.Container{

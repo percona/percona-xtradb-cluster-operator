@@ -2,8 +2,11 @@ package pxc
 
 import (
 	"context"
-
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	"github.com/pkg/errors"
+	appsv1 "k8s.io/api/apps/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
@@ -20,7 +23,16 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBinlogCollector(ctx context.Con
 		return errors.Wrap(err, "create or update binlog collector")
 	}
 
-	collector, err := binlogcollector.GetDeployment(cr, initImage)
+	existingDepl := &appsv1.Deployment{}
+	binlogCollectorName := naming.BinlogCollectorDeploymentName(cr)
+	err = r.client.Get(ctx, types.NamespacedName{Name: binlogCollectorName, Namespace: cr.Namespace}, existingDepl)
+	if err != nil {
+		if !apierrors.IsNotFound(err) {
+			return errors.Wrap(err, "get existing deployment")
+		}
+	}
+
+	collector, err := binlogcollector.GetDeployment(cr, initImage, existingDepl.Spec.Selector)
 	if err != nil {
 		return errors.Wrapf(err, "get binlog collector deployment for cluster '%s'", cr.Name)
 	}

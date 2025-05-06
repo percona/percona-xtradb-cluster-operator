@@ -65,6 +65,7 @@ COPY build/readiness-check.sh /readiness-check.sh
 COPY build/pmm-prerun.sh /pmm-prerun.sh
 COPY build/get-pxc-state /get-pxc-state
 COPY build/wsrep_cmd_notify_handler.sh /wsrep_cmd_notify_handler.sh
+COPY build/prepare_restored_cluster.sh /prepare_restored_cluster.sh
 
 COPY build/haproxy-entrypoint.sh /haproxy-entrypoint.sh
 COPY build/haproxy-init-entrypoint.sh /haproxy-init-entrypoint.sh

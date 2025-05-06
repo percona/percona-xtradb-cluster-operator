@@ -15,6 +15,8 @@ IMAGE_HAPROXY=percona/haproxy:2.8.14
 IMAGE_LOGCOLLECTOR=percona/percona-xtradb-cluster-operator:1.17.0-logcollector-fluentbit4.0.0
 IMAGE_PMM_CLIENT=percona/pmm-client:2.44.0
 IMAGE_PMM_SERVER=percona/pmm-server:2.44.0
+IMAGE_PMM3_CLIENT=percona/pmm-client:3.1.0
+IMAGE_PMM3_SERVER=percona/pmm-server:3.1.0
 
 # Supported k8s versions
 GKE_MIN=1.29

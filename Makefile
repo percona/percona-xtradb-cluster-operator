@@ -14,6 +14,7 @@ help: ## Display this help.
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
 generate: controller-gen  ## Generate CRDs and RBAC files
+	go generate ./...
 	$(CONTROLLER_GEN) crd:maxDescLen=0,allowDangerousTypes=true rbac:roleName=$(NAME) webhook paths="./..." output:crd:artifacts:config=config/crd/bases  ## Generate WebhookConfiguration, Role and CustomResourceDefinition objects.
 	$(CONTROLLER_GEN) object paths="./..." ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 
@@ -150,11 +151,11 @@ VS_BRANCH = main
 version-service-client: swagger
 	curl https://raw.githubusercontent.com/Percona-Lab/percona-version-service/$(VS_BRANCH)/api/version.swagger.yaml \
 		--output ./version.swagger.yaml
-	rm -rf ./version/client
-	mkdir -p ./version/client/models
-	mkdir -p ./version/client/version_service
+	rm -rf ./pkg/version/client
+	mkdir -p ./pkg/version/client/models
+	mkdir -p ./pkg/version/client/version_service
 	./bin/swagger generate client \
-		-f ./version.swagger.yaml \
-		-c ./version/client \
-		-m ./version/client/models
+		-f ./pkg/version.swagger.yaml \
+		-c ./pkg/version/client \
+		-m ./pkg/version/client/models
 	rm ./version.swagger.yaml

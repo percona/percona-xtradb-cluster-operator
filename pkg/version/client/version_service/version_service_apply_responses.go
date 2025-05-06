@@ -13,7 +13,7 @@ import (
 	"github.com/go-openapi/runtime"
 	"github.com/go-openapi/strfmt"
 
-	"github.com/percona/percona-xtradb-cluster-operator/version/client/models"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/version/client/models"
 )
 
 // VersionServiceApplyReader is a Reader for the VersionServiceApply structure.
@@ -101,7 +101,6 @@ func (o *VersionServiceApplyOK) GetPayload() *models.VersionVersionResponse {
 }
 
 func (o *VersionServiceApplyOK) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
-
 	o.Payload = new(models.VersionVersionResponse)
 
 	// response payload
@@ -175,7 +174,6 @@ func (o *VersionServiceApplyDefault) GetPayload() *models.GooglerpcStatus {
 }
 
 func (o *VersionServiceApplyDefault) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
-
 	o.Payload = new(models.GooglerpcStatus)
 
 	// response payload

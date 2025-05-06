@@ -24,7 +24,7 @@ import (
 
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/util"
-	"github.com/percona/percona-xtradb-cluster-operator/version"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/version"
 )
 
 // PerconaXtraDBClusterSpec defines the desired state of PerconaXtraDBCluster
@@ -638,10 +638,12 @@ type LogCollectorSpec struct {
 }
 
 type PMMSpec struct {
-	Enabled                  bool                        `json:"enabled,omitempty"`
-	ServerHost               string                      `json:"serverHost,omitempty"`
-	Image                    string                      `json:"image,omitempty"`
+	Enabled    bool   `json:"enabled,omitempty"`
+	ServerHost string `json:"serverHost,omitempty"`
+	Image      string `json:"image,omitempty"`
+	// Deprecated, ServerUser is used for PMM2. PMM2 is reaching its EOL.
 	ServerUser               string                      `json:"serverUser,omitempty"`
+	CustomClusterName        string                      `json:"customClusterName,omitempty"`
 	PxcParams                string                      `json:"pxcParams,omitempty"`
 	ProxysqlParams           string                      `json:"proxysqlParams,omitempty"`
 	Resources                corev1.ResourceRequirements `json:"resources,omitempty"`
@@ -656,6 +658,7 @@ func (spec *PMMSpec) IsEnabled(secret *corev1.Secret) bool {
 	return spec.Enabled && spec.HasSecret(secret)
 }
 
+// HasSecret is used for supporting PMM2.
 func (spec *PMMSpec) HasSecret(secret *corev1.Secret) bool {
 	for _, key := range []string{users.PMMServer, users.PMMServerKey} {
 		if _, ok := secret.Data[key]; ok {
@@ -665,6 +668,7 @@ func (spec *PMMSpec) HasSecret(secret *corev1.Secret) bool {
 	return false
 }
 
+// UseAPI is used for supporting PMM2.
 func (spec *PMMSpec) UseAPI(secret *corev1.Secret) bool {
 	if _, ok := secret.Data[users.PMMServerKey]; !ok {
 		if _, ok := secret.Data[users.PMMServer]; ok {

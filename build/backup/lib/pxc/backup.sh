@@ -19,7 +19,8 @@ log() {
 	{ set +x; } 2>/dev/null
 	local level=$1
 	local message=$2
-	local now=$(date '+%F %H:%M:%S')
+	local now
+	now=$(date '+%F %H:%M:%S')
 
 	echo "${now} [${level}] ${message}"
 	set -x
@@ -31,7 +32,6 @@ clean_backup_s3() {
 	local time=15
 	local is_deleted_full=0
 	local is_deleted_info=0
-	local exit_code=0
 
 	for i in {1..5}; do
 		if ((i > 1)); then
@@ -42,6 +42,7 @@ clean_backup_s3() {
 		if is_object_exist "$S3_BUCKET" "$S3_BUCKET_PATH/"; then
 			log 'INFO' "Delete (attempt $i)..."
 
+			# shellcheck disable=SC2086
 			xbcloud delete ${XBCLOUD_ARGS} --storage=s3 --s3-bucket="$S3_BUCKET" "$S3_BUCKET_PATH"
 		else
 			is_deleted_full=1
@@ -50,6 +51,7 @@ clean_backup_s3() {
 		if is_object_exist "$S3_BUCKET" "$S3_BUCKET_PATH.$SST_INFO_NAME/"; then
 			log 'INFO' "Delete (attempt $i)..."
 
+			# shellcheck disable=SC2086
 			xbcloud delete ${XBCLOUD_ARGS} --storage=s3 --s3-bucket="$S3_BUCKET" "$S3_BUCKET_PATH.$SST_INFO_NAME"
 		else
 			is_deleted_info=1
@@ -59,7 +61,7 @@ clean_backup_s3() {
 			log 'INFO' "Object deleted successfully before attempt $i. Exiting."
 			break
 		fi
-		let time*=2
+		((time *= 2))
 	done
 }
 
@@ -119,7 +121,6 @@ clean_backup_azure() {
 	local time=15
 	local is_deleted_full=0
 	local is_deleted_info=0
-	local exit_code=0
 
 	for i in {1..5}; do
 		if ((i > 1)); then
@@ -129,6 +130,7 @@ clean_backup_azure() {
 
 		if is_object_exist_azure "$BACKUP_PATH.$SST_INFO_NAME/"; then
 			log 'INFO' "Delete (attempt $i)..."
+			# shellcheck disable=SC2086
 			xbcloud delete ${XBCLOUD_ARGS} --storage=azure "$BACKUP_PATH.$SST_INFO_NAME"
 		else
 			is_deleted_info=1
@@ -136,6 +138,7 @@ clean_backup_azure() {
 
 		if is_object_exist_azure "$BACKUP_PATH/"; then
 			log 'INFO' "Delete (attempt $i)..."
+			# shellcheck disable=SC2086
 			xbcloud delete ${XBCLOUD_ARGS} --storage=azure "$BACKUP_PATH"
 		else
 			is_deleted_full=1
@@ -145,6 +148,6 @@ clean_backup_azure() {
 			log 'INFO' "Object deleted successfully before attempt $i. Exiting."
 			break
 		fi
-		let time*=2
+		((time *= 2))
 	done
 }

@@ -13,7 +13,7 @@ function mysql_exec() {
 
 function wait_for_mysql() {
 	local h="$1"
-	for i in {1..10}; do
+	for _ in {1..10}; do
 		if [ "$(mysql_exec "$h" 'select 1')" == "1" ]; then
 			return
 		fi

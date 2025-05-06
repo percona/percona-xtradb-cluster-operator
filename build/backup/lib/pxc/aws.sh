@@ -15,6 +15,7 @@ is_object_exist() {
 	local path="$2"
 
 	# '--summarize' is included to retrieve the 'Total Objects:' count for checking object/folder existence
+	# shellcheck disable=SC2086
 	res=$(aws $AWS_S3_NO_VERIFY_SSL s3 ls "s3://$bucket/$path" --summarize --recursive)
 	if echo "$res" | grep -q 'Total Objects: 0'; then
 		return 1 # object/folder does not exist

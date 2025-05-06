@@ -24,11 +24,16 @@ function vault_get() {
 		exit 1
 	fi
 
-	export VAULT_TOKEN=$(parse_ini "token" "${keyring_vault}")
-	export VAULT_ADDR=$(parse_ini "vault_url" "${keyring_vault}")
-	local vault_root=$(parse_ini "secret_mount_point" "${keyring_vault}")/backup
-	local gtid=$(parse_ini "galera-gtid" "${sst_info}")
-	local ca_path=$(parse_ini "vault_ca" "${keyring_vault}")
+	export VAULT_TOKEN
+	VAULT_TOKEN=$(parse_ini "token" "${keyring_vault}")
+	export VAULT_ADDR
+	VAULT_ADDR=$(parse_ini "vault_url" "${keyring_vault}")
+	local vault_root
+	vault_root=$(parse_ini "secret_mount_point" "${keyring_vault}")/backup
+	local gtid
+	gtid=$(parse_ini "galera-gtid" "${sst_info}")
+	local ca_path
+	ca_path=$(parse_ini "vault_ca" "${keyring_vault}")
 
 	curl ${ca_path:+--cacert $ca_path} \
 		-H "X-Vault-Request: true" \
@@ -52,17 +57,23 @@ function vault_store() {
 	fi
 
 	set +o xtrace # hide sensitive information
-	local transition_key=$(parse_ini "transition-key" "${sst_info}")
+	local transition_key
+	transition_key=$(parse_ini "transition-key" "${sst_info}")
 	if [ -z "${transition_key}" ]; then
 		echo "no transition key in the SST info: backup is an unencrypted, or it was already processed"
 		return 0
 	fi
 
-	export VAULT_TOKEN=$(parse_ini "token" "${keyring_vault}")
-	export VAULT_ADDR=$(parse_ini "vault_url" "${keyring_vault}")
-	local vault_root=$(parse_ini "secret_mount_point" "${keyring_vault}")/backup
-	local gtid=$(parse_ini "galera-gtid" "${sst_info}")
-	local ca_path=$(parse_ini "vault_ca" "${keyring_vault}")
+	export VAULT_TOKEN
+	VAULT_TOKEN=$(parse_ini "token" "${keyring_vault}")
+	export VAULT_ADDR
+	VAULT_ADDR=$(parse_ini "vault_url" "${keyring_vault}")
+	local vault_root
+	vault_root=$(parse_ini "secret_mount_point" "${keyring_vault}")/backup
+	local gtid
+	gtid=$(parse_ini "galera-gtid" "${sst_info}")
+	local ca_path
+	ca_path=$(parse_ini "vault_ca" "${keyring_vault}")
 
 	curl ${ca_path:+--cacert $ca_path} \
 		-X PUT \
@@ -73,5 +84,5 @@ function vault_store() {
 		"${VAULT_ADDR}/v1/${vault_root}/${gtid}"
 
 	set -o xtrace
-	sed -i '/transition-key/d' $sst_info >/dev/null
+	sed -i '/transition-key/d' "$sst_info" >/dev/null
 }

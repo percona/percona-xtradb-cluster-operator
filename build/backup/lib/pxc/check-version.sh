@@ -13,7 +13,7 @@ normalize_version() {
 		patch=${BASH_REMATCH[3]}
 	fi
 
-	printf %02d%02d%02d $major $minor $patch
+	printf %02d%02d%02d "$major" "$minor" "$patch"
 }
 
 check_for_version() {
@@ -25,8 +25,10 @@ check_for_version() {
 		echo "Error: required version is empty"
 		exit 1
 	fi
-	local local_version_str="$(normalize_version $1)"
-	local required_version_str="$(normalize_version $2)"
+	local local_version_str
+	local required_version_str
+	local_version_str="$(normalize_version "$1")"
+	required_version_str="$(normalize_version "$2")"
 
 	if [[ $local_version_str < $required_version_str ]]; then
 		return 1

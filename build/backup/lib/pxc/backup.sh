@@ -3,6 +3,7 @@
 set -o errexit
 
 LIB_PATH='/opt/percona/backup/lib/pxc'
+# shellcheck source=build/backup/lib/pxc/aws.sh
 . ${LIB_PATH}/aws.sh
 
 SST_INFO_NAME=sst_info

@@ -4,9 +4,9 @@ set -o errexit
 set -o xtrace
 
 LIB_PATH='/opt/percona/backup/lib/pxc'
-# shellcheck source=lib/pxc/check-version.sh
+# shellcheck source=build/backup/lib/pxc/check-version.sh
 . ${LIB_PATH}/check-version.sh
-# shellcheck source=lib/pxc/vault.sh
+# shellcheck source=build/backup/lib/pxc/vault.sh
 . ${LIB_PATH}/vault.sh
 
 SOCAT_OPTS="TCP:${RESTORE_SRC_SERVICE}:3307,retry=30"

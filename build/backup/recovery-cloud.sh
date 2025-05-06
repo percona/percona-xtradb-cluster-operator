@@ -4,11 +4,11 @@ set -o errexit
 set -o xtrace
 
 LIB_PATH='/opt/percona/backup/lib/pxc'
-# shellcheck source=lib/pxc/check-version.sh
+# shellcheck source=build/backup/lib/pxc/check-version.sh
 . ${LIB_PATH}/check-version.sh
-# shellcheck source=lib/pxc/vault.sh
+# shellcheck source=build/backup/lib/pxc/vault.sh
 . ${LIB_PATH}/vault.sh
-# shellcheck source=lib/pxc/aws.sh
+# shellcheck source=build/backup/lib/pxc/aws.sh
 . ${LIB_PATH}/aws.sh
 
 # temporary fix for PXB-2784

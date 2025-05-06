@@ -5,11 +5,11 @@ set -o xtrace
 set -m
 
 LIB_PATH='/opt/percona/backup/lib/pxc'
-# shellcheck source=lib/pxc/vault.sh
+# shellcheck source=build/backup/lib/pxc/vault.sh
 . ${LIB_PATH}/vault.sh
-# shellcheck source=lib/pxc/backup.sh
+# shellcheck source=build/backup/lib/pxc/backup.sh
 . ${LIB_PATH}/backup.sh
-# shellcheck source=lib/pxc/aws.sh
+# shellcheck source=build/backup/lib/pxc/aws.sh
 . ${LIB_PATH}/aws.sh
 
 SOCAT_OPTS="TCP-LISTEN:4444,reuseaddr,retry=30"

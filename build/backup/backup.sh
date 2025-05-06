@@ -4,13 +4,13 @@ set -o errexit
 set -o xtrace
 
 LIB_PATH='/opt/percona/backup/lib/pxc'
-# shellcheck source=lib/pxc/backup.sh
+# shellcheck source=build/backup/lib/pxc/backup.sh
 . ${LIB_PATH}/backup.sh
-# shellcheck source=lib/pxc/vault.sh
+# shellcheck source=build/backup/lib/pxc/vault.sh
 . ${LIB_PATH}/vault.sh
-# shellcheck source=lib/pxc/aws.sh
+# shellcheck source=build/backup/lib/pxc/aws.sh
 . ${LIB_PATH}/aws.sh
-# shellcheck source=lib/pxc/check-version.sh
+# shellcheck source=build/backup/lib/pxc/check-version.sh
 . ${LIB_PATH}/check-version.sh
 
 GARBD_OPTS=""
@@ -53,7 +53,7 @@ function request_streaming() {
 	NODE_NAME=$(get_backup_source)
 
 	if [ -z "$NODE_NAME" ]; then
-		/opt/percona/peer-list -on-start=/opt/percona/backup/lib/pxc/get-pxc-state.sh -service=$PXC_SERVICE
+		/opt/percona/peer-list -on-start=/opt/percona/backup/lib/pxc/get-pxc-state.sh -service="$PXC_SERVICE"
 		log 'ERROR' 'Cannot find node for backup'
 		log 'ERROR' 'Backup was finished unsuccessful'
 		exit 1

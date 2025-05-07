@@ -287,7 +287,7 @@ func RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClust
 		return nil, errors.Wrap(err, "restore job envs")
 	}
 
-	if cluster.CompareVersionWith("1.17.0") >= 0 {
+	if cluster.CompareVersionWith("1.17.0") >= 0 && !pitr {
 		volumes = append(volumes,
 			corev1.Volume{
 				Name: app.BinVolumeName,
@@ -303,7 +303,6 @@ func RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClust
 				MountPath: app.BinVolumeMountPath,
 			},
 		)
-
 		initContainers = []corev1.Container{statefulset.BackupInitContainer(cluster, initImage, cluster.Spec.PXC.ContainerSecurityContext)}
 	}
 

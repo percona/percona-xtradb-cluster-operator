@@ -120,7 +120,7 @@ func PVCRestorePod(cr *api.PerconaXtraDBClusterRestore, bcpStorageName, pvcName 
 	}
 
 	var initContainers []corev1.Container
-	if cluster.CompareVersionWith("1.17.0") >= 0 {
+	if cluster.CompareVersionWith("1.18.0") >= 0 {
 		volumes = append(volumes,
 			corev1.Volume{
 				Name: app.BinVolumeName,
@@ -287,7 +287,7 @@ func RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClust
 		return nil, errors.Wrap(err, "restore job envs")
 	}
 
-	if cluster.CompareVersionWith("1.17.0") >= 0 && !pitr {
+	if cluster.CompareVersionWith("1.18.0") >= 0 && !pitr {
 		volumes = append(volumes,
 			corev1.Volume{
 				Name: app.BinVolumeName,

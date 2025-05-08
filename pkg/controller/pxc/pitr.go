@@ -26,9 +26,8 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBinlogCollector(ctx context.Con
 	existingDepl := &appsv1.Deployment{}
 	binlogCollectorName := naming.BinlogCollectorDeploymentName(cr)
 	err = r.client.Get(ctx, types.NamespacedName{Name: binlogCollectorName, Namespace: cr.Namespace}, existingDepl)
-	if err != nil {
-		if !apierrors.IsNotFound(err) {
-			return errors.Wrap(err, "get existing deployment")
+	if client.IgnoreNotFound(nil) != nil {
+		return errors.Wrap(err, "get existing deployment")
 		}
 	}
 

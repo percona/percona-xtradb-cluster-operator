@@ -36,7 +36,7 @@ spec:
     spec:
       containers:
         - command:
-            - recovery-pvc-joiner.sh
+            - /opt/percona/backup/recovery-pvc-joiner.sh
           env:
             - name: RESTORE_SRC_SERVICE
               value: restore-src-restore-pvc-sec-context
@@ -58,7 +58,25 @@ spec:
               name: ssl
             - mountPath: /etc/mysql/ssl-internal
               name: ssl-internal
+            - mountPath: /opt/percona
+              name: bin
       dnsPolicy: ClusterFirst
+      initContainers:
+        - command:
+            - /backup-init-entrypoint.sh
+          imagePullPolicy: Always
+          name: backup-init
+          resources:
+            limits:
+              cpu: 50m
+              memory: 50M
+          securityContext:
+            privileged: true
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /opt/percona
+              name: bin
       restartPolicy: Never
       schedulerName: default-scheduler
       securityContext:
@@ -92,3 +110,5 @@ spec:
             defaultMode: 420
             optional: false
             secretName: some-name-ssl
+        - emptyDir: {}
+          name: bin

@@ -14,7 +14,15 @@ spec:
     spec:
       containers:
       - name: pxc-client
-        image: percona/percona-xtradb-cluster-operator:1.0.0-backup
+        command: ["bash", "-c", "sleep 100500"]
+        image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0
+        imagePullPolicy: Always
+        volumeMounts:
+        - mountPath: /etc/mysql/ssl
+          name: ssl
+      - name: backup
+        command: ["bash", "-c", "sleep 100500"]
+        image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0-backup
         imagePullPolicy: Always
         volumeMounts:
         - mountPath: /etc/mysql/ssl

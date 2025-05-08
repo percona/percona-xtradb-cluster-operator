@@ -1708,8 +1708,6 @@ spec:
                       rule: '!(has(self.loadBalancerClass)) || self.type == ''LoadBalancer'''
                   externalTrafficPolicy:
                     type: string
-                  forceUnsafeBootstrap:
-                    type: boolean
                   gracePeriod:
                     format: int64
                     type: integer
@@ -5142,8 +5140,6 @@ spec:
                       rule: '!(has(self.loadBalancerClass)) || self.type == ''LoadBalancer'''
                   externalTrafficPolicy:
                     type: string
-                  forceUnsafeBootstrap:
-                    type: boolean
                   gracePeriod:
                     format: int64
                     type: integer
@@ -8038,8 +8034,6 @@ spec:
                       rule: '!(has(self.loadBalancerClass)) || self.type == ''LoadBalancer'''
                   externalTrafficPolicy:
                     type: string
-                  forceUnsafeBootstrap:
-                    type: boolean
                   gracePeriod:
                     format: int64
                     type: integer

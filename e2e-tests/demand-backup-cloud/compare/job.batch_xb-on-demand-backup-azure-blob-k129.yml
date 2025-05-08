@@ -50,7 +50,7 @@ spec:
       containers:
         - command:
             - bash
-            - /usr/bin/backup.sh
+            - /opt/percona/backup/backup.sh
           env:
             - name: BACKUP_DIR
               value: /backup

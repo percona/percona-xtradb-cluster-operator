@@ -50,7 +50,7 @@ func GetService(cr *api.PerconaXtraDBCluster) *corev1.Service {
 	}
 }
 
-func GetDeployment(cr *api.PerconaXtraDBCluster, initImage string, existingSelector *metav1.LabelSelector) (appsv1.Deployment, error) {
+func GetDeployment(cr *api.PerconaXtraDBCluster, initImage string, existingMatchLabels map[string]string) (appsv1.Deployment, error) {
 	binlogCollectorName := naming.BinlogCollectorDeploymentName(cr)
 	pxcUser := users.Xtrabackup
 	sleepTime := fmt.Sprintf("%.2f", cr.Spec.Backup.PITR.TimeBetweenUploads)
@@ -66,11 +66,10 @@ func GetDeployment(cr *api.PerconaXtraDBCluster, initImage string, existingSelec
 			labels[key] = value
 		}
 	}
-	var matchLabels map[string]string
-	if existingSelector != nil && !reflect.DeepEqual(existingSelector.MatchLabels, naming.LabelsPITR(cr)) {
-		matchLabels = existingSelector.MatchLabels
-	} else {
-		matchLabels = naming.LabelsPITR(cr)
+
+	matchLabels := naming.LabelsPITR(cr)
+	if existingMatchLabels != nil && !reflect.DeepEqual(existingMatchLabels, matchLabels) {
+		matchLabels = existingMatchLabels
 	}
 
 	envs, err := getStorageEnvs(cr)
@@ -209,7 +208,7 @@ func GetDeployment(cr *api.PerconaXtraDBCluster, initImage string, existingSelec
 		},
 	}
 
-	if cr.CompareVersionWith("1.16.0") >= 0 {
+	if cr.CompareVersionWith("1.16.0") >= 0 && cr.CompareVersionWith("1.18.0") < 0 {
 		depl.Labels = labels
 	}
 

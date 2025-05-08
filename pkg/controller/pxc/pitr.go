@@ -2,6 +2,7 @@ package pxc
 
 import (
 	"context"
+
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -22,12 +23,12 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBinlogCollector(ctx context.Con
 	if err := r.createOrUpdateService(ctx, cr, binlogcollector.GetService(cr), false); err != nil {
 		return errors.Wrap(err, "create or update binlog collector")
 	}
-
 	existingDepl := &appsv1.Deployment{}
 	binlogCollectorName := naming.BinlogCollectorDeploymentName(cr)
 	err = r.client.Get(ctx, types.NamespacedName{Name: binlogCollectorName, Namespace: cr.Namespace}, existingDepl)
-	if client.IgnoreNotFound(nil) != nil {
-		return errors.Wrap(err, "get existing deployment")
+	if err != nil {
+		if !apierrors.IsNotFound(err) {
+			return errors.Wrap(err, "get existing deployment")
 		}
 	}
 

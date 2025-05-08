@@ -161,7 +161,7 @@ func TestGetDeploymentLabelsAndMatchLabels(t *testing.T) {
 					t.Errorf("Deployment labels = %v, want %v", depl.Labels, tt.expectedLabels)
 				}
 			} else {
-				if depl.Labels != nil && len(depl.Labels) != 0 {
+				if len(depl.Labels) != 0 {
 					t.Errorf("Deployment labels = %v, want empty", depl.Labels)
 				}
 			}

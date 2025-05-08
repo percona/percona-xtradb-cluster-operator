@@ -66,9 +66,8 @@ set_debug() {
 }
 
 log() {
-       echo "[$(date +%Y-%m-%dT%H:%M:%S%z)]" $*
+	echo "[$(date +%Y-%m-%dT%H:%M:%S%z)]" $*
 }
-
 
 HELM_VERSION=$(helm version -c | $sed -re 's/.*SemVer:"([^"]+)".*/\1/; s/.*\bVersion:"([^"]+)".*/\1/')
 if [ "${HELM_VERSION:0:2}" == "v2" ]; then
@@ -1585,7 +1584,24 @@ check_passwords_leak() {
 	local passwords
 	local pods
 
-	secrets=$(kubectl_bin get secrets -o json | jq -r '.items[].data | to_entries | .[] | select(.key | (endswith(".crt") or endswith(".key") or endswith(".pub") or endswith(".pem") or endswith(".p12") or endswith(".sql") or contains("release") or contains("namespace") or contains("AWS_ACCESS_KEY_ID") or contains("AZURE_STORAGE_ACCOUNT_NAME")) | not) | .value')
+	JQ_FILTER='
+    .items[]
+    | .data
+    | to_entries[]
+    | select(
+        .key
+        | test("\\.(crt|key|pub|pem|p12|sql)$")
+        or contains("release")
+        or contains("namespace")
+        or contains("AWS_ACCESS_KEY_ID")
+        or contains("AZURE_STORAGE_ACCOUNT_NAME")
+        or contains("PEER_LIST_SRV_PROTOCOL")
+        | not
+      )
+    | .value
+  '
+
+	secrets=$(kubectl_bin get secrets -o json | jq -r "$JQ_FILTER")
 	echo secrets=$secrets
 
 	passwords="$(for i in $secrets; do

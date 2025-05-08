@@ -94,6 +94,7 @@ spec:
             - /opt/percona/peer-list
             - -on-change=/opt/percona/proxysql_add_pxc_nodes.sh
             - -service=$(PXC_SERVICE)
+            - -protocol=$(PEER_LIST_SRV_PROTOCOL)
           env:
             - name: PXC_SERVICE
               value: emptydir-pxc
@@ -130,6 +131,7 @@ spec:
             - /opt/percona/peer-list
             - -on-change=/opt/percona/proxysql_add_proxysql_nodes.sh
             - -service=$(PROXYSQL_SERVICE)
+            - -protocol=$(PEER_LIST_SRV_PROTOCOL)
           env:
             - name: PROXYSQL_SERVICE
               value: emptydir-proxysql-unready

@@ -234,6 +234,11 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.Per
 		}
 	}
 
+	if cr.CompareVersionWith("1.18.0") >= 0 {
+		// PEER_LIST_SRV_PROTOCOL is configured through the secret: EnvVarsSecretName
+		pxcMonit.Args = append(pxcMonit.Args, "-protocol=$(PEER_LIST_SRV_PROTOCOL)")
+	}
+
 	proxysqlMonit := corev1.Container{
 		Name:            "proxysql-monit",
 		Image:           spec.Image,
@@ -321,6 +326,11 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.Per
 		}
 		pxcMonit.Env[1] = operEnv
 		proxysqlMonit.Env[1] = operEnv
+	}
+
+	if cr.CompareVersionWith("1.18.0") >= 0 {
+		// PEER_LIST_SRV_PROTOCOL is configured through the secret: EnvVarsSecretName
+		proxysqlMonit.Args = append(proxysqlMonit.Args, "-protocol=$(PEER_LIST_SRV_PROTOCOL)")
 	}
 
 	return []corev1.Container{pxcMonit, proxysqlMonit}, nil

@@ -248,7 +248,7 @@ func (c *HAProxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.P
 
 	hasKey, err := cr.ConfigHasKey("mysqld", "proxy_protocol_networks")
 	if err != nil {
-		return nil, errors.Wrap(err, "check if congfig has proxy_protocol_networks key")
+		return nil, errors.Wrap(err, "check if config has proxy_protocol_networks key")
 	}
 	if hasKey {
 		container.Env = append(container.Env, corev1.EnvVar{
@@ -297,6 +297,11 @@ func (c *HAProxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.P
 			Name:      app.BinVolumeName,
 			MountPath: app.BinVolumeMountPath,
 		})
+	}
+
+	if cr.CompareVersionWith("1.18.0") >= 0 {
+		// PEER_LIST_SRV_PROTOCOL is configured through the secret: EnvVarsSecretName
+		container.Args = append(container.Args, "-protocol=$(PEER_LIST_SRV_PROTOCOL)")
 	}
 
 	return []corev1.Container{container}, nil

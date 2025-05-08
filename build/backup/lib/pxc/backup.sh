@@ -66,54 +66,35 @@ clean_backup_s3() {
 	done
 }
 
-azure_auth_header_file() {
-	local params="$1"
-	local request_date="$2"
-	local hex_tmp
-	local signature_tmp
-	local auth_header_tmp
-	local resource
-	local string_to_sign
-	local decoded_key
-
-	hex_tmp=$(mktemp)
-	signature_tmp=$(mktemp)
-	auth_header_tmp=$(mktemp)
-
-	decoded_key=$(echo -n "$AZURE_ACCESS_KEY" | base64 -d | hexdump -ve '1/1 "%02x"')
-	echo -n "$decoded_key" >"$hex_tmp"
-
-	resource="/$AZURE_STORAGE_ACCOUNT/$AZURE_CONTAINER_NAME"
-
-	string_to_sign=$(printf "GET\n\n\n\n\n\n\n\n\n\n\n\nx-ms-date:%s\nx-ms-version:2021-06-08\n%s\n%s" \
-		"$request_date" \
-		"$resource" \
-		"$params")
-
-	printf "%s" "$string_to_sign" | openssl dgst -sha256 -mac HMAC -macopt "hexkey:$(cat "$hex_tmp")" -binary | base64 >"$signature_tmp"
-
-	echo -n "Authorization: SharedKey $AZURE_STORAGE_ACCOUNT:$(cat "$signature_tmp")" >"$auth_header_tmp"
-
-	echo "$auth_header_tmp"
-}
-
 is_object_exist_azure() {
 	object="$1"
 	{ set +x; } 2>/dev/null
-	connection_string="$ENDPOINT/$AZURE_CONTAINER_NAME?comp=list&restype=container&prefix=$object"
-	request_date=$(LC_ALL=en_US.utf8 TZ=GMT date "+%a, %d %h %Y %H:%M:%S %Z")
-	header_version="x-ms-version: 2021-06-08"
-	header_date="x-ms-date: $request_date"
-	header_auth_file=$(azure_auth_header_file "$(printf 'comp:list\nprefix:%s\nrestype:container' "$object")" "$request_date")
 
-	response=$(curl -s -H "$header_version" -H "$header_date" -H "@$header_auth_file" "${connection_string}")
-	res=$(echo "$response" | grep "<Blob>")
-	set -x
+	out=$(
+		HOME=/tmp/azurehome az storage blob list \
+			--blob-endpoint "$ENDPOINT" \
+			--container-name "$AZURE_CONTAINER_NAME" \
+			--account-key "$AZURE_ACCESS_KEY" \
+			--prefix "$object" \
+			--auth-mode key \
+			--only-show-errors \
+			--num-results 1 \
+			-o json
+	)
 
-	if [[ ${#res} -ne 0 ]]; then
+	# shellcheck disable=SC2181
+	if [[ $? -ne 0 ]]; then
+		echo "Error: Failed to check if blob exists"
+		exit 1
+	fi
+
+	if [[ $(echo "$out" | jq '. | length') == "1" ]]; then
+		set -x
 		return 0
 	fi
+	set -x
 	return 1
+
 }
 
 clean_backup_azure() {

@@ -2,11 +2,15 @@ package pxc
 
 import (
 	"context"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/pkg/errors"
+	appsv1 "k8s.io/api/apps/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/binlogcollector"
 )
 
@@ -19,8 +23,15 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBinlogCollector(ctx context.Con
 	if err := r.createOrUpdateService(ctx, cr, binlogcollector.GetService(cr), false); err != nil {
 		return errors.Wrap(err, "create or update binlog collector")
 	}
+	existingDepl := &appsv1.Deployment{}
+	binlogCollectorName := naming.BinlogCollectorDeploymentName(cr)
+	err = r.client.Get(ctx, types.NamespacedName{Name: binlogCollectorName, Namespace: cr.Namespace}, existingDepl)
 
-	collector, err := binlogcollector.GetDeployment(cr, initImage)
+	if client.IgnoreNotFound(nil) != nil {
+		return errors.Wrap(err, "get existing deployment")
+	}
+
+	collector, err := binlogcollector.GetDeployment(cr, initImage, existingDepl.Spec.Selector.MatchLabels)
 	if err != nil {
 		return errors.Wrapf(err, "get binlog collector deployment for cluster '%s'", cr.Name)
 	}

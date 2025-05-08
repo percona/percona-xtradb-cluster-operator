@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"reflect"
 	"strconv"
 	"strings"
 
@@ -49,7 +50,7 @@ func GetService(cr *api.PerconaXtraDBCluster) *corev1.Service {
 	}
 }
 
-func GetDeployment(cr *api.PerconaXtraDBCluster, initImage string) (appsv1.Deployment, error) {
+func GetDeployment(cr *api.PerconaXtraDBCluster, initImage string, existingMatchLabels map[string]string) (appsv1.Deployment, error) {
 	binlogCollectorName := naming.BinlogCollectorDeploymentName(cr)
 	pxcUser := users.Xtrabackup
 	sleepTime := fmt.Sprintf("%.2f", cr.Spec.Backup.PITR.TimeBetweenUploads)
@@ -65,6 +66,12 @@ func GetDeployment(cr *api.PerconaXtraDBCluster, initImage string) (appsv1.Deplo
 			labels[key] = value
 		}
 	}
+
+	matchLabels := naming.LabelsPITR(cr)
+	if existingMatchLabels != nil && !reflect.DeepEqual(existingMatchLabels, matchLabels) {
+		matchLabels = existingMatchLabels
+	}
+
 	envs, err := getStorageEnvs(cr)
 	if err != nil {
 		return appsv1.Deployment{}, errors.Wrap(err, "get storage envs")
@@ -173,7 +180,7 @@ func GetDeployment(cr *api.PerconaXtraDBCluster, initImage string) (appsv1.Deplo
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &replicas,
 			Selector: &metav1.LabelSelector{
-				MatchLabels: labels,
+				MatchLabels: matchLabels,
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
@@ -201,7 +208,7 @@ func GetDeployment(cr *api.PerconaXtraDBCluster, initImage string) (appsv1.Deplo
 		},
 	}
 
-	if cr.CompareVersionWith("1.16.0") >= 0 {
+	if cr.CompareVersionWith("1.16.0") >= 0 && cr.CompareVersionWith("1.18.0") < 0 {
 		depl.Labels = labels
 	}
 

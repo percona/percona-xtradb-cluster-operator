@@ -102,7 +102,7 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(ctx context.Context, sfs api.S
 		if err := r.client.Get(ctx, client.ObjectKeyFromObject(currentSet), currentSet); client.IgnoreNotFound(err) != nil {
 			return errors.Wrap(err, "failed to get statefulset")
 		}
-		if currentSet.DeletionTimestamp != nil {
+		if !currentSet.DeletionTimestamp.IsZero() {
 			return errStsWillBeDeleted
 		}
 		annotations := currentSet.Spec.Template.Annotations

@@ -5,11 +5,12 @@ import (
 	"testing"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/version"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func TestGetDeploymentLabelsAndMatchLabels(t *testing.T) {
+func TestGetDeployment(t *testing.T) {
 	createCR := func() *api.PerconaXtraDBCluster {
 		return &api.PerconaXtraDBCluster{
 			ObjectMeta: metav1.ObjectMeta{
@@ -17,7 +18,7 @@ func TestGetDeploymentLabelsAndMatchLabels(t *testing.T) {
 				Namespace: "default",
 			},
 			Spec: api.PerconaXtraDBClusterSpec{
-				CRVersion: "1.15.0",
+				CRVersion: version.Version(),
 				InitContainer: api.InitContainerSpec{
 					Resources: &corev1.ResourceRequirements{
 						Requests: nil,
@@ -69,7 +70,6 @@ func TestGetDeploymentLabelsAndMatchLabels(t *testing.T) {
 		existingMatchLabels map[string]string
 		expectedLabels      map[string]string
 		expectedMatchLabels map[string]string
-		expectError         bool
 	}{
 		{
 			name:                "Default labels and matchLabels",
@@ -90,7 +90,6 @@ func TestGetDeploymentLabelsAndMatchLabels(t *testing.T) {
 				"app.kubernetes.io/name":       "percona-xtradb-cluster",
 				"app.kubernetes.io/part-of":    "percona-xtradb-cluster",
 			},
-			expectError: false,
 		},
 		{
 			name: "Custom existing matchLabels",
@@ -109,7 +108,6 @@ func TestGetDeploymentLabelsAndMatchLabels(t *testing.T) {
 			expectedMatchLabels: map[string]string{
 				"custom-label": "custom-value",
 			},
-			expectError: false,
 		},
 		{
 			name: "Version 1.16.0 includes labels on deployment",
@@ -134,7 +132,6 @@ func TestGetDeploymentLabelsAndMatchLabels(t *testing.T) {
 				"app.kubernetes.io/name":       "percona-xtradb-cluster",
 				"app.kubernetes.io/part-of":    "percona-xtradb-cluster",
 			},
-			expectError: false,
 		},
 	}
 
@@ -143,8 +140,8 @@ func TestGetDeploymentLabelsAndMatchLabels(t *testing.T) {
 
 			depl, err := GetDeployment(tt.cr, "perconalab/percona-xtradb-cluster-operator:main", tt.existingMatchLabels)
 
-			if (err != nil) != tt.expectError {
-				t.Errorf("GetDeployment() error = %v, expectError %v", err, tt.expectError)
+			if err != nil {
+				t.Errorf("GetDeployment() error = %v, expectError %v", err)
 				return
 			}
 

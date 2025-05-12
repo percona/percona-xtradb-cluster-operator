@@ -16,7 +16,12 @@ SKIP_REMOTE_BACKUPS=${SKIP_REMOTE_BACKUPS:-1}
 PMM_SERVER_VER=${PMM_SERVER_VER:-"9.9.9"}
 IMAGE_PMM_CLIENT=${IMAGE_PMM_CLIENT:-"perconalab/pmm-client:dev-latest"}
 IMAGE_PMM_SERVER=${IMAGE_PMM_SERVER:-"perconalab/pmm-server:dev-latest"}
-CERT_MANAGER_VER="1.16.2"
+IMAGE_PMM3_CLIENT=${IMAGE_PMM3_CLIENT:-"perconalab/pmm-client:3.1.0"}
+IMAGE_PMM3_SERVER=${IMAGE_PMM3_SERVER:-"perconalab/pmm-server:3.1.0"}
+CERT_MANAGER_VER="1.17.1"
+MINIO_VER="5.4.0"
+CHAOS_MESH_VER="2.7.1"
+VAULT_VER="0.30.0"
 tmp_dir=$(mktemp -d)
 sed=$(which gsed || which sed)
 date=$(which gdate || which date)
@@ -795,22 +800,6 @@ get_metric_values() {
 
 }
 
-get_qan_values() {
-	local instance=$1
-	local start=$($date -u "+%Y-%m-%dT%H:%M:%S" -d "-30 minute")
-	local end=$($date -u "+%Y-%m-%dT%H:%M:%S")
-	local endpoint=$(get_service_endpoint monitoring-service)
-
-	local uuid=$(
-		curl -s -k "https://$endpoint/qan-api/instances?deleted=no" \
-			| jq '.[] | select(.Subsystem == "mysql" and .Name == "'$instance'") | .UUID' \
-			| sed -e 's/^"//; s/"$//;'
-	)
-
-	curl -s -k "https://$endpoint/qan-api/qan/profile/$uuid?begin=$start&end=$end&offset=0" \
-		| jq '.Query[].Fingerprint'
-}
-
 get_qan20_values() {
 	local instance=$1
 	local user_pass=$2
@@ -933,19 +922,22 @@ spinup_pxc() {
 	wait_for_running "$cluster-pxc" "$size"
 	sleep $sleep
 
+	local secret_name=$(kubectl get pxc $cluster -o jsonpath='{.spec.secretsName}')
+	local root_pass=$(getSecretData $secret_name "root")
+
 	desc 'write data'
 	if [[ $IMAGE_PXC =~ 5\.7 ]] && [[ "$(is_keyring_plugin_in_use "$cluster")" ]]; then
 		encrypt='ENCRYPTION=\"Y\"'
 	fi
 	run_mysql \
 		"CREATE DATABASE IF NOT EXISTS myApp; use myApp; CREATE TABLE IF NOT EXISTS myApp (id int PRIMARY KEY) $encrypt;" \
-		"-h $proxy -uroot -proot_password -P$port"
+		"-h $proxy -uroot -p'${root_pass}' -P$port"
 	run_mysql \
 		'INSERT myApp.myApp (id) VALUES (100500)' \
-		"-h $proxy -uroot -proot_password -P$port"
+		"-h $proxy -uroot -p'${root_pass}' -P$port"
 	sleep 30
 	for i in $(seq 0 $((size - 1))); do
-		compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-$i.$cluster-pxc -uroot -proot_password -P$port"
+		compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-$i.$cluster-pxc -uroot -p'${root_pass}' -P$port"
 	done
 
 	if [ "$(is_keyring_plugin_in_use "$cluster")" ]; then
@@ -1060,37 +1052,40 @@ check_pvc_md5() {
 
 run_backup() {
 	local cluster=$1
-	local backup1=$2
+	local backup=$2
 
-	desc "make backup $backup1"
+	log "run pxc-backup/${backup}"
 	kubectl_bin apply \
-		-f $test_dir/conf/$backup1.yml
-	wait_backup $backup1
+		-f ${test_dir}/conf/${backup}.yml
+	wait_backup ${backup}
 }
 
 run_recovery_check() {
 	local cluster=$1
-	local backup1=$2
+	local backup=$2
 	local proxy=$(get_proxy_engine $cluster)
 
-	desc "recover backup $backup1"
-	cat "$test_dir/conf/restore-${backup1}.yaml" \
+	log "run pxc-restore/${backup}"
+	cat "$test_dir/conf/restore-${backup}.yaml" \
 		| $sed -e "s~minio-service.#namespace~minio-service.$namespace~" \
 		| kubectl_bin apply -f -
-	wait_backup_restore ${backup1}
-	kubectl_bin logs job/restore-job-${backup1}-${cluster}
+	wait_backup_restore ${backup}
+	kubectl_bin logs job/restore-job-${backup}-${cluster}
 	wait_for_running "$cluster-$proxy" 1
 	wait_for_running "$cluster-pxc" 3
 
-	sleep 35
-	desc 'check data after backup'
-	compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
-	compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-1.$cluster-pxc -uroot -proot_password"
-	compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-2.$cluster-pxc -uroot -proot_password"
+	local secret_name=$(kubectl_bin get pxc ${cluster} -o jsonpath='{.spec.secretsName}')
+	local root_pass=$(getSecretData ${secret_name} "root")
 
-	if [ "$backup1" != "on-demand-backup-minio" ]; then
-		desc 'copy backup'
-		bash $src_dir/deploy/backup/copy-backup.sh $backup1 $tmp_dir/backup
+	sleep 35
+	log "check data after pxc-restore/${backup}"
+	compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -p'${root_pass}'"
+	compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-1.$cluster-pxc -uroot -p'${root_pass}'"
+	compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-2.$cluster-pxc -uroot -p'${root_pass}'"
+
+	if [ "$backup" != "on-demand-backup-minio" ]; then
+		log 'copy backup'
+		bash $src_dir/deploy/backup/copy-backup.sh $backup $tmp_dir/backup
 	fi
 }
 
@@ -1203,7 +1198,7 @@ start_vault() {
 		vault_tls "$name"
 		helm install $name hashicorp/vault \
 			--disable-openapi-validation \
-			--version 0.16.1 \
+			--version $VAULT_VER \
 			--namespace "$name" \
 			--set dataStorage.enabled=false \
 			--set global.tlsDisable=false \
@@ -1227,7 +1222,7 @@ storage \"file\" {
 	else
 		helm install $name hashicorp/vault \
 			--disable-openapi-validation \
-			--version 0.16.1 \
+			--version $VAULT_VER \
 			--namespace "$name" \
 			--set dataStorage.enabled=false \
 			--set global.platform="${platform}"
@@ -1290,7 +1285,7 @@ start_minio() {
 
 	local endpoint="http://minio-service:9000"
 	local minio_args=(
-		--version 5.0.14
+		--version $MINIO_VER
 		--set replicas=1
 		--set mode=standalone
 		--set resources.requests.memory=256Mi
@@ -1337,7 +1332,7 @@ deploy_chaos_mesh() {
 
 	desc 'install chaos-mesh'
 	helm repo add chaos-mesh https://charts.chaos-mesh.org
-	helm install chaos-mesh chaos-mesh/chaos-mesh --namespace=${chaos_mesh_ns} --set chaosDaemon.runtime=containerd --set chaosDaemon.socketPath=/run/containerd/containerd.sock --set dashboard.create=false --version 2.5.1
+	helm install chaos-mesh chaos-mesh/chaos-mesh --namespace=${chaos_mesh_ns} --set chaosDaemon.runtime=containerd --set chaosDaemon.socketPath=/run/containerd/containerd.sock --set dashboard.create=false --version $CHAOS_MESH_VER
 	sleep 10
 }
 

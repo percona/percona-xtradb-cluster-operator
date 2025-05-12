@@ -1,4 +1,4 @@
-FROM --platform=${BUILDPLATFORM} golang:1.23 AS go_builder
+FROM --platform=${BUILDPLATFORM} golang:1.24 AS go_builder
 WORKDIR /go/src/github.com/percona/percona-xtradb-cluster-operator
 
 COPY go.mod go.sum ./
@@ -66,6 +66,7 @@ COPY build/readiness-check.sh /readiness-check.sh
 COPY build/pmm-prerun.sh /pmm-prerun.sh
 COPY build/get-pxc-state /get-pxc-state
 COPY build/wsrep_cmd_notify_handler.sh /wsrep_cmd_notify_handler.sh
+COPY build/prepare_restored_cluster.sh /prepare_restored_cluster.sh
 
 COPY build/haproxy-entrypoint.sh /haproxy-entrypoint.sh
 COPY build/haproxy-init-entrypoint.sh /haproxy-init-entrypoint.sh

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"path"
 	"strings"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/pkg/errors"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 )
@@ -175,14 +177,26 @@ func (s *S3) GetPrefix() string {
 }
 
 func (s *S3) DeleteObject(ctx context.Context, objectName string) error {
-	objPath := path.Join(s.prefix, objectName)
-	err := s.client.RemoveObject(ctx, s.bucketName, objPath, minio.RemoveObjectOptions{})
+	log := logf.FromContext(ctx).WithValues("bucket", s.bucketName, "prefix", s.prefix)
+
+	// minio sdk automatically URL-encodes the path
+	objPath, err := url.QueryUnescape(path.Join(s.prefix, objectName))
+	if err != nil {
+		return errors.Wrapf(err, "failed to unescape object path %s", objPath)
+	}
+
+	log.V(1).Info("deleting object", "object", objPath)
+
+	err = s.client.RemoveObject(ctx, s.bucketName, objPath, minio.RemoveObjectOptions{})
 	if err != nil {
 		if minio.ToErrorResponse(errors.Cause(err)).Code == "NoSuchKey" {
 			return ErrObjectNotFound
 		}
 		return errors.Wrapf(err, "failed to remove object %s", objectName)
 	}
+
+	log.V(1).Info("object deleted", "object", objPath)
+
 	return nil
 }
 
@@ -274,6 +288,10 @@ func (a *Azure) GetPrefix() string {
 }
 
 func (a *Azure) DeleteObject(ctx context.Context, objectName string) error {
+	log := logf.FromContext(ctx).WithValues("container", a.container, "prefix", a.prefix, "object", objectName)
+
+	log.V(1).Info("deleting object")
+
 	objPath := path.Join(a.prefix, objectName)
 	_, err := a.client.DeleteBlob(ctx, a.container, objPath, nil)
 	if err != nil {
@@ -282,5 +300,8 @@ func (a *Azure) DeleteObject(ctx context.Context, objectName string) error {
 		}
 		return errors.Wrapf(err, "delete blob %s", objPath)
 	}
+
+	log.V(1).Info("object deleted")
+
 	return nil
 }

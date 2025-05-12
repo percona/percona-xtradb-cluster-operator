@@ -26,7 +26,7 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/binlogcollector"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage"
-	"github.com/percona/percona-xtradb-cluster-operator/version"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/version"
 )
 
 // Add creates a new PerconaXtraDBClusterRestore Controller and adds it to the Manager. The Manager will set fields on the Controller
@@ -120,6 +120,10 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(ctx context.Context, re
 		}
 	}()
 
+	if cr.Status.State == api.RestoreNew {
+		cr.Status.State = api.RestoreStarting
+	}
+
 	otherRestore, err := isOtherRestoreInProgress(ctx, r.client, cr)
 	if err != nil {
 		return rr, errors.Wrap(err, "failed to check if other restore is in progress")
@@ -165,7 +169,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(ctx context.Context, re
 	}
 
 	switch cr.Status.State {
-	case api.RestoreNew:
+	case api.RestoreStarting:
 		return r.reconcileStateNew(ctx, restorer, cr, cluster, bcp)
 	case api.RestoreStopCluster:
 		return r.reconcileStateStopCluster(ctx, restorer, cr, cluster)
@@ -173,6 +177,8 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(ctx context.Context, re
 		return r.reconcileStateRestore(ctx, restorer, cr, cluster)
 	case api.RestorePITR:
 		return r.reconcileStatePITR(ctx, restorer, cr)
+	case api.RestorePrepareCluster:
+		return r.reconcileStatePrepareCluster(ctx, cr, bcp, cluster)
 	case api.RestoreStartCluster:
 		return r.reconcileStateStartCluster(ctx, restorer, cr, cluster)
 	}
@@ -227,6 +233,30 @@ func (r *ReconcilePerconaXtraDBClusterRestore) reconcileStateStartCluster(ctx co
 
 	log.Info("Waiting for cluster to start", "cluster", cluster.Name)
 	return rr, nil
+}
+
+func validate(ctx context.Context, restorer Restorer, cr *api.PerconaXtraDBClusterRestore) error {
+	job, err := restorer.Job()
+	if err != nil {
+		return errors.Wrap(err, "failed to create restore job")
+	}
+	if err := restorer.ValidateJob(ctx, job); err != nil {
+		return errors.Wrap(err, "failed to validate job")
+	}
+
+	if cr.Spec.PITR != nil {
+		job, err := restorer.PITRJob()
+		if err != nil {
+			return errors.Wrap(err, "failed to create pitr restore job")
+		}
+		if err := restorer.ValidateJob(ctx, job); err != nil {
+			return errors.Wrap(err, "failed to validate pitr job")
+		}
+	}
+	if err := restorer.Validate(ctx); err != nil {
+		return errors.Wrap(err, "failed to validate backup existence")
+	}
+	return nil
 }
 
 func (r *ReconcilePerconaXtraDBClusterRestore) reconcileStateNew(ctx context.Context, restorer Restorer, cr *api.PerconaXtraDBClusterRestore, cluster *api.PerconaXtraDBCluster, bcp *api.PerconaXtraDBClusterBackup) (reconcile.Result, error) {
@@ -354,8 +384,8 @@ func (r *ReconcilePerconaXtraDBClusterRestore) reconcileStateRestore(ctx context
 		return rr, nil
 	}
 
-	log.Info("starting cluster", "cluster", cr.Spec.PXCCluster)
-	cr.Status.State = api.RestoreStartCluster
+	log.Info("preparing cluster", "cluster", cr.Spec.PXCCluster)
+	cr.Status.State = api.RestorePrepareCluster
 	return rr, nil
 }
 
@@ -443,26 +473,46 @@ func createRestoreJob(ctx context.Context, cl client.Client, restorer Restorer, 
 	return nil
 }
 
-func validate(ctx context.Context, restorer Restorer, cr *api.PerconaXtraDBClusterRestore) error {
-	job, err := restorer.Job()
+func (r *ReconcilePerconaXtraDBClusterRestore) reconcileStatePrepareCluster(
+	ctx context.Context,
+	cr *api.PerconaXtraDBClusterRestore,
+	bcp *api.PerconaXtraDBClusterBackup,
+	cluster *api.PerconaXtraDBCluster,
+) (reconcile.Result, error) {
+	log := logf.FromContext(ctx)
+
+	initImage, err := k8s.GetInitImage(ctx, cluster, r.client)
 	if err != nil {
-		return errors.Wrap(err, "failed to create restore job")
-	}
-	if err := restorer.ValidateJob(ctx, job); err != nil {
-		return errors.Wrap(err, "failed to validate job")
+		return reconcile.Result{}, errors.Wrap(err, "get init image")
 	}
 
-	if cr.Spec.PITR != nil {
-		job, err := restorer.PITRJob()
-		if err != nil {
-			return errors.Wrap(err, "failed to create pitr restore job")
-		}
-		if err := restorer.ValidateJob(ctx, job); err != nil {
-			return errors.Wrap(err, "failed to validate job")
+	job, err := backup.PrepareJob(cr, bcp, cluster, initImage, r.scheme)
+	if err != nil {
+		return reconcile.Result{}, errors.Wrap(err, "prepare job")
+	}
+
+	if err := r.client.Get(ctx, client.ObjectKeyFromObject(job), job); err != nil {
+		if k8serrors.IsNotFound(err) {
+			if err := r.client.Create(ctx, job); err != nil {
+				return reconcile.Result{}, errors.Wrap(err, "create prepare job")
+			}
+		} else {
+			return reconcile.Result{}, errors.Wrap(err, "get prepare job")
 		}
 	}
-	if err := restorer.Validate(ctx); err != nil {
-		return errors.Wrap(err, "failed to validate backup existence")
+
+	finished, err := isJobFinished(job)
+	if err != nil {
+		cr.Status.State = api.RestoreFailed
+		cr.Status.Comments = err.Error()
+		return reconcile.Result{}, err
 	}
-	return nil
+	if !finished {
+		log.Info("Waiting for prepare job to finish", "job", job.Name)
+		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
+	}
+
+	log.Info("starting cluster", "cluster", cr.Spec.PXCCluster)
+	cr.Status.State = api.RestoreStartCluster
+	return reconcile.Result{}, nil
 }

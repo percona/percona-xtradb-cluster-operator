@@ -307,7 +307,7 @@ func (c *HAProxy) LogCollectorContainer(_ *api.LogCollectorSpec, _ string, _ str
 }
 
 func (c *HAProxy) PMMContainer(ctx context.Context, cl client.Client, spec *api.PMMSpec, secret *corev1.Secret, cr *api.PerconaXtraDBCluster) (*corev1.Container, error) {
-	if cr.CompareVersionWith("1.9.0") < 0 {
+	if cr.Spec.PMM == nil || !cr.Spec.PMM.Enabled {
 		return nil, nil
 	}
 
@@ -315,6 +315,39 @@ func (c *HAProxy) PMMContainer(ctx context.Context, cl client.Client, spec *api.
 	err := cl.Get(ctx, types.NamespacedName{Name: cr.Spec.HAProxy.EnvVarsSecretName, Namespace: cr.Namespace}, envVarsSecret)
 	if client.IgnoreNotFound(err) != nil {
 		return nil, errors.Wrap(err, "get env vars secret")
+	}
+
+	if v, exists := secret.Data[users.PMMServerToken]; exists && len(v) != 0 {
+		pmm3Container, err := app.PMM3Client(cr, secret, envVarsSecret)
+		if err != nil {
+			return nil, errors.Wrap(err, "get pmm3 container")
+		}
+
+		pmm3Container.Env = append(pmm3Container.Env, pmm3HaproxyEnvVars(secret.Name)...)
+
+		pBool := true
+		pmm3Container.EnvFrom = []corev1.EnvFromSource{
+			{
+				SecretRef: &corev1.SecretEnvSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: cr.Spec.HAProxy.EnvVarsSecretName,
+					},
+					Optional: &pBool,
+				},
+			},
+		}
+
+		return &pmm3Container, nil
+	}
+
+	clusterName := cr.Name
+	if cr.CompareVersionWith("1.18.0") >= 0 && cr.Spec.PMM.CustomClusterName != "" {
+		clusterName = cr.Spec.PMM.CustomClusterName
+	}
+
+	// Checking the secret to determine if the PMM2 container can be constructed.
+	if !cr.Spec.PMM.HasSecret(secret) {
+		return nil, errors.New("can't enable PMM2: either pmmserverkey key doesn't exist in the secrets, or secrets and internal secrets are out of sync")
 	}
 
 	ct := app.PMMClient(cr, spec, secret, envVarsSecret)
@@ -358,7 +391,7 @@ func (c *HAProxy) PMMContainer(ctx context.Context, cl client.Client, spec *api.
 		},
 		{
 			Name:  "CLUSTER_NAME",
-			Value: cr.Name,
+			Value: clusterName,
 		},
 		{
 			Name:  "PMM_ADMIN_CUSTOM_PARAMS",
@@ -414,6 +447,34 @@ func (c *HAProxy) PMMContainer(ctx context.Context, cl client.Client, spec *api.
 	ct.Resources = spec.Resources
 
 	return &ct, nil
+}
+
+// pmm3HaproxyEnvVars returns a list of environment variables to configure the PMM3 container for monitoring haproxy.
+func pmm3HaproxyEnvVars(secretName string) []corev1.EnvVar {
+	return []corev1.EnvVar{
+		{
+			Name:  "DB_TYPE",
+			Value: "haproxy",
+		},
+		{
+			Name:  "MONITOR_USER",
+			Value: users.Monitor,
+		},
+		{
+			Name: "MONITOR_PASSWORD",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: app.SecretKeySelector(secretName, users.Monitor),
+			},
+		},
+		{
+			Name:  "PMM_ADMIN_CUSTOM_PARAMS",
+			Value: "--listen-port=8404",
+		},
+		{
+			Name:  "DB_PORT",
+			Value: "3306",
+		},
+	}
 }
 
 func (c *HAProxy) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg api.CustomVolumeGetter) (*api.Volume, error) {

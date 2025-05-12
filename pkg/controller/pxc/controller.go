@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"reflect"
 	"strings"
 	"sync"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	cm "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
+	"github.com/google/go-cmp/cmp"
 	"github.com/pkg/errors"
 	"github.com/robfig/cron/v3"
 	appsv1 "k8s.io/api/apps/v1"
@@ -40,7 +42,8 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/config"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup"
-	"github.com/percona/percona-xtradb-cluster-operator/version"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/util"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/version"
 )
 
 const (
@@ -271,30 +274,18 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 		for _, fnlz := range o.GetFinalizers() {
 			var sfs api.StatefulApp
 			switch fnlz {
-			case "delete-ssl":
-				log.Info("The finalizer delete-ssl is deprecated and will be deleted in 1.18.0. Use percona.com/delete-ssl")
-				fallthrough
 			case naming.FinalizerDeleteSSL:
 				err = r.deleteCerts(ctx, o)
-			case "delete-proxysql-pvc":
-				log.Info("The finalizer delete-proxysql-pvc is deprecated and will be deleted in 1.18.0. Use percona.com/delete-proxysql-pvc")
-				fallthrough
 			case naming.FinalizerDeleteProxysqlPvc:
 				sfs = statefulset.NewProxy(o)
 				// deletePVC is always true on this stage
 				// because we never reach this point without finalizers
 				err = r.deleteStatefulSet(o, sfs, true, false)
-			case "delete-pxc-pvc":
-				log.Info("The finalizer delete-pxc-pvc is deprecated and will be deleted in 1.18.0. Use percona.com/delete-pxc-pvc")
-				fallthrough
 			case naming.FinalizerDeletePxcPvc:
 				sfs = statefulset.NewNode(o)
 				err = r.deleteStatefulSet(o, sfs, true, true)
 			// nil error gonna be returned only when there is no more pods to delete (only 0 left)
 			// until than finalizer won't be deleted
-			case "delete-pxc-pods-in-order":
-				log.Info("The finalizer delete-pxc-pods-in-order is deprecated and will be deleted in 1.18.0. Use percona.com/delete-pxc-pods-in-order")
-				fallthrough
 			case naming.FinalizerDeletePxcPodsInOrder:
 				err = r.deletePXCPods(ctx, o)
 			}
@@ -457,9 +448,6 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 		deletePVC := false
 		for _, fnlz := range o.GetFinalizers() {
 			switch fnlz {
-			case "delete-proxysql-pvc":
-				log.Info("The finalizer delete-proxysql-pvc is deprecated and will be deleted in 1.18.0. Use percona.com/delete-proxysql-pvc")
-				fallthrough
 			case naming.FinalizerDeleteProxysqlPvc:
 				deletePVC = true
 				break
@@ -1132,9 +1120,14 @@ func (r *ReconcilePerconaXtraDBCluster) createOrUpdate(ctx context.Context, cr *
 		return r.client.Create(ctx, obj)
 	}
 
-	if oldObject.GetAnnotations()["percona.com/last-config-hash"] != hash ||
-		!isObjectMetaEqual(obj, oldObject) {
+	switch obj.(type) {
+	case *appsv1.Deployment:
+		objAnnotations := oldObject.GetAnnotations()
+		delete(objAnnotations, "deployment.kubernetes.io/revision")
+		oldObject.SetAnnotations(objAnnotations)
+	}
 
+	if oldObject.GetAnnotations()["percona.com/last-config-hash"] != hash || !isObjectMetaEqual(obj, oldObject) {
 		switch object := obj.(type) {
 		case *corev1.Service:
 			object.Spec.ClusterIP = oldObject.(*corev1.Service).Spec.ClusterIP
@@ -1145,7 +1138,15 @@ func (r *ReconcilePerconaXtraDBCluster) createOrUpdate(ctx context.Context, cr *
 			obj.SetResourceVersion(oldObject.GetResourceVersion())
 		}
 
-		log.V(1).Info("Updating object", "object", obj.GetName(), "kind", obj.GetObjectKind())
+		log.V(1).Info("Updating object",
+			"object", obj.GetName(),
+			"kind", obj.GetObjectKind(),
+			"hashChanged", oldObject.GetAnnotations()["percona.com/last-config-hash"] != hash,
+			"metaChanged", !isObjectMetaEqual(obj, oldObject),
+		)
+		if util.IsLogLevelVerbose() && !util.IsLogStructured() {
+			fmt.Println(cmp.Diff(oldObject, obj))
+		}
 
 		return r.client.Update(ctx, obj)
 	}

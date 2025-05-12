@@ -48,6 +48,10 @@ func TestCRDVersionLabel(t *testing.T) {
 		expectedVersion := "v" + version.Version()
 		expectedLabels := naming.Labels()
 		expectedLabels[naming.LabelOperatorVersion] = expectedVersion
+		expectedLabels[naming.LabelAppKubernetesComponent] = "crd"
+
+		// TODO: Remove this line once the https://perconadev.atlassian.net/browse/K8SPXC-1642 is complete
+		expectedLabels[naming.LabelAppKubernetesPartOf] = "percona-xtradb-cluster-operator"
 
 		for k, expectedValue := range expectedLabels {
 			if crd.Labels[k] == expectedValue {

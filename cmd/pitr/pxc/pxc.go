@@ -206,7 +206,7 @@ func (p *PXC) SubtractGTIDSet(ctx context.Context, set, subSet string) (string, 
 }
 
 func getNodesByServiceName(ctx context.Context, pxcServiceName string) ([]string, error) {
-	cmd := exec.CommandContext(ctx, "/opt/percona/peer-list", "-on-start=/usr/bin/get-pxc-state", "-service="+pxcServiceName)
+	cmd := exec.CommandContext(ctx, "/opt/percona/peer-list", "-on-start=/opt/percona/get-pxc-state.sh", "-service="+pxcServiceName)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return nil, errors.Wrap(err, "get peer-list output")

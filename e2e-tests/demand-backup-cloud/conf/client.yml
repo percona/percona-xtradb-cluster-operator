@@ -14,6 +14,7 @@ spec:
     spec:
       containers:
       - name: backup-client
+        command: ["bash", "-c", "sleep 100500"]
         image: -backup
         imagePullPolicy: IfNotPresent
         volumeMounts:

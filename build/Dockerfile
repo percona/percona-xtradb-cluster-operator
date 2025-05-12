@@ -59,7 +59,6 @@ COPY build/pxc-entrypoint.sh /pxc-entrypoint.sh
 COPY build/pxc-init-entrypoint.sh /pxc-init-entrypoint.sh
 COPY build/pitr-init-entrypoint.sh /pitr-init-entrypoint.sh
 COPY build/backup-init-entrypoint.sh /backup-init-entrypoint.sh
-COPY build/unsafe-bootstrap.sh /unsafe-bootstrap.sh
 COPY build/pxc-configure-pxc.sh /pxc-configure-pxc.sh
 COPY build/liveness-check.sh /liveness-check.sh
 COPY build/readiness-check.sh /readiness-check.sh
@@ -84,5 +83,7 @@ COPY build/proxysql-admin.cnf /proxysql-admin.cnf
 COPY build/proxysql_add_cluster_nodes.sh /proxysql_add_cluster_nodes.sh
 COPY build/proxysql_add_proxysql_nodes.sh /proxysql_add_proxysql_nodes.sh
 COPY build/proxysql_add_pxc_nodes.sh /proxysql_add_pxc_nodes.sh
+
+COPY build/backup /backup
 
 USER 2

@@ -52,7 +52,7 @@ jobs:
         with:
           github_token: ${{ secrets.github_token }}
           reporter: github-pr-check
-          shellcheck_flags: -e SC2155
+          shellcheck_flags: -x -e SC2155
           exclude: "./vendor/*"
 
   misspell:

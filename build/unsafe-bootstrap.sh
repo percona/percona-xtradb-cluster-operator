@@ -4,8 +4,8 @@ set -o errexit
 set -o xtrace
 
 function get_synced_count() {
-	/var/lib/mysql/peer-list -on-start=/usr/bin/get-pxc-state -service="$PXC_SERVICE" 2>&1 |
-		grep -c wsrep_ready:ON:wsrep_connected:ON:wsrep_local_state_comment:Synced:wsrep_cluster_status:Primary
+	/var/lib/mysql/peer-list -on-start=/usr/bin/get-pxc-state -service="$PXC_SERVICE" -protocol="$PEER_LIST_SRV_PROTOCOL" 2>&1 \
+		| grep -c wsrep_ready:ON:wsrep_connected:ON:wsrep_local_state_comment:Synced:wsrep_cluster_status:Primary
 }
 
 GRA=/var/lib/mysql/grastate.dat

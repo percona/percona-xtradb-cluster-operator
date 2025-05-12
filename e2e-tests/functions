@@ -530,6 +530,7 @@ run_mysql() {
 	kubectl_bin exec $client_pod -- \
 		bash -c "printf '%s\n' \"${command}\" | mysql -sN $uri" 2>&1 \
 		| sed -e 's/mysql: //' \
+		| grep -v 'Defaulted container "pxc-client" out of:' \
 		| (grep -v 'Using a password on the command line interface can be insecure.' || :)
 
 	set_debug
@@ -544,6 +545,7 @@ run_mysql_local() {
 	kubectl_bin exec $pod ${container_name:+-c $container_name} -- \
 		bash -c "printf \"$command\n\" | mysql -sN $uri" 2>&1 \
 		| sed -e 's/mysql: //' \
+		| grep -v 'Defaulted container "pxc-client" out of:' \
 		| (egrep -v 'Using a password on the command line interface can be insecure.|Defaulted container|Defaulting container name|see all of the containers in this pod' || :)
 	set_debug
 }

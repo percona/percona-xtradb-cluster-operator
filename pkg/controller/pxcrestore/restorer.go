@@ -86,7 +86,7 @@ type pvc struct{ *restorerOptions }
 func (s *pvc) Validate(ctx context.Context) error {
 	destination := s.bcp.Status.Destination
 
-	pod, err := backup.PVCRestorePod(s.cr, s.bcp.Status.StorageName, destination.BackupName(), s.cluster)
+	pod, err := backup.PVCRestorePod(s.cr, s.bcp.Status.StorageName, destination.BackupName(), s.cluster, s.initImage)
 	if err != nil {
 		return errors.Wrap(err, "restore pod")
 	}
@@ -133,7 +133,7 @@ func (s *pvc) Init(ctx context.Context) error {
 	if err := controllerutil.SetControllerReference(s.cr, svc, s.scheme); err != nil {
 		return err
 	}
-	pod, err := backup.PVCRestorePod(s.cr, s.bcp.Status.StorageName, destination.BackupName(), s.cluster)
+	pod, err := backup.PVCRestorePod(s.cr, s.bcp.Status.StorageName, destination.BackupName(), s.cluster, s.initImage)
 	if err != nil {
 		return errors.Wrap(err, "restore pod")
 	}
@@ -180,7 +180,7 @@ func (s *pvc) Finalize(ctx context.Context) error {
 	if err := s.k8sClient.Delete(ctx, svc); client.IgnoreNotFound(err) != nil {
 		return errors.Wrap(err, "failed to delete pvc service")
 	}
-	pod, err := backup.PVCRestorePod(s.cr, s.bcp.Status.StorageName, s.bcp.Status.Destination.BackupName(), s.cluster)
+	pod, err := backup.PVCRestorePod(s.cr, s.bcp.Status.StorageName, s.bcp.Status.Destination.BackupName(), s.cluster, s.initImage)
 	if err != nil {
 		return err
 	}

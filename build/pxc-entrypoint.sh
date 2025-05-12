@@ -41,7 +41,7 @@ file_env() {
 	elif [ "${!fileVar:-}" ]; then
 		val="$(<"${!fileVar}")"
 	elif [ "${3:-}" ] && [ -f "/etc/mysql/mysql-users-secret/$3" ]; then
-		val="$(</etc/mysql/mysql-users-secret/$3)"
+		val="$(</etc/mysql/mysql-users-secret/"$3")"
 	fi
 	export "$var"="$val"
 	unset "$fileVar"
@@ -60,6 +60,7 @@ process_init_file() {
 	case "$f" in
 		*.sh)
 			echo "$0: running $f"
+			# shellcheck disable=SC1090
 			. "$f"
 			;;
 		*.sql)
@@ -190,7 +191,7 @@ fi
 
 sed -i "/\[mysqld\]/a wsrep_notify_cmd=/var/lib/mysql/wsrep_cmd_notify_handler.sh" $CFG
 
-# add sst.cpat to exclude pxc-entrypoint, unsafe-bootstrap, pxc-configure-pxc from SST cleanup
+# add sst.cpat to exclude pxc-entrypoint, pxc-configure-pxc from SST cleanup
 grep -q "^progress=" $CFG && sed -i "s|^progress=.*|progress=1|" $CFG
 grep -q "^\[sst\]" "$CFG" || printf '[sst]\n' >>"$CFG"
 grep -q "^cpat=" "$CFG" || sed '/^\[sst\]/a cpat=.*\\.pem$\\|.*init\\.ok$\\|.*galera\\.cache$\\|.*wsrep_recovery_verbose\\.log$\\|.*readiness-check\\.sh$\\|.*liveness-check\\.sh$\\|.*get-pxc-state$\\|.*sst_in_progress$\\|.*sleep-forever$\\|.*pmm-prerun\\.sh$\\|.*sst-xb-tmpdir$\\|.*\\.sst$\\|.*gvwstate\\.dat$\\|.*grastate\\.dat$\\|.*\\.err$\\|.*\\.log$\\|.*RPM_UPGRADE_MARKER$\\|.*RPM_UPGRADE_HISTORY$\\|.*pxc-entrypoint\\.sh$\\|.*unsafe-bootstrap\\.sh$\\|.*pxc-configure-pxc\\.sh\\|.*peer-list$\\|.*auth_plugin$\\|.*version_info$\\|.*mysql-state-monitor$\\|.*mysql-state-monitor\\.log$\\|.*notify\\.sock$\\|.*mysql\\.state$\\|.*wsrep_cmd_notify_handler\\.sh$' "$CFG" 1<>"$CFG"
@@ -253,7 +254,10 @@ elif [ -n "$DISCOVERY_SERVICE" ]; then
 	i=$(curl "$DISCOVERY_SERVICE/v2/keys/pxc-cluster/queue/$CLUSTER_NAME" | jq -r '.node.nodes[].value')
 
 	# this remove my ip from the list
-	i1="${i[@]//$NODE_IP/}"
+	i1=()
+	for item in "${i[@]}"; do
+		i1+=("${item//$NODE_IP/}")
+	done
 
 	# Register the current IP in the discovery service
 	# key set to expire in 30 sec. There is a cronjob that should update them regularly
@@ -263,8 +267,11 @@ elif [ -n "$DISCOVERY_SERVICE" ]; then
 
 	i=$(curl "$DISCOVERY_SERVICE/v2/keys/pxc-cluster/$CLUSTER_NAME/?quorum=true" | jq -r '.node.nodes[]?.key' | awk -F'/' '{print $(NF)}')
 	# this remove my ip from the list
-	i2="${i[@]//$NODE_IP/}"
-	CLUSTER_JOIN=$(join , $i1 $i2)
+	i2=()
+	for item in "${i[@]}"; do
+		i2+=("${item//$NODE_IP/}")
+	done
+	CLUSTER_JOIN=$(join , "${i1[@]}" "${i2[@]}")
 
 	sed -r "s|^[#]?wsrep_node_address=.*$|wsrep_node_address=${NODE_IP}|" "${CFG}" 1<>"${CFG}"
 	sed -r "s|^[#]?wsrep_cluster_name=.*$|wsrep_cluster_name=${CLUSTER_NAME}|" "${CFG}" 1<>"${CFG}"
@@ -305,7 +312,7 @@ fi
 
 # if we have CLUSTER_JOIN - then we do not need to perform datadir initialize
 # the data will be copied from another node
-if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
+if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' ] && [ -z "$wantHelp" ]; then
 	# still need to check config, container may have started with --user
 	_check_config "$@"
 
@@ -318,7 +325,7 @@ if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 	if [ ! -d "$DATADIR/mysql" ]; then
 		file_env 'MYSQL_ROOT_PASSWORD' '' 'root'
 		{ set +x; } 2>/dev/null
-		if [ -z "$MYSQL_ROOT_PASSWORD" -a -z "$MYSQL_ALLOW_EMPTY_PASSWORD" -a -z "$MYSQL_RANDOM_ROOT_PASSWORD" ]; then
+		if [ -z "$MYSQL_ROOT_PASSWORD" ] && [ -z "$MYSQL_ALLOW_EMPTY_PASSWORD" ] && [ -z "$MYSQL_RANDOM_ROOT_PASSWORD" ]; then
 			echo >&2 'error: database is uninitialized and password option is not specified '
 			echo >&2 '  You need to specify one of MYSQL_ROOT_PASSWORD, MYSQL_ALLOW_EMPTY_PASSWORD and MYSQL_RANDOM_ROOT_PASSWORD'
 			exit 1
@@ -374,7 +381,7 @@ if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 		fi
 
 		{ set +x; } 2>/dev/null
-		if [ ! -z "$MYSQL_RANDOM_ROOT_PASSWORD" ]; then
+		if [ -n "$MYSQL_RANDOM_ROOT_PASSWORD" ]; then
 			MYSQL_ROOT_PASSWORD="$(pwmake 128)"
 			echo "GENERATED ROOT PASSWORD: $MYSQL_ROOT_PASSWORD"
 		fi
@@ -382,7 +389,7 @@ if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 		rootCreate=
 		# default root to listen for connections from anywhere
 		file_env 'MYSQL_ROOT_HOST' '%'
-		if [ ! -z "$MYSQL_ROOT_HOST" -a "$MYSQL_ROOT_HOST" != 'localhost' ]; then
+		if [ -n "$MYSQL_ROOT_HOST" ] && [ "$MYSQL_ROOT_HOST" != 'localhost' ]; then
 			# no, we don't care if read finds a terminating character in this heredoc
 			# https://unix.stackexchange.com/questions/265149/why-is-set-o-errexit-breaking-this-read-heredoc-expression/265151#265151
 			read -r -d '' rootCreate <<-EOSQL || true
@@ -439,7 +446,7 @@ if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 		EOSQL
 
 		{ set +x; } 2>/dev/null
-		if [ ! -z "$MYSQL_ROOT_PASSWORD" ]; then
+		if [ -n "$MYSQL_ROOT_PASSWORD" ]; then
 			mysql+=(-p"${MYSQL_ROOT_PASSWORD}")
 		fi
 		set -x
@@ -453,7 +460,7 @@ if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 		file_env 'MYSQL_USER'
 		file_env 'MYSQL_PASSWORD'
 		{ set +x; } 2>/dev/null
-		if [ "$MYSQL_USER" -a "$MYSQL_PASSWORD" ]; then
+		if [ "$MYSQL_USER" ] && [ "$MYSQL_PASSWORD" ]; then
 			echo "CREATE USER '$MYSQL_USER'@'%' IDENTIFIED BY '$MYSQL_PASSWORD' ;" | "${mysql[@]}"
 
 			if [ "$MYSQL_DATABASE" ]; then
@@ -471,7 +478,7 @@ if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 		done
 
 		{ set +x; } 2>/dev/null
-		if [ ! -z "$MYSQL_ONETIME_PASSWORD" ]; then
+		if [ -n "$MYSQL_ONETIME_PASSWORD" ]; then
 			"${mysql[@]}" <<-EOSQL
 				ALTER USER 'root'@'%' PASSWORD EXPIRE;
 			EOSQL
@@ -488,13 +495,13 @@ if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 	fi
 
 	# exit when MYSQL_INIT_ONLY environment variable is set to avoid starting mysqld
-	if [ ! -z "$MYSQL_INIT_ONLY" ]; then
+	if [ -n "$MYSQL_INIT_ONLY" ]; then
 		echo 'Initialization complete, now exiting!'
 		exit 0
 	fi
 fi
 
-if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
+if [ "$1" = 'mysqld' ] && [ -z "$wantHelp" ]; then
 	# still need to check config, container may have started with --user
 	_check_config "$@"
 
@@ -509,20 +516,20 @@ if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 	pxc_version=''
 	if [ -f "$DATADIR/version_info" ]; then
 		pxc_version_file="$DATADIR/version_info"
-		pxc_version=$(cat "$pxc_version_file" | awk '{print $3}')
+		pxc_version=$(awk '{print $3}' <"$pxc_version_file")
 	elif [ -f "$DATADIR/xtrabackup_info" ]; then
 		pxc_version_file="$DATADIR/xtrabackup_info"
 		pxc_version=$(grep 'server_version' "$pxc_version_file" | awk '{print $3}' | tr -d '\n')
 	fi
 
-	if [[ -f $pxc_version_file && -n $pxc_version && $MYSQL_VERSION == '5.7' ]] && [[ $(cat /tmp/version_info) != $pxc_version ]]; then
+	if [[ -f $pxc_version_file && -n $pxc_version && $MYSQL_VERSION == '5.7' ]] && [[ $(cat /tmp/version_info) != "$pxc_version" ]]; then
 		SOCKET="$(_get_config 'socket' "$@")"
 		"$@" --skip-networking --socket="${SOCKET}" --wsrep-provider='none' &
 		pid="$!"
 
 		mysql=(mysql --protocol=socket -uroot -hlocalhost --socket="${SOCKET}" --password="")
 		{ set +x; } 2>/dev/null
-		if [ ! -z "$MYSQL_ROOT_PASSWORD" ]; then
+		if [ -n "$MYSQL_ROOT_PASSWORD" ]; then
 			mysql+=(-p"${MYSQL_ROOT_PASSWORD}")
 		fi
 		set -x
@@ -552,16 +559,16 @@ fi
 POD_NAMESPACE=$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace)
 
 wsrep_start_position_opt=""
-if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
+if [ "$1" = 'mysqld' ] && [ -z "$wantHelp" ]; then
 	DATADIR="$(_get_config 'datadir' "$@")"
 	grastate_loc="${DATADIR}/grastate.dat"
 	wsrep_verbose_logfile="$DATADIR/wsrep_recovery_verbose.log"
 	if [ -f "$wsrep_verbose_logfile" ]; then
-		cat "$wsrep_verbose_logfile" | tee -a "$DATADIR/wsrep_recovery_verbose_history.log"
+		tee -a "$DATADIR/wsrep_recovery_verbose_history.log" <"$wsrep_verbose_logfile"
 		rm -f "$wsrep_verbose_logfile"
 	fi
 
-	if [ -s "$grastate_loc" -a -d "$DATADIR/mysql" ]; then
+	if [ -s "$grastate_loc" ] && [ -d "$DATADIR/mysql" ]; then
 		uuid=$(grep 'uuid:' "$grastate_loc" | cut -d: -f2 | tr -d ' ' || :)
 		seqno=$(grep 'seqno:' "$grastate_loc" | cut -d: -f2 | tr -d ' ' || :)
 		safe_to_bootstrap=$(grep 'safe_to_bootstrap:' "$grastate_loc" | cut -d: -f2 | tr -d ' ' || :)
@@ -576,11 +583,11 @@ if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 		fi
 	fi
 
-	if [ -z "$wsrep_start_position_opt" -a -d "$DATADIR/mysql" ]; then
+	if [ -z "$wsrep_start_position_opt" ] && [ -d "$DATADIR/mysql" ]; then
 		"$@" --wsrep_recover --log-error-verbosity=3 --log_error="$wsrep_verbose_logfile"
 
 		echo >&2 "WSREP: Print recovery logs: "
-		cat "$wsrep_verbose_logfile" | tee -a "$DATADIR/wsrep_recovery_verbose_history.log"
+		tee -a "$DATADIR/wsrep_recovery_verbose_history.log" <"$wsrep_verbose_logfile"
 		if grep ' Recovered position:' "$wsrep_verbose_logfile"; then
 			start_pos="$(
 				grep ' Recovered position:' "$wsrep_verbose_logfile" \
@@ -617,6 +624,7 @@ if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 				sed -i 's/safe_to_bootstrap: 0/safe_to_bootstrap: 1/g' "$grastate_loc"
 			fi
 			echo "Recovery was finished."
+			# shellcheck disable=SC2086
 			exec "$@" $wsrep_start_position_opt
 		}
 		function is_manual_recovery() {
@@ -670,6 +678,7 @@ if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 	fi
 fi
 
+# shellcheck disable=SC1091
 test -e /opt/percona/hookscript/hook.sh && source /opt/percona/hookscript/hook.sh
 
 init_opt=""
@@ -678,4 +687,5 @@ if [[ -f /etc/mysql/init-file/init.sql ]]; then
 	echo "Using init-file: /etc/mysql/init-file/init.sql"
 fi
 
+# shellcheck disable=SC2086
 exec "$@" ${wsrep_start_position_opt} ${init_opt}

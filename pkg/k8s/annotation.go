@@ -26,6 +26,10 @@ func AnnotateObject(ctx context.Context, c client.Client, obj client.Object, ann
 	}
 	o.SetAnnotations(a)
 
+	// Since we are working with a copy of an object,
+	// we should annotate the current reference manually so that other reconcile functions can see it.
+	obj.SetAnnotations(a)
+
 	return c.Patch(ctx, o, client.MergeFrom(orig))
 }
 

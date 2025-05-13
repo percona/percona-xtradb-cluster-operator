@@ -3,4 +3,7 @@ kind: CustomResourceDefinition
 metadata:
   name: perconaxtradbclusterbackups.pxc.percona.com
   labels:
-    percona.com/version: v1.18.0
+    app.kubernetes.io/name: percona-xtradb-cluster
+    app.kubernetes.io/version: v1.18.0
+    app.kubernetes.io/component: crd
+    app.kubernetes.io/part-of: percona-xtradb-cluster-operator

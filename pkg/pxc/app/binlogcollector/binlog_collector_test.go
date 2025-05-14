@@ -19,11 +19,6 @@ func TestGetDeployment(t *testing.T) {
 			},
 			Spec: api.PerconaXtraDBClusterSpec{
 				CRVersion: version.Version(),
-				InitContainer: api.InitContainerSpec{
-					Resources: &corev1.ResourceRequirements{
-						Requests: nil,
-					},
-				},
 				PXC: &api.PXCSpec{
 					PodSpec: &api.PodSpec{
 						Enabled:                  true,

@@ -96,7 +96,6 @@ backup_volume() {
 		log 'INFO' "Socat(2) returned $?"
 	fi
 
-	trap '' 15
 	stat xtrabackup.stream
 	if (($(stat -c%s xtrabackup.stream) < 5000000)); then
 		log 'ERROR' 'Backup is empty'
@@ -137,8 +136,6 @@ backup_s3() {
 			| xbcloud put --storage=s3 --parallel="$(grep -c processor /proc/cpuinfo)" --md5 $XBCLOUD_ARGS --s3-bucket="$S3_BUCKET" "$S3_BUCKET_PATH" 2>&1 \
 			| (grep -v "error: http request failed: Couldn't resolve host name" || exit 1)
 	fi
-
-	trap '' 15
 
 	# shellcheck disable=SC2086
 	aws $AWS_S3_NO_VERIFY_SSL s3 ls "s3://$S3_BUCKET/$S3_BUCKET_PATH.md5"

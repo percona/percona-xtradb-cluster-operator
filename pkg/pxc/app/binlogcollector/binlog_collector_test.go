@@ -141,7 +141,7 @@ func TestGetDeployment(t *testing.T) {
 			depl, err := GetDeployment(tt.cr, "perconalab/percona-xtradb-cluster-operator:main", tt.existingMatchLabels)
 
 			if err != nil {
-				t.Errorf("GetDeployment() error = %v, expectError %v", err)
+				t.Errorf("GetDeployment() error = %v", err)
 				return
 			}
 

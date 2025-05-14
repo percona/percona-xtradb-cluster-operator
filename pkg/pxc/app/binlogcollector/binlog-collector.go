@@ -208,7 +208,7 @@ func GetDeployment(cr *api.PerconaXtraDBCluster, initImage string, existingMatch
 		},
 	}
 
-	if cr.CompareVersionWith("1.16.0") >= 0 && cr.CompareVersionWith("1.18.0") < 0 {
+	if cr.CompareVersionWith("1.18.0") < 0 {
 		depl.Labels = labels
 	}
 

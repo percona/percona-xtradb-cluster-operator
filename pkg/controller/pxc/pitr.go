@@ -2,6 +2,7 @@ package pxc
 
 import (
 	"context"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/pkg/errors"
@@ -27,8 +28,14 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBinlogCollector(ctx context.Con
 	binlogCollectorName := naming.BinlogCollectorDeploymentName(cr)
 	err = r.client.Get(ctx, types.NamespacedName{Name: binlogCollectorName, Namespace: cr.Namespace}, existingDepl)
 
-	if client.IgnoreNotFound(nil) != nil {
+	if err := client.IgnoreNotFound(err); err != nil {
 		return errors.Wrap(err, "get existing deployment")
+	}
+
+	if existingDepl.Spec.Selector == nil {
+		existingDepl.Spec.Selector = &metav1.LabelSelector{
+			MatchLabels: map[string]string{},
+		}
 	}
 
 	collector, err := binlogcollector.GetDeployment(cr, initImage, existingDepl.Spec.Selector.MatchLabels)

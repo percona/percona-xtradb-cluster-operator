@@ -68,7 +68,7 @@ func GetDeployment(cr *api.PerconaXtraDBCluster, initImage string, existingMatch
 	}
 
 	matchLabels := naming.LabelsPITR(cr)
-	if existingMatchLabels != nil && !reflect.DeepEqual(existingMatchLabels, matchLabels) {
+	if len(existingMatchLabels) != 0 && !reflect.DeepEqual(existingMatchLabels, matchLabels) {
 		matchLabels = existingMatchLabels
 	}
 
@@ -76,6 +76,7 @@ func GetDeployment(cr *api.PerconaXtraDBCluster, initImage string, existingMatch
 	if err != nil {
 		return appsv1.Deployment{}, errors.Wrap(err, "get storage envs")
 	}
+	timeout := fmt.Sprintf("%.2f", cr.Spec.Backup.PITR.TimeoutSeconds)
 	envs = append(envs, []corev1.EnvVar{
 		{
 			Name:  "PXC_SERVICE",
@@ -99,16 +100,11 @@ func GetDeployment(cr *api.PerconaXtraDBCluster, initImage string, existingMatch
 			Name:  "BUFFER_SIZE",
 			Value: strconv.FormatInt(bufferSize, 10),
 		},
-	}...)
-
-	if cr.CompareVersionWith("1.14.0") >= 0 {
-		timeout := fmt.Sprintf("%.2f", cr.Spec.Backup.PITR.TimeoutSeconds)
-
-		envs = append(envs, corev1.EnvVar{
+		{
 			Name:  "TIMEOUT_SECONDS",
 			Value: timeout,
-		})
-	}
+		},
+	}...)
 
 	if cr.CompareVersionWith("1.17.0") >= 0 {
 		envs = append(envs, corev1.EnvVar{
@@ -148,25 +144,24 @@ func GetDeployment(cr *api.PerconaXtraDBCluster, initImage string, existingMatch
 	volumes := []corev1.Volume{
 		app.GetSecretVolumes("mysql-users-secret-file", "internal-"+cr.Name, false),
 	}
-	if cr.CompareVersionWith("1.15.0") >= 0 {
-		container.Command = []string{"/opt/percona/pitr"}
-		initContainers = []corev1.Container{statefulset.PitrInitContainer(cr, initImage)}
-		volumes = append(volumes,
-			corev1.Volume{
-				Name: app.BinVolumeName,
-				VolumeSource: corev1.VolumeSource{
-					EmptyDir: &corev1.EmptyDirVolumeSource{},
-				},
-			},
-		)
 
-		container.VolumeMounts = append(container.VolumeMounts,
-			corev1.VolumeMount{
-				Name:      app.BinVolumeName,
-				MountPath: app.BinVolumeMountPath,
+	container.Command = []string{"/opt/percona/pitr"}
+	initContainers = []corev1.Container{statefulset.PitrInitContainer(cr, initImage)}
+	volumes = append(volumes,
+		corev1.Volume{
+			Name: app.BinVolumeName,
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
 			},
-		)
-	}
+		},
+	)
+
+	container.VolumeMounts = append(container.VolumeMounts,
+		corev1.VolumeMount{
+			Name:      app.BinVolumeName,
+			MountPath: app.BinVolumeMountPath,
+		},
+	)
 
 	depl := appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{

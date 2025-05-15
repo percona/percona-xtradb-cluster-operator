@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"reflect"
 	"strconv"
 	"strings"
 
@@ -49,7 +50,7 @@ func GetService(cr *api.PerconaXtraDBCluster) *corev1.Service {
 	}
 }
 
-func GetDeployment(cr *api.PerconaXtraDBCluster, initImage string) (appsv1.Deployment, error) {
+func GetDeployment(cr *api.PerconaXtraDBCluster, initImage string, existingMatchLabels map[string]string) (appsv1.Deployment, error) {
 	binlogCollectorName := naming.BinlogCollectorDeploymentName(cr)
 	pxcUser := users.Xtrabackup
 	sleepTime := fmt.Sprintf("%.2f", cr.Spec.Backup.PITR.TimeBetweenUploads)
@@ -65,10 +66,17 @@ func GetDeployment(cr *api.PerconaXtraDBCluster, initImage string) (appsv1.Deplo
 			labels[key] = value
 		}
 	}
+
+	matchLabels := naming.LabelsPITR(cr)
+	if len(existingMatchLabels) != 0 && !reflect.DeepEqual(existingMatchLabels, matchLabels) {
+		matchLabels = existingMatchLabels
+	}
+
 	envs, err := getStorageEnvs(cr)
 	if err != nil {
 		return appsv1.Deployment{}, errors.Wrap(err, "get storage envs")
 	}
+	timeout := fmt.Sprintf("%.2f", cr.Spec.Backup.PITR.TimeoutSeconds)
 	envs = append(envs, []corev1.EnvVar{
 		{
 			Name:  "PXC_SERVICE",
@@ -92,16 +100,11 @@ func GetDeployment(cr *api.PerconaXtraDBCluster, initImage string) (appsv1.Deplo
 			Name:  "BUFFER_SIZE",
 			Value: strconv.FormatInt(bufferSize, 10),
 		},
-	}...)
-
-	if cr.CompareVersionWith("1.14.0") >= 0 {
-		timeout := fmt.Sprintf("%.2f", cr.Spec.Backup.PITR.TimeoutSeconds)
-
-		envs = append(envs, corev1.EnvVar{
+		{
 			Name:  "TIMEOUT_SECONDS",
 			Value: timeout,
-		})
-	}
+		},
+	}...)
 
 	if cr.CompareVersionWith("1.17.0") >= 0 {
 		envs = append(envs, corev1.EnvVar{
@@ -141,25 +144,24 @@ func GetDeployment(cr *api.PerconaXtraDBCluster, initImage string) (appsv1.Deplo
 	volumes := []corev1.Volume{
 		app.GetSecretVolumes("mysql-users-secret-file", "internal-"+cr.Name, false),
 	}
-	if cr.CompareVersionWith("1.15.0") >= 0 {
-		container.Command = []string{"/opt/percona/pitr"}
-		initContainers = []corev1.Container{statefulset.PitrInitContainer(cr, initImage)}
-		volumes = append(volumes,
-			corev1.Volume{
-				Name: app.BinVolumeName,
-				VolumeSource: corev1.VolumeSource{
-					EmptyDir: &corev1.EmptyDirVolumeSource{},
-				},
-			},
-		)
 
-		container.VolumeMounts = append(container.VolumeMounts,
-			corev1.VolumeMount{
-				Name:      app.BinVolumeName,
-				MountPath: app.BinVolumeMountPath,
+	container.Command = []string{"/opt/percona/pitr"}
+	initContainers = []corev1.Container{statefulset.PitrInitContainer(cr, initImage)}
+	volumes = append(volumes,
+		corev1.Volume{
+			Name: app.BinVolumeName,
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
 			},
-		)
-	}
+		},
+	)
+
+	container.VolumeMounts = append(container.VolumeMounts,
+		corev1.VolumeMount{
+			Name:      app.BinVolumeName,
+			MountPath: app.BinVolumeMountPath,
+		},
+	)
 
 	depl := appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{
@@ -173,7 +175,7 @@ func GetDeployment(cr *api.PerconaXtraDBCluster, initImage string) (appsv1.Deplo
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &replicas,
 			Selector: &metav1.LabelSelector{
-				MatchLabels: labels,
+				MatchLabels: matchLabels,
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
@@ -201,7 +203,7 @@ func GetDeployment(cr *api.PerconaXtraDBCluster, initImage string) (appsv1.Deplo
 		},
 	}
 
-	if cr.CompareVersionWith("1.16.0") >= 0 {
+	if cr.CompareVersionWith("1.18.0") < 0 {
 		depl.Labels = labels
 	}
 

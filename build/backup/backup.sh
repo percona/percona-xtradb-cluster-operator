@@ -69,7 +69,7 @@ function request_streaming() {
 	--sst "xtrabackup-v2:$LOCAL_IP:4444/xtrabackup_sst//1" \
 	--extended-exit-codes \
 	--wait-for-recv-script-exit \
-	--recv-script="/usr/bin/run_backup.sh"
+	--recv-script="/opt/percona/backup/run_backup.sh"
 	GARBD_EXIT_CODE=$?
 
 	case ${GARBD_EXIT_CODE} in

@@ -1,7 +1,8 @@
 #!/bin/bash
 
-set -o errexit
 set -o xtrace
+set -o errexit
+set -o pipefail
 set -m
 
 LIB_PATH='/opt/percona/backup/lib/pxc'
@@ -96,7 +97,6 @@ backup_volume() {
 		log 'INFO' "Socat(2) returned $?"
 	fi
 
-	trap '' 15
 	stat xtrabackup.stream
 	if (($(stat -c%s xtrabackup.stream) < 5000000)); then
 		log 'ERROR' 'Backup is empty'
@@ -126,19 +126,32 @@ backup_s3() {
 	fi
 	vault_store /tmp/${SST_INFO_NAME}
 
+	# this xbcloud command will fail with backup is incomplete
+	# it's expected since we only upload sst_info
+	set +o pipefail
 	# shellcheck disable=SC2086
 	xbstream -C /tmp -c ${SST_INFO_NAME} $XBSTREAM_EXTRA_ARGS \
-		| xbcloud put --storage=s3 --parallel="$(grep -c processor /proc/cpuinfo)" --md5 $XBCLOUD_ARGS --s3-bucket="$S3_BUCKET" "$S3_BUCKET_PATH.$SST_INFO_NAME" 2>&1 \
+		| xbcloud put --storage=s3 \
+			--md5 \
+			--parallel="$(grep -c processor /proc/cpuinfo)" \
+			$XBCLOUD_ARGS \
+			--s3-bucket="$S3_BUCKET" \
+			"$S3_BUCKET_PATH.$SST_INFO_NAME" 2>&1 \
 		| (grep -v "error: http request failed: Couldn't resolve host name" || exit 1)
+	set -o pipefail
 
 	if ((SST_FAILED == 0)); then
 		# shellcheck disable=SC2086
 		socat -u "$SOCAT_OPTS" stdio \
-			| xbcloud put --storage=s3 --parallel="$(grep -c processor /proc/cpuinfo)" --md5 $XBCLOUD_ARGS --s3-bucket="$S3_BUCKET" "$S3_BUCKET_PATH" 2>&1 \
-			| (grep -v "error: http request failed: Couldn't resolve host name" || exit 1)
+			| xbcloud put --storage=s3 \
+				--md5 \
+				--parallel="$(grep -c processor /proc/cpuinfo)" \
+				$XBCLOUD_ARGS \
+				--s3-bucket="$S3_BUCKET" \
+				"$S3_BUCKET_PATH" 2>&1 \
+			| (grep -v "error: http request failed: Couldn't resolve host name" || exit 1) &
+		wait $!
 	fi
-
-	trap '' 15
 
 	# shellcheck disable=SC2086
 	aws $AWS_S3_NO_VERIFY_SSL s3 ls "s3://$S3_BUCKET/$S3_BUCKET_PATH.md5"
@@ -172,16 +185,27 @@ backup_azure() {
 	fi
 	vault_store /tmp/${SST_INFO_NAME}
 
+	# this xbcloud command will fail with backup is incomplete
+	# it's expected since we only upload sst_info
+	set +o pipefail
 	# shellcheck disable=SC2086
 	xbstream -C /tmp -c ${SST_INFO_NAME} $XBSTREAM_EXTRA_ARGS \
-		| xbcloud put --storage=azure --parallel="$(grep -c processor /proc/cpuinfo)" $XBCLOUD_ARGS "$BACKUP_PATH.$SST_INFO_NAME" 2>&1 \
+		| xbcloud put --storage=azure \
+			--parallel="$(grep -c processor /proc/cpuinfo)" \
+			$XBCLOUD_ARGS \
+			"$BACKUP_PATH.$SST_INFO_NAME" 2>&1 \
 		| (grep -v "error: http request failed: Couldn't resolve host name" || exit 1)
+	set -o pipefail
 
 	if ((SST_FAILED == 0)); then
 		# shellcheck disable=SC2086
 		socat -u "$SOCAT_OPTS" stdio \
-			| xbcloud put --storage=azure --parallel="$(grep -c processor /proc/cpuinfo)" $XBCLOUD_ARGS "$BACKUP_PATH" 2>&1 \
-			| (grep -v "error: http request failed: Couldn't resolve host name" || exit 1)
+			| xbcloud put --storage=azure \
+				--parallel="$(grep -c processor /proc/cpuinfo)" \
+				$XBCLOUD_ARGS \
+				"$BACKUP_PATH" 2>&1 \
+		| (grep -v "error: http request failed: Couldn't resolve host name" || exit 1) &
+		wait $!
 	fi
 }
 

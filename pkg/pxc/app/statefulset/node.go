@@ -271,13 +271,19 @@ func (c *Node) AppContainer(ctx context.Context, cl client.Client, spec *api.Pod
 		const (
 			ldPreloadKey    = "LD_PRELOAD"
 			libJemallocPath = "/usr/lib64/libjemalloc.so.1"
+			libTcmallocPath = "/usr/lib64/libtcmalloc.so"
 		)
 
 		activateJemalloc := false
+		activateTcmalloc := false
 		ldPreloadValue := ""
 
-		if cr.Spec.PXC.MySQLAllocator == "" || strings.ToLower(cr.Spec.PXC.MySQLAllocator) == "jemalloc" {
+		// Determine allocator. jemalloc is the default one
+		switch strings.ToLower(cr.Spec.PXC.MySQLAllocator) {
+		case "", "jemalloc":
 			activateJemalloc = true
+		case "tcmalloc":
+			activateTcmalloc = true
 		}
 
 		// Let's set LD_PRELOAD via appc.Env always. It takes precedence over EnvFrom
@@ -291,12 +297,20 @@ func (c *Node) AppContainer(ctx context.Context, cl client.Client, spec *api.Pod
 			}
 		}
 
+		// deactivate
 		if !activateJemalloc {
-			// deactivate jemalloc
 			ldPreloadValue = strings.Replace(ldPreloadValue, libJemallocPath, "", -1)
-		} else if !strings.Contains(ldPreloadValue, libJemallocPath) {
-			// activate jemalloc
+		}
+		if !activateTcmalloc {
+			ldPreloadValue = strings.Replace(ldPreloadValue, libTcmallocPath, "", -1)
+		}
+
+		// activate
+		if activateJemalloc && !strings.Contains(ldPreloadValue, libJemallocPath) {
 			ldPreloadValue += ":" + libJemallocPath
+		}
+		if activateTcmalloc &&  !strings.Contains(ldPreloadValue, libTcmallocPath) {
+			ldPreloadValue += ":" + libTcmallocPath
 		}
 
 		// prefix/suffix and consecutive : (colons) don't do any harm

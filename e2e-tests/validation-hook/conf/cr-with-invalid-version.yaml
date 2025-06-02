@@ -17,7 +17,6 @@ spec:
   pxc:
     image: percona/percona-xtradb-cluster:8.0
     size: 3
-    forceUnsafeBootstrap: false
     volumeSpec:
       persistentVolumeClaim:
         accessModes: ["ReadWriteOnce"]

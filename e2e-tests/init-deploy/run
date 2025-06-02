@@ -10,6 +10,9 @@ set_debug
 create_infra $namespace
 deploy_cert_manager
 
+desc 'apply my-env-var-secrets to add PEER_LIST_SRV_PROTOCOL'
+kubectl_bin apply -f "$test_dir/conf/envsecrets.yaml"
+
 desc 'create first PXC cluster'
 cluster="some-name"
 spinup_pxc "$cluster" "$conf_dir/$cluster.yml" "3" "10" "${conf_dir}/secrets_without_tls.yml"

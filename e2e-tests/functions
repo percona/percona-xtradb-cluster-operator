@@ -744,23 +744,18 @@ desc() {
 get_service_endpoint() {
 	local service=$1
 
-	local hostname=$(
-		kubectl_bin get service/$service -o json \
-			| jq '.status.loadBalancer.ingress[].hostname' \
-			| sed -e 's/^"//; s/"$//;'
+	local endpoint=$(
+		kubectl_bin get service/$service -o jsonpath='{.status.loadBalancer.ingress[].hostname}'
 	)
-	if [ -n "$hostname" -a "$hostname" != "null" ]; then
-		echo $hostname
-		return
+
+	if [ -z "$endpoint" ] || [ "$endpoint" = "null" ]; then
+		endpoint=$(
+			kubectl_bin get service/$service -o jsonpath='{.status.loadBalancer.ingress[].ip}'
+		)
 	fi
 
-	local ip=$(
-		kubectl_bin get service/$service -o json \
-			| jq '.status.loadBalancer.ingress[].ip' \
-			| sed -e 's/^"//; s/"$//;'
-	)
-	if [ -n "$ip" -a "$ip" != "null" ]; then
-		echo $ip
+	if [ -n "$endpoint" ] && [ "$endpoint" != "null" ]; then
+		echo "$endpoint" | head -n 1 | sed -e 's/^"//; s/"$//;'
 		return
 	fi
 
@@ -1676,6 +1671,27 @@ deploy_pmm_server() {
 	helm uninstall monitoring || :
 
 	retry 10 60 helm install monitoring --set imageRepo=${IMAGE_PMM_SERVER%:*} --set imageTag=${IMAGE_PMM_SERVER#*:} $additional_params https://percona-charts.storage.googleapis.com/pmm-server-$PMM_SERVER_VER.tgz
+
+
+}
+
+wait_pmm_service() {
+	service=$1
+
+	kubectl_bin wait --for=condition=Ready pod/$service-0 --timeout=120s > /dev/null
+
+	retry=0
+	until (get_service_endpoint $service-service && kubectl_bin exec $service-0 -- bash -c 'ls -l /proc/*/exe 2>/dev/null | grep postgres') > /dev/null; do
+		echo "Waiting for $service endpoint to be available. Retry $retry"
+		sleep 5
+		retry=$((retry + 1))
+		if [ "$retry" -ge 30 ]; then
+			echo "Max retry count $retry reached. pmm-server can't start or load balancer is not available"
+			exit 1
+		fi
+	done
+
+	echo "The $service service is available"
 }
 
 run_recovery_check_pitr() {

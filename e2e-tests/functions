@@ -466,6 +466,8 @@ compare_kubectl() {
 			del(.metadata.annotations."cloud.google.com/neg") |
 			del(.metadata.annotations."k8s.v1.cni.cncf.io*") |
 			del(.metadata.annotations."k8s.ovn.org/pod-networks") |
+			del(.metadata.annotations."kubernetes.digitalocean.com/load-balancer-id") |
+			del(.metadata.annotations."service.beta.kubernetes.io/do-loadbalancer-type") |
 			del(.spec.template.metadata.annotations."last-applied-secret") |
 			del(.spec.template.metadata.labels."batch.kubernetes.io/job-name") |
 			del(.spec.template.metadata.labels."job-name") |

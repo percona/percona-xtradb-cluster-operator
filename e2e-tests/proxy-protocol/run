@@ -48,7 +48,7 @@ fi
 
 retry=0
 service=proxy-protocol-haproxy
-until get_service_endpoint $service > /dev/null; do
+until get_service_endpoint $service >/dev/null; do
 	echo "Waiting for $service endpoint to be available. Retry $retry"
 	sleep 5
 	retry=$((retry + 1))

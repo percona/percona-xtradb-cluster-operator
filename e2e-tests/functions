@@ -1671,17 +1671,15 @@ deploy_pmm_server() {
 	helm uninstall monitoring || :
 
 	retry 10 60 helm install monitoring --set imageRepo=${IMAGE_PMM_SERVER%:*} --set imageTag=${IMAGE_PMM_SERVER#*:} $additional_params https://percona-charts.storage.googleapis.com/pmm-server-$PMM_SERVER_VER.tgz
-
-
 }
 
 wait_pmm_service() {
 	service=$1
 
-	kubectl_bin wait --for=condition=Ready pod/$service-0 --timeout=120s > /dev/null
+	kubectl_bin wait --for=condition=Ready pod/$service-0 --timeout=120s >/dev/null
 
 	retry=0
-	until (get_service_endpoint $service-service && kubectl_bin exec $service-0 -- bash -c 'ls -l /proc/*/exe 2>/dev/null | grep postgres') > /dev/null; do
+	until (get_service_endpoint $service-service && kubectl_bin exec $service-0 -- bash -c 'ls -l /proc/*/exe 2>/dev/null | grep postgres') >/dev/null; do
 		echo "Waiting for $service endpoint to be available. Retry $retry"
 		sleep 5
 		retry=$((retry + 1))

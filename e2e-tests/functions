@@ -49,6 +49,12 @@ if oc get projects 2>/dev/null; then
 	OPENSHIFT=$(oc version -o json | jq -r '.openshiftVersion' | grep -oE '^[0-9]+\.[0-9]+')
 fi
 
+if doctl kubernetes cluster get $(kubectl config current-context | sed 's/^do-[^-]*-//') --format Version >/dev/null 2>&1; then
+	DOKS=1
+else
+	DOKS=0
+fi
+
 if [ $(kubectl version -o json | jq -r '.serverVersion.gitVersion' | grep "\-eks\-") ]; then
 	EKS=1
 else

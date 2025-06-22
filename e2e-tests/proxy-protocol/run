@@ -46,7 +46,18 @@ if [[ -n ${OPENSHIFT} ]]; then
 	client_ip=$(kubectl_bin exec ${pod_name} -- curl -s ifconfig.io)
 fi
 
-service_ip=$(get_service_endpoint proxy-protocol-haproxy)
+retry=0
+service=proxy-protocol-haproxy
+until get_service_endpoint $service >/dev/null; do
+	echo "Waiting for $service endpoint to be available. Retry $retry"
+	sleep 5
+	retry=$((retry + 1))
+	if [ "$retry" -ge 30 ]; then
+		echo "Max retry count $retry reached. Endpoint for $service is not available"
+		exit 1
+	fi
+done
+service_ip=$(get_service_endpoint $service)
 
 desc 'check if service and statefulset created with expected config'
 compare_kubectl statefulset/${cluster}-pxc

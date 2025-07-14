@@ -365,7 +365,7 @@ pipeline {
         ENABLE_LOGGING = "true"
     }
     agent {
-        label 'docker'
+        label 'docker-x64-min'
     }
     options {
         disableConcurrentBuilds(abortPrevious: true)

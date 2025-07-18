@@ -12,6 +12,11 @@ if [ -n "${OPENSHIFT}" ]; then
 	exit 0
 fi
 
+if [ "$DOKS" = "1" ]; then
+	echo "This test is not supported on Digital Ocean because hostpath has noexec mode"
+	exit 0
+fi
+
 check_cr_config() {
 	local cluster="$1"
 

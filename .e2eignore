@@ -10,3 +10,4 @@ operator.png
 kubernetes.svg
 .e2eignore
 release_versions
+.snyk

@@ -15,8 +15,8 @@ void createCluster(String CLUSTER_SUFFIX) {
                 gcloud container clusters create $CLUSTER_NAME-${CLUSTER_SUFFIX} \
                     --preemptible \
                     --zone ${region} \
-                    --machine-type=n1-standard-4 \
-                    --cluster-version=1.30 \
+                    --machine-type=c2d-standard-4 \
+                    --cluster-version=1.31 \
                     --num-nodes=3 \
                     --labels delete-cluster-after-hours=6 \
                     --disk-size 30 \

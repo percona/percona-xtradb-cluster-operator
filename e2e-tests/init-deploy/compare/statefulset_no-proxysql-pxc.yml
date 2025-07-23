@@ -70,7 +70,7 @@ spec:
               value: /var/lib/mysql/mysql.state
           envFrom:
             - secretRef:
-                name: no-proxysql-env-vars-pxc
+                name: my-env-var-secrets
                 optional: true
           imagePullPolicy: Always
           livenessProbe:

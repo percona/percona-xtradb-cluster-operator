@@ -1,0 +1,13 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- operator.yaml
+commonLabels:
+  app.kubernetes.io/component: operator
+  app.kubernetes.io/instance: percona-xtradb-cluster-operator
+  app.kubernetes.io/name: percona-xtradb-cluster-operator
+  app.kubernetes.io/part-of: percona-xtradb-cluster-operator
+images:
+- name: pxc-operator
+  newName: tishina/percona-server-mongodb-operator
+  newTag: 1.17.0

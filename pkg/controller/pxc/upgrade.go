@@ -95,11 +95,15 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(ctx context.Context, sfs api.S
 		return errors.Wrap(err, "failed to get initImage")
 	}
 
+	errStsWillBeDeleted := errors.New("will be deleted")
+
 	err = k8sretry.RetryOnConflict(k8sretry.DefaultRetry, func() error {
 		currentSet := sfs.StatefulSet()
-		err := r.client.Get(ctx, client.ObjectKeyFromObject(currentSet), currentSet)
-		if client.IgnoreNotFound(err) != nil {
+		if err := r.client.Get(ctx, client.ObjectKeyFromObject(currentSet), currentSet); client.IgnoreNotFound(err) != nil {
 			return errors.Wrap(err, "failed to get statefulset")
+		}
+		if !currentSet.DeletionTimestamp.IsZero() {
+			return errStsWillBeDeleted
 		}
 		annotations := currentSet.Spec.Template.Annotations
 		labels := currentSet.Spec.Template.Labels
@@ -140,6 +144,9 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(ctx context.Context, sfs api.S
 		return nil
 	})
 	if err != nil {
+		if k8serrors.IsNotFound(err) || errors.Is(err, errStsWillBeDeleted) {
+			return nil
+		}
 		return errors.Wrap(err, "failed to create or update sts")
 	}
 

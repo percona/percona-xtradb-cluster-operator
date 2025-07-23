@@ -418,7 +418,7 @@ desc 'check QAN data'
 get_qan20_values $cluster-pxc-0 $NEW_TOKEN
 
 desc 'verify that the custom cluster name is configured' pxc-prefix-monitoring-pmm3-18242-monitoring-pxc-1
-verify_custom_cluster_name pxc-prefix-$namespace-pxc-0 $NEW_TOKEN pxc-prefix-$namespace-$cluster-pxc-0 pxc-prefix-$namespace-$cluster-pxc-1 pxc-prefix-$namespace-$cluster-pxc-2
+verify_custom_cluster_name pxc-prefix-foo-custom-cluster-name $NEW_TOKEN pxc-prefix-$namespace-$cluster-pxc-0 pxc-prefix-$namespace-$cluster-pxc-1 pxc-prefix-$namespace-$cluster-pxc-2
 
 nodeList=($(get_node_id_from_pmm))
 nodeList_from_pmm=($(does_node_id_exists "${nodeList[@]}"))

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/md5"
 	"encoding/json"
+	stdErrors "errors"
 	"fmt"
 	"sort"
 	"strconv"
@@ -24,6 +25,7 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/queries"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/util"
@@ -224,7 +226,7 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(ctx context.Context, sfs api
 		return nil
 	}
 
-	primary, err := r.getPrimaryPod(cr)
+	primary, err := r.getPrimaryPod(ctx, cr)
 	if err != nil {
 		return errors.Wrap(err, "get primary pod")
 	}
@@ -455,9 +457,43 @@ func (r *ReconcilePerconaXtraDBCluster) connectProxy(cr *api.PerconaXtraDBCluste
 	return database, nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) getPrimaryPod(cr *api.PerconaXtraDBCluster) (string, error) {
+func (r *ReconcilePerconaXtraDBCluster) getPrimaryPod(ctx context.Context, cr *api.PerconaXtraDBCluster) (string, error) {
 	conn, err := r.connectProxy(cr)
 	if err != nil {
+		if errors.Is(err, NoProxyDetectedError) && cr.Spec.PXC.Size == 1 {
+			firstReadyPod := func() (string, error) {
+				sts := statefulset.NewNode(cr)
+
+				podList := new(corev1.PodList)
+				if err := r.client.List(ctx, podList, &client.ListOptions{
+					Namespace:     cr.Namespace,
+					LabelSelector: labels.SelectorFromSet(sts.Labels()),
+				}); err != nil {
+					return "", errors.Wrap(err, "get pod list")
+				}
+
+				readyPods := make([]corev1.Pod, 0)
+				for _, pod := range podList.Items {
+					if isPodReady(pod) {
+						readyPods = append(readyPods, pod)
+					}
+				}
+				if len(readyPods) == 0 {
+					return "", errors.New("no ready pxc pods")
+				}
+				if len(readyPods) != int(cr.Spec.PXC.Size) {
+					return "", errors.New("waiting for pxc resize")
+				}
+
+				return readyPods[0].Status.PodIP, nil
+			}
+			host, rerr := firstReadyPod()
+			if rerr == nil {
+				return host, nil
+			}
+
+			err = stdErrors.Join(rerr, err)
+		}
 		return "", errors.Wrap(err, "failed to get proxy connection")
 	}
 	defer conn.Close()

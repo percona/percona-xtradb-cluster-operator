@@ -417,7 +417,7 @@ get_metric_values haproxy_backend_active_servers pxc-prefix-$namespace-$cluster-
 desc 'check QAN data'
 get_qan20_values $cluster-pxc-0 $NEW_TOKEN
 
-desc 'verify that the custom cluster name is configured' pxc-prefix-monitoring-pmm3-18242-monitoring-pxc-1
+desc 'verify that the custom cluster name is configured'
 verify_custom_cluster_name pxc-prefix-foo-custom-cluster-name $NEW_TOKEN pxc-prefix-$namespace-$cluster-pxc-0 pxc-prefix-$namespace-$cluster-pxc-1 pxc-prefix-$namespace-$cluster-pxc-2
 
 nodeList=($(get_node_id_from_pmm))

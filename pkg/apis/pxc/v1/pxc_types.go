@@ -549,22 +549,31 @@ type PodSpec struct {
 	// Deprecated: Use ServiceExpose.Labels instead
 	ReplicasServiceLabels map[string]string `json:"replicasServiceLabels,omitempty"`
 
-	SchedulerName                string                            `json:"schedulerName,omitempty"`
-	ReadinessInitialDelaySeconds *int32                            `json:"readinessDelaySec,omitempty"`
-	ReadinessProbes              corev1.Probe                      `json:"readinessProbes,omitempty"`
-	LivenessInitialDelaySeconds  *int32                            `json:"livenessDelaySec,omitempty"`
-	LivenessProbes               corev1.Probe                      `json:"livenessProbes,omitempty"`
-	PodSecurityContext           *corev1.PodSecurityContext        `json:"podSecurityContext,omitempty"`
-	ContainerSecurityContext     *corev1.SecurityContext           `json:"containerSecurityContext,omitempty"`
-	ServiceAccountName           string                            `json:"serviceAccountName,omitempty"`
-	ImagePullPolicy              corev1.PullPolicy                 `json:"imagePullPolicy,omitempty"`
-	Sidecars                     []corev1.Container                `json:"sidecars,omitempty"`
-	SidecarVolumes               []corev1.Volume                   `json:"sidecarVolumes,omitempty"`
-	SidecarPVCs                  []corev1.PersistentVolumeClaim    `json:"sidecarPVCs,omitempty"`
-	RuntimeClassName             *string                           `json:"runtimeClassName,omitempty"`
-	HookScript                   string                            `json:"hookScript,omitempty"`
-	Lifecycle                    corev1.Lifecycle                  `json:"lifecycle,omitempty"`
-	TopologySpreadConstraints    []corev1.TopologySpreadConstraint `json:"topologySpreadConstraints,omitempty"`
+	SchedulerName                string                     `json:"schedulerName,omitempty"`
+	ReadinessInitialDelaySeconds *int32                     `json:"readinessDelaySec,omitempty"`
+	ReadinessProbes              corev1.Probe               `json:"readinessProbes,omitempty"`
+	LivenessInitialDelaySeconds  *int32                     `json:"livenessDelaySec,omitempty"`
+	LivenessProbes               corev1.Probe               `json:"livenessProbes,omitempty"`
+	PodSecurityContext           *corev1.PodSecurityContext `json:"podSecurityContext,omitempty"`
+	ContainerSecurityContext     *corev1.SecurityContext    `json:"containerSecurityContext,omitempty"`
+	ServiceAccountName           string                     `json:"serviceAccountName,omitempty"`
+	ImagePullPolicy              corev1.PullPolicy          `json:"imagePullPolicy,omitempty"`
+	Sidecars                     []corev1.Container         `json:"sidecars,omitempty"`
+	SidecarVolumes               []corev1.Volume            `json:"sidecarVolumes,omitempty"`
+	// +kubebuilder:validation:items:XEmbeddedResource
+	SidecarPVCs               []corev1.PersistentVolumeClaim    `json:"sidecarPVCs,omitempty"`
+	RuntimeClassName          *string                           `json:"runtimeClassName,omitempty"`
+	HookScript                string                            `json:"hookScript,omitempty"`
+	Lifecycle                 corev1.Lifecycle                  `json:"lifecycle,omitempty"`
+	TopologySpreadConstraints []corev1.TopologySpreadConstraint `json:"topologySpreadConstraints,omitempty"`
+	ExtraPVCs                 []ExtraPVC                        `json:"extraPVCs,omitempty"`
+}
+
+type ExtraPVC struct {
+	// +kubebuilder:validation:EmbeddedResource
+	VolumeClaimTemplate corev1.PersistentVolumeClaim `json:"volumeClaimTemplate,omitempty"`
+	MountPath           string                       `json:"mountPath,omitempty"`
+	ReadOnly            *bool                        `json:"readOnly,omitempty"`
 }
 
 func (spec *PodSpec) HasSidecarInternalSecret(secret *corev1.Secret) bool {
@@ -1563,6 +1572,56 @@ func AddSidecarPVCs(log logr.Logger, existing, sidecarPVCs []corev1.PersistentVo
 		}
 
 		existing = append(existing, p)
+	}
+
+	return existing
+}
+
+func AddExtraVolumeMounts(log logr.Logger, existing []corev1.VolumeMount, extraPVCs []ExtraPVC) []corev1.VolumeMount {
+	if len(extraPVCs) == 0 {
+		return existing
+	}
+
+	names := make(map[string]struct{}, len(existing))
+	for _, v := range existing {
+		names[v.Name] = struct{}{}
+	}
+
+	for _, v := range extraPVCs {
+		name := v.VolumeClaimTemplate.GetName()
+		if _, ok := names[name]; ok {
+			log.Info("Volume name already exists, it is skipped", "volumeName", name)
+			continue
+		}
+
+		existing = append(existing, corev1.VolumeMount{
+			Name:      name,
+			MountPath: v.MountPath,
+			ReadOnly:  *v.ReadOnly,
+		})
+	}
+
+	return existing
+}
+
+func AddExtraPVCs(log logr.Logger, existing []corev1.PersistentVolumeClaim, extraPVCs []ExtraPVC) []corev1.PersistentVolumeClaim {
+	if len(extraPVCs) == 0 {
+		return existing
+	}
+
+	names := make(map[string]struct{}, len(existing))
+	for _, p := range existing {
+		names[p.Name] = struct{}{}
+	}
+
+	for _, p := range extraPVCs {
+		name := p.VolumeClaimTemplate.GetName()
+		if _, ok := names[name]; ok {
+			log.Info("PVC name already exists, it is skipped", "PVCName", name)
+			continue
+		}
+
+		existing = append(existing, p.VolumeClaimTemplate)
 	}
 
 	return existing

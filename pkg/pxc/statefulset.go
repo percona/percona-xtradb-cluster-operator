@@ -64,6 +64,8 @@ func StatefulSet(
 		return nil, errors.Wrap(err, "app container")
 	}
 
+	appC.VolumeMounts = api.AddExtraVolumeMounts(log, appC.VolumeMounts, podSpec.ExtraPVCs)
+
 	pmmC, err := sfs.PMMContainer(ctx, cl, cr.Spec.PMM, secret, cr)
 	if err != nil {
 		log.Info(`"pmm container error"`, "secrets", cr.Spec.SecretsName, "internalSecrets", "internal-"+cr.Name, "error", err)
@@ -138,6 +140,7 @@ func StatefulSet(
 		obj.Spec.VolumeClaimTemplates = sfsVolume.PVCs
 	}
 	obj.Spec.VolumeClaimTemplates = api.AddSidecarPVCs(log, obj.Spec.VolumeClaimTemplates, podSpec.SidecarPVCs)
+	obj.Spec.VolumeClaimTemplates = api.AddExtraPVCs(log, obj.Spec.VolumeClaimTemplates, podSpec.ExtraPVCs)
 
 	return obj, nil
 }

@@ -48,6 +48,19 @@ func StatefulSet(ctx context.Context, cl client.Client, sfs api.StatefulApp, pod
 		return nil, fmt.Errorf("failed to get volumes %v", err)
 	}
 
+	var extraPVCMounts []corev1.VolumeMount
+	if cr.Spec.PXC.ExtraPVCs != nil {
+		for _, extraPVC := range cr.Spec.PXC.ExtraPVCs {
+			sfsVolume.PVCs = append(sfsVolume.PVCs, extraPVC.VolumeClaimTemplate)
+			pvcMount := corev1.VolumeMount{
+				Name:      extraPVC.VolumeClaimTemplate.GetName(),
+				MountPath: extraPVC.MountPath,
+				ReadOnly:  *extraPVC.ReadOnly,
+			}
+			extraPVCMounts = append(extraPVCMounts, pvcMount)
+		}
+	}
+
 	if sfsVolume != nil && sfsVolume.Volumes != nil {
 		pod.Volumes = sfsVolume.Volumes
 	}
@@ -55,6 +68,11 @@ func StatefulSet(ctx context.Context, cl client.Client, sfs api.StatefulApp, pod
 	appC, err := sfs.AppContainer(podSpec, secrets, cr, pod.Volumes)
 	if err != nil {
 		return nil, errors.Wrap(err, "app container")
+	}
+
+	// Attach extraPVCs mounts
+	if extraPVCMounts != nil {
+		appC.VolumeMounts = append(appC.VolumeMounts, extraPVCMounts...)
 	}
 
 	pmmC, err := sfs.PMMContainer(ctx, cl, cr.Spec.PMM, secret, cr)

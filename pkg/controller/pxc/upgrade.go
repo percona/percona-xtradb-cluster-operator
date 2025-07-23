@@ -99,7 +99,10 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(
 	err = r.client.Get(ctx, types.NamespacedName{
 		Name: "internal-" + cr.Name, Namespace: cr.Namespace,
 	}, secrets)
-	if client.IgnoreNotFound(err) != nil {
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil
+		}
 		return errors.Wrap(err, "get internal secret")
 	}
 

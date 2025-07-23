@@ -37,6 +37,8 @@ spec:
 #  enableCRValidationWebhook: true
   tls:
     enabled: true
+#    # 90 days in hours
+#    certValidityDuration: 2160h
 #    SANs:
 #      - pxc-1.example.com
 #      - pxc-2.example.com

@@ -45,7 +45,7 @@ spec:
           value: percona-xtradb-cluster-operator
         - name: DISABLE_TELEMETRY
           value: "false"
-        image: perconalab/percona-xtradb-cluster-operator:main
+        image: perconalab/percona-xtradb-cluster-operator:k8spxc-1494
         imagePullPolicy: Always
         livenessProbe:
           failureThreshold: 3

@@ -56,12 +56,12 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileSSL(ctx context.Context, cr *ap
 	if errSecret == nil && !metav1.IsControlledBy(&secretObj, cr) {
 		return nil
 	}
-	err := r.createSSLByCertManager(cr)
+	err := r.createSSLByCertManager(ctx, cr)
 	if err != nil {
 		if cr.Spec.TLS != nil && cr.Spec.TLS.IssuerConf != nil {
 			return fmt.Errorf("create ssl with cert manager %w", err)
 		}
-		err = r.createSSLManualy(cr)
+		err = r.createSSLManualy(ctx, cr)
 		if err != nil {
 			return fmt.Errorf("create ssl internally: %v", err)
 		}
@@ -69,17 +69,22 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileSSL(ctx context.Context, cr *ap
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(cr *api.PerconaXtraDBCluster) error {
+func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(ctx context.Context, cr *api.PerconaXtraDBCluster) error {
 	issuerName := cr.Name + "-pxc-issuer"
 	caIssuerName := cr.Name + "-pxc-ca-issuer"
 	issuerKind := "Issuer"
 	issuerGroup := ""
+	duration := &metav1.Duration{Duration: pxctls.DefaultValidity}
+	if cr.Spec.TLS != nil && cr.Spec.TLS.Duration != nil {
+		duration = cr.Spec.TLS.Duration
+	}
+
 	if cr.Spec.TLS != nil && cr.Spec.TLS.IssuerConf != nil {
 		issuerKind = cr.Spec.TLS.IssuerConf.Kind
 		issuerName = cr.Spec.TLS.IssuerConf.Name
 		issuerGroup = cr.Spec.TLS.IssuerConf.Group
 	} else {
-		if err := r.createIssuer(cr, caIssuerName, ""); err != nil {
+		if err := r.createIssuer(ctx, cr, caIssuerName, ""); err != nil {
 			return err
 		}
 
@@ -97,7 +102,7 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(cr *api.PerconaXt
 					Kind:  issuerKind,
 					Group: issuerGroup,
 				},
-				Duration:    &metav1.Duration{Duration: pxctls.DefaultValidity},
+				Duration:    duration,
 				RenewBefore: &metav1.Duration{Duration: 730 * time.Hour},
 			},
 		}
@@ -105,16 +110,16 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(cr *api.PerconaXt
 			caCert.Labels = naming.LabelsCluster(cr)
 		}
 
-		err := r.client.Create(context.TODO(), caCert)
+		err := r.client.Create(ctx, caCert)
 		if err != nil && !k8serr.IsAlreadyExists(err) {
 			return fmt.Errorf("create CA certificate: %v", err)
 		}
 
-		if err := r.waitForCerts(cr.Namespace, caCert.Spec.SecretName); err != nil {
+		if err := r.waitForCerts(ctx, cr.Namespace, caCert.Spec.SecretName); err != nil {
 			return err
 		}
 
-		if err := r.createIssuer(cr, issuerName, caCert.Spec.SecretName); err != nil {
+		if err := r.createIssuer(ctx, cr, issuerName, caCert.Spec.SecretName); err != nil {
 			return err
 		}
 	}
@@ -146,14 +151,17 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(cr *api.PerconaXt
 	if cr.Spec.TLS != nil && len(cr.Spec.TLS.SANs) > 0 {
 		kubeCert.Spec.DNSNames = append(kubeCert.Spec.DNSNames, cr.Spec.TLS.SANs...)
 	}
+	if cr.CompareVersionWith("1.19.0") >= 0 {
+		kubeCert.Spec.Duration = duration
+	}
 
-	err := r.client.Create(context.TODO(), kubeCert)
+	err := r.client.Create(ctx, kubeCert)
 	if err != nil && !k8serr.IsAlreadyExists(err) {
 		return fmt.Errorf("create certificate: %v", err)
 	}
 
 	if cr.Spec.PXC.SSLSecretName == cr.Spec.PXC.SSLInternalSecretName {
-		return r.waitForCerts(cr.Namespace, cr.Spec.PXC.SSLSecretName)
+		return r.waitForCerts(ctx, cr.Namespace, cr.Spec.PXC.SSLSecretName)
 	}
 
 	kubeCert = &cm.Certificate{
@@ -187,15 +195,18 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(cr *api.PerconaXt
 	if cr.CompareVersionWith("1.16.0") >= 0 {
 		kubeCert.Labels = naming.LabelsCluster(cr)
 	}
-	err = r.client.Create(context.TODO(), kubeCert)
+	if cr.CompareVersionWith("1.19.0") >= 0 {
+		kubeCert.Spec.Duration = duration
+	}
+	err = r.client.Create(ctx, kubeCert)
 	if err != nil && !k8serr.IsAlreadyExists(err) {
 		return fmt.Errorf("create internal certificate: %v", err)
 	}
 
-	return r.waitForCerts(cr.Namespace, cr.Spec.PXC.SSLSecretName, cr.Spec.PXC.SSLInternalSecretName)
+	return r.waitForCerts(ctx, cr.Namespace, cr.Spec.PXC.SSLSecretName, cr.Spec.PXC.SSLInternalSecretName)
 }
 
-func (r *ReconcilePerconaXtraDBCluster) waitForCerts(namespace string, secretsList ...string) error {
+func (r *ReconcilePerconaXtraDBCluster) waitForCerts(ctx context.Context, namespace string, secretsList ...string) error {
 	ticker := time.NewTicker(3 * time.Second)
 	timeoutTimer := time.NewTimer(30 * time.Second)
 	defer timeoutTimer.Stop()
@@ -208,7 +219,7 @@ func (r *ReconcilePerconaXtraDBCluster) waitForCerts(namespace string, secretsLi
 			sucessCount := 0
 			for _, secretName := range secretsList {
 				secret := &corev1.Secret{}
-				err := r.client.Get(context.TODO(), types.NamespacedName{
+				err := r.client.Get(ctx, types.NamespacedName{
 					Name:      secretName,
 					Namespace: namespace,
 				}, secret)
@@ -225,7 +236,7 @@ func (r *ReconcilePerconaXtraDBCluster) waitForCerts(namespace string, secretsLi
 	}
 }
 
-func (r *ReconcilePerconaXtraDBCluster) createIssuer(cr *api.PerconaXtraDBCluster, issuer string, caCertSecret string) error {
+func (r *ReconcilePerconaXtraDBCluster) createIssuer(ctx context.Context, cr *api.PerconaXtraDBCluster, issuer string, caCertSecret string) error {
 	spec := cm.IssuerSpec{}
 
 	if caCertSecret == "" {
@@ -246,7 +257,7 @@ func (r *ReconcilePerconaXtraDBCluster) createIssuer(cr *api.PerconaXtraDBCluste
 	if cr.CompareVersionWith("1.16.0") >= 0 {
 		ls = naming.LabelsCluster(cr)
 	}
-	err := r.client.Create(context.TODO(), &cm.Issuer{
+	err := r.client.Create(ctx, &cm.Issuer{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      issuer,
 			Namespace: cr.Namespace,
@@ -260,7 +271,7 @@ func (r *ReconcilePerconaXtraDBCluster) createIssuer(cr *api.PerconaXtraDBCluste
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) createSSLManualy(cr *api.PerconaXtraDBCluster) error {
+func (r *ReconcilePerconaXtraDBCluster) createSSLManualy(ctx context.Context, cr *api.PerconaXtraDBCluster) error {
 	data := make(map[string][]byte)
 	proxyHosts := []string{
 		cr.Name + "-pxc",
@@ -292,7 +303,7 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLManualy(cr *api.PerconaXtraDBCl
 	if cr.CompareVersionWith("1.16.0") >= 0 {
 		secretObj.Labels = naming.LabelsCluster(cr)
 	}
-	err = r.client.Create(context.TODO(), &secretObj)
+	err = r.client.Create(ctx, &secretObj)
 	if err != nil && !k8serr.IsAlreadyExists(err) {
 		return fmt.Errorf("create TLS secret: %v", err)
 	}
@@ -327,7 +338,7 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLManualy(cr *api.PerconaXtraDBCl
 	if cr.CompareVersionWith("1.16.0") >= 0 {
 		secretObjInternal.Labels = naming.LabelsCluster(cr)
 	}
-	err = r.client.Create(context.TODO(), &secretObjInternal)
+	err = r.client.Create(ctx, &secretObjInternal)
 	if err != nil && !k8serr.IsAlreadyExists(err) {
 		return fmt.Errorf("create TLS internal secret: %v", err)
 	}

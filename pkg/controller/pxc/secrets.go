@@ -5,9 +5,8 @@ import (
 	"crypto/rand"
 	"fmt"
 	"math/big"
-	mrand "math/rand"
+	"slices"
 	"strings"
-	"time"
 
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -84,7 +83,7 @@ func setUserSecretDefaults(secret *corev1.Secret) (isChanged bool, err error) {
 	users := []string{users.Root, users.Xtrabackup, users.Monitor, users.ProxyAdmin, users.Operator, users.Replication}
 	for _, user := range users {
 		if pass, ok := secret.Data[user]; !ok || len(pass) == 0 {
-			secret.Data[user], err = generatePass()
+			secret.Data[user], err = generatePass(user)
 			if err != nil {
 				return false, errors.Wrapf(err, "create %s users password", user)
 			}
@@ -96,21 +95,31 @@ func setUserSecretDefaults(secret *corev1.Secret) (isChanged bool, err error) {
 }
 
 const (
-	passwordMaxLen = 20
-	passwordMinLen = 16
-	passSymbols    = "ABCDEFGHIJKLMNOPQRSTUVWXYZ" +
+	passwordLen = 20
+	passSymbols = "ABCDEFGHIJKLMNOPQRSTUVWXYZ" +
 		"abcdefghijklmnopqrstuvwxyz" +
 		"0123456789" +
 		"!#$%&()*+,-.<=>?@[]^_{}~"
 )
 
-// generatePass generates a random password
-func generatePass() ([]byte, error) {
-	mrand.Seed(time.Now().UnixNano())
-	ln := mrand.Intn(passwordMaxLen-passwordMinLen) + passwordMinLen
-	b := make([]byte, ln)
-	for i := 0; i < ln; i++ {
-		randInt, err := rand.Int(rand.Reader, big.NewInt(int64(len(passSymbols))))
+var randReader = rand.Reader
+
+// generatePass generates a random password of length passwordLen.
+// The optional rules parameter expects usernames and adjusts the
+// password generation logic based on them.
+func generatePass(rules ...string) ([]byte, error) {
+	b := make([]byte, passwordLen)
+
+	for i := range passwordLen {
+		symbols := passSymbols
+		if slices.Contains(rules, users.ProxyAdmin) {
+			if i == 0 {
+				symbols = strings.ReplaceAll(symbols, "*", "")
+			}
+			symbols = strings.ReplaceAll(symbols, ":", "")
+			symbols = strings.ReplaceAll(symbols, ";", "")
+		}
+		randInt, err := rand.Int(randReader, big.NewInt(int64(len(symbols))))
 		if err != nil {
 			return nil, errors.Wrap(err, "get rand int")
 		}

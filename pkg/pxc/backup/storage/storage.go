@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"path"
 	"strings"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/pkg/errors"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 )
@@ -45,7 +47,7 @@ func NewClient(ctx context.Context, opts Options) (Storage, error) {
 		if !ok {
 			return nil, errors.New("invalid options type")
 		}
-		return NewAzure(opts.StorageAccount, opts.AccessKey, opts.Endpoint, opts.Container, opts.Prefix)
+		return NewAzure(opts.StorageAccount, opts.AccessKey, opts.Endpoint, opts.Container, opts.Prefix, opts.BlockSize, opts.Concurrency)
 	}
 	return nil, errors.New("invalid storage type")
 }
@@ -175,25 +177,39 @@ func (s *S3) GetPrefix() string {
 }
 
 func (s *S3) DeleteObject(ctx context.Context, objectName string) error {
-	objPath := path.Join(s.prefix, objectName)
-	err := s.client.RemoveObject(ctx, s.bucketName, objPath, minio.RemoveObjectOptions{})
+	log := logf.FromContext(ctx).WithValues("bucket", s.bucketName, "prefix", s.prefix)
+
+	// minio sdk automatically URL-encodes the path
+	objPath, err := url.QueryUnescape(path.Join(s.prefix, objectName))
+	if err != nil {
+		return errors.Wrapf(err, "failed to unescape object path %s", objPath)
+	}
+
+	log.V(1).Info("deleting object", "object", objPath)
+
+	err = s.client.RemoveObject(ctx, s.bucketName, objPath, minio.RemoveObjectOptions{})
 	if err != nil {
 		if minio.ToErrorResponse(errors.Cause(err)).Code == "NoSuchKey" {
 			return ErrObjectNotFound
 		}
 		return errors.Wrapf(err, "failed to remove object %s", objectName)
 	}
+
+	log.V(1).Info("object deleted", "object", objPath)
+
 	return nil
 }
 
 // Azure is a type for working with Azure Blob storages
 type Azure struct {
-	client    *azblob.Client // azure client for work with storage
-	container string
-	prefix    string
+	client      *azblob.Client // azure client for work with storage
+	container   string
+	prefix      string
+	blockSize   int64
+	concurrency int
 }
 
-func NewAzure(storageAccount, accessKey, endpoint, container, prefix string) (Storage, error) {
+func NewAzure(storageAccount, accessKey, endpoint, container, prefix string, blockSize int64, concurrency int) (Storage, error) {
 	credential, err := azblob.NewSharedKeyCredential(storageAccount, accessKey)
 	if err != nil {
 		return nil, errors.Wrap(err, "new credentials")
@@ -207,9 +223,11 @@ func NewAzure(storageAccount, accessKey, endpoint, container, prefix string) (St
 	}
 
 	return &Azure{
-		client:    cli,
-		container: container,
-		prefix:    prefix,
+		client:      cli,
+		container:   container,
+		prefix:      prefix,
+		blockSize:   blockSize,
+		concurrency: concurrency,
 	}, nil
 }
 
@@ -227,7 +245,11 @@ func (a *Azure) GetObject(ctx context.Context, name string) (io.ReadCloser, erro
 
 func (a *Azure) PutObject(ctx context.Context, name string, data io.Reader, _ int64) error {
 	objPath := path.Join(a.prefix, name)
-	_, err := a.client.UploadStream(ctx, a.container, objPath, data, nil)
+	uploadOptions := azblob.UploadStreamOptions{
+		BlockSize:   a.blockSize,
+		Concurrency: a.concurrency,
+	}
+	_, err := a.client.UploadStream(ctx, a.container, objPath, data, &uploadOptions)
 	if err != nil {
 		return errors.Wrapf(err, "upload stream: %s", objPath)
 	}
@@ -266,6 +288,10 @@ func (a *Azure) GetPrefix() string {
 }
 
 func (a *Azure) DeleteObject(ctx context.Context, objectName string) error {
+	log := logf.FromContext(ctx).WithValues("container", a.container, "prefix", a.prefix, "object", objectName)
+
+	log.V(1).Info("deleting object")
+
 	objPath := path.Join(a.prefix, objectName)
 	_, err := a.client.DeleteBlob(ctx, a.container, objPath, nil)
 	if err != nil {
@@ -274,5 +300,8 @@ func (a *Azure) DeleteObject(ctx context.Context, objectName string) error {
 		}
 		return errors.Wrapf(err, "delete blob %s", objPath)
 	}
+
+	log.V(1).Info("object deleted")
+
 	return nil
 }

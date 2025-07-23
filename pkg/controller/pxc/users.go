@@ -46,27 +46,16 @@ type ReconcileUsersResult struct {
 	updateReplicationPassword bool
 }
 
-func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(ctx context.Context, cr *api.PerconaXtraDBCluster) (*ReconcileUsersResult, error) {
+func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(
+	ctx context.Context,
+	cr *api.PerconaXtraDBCluster,
+	secrets *corev1.Secret,
+) (*ReconcileUsersResult, error) {
 	log := logf.FromContext(ctx)
 
-	secrets := corev1.Secret{}
-	err := r.client.Get(context.TODO(),
-		types.NamespacedName{
-			Namespace: cr.Namespace,
-			Name:      cr.Spec.SecretsName,
-		},
-		&secrets,
-	)
-	if err != nil && k8serrors.IsNotFound(err) {
-		return nil, nil
-	} else if err != nil {
-		return nil, errors.Wrapf(err, "get sys users secret '%s'", cr.Spec.SecretsName)
-	}
-
 	internalSecretName := internalSecretsPrefix + cr.Name
-
 	internalSecrets := corev1.Secret{}
-	err = r.client.Get(context.TODO(),
+	err := r.client.Get(ctx,
 		types.NamespacedName{
 			Namespace: cr.Namespace,
 			Name:      internalSecretName,
@@ -109,12 +98,12 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(ctx context.Context, cr *
 
 	var actions *userUpdateActions
 	if ver.GreaterThanOrEqual(mysql80) {
-		actions, err = r.updateUsers(ctx, cr, &secrets, &internalSecrets)
+		actions, err = r.updateUsers(ctx, cr, secrets, &internalSecrets)
 		if err != nil {
 			return nil, errors.Wrap(err, "manage sys users")
 		}
 	} else {
-		actions, err = r.updateUsersWithoutDP(ctx, cr, &secrets, &internalSecrets)
+		actions, err = r.updateUsersWithoutDP(ctx, cr, secrets, &internalSecrets)
 		if err != nil {
 			return nil, errors.Wrap(err, "manage sys users")
 		}
@@ -188,6 +177,10 @@ func (r *ReconcilePerconaXtraDBCluster) updateUsers(ctx context.Context, cr *api
 			}
 		case users.PMMServer, users.PMMServerKey:
 			if err := r.handlePMMUser(ctx, cr, secrets, internalSecrets, res); err != nil {
+				return res, err
+			}
+		case users.PMMServerToken:
+			if err := r.handlePMM3User(ctx, cr, secrets, internalSecrets, res); err != nil {
 				return res, err
 			}
 		}
@@ -885,6 +878,54 @@ func (r *ReconcilePerconaXtraDBCluster) handlePMMUser(ctx context.Context, cr *a
 	err := r.client.Patch(context.TODO(), internalSecrets, client.MergeFrom(orig))
 	if err != nil {
 		return errors.Wrap(err, "update internal users secrets pmm user password")
+	}
+	log.Info("Internal secrets updated", "user", name)
+
+	actions.restartPXC = true
+	actions.restartProxySQL = true
+	actions.restartHAProxy = true
+
+	return nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) handlePMM3User(ctx context.Context, cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
+	log := logf.FromContext(ctx)
+
+	if cr.Spec.PMM == nil || !cr.Spec.PMM.Enabled {
+		return nil
+	}
+
+	if key, ok := secrets.Data[users.PMMServerToken]; ok {
+		if _, ok := internalSecrets.Data[users.PMMServerToken]; !ok {
+			internalSecrets.Data[users.PMMServerToken] = key
+
+			err := r.client.Update(ctx, internalSecrets)
+			if err != nil {
+				return errors.Wrap(err, "update internal users secrets pmm user token")
+			}
+			log.Info("Internal secrets updated", "user", users.PMMServerToken)
+
+			return nil
+		}
+	}
+
+	name := users.PMMServerToken
+
+	if bytes.Equal(secrets.Data[name], internalSecrets.Data[name]) {
+		return nil
+	}
+
+	if cr.Status.Status != api.AppStateReady && !r.invalidPasswordApplied(cr.Status) {
+		return nil
+	}
+
+	log.Info("Password changed, updating user", "user", name)
+
+	orig := internalSecrets.DeepCopy()
+	internalSecrets.Data[name] = secrets.Data[name]
+	err := r.client.Patch(ctx, internalSecrets, client.MergeFrom(orig))
+	if err != nil {
+		return errors.Wrap(err, "update internal users secrets pmm user token")
 	}
 	log.Info("Internal secrets updated", "user", name)
 

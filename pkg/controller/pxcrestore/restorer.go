@@ -4,7 +4,6 @@ import (
 	"context"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/pkg/errors"
 	batchv1 "k8s.io/api/batch/v1"
@@ -13,11 +12,17 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage"
+)
+
+var (
+	errWaitValidate = errors.New("wait for validation")
+	errWaitInit     = errors.New("wait for init")
 )
 
 type Restorer interface {
@@ -36,11 +41,11 @@ func (s *s3) Init(context.Context) error { return nil }
 func (s *s3) Finalize(context.Context) error { return nil }
 
 func (s *s3) Job() (*batchv1.Job, error) {
-	return backup.RestoreJob(s.cr, s.bcp, s.cluster, s.initImage, s.bcp.Status.Destination, false)
+	return backup.RestoreJob(s.cr, s.bcp, s.cluster, s.initImage, s.scheme, s.bcp.Status.Destination, false)
 }
 
 func (s *s3) PITRJob() (*batchv1.Job, error) {
-	return backup.RestoreJob(s.cr, s.bcp, s.cluster, s.initImage, s.bcp.Status.Destination, true)
+	return backup.RestoreJob(s.cr, s.bcp, s.cluster, s.initImage, s.scheme, s.bcp.Status.Destination, true)
 }
 
 func (s *s3) ValidateJob(ctx context.Context, job *batchv1.Job) error {
@@ -81,44 +86,40 @@ type pvc struct{ *restorerOptions }
 func (s *pvc) Validate(ctx context.Context) error {
 	destination := s.bcp.Status.Destination
 
-	pod, err := backup.PVCRestorePod(s.cr, s.bcp.Status.StorageName, destination.BackupName(), s.cluster)
+	pod, err := backup.PVCRestorePod(s.cr, s.bcp.Status.StorageName, destination.BackupName(), s.cluster, s.initImage)
 	if err != nil {
 		return errors.Wrap(err, "restore pod")
 	}
-	if err := k8s.SetControllerReference(s.cr, pod, s.scheme); err != nil {
+	if err := controllerutil.SetControllerReference(s.cr, pod, s.scheme); err != nil {
 		return err
 	}
 	pod.Name += "-verify"
 	pod.Spec.Containers[0].Command = []string{"bash", "-c", `[[ $(stat -c%s /backup/xtrabackup.stream) -gt 5000000 ]]`}
 	pod.Spec.RestartPolicy = corev1.RestartPolicyNever
 
-	if err := s.k8sClient.Delete(ctx, pod); client.IgnoreNotFound(err) != nil {
-		return errors.Wrap(err, "failed to delete")
+	err = s.k8sClient.Get(ctx, types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, pod)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			if err := s.k8sClient.Create(ctx, pod); err != nil {
+				return errors.Wrap(err, "failed to create pod")
+			}
+			return errWaitValidate
+		}
+		return errors.Wrap(err, "get pod status")
 	}
 
-	if err := s.k8sClient.Create(ctx, pod); err != nil {
-		return errors.Wrap(err, "failed to create pod")
+	switch pod.Status.Phase {
+	case corev1.PodFailed:
+		return errors.Errorf("backup files not found on %s", destination)
+	case corev1.PodSucceeded:
+		return nil
+	default:
+		return errWaitValidate
 	}
-	for {
-		time.Sleep(time.Second * 1)
-
-		err := s.k8sClient.Get(ctx, types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, pod)
-		if err != nil {
-			return errors.Wrap(err, "get pod status")
-		}
-		if pod.Status.Phase == corev1.PodFailed {
-			return errors.Errorf("backup files not found on %s", destination)
-		}
-		if pod.Status.Phase == corev1.PodSucceeded {
-			break
-		}
-	}
-
-	return nil
 }
 
 func (s *pvc) Job() (*batchv1.Job, error) {
-	return backup.RestoreJob(s.cr, s.bcp, s.cluster, s.initImage, "", false)
+	return backup.RestoreJob(s.cr, s.bcp, s.cluster, s.initImage, s.scheme, "", false)
 }
 
 func (s *pvc) PITRJob() (*batchv1.Job, error) {
@@ -129,55 +130,65 @@ func (s *pvc) Init(ctx context.Context) error {
 	destination := s.bcp.Status.Destination
 
 	svc := backup.PVCRestoreService(s.cr, s.cluster)
-	if err := k8s.SetControllerReference(s.cr, svc, s.scheme); err != nil {
+	if err := controllerutil.SetControllerReference(s.cr, svc, s.scheme); err != nil {
 		return err
 	}
-	pod, err := backup.PVCRestorePod(s.cr, s.bcp.Status.StorageName, destination.BackupName(), s.cluster)
+	pod, err := backup.PVCRestorePod(s.cr, s.bcp.Status.StorageName, destination.BackupName(), s.cluster, s.initImage)
 	if err != nil {
 		return errors.Wrap(err, "restore pod")
 	}
-	if err := k8s.SetControllerReference(s.cr, pod, s.scheme); err != nil {
-		return err
-	}
-	if err := s.k8sClient.Delete(ctx, svc); client.IgnoreNotFound(err) != nil {
-		return err
-	}
-	if err := s.k8sClient.Delete(ctx, pod); client.IgnoreNotFound(err) != nil {
+	if err := controllerutil.SetControllerReference(s.cr, pod, s.scheme); err != nil {
 		return err
 	}
 
-	err = s.k8sClient.Create(ctx, svc)
-	if err != nil {
-		return errors.Wrap(err, "create service")
-	}
-	err = s.k8sClient.Create(ctx, pod)
-	if err != nil {
-		return errors.Wrap(err, "create pod")
-	}
-	for {
-		time.Sleep(time.Second * 1)
+	initInProcess := true
 
-		err := s.k8sClient.Get(ctx, types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, pod)
-		if err != nil {
-			return errors.Wrap(err, "get pod status")
+	if err := s.k8sClient.Get(ctx, types.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}, svc); k8serrors.IsNotFound(err) {
+		initInProcess = false
+	}
+
+	if err := s.k8sClient.Get(ctx, types.NamespacedName{Name: pod.Name, Namespace: svc.Namespace}, pod); k8serrors.IsNotFound(err) {
+		initInProcess = false
+	}
+
+	if !initInProcess {
+		if err := s.k8sClient.Delete(ctx, svc); client.IgnoreNotFound(err) != nil {
+			return err
 		}
-		if pod.Status.Phase == corev1.PodRunning {
-			break
+		if err := s.k8sClient.Delete(ctx, pod); client.IgnoreNotFound(err) != nil {
+			return err
 		}
+
+		err = s.k8sClient.Create(ctx, svc)
+		if client.IgnoreAlreadyExists(err) != nil {
+			return errors.Wrap(err, "create service")
+		}
+		err = s.k8sClient.Create(ctx, pod)
+		if client.IgnoreAlreadyExists(err) != nil {
+			return errors.Wrap(err, "create pod")
+		}
+	}
+
+	if pod.Status.Phase != corev1.PodRunning {
+		return errWaitInit
 	}
 	return nil
 }
 
 func (s *pvc) Finalize(ctx context.Context) error {
 	svc := backup.PVCRestoreService(s.cr, s.cluster)
-	if err := s.k8sClient.Delete(ctx, svc); err != nil {
+	if err := s.k8sClient.Delete(ctx, svc); client.IgnoreNotFound(err) != nil {
 		return errors.Wrap(err, "failed to delete pvc service")
 	}
-	pod, err := backup.PVCRestorePod(s.cr, s.bcp.Status.StorageName, s.bcp.Status.Destination.BackupName(), s.cluster)
+	pod, err := backup.PVCRestorePod(s.cr, s.bcp.Status.StorageName, s.bcp.Status.Destination.BackupName(), s.cluster, s.initImage)
 	if err != nil {
 		return err
 	}
-	if err := s.k8sClient.Delete(ctx, pod); err != nil {
+	if err := s.k8sClient.Delete(ctx, pod); client.IgnoreNotFound(err) != nil {
+		return errors.Wrap(err, "failed to delete pvc pod")
+	}
+	pod.Name += "-verify"
+	if err := s.k8sClient.Delete(ctx, pod); client.IgnoreNotFound(err) != nil {
 		return errors.Wrap(err, "failed to delete pvc pod")
 	}
 	return nil
@@ -190,11 +201,11 @@ func (s *azure) Init(context.Context) error { return nil }
 func (s *azure) Finalize(context.Context) error { return nil }
 
 func (s *azure) Job() (*batchv1.Job, error) {
-	return backup.RestoreJob(s.cr, s.bcp, s.cluster, s.initImage, s.bcp.Status.Destination, false)
+	return backup.RestoreJob(s.cr, s.bcp, s.cluster, s.initImage, s.scheme, s.bcp.Status.Destination, false)
 }
 
 func (s *azure) PITRJob() (*batchv1.Job, error) {
-	return backup.RestoreJob(s.cr, s.bcp, s.cluster, s.initImage, s.bcp.Status.Destination, true)
+	return backup.RestoreJob(s.cr, s.bcp, s.cluster, s.initImage, s.scheme, s.bcp.Status.Destination, true)
 }
 
 func (s *azure) Validate(ctx context.Context) error {

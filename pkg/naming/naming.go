@@ -1,7 +1,8 @@
 package naming
 
 const (
-	annotationPrefix = "percona.com/"
+	annotationPrefix         = "percona.com/"
+	internalAnnotationPrefix = "internal." + annotationPrefix
 )
 
 const (
@@ -10,7 +11,7 @@ const (
 	FinalizerDeleteProxysqlPvc    = annotationPrefix + "delete-proxysql-pvc"
 	FinalizerDeletePxcPvc         = annotationPrefix + "delete-pxc-pvc"
 	FinalizerDeleteBackup         = annotationPrefix + "delete-backup"
-	FinalizerS3DeleteBackup       = "delete-s3-backup"
+	FinalizerReleaseLock          = internalAnnotationPrefix + "release-lock"
 )
 
 const (

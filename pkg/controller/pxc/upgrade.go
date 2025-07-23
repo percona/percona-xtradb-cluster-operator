@@ -99,11 +99,15 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(ctx context.Context, sfs api.S
 		return errors.Wrap(err, "failed to get initImage")
 	}
 
+	errStsWillBeDeleted := errors.New("will be deleted")
+
 	err = k8sretry.RetryOnConflict(k8sretry.DefaultRetry, func() error {
 		currentSet := sfs.StatefulSet()
-		err := r.client.Get(ctx, client.ObjectKeyFromObject(currentSet), currentSet)
-		if client.IgnoreNotFound(err) != nil {
+		if err := r.client.Get(ctx, client.ObjectKeyFromObject(currentSet), currentSet); client.IgnoreNotFound(err) != nil {
 			return errors.Wrap(err, "failed to get statefulset")
+		}
+		if !currentSet.DeletionTimestamp.IsZero() {
+			return errStsWillBeDeleted
 		}
 		annotations := currentSet.Spec.Template.Annotations
 		labels := currentSet.Spec.Template.Labels
@@ -134,7 +138,7 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(ctx context.Context, sfs api.S
 		sts.Spec.Template.Annotations = annotations
 		sts.Spec.Template.Labels = labels
 
-		if err := setControllerReference(cr, sts, r.scheme); err != nil {
+		if err := k8s.SetControllerReference(cr, sts, r.scheme); err != nil {
 			return errors.Wrap(err, "set controller reference")
 		}
 		err = r.createOrUpdate(ctx, cr, sts)
@@ -144,6 +148,9 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(ctx context.Context, sfs api.S
 		return nil
 	})
 	if err != nil {
+		if k8serrors.IsNotFound(err) || errors.Is(err, errStsWillBeDeleted) {
+			return nil
+		}
 		return errors.Wrap(err, "failed to create or update sts")
 	}
 
@@ -172,12 +179,10 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(ctx context.Context, sfs api
 	}
 
 	if cr.HAProxyEnabled() && cr.Status.HAProxy.Status != api.AppStateReady {
-		log.V(1).Info("Waiting for HAProxy to be ready before smart update")
 		return nil
 	}
 
 	if cr.ProxySQLEnabled() && cr.Status.ProxySQL.Status != api.AppStateReady {
-		log.V(1).Info("Waiting for ProxySQL to be ready before smart update")
 		return nil
 	}
 
@@ -663,7 +668,7 @@ func (r *ReconcilePerconaXtraDBCluster) isRestoreRunning(clusterName, namespace 
 		}
 
 		switch v.Status.State {
-		case api.RestoreStarting, api.RestoreStopCluster, api.RestoreRestore,
+		case api.RestoreStopCluster, api.RestoreRestore,
 			api.RestoreStartCluster, api.RestorePITR:
 			return true, nil
 		}

@@ -85,6 +85,9 @@ spec:
             - containerPort: 33060
               name: mysqlx
               protocol: TCP
+            - containerPort: 8404
+              name: stats
+              protocol: TCP
           readinessProbe:
             exec:
               command:
@@ -112,6 +115,7 @@ spec:
             - /opt/percona/peer-list
             - -on-change=/opt/percona/haproxy_add_pxc_nodes.sh
             - -service=$(PXC_SERVICE)
+            - -protocol=$(PEER_LIST_SRV_PROTOCOL)
           command:
             - /opt/percona/haproxy-entrypoint.sh
           env:

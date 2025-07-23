@@ -23,11 +23,12 @@ import (
 
 const internalSecretsPrefix = "internal-"
 
-func (r *ReconcilePerconaXtraDBCluster) reconcileUsersSecret(ctx context.Context, cr *api.PerconaXtraDBCluster) error {
+// reconciles the user secret provided in `.spec.secretName` field, and returns the updated/created secret.
+func (r *ReconcilePerconaXtraDBCluster) reconcileUsersSecret(ctx context.Context, cr *api.PerconaXtraDBCluster) (*corev1.Secret, error) {
 	log := logf.FromContext(ctx)
 
 	secretObj := new(corev1.Secret)
-	err := r.client.Get(context.TODO(),
+	err := r.client.Get(ctx,
 		types.NamespacedName{
 			Namespace: cr.Namespace,
 			Name:      cr.Spec.SecretsName,
@@ -36,22 +37,22 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsersSecret(ctx context.Context
 	)
 	if err == nil {
 		if err := validatePasswords(secretObj); err != nil {
-			return errors.Wrap(err, "validate passwords")
+			return nil, errors.Wrap(err, "validate passwords")
 		}
 		isChanged, err := setUserSecretDefaults(secretObj)
 		if err != nil {
-			return errors.Wrap(err, "set user secret defaults")
+			return nil, errors.Wrap(err, "set user secret defaults")
 		}
 		if isChanged {
 			err := r.client.Update(context.TODO(), secretObj)
 			if err == nil {
 				log.Info("User secrets updated", "secrets", cr.Spec.SecretsName)
 			}
-			return err
+			return secretObj, err
 		}
-		return nil
+		return secretObj, nil
 	} else if !k8serror.IsNotFound(err) {
-		return errors.Wrap(err, "get secret")
+		return nil, errors.Wrap(err, "get secret")
 	}
 
 	secretObj = &corev1.Secret{
@@ -64,16 +65,16 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsersSecret(ctx context.Context
 	}
 
 	if _, err = setUserSecretDefaults(secretObj); err != nil {
-		return errors.Wrap(err, "set user secret defaults")
+		return nil, errors.Wrap(err, "set user secret defaults")
 	}
 
 	err = r.client.Create(context.TODO(), secretObj)
 	if err != nil {
-		return fmt.Errorf("create Users secret: %v", err)
+		return nil, fmt.Errorf("create Users secret: %v", err)
 	}
 
 	log.Info("Created user secrets", "secrets", cr.Spec.SecretsName)
-	return nil
+	return secretObj, nil
 }
 
 func setUserSecretDefaults(secret *corev1.Secret) (isChanged bool, err error) {
@@ -125,6 +126,9 @@ func validatePasswords(secret *corev1.Secret) error {
 		case users.ProxyAdmin:
 			if strings.ContainsAny(string(pass), ";:") {
 				return errors.New("invalid proxyadmin password, don't use ';' or ':'")
+			}
+			if strings.HasPrefix(string(pass), "*") {
+				return errors.New("invalid proxyadmin password, first character must not be '*'")
 			}
 		default:
 			continue

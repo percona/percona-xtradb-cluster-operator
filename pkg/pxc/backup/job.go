@@ -19,11 +19,7 @@ import (
 )
 
 func (*Backup) Job(cr *api.PerconaXtraDBClusterBackup, cluster *api.PerconaXtraDBCluster) *batchv1.Job {
-	labelKeyBackupType := "type"
-	if cluster.CompareVersionWith("1.16.0") >= 0 {
-		labelKeyBackupType = naming.LabelPerconaBackupType
-	}
-
+	labelKeyBackupType := naming.GetLabelBackupType(cluster)
 	jobName := naming.BackupJobName(cr.Name, cr.Labels[labelKeyBackupType] == "cron")
 
 	return &batchv1.Job{
@@ -128,7 +124,7 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, cluster *api.PerconaXtraDBClu
 						Image:           bcp.image,
 						SecurityContext: storage.ContainerSecurityContext,
 						ImagePullPolicy: bcp.imagePullPolicy,
-						Command:         []string{"bash", "/usr/bin/backup.sh"},
+						Command:         []string{"bash", "/opt/percona/backup/backup.sh"},
 						Env:             envs,
 						Resources:       storage.Resources,
 						VolumeMounts:    volumeMounts,

@@ -1,0 +1,117 @@
+#!/bin/bash
+
+# This test checks startingDeadlineSeconds and suspendedDeadlineSeconds
+
+set -o errexit
+
+test_dir=$(realpath $(dirname $0))
+. ${test_dir}/../functions
+
+set_debug
+
+cluster="some-name"
+
+function run_backup() {
+	local name=$1
+	yq eval ".metadata.name = \"${name}\"" ${test_dir}/conf/backup.yml \
+		| kubectl_bin apply -f -
+}
+
+function check_backup_error() {
+	local name=$1
+	local expected=$2
+
+	if ! kubectl_bin get pxc-backup ${name} -o yaml | yq .status.error | grep "${expected}"; then
+		log "asserting backup error failed name: ${name} expected: ${expected}, got: $(kubectl_bin get pxc-backup ${name} -o yaml | yq .status.error)"
+		exit 1
+	fi
+}
+
+create_infra ${namespace}
+
+start_minio
+
+log "creating PXC client"
+kubectl_bin apply -f ${conf_dir}/client.yml
+
+log "creating cluster secrets"
+kubectl_bin apply -f ${conf_dir}/secrets.yml
+
+log "create PXC cluster: ${cluster}"
+if [[ $IMAGE_PXC =~ 5\.7 ]]; then
+	cat_config ${test_dir}/conf/cr.yml \
+		| $sed '/\[sst\]/,+1d' \
+		| $sed 's|compress=lz4|compress|' \
+		| kubectl_bin apply -f -
+else
+	apply_config ${test_dir}/conf/cr.yml
+fi
+wait_cluster_consistency ${cluster} 3 2
+
+desc "CASE 1: startingDeadlineSeconds"
+
+log "setting startingDeadlineSeconds to 20"
+kubectl_bin patch pxc ${cluster} --type=merge -p '{"spec": {"backup": {"startingDeadlineSeconds": 20}}}'
+
+log "create dummy lock to block backup"
+kubectl_bin apply -f ${test_dir}/conf/lease.yaml
+
+log "creating pxc-backup/backup1"
+run_backup backup1
+wait_backup backup1 Failed
+
+log "operator should fail backup"
+check_backup_error backup1 "starting deadline seconds exceeded"
+
+log "operator successfully failed the backup job"
+
+kubectl_bin delete -f ${test_dir}/conf/lease.yaml
+
+desc "CASE 1: startingDeadlineSeconds PASSED"
+
+desc "CASE 2: suspend and resume"
+
+log "setting suspendedDeadlineSeconds to 300"
+kubectl_bin patch pxc ${cluster} --type=merge -p '{"spec": {"backup": {"startingDeadlineSeconds": 1800, "suspendedDeadlineSeconds": 300}}}'
+
+log "creating pxc-backup/backup2"
+run_backup backup2
+wait_backup backup2 Running
+
+log "deleting pod/${cluster}-pxc-2"
+kubectl_bin delete pod ${cluster}-pxc-2 --force
+
+wait_backup backup2 Suspended
+
+wait_cluster_consistency ${cluster} 3 2
+
+wait_backup backup2 Succeeded
+
+desc "CASE 2: suspend and resume PASSED"
+
+desc "CASE 3: suspendedDeadlineSeconds"
+
+log "setting suspendedDeadlineSeconds to 10"
+kubectl_bin patch pxc ${cluster} --type=merge -p '{"spec": {"backup": {"startingDeadlineSeconds": 1800, "suspendedDeadlineSeconds": 10}}}'
+
+log "creating pxc-backup/backup3"
+run_backup backup3
+wait_backup backup3 Running
+
+log "deleting pod/${cluster}-pxc-2"
+kubectl_bin delete pod ${cluster}-pxc-2 --force
+
+wait_backup backup3 Suspended
+
+wait_cluster_consistency ${cluster} 3 2
+
+wait_backup backup3 Failed
+
+log "operator should fail backup"
+check_backup_error backup3 "suspended deadline seconds exceeded"
+
+desc "CASE 3: suspendedDeadlineSeconds PASSED"
+
+log "test passed"
+
+destroy $namespace

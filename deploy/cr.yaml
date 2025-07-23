@@ -10,7 +10,7 @@ metadata:
 #  annotations:
 #    percona.com/issue-vault-token: "true"
 spec:
-  crVersion: 1.17.0
+  crVersion: 1.18.0
 #  enableVolumeExpansion: false
 #  ignoreAnnotations:
 #    - iam.amazonaws.com/role
@@ -63,11 +63,11 @@ spec:
 #    expose:
 #      enabled: true
 #      type: LoadBalancer
+#      loadBalancerClass: "eks.amazonaws.com/nlb"
 #      externalTrafficPolicy: Local
 #      internalTrafficPolicy: Local
 #      loadBalancerSourceRanges:
 #        - 10.0.0.0/8
-#      loadBalancerIP: 127.0.0.1
 #      annotations:
 #        networking.gke.io/load-balancer-type: "Internal"
 #      labels:
@@ -282,8 +282,8 @@ spec:
 #      successThreshold: 1
 #      failureThreshold: 4
 #    exposePrimary:
-#      enabled: false
 #      type: ClusterIP
+#      loadBalancerClass: "eks.amazonaws.com/nlb"
 #      annotations:
 #        service.beta.kubernetes.io/aws-load-balancer-backend-protocol: tcp
 #      externalTrafficPolicy: Cluster
@@ -292,11 +292,11 @@ spec:
 #        rack: rack-22
 #      loadBalancerSourceRanges:
 #        - 10.0.0.0/8
-#      loadBalancerIP: 127.0.0.1
 #    exposeReplicas:
 #      enabled: true
 #      onlyReaders: false
 #      type: ClusterIP
+#      loadBalancerClass: "eks.amazonaws.com/nlb"
 #      annotations:
 #        service.beta.kubernetes.io/aws-load-balancer-backend-protocol: tcp
 #      externalTrafficPolicy: Cluster
@@ -305,7 +305,6 @@ spec:
 #        rack: rack-22
 #      loadBalancerSourceRanges:
 #        - 10.0.0.0/8
-#      loadBalancerIP: 127.0.0.1
 #    runtimeClassName: image-rc
 #    sidecars:
 #    - image: busybox
@@ -447,6 +446,7 @@ spec:
 #    expose:
 #      enabled: false
 #      type: ClusterIP
+#      loadBalancerClass: "eks.amazonaws.com/nlb"
 #      annotations:
 #        service.beta.kubernetes.io/aws-load-balancer-backend-protocol: tcp
 #      externalTrafficPolicy: Cluster
@@ -455,7 +455,6 @@ spec:
 #        rack: rack-22
 #      loadBalancerSourceRanges:
 #        - 10.0.0.0/8
-#      loadBalancerIP: 127.0.0.1
 #    runtimeClassName: image-rc
 #    sidecars:
 #    - image: busybox
@@ -579,6 +578,7 @@ spec:
     enabled: false
     image: perconalab/pmm-client:dev-latest
     serverHost: monitoring-service
+#    customClusterName: "testClusterName"
 #    serverUser: admin
 #    pxcParams: "--disable-tablestats-limit=2000"
 #    proxysqlParams: "--custom-labels=CUSTOM-LABELS"
@@ -605,6 +605,8 @@ spec:
     image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0-backup
 #    backoffLimit: 6
 #    activeDeadlineSeconds: 3600
+#    startingDeadlineSeconds: 300
+#    suspendedDeadlineSeconds: 1200
 #    serviceAccountName: percona-xtradb-cluster-operator
 #    imagePullSecrets:
 #      - name: private-registry-credentials
@@ -685,6 +687,8 @@ spec:
           container: test
 #          endpointUrl: https://accountName.blob.core.windows.net
 #          storageClass: Hot
+#          blockSize: 4194304
+#          concurrency: 4
       fs-pvc:
         type: filesystem
 #        nodeSelector:
@@ -736,9 +740,15 @@ spec:
     schedule:
 #      - name: "sat-night-backup"
 #        schedule: "0 0 * * 6"
-#        keep: 3
+#        retention:
+#          type: "count"
+#          count: 5
+#          deleteFromStorage: true
 #        storageName: s3-us-west
       - name: "daily-backup"
         schedule: "0 0 * * *"
-        keep: 5
+        retention:
+          type: "count"
+          count: 5
+          deleteFromStorage: true
         storageName: fs-pvc

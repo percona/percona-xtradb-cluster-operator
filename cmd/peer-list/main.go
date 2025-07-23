@@ -36,6 +36,7 @@ import (
 
 const (
 	pollPeriod = 1 * time.Second
+	waitPeriod = 30 * time.Second
 )
 
 var (
@@ -44,11 +45,20 @@ var (
 	svc       = flag.String("service", "", "Governing service responsible for the DNS records of the domain this pod is in.")
 	namespace = flag.String("ns", "", "The namespace this pod is running in. If unspecified, the POD_NAMESPACE env var is used.")
 	domain    = flag.String("domain", "", "The Cluster Domain which is used by the Cluster, if not set tries to determine it from /etc/resolv.conf file.")
+	protocol  = flag.String("protocol", "", "The protocol used for SRV lookups. The default value is empty string. Acceptable values are also tcp and udp.")
 )
 
-func lookup(svcName string) (sets.String, error) {
+func lookup(svcName, protocol string) (sets.String, error) {
 	endpoints := sets.NewString()
-	_, srvRecords, err := net.LookupSRV("", "", svcName)
+
+	// setting 'service' a value only when protocol is non-empty
+	// because `LookupSRV` internally has a condition on its default
+	// resolver for checking if service == "" && proto == "".
+	service := ""
+	if protocol != "" {
+		service = "mysql"
+	}
+	_, srvRecords, err := net.LookupSRV(service, protocol, svcName)
 	if err != nil {
 		return endpoints, err
 	}
@@ -140,8 +150,18 @@ func main() {
 	}
 	newPeers := sets.NewString()
 	var err error
+
+	isFirstUpdate := true
+	lastChangeTime := time.Now()
+
+	normalizedProtocol, err := normalizeAndValidateProtocol(protocol)
+	if err != nil {
+		log.Fatal(err)
+	}
+	proto := normalizedProtocol
+
 	for peers := sets.NewString(); script != ""; time.Sleep(pollPeriod) {
-		newPeers, err = lookup(*svc)
+		newPeers, err = lookup(*svc, proto)
 		if err != nil {
 			log.Printf("%v", err)
 
@@ -154,12 +174,42 @@ func main() {
 		peerList := newPeers.List()
 		sort.Strings(peerList)
 		if strings.Join(peers.List(), ":") != strings.Join(newPeers.List(), ":") {
-			log.Printf("Peer list updated\nwas %v\nnow %v", peers.List(), newPeers.List())
-			shellOut(strings.Join(peerList, "\n"), script)
-			peers = newPeers
+			if isFirstUpdate || time.Since(lastChangeTime) >= waitPeriod {
+				log.Printf("Peer list updated\nwas %v\nnow %v", peers.List(), newPeers.List())
+				shellOut(strings.Join(peerList, "\n"), script)
+				peers = newPeers
+				lastChangeTime = time.Now()
+				isFirstUpdate = false
+			} else {
+				log.Printf("Ignoring peer list update, last change was %v ago", time.Since(lastChangeTime))
+			}
 		}
 		script = *onChange
 	}
 	// TODO: Exit if there's no on-change?
 	log.Printf("Peer finder exiting")
+}
+
+func normalizeAndValidateProtocol(protocol *string) (string, error) {
+	// An empty protocol is accepted for backward compatibility,
+	// as it was the implicit default before protocol configuration was introduced.
+	// The current default is also an empty string, so it remains a valid value.
+	if protocol == nil {
+		return "", nil
+	}
+
+	proto := strings.TrimSpace(*protocol)
+
+	// If the env var PEER_LIST_SRV_PROTOCOL does not exist in
+	// the container env, 'protocol' will remain a literal string.
+	if proto == "" || proto == "$(PEER_LIST_SRV_PROTOCOL)" {
+		return "", nil
+	}
+
+	normalizedProtocol := strings.ToLower(proto)
+
+	if normalizedProtocol != "udp" && normalizedProtocol != "tcp" {
+		return "", fmt.Errorf("protocol must be either 'udp' or 'tcp', provided %v", *protocol)
+	}
+	return normalizedProtocol, nil
 }

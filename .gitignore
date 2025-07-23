@@ -72,7 +72,7 @@ Session.vim
 .netrwhist
 # auto-generated tag files
 tags
-!vendor/**/tags
+vendor/
 ### VisualStudioCode ###
 .vscode/*
 .history
@@ -85,3 +85,8 @@ e2e-tests/init-deploy/smallrun
 deploy/crds
 
 .editorconfig
+projects/
+installers/olm/operator_*.yaml
+installers/olm/bundles
+
+

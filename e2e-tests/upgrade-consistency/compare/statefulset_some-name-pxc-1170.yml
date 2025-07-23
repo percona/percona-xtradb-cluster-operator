@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  generation: 3
+  generation: 2
   name: some-name-pxc
   ownerReferences:
     - controller: true
@@ -268,6 +268,12 @@ spec:
     type: RollingUpdate
   volumeClaimTemplates:
     - metadata:
+        labels:
+          app.kubernetes.io/component: pxc
+          app.kubernetes.io/instance: some-name
+          app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+          app.kubernetes.io/name: percona-xtradb-cluster
+          app.kubernetes.io/part-of: percona-xtradb-cluster
         name: datadir
       spec:
         accessModes:

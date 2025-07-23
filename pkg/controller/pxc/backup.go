@@ -91,15 +91,16 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(ctx context.Context, cr
 			return true
 		}
 		if spec, ok := backups[item.Name]; ok {
-			if spec.Keep > 0 {
-				oldjobs, err := r.oldScheduledBackups(ctx, cr, item.Name, spec.Keep)
+			if spec.GetRetention().IsValidCountRetention() {
+				oldjobs, err := r.oldScheduledBackups(ctx, cr, item.Name, spec.GetRetention().Count)
 				if err != nil {
 					log.Error(err, "failed to list old backups", "name", item.Name)
 					return true
 				}
 
 				for _, todel := range oldjobs {
-					err = r.client.Delete(context.TODO(), &todel)
+					log.Info("deleting outdated backup", "backup", todel.Name)
+					err = r.client.Delete(ctx, &todel)
 					if err != nil {
 						log.Error(err, "failed to delete old backup", "name", todel.Name)
 					}
@@ -170,19 +171,11 @@ func (r *ReconcilePerconaXtraDBCluster) oldScheduledBackups(ctx context.Context,
 func (r *ReconcilePerconaXtraDBCluster) createBackupJob(ctx context.Context, cr *api.PerconaXtraDBCluster, backupJob api.PXCScheduledBackupSchedule, storageType api.BackupStorageType) func() {
 	log := logf.FromContext(ctx)
 
-	var fins []string
-	switch storageType {
-	case api.BackupStorageS3, api.BackupStorageAzure:
-		if cr.CompareVersionWith("1.15.0") < 0 {
-			fins = append(fins, naming.FinalizerS3DeleteBackup)
-		} else {
-			fins = append(fins, naming.FinalizerDeleteBackup)
-		}
-	}
+	finalizers := backupFinalizers(cr, backupJob, storageType)
 
 	return func() {
 		localCr := &api.PerconaXtraDBCluster{}
-		err := r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, localCr)
+		err := r.client.Get(ctx, types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, localCr)
 		if k8serrors.IsNotFound(err) {
 			log.Info("cluster is not found, deleting the job",
 				"name", backupJob.Name, "cluster", cr.Name, "namespace", cr.Namespace)
@@ -190,22 +183,40 @@ func (r *ReconcilePerconaXtraDBCluster) createBackupJob(ctx context.Context, cr 
 			return
 		}
 
+		if err := localCr.CanBackup(); err != nil {
+			log.Info("Cluster is not ready for backup. Scheduled backup is not created", "error", err.Error(), "name", backupJob.Name, "cluster", cr.Name, "namespace", cr.Namespace)
+			return
+		}
+
 		bcp := &api.PerconaXtraDBClusterBackup{
 			ObjectMeta: metav1.ObjectMeta{
-				Finalizers: fins,
+				Finalizers: finalizers,
 				Namespace:  cr.Namespace,
 				Name:       naming.ScheduledBackupName(cr.Name, backupJob.StorageName, backupJob.Schedule),
 				Labels:     naming.LabelsScheduledBackup(cr, backupJob.Name),
 			},
 			Spec: api.PXCBackupSpec{
-				PXCCluster:  cr.Name,
-				StorageName: backupJob.StorageName,
+				PXCCluster:              cr.Name,
+				StorageName:             backupJob.StorageName,
+				StartingDeadlineSeconds: cr.Spec.Backup.StartingDeadlineSeconds,
 			},
 		}
-		err = r.client.Create(context.TODO(), bcp)
+		err = r.client.Create(ctx, bcp)
 		if err != nil {
 			log.Error(err, "failed to create backup")
 		}
+	}
+}
+
+func backupFinalizers(cr *api.PerconaXtraDBCluster, backupJob api.PXCScheduledBackupSchedule, storageType api.BackupStorageType) []string {
+	switch storageType {
+	case api.BackupStorageS3, api.BackupStorageAzure:
+		if cr.CompareVersionWith("1.18.0") >= 0 && !backupJob.GetRetention().DeleteFromStorage {
+			return []string{}
+		}
+		return []string{naming.FinalizerDeleteBackup}
+	default:
+		return []string{}
 	}
 }
 

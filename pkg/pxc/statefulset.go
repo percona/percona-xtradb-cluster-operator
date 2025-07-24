@@ -17,8 +17,15 @@ import (
 )
 
 // StatefulSet returns StatefulSet according to app to podSpec provided.
-func StatefulSet(ctx context.Context, cl client.Client, sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, secret *corev1.Secret,
-	initImageName string, vg api.CustomVolumeGetter,
+func StatefulSet(
+	ctx context.Context,
+	cl client.Client,
+	sfs api.StatefulApp,
+	podSpec *api.PodSpec,
+	cr *api.PerconaXtraDBCluster,
+	secret *corev1.Secret,
+	initImageName string,
+	vg api.CustomVolumeGetter,
 ) (*appsv1.StatefulSet, error) {
 	log := logf.FromContext(ctx)
 

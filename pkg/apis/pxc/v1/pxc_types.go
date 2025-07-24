@@ -106,6 +106,7 @@ type ServiceExpose struct {
 	// a Service to type 'LoadBalancer'. Once set, it can not be changed.
 	LoadBalancerClass        *string                                 `json:"loadBalancerClass,omitempty"`
 	LoadBalancerSourceRanges []string                                `json:"loadBalancerSourceRanges,omitempty"`
+	LoadBalancerIP           string                                  `json:"loadBalancerIP,omitempty"`
 	Annotations              map[string]string                       `json:"annotations,omitempty"`
 	Labels                   map[string]string                       `json:"labels,omitempty"`
 	ExternalTrafficPolicy    corev1.ServiceExternalTrafficPolicyType `json:"externalTrafficPolicy,omitempty"`

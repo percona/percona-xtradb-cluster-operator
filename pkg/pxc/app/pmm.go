@@ -364,7 +364,7 @@ func PMM3Client(cr *api.PerconaXtraDBCluster, secret *corev1.Secret, envVarsSecr
 		},
 		{
 			Name:  "PMM_AGENT_PATHS_TEMPDIR",
-			Value: "/tmp",
+			Value: "/tmp/pmm",
 		},
 		{
 			Name:  "PMM_AGENT_PRERUN_SCRIPT",

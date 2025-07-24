@@ -276,7 +276,7 @@ func createOrUpdateConfigmap(ctx context.Context, cl client.Client, configMap *c
 		err = k8sretry.RetryOnConflict(k8sretry.DefaultRetry, func() error {
 			cm := &corev1.ConfigMap{}
 
-			err := cl.Get(ctx, nn, currMap)
+			err := cl.Get(ctx, nn, cm)
 			if err != nil {
 				return err
 			}

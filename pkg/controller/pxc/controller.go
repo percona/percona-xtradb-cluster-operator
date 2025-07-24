@@ -782,7 +782,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcilePDB(ctx context.Context, cr *ap
 		return errors.Wrap(err, "set owner reference")
 	}
 
-	return errors.Wrap(r.createOrUpdate(ctx, cr, pdb), "reconcile pdb")
+	return errors.Wrap(r.createOrUpdate(ctx, pdb), "reconcile pdb")
 }
 
 func (r *ReconcilePerconaXtraDBCluster) deletePXCPods(ctx context.Context, cr *api.PerconaXtraDBCluster) error {
@@ -1080,7 +1080,7 @@ func deleteConfigMapIfExists(cl client.Client, cr *api.PerconaXtraDBCluster, cmN
 	return cl.Delete(context.Background(), configMap)
 }
 
-func (r *ReconcilePerconaXtraDBCluster) createOrUpdate(ctx context.Context, cr *api.PerconaXtraDBCluster, obj client.Object) error {
+func (r *ReconcilePerconaXtraDBCluster) createOrUpdate(ctx context.Context, obj client.Object) error {
 	log := logf.FromContext(ctx)
 
 	if obj.GetAnnotations() == nil {
@@ -1204,7 +1204,7 @@ func (r *ReconcilePerconaXtraDBCluster) createOrUpdateService(ctx context.Contex
 		return errors.Wrap(err, "set controller reference")
 	}
 	if !saveOldMeta && len(cr.Spec.IgnoreAnnotations) == 0 && len(cr.Spec.IgnoreLabels) == 0 {
-		return r.createOrUpdate(ctx, cr, svc)
+		return r.createOrUpdate(ctx, svc)
 	}
 	oldSvc := new(corev1.Service)
 	err = r.client.Get(ctx, types.NamespacedName{
@@ -1213,7 +1213,7 @@ func (r *ReconcilePerconaXtraDBCluster) createOrUpdateService(ctx context.Contex
 	}, oldSvc)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
-			return r.createOrUpdate(ctx, cr, svc)
+			return r.createOrUpdate(ctx, svc)
 		}
 		return errors.Wrap(err, "get object")
 	}
@@ -1224,7 +1224,7 @@ func (r *ReconcilePerconaXtraDBCluster) createOrUpdateService(ctx context.Contex
 	}
 	setIgnoredAnnotationsAndLabels(cr, svc, oldSvc)
 
-	return r.createOrUpdate(ctx, cr, svc)
+	return r.createOrUpdate(ctx, svc)
 }
 
 func getObjectHash(obj runtime.Object) (string, error) {

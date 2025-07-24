@@ -9,6 +9,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	k8sretry "k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -25,9 +26,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMaps(ctx context.Context,
 	if err != nil {
 		return result, errors.Wrap(err, "reconcile autotune config")
 	}
-	if result == controllerutil.OperationResultNone {
-		result = res
-	}
+	result = res
 
 	res, err = r.reconcileCustomConfigMap(ctx, cr)
 	if err != nil {
@@ -122,7 +121,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileCustomConfigMap(ctx context.Con
 func (r *ReconcilePerconaXtraDBCluster) reconcileHookScriptConfigMaps(ctx context.Context, cr *api.PerconaXtraDBCluster) (controllerutil.OperationResult, error) {
 	pxcHookScriptName := config.HookScriptConfigMapName(cr.Name, "pxc")
 	if cr.Spec.PXC != nil && cr.Spec.PXC.HookScript != "" {
-		err := r.createHookScriptConfigMap(ctx, cr, cr.Spec.PXC.PodSpec.HookScript, pxcHookScriptName)
+		err := r.createHookScriptConfigMap(ctx, cr, cr.Spec.PXC.HookScript, pxcHookScriptName)
 		if err != nil {
 			return controllerutil.OperationResultNone, errors.Wrap(err, "create pxc hookscript config map")
 		}
@@ -146,7 +145,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileHookScriptConfigMaps(ctx contex
 
 	haproxyHookScriptName := config.HookScriptConfigMapName(cr.Name, "haproxy")
 	if cr.Spec.HAProxy != nil && cr.Spec.HAProxy.HookScript != "" {
-		err := r.createHookScriptConfigMap(ctx, cr, cr.Spec.HAProxy.PodSpec.HookScript, haproxyHookScriptName)
+		err := r.createHookScriptConfigMap(ctx, cr, cr.Spec.HAProxy.HookScript, haproxyHookScriptName)
 		if err != nil {
 			return controllerutil.OperationResultNone, errors.Wrap(err, "create haproxy hookscript config map")
 		}
@@ -259,8 +258,10 @@ func (r *ReconcilePerconaXtraDBCluster) createHookScriptConfigMap(ctx context.Co
 func createOrUpdateConfigmap(ctx context.Context, cl client.Client, configMap *corev1.ConfigMap) (controllerutil.OperationResult, error) {
 	log := logf.FromContext(ctx)
 
+	nn := types.NamespacedName{Namespace: configMap.Namespace, Name: configMap.Name}
+
 	currMap := &corev1.ConfigMap{}
-	err := cl.Get(ctx, types.NamespacedName{Namespace: configMap.Namespace, Name: configMap.Name}, currMap)
+	err := cl.Get(ctx, nn, currMap)
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return controllerutil.OperationResultNone, errors.Wrap(err, "get current configmap")
 	}
@@ -272,7 +273,19 @@ func createOrUpdateConfigmap(ctx context.Context, cl client.Client, configMap *c
 
 	if !reflect.DeepEqual(currMap.Data, configMap.Data) {
 		log.V(1).Info("Updating object", "object", configMap.Name, "kind", configMap.GetObjectKind())
-		return controllerutil.OperationResultUpdated, cl.Update(ctx, configMap)
+		err = k8sretry.RetryOnConflict(k8sretry.DefaultRetry, func() error {
+			cm := &corev1.ConfigMap{}
+
+			err := cl.Get(ctx, nn, currMap)
+			if err != nil {
+				return err
+			}
+
+			cm.Data = configMap.Data
+
+			return cl.Update(ctx, cm)
+		})
+		return controllerutil.OperationResultUpdated, err
 	}
 
 	return controllerutil.OperationResultNone, nil

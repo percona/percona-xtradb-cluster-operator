@@ -104,13 +104,14 @@ type ServiceExpose struct {
 	// LoadBalancerClass enables to use a load balancer implementation other than the cloud provider default.
 	// This field can only be set when the Service type is 'LoadBalancer', and only when creating or updating
 	// a Service to type 'LoadBalancer'. Once set, it can not be changed.
-	LoadBalancerClass        *string                                 `json:"loadBalancerClass,omitempty"`
-	LoadBalancerSourceRanges []string                                `json:"loadBalancerSourceRanges,omitempty"`
-	LoadBalancerIP           string                                  `json:"loadBalancerIP,omitempty"`
-	Annotations              map[string]string                       `json:"annotations,omitempty"`
-	Labels                   map[string]string                       `json:"labels,omitempty"`
-	ExternalTrafficPolicy    corev1.ServiceExternalTrafficPolicyType `json:"externalTrafficPolicy,omitempty"`
-	InternalTrafficPolicy    corev1.ServiceInternalTrafficPolicy     `json:"internalTrafficPolicy,omitempty"`
+	LoadBalancerClass        *string  `json:"loadBalancerClass,omitempty"`
+	LoadBalancerSourceRanges []string `json:"loadBalancerSourceRanges,omitempty"`
+	// Deprecated: in Kubernetes v1.24+ and should be removed in 1.21.0 operator version
+	LoadBalancerIP        string                                  `json:"loadBalancerIP,omitempty"`
+	Annotations           map[string]string                       `json:"annotations,omitempty"`
+	Labels                map[string]string                       `json:"labels,omitempty"`
+	ExternalTrafficPolicy corev1.ServiceExternalTrafficPolicyType `json:"externalTrafficPolicy,omitempty"`
+	InternalTrafficPolicy corev1.ServiceInternalTrafficPolicy     `json:"internalTrafficPolicy,omitempty"`
 
 	// Deprecated: Use ExternalTrafficPolicy instead
 	TrafficPolicy corev1.ServiceExternalTrafficPolicyType `json:"trafficPolicy,omitempty"`

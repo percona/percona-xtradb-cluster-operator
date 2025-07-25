@@ -88,7 +88,7 @@ function wait_any_pvc_resize() {
 
 	local retry=0
 	echo "Waiting for any of pvces to be resized"
-    until [[ $(kubectl_bin get pvc -l app.kubernetes.io/component=pxc -o jsonpath='{.items[*].status.capacity.storage}' | grep $expected_size) ]]; do
+	until [[ $(kubectl_bin get pvc -l app.kubernetes.io/component=pxc -o jsonpath='{.items[*].status.capacity.storage}' | grep $expected_size) ]]; do
 		if [[ $retry -ge $max_retry ]]; then
 			echo
 			echo "No pvces were resized, max retries exceeded"
@@ -205,17 +205,16 @@ echo "$resized_pvc was resized"
 wait_cluster_status ${cluster} "ready"
 
 # Check that 2 PVCes keep old size: 3G
-if [[ $(kubectl_bin get pvc -l app.kubernetes.io/component=pxc -o json | jq '[.items[] | select(.status.capacity.storage == "3Gi")] | length') != 2 ]]; then 
+if [[ $(kubectl_bin get pvc -l app.kubernetes.io/component=pxc -o json | jq '[.items[] | select(.status.capacity.storage == "3Gi")] | length') != 2 ]]; then
 	echo "Number of PVCes with old size is not 2."
 	exit 1
 fi
-for pvc in $(kubectl_bin get pvc -l app.kubernetes.io/component=pxc -o json | jq -r '.items[] | select(.status.capacity.storage == "3Gi") | .metadata.name' ); do
-	if [[ ! $(kubectl_bin describe pvc $pvc | grep "ExceededQuota" |grep "PVC resize failed" ) ]]; then
+for pvc in $(kubectl_bin get pvc -l app.kubernetes.io/component=pxc -o json | jq -r '.items[] | select(.status.capacity.storage == "3Gi") | .metadata.name'); do
+	if [[ ! $(kubectl_bin describe pvc $pvc | grep "ExceededQuota" | grep "PVC resize failed") ]]; then
 		echo "PVCes do not have ExceededQuota error."
 		exit 1
 	fi
 done
-
 
 # We're setting the quota to 12Gi, so we can resize all PVCs to 4Gi
 apply_resourcequota 12Gi

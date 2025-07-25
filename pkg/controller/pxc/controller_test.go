@@ -1922,7 +1922,7 @@ var _ = Describe("Backup reconciliation", Ordered, func() {
 					Retention: &api.PXCScheduledBackupRetention{
 						Type:              "count",
 						Count:             5,
-						DeleteFromStorage: true,
+						DeleteFromStorage: true, // altered in comparison to the existing cr configuration.
 					},
 				},
 				JobID: 999,

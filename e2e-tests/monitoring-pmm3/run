@@ -145,6 +145,42 @@ get_pmm_server_token() {
 	echo "$token_json_response" | jq -r '.key'
 }
 
+verify_custom_cluster_name() {
+	local expected_cluster=$1
+	local token=$2
+	shift 2
+	local service_names=("$@")
+
+	local endpoint
+	endpoint=$(get_service_endpoint monitoring-service)
+
+	local response
+	response=$(curl -s -k \
+		-H "Authorization: Bearer ${token}" \
+		"https://$endpoint/v1/inventory/services")
+
+	local verified=0
+
+	for service_name in "${service_names[@]}"; do
+		local actual_cluster
+		actual_cluster=$(echo "$response" | jq -r --arg name "$service_name" '
+			.mysql[] | select(.service_name == $name) | .cluster
+		')
+
+		if [[ -z $actual_cluster || $actual_cluster == "null" ]]; then
+			echo "Service '$service_name' not found in PMM."
+			verified=1
+		elif [[ $actual_cluster != "$expected_cluster" ]]; then
+			echo "$service_name: Cluster mismatch"
+			echo "PMM reports: $actual_cluster"
+			echo "Expected:    $expected_cluster"
+			verified=1
+		fi
+	done
+
+	return $verified
+}
+
 delete_pmm_server_token() {
 	local key_name=$1
 
@@ -380,6 +416,9 @@ get_metric_values haproxy_backend_active_servers pxc-prefix-$namespace-$cluster-
 
 desc 'check QAN data'
 get_qan20_values $cluster-pxc-0 $NEW_TOKEN
+
+desc 'verify that the custom cluster name is configured'
+verify_custom_cluster_name pxc-prefix-foo-custom-cluster-name $NEW_TOKEN pxc-prefix-$namespace-$cluster-pxc-0 pxc-prefix-$namespace-$cluster-pxc-1 pxc-prefix-$namespace-$cluster-pxc-2
 
 nodeList=($(get_node_id_from_pmm))
 nodeList_from_pmm=($(does_node_id_exists "${nodeList[@]}"))

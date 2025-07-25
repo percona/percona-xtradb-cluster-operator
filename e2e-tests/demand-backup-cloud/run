@@ -150,7 +150,7 @@ main() {
 		desc "Run recovery from s3 for $cluster cluster"
 		run_recovery_check "$cluster" "${backup_name_aws}"
 
-		desc "Run recovery from s3 source with defult optoins"
+		desc "Run recovery from s3 source with defult options"
 		run_recovery_from_source
 
 		desc 'Run recovery from s3 source without s3:// prefix in destination'
@@ -160,6 +160,15 @@ main() {
 		run_recovery_from_source 's3' "${backup_name_aws}" 'remove_bucket_name'
 		compare_kubectl job.batch/xb-"${backup_name_aws}"
 		compare_kubectl job.batch/restore-job-on-demand-backup-s3-demand-backup-cloud
+
+		if [ "$EKS" = 1 ]; then
+			backup_name_aws_iam="on-demand-backup-aws-s3-iam"
+			desc "Run backup ${backup_name_aws_iam} for $cluster cluster with IAM"
+			run_backup_with_delete "${backup_name_aws_iam}"
+
+			desc "Run recovery from s3 for $cluster cluster with IAM"
+			run_recovery_check "$cluster" "${backup_name_aws_iam}"
+		fi
 
 		desc "Run backup ${backup_name_gcp} for $cluster cluster"
 		run_backup_with_delete "${backup_name_gcp}"

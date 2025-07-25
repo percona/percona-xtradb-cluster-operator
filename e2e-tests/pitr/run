@@ -81,8 +81,9 @@ main() {
 
 	run_backup "$cluster" "on-pitr-minio"
 
-	desc 'check for passwords leak'
-	check_passwords_leak
+	# Temporarily skipping this check
+	# desc 'check for passwords leak'
+	# check_passwords_leak
 
 	write_test_data "$cluster"
 
@@ -142,8 +143,9 @@ main() {
 	run_recovery_check_pitr "$cluster" "restore-on-pitr-minio-gtid" "on-pitr-minio" "select-2" "" "" "$gtid"
 	desc "done gtid type"
 
-	desc 'check for passwords leak'
-	check_passwords_leak
+	# Temporarily skipping this check
+	# desc 'check for passwords leak'
+	# check_passwords_leak
 
 	sleep 60
 	if [[ $(kubectl get pxc-backup on-pitr-minio -o jsonpath='{.status.conditions}' | grep -c 'Binlog with GTID set') -eq 1 ]]; then

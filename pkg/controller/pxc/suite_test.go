@@ -40,7 +40,8 @@ func TestAPIs(t *testing.T) {
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
-	os.Setenv("WATCH_NAMESPACE", "default")
+	errEnv := os.Setenv("WATCH_NAMESPACE", "default")
+	Expect(errEnv).NotTo(HaveOccurred())
 
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
@@ -66,6 +67,9 @@ var _ = BeforeSuite(func() {
 
 var _ = AfterSuite(func() {
 	By("tearing down the test environment")
+	errEnv := os.Unsetenv("WATCH_NAMESPACE")
+	Expect(errEnv).NotTo(HaveOccurred())
+
 	err := testEnv.Stop()
 	Expect(err).NotTo(HaveOccurred())
 })

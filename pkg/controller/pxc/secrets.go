@@ -44,7 +44,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsersSecret(ctx context.Context
 			return nil, errors.Wrap(err, "set user secret defaults")
 		}
 		if isChanged {
-			err := r.client.Update(context.TODO(), secretObj)
+			err := r.client.Update(ctx, secretObj)
 			if err == nil {
 				log.Info("User secrets updated", "secrets", cr.Spec.SecretsName)
 			}
@@ -68,7 +68,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsersSecret(ctx context.Context
 		return nil, errors.Wrap(err, "set user secret defaults")
 	}
 
-	err = r.client.Create(context.TODO(), secretObj)
+	err = r.client.Create(ctx, secretObj)
 	if err != nil {
 		return nil, fmt.Errorf("create Users secret: %v", err)
 	}

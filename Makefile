@@ -110,7 +110,7 @@ include e2e-tests/release_versions
 CERT_MANAGER_VER := $(shell grep -Eo "cert-manager v.*" go.mod|grep -Eo "[0-9]+\.[0-9]+\.[0-9]+")
 release: manifests
 	$(SED) -i "/CERT_MANAGER_VER/s/CERT_MANAGER_VER=\".*/CERT_MANAGER_VER=\"$(CERT_MANAGER_VER)\"/" e2e-tests/functions
-	$(SED) -i "/Version = \"/s/Version = \".*/Version = \"$(VERSION)\"/" version/version.go
+	echo $(VERSION) > pkg/version/version.txt
 	$(SED) -i \
 		-e "s/crVersion: .*/crVersion: $(VERSION)/" \
 		-e "/^  pxc:/,/^    image:/{s#image: .*#image: $(IMAGE_PXC80)#}" \
@@ -131,7 +131,7 @@ MAJOR_VER := $(shell grep -oE "crVersion: .*" deploy/cr.yaml|grep -oE "[0-9]+\.[
 MINOR_VER := $(shell grep -oE "crVersion: .*" deploy/cr.yaml|grep -oE "[0-9]+\.[0-9]+\.[0-9]+"|cut -d'.' -f2)
 NEXT_VER ?= $(MAJOR_VER).$$(($(MINOR_VER) + 1)).0
 after-release: manifests
-	$(SED) -i "/Version = \"/s/Version = \".*/Version = \"$(NEXT_VER)\"/" version/version.go
+	echo $(NEXT_VER) > pkg/version/version.txt
 	$(SED) -i \
 		-e "s/crVersion: .*/crVersion: $(NEXT_VER)/" \
 		-e "/^  pxc:/,/^    image:/{s#image: .*#image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0#}" \

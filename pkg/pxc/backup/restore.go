@@ -119,6 +119,8 @@ func PVCRestorePod(cr *api.PerconaXtraDBClusterRestore, bcpStorageName, pvcName 
 		},
 	}
 
+	cmd := []string{"recovery-pvc-donor.sh"}
+
 	var initContainers []corev1.Container
 	if cluster.CompareVersionWith("1.18.0") >= 0 {
 		volumes = append(volumes,
@@ -137,6 +139,7 @@ func PVCRestorePod(cr *api.PerconaXtraDBClusterRestore, bcpStorageName, pvcName 
 			},
 		)
 		initContainers = []corev1.Container{statefulset.BackupInitContainer(cluster, initImage, cluster.Spec.PXC.ContainerSecurityContext)}
+		cmd = []string{"/opt/percona/backup/recovery-pvc-donor.sh"}
 	}
 	return &corev1.Pod{
 		TypeMeta: metav1.TypeMeta{
@@ -158,7 +161,7 @@ func PVCRestorePod(cr *api.PerconaXtraDBClusterRestore, bcpStorageName, pvcName 
 					Name:            "ncat",
 					Image:           cluster.Spec.Backup.Image,
 					ImagePullPolicy: cluster.Spec.Backup.ImagePullPolicy,
-					Command:         []string{"/opt/percona/backup/recovery-pvc-donor.sh"},
+					Command:         cmd,
 					SecurityContext: cluster.Spec.Backup.Storages[bcpStorageName].ContainerSecurityContext,
 					VolumeMounts:    volumeMounts,
 					Resources:       cr.Spec.Resources,
@@ -224,7 +227,10 @@ func RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClust
 	var command []string
 	switch bcp.Status.GetStorageType(cluster) {
 	case api.BackupStorageFilesystem:
-		command = []string{"/opt/percona/backup/recovery-pvc-joiner.sh"}
+		command = []string{"recovery-pvc-joiner.sh"}
+		if cluster.CompareVersionWith("1.18.0") >= 0 {
+			command = []string{"/opt/percona/backup/recovery-pvc-joiner.sh"}
+		}
 		volumeMounts = append(volumeMounts, []corev1.VolumeMount{
 			{
 				Name:      "ssl",
@@ -240,9 +246,9 @@ func RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClust
 			sslVolume,
 		}...)
 	case api.BackupStorageAzure, api.BackupStorageS3:
-		command = []string{"/opt/percona/backup/recovery-cloud.sh"}
-		if bcp.Status.GetStorageType(cluster) == api.BackupStorageS3 && cluster.CompareVersionWith("1.12.0") < 0 {
-			command = []string{"/opt/percona/backup/recovery-s3.sh"}
+		command = []string{"recovery-cloud.sh"}
+		if cluster.CompareVersionWith("1.18.0") >= 0 {
+			command = []string{"/opt/percona/backup/recovery-cloud.sh"}
 		}
 		if pitr {
 			if cluster.Spec.Backup == nil && len(cluster.Spec.Backup.Storages) == 0 {

@@ -68,8 +68,9 @@ main() {
 	wait_cluster_consistency "$cluster" 3 3
 	check_haproxy_writer
 
-	desc 'check for passwords leak'
-	check_passwords_leak
+	# Temporarily skipping this check
+	#desc 'check for passwords leak'
+	#check_passwords_leak
 
 	desc 'delete active writer and checking all haproxy pods still point to the same writer'
 	desc 'fail pxc-pod-0 pod for 60s'

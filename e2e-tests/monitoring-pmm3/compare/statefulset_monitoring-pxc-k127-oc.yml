@@ -77,7 +77,7 @@ spec:
             - name: PMM_AGENT_SIDECAR_SLEEP
               value: "5"
             - name: PMM_AGENT_PATHS_TEMPDIR
-              value: /tmp
+              value: /tmp/pmm
             - name: PMM_AGENT_PRERUN_SCRIPT
               value: /var/lib/mysql/pmm-prerun.sh
             - name: DB_CLUSTER
@@ -92,7 +92,7 @@ spec:
             - name: DB_HOST
               value: localhost
             - name: CLUSTER_NAME
-              value: monitoring
+              value: foo-custom-cluster-name
             - name: PMM_AGENT_SETUP_NODE_NAME
               value: $(PMM_PREFIX)$(POD_NAMESPACE)-$(POD_NAME)
             - name: DB_PORT

@@ -3,8 +3,8 @@
 set -o errexit
 
 export AWS_SHARED_CREDENTIALS_FILE='/tmp/aws-credfile'
-export AWS_ENDPOINT_URL="${ENDPOINT:-https://s3.amazonaws.com}"
 export AWS_REGION="${DEFAULT_REGION:-us-west-2}"
+export AWS_ENDPOINT_URL="${ENDPOINT:-https://s3.${AWS_REGION}.amazonaws.com}"
 
 if [ -n "$VERIFY_TLS" ] && [[ $VERIFY_TLS == "false" ]]; then
 	AWS_S3_NO_VERIFY_SSL='--no-verify-ssl'

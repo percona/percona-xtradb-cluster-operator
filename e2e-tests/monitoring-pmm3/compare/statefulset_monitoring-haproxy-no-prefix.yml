@@ -89,7 +89,7 @@ spec:
             - name: DB_HOST
               value: localhost
             - name: CLUSTER_NAME
-              value: monitoring
+              value: foo-custom-cluster-name
             - name: PMM_AGENT_SETUP_NODE_NAME
               value: $(POD_NAMESPACE)-$(POD_NAME)
             - name: DB_TYPE

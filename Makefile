@@ -15,7 +15,7 @@ help: ## Display this help.
 
 generate: controller-gen  ## Generate CRDs and RBAC files
 	go generate ./...
-	$(CONTROLLER_GEN) crd:maxDescLen=0,allowDangerousTypes=true rbac:roleName=$(NAME) webhook paths="./..." output:crd:artifacts:config=config/crd/bases  ## Generate WebhookConfiguration, Role and CustomResourceDefinition objects.
+	$(CONTROLLER_GEN) crd:maxDescLen=0,allowDangerousTypes=true,generateEmbeddedObjectMeta=true rbac:roleName=$(NAME) webhook paths="./..." output:crd:artifacts:config=config/crd/bases  ## Generate WebhookConfiguration, Role and CustomResourceDefinition objects.
 	$(CONTROLLER_GEN) object paths="./..." ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 
 $(DEPLOYDIR)/crd.yaml: kustomize generate

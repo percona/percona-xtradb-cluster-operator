@@ -1908,6 +1908,39 @@ var _ = Describe("Backup reconciliation", Ordered, func() {
 			backupJob := job.(BackupScheduleJob)
 			Expect(backupJob.Retention.DeleteFromStorage).To(BeFalse())
 		})
+
+		It("should recreate backup job when existing job has different properties", func() {
+			rec := reconciler()
+			backupNamePrefix := backupJobClusterPrefix(cr.Namespace + "-" + cr.Name)
+			backupJobName := backupNamePrefix + "-daily-backup"
+
+			existingJob := BackupScheduleJob{
+				PXCScheduledBackupSchedule: api.PXCScheduledBackupSchedule{
+					Name:        backupJobName,
+					Schedule:    "0 3 * * *",
+					StorageName: "s3-eu-west",
+					Retention: &api.PXCScheduledBackupRetention{
+						Type:              "count",
+						Count:             5,
+						DeleteFromStorage: true,
+					},
+				},
+				JobID: 999,
+			}
+
+			rec.crons.backupJobs.Store(backupJobName, existingJob)
+
+			_, err := rec.Reconcile(ctx, ctrl.Request{NamespacedName: crNamespacedName})
+			Expect(err).NotTo(HaveOccurred())
+
+			job, ok := rec.crons.backupJobs.Load(backupJobName)
+			Expect(ok).To(BeTrue())
+
+			backupJob := job.(BackupScheduleJob)
+			Expect(backupJob.Schedule).To(Equal("0 3 * * *"))
+			Expect(backupJob.StorageName).To(Equal("s3-eu-west"))
+			Expect(backupJob.Retention.DeleteFromStorage).To(BeFalse())
+		})
 	})
 })
 

@@ -360,7 +360,6 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 	}
 
 	r.resyncPXCUsersWithProxySQL(ctx, o)
-	
 	if o.Status.PXC.Version == "" || strings.HasSuffix(o.Status.PXC.Version, "intermediate") {
 		err := r.ensurePXCVersion(ctx, o, VersionServiceClient{OpVersion: o.Version().String()})
 		if err != nil {

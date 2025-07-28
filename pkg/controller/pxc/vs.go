@@ -120,18 +120,32 @@ func getPMMVersion(versions map[string]models.VersionVersion, isPMM3 bool) (stri
 	if len(versions) == 0 {
 		return "", fmt.Errorf("response has zero versions")
 	}
-	for k := range versions {
-		if isPMM3 && strings.HasPrefix(k, "3.") {
-			return k, nil
-		}
+	// One version for PMM3 and one version for PMM2 should only exist.
+	if len(versions) > 2 {
+		return "", fmt.Errorf("response has more than 2 versions")
 	}
-	if len(versions) == 1 {
-		for k := range versions {
-			return k, nil
+
+	var pmm2Version, pmm3Version string
+	for version := range versions {
+		if strings.HasPrefix(version, "3.") {
+			pmm3Version = version
+		}
+		if strings.HasPrefix(version, "2.") {
+			pmm2Version = version
 		}
 	}
 
-	return "", nil
+	if isPMM3 && pmm3Version == "" {
+		return "", fmt.Errorf("pmm3 is configured, but no pmm3 version exists")
+	}
+	if pmm3Version != "" {
+		return pmm3Version, nil
+	}
+	if pmm2Version != "" {
+		return pmm2Version, nil
+	}
+
+	return "", fmt.Errorf("no recognizable PMM version found")
 }
 
 func getVersion(versions map[string]models.VersionVersion) (string, error) {

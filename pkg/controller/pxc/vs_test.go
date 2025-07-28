@@ -47,8 +47,25 @@ func TestGetPMMVersion(t *testing.T) {
 				"2.27.0": {},
 				"2.29.0": {},
 			},
-			isPMM3:   true,
-			expected: "",
+			isPMM3: true,
+			err:    fmt.Errorf("pmm3 is configured, but no pmm3 version exists"),
+		},
+		"multiple versions, PMM3 disabled": {
+			versions: map[string]models.VersionVersion{
+				"2.27.0": {},
+				"3.1.0":  {},
+			},
+			isPMM3:   false,
+			expected: "3.1.0",
+		},
+		"multiple versions, no 3.x": {
+			versions: map[string]models.VersionVersion{
+				"2.27.0": {},
+				"2.29.0": {},
+				"2.31.0": {},
+			},
+			isPMM3: false,
+			err:    fmt.Errorf("response has more than 2 versions"),
 		},
 	}
 
@@ -57,7 +74,7 @@ func TestGetPMMVersion(t *testing.T) {
 			version, err := getPMMVersion(tt.versions, tt.isPMM3)
 
 			if tt.err != nil {
-				assert.Error(t, err)
+				assert.Equal(t, tt.err, err)
 			} else {
 				assert.NoError(t, err)
 				assert.Equal(t, tt.expected, version)

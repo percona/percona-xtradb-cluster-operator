@@ -119,9 +119,21 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(ctx context.Context, cr
 
 // shouldRecreateBackupJob determines whether the existing backup job needs to be recreated.
 func shouldRecreateBackupJob(expected api.PXCScheduledBackupSchedule, existing BackupScheduleJob) bool {
-	return existing.PXCScheduledBackupSchedule.Schedule != expected.Schedule ||
-		existing.PXCScheduledBackupSchedule.StorageName != expected.StorageName ||
-		existing.PXCScheduledBackupSchedule.Retention.DeleteFromStorage != expected.Retention.DeleteFromStorage
+	recreate := existing.PXCScheduledBackupSchedule.Schedule != expected.Schedule ||
+		existing.PXCScheduledBackupSchedule.StorageName != expected.StorageName
+
+	if recreate {
+		return true
+	}
+
+	if existing.PXCScheduledBackupSchedule.Retention != nil && expected.Retention != nil {
+		if existing.PXCScheduledBackupSchedule.Retention.DeleteFromStorage !=
+			expected.Retention.DeleteFromStorage {
+			return true
+		}
+	}
+
+	return false
 }
 
 func backupJobClusterPrefix(clusterName string) string {

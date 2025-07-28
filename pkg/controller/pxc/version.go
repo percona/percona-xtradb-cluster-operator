@@ -266,7 +266,7 @@ func (r *ReconcilePerconaXtraDBCluster) getNewVersions(ctx context.Context, cr *
 		return DepVersion{}, errors.Wrap(err, "get PMM3 config")
 	}
 
-	verOpts := VersionOptions{
+	verOpts := versionOptions{
 		PMM3Enabled: isPMM3,
 	}
 

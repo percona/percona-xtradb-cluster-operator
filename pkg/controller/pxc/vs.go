@@ -15,7 +15,7 @@ import (
 
 const productName = "pxc-operator"
 
-func (vs VersionServiceClient) GetExactVersion(cr *api.PerconaXtraDBCluster, endpoint string, vm versionMeta, opts VersionOptions) (DepVersion, error) {
+func (vs VersionServiceClient) GetExactVersion(cr *api.PerconaXtraDBCluster, endpoint string, vm versionMeta, opts versionOptions) (DepVersion, error) {
 	if strings.Contains(endpoint, "https://check.percona.com/versions") {
 		endpoint = api.GetDefaultVersionServiceEndpoint()
 	}
@@ -160,12 +160,12 @@ type DepVersion struct {
 	LogCollectorImage   string `json:"LogCollectorImage,omitempty"`
 }
 
-type VersionOptions struct {
+type versionOptions struct {
 	PMM3Enabled bool
 }
 
 type VersionService interface {
-	GetExactVersion(cr *api.PerconaXtraDBCluster, endpoint string, vm versionMeta, opts VersionOptions) (DepVersion, error)
+	GetExactVersion(cr *api.PerconaXtraDBCluster, endpoint string, vm versionMeta, opts versionOptions) (DepVersion, error)
 }
 
 type VersionServiceClient struct {

@@ -17,7 +17,6 @@ func TestGetPMMVersion(t *testing.T) {
 		"empty map returns error": {
 			versions: map[string]models.VersionVersion{},
 			isPMM3:   false,
-			expected: "",
 			err:      fmt.Errorf("response has zero versions"),
 		},
 		"single 2.x version, PMM3 disabled": {
@@ -66,6 +65,13 @@ func TestGetPMMVersion(t *testing.T) {
 			},
 			isPMM3: false,
 			err:    fmt.Errorf("response has more than 2 versions"),
+		},
+		"single 1.x version, PMM3 disabled": {
+			versions: map[string]models.VersionVersion{
+				"1.27.0": {},
+			},
+			isPMM3: false,
+			err:    fmt.Errorf("no recognizable PMM version found"),
 		},
 	}
 

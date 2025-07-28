@@ -122,13 +122,18 @@ func shouldRecreateBackupJob(expected api.PXCScheduledBackupSchedule, existing B
 	recreate := existing.PXCScheduledBackupSchedule.Schedule != expected.Schedule ||
 		existing.PXCScheduledBackupSchedule.StorageName != expected.StorageName
 
-	if existing.PXCScheduledBackupSchedule.Retention != nil && expected.Retention != nil {
-		recreate = recreate ||
-			existing.PXCScheduledBackupSchedule.Retention.DeleteFromStorage !=
-				expected.Retention.DeleteFromStorage
+	if recreate {
+		return true
 	}
 
-	return recreate
+	if existing.PXCScheduledBackupSchedule.Retention != nil && expected.Retention != nil {
+		if existing.PXCScheduledBackupSchedule.Retention.DeleteFromStorage !=
+			expected.Retention.DeleteFromStorage {
+			return true
+		}
+	}
+
+	return false
 }
 
 func backupJobClusterPrefix(clusterName string) string {

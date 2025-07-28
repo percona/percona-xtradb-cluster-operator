@@ -241,7 +241,7 @@ type PXCScheduledBackupRetention struct {
 	// When set to true (the default), backups will be deleted from storage.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:default=true
-	DeleteFromStorage bool `json:"deleteFromStorage,omitempty"`
+	DeleteFromStorage bool `json:"deleteFromStorage"`
 }
 
 // GetRetention resolves the retention configuration of the PXCScheduledBackupSchedule spec.

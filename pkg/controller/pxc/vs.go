@@ -15,7 +15,7 @@ import (
 
 const productName = "pxc-operator"
 
-func (vs VersionServiceClient) GetExactVersion(cr *api.PerconaXtraDBCluster, endpoint string, vm versionMeta) (DepVersion, error) {
+func (vs VersionServiceClient) GetExactVersion(cr *api.PerconaXtraDBCluster, endpoint string, vm versionMeta, opts VersionOptions) (DepVersion, error) {
 	if strings.Contains(endpoint, "https://check.percona.com/versions") {
 		endpoint = api.GetDefaultVersionServiceEndpoint()
 	}
@@ -74,7 +74,7 @@ func (vs VersionServiceClient) GetExactVersion(cr *api.PerconaXtraDBCluster, end
 		return DepVersion{}, err
 	}
 
-	pmmVersion, err := getVersion(resp.Payload.Versions[0].Matrix.Pmm)
+	pmmVersion, err := getPMMVersion(resp.Payload.Versions[0].Matrix.Pmm, opts.PMM3Enabled)
 	if err != nil {
 		return DepVersion{}, err
 	}
@@ -116,6 +116,24 @@ func (vs VersionServiceClient) GetExactVersion(cr *api.PerconaXtraDBCluster, end
 	return dv, nil
 }
 
+func getPMMVersion(versions map[string]models.VersionVersion, isPMM3 bool) (string, error) {
+	if len(versions) == 0 {
+		return "", fmt.Errorf("response has zero versions")
+	}
+	for k := range versions {
+		if isPMM3 && strings.HasPrefix(k, "3.") {
+			return k, nil
+		}
+	}
+	if len(versions) == 1 {
+		for k := range versions {
+			return k, nil
+		}
+	}
+
+	return "", nil
+}
+
 func getVersion(versions map[string]models.VersionVersion) (string, error) {
 	if len(versions) != 1 {
 		return "", fmt.Errorf("response has multiple or zero versions")
@@ -142,8 +160,12 @@ type DepVersion struct {
 	LogCollectorImage   string `json:"LogCollectorImage,omitempty"`
 }
 
+type VersionOptions struct {
+	PMM3Enabled bool
+}
+
 type VersionService interface {
-	GetExactVersion(cr *api.PerconaXtraDBCluster, endpoint string, vm versionMeta) (DepVersion, error)
+	GetExactVersion(cr *api.PerconaXtraDBCluster, endpoint string, vm versionMeta, opts VersionOptions) (DepVersion, error)
 }
 
 type VersionServiceClient struct {

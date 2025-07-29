@@ -15,7 +15,7 @@ import (
 
 const productName = "pxc-operator"
 
-func (vs VersionServiceClient) GetExactVersion(cr *api.PerconaXtraDBCluster, endpoint string, vm versionMeta) (DepVersion, error) {
+func (vs VersionServiceClient) GetExactVersion(cr *api.PerconaXtraDBCluster, endpoint string, vm versionMeta, opts versionOptions) (DepVersion, error) {
 	if strings.Contains(endpoint, "https://check.percona.com/versions") {
 		endpoint = api.GetDefaultVersionServiceEndpoint()
 	}
@@ -74,7 +74,7 @@ func (vs VersionServiceClient) GetExactVersion(cr *api.PerconaXtraDBCluster, end
 		return DepVersion{}, err
 	}
 
-	pmmVersion, err := getVersion(resp.Payload.Versions[0].Matrix.Pmm)
+	pmmVersion, err := getPMMVersion(resp.Payload.Versions[0].Matrix.Pmm, opts.PMM3Enabled)
 	if err != nil {
 		return DepVersion{}, err
 	}
@@ -116,6 +116,38 @@ func (vs VersionServiceClient) GetExactVersion(cr *api.PerconaXtraDBCluster, end
 	return dv, nil
 }
 
+func getPMMVersion(versions map[string]models.VersionVersion, isPMM3 bool) (string, error) {
+	if len(versions) == 0 {
+		return "", fmt.Errorf("response has zero versions")
+	}
+	// One version for PMM3 and one version for PMM2 should only exist.
+	if len(versions) > 2 {
+		return "", fmt.Errorf("response has more than 2 versions")
+	}
+
+	var pmm2Version, pmm3Version string
+	for version := range versions {
+		if strings.HasPrefix(version, "3.") {
+			pmm3Version = version
+		}
+		if strings.HasPrefix(version, "2.") {
+			pmm2Version = version
+		}
+	}
+
+	if isPMM3 && pmm3Version == "" {
+		return "", fmt.Errorf("pmm3 is configured, but no pmm3 version exists")
+	}
+	if pmm3Version != "" {
+		return pmm3Version, nil
+	}
+	if pmm2Version != "" {
+		return pmm2Version, nil
+	}
+
+	return "", fmt.Errorf("no recognizable PMM version found")
+}
+
 func getVersion(versions map[string]models.VersionVersion) (string, error) {
 	if len(versions) != 1 {
 		return "", fmt.Errorf("response has multiple or zero versions")
@@ -142,8 +174,12 @@ type DepVersion struct {
 	LogCollectorImage   string `json:"LogCollectorImage,omitempty"`
 }
 
+type versionOptions struct {
+	PMM3Enabled bool
+}
+
 type VersionService interface {
-	GetExactVersion(cr *api.PerconaXtraDBCluster, endpoint string, vm versionMeta) (DepVersion, error)
+	GetExactVersion(cr *api.PerconaXtraDBCluster, endpoint string, vm versionMeta, opts versionOptions) (DepVersion, error)
 }
 
 type VersionServiceClient struct {

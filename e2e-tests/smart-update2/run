@@ -97,7 +97,7 @@ function check_telemetry_transfer() {
 
 	kubectl_bin apply -f "${conf_dir}/client.yml"
 	yq "${conf_dir}/secrets.yml" \
-		| yq eval "(. | select(.metadata.name == \"my-cluster-secrets\") | .metadata.name) = \"${cluster}\"" \
+		| yq eval "(. | select(.metadata.name == \"my-cluster-secrets\") | .metadata.name) = \"${cluster}-secrets\"" \
 		| kubectl_bin apply -f -
 
 	yq "${src_dir}/deploy/cr-minimal.yaml" \
@@ -114,6 +114,7 @@ function check_telemetry_transfer() {
 	wait_for_running "$cluster-pxc" "1"
 	sleep 20
 	local proxy
+	local port="3306"
 	proxy=$(get_proxy "$cluster")
 	wait_for_running "$proxy" 1
 
@@ -147,8 +148,8 @@ function check_telemetry_transfer() {
 			>"${tmp_dir}/${telemetry_state}_telemetry.version-service.log.json"
 
 	local telemetry_log_file="${telemetry_state}_telemetry.version-service${OPERATOR_NS:+-cw}.log.json"
-	desc "telemetry was disabled in CR but in operator not"
 	if [ "${cr_vs_channel}" == 'disabled' -a "${telemetry_state}" == 'enabled' ]; then
+		desc "telemetry was disabled in CR but in operator not"
 		desc "operator fallback VS should have telemetry"
 		diff "${test_dir}/compare/${telemetry_log_file}" <(grep -f "${tmp_dir}/${telemetry_state}_telemetry.version-service.log.json" "${test_dir}/compare/${telemetry_log_file}")
 		desc "CR VS should not have telemetry"
@@ -157,16 +158,16 @@ function check_telemetry_transfer() {
 
 	local image_prefix=${cr_vs_channel%'-recommended'}
 	local telemetry_cr_log_file="${telemetry_state}_telemetry.version-service-cr-${image_prefix}${OPERATOR_NS:+-cw}.log.json"
-	desc "telemetry was disabled in operator but not in CR"
 	if [ "${cr_vs_channel}" == "${image_prefix}-recommended" -a "${telemetry_state}" == 'disabled' ]; then
+		desc "telemetry was disabled in operator but not in CR"
 		desc "cr VS should have telemetry"
 		diff "${test_dir}/compare/${telemetry_cr_log_file}" <(grep -f "${tmp_dir}/${telemetry_state}_telemetry.version-service-cr.log.json" "${test_dir}/compare/${telemetry_cr_log_file}")
 		desc "operator VS should not have telemetry"
 		[[ -s ${tmp_dir}/disabled_telemetry.version-service.log.json ]] && exit 1
 	fi
 
-	desc "telemetry was disabled in CR as well as in operator"
 	if [ "${cr_vs_channel}" == 'disabled' -a "${telemetry_state}" == 'disabled' ]; then
+		desc "telemetry was disabled in CR as well as in operator"
 		desc "CR VS should not have telemetry"
 		[[ -s ${tmp_dir}/disabled_telemetry.version-service-cr.log.json ]] && exit 1
 		desc "operator VS should not have telemetry"
@@ -221,6 +222,60 @@ function main() {
 	kubectl_bin delete pod -l run=version-service-cr
 	kubectl_bin delete pod -l run=version-service
 	check_telemetry_transfer "http://version-service-cr.${namespace}.svc.cluster.local:11000" "disabled" "disabled"
+
+	# Check clusterWideEnabled with set WATCH_NAMESPACE
+	##############################################
+	if [[ -n $OPERATOR_NS ]]; then
+		desc "Enabling telemetry on the operator level with WATCH_NAMESPACE"
+		kubectl_bin delete pod -l run=version-service-cr
+		kubectl_bin delete pod -l run=version-service
+		kubectl_bin get deployment/percona-xtradb-cluster-operator -o yaml ${OPERATOR_NS:+-n $OPERATOR_NS} \
+			| yq eval "(.spec.template.spec.containers[0].env[] | select(.name == \"DISABLE_TELEMETRY\").value) = \"false\" \
+			| (.spec.template.spec.containers[0].env[] | select(.name == \"WATCH_NAMESPACE\").value) = \"${namespace},\"" - \
+			| kubectl_bin apply ${OPERATOR_NS:+-n $OPERATOR_NS} -f -
+		sleep 30
+		wait_pod "$(get_operator_pod)" "480" "${OPERATOR_NS}"
+
+		check_telemetry_transfer "http://version-service-cr.${namespace}.svc.cluster.local:11000" "disabled" "enabled"
+		kubectl_bin delete pod -l run=version-service-cr
+		kubectl_bin delete pod -l run=version-service
+	fi
+
+	###############################################
+	if [[ -n $OPERATOR_NS ]]; then
+		desc "Disabling telemetry on the operator level with WATCH_NAMESPACE"
+		kubectl_bin delete pod -l run=version-service-cr
+		kubectl_bin delete pod -l run=version-service
+		kubectl_bin get deployment/percona-xtradb-cluster-operator -o yaml ${OPERATOR_NS:+-n $OPERATOR_NS} \
+			| yq eval "(.spec.template.spec.containers[0].env[] | select(.name == \"DISABLE_TELEMETRY\").value) = \"true\" \
+			| (.spec.template.spec.containers[0].env[] | select(.name == \"WATCH_NAMESPACE\").value) = \"${namespace},\"" - \
+			| kubectl_bin apply ${OPERATOR_NS:+-n $OPERATOR_NS} -f -
+		sleep 30
+		wait_pod "$(get_operator_pod)" "480" "${OPERATOR_NS}"
+
+		check_telemetry_transfer "http://version-service-cr.${namespace}.svc.cluster.local:11000" "${IMAGE_PREFIX}-recommended" "disabled"
+		kubectl_bin delete pod -l run=version-service-cr
+		kubectl_bin delete pod -l run=version-service
+	fi
+
+	###############################################
+	if [[ -n $OPERATOR_NS ]]; then
+		desc "Enabling telemetry on the operator level with multiple WATCH_NAMESPACE"
+		kubectl_bin delete pod -l run=version-service-cr
+		kubectl_bin delete pod -l run=version-service
+		kubectl_bin get deployment/percona-xtradb-cluster-operator -o yaml ${OPERATOR_NS:+-n $OPERATOR_NS} \
+			| yq eval "(.spec.template.spec.containers[0].env[] | select(.name == \"DISABLE_TELEMETRY\").value) = \"false\" \
+			| (.spec.template.spec.containers[0].env[] | select(.name == \"WATCH_NAMESPACE\").value) = \"${namespace},default\"" - \
+			| kubectl_bin apply ${OPERATOR_NS:+-n $OPERATOR_NS} -f -
+		sleep 30
+		wait_pod "$(get_operator_pod)" "480" "${OPERATOR_NS}"
+
+		check_telemetry_transfer "http://version-service-cr.${namespace}.svc.cluster.local:11000" "disabled" "enabled"
+		kubectl_bin delete pod -l run=version-service-cr
+		kubectl_bin delete pod -l run=version-service
+		check_telemetry_transfer "http://version-service-cr.${namespace}.svc.cluster.local:11000" "disabled" "disabled"
+	fi
+
 	#################################################
 	kubectl_bin delete deployment version-service-cr
 	desc 'Telemetry testing finished'

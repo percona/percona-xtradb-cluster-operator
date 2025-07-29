@@ -83,12 +83,13 @@ function wait_all_pvc_resize() {
 
 function wait_any_pvc_resize() {
 	local expected_size=$1
-	local max_retry=${2:-120}
-	local sleep_time=${3:-5}
+	local pvc_num=${2:-1}
+	local max_retry=${3:-120}
+	local sleep_time=${4:-5}
 
 	local retry=0
 	echo "Waiting for any of pvces to be resized"
-	until [[ $(kubectl_bin get pvc -l app.kubernetes.io/component=pxc -o jsonpath='{.items[*].status.capacity.storage}' | grep $expected_size) ]]; do
+	until [[ $(kubectl_bin get pvc -l app.kubernetes.io/component=pxc -o json | jq "[.items[] | select(.status.capacity.storage == \"$expected_size\")] | length") == $pvc_num ]]; do
 		if [[ $retry -ge $max_retry ]]; then
 			echo
 			echo "No pvces were resized, max retries exceeded"
@@ -168,12 +169,13 @@ wait_all_pvc_resize "3Gi"
 
 resize_finish_time=$(TZ=UTC $date +%Y-%m-%dT%H:%M:%SZ)
 
-# Check whether there was Error status dering resize
+# There shoould not be Error status during resize. Check whether there was Error status
 
 has_error=$(kubectl_bin get pxc $cluster -o jsonpath='{.status.conditions}' | jq -r --arg start "$resize_start_time" --arg end "$resize_finish_time" 'map(select(.type == "error" and (.lastTransitionTime >= $start and .lastTransitionTime <= $end) )) | if length > 0 then "Error" else "No error" end ')
 
 if [[ $has_error == "Error" ]]; then
-	echo "There was Error status during resize."
+	echo "There was Error status during resize.Statuses:"
+	kubectl_bin get pxc $cluster -o jsonpath='{.status}'
 	exit 1
 fi
 
@@ -188,7 +190,7 @@ if [ "$EKS" == 1 -o -n "$OPENSHIFT" ]; then
 	sleep 10
 fi
 
-desc 'create resourcequota'
+desc 'create 1st insufficient resourcequota'
 
 # We're setting the quota to 10Gi, so we can only resize the first PVC to 4Gi
 # the others should fail to resize due to the exceeded quota but operator should
@@ -215,6 +217,33 @@ for pvc in $(kubectl_bin get pvc -l app.kubernetes.io/component=pxc -o json | jq
 		exit 1
 	fi
 done
+
+desc 'update insufficient resourcequota'
+# Check that second resize with reached quota finishes with error, cluster becomes ready
+apply_resourcequota 11Gi
+patch_pvc_request "${cluster}" "4G"
+wait_cluster_consistency "$cluster" 3 2
+echo
+
+echo "Waiting for any of pvces to be resized"
+wait_any_pvc_resize "4Gi" "2"
+resized_pvc=$(kubectl_bin get pvc -l app.kubernetes.io/component=pxc -o json | jq -r '.items[] | select(.status.capacity.storage == "4Gi") | .metadata.name')
+echo "$resized_pvc was resized"
+wait_cluster_status ${cluster} "ready"
+
+# Check that 1 PVC keep old size: 3G
+if [[ $(kubectl_bin get pvc -l app.kubernetes.io/component=pxc -o json | jq '[.items[] | select(.status.capacity.storage == "3Gi")] | length') != 1 ]]; then 
+	echo "Number of PVCes with old size is not 1."
+	exit 1
+fi
+for pvc in $(kubectl_bin get pvc -l app.kubernetes.io/component=pxc -o json | jq -r '.items[] | select(.status.capacity.storage == "3Gi") | .metadata.name' ); do
+	if [[ ! $(kubectl_bin describe pvc $pvc | grep "ExceededQuota" |grep "PVC resize failed" ) ]]; then
+		echo "PVCes do not have ExceededQuota error."
+		exit 1
+	fi
+done
+ 
+desc 'update resourcequota to be sufficient'
 
 # We're setting the quota to 12Gi, so we can resize all PVCs to 4Gi
 apply_resourcequota 12Gi

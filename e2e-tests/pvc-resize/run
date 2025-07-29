@@ -175,7 +175,8 @@ has_error=$(kubectl_bin get pxc $cluster -o jsonpath='{.status.conditions}' | jq
 
 if [[ $has_error == "Error" ]]; then
 	echo "There was Error status during resize.Statuses:"
-	kubectl_bin get pxc $cluster -o jsonpath='{.status}'
+	kubectl_bin get pxc $cluster -o jsonpath='{.status}' | jq .
+	kubectl_bin logs ${OPERATOR_NS:+-n $OPERATOR_NS} $(get_operator_pod) | tail -n 100
 	exit 1
 fi
 

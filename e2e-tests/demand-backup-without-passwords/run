@@ -33,10 +33,16 @@ run_backup "${cluster}" "backup1"
 log "deleting pxc/${cluster}"
 kubectl_bin delete pxc ${cluster}
 
+if kubectl get secret my-cluster-secrets >/dev/null 2>&1; then
+	log "Secret exists"
+	exit 1
+fi
+
 log "recreating pxc/${cluster}"
 apply_config "${test_dir}/conf/${cluster}.yml"
 
 run_recovery_check "${cluster}" "backup1"
 wait_cluster_consistency "${cluster}" 3 2
 
+destroy $namespace
 desc "test passed"

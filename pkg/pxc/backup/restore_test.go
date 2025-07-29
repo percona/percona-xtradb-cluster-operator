@@ -96,7 +96,7 @@ func TestPrepareJob(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.Equal(t, job.Spec.Template.Spec.Containers[0].Image, "percona/percona-xtradb-cluster:8.0")
-	assert.Equal(t, job.Spec.Template.Spec.Containers[0].Command, []string{"/var/lib/mysql/prepare_restored_cluster.sh"})
+	assert.Equal(t, job.Spec.Template.Spec.Containers[0].Command, []string{"/opt/percona/prepare_restored_cluster.sh"})
 
 	expectedVolumes := []corev1.Volume{
 		{

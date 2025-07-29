@@ -777,7 +777,7 @@ func PrepareJob(
 							Name:            "mysqld",
 							Image:           cluster.Spec.PXC.Image,
 							ImagePullPolicy: cluster.Spec.PXC.ImagePullPolicy,
-							Command:         []string{"/var/lib/mysql/prepare_restored_cluster.sh"},
+							Command:         []string{"/opt/percona/prepare_restored_cluster.sh"},
 							SecurityContext: cluster.Spec.PXC.ContainerSecurityContext,
 							VolumeMounts:    volumeMounts,
 							Env:             []corev1.EnvVar{},

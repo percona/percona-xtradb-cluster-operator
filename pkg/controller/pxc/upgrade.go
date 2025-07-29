@@ -18,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	k8sretry "k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
@@ -29,7 +30,14 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/util"
 )
 
-func (r *ReconcilePerconaXtraDBCluster) updatePod(ctx context.Context, sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, newAnnotations map[string]string, smartUpdate bool) error {
+func (r *ReconcilePerconaXtraDBCluster) updatePod(
+	ctx context.Context,
+	sfs api.StatefulApp,
+	podSpec *api.PodSpec,
+	cr *api.PerconaXtraDBCluster,
+	newAnnotations map[string]string,
+	smartUpdate bool,
+) error {
 	log := logf.FromContext(ctx)
 
 	if cr.PVCResizeInProgress() {
@@ -37,15 +45,20 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(ctx context.Context, sfs api.S
 		return nil
 	}
 
-	err := r.reconcileConfigMap(cr)
+	res, err := r.reconcileConfigMaps(ctx, cr)
 	if err != nil {
-		return errors.Wrap(err, "upgradePod/updateApp error: update db config error")
+		return errors.Wrap(err, "reconcile config")
+	}
+
+	// don't create statefulset if configmap is just created or updated
+	if res != controllerutil.OperationResultNone {
+		return nil
 	}
 
 	// embed DB configuration hash
-	configHash, err := r.getConfigHash(cr, sfs)
+	configHash, err := r.getConfigHash(ctx, cr, sfs)
 	if err != nil {
-		return errors.Wrap(err, "getting config hash")
+		return errors.Wrap(err, "get config hash")
 	}
 
 	envVarsHash, err := r.getSecretHash(cr, cr.Spec.PXC.EnvVarsSecretName, true)
@@ -55,22 +68,22 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(ctx context.Context, sfs api.S
 		envVarsHash, err = r.getSecretHash(cr, cr.Spec.ProxySQL.EnvVarsSecretName, true)
 	}
 	if err != nil {
-		return errors.Wrap(err, "upgradePod/updateApp error: update secret error")
+		return errors.Wrap(err, "get env vars secret hash")
 	}
 
 	var vaultConfigHash, sslHash, sslInternalHash string
 	if !isHAproxy(sfs) {
 		vaultConfigHash, err = r.getSecretHash(cr, cr.Spec.VaultSecretName, true)
 		if err != nil {
-			return errors.Wrap(err, "upgradePod/updateApp error: update secret error")
+			return errors.Wrap(err, "get vault secret hash")
 		}
 		sslHash, err = r.getSecretHash(cr, cr.Spec.PXC.SSLSecretName, !cr.TLSEnabled())
 		if err != nil {
-			return errors.Wrap(err, "upgradePod/updateApp error: update secret error")
+			return errors.Wrap(err, "get ssl secret hash")
 		}
 		sslInternalHash, err = r.getSecretHash(cr, cr.Spec.PXC.SSLInternalSecretName, !cr.TLSEnabled())
 		if err != nil && !k8serrors.IsNotFound(err) {
-			return errors.Wrap(err, "upgradePod/updateApp error: update secret error")
+			return errors.Wrap(err, "get internal ssl secret hash")
 		}
 	}
 
@@ -86,7 +99,10 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(ctx context.Context, sfs api.S
 	err = r.client.Get(ctx, types.NamespacedName{
 		Name: "internal-" + cr.Name, Namespace: cr.Namespace,
 	}, secrets)
-	if client.IgnoreNotFound(err) != nil {
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil
+		}
 		return errors.Wrap(err, "get internal secret")
 	}
 
@@ -102,7 +118,7 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(ctx context.Context, sfs api.S
 	}, func() error {
 		currentSet := sfs.StatefulSet()
 		if err := r.client.Get(ctx, client.ObjectKeyFromObject(currentSet), currentSet); client.IgnoreNotFound(err) != nil {
-			return errors.Wrap(err, "failed to get statefulset")
+			return errors.Wrap(err, "get statefulset")
 		}
 		if !currentSet.DeletionTimestamp.IsZero() {
 			return errStsWillBeDeleted
@@ -659,7 +675,7 @@ func getCustomConfigHashHex(strData map[string]string, binData map[string][]byte
 	return hashHex, nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) getConfigHash(cr *api.PerconaXtraDBCluster, sfs api.StatefulApp) (string, error) {
+func (r *ReconcilePerconaXtraDBCluster) getConfigHash(ctx context.Context, cr *api.PerconaXtraDBCluster, sfs api.StatefulApp) (string, error) {
 	ls := sfs.Labels()
 
 	name := types.NamespacedName{
@@ -667,7 +683,7 @@ func (r *ReconcilePerconaXtraDBCluster) getConfigHash(cr *api.PerconaXtraDBClust
 		Name:      ls[naming.LabelAppKubernetesInstance] + "-" + ls[naming.LabelAppKubernetesComponent],
 	}
 
-	obj, err := r.getFirstExisting(name, &corev1.Secret{}, &corev1.ConfigMap{})
+	obj, err := r.getFirstExisting(ctx, name, &corev1.Secret{}, &corev1.ConfigMap{})
 	if err != nil {
 		return "", errors.Wrap(err, "failed to get custom config")
 	}
@@ -682,10 +698,10 @@ func (r *ReconcilePerconaXtraDBCluster) getConfigHash(cr *api.PerconaXtraDBClust
 	}
 }
 
-func (r *ReconcilePerconaXtraDBCluster) getFirstExisting(name types.NamespacedName, objs ...client.Object) (client.Object, error) {
+func (r *ReconcilePerconaXtraDBCluster) getFirstExisting(ctx context.Context, name types.NamespacedName, objs ...client.Object) (client.Object, error) {
 	for _, o := range objs {
-		err := r.client.Get(context.TODO(), name, o)
-		if err != nil && !k8serrors.IsNotFound(err) {
+		err := r.client.Get(ctx, name, o)
+		if client.IgnoreNotFound(err) != nil {
 			return nil, err
 		}
 		if err == nil {

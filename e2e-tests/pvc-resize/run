@@ -233,17 +233,16 @@ echo "$resized_pvc was resized"
 wait_cluster_status ${cluster} "ready"
 
 # Check that 1 PVC keep old size: 3G
-if [[ $(kubectl_bin get pvc -l app.kubernetes.io/component=pxc -o json | jq '[.items[] | select(.status.capacity.storage == "3Gi")] | length') != 1 ]]; then 
+if [[ $(kubectl_bin get pvc -l app.kubernetes.io/component=pxc -o json | jq '[.items[] | select(.status.capacity.storage == "3Gi")] | length') != 1 ]]; then
 	echo "Number of PVCes with old size is not 1."
 	exit 1
 fi
-for pvc in $(kubectl_bin get pvc -l app.kubernetes.io/component=pxc -o json | jq -r '.items[] | select(.status.capacity.storage == "3Gi") | .metadata.name' ); do
-	if [[ ! $(kubectl_bin describe pvc $pvc | grep "ExceededQuota" |grep "PVC resize failed" ) ]]; then
+for pvc in $(kubectl_bin get pvc -l app.kubernetes.io/component=pxc -o json | jq -r '.items[] | select(.status.capacity.storage == "3Gi") | .metadata.name'); do
+	if [[ ! $(kubectl_bin describe pvc $pvc | grep "ExceededQuota" | grep "PVC resize failed") ]]; then
 		echo "PVCes do not have ExceededQuota error."
 		exit 1
 	fi
 done
- 
 desc 'update resourcequota to be sufficient'
 
 # We're setting the quota to 12Gi, so we can resize all PVCs to 4Gi

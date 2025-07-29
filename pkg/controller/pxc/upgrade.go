@@ -155,11 +155,8 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(
 		if err := k8s.SetControllerReference(cr, sts, r.scheme); err != nil {
 			return errors.Wrap(err, "set controller reference")
 		}
-		err = r.createOrUpdate(ctx, sts)
-		if err != nil {
-			return errors.Wrap(err, "update error")
-		}
-		return nil
+
+		return r.createOrUpdate(ctx, sts)
 	})
 	if err != nil {
 		if k8serrors.IsNotFound(err) || errors.Is(err, errStsWillBeDeleted) {

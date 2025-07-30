@@ -117,7 +117,9 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(
 
 	errStsWillBeDeleted := errors.New("will be deleted")
 
-	err = k8sretry.RetryOnConflict(k8sretry.DefaultRetry, func() error {
+	err = k8sretry.OnError(k8sretry.DefaultRetry, func(err error) bool {
+		return k8serrors.IsAlreadyExists(err) || k8serrors.IsConflict(err)
+	}, func() error {
 		currentSet := sfs.StatefulSet()
 		if err := r.client.Get(ctx, client.ObjectKeyFromObject(currentSet), currentSet); client.IgnoreNotFound(err) != nil {
 			return errors.Wrap(err, "get statefulset")
@@ -134,7 +136,7 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(
 		}
 		// Keep same volumeClaimTemplates labels if statefulset already exists.
 		// We can't update volumeClaimTemplates.
-		if err == nil && cr.CompareVersionWith("1.16.0") >= 0 {
+		if cr.CompareVersionWith("1.16.0") >= 0 {
 			for i, pvc := range currentSet.Spec.VolumeClaimTemplates {
 				sts.Spec.VolumeClaimTemplates[i].Labels = pvc.Labels
 			}
@@ -157,7 +159,7 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(
 		if err := k8s.SetControllerReference(cr, sts, r.scheme); err != nil {
 			return errors.Wrap(err, "set controller reference")
 		}
-		err = r.createOrUpdate(ctx, cr, sts)
+		err = r.createOrUpdate(ctx, sts)
 		if err != nil {
 			return errors.Wrap(err, "update error")
 		}

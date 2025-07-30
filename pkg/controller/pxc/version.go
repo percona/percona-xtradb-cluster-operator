@@ -261,15 +261,24 @@ func (r *ReconcilePerconaXtraDBCluster) getNewVersions(ctx context.Context, cr *
 	endpoint := apiv1.GetDefaultVersionServiceEndpoint()
 	log.V(1).Info("Use version service endpoint", "endpoint", endpoint)
 
+	isPMM3, err := r.isPMM3Configured(ctx, cr)
+	if err != nil {
+		return DepVersion{}, errors.Wrap(err, "get PMM3 config")
+	}
+
+	verOpts := versionOptions{
+		PMM3Enabled: isPMM3,
+	}
+
 	if telemetryEnabled() && (!versionUpgradeEnabled(cr) || cr.Spec.UpgradeOptions.VersionServiceEndpoint != apiv1.GetDefaultVersionServiceEndpoint()) {
-		_, err := vs.GetExactVersion(cr, endpoint, vm)
+		_, err := vs.GetExactVersion(cr, endpoint, vm, verOpts)
 		if err != nil {
 			log.Error(err, "failed to send telemetry to "+apiv1.GetDefaultVersionServiceEndpoint())
 		}
 		return DepVersion{}, nil
 	}
 
-	newVersion, err := vs.GetExactVersion(cr, cr.Spec.UpgradeOptions.VersionServiceEndpoint, vm)
+	newVersion, err := vs.GetExactVersion(cr, cr.Spec.UpgradeOptions.VersionServiceEndpoint, vm, verOpts)
 	if err != nil {
 		return DepVersion{}, errors.Wrap(err, "failed to check version")
 	}
@@ -381,6 +390,24 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(ctx context.Context, cr
 	time.Sleep(1 * time.Second)
 
 	return nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) isPMM3Configured(ctx context.Context, cr *apiv1.PerconaXtraDBCluster) (bool, error) {
+	secret := new(corev1.Secret)
+	err := r.client.Get(ctx, types.NamespacedName{
+		Name: "internal-" + cr.Name, Namespace: cr.Namespace,
+	}, secret)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return false, nil
+		}
+		return false, errors.Wrap(err, "get internal secret for determining if pmm3 is configured")
+	}
+
+	if v, exists := secret.Data[users.PMMServerToken]; exists && len(v) != 0 {
+		return true, nil
+	}
+	return false, nil
 }
 
 func (r *ReconcilePerconaXtraDBCluster) mysqlVersion(ctx context.Context, cr *apiv1.PerconaXtraDBCluster, sfs apiv1.StatefulApp) (string, error) {

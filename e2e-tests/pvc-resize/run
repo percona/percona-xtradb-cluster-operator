@@ -18,6 +18,22 @@ function get_default_storageclass() {
 	kubectl_bin get sc -o jsonpath='{.items[?(@.metadata.annotations.storageclass\.kubernetes\.io/is-default-class=="true")].metadata.name}'
 }
 
+function has_error_status() {
+	local resize_start=$1
+	local resize_finish=$2
+	local error_expected=${3:-"false"}
+
+	has_error=$(kubectl_bin get pxc $cluster -o jsonpath='{.status.conditions}' \
+		| jq -r --arg start "$resize_start" --arg end "$resize_finish" 'map(select(.type == "error" and (.lastTransitionTime >= $start and .lastTransitionTime <= $end) )) | if length > 0 then "true" else "false" end ')
+
+	if [[ $has_error != $error_expected ]]; then
+		echo "The Error status was not $error_expected in resize. Present Statuses:"
+		kubectl_bin get pxc $cluster -o jsonpath='{.status}' | jq .
+		kubectl_bin logs ${OPERATOR_NS:+-n $OPERATOR_NS} $(get_operator_pod) | tail -n 100
+		exit 1
+	fi
+}
+
 function ensure_default_sc_allows_expansion() {
 	local default_sc=$(get_default_storageclass)
 
@@ -169,16 +185,9 @@ wait_all_pvc_resize "3Gi"
 
 resize_finish_time=$(TZ=UTC $date +%Y-%m-%dT%H:%M:%SZ)
 
-# There shoould not be Error status during resize. Check whether there was Error status
+# There should not be Error status during resize. Check whether there was Error status
 
-has_error=$(kubectl_bin get pxc $cluster -o jsonpath='{.status.conditions}' | jq -r --arg start "$resize_start_time" --arg end "$resize_finish_time" 'map(select(.type == "error" and (.lastTransitionTime >= $start and .lastTransitionTime <= $end) )) | if length > 0 then "Error" else "No error" end ')
-
-if [[ $has_error == "Error" ]]; then
-	echo "There was Error status during resize.Statuses:"
-	kubectl_bin get pxc $cluster -o jsonpath='{.status}' | jq .
-	kubectl_bin logs ${OPERATOR_NS:+-n $OPERATOR_NS} $(get_operator_pod) | tail -n 100
-	exit 1
-fi
+has_error_status $resize_start_time $resize_finish_time
 
 if [ "$EKS" == 1 -o -n "$OPENSHIFT" ]; then
 	# EKS rate limits PVC expansion for the same EBS volume (1 expand operation in every 6 hours),
@@ -195,7 +204,7 @@ desc 'create 1st insufficient resourcequota'
 
 # We're setting the quota to 10Gi, so we can only resize the first PVC to 4Gi
 # the others should fail to resize due to the exceeded quota but operator should
-# handle the error and keep the cluster ready. Errored PVCes should keep old size.
+# handle the error and keep the cluster ready. Errored PVCs should keep old size.
 apply_resourcequota 10Gi
 patch_pvc_request "${cluster}" "4G"
 wait_cluster_consistency "$cluster" 3 2
@@ -207,14 +216,14 @@ resized_pvc=$(kubectl_bin get pvc -l app.kubernetes.io/component=pxc -o json | j
 echo "$resized_pvc was resized"
 wait_cluster_status ${cluster} "ready"
 
-# Check that 2 PVCes keep old size: 3G
+# Check that 2 PVCs keep old size: 3G
 if [[ $(kubectl_bin get pvc -l app.kubernetes.io/component=pxc -o json | jq '[.items[] | select(.status.capacity.storage == "3Gi")] | length') != 2 ]]; then
-	echo "Number of PVCes with old size is not 2."
+	echo "Number of PVCs with old size is not 2."
 	exit 1
 fi
 for pvc in $(kubectl_bin get pvc -l app.kubernetes.io/component=pxc -o json | jq -r '.items[] | select(.status.capacity.storage == "3Gi") | .metadata.name'); do
 	if [[ ! $(kubectl_bin describe pvc $pvc | grep "ExceededQuota" | grep "PVC resize failed") ]]; then
-		echo "PVCes do not have ExceededQuota error."
+		echo "PVCs do not have ExceededQuota error."
 		exit 1
 	fi
 done
@@ -234,12 +243,12 @@ wait_cluster_status ${cluster} "ready"
 
 # Check that 1 PVC keep old size: 3G
 if [[ $(kubectl_bin get pvc -l app.kubernetes.io/component=pxc -o json | jq '[.items[] | select(.status.capacity.storage == "3Gi")] | length') != 1 ]]; then
-	echo "Number of PVCes with old size is not 1."
+	echo "Number of PVCs with old size is not 1."
 	exit 1
 fi
 for pvc in $(kubectl_bin get pvc -l app.kubernetes.io/component=pxc -o json | jq -r '.items[] | select(.status.capacity.storage == "3Gi") | .metadata.name'); do
 	if [[ ! $(kubectl_bin describe pvc $pvc | grep "ExceededQuota" | grep "PVC resize failed") ]]; then
-		echo "PVCes do not have ExceededQuota error."
+		echo "PVCs do not have ExceededQuota error."
 		exit 1
 	fi
 done
@@ -255,13 +264,14 @@ wait_cluster_status ${cluster} "ready"
 
 desc "test downscale"
 
-# operator shouldn't try to downscale the PVCs and set status to error
+# operator shouldn't try to downscale the PVCs. Error status should be changed to ready.
+downscale_start_time=$(TZ=UTC $date +%Y-%m-%dT%H:%M:%SZ)
 patch_pvc_request "${cluster}" "1G"
-wait_cluster_status ${cluster} "error"
-
-# user should be able to restore to the previous size and make the cluster ready
-patch_pvc_request "${cluster}" "4G"
+sleep 7
+wait_all_pvc_resize "4Gi"
 wait_cluster_status ${cluster} "ready"
+downscale_finish_time=$(TZ=UTC $date +%Y-%m-%dT%H:%M:%SZ)
+has_error_status $downscale_start_time $downscale_finish_time "true"
 
 destroy "${namespace}"
 desc "test passed"

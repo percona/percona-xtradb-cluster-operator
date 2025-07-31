@@ -6,9 +6,11 @@ package version_service
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"encoding/json"
 	"github.com/go-openapi/runtime"
 	httptransport "github.com/go-openapi/runtime/client"
 	"github.com/go-openapi/strfmt"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // New creates a new version service API client.
@@ -91,6 +93,9 @@ func (a *Client) VersionServiceApply(params *VersionServiceApplyParams, opts ...
 		Context:            params.Context,
 		Client:             params.HTTPClient,
 	}
+	log := logf.FromContext(params.Context).WithValues("versionService", "apply")
+	jsonF, _ := json.Marshal(op)
+	log.Info("Applying version service operation", "operation", string(jsonF))
 	for _, opt := range opts {
 		opt(op)
 	}

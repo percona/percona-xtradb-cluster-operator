@@ -1,9 +1,11 @@
 package pxc
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/url"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"strings"
 	"time"
 
@@ -60,30 +62,41 @@ func (vs VersionServiceClient) GetExactVersion(cr *api.PerconaXtraDBCluster, end
 		return DepVersion{}, nil
 	}
 
+	log := logf.FromContext(context.Background())
+	log.Info("Getting version", "version", resp)
+	log.Info("Getting version meta", "version meta", vm)
+
 	if len(resp.Payload.Versions) == 0 {
 		return DepVersion{}, fmt.Errorf("empty versions response")
 	}
 
+	log.Info("for pxc version", "version", resp.Payload.Versions[0])
+
+	log.Info("for pxc version", "version", resp.Payload.Versions[0].Matrix.Pxc)
 	pxcVersion, err := getVersion(resp.Payload.Versions[0].Matrix.Pxc)
 	if err != nil {
 		return DepVersion{}, err
 	}
 
+	log.Info("for pxc version", "version", resp.Payload.Versions[0].Matrix.Backup)
 	backupVersion, err := getVersion(resp.Payload.Versions[0].Matrix.Backup)
 	if err != nil {
 		return DepVersion{}, err
 	}
 
+	log.Info("for pxc version", "version", resp.Payload.Versions[0].Matrix.Pmm)
 	pmmVersion, err := getPMMVersion(resp.Payload.Versions[0].Matrix.Pmm, opts.PMM3Enabled)
 	if err != nil {
 		return DepVersion{}, err
 	}
 
+	log.Info("for proxysql version", "version", resp.Payload.Versions[0].Matrix.Proxysql)
 	proxySqlVersion, err := getVersion(resp.Payload.Versions[0].Matrix.Proxysql)
 	if err != nil {
 		return DepVersion{}, err
 	}
 
+	log.Info("for haproxy version", "version", resp.Payload.Versions[0].Matrix.Haproxy)
 	haproxyVersion, err := getVersion(resp.Payload.Versions[0].Matrix.Haproxy)
 	if err != nil {
 		return DepVersion{}, err
@@ -150,7 +163,7 @@ func getPMMVersion(versions map[string]models.VersionVersion, isPMM3 bool) (stri
 
 func getVersion(versions map[string]models.VersionVersion) (string, error) {
 	if len(versions) != 1 {
-		return "", fmt.Errorf("response has multiple or zero versions")
+		return "", fmt.Errorf("response has multiple or zero versions %v", versions)
 	}
 
 	for k := range versions {

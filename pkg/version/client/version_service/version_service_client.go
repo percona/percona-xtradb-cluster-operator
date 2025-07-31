@@ -93,9 +93,6 @@ func (a *Client) VersionServiceApply(params *VersionServiceApplyParams, opts ...
 		Context:            params.Context,
 		Client:             params.HTTPClient,
 	}
-	log := logf.FromContext(params.Context).WithValues("versionService", "apply")
-	jsonF, _ := json.Marshal(op)
-	log.Info("Applying version service operation", "operation", string(jsonF))
 	for _, opt := range opts {
 		opt(op)
 	}

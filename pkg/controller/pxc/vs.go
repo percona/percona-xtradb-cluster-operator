@@ -3,6 +3,7 @@ package pxc
 import (
 	"context"
 	"fmt"
+	"github.com/pkg/errors"
 	"net/http"
 	"net/url"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -70,60 +71,49 @@ func (vs VersionServiceClient) GetExactVersion(cr *api.PerconaXtraDBCluster, end
 		return DepVersion{}, fmt.Errorf("empty versions response")
 	}
 
-	log.Info("for pxc version", "version", resp.Payload.Versions[0])
-
-	log.Info("for pxc version", "version", resp.Payload.Versions[0].Matrix.Pxc)
 	pxcVersion, err := getVersion(resp.Payload.Versions[0].Matrix.Pxc)
 	if err != nil {
-		return DepVersion{}, err
+		return DepVersion{}, errors.Wrapf(err, "get pxc version")
 	}
 
-	log.Info("for pxc version", "version", resp.Payload.Versions[0].Matrix.Backup)
 	backupVersion, err := getVersion(resp.Payload.Versions[0].Matrix.Backup)
 	if err != nil {
-		return DepVersion{}, err
+		return DepVersion{}, errors.Wrapf(err, "get backup version")
 	}
 
-	log.Info("for pxc version", "version", resp.Payload.Versions[0].Matrix.Pmm)
 	pmmVersion, err := getPMMVersion(resp.Payload.Versions[0].Matrix.Pmm, opts.PMM3Enabled)
 	if err != nil {
-		return DepVersion{}, err
+		return DepVersion{}, errors.Wrapf(err, "get pmm version")
 	}
 
-	log.Info("for proxysql version", "version", resp.Payload.Versions[0].Matrix.Proxysql)
 	proxySqlVersion, err := getVersion(resp.Payload.Versions[0].Matrix.Proxysql)
 	if err != nil {
-		return DepVersion{}, err
+		return DepVersion{}, errors.Wrapf(err, "get proxysql version")
 	}
 
-	log.Info("for haproxy version", "version", resp.Payload.Versions[0].Matrix.Haproxy)
 	haproxyVersion, err := getVersion(resp.Payload.Versions[0].Matrix.Haproxy)
 	if err != nil {
-		return DepVersion{}, err
+		return DepVersion{}, errors.Wrap(err, "haproxy version")
+	}
+
+	logCollectorVersion, err := getVersion(resp.Payload.Versions[0].Matrix.LogCollector)
+	if err != nil {
+		return DepVersion{}, errors.Wrap(err, "get logcollector version")
 	}
 
 	dv := DepVersion{
-		PXCImage:        resp.Payload.Versions[0].Matrix.Pxc[pxcVersion].ImagePath,
-		PXCVersion:      pxcVersion,
-		BackupImage:     resp.Payload.Versions[0].Matrix.Backup[backupVersion].ImagePath,
-		BackupVersion:   backupVersion,
-		ProxySqlImage:   resp.Payload.Versions[0].Matrix.Proxysql[proxySqlVersion].ImagePath,
-		ProxySqlVersion: proxySqlVersion,
-		PMMImage:        resp.Payload.Versions[0].Matrix.Pmm[pmmVersion].ImagePath,
-		PMMVersion:      pmmVersion,
-		HAProxyImage:    resp.Payload.Versions[0].Matrix.Haproxy[haproxyVersion].ImagePath,
-		HAProxyVersion:  haproxyVersion,
-	}
-
-	if cr.CompareVersionWith("1.7.0") >= 0 {
-		logCollectorVersion, err := getVersion(resp.Payload.Versions[0].Matrix.LogCollector)
-		if err != nil {
-			return DepVersion{}, err
-		}
-
-		dv.LogCollectorVersion = logCollectorVersion
-		dv.LogCollectorImage = resp.Payload.Versions[0].Matrix.LogCollector[logCollectorVersion].ImagePath
-
+		PXCImage:            resp.Payload.Versions[0].Matrix.Pxc[pxcVersion].ImagePath,
+		PXCVersion:          pxcVersion,
+		BackupImage:         resp.Payload.Versions[0].Matrix.Backup[backupVersion].ImagePath,
+		BackupVersion:       backupVersion,
+		ProxySqlImage:       resp.Payload.Versions[0].Matrix.Proxysql[proxySqlVersion].ImagePath,
+		ProxySqlVersion:     proxySqlVersion,
+		PMMImage:            resp.Payload.Versions[0].Matrix.Pmm[pmmVersion].ImagePath,
+		PMMVersion:          pmmVersion,
+		HAProxyImage:        resp.Payload.Versions[0].Matrix.Haproxy[haproxyVersion].ImagePath,
+		HAProxyVersion:      haproxyVersion,
+		LogCollectorVersion: logCollectorVersion,
+		LogCollectorImage:   resp.Payload.Versions[0].Matrix.LogCollector[logCollectorVersion].ImagePath,
 	}
 
 	return dv, nil

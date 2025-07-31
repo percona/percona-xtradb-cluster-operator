@@ -41,11 +41,9 @@ for var in $(printenv | grep -E '^IMAGE' | awk -F'=' '{print $1}'); do
 	if [[ $custom_registry == "true" && $var_value != percona/* && $var_value != perconalab/* ]]; then
 		new_value="${REGISTRY_NAME_FULL}${var_value}"
 		export "$var=$new_value"
-		echo $var=$new_value
 	elif [[ $var_value == percona/* || $var_value == perconalab/* ]]; then
 		new_value="${REGISTRY_NAME_FULL}${var_value}"
 		export "$var=$new_value"
-		echo $var=$new_value
 	fi
 done
 

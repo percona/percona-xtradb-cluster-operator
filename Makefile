@@ -1,14 +1,36 @@
+ifeq (undefined,$(origin REGISTRY_NAME))
+  $(info REGISTRY_NAME is not set)
+else ifeq (undefined,$(origin IMAGE))
+  $(info IMAGE is not set)
+else
+  IMAGE := $(REGISTRY_NAME)/$(IMAGE)
+  $(info Combined IMAGE: $(IMAGE))
+endif
+
 NAME ?= percona-xtradb-cluster-operator
 REGISTRY_NAME ?= docker.io
 REGISTRY_NAME_FULL = $(REGISTRY_NAME)/
 IMAGE_TAG_OWNER ?= perconalab
-IMAGE_TAG_BASE ?= ${REGISTRY_NAME_FULL}$(IMAGE_TAG_OWNER)/$(NAME)
+IMAGE_TAG_BASE ?= $(IMAGE_TAG_OWNER)/$(NAME)
 SED := $(shell which gsed || which sed)
 VERSION ?= $(shell git rev-parse --abbrev-ref HEAD | $(SED) -e 's^/^-^g; s^[.]^-^g;' | tr '[:upper:]' '[:lower:]')
 IMAGE ?= $(IMAGE_TAG_BASE):$(VERSION)
 DEPLOYDIR = ./deploy
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = latest
+
+ifneq (,$(filter percona/% perconalab/%,$(IMAGE)))
+  ifeq (,$(findstring docker.io/,$(IMAGE)))
+    IMAGE := $(REGISTRY_NAME_FULL)$(IMAGE)
+    $(info Updated IMAGE to: $(IMAGE))
+  else
+    $(info IMAGE already qualified: $(IMAGE))
+  endif
+else
+  $(info Skipping: IMAGE does not match percona/perconalab)
+endif
+$(info $(IMAGE))
+
 
 all: build
 
@@ -25,11 +47,11 @@ $(DEPLOYDIR)/crd.yaml: kustomize generate
 
 .PHONY: $(DEPLOYDIR)/operator.yaml
 $(DEPLOYDIR)/operator.yaml:
-	$(SED) -i "/^      containers:/,/^        image:/{s#image: .*#image: $(IMAGE_TAG_BASE):$(VERSION)#}" deploy/operator.yaml
+	$(SED) -i "/^      containers:/,/^        image:/{s#image: .*#image: $(REGISTRY_NAME_FULL)$(IMAGE_TAG_BASE):$(VERSION)#}" deploy/operator.yaml
 
 .PHONY: $(DEPLOYDIR)/cw-operator.yaml
 $(DEPLOYDIR)/cw-operator.yaml:
-	$(SED) -i "/^      containers:/,/^        image:/{s#image: .*#image: $(IMAGE_TAG_BASE):$(VERSION)#}" deploy/cw-operator.yaml
+	$(SED) -i "/^      containers:/,/^        image:/{s#image: .*#image: $(REGISTRY_NAME_FULL)$(IMAGE_TAG_BASE):$(VERSION)#}" deploy/cw-operator.yaml
 
 $(DEPLOYDIR)/bundle.yaml: $(DEPLOYDIR)/crd.yaml $(DEPLOYDIR)/rbac.yaml $(DEPLOYDIR)/operator.yaml  ## Generate deploy/bundle.yaml
 	cat $(DEPLOYDIR)/crd.yaml > $(DEPLOYDIR)/bundle.yaml; echo "---" >> $(DEPLOYDIR)/bundle.yaml; cat $(DEPLOYDIR)/rbac.yaml >> $(DEPLOYDIR)/bundle.yaml; echo "---" >> $(DEPLOYDIR)/bundle.yaml; cat $(DEPLOYDIR)/operator.yaml >> $(DEPLOYDIR)/bundle.yaml

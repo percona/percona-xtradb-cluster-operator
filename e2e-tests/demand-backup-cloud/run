@@ -204,6 +204,9 @@ main() {
 			backup_name_aws_iam="on-demand-backup-aws-s3-iam"
 			desc "Run backup ${backup_name_aws_iam} for $cluster cluster using IAM"
 			run_backup_with_delete "${backup_name_aws_iam}"
+			desc "Check backup existence for $backup_name_aws_iam"
+			backup_dest_aws_iam=$(kubectl_bin get pxc-backup "$backup_name_aws_iam" -o jsonpath='{.status.destination}' | sed -e 's/.json$//' | cut -c 6-)
+			check_backup_existence "https://s3.amazonaws.com/${backup_dest_aws_iam}.sst_info/sst_info.00000000000000000000" "aws-s3-iam"
 		fi
 
 		destroy $namespace

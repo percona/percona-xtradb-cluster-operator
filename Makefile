@@ -1,10 +1,8 @@
-ifeq (undefined,$(origin REGISTRY_NAME))
-  $(info REGISTRY_NAME is not set)
-else ifeq (undefined,$(origin IMAGE))
-  $(info IMAGE is not set)
-else
-  IMAGE := $(REGISTRY_NAME)/$(IMAGE)
-  $(info Combined IMAGE: $(IMAGE))
+ifneq ($(REGISTRY_NAME),)
+  ifneq ($(IMAGE),)
+    override IMAGE := $(REGISTRY_NAME)/$(IMAGE)
+    $(info Combined provided REGISTRY_NAME with IMAGE: $(IMAGE))
+  endif
 endif
 
 NAME ?= percona-xtradb-cluster-operator
@@ -20,17 +18,11 @@ DEPLOYDIR = ./deploy
 ENVTEST_K8S_VERSION = latest
 
 ifneq (,$(filter percona/% perconalab/%,$(IMAGE)))
-  ifeq (,$(findstring docker.io/,$(IMAGE)))
-    IMAGE := $(REGISTRY_NAME_FULL)$(IMAGE)
+  ifeq (,$(findstring $(REGISTRY_NAME_FULL),$(IMAGE)))
+    override IMAGE := $(REGISTRY_NAME_FULL)$(IMAGE)
     $(info Updated IMAGE to: $(IMAGE))
-  else
-    $(info IMAGE already qualified: $(IMAGE))
   endif
-else
-  $(info Skipping: IMAGE does not match percona/perconalab)
 endif
-$(info $(IMAGE))
-
 
 all: build
 

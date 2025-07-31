@@ -180,9 +180,10 @@ func (s *S3) DeleteObject(ctx context.Context, objectName string) error {
 	log := logf.FromContext(ctx).WithValues("bucket", s.bucketName, "prefix", s.prefix)
 
 	// minio sdk automatically URL-encodes the path
-	objPath, err := url.QueryUnescape(path.Join(s.prefix, objectName))
+	p := path.Join(s.prefix, objectName)
+	objPath, err := url.QueryUnescape(p)
 	if err != nil {
-		return errors.Wrapf(err, "failed to unescape object path %s", objPath)
+		return errors.Wrapf(err, "failed to unescape object path %s", p)
 	}
 
 	log.V(1).Info("deleting object", "object", objPath)
@@ -290,9 +291,9 @@ func (a *Azure) GetPrefix() string {
 func (a *Azure) DeleteObject(ctx context.Context, objectName string) error {
 	log := logf.FromContext(ctx).WithValues("container", a.container, "prefix", a.prefix, "object", objectName)
 
-	log.V(1).Info("deleting object")
-
 	objPath := path.Join(a.prefix, objectName)
+	log.V(1).Info("deleting object", "object", objPath)
+
 	_, err := a.client.DeleteBlob(ctx, a.container, objPath, nil)
 	if err != nil {
 		if bloberror.HasCode(errors.Cause(err), bloberror.BlobNotFound) {
@@ -301,7 +302,7 @@ func (a *Azure) DeleteObject(ctx context.Context, objectName string) error {
 		return errors.Wrapf(err, "delete blob %s", objPath)
 	}
 
-	log.V(1).Info("object deleted")
+	log.V(1).Info("object deleted", "object", objPath)
 
 	return nil
 }

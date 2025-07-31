@@ -2,12 +2,12 @@ package pxc
 
 import (
 	"context"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
@@ -48,7 +48,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBinlogCollector(ctx context.Con
 		return errors.Wrapf(err, "set controller reference for binlog collector deployment '%s'", collector.Name)
 	}
 
-	if err := r.createOrUpdate(ctx, cr, &collector); err != nil {
+	if err := r.createOrUpdate(ctx, &collector); err != nil {
 		return errors.Wrap(err, "create or update binlog collector")
 	}
 

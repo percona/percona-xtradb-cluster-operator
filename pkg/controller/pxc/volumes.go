@@ -174,7 +174,10 @@ func (r *ReconcilePerconaXtraDBCluster) reconcilePersistentVolumes(ctx context.C
 			for _, event := range events.Items {
 				eventTime := event.EventTime.Time
 				if event.EventTime.IsZero() {
-					eventTime = event.DeprecatedFirstTimestamp.Time
+					eventTime = event.DeprecatedLastTimestamp.Time
+					if eventTime.IsZero() {
+						eventTime = event.DeprecatedFirstTimestamp.Time
+					}
 				}
 
 				if eventTime.Before(resizeStartedAt) {

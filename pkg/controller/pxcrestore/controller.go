@@ -384,8 +384,14 @@ func (r *ReconcilePerconaXtraDBClusterRestore) reconcileStateRestore(ctx context
 		return rr, nil
 	}
 
-	log.Info("preparing cluster", "cluster", cr.Spec.PXCCluster)
-	cr.Status.State = api.RestorePrepareCluster
+	if cluster.CompareVersionWith("1.18.0") >= 0 {
+		log.Info("preparing cluster", "cluster", cr.Spec.PXCCluster)
+		cr.Status.State = api.RestorePrepareCluster
+	} else {
+		log.Info("starting cluster", "cluster", cr.Spec.PXCCluster)
+		cr.Status.State = api.RestoreStartCluster
+	}
+
 	return rr, nil
 }
 

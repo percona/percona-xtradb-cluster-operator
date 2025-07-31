@@ -6,11 +6,9 @@ package version_service
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
-	"encoding/json"
 	"github.com/go-openapi/runtime"
 	httptransport "github.com/go-openapi/runtime/client"
 	"github.com/go-openapi/strfmt"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // New creates a new version service API client.

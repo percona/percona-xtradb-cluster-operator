@@ -83,6 +83,17 @@ spec:
             - '--parallel=2'
             xbcloud: 
             - '--parallel=2'
+      aws-s3-iam:
+        type: s3
+        s3:
+          region: us-east-1
+          bucket: operator-testing
+        containerOptions:
+          args:
+            xbstream:
+            - '--parallel=2'
+            xbcloud: 
+            - '--parallel=2'
       minio:
         type: s3
         s3:

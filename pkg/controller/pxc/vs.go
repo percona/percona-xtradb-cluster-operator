@@ -1,14 +1,13 @@
 package pxc
 
 import (
-	"context"
 	"fmt"
-	"github.com/pkg/errors"
 	"net/http"
 	"net/url"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"strings"
 	"time"
+
+	"github.com/pkg/errors"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	vsc "github.com/percona/percona-xtradb-cluster-operator/pkg/version/client"
@@ -62,10 +61,6 @@ func (vs VersionServiceClient) GetExactVersion(cr *api.PerconaXtraDBCluster, end
 	if !versionUpgradeEnabled(cr) {
 		return DepVersion{}, nil
 	}
-
-	log := logf.FromContext(context.Background())
-	log.Info("Getting version", "version", resp)
-	log.Info("Getting version meta", "version meta", vm)
 
 	if len(resp.Payload.Versions) == 0 {
 		return DepVersion{}, fmt.Errorf("empty versions response")

@@ -22,7 +22,7 @@ spec:
 #  sslInternalSecretName: cluster1-ssl-internal
 #  logCollectorSecretName: cluster1-log-collector-secrets
 #  initContainer:
-#    image: perconalab/percona-xtradb-cluster-operator:main
+#    image: docker.io/perconalab/percona-xtradb-cluster-operator:main
 #    containerSecurityContext:
 #      privileged: false
 #      runAsUser: 1001
@@ -58,7 +58,7 @@ spec:
     schedule: "0 4 * * *"
   pxc:
     size: 3
-    image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0
+    image: docker.io/perconalab/percona-xtradb-cluster-operator:main-pxc8.0
     autoRecovery: true
 #    expose:
 #      enabled: true
@@ -207,7 +207,7 @@ spec:
   haproxy:
     enabled: true
     size: 3
-    image: perconalab/percona-xtradb-cluster-operator:main-haproxy
+    image: docker.io/perconalab/percona-xtradb-cluster-operator:main-haproxy
 #    imagePullPolicy: Always
 #    schedulerName: mycustom-scheduler
 #    readinessDelaySec: 15
@@ -381,7 +381,7 @@ spec:
   proxysql:
     enabled: false
     size: 3
-    image: perconalab/percona-xtradb-cluster-operator:main-proxysql
+    image: docker.io/perconalab/percona-xtradb-cluster-operator:main-proxysql
 #    imagePullPolicy: Always
 #    configuration: |
 #      datadir="/var/lib/proxysql"
@@ -543,7 +543,7 @@ spec:
 #     - 10.0.0.0/8
   logcollector:
     enabled: true
-    image: perconalab/percona-xtradb-cluster-operator:main-logcollector
+    image: docker.io/perconalab/percona-xtradb-cluster-operator:main-logcollector
 #    configuration: |
 #      [OUTPUT]
 #           Name  es
@@ -576,7 +576,7 @@ spec:
 
   pmm:
     enabled: false
-    image: perconalab/pmm-client:dev-latest
+    image: docker.io/perconalab/pmm-client:dev-latest
     serverHost: monitoring-service
 #    customClusterName: "testClusterName"
 #    serverUser: admin
@@ -602,7 +602,7 @@ spec:
         cpu: 300m
   backup:
 #    allowParallel: true
-    image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0-backup
+    image: docker.io/perconalab/percona-xtradb-cluster-operator:main-pxc8.0-backup
 #    backoffLimit: 6
 #    activeDeadlineSeconds: 3600
 #    startingDeadlineSeconds: 300

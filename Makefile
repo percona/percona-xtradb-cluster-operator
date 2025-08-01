@@ -1,4 +1,13 @@
+ifneq ($(REGISTRY_NAME),)
+  ifneq ($(IMAGE),)
+    override IMAGE := $(REGISTRY_NAME)/$(IMAGE)
+    $(info Combined provided REGISTRY_NAME with IMAGE: $(IMAGE))
+  endif
+endif
+
 NAME ?= percona-xtradb-cluster-operator
+REGISTRY_NAME ?= docker.io
+REGISTRY_NAME_FULL = $(REGISTRY_NAME)/
 IMAGE_TAG_OWNER ?= perconalab
 IMAGE_TAG_BASE ?= $(IMAGE_TAG_OWNER)/$(NAME)
 SED := $(shell which gsed || which sed)
@@ -7,6 +16,13 @@ IMAGE ?= $(IMAGE_TAG_BASE):$(VERSION)
 DEPLOYDIR = ./deploy
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = latest
+
+ifneq (,$(filter percona/% perconalab/%,$(IMAGE)))
+  ifeq (,$(findstring $(REGISTRY_NAME_FULL),$(IMAGE)))
+    override IMAGE := $(REGISTRY_NAME_FULL)$(IMAGE)
+    $(info Updated IMAGE to: $(IMAGE))
+  endif
+endif
 
 all: build
 
@@ -23,11 +39,11 @@ $(DEPLOYDIR)/crd.yaml: kustomize generate
 
 .PHONY: $(DEPLOYDIR)/operator.yaml
 $(DEPLOYDIR)/operator.yaml:
-	$(SED) -i "/^      containers:/,/^        image:/{s#image: .*#image: $(IMAGE_TAG_BASE):$(VERSION)#}" deploy/operator.yaml
+	$(SED) -i "/^      containers:/,/^        image:/{s#image: .*#image: $(REGISTRY_NAME_FULL)$(IMAGE_TAG_BASE):$(VERSION)#}" deploy/operator.yaml
 
 .PHONY: $(DEPLOYDIR)/cw-operator.yaml
 $(DEPLOYDIR)/cw-operator.yaml:
-	$(SED) -i "/^      containers:/,/^        image:/{s#image: .*#image: $(IMAGE_TAG_BASE):$(VERSION)#}" deploy/cw-operator.yaml
+	$(SED) -i "/^      containers:/,/^        image:/{s#image: .*#image: $(REGISTRY_NAME_FULL)$(IMAGE_TAG_BASE):$(VERSION)#}" deploy/cw-operator.yaml
 
 $(DEPLOYDIR)/bundle.yaml: $(DEPLOYDIR)/crd.yaml $(DEPLOYDIR)/rbac.yaml $(DEPLOYDIR)/operator.yaml  ## Generate deploy/bundle.yaml
 	cat $(DEPLOYDIR)/crd.yaml > $(DEPLOYDIR)/bundle.yaml; echo "---" >> $(DEPLOYDIR)/bundle.yaml; cat $(DEPLOYDIR)/rbac.yaml >> $(DEPLOYDIR)/bundle.yaml; echo "---" >> $(DEPLOYDIR)/bundle.yaml; cat $(DEPLOYDIR)/operator.yaml >> $(DEPLOYDIR)/bundle.yaml
@@ -113,18 +129,18 @@ release: manifests
 	echo $(VERSION) > pkg/version/version.txt
 	$(SED) -i \
 		-e "s/crVersion: .*/crVersion: $(VERSION)/" \
-		-e "/^  pxc:/,/^    image:/{s#image: .*#image: $(IMAGE_PXC80)#}" \
-		-e "/^  haproxy:/,/^    image:/{s#image: .*#image: $(IMAGE_HAPROXY)#}" \
-		-e "/^  logcollector:/,/^    image:/{s#image: .*#image: $(IMAGE_LOGCOLLECTOR)#}" deploy/cr-minimal.yaml
+		-e "/^  pxc:/,/^    image:/{s#image: .*#image: ${REGISTRY_NAME_FULL}$(IMAGE_PXC80)#}" \
+		-e "/^  haproxy:/,/^    image:/{s#image: .*#image: ${REGISTRY_NAME_FULL}$(IMAGE_HAPROXY)#}" \
+		-e "/^  logcollector:/,/^    image:/{s#image: .*#image: ${REGISTRY_NAME_FULL}$(IMAGE_LOGCOLLECTOR)#}" deploy/cr-minimal.yaml
 	$(SED) -i \
 		-e "s/crVersion: .*/crVersion: $(VERSION)/" \
-		-e "/^  pxc:/,/^    image:/{s#image: .*#image: $(IMAGE_PXC80)#}" \
-		-e "/^  haproxy:/,/^    image:/{s#image: .*#image: $(IMAGE_HAPROXY)#}" \
-		-e "/^  proxysql:/,/^    image:/{s#image: .*#image: $(IMAGE_PROXY)#}" \
-		-e "/^  logcollector:/,/^    image:/{s#image: .*#image: $(IMAGE_LOGCOLLECTOR)#}" \
-		-e "/^  backup:/,/^    image:/{s#image: .*#image: $(IMAGE_BACKUP80)#}" \
-		-e "/initContainer:/,/image:/{s#image: .*#image: $(IMAGE_OPERATOR)#}" \
-		-e "/^  pmm:/,/^    image:/{s#image: .*#image: $(IMAGE_PMM_CLIENT)#}" deploy/cr.yaml
+		-e "/^  pxc:/,/^    image:/{s#image: .*#image: ${REGISTRY_NAME_FULL}$(IMAGE_PXC80)#}" \
+		-e "/^  haproxy:/,/^    image:/{s#image: .*#image: ${REGISTRY_NAME_FULL}$(IMAGE_HAPROXY)#}" \
+		-e "/^  proxysql:/,/^    image:/{s#image: .*#image: ${REGISTRY_NAME_FULL}$(IMAGE_PROXY)#}" \
+		-e "/^  logcollector:/,/^    image:/{s#image: .*#image: ${REGISTRY_NAME_FULL}$(IMAGE_LOGCOLLECTOR)#}" \
+		-e "/^  backup:/,/^    image:/{s#image: .*#image: ${REGISTRY_NAME_FULL}$(IMAGE_BACKUP80)#}" \
+		-e "/initContainer:/,/image:/{s#image: .*#image: ${REGISTRY_NAME_FULL}$(IMAGE_OPERATOR)#}" \
+		-e "/^  pmm:/,/^    image:/{s#image: .*#image: ${REGISTRY_NAME_FULL}$(IMAGE_PMM_CLIENT)#}" deploy/cr.yaml
 
 # Prepare main branch after release
 MAJOR_VER := $(shell grep -oE "crVersion: .*" deploy/cr.yaml|grep -oE "[0-9]+\.[0-9]+\.[0-9]+"|cut -d'.' -f1)
@@ -134,18 +150,18 @@ after-release: manifests
 	echo $(NEXT_VER) > pkg/version/version.txt
 	$(SED) -i \
 		-e "s/crVersion: .*/crVersion: $(NEXT_VER)/" \
-		-e "/^  pxc:/,/^    image:/{s#image: .*#image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0#}" \
-		-e "/^  haproxy:/,/^    image:/{s#image: .*#image: perconalab/percona-xtradb-cluster-operator:main-haproxy#}" \
-		-e "/^  logcollector:/,/^    image:/{s#image: .*#image: perconalab/percona-xtradb-cluster-operator:main-logcollector#}" deploy/cr-minimal.yaml
+		-e "/^  pxc:/,/^    image:/{s#image: .*#image: ${REGISTRY_NAME_FULL}perconalab/percona-xtradb-cluster-operator:main-pxc8.0#}" \
+		-e "/^  haproxy:/,/^    image:/{s#image: .*#image: ${REGISTRY_NAME_FULL}perconalab/percona-xtradb-cluster-operator:main-haproxy#}" \
+		-e "/^  logcollector:/,/^    image:/{s#image: .*#image: ${REGISTRY_NAME_FULL}perconalab/percona-xtradb-cluster-operator:main-logcollector#}" deploy/cr-minimal.yaml
 	$(SED) -i \
 		-e "s/crVersion: .*/crVersion: $(NEXT_VER)/" \
-		-e "/^  pxc:/,/^    image:/{s#image: .*#image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0#}" \
-		-e "/^  haproxy:/,/^    image:/{s#image: .*#image: perconalab/percona-xtradb-cluster-operator:main-haproxy#}" \
-		-e "/^  proxysql:/,/^    image:/{s#image: .*#image: perconalab/percona-xtradb-cluster-operator:main-proxysql#}" \
-		-e "/^  logcollector:/,/^    image:/{s#image: .*#image: perconalab/percona-xtradb-cluster-operator:main-logcollector#}" \
-		-e "/^  backup:/,/^    image:/{s#image: .*#image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0-backup#}" \
-		-e "/initContainer:/,/image:/{s#image: .*#image: perconalab/percona-xtradb-cluster-operator:main#}" \
-		-e "/^  pmm:/,/^    image:/{s#image: .*#image: perconalab/pmm-client:dev-latest#}" deploy/cr.yaml
+		-e "/^  pxc:/,/^    image:/{s#image: .*#image: ${REGISTRY_NAME_FULL}perconalab/percona-xtradb-cluster-operator:main-pxc8.0#}" \
+		-e "/^  haproxy:/,/^    image:/{s#image: .*#image: ${REGISTRY_NAME_FULL}perconalab/percona-xtradb-cluster-operator:main-haproxy#}" \
+		-e "/^  proxysql:/,/^    image:/{s#image: .*#image: ${REGISTRY_NAME_FULL}perconalab/percona-xtradb-cluster-operator:main-proxysql#}" \
+		-e "/^  logcollector:/,/^    image:/{s#image: .*#image: ${REGISTRY_NAME_FULL}perconalab/percona-xtradb-cluster-operator:main-logcollector#}" \
+		-e "/^  backup:/,/^    image:/{s#image: .*#image: ${REGISTRY_NAME_FULL}perconalab/percona-xtradb-cluster-operator:main-pxc8.0-backup#}" \
+		-e "/initContainer:/,/image:/{s#image: .*#image: ${REGISTRY_NAME_FULL}perconalab/percona-xtradb-cluster-operator:main#}" \
+		-e "/^  pmm:/,/^    image:/{s#image: .*#image: ${REGISTRY_NAME_FULL}perconalab/pmm-client:dev-latest#}" deploy/cr.yaml
 
 VS_BRANCH = main
 version-service-client: swagger

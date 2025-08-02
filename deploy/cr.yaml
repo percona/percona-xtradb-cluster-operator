@@ -576,7 +576,7 @@ spec:
 
   pmm:
     enabled: false
-    image: percona/pmm-client:2.44.1
+    image: percona/pmm-client:3.3.1
     serverHost: monitoring-service
 #    customClusterName: "testClusterName"
 #    serverUser: admin

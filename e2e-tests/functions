@@ -55,6 +55,12 @@ else
 	EKS=0
 fi
 
+if kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}' | grep -q "azmk8s.io"; then
+	AKS=1
+else
+	AKS=0
+fi
+
 KUBE_VERSION=$(kubectl version -o json | jq -r '.serverVersion.major + "." + .serverVersion.minor' | $sed -r 's/[^0-9.]+//g')
 
 set_debug() {
@@ -422,7 +428,9 @@ compare_kubectl() {
 		expected_result=${expected_result//.yml/-84.yml}
 	fi
 
-	if version_gt "1.29" && [ -f ${expected_result//.yml/-k129.yml} ]; then
+	if version_gt "1.33" && [ -f ${expected_result//.yml/-k133.yml} ]; then
+		expected_result=${expected_result//.yml/-k133.yml}
+	elif version_gt "1.29" && [ -f ${expected_result//.yml/-k129.yml} ]; then
 		expected_result=${expected_result//.yml/-k129.yml}
 	elif version_gt "1.27" && [ -f ${expected_result//.yml/-k127.yml} ]; then
 		expected_result=${expected_result//.yml/-k127.yml}
@@ -442,6 +450,10 @@ compare_kubectl() {
 
 	if [ "$EKS" = 1 -a -f ${expected_result//.yml/-eks.yml} ]; then
 		expected_result=${expected_result//.yml/-eks.yml}
+	fi
+
+	if [ "$AKS" = 1 -a -f ${expected_result//.yml/-aks.yml} ]; then
+		expected_result=${expected_result//.yml/-aks.yml}
 	fi
 
 	kubectl_bin get -o yaml ${resource} \

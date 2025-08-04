@@ -89,7 +89,7 @@ jobs:
       - name: check on release branch
         if: ${{ contains(github.head_ref, 'release-') || contains(github.base_ref, 'release-') }}
         run: |
-          make generate manifests VERSION="$(grep "Version" version/version.go|grep -oE "[0-9]+\.[0-9]+\.[0-9]+")" IMAGE_TAG_BASE="percona/percona-xtradb-cluster-operator"
+          make generate manifests VERSION="$(cat pkg/version/version.txt)" IMAGE_TAG_BASE="percona/percona-xtradb-cluster-operator"
           git diff --exit-code
       - name: check on non release branches
         if: ${{ ! (contains(github.head_ref, 'release-') || contains(github.base_ref, 'release-')) }}

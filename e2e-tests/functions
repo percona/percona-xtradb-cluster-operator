@@ -422,7 +422,9 @@ compare_kubectl() {
 		expected_result=${expected_result//.yml/-84.yml}
 	fi
 
-	if version_gt "1.29" && [ -f ${expected_result//.yml/-k129.yml} ]; then
+	if version_gt "1.33" && [ -f ${expected_result//.yml/-k133.yml} ]; then
+		expected_result=${expected_result//.yml/-k133.yml}
+	elif version_gt "1.29" && [ -f ${expected_result//.yml/-k129.yml} ]; then
 		expected_result=${expected_result//.yml/-k129.yml}
 	elif version_gt "1.27" && [ -f ${expected_result//.yml/-k127.yml} ]; then
 		expected_result=${expected_result//.yml/-k127.yml}

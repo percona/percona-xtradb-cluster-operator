@@ -61,7 +61,6 @@ else
 	AKS=0
 fi
 
-
 KUBE_VERSION=$(kubectl version -o json | jq -r '.serverVersion.major + "." + .serverVersion.minor' | $sed -r 's/[^0-9.]+//g')
 
 set_debug() {

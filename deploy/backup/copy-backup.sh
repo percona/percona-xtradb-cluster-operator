@@ -146,7 +146,7 @@ start_tmp_pod() {
 		spec:
 		  containers:
 		  - name: xtrabackup
-		    image: percona/percona-xtradb-cluster-operator:0.3.0-backup
+		    image: docker.io/percona/percona-xtradb-cluster-operator:0.3.0-backup
 		    volumeMounts:
 		    - name: backup
 		      mountPath: /backup

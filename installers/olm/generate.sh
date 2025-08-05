@@ -74,6 +74,10 @@ mv output-02 "$target_dir/role_binding.yaml"
 kubectl kustomize "../../config/${DISTRIBUTION}" >operator_yamls.yaml
 
 export role="${mode}Role"
+yq eval '. | select(.kind == "CustomResourceDefinition")' operator_yamls.yaml >operator_crds.yaml
+yq eval '. | select(.kind == "Deployment")' operator_yamls.yaml >operator_deployments.yaml
+yq eval '. | select(.kind == "ServiceAccount")' operator_yamls.yaml >operator_accounts.yaml
+yq eval '. | select(.kind == env(role))' operator_yamls.yaml >operator_roles${suffix}.yaml
 
 update_yaml_images() {
 	local yaml_file="$1"
@@ -91,11 +95,6 @@ update_yaml_images() {
 
 	echo "File '$yaml_file' updated successfully."
 }
-
-yq eval '. | select(.kind == "CustomResourceDefinition")' operator_yamls.yaml >operator_crds.yaml
-yq eval '. | select(.kind == "Deployment")' operator_yamls.yaml >operator_deployments.yaml
-yq eval '. | select(.kind == "ServiceAccount")' operator_yamls.yaml >operator_accounts.yaml
-yq eval '. | select(.kind == env(role))' operator_yamls.yaml >operator_roles${suffix}.yaml
 
 ## Recreate the Operator SDK project.
 
@@ -213,34 +212,25 @@ yq eval -i '[.]' operator_accounts.yaml && yq eval 'length == 1' operator_accoun
 yq eval -i '[.]' operator_roles${suffix}.yaml && yq eval 'length == 1' operator_roles${suffix}.yaml --exit-status >/dev/null || abort "too many roles!" $'\n'"$(yq eval . operator_roles${suffix}.yaml)"
 
 # Render bundle CSV and strip comments.
-csv_stem=$(yq -r '.projectName' "${project_directory}/PROJECT")
-
-cr_example=$(yq eval -o=json ../../deploy/cr.yaml)
-backup_example=$(yq eval -o=json ../../deploy/backup/backup.yaml)
-restore_example=$(yq eval -o=json ../../deploy/backup/restore.yaml)
-full_example=$(jq -n "[${cr_example}, ${backup_example}, ${restore_example}]")
-deployment=$(yq eval operator_deployments.yaml)
-account=$(yq eval '.[] | .metadata.name' operator_accounts.yaml)
-rules=$(yq eval '.[] | .rules' operator_roles${suffix}.yaml)
-version="${VERSION}${suffix}"
-timestamp=$(date -u +"%Y-%m-%dT%H:%M:%S.%3Z")
-containerImage="$(yq eval '.[0].spec.template.spec.containers[0].image' operator_deployments.yaml)"
-relatedImages=$(yq eval bundle.relatedImages.yaml)
-
-export examples="${full_example}"
-export deployment=$deployment
-export account=$account
-export rules=$rules
-export version="${version}"
-export stem="${csv_stem}"
-export timestamp=$timestamp
-export name="${csv_stem}.v${VERSION}${suffix}"
-export name_certified="${csv_stem}-certified.v${VERSION}${suffix}"
-export name_certified_rhmp="${csv_stem}-certified-rhmp.v${VERSION}${suffix}"
-export skip_range="<${VERSION}"
-export containerImage="$containerImage"
-export relatedImages=$relatedImages
+export stem=$(yq -r '.projectName' "${project_directory}/PROJECT")
+export version="${VERSION}${suffix}"
+export timestamp=$(date -u +"%Y-%m-%dT%H:%M:%S.%3Z")
+export name="${stem}.v${VERSION}${suffix}"
+export name_certified="${stem}-certified.v${VERSION}${suffix}"
+export name_certified_rhmp="${stem}-certified-rhmp.v${VERSION}${suffix}"
+export skip_range="<v${VERSION}"
+export containerImage=$(yq eval '.[0].spec.template.spec.containers[0].image' operator_deployments.yaml)
 export rulesLevel=${rulesLevel}
+export deployment=$(yq eval operator_deployments.yaml)
+export account=$(yq eval '.[] | .metadata.name' operator_accounts.yaml)
+export rules=$(yq eval '.[] | .rules' operator_roles${suffix}.yaml)
+export relatedImages=$(yq eval bundle.relatedImages.yaml)
+
+export examples=$(jq -n "[
+  $(yq eval -o=json ../../deploy/cr.yaml),
+  $(yq eval -o=json ../../deploy/backup/backup.yaml),
+  $(yq eval -o=json ../../deploy/backup/restore.yaml)
+]")
 
 yq eval '
   .metadata.annotations["alm-examples"] = strenv(examples) |
@@ -250,18 +240,17 @@ yq eval '
   .metadata.name = env(name) |
   .spec.install.spec[strenv(rulesLevel)] = [{ "serviceAccountName": env(account), "rules": env(rules) }] |
   .spec.install.spec.deployments = [( env(deployment) | .[] |{ "name": .metadata.name, "spec": .spec} )] |
-  .spec.version = env(version)' bundle.csv.yaml >"${bundle_directory}/manifests/${file_name}.clusterserviceversion.yaml"
+  .spec.version = env(version)' bundle.csv.yaml >"${bundle_directory}/manifests/${file_name}.v${VERSION}.clusterserviceversion.yaml"
 
 if [ "${DISTRIBUTION}" == "community" ]; then
-	update_yaml_images "bundles/$DISTRIBUTION/manifests/${file_name}.clusterserviceversion.yaml"
+	update_yaml_images "bundles/$DISTRIBUTION/manifests/${file_name}.v${VERSION}.clusterserviceversion.yaml"
 elif [ "${DISTRIBUTION}" == "redhat" ]; then
-
 	yq eval --inplace '
         .spec.relatedImages = env(relatedImages) |
         .metadata.annotations.certified = "true" |
         .metadata.annotations["containerImage"] = "registry.connect.redhat.com/percona/percona-xtradb-cluster-operator@sha256:<update_operator_SHA_value>" |
         .metadata.name = strenv(name_certified)' \
-		"${bundle_directory}/manifests/${file_name}.clusterserviceversion.yaml"
+		"${bundle_directory}/manifests/${file_name}.v${VERSION}.clusterserviceversion.yaml"
 
 elif [ "${DISTRIBUTION}" == "marketplace" ]; then
 	# Annotations needed when targeting Red Hat Marketplace
@@ -274,12 +263,13 @@ elif [ "${DISTRIBUTION}" == "marketplace" ]; then
         .metadata.annotations["marketplace.openshift.io/support-workflow"] =
             "https://marketplace.redhat.com/en-us/operators/percona-xtradb-cluster-operator-certified-rhmp/support?utm_source=openshift_console" |
         .spec.relatedImages = env(relatedImages)' \
-		"${bundle_directory}/manifests/${file_name}.clusterserviceversion.yaml"
+		"${bundle_directory}/manifests/${file_name}.${skip_range}.clusterserviceversion.yaml"
 fi
 
-# delete blank lines.
-sed -i '' '/^$/d' "${bundle_directory}/manifests/${file_name}.clusterserviceversion.yaml"
+# Delete comments
+sed -i '' '/^[[:space:]]*# [^#]/d' "${bundle_directory}/manifests/${file_name}.v${VERSION}.clusterserviceversion.yaml"
+
+# Lint the bundle YAML files.
+yamllint -d '{extends: default, rules: {line-length: disable, indentation: disable}}' bundles/"$DISTRIBUTION"
 
 if >/dev/null command -v tree; then tree -C "${bundle_directory}"; fi
-
-yamllint -d '{extends: default, rules: {line-length: disable, indentation: disable}}' bundles/"$DISTRIBUTION"

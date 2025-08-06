@@ -138,7 +138,7 @@ func getPMMVersion(versions map[string]models.VersionVersion, isPMM3 bool) (stri
 	if isPMM3 && pmm3Version == "" {
 		return "", fmt.Errorf("pmm3 is configured, but no pmm3 version exists")
 	}
-	if pmm3Version != "" {
+	if isPMM3 && pmm3Version != "" {
 		return pmm3Version, nil
 	}
 	if pmm2Version != "" {

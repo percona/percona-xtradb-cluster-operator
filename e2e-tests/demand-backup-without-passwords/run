@@ -24,7 +24,14 @@ function write_data() {
 
 create_infra ${namespace}
 kubectl_bin apply -f ${conf_dir}/client.yml
-apply_config "${test_dir}/conf/${cluster}.yml"
+if [[ $IMAGE_PXC =~ 5\.7 ]]; then
+	cat_config "${test_dir}/conf/${cluster}.yml" \
+		| $sed '/\[sst\]/,+1d' \
+		| $sed 's|compress=lz4|compress|' \
+		| kubectl_bin apply -f -
+else
+	apply_config "${test_dir}/conf/${cluster}.yml"
+fi
 wait_cluster_consistency "${cluster}" 3 2
 write_data
 
@@ -33,13 +40,23 @@ run_backup "${cluster}" "backup1"
 log "deleting pxc/${cluster}"
 kubectl_bin delete pxc ${cluster}
 
+# Wait till the PVCs are deleted before starting a new cluster
+kubectl wait pvc --selector=app.kubernetes.io/component=pxc --for=delete --timeout=360s
+
 if kubectl get secret my-cluster-secrets >/dev/null 2>&1; then
 	log "Secret exists"
 	exit 1
 fi
 
 log "recreating pxc/${cluster}"
-apply_config "${test_dir}/conf/${cluster}.yml"
+if [[ $IMAGE_PXC =~ 5\.7 ]]; then
+	cat_config "${test_dir}/conf/${cluster}.yml" \
+		| $sed '/\[sst\]/,+1d' \
+		| $sed 's|compress=lz4|compress|' \
+		| kubectl_bin apply -f -
+else
+	apply_config "${test_dir}/conf/${cluster}.yml"
+fi
 
 run_recovery_check "${cluster}" "backup1"
 wait_cluster_consistency "${cluster}" 3 2

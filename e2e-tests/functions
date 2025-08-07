@@ -28,20 +28,30 @@ if oc get projects 2>/dev/null; then
 	OPENSHIFT=$(oc version -o json | jq -r '.openshiftVersion' | grep -oE '^[0-9]+\.[0-9]+')
 fi
 
-if [ -n "$OPENSHIFT" ]; then
+add_docker_reg() {
+	local var=$1
+
+	var_value=$(eval "echo \$$var")
+	if [[ $var_value == $REGISTRY_NAME/* ]]; then
+		continue
+	fi
+	if [[ $var_value == percona/percona-xtradb-cluster-operator:* ]]; then
+		new_value="${REGISTRY_NAME_FULL}${var_value}"
+		export "$var=$new_value"
+	fi
+}
+
+add_docker_reg_all_vars() {
 	REGISTRY_NAME="docker.io"
 	REGISTRY_NAME_FULL="$REGISTRY_NAME/"
 
 	for var in $(printenv | grep -E '^IMAGE' | awk -F'=' '{print $1}'); do
-		var_value=$(eval "echo \$$var")
-		if [[ $var_value == $REGISTRY_NAME/* ]]; then
-			continue
-		fi
-		if [[ $var_value == percona/percona-xtradb-cluster-operator:* ]]; then
-			new_value="${REGISTRY_NAME_FULL}${var_value}"
-			export "$var=$new_value"
-		fi
+		add_docker_reg $var
 	done
+}
+
+if [[ -n ${OPENSHIFT} && $(echo "${OPENSHIFT} >= "4.19"" | bc -l) -eq 1 ]]; then
+	add_docker_reg_all_vars
 fi
 
 echo $IMAGE $IMAGE_PXC $IMAGE_PROXY
@@ -74,7 +84,6 @@ else
 	EKS=0
 fi
 
-KUBE_VERSION=$(kubectl version -o json | jq -r '.serverVersion.major + "." + .serverVersion.minor' | $sed -r 's/[^0-9.]+//g')
 
 set_debug() {
 	if [[ ${DEBUG_TESTS} == 1 ]]; then
@@ -93,6 +102,8 @@ replace_docker_registry() {
 
 	$sed -E -i "s|^([[:space:]]*image:[[:space:]]*)(percona/percona-xtradb-cluster-operator:.*)|\1$REGISTRY_NAME_FULL\2|" $file_path
 }
+
+KUBE_VERSION=$(kubectl version -o json | jq -r '.serverVersion.major + "." + .serverVersion.minor' | $sed -r 's/[^0-9.]+//g')
 
 HELM_VERSION=$(helm version -c | $sed -re 's/.*SemVer:"([^"]+)".*/\1/; s/.*\bVersion:"([^"]+)".*/\1/')
 if [ "${HELM_VERSION:0:2}" == "v2" ]; then
@@ -1558,7 +1569,7 @@ function prepare_cr_yaml() {
 			.spec.proxysql.enabled = true
 		' "${cr_yaml}"
 	fi
-	if [ -n "$OPENSHIFT" ]; then
+	if  [[ -n ${OPENSHIFT} && $(echo "${OPENSHIFT} >= "4.19"" | bc -l) -eq 1  ]]; then
 		replace_docker_registry "${cr_yaml}"
 	fi
 }

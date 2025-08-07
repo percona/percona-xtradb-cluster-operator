@@ -54,7 +54,6 @@ if [[ -n ${OPENSHIFT} && $(echo "${OPENSHIFT} >= "4.19"" | bc -l) -eq 1 ]]; then
 	add_docker_reg_all_vars
 fi
 
-echo $IMAGE $IMAGE_PXC $IMAGE_PROXY
 tmp_dir=$(mktemp -d)
 sed=$(which gsed || which sed)
 date=$(which gdate || which date)
@@ -84,6 +83,13 @@ else
 	EKS=0
 fi
 
+if kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}' | grep -q "azmk8s.io"; then
+	AKS=1
+else
+	AKS=0
+fi
+
+KUBE_VERSION=$(kubectl version -o json | jq -r '.serverVersion.major + "." + .serverVersion.minor' | $sed -r 's/[^0-9.]+//g')
 
 set_debug() {
 	if [[ ${DEBUG_TESTS} == 1 ]]; then
@@ -102,8 +108,6 @@ replace_docker_registry() {
 
 	$sed -E -i "s|^([[:space:]]*image:[[:space:]]*)(percona/percona-xtradb-cluster-operator:.*)|\1$REGISTRY_NAME_FULL\2|" $file_path
 }
-
-KUBE_VERSION=$(kubectl version -o json | jq -r '.serverVersion.major + "." + .serverVersion.minor' | $sed -r 's/[^0-9.]+//g')
 
 HELM_VERSION=$(helm version -c | $sed -re 's/.*SemVer:"([^"]+)".*/\1/; s/.*\bVersion:"([^"]+)".*/\1/')
 if [ "${HELM_VERSION:0:2}" == "v2" ]; then

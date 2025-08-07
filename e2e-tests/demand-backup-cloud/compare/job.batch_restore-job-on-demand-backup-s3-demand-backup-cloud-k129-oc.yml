@@ -88,8 +88,6 @@ spec:
             limits:
               cpu: 50m
               memory: 50M
-          securityContext:
-            privileged: true
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:

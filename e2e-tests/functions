@@ -1722,6 +1722,7 @@ deploy_pmm_server() {
 	helm uninstall monitoring || :
 
 	retry 10 60 helm install monitoring --set imageRepo=${IMAGE_PMM_SERVER%:*} --set imageTag=${IMAGE_PMM_SERVER#*:} $additional_params https://percona-charts.storage.googleapis.com/pmm-server-$PMM_SERVER_VER.tgz
+	kubectl wait pod monitoring-0 --for=condition=Ready --timeout=420s
 }
 
 run_recovery_check_pitr() {

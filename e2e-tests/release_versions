@@ -5,7 +5,7 @@ IMAGE_PXC84=percona/percona-xtradb-cluster:8.4.5-5.1
 IMAGE_BACKUP84=percona/percona-xtrabackup:8.4.0-3.1
 
 IMAGE_PXC80=percona/percona-xtradb-cluster:8.0.42-33.1
-IMAGE_BACKUP80=percona/percona-xtrabackup:8.0.35-33.1
+IMAGE_BACKUP80=percona/percona-xtrabackup:8.0.35-34.1
 
 IMAGE_PXC57=percona/percona-xtradb-cluster:5.7.44-31.65
 IMAGE_BACKUP57=percona/percona-xtrabackup:2.4.29
@@ -13,7 +13,7 @@ IMAGE_BACKUP57=percona/percona-xtrabackup:2.4.29
 IMAGE_PROXY=percona/proxysql2:2.7.3
 IMAGE_HAPROXY=percona/haproxy:2.8.15
 IMAGE_LOGCOLLECTOR=percona/fluentbit:4.0.1
-IMAGE_PMM_CLIENT=percona/pmm-client:2.44.1
+IMAGE_PMM_CLIENT=percona/pmm-client:2.44.1-1
 IMAGE_PMM_SERVER=percona/pmm-server:2.44.1
 IMAGE_PMM3_CLIENT=percona/pmm-client:3.3.1
 IMAGE_PMM3_SERVER=percona/pmm-server:3.3.1

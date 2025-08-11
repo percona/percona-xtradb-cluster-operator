@@ -70,6 +70,17 @@ function main() {
 	ADMIN_PASSWORD=$(kubectl_bin exec monitoring-0 -- bash -c "printenv | grep ADMIN_PASSWORD | cut -d '=' -f2")
 	MONITORING_ENDPOINT=$(get_service_endpoint monitoring-service)
 	API_KEY=$(curl --insecure -X POST -H "Content-Type: application/json" -d '{"name":"operator", "role": "Admin"}' "https://admin:$ADMIN_PASSWORD@$MONITORING_ENDPOINT/graph/api/auth/keys" | jq .key)
+	retry=0
+	until [[ -n $API_KEY ]]; do
+		API_KEY=$(curl --insecure -X POST -H "Content-Type: application/json" -d '{"name":"operator", "role": "Admin"}' "https://admin:$ADMIN_PASSWORD@$MONITORING_ENDPOINT/graph/api/auth/keys" | jq .key)
+		sleep 5
+		let retry+=1
+		if [ "$retry" -ge 24 ]; then
+			echo "Error: Failed to create PMM service account. API_KEY is empty"
+			echo "Response: $(curl --insecure -X POST -H "Content-Type: application/json" -d '{"name":"operator", "role": "Admin"}' "https://admin:$ADMIN_PASSWORD@$MONITORING_ENDPOINT/graph/api/auth/keys")"
+			return 1
+		fi
+	done
 
 	kubectl_bin patch secret ${cluster}-secrets --type merge --patch '{"stringData": {"pmmserverkey": '$API_KEY'}}'
 

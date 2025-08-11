@@ -5,7 +5,7 @@ IMAGE_PXC84=percona/percona-xtradb-cluster:8.4.5-5.1
 IMAGE_BACKUP84=percona/percona-xtrabackup:8.4.0-3.1
 
 IMAGE_PXC80=percona/percona-xtradb-cluster:8.0.42-33.1
-IMAGE_BACKUP80=percona/percona-xtrabackup:8.0.35-33.1
+IMAGE_BACKUP80=percona/percona-xtrabackup:8.0.35-34.1
 
 IMAGE_PXC57=percona/percona-xtradb-cluster:5.7.44-31.65
 IMAGE_BACKUP57=percona/percona-xtrabackup:2.4.29

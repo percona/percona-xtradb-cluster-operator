@@ -1237,6 +1237,7 @@ start_vault() {
 	if [[ -n ${OPENSHIFT} ]]; then
 		platform=openshift
 		oc patch clusterrole system:auth-delegator --type='json' -p '[{"op":"add","path":"/rules/-", "value":{"apiGroups":["security.openshift.io"], "attributeRestrictions":null, "resourceNames": ["privileged"], "resources":["securitycontextconstraints"],"verbs":["use"]}}]'
+		local extra_args="--set server.image.repository=docker.io/hashicorp/vault --set injector.image.repository=docker.io/hashicorp/vault-k8s"
 	fi
 	create_namespace "$name" "skip_clean"
 	deploy_helm "$name"
@@ -1256,7 +1257,8 @@ start_vault() {
 			--set server.extraVolumes[0].type=secret \
 			--set server.extraVolumes[0].name=$name \
 			--set server.extraEnvironmentVars.VAULT_CACERT=/vault/userconfig/$name/vault.ca \
-			--set server.standalone.config="
+			$extra_args \
+			--set server.standalone.config=" \
 listener \"tcp\" {
     address = \"[::]:8200\"
     cluster_address = \"[::]:8201\"
@@ -1275,6 +1277,7 @@ storage \"file\" {
 			--version $VAULT_VER \
 			--namespace "$name" \
 			--set dataStorage.enabled=false \
+			$extra_args \
 			--set global.platform="${platform}"
 	fi
 

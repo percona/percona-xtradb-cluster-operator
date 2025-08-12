@@ -42,7 +42,7 @@ RUN find $GOPATH/pkg/mod -regextype posix-extended -iregex '.*(license|notice)(\
                    && cp -v "$0" /licenses/$(echo "$0" | sed -E "s/\/(license|notice).*$//gi")' {} \;
 
 FROM registry.access.redhat.com/ubi9/ubi-minimal AS ubi9
-RUN microdnf -y update && microdnf clean all
+RUN microdnf -y update && microdnf reinstall tzdata -y && microdnf clean all
 
 LABEL name="Percona XtraDB Cluster Operator" \
       vendor="Percona" \

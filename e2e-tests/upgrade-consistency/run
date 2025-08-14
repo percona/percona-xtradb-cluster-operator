@@ -45,7 +45,7 @@ main() {
         "spec": {"crVersion":"1.17.0"}
     }'
 	wait_cluster_consistency "$cluster" 3 2
-	wait_for_sts_generation "$cluster-pxc" "2" "1"
+	wait_for_sts_generation "$cluster-pxc" "1" "1"
 	desc "compare k8s objects"
 	compare_kubectl service/$cluster-pxc "-1170"
 	compare_kubectl service/$cluster-proxysql "-1170"
@@ -57,7 +57,7 @@ main() {
         "spec": {"crVersion":"1.18.0"}
     }'
 	wait_cluster_consistency "$cluster" 3 2
-	wait_for_sts_generation "$cluster-pxc" "3" "1"
+	wait_for_sts_generation "$cluster-pxc" "2" "1"
 	desc "compare k8s objects"
 	compare_kubectl service/$cluster-pxc "-1180"
 	compare_kubectl service/$cluster-proxysql "-1180"

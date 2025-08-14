@@ -39,7 +39,7 @@ if [[ "$(echo ${TARGET_IMAGE} | cut -d'/' -f1)" == "perconalab" ]]; then
 	IMAGE="${IMAGE/percona/perconalab}"
 fi
 IMAGE_PXC=$(echo "${INIT_OPERATOR_IMAGES}" | jq -r '.versions[].matrix.pxc[].imagePath')
-IMAGE_PMM_CLIENT=$(echo "${INIT_OPERATOR_IMAGES}" | jq -r '.versions[].matrix.pmm[].imagePath')
+IMAGE_PMM_CLIENT=$(echo "${INIT_OPERATOR_IMAGES}" | jq -r '.versions[].matrix.pmm[].imagePath' | tail -n1)
 IMAGE_PROXY=$(echo "${INIT_OPERATOR_IMAGES}" | jq -r '.versions[].matrix.proxysql[].imagePath')
 IMAGE_HAPROXY=$(echo "${INIT_OPERATOR_IMAGES}" | jq -r '.versions[].matrix.haproxy[].imagePath')
 IMAGE_BACKUP=$(echo "${INIT_OPERATOR_IMAGES}" | jq -r '.versions[].matrix.backup[].imagePath')

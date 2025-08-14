@@ -602,7 +602,7 @@ spec:
         cpu: 300m
   backup:
 #    allowParallel: true
-    image: percona/percona-xtrabackup:8.0.35-33.1
+    image: percona/percona-xtrabackup:8.0.35-34.1
 #    backoffLimit: 6
 #    activeDeadlineSeconds: 3600
 #    startingDeadlineSeconds: 300

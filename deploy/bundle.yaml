@@ -7,7 +7,7 @@ metadata:
     app.kubernetes.io/component: crd
     app.kubernetes.io/name: percona-xtradb-cluster
     app.kubernetes.io/part-of: percona-xtradb-cluster-operator
-    app.kubernetes.io/version: v1.18.0
+    app.kubernetes.io/version: v1.19.0
   name: perconaxtradbclusterbackups.pxc.percona.com
 spec:
   group: pxc.percona.com
@@ -269,7 +269,7 @@ metadata:
     app.kubernetes.io/component: crd
     app.kubernetes.io/name: percona-xtradb-cluster
     app.kubernetes.io/part-of: percona-xtradb-cluster-operator
-    app.kubernetes.io/version: v1.18.0
+    app.kubernetes.io/version: v1.19.0
   name: perconaxtradbclusterrestores.pxc.percona.com
 spec:
   group: pxc.percona.com
@@ -680,7 +680,7 @@ metadata:
     app.kubernetes.io/component: crd
     app.kubernetes.io/name: percona-xtradb-cluster
     app.kubernetes.io/part-of: percona-xtradb-cluster-operator
-    app.kubernetes.io/version: v1.18.0
+    app.kubernetes.io/version: v1.19.0
   name: perconaxtradbclusters.pxc.percona.com
 spec:
   group: pxc.percona.com

@@ -108,6 +108,17 @@ func TestPrepareJob(t *testing.T) {
 			},
 		},
 		{
+			Name: "config",
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: "test-cluster-pxc",
+					},
+					Optional: ptr.To(true),
+				},
+			},
+		},
+		{
 			Name: "mysql-users-secret-file",
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
@@ -150,6 +161,10 @@ func TestPrepareJob(t *testing.T) {
 		{
 			Name:      "datadir",
 			MountPath: "/var/lib/mysql",
+		},
+		{
+			Name:      "config",
+			MountPath: "/etc/percona-xtradb-cluster.conf.d",
 		},
 		{
 			Name:      "mysql-users-secret-file",

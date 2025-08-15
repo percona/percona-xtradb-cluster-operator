@@ -66,24 +66,24 @@ fi
 
 if ! check_for_version "$MYSQL_VERSION" '8.0.0'; then
 	# shellcheck disable=SC2086
-	innobackupex ${XB_USE_MEMORY+--use-memory=$XB_USE_MEMORY} --parallel="$(grep -c processor /proc/cpuinfo)" ${XB_EXTRA_ARGS} --decompress "$tmp"
+	innobackupex ${XB_EXTRA_ARGS} ${XB_USE_MEMORY+--use-memory=$XB_USE_MEMORY} --parallel="$(grep -c processor /proc/cpuinfo)" --decompress "$tmp"
 	XB_EXTRA_ARGS="$XB_EXTRA_ARGS --binlog-info=ON"
 fi
 
-echo "+ xtrabackup ${XB_USE_MEMORY+--use-memory=$XB_USE_MEMORY} --prepare ${XB_EXTRA_ARGS} --binlog-info=ON --rollback-prepared-trx \
+echo "+ xtrabackup ${XB_EXTRA_ARGS} ${XB_USE_MEMORY+--use-memory=$XB_USE_MEMORY} --prepare --binlog-info=ON --rollback-prepared-trx \
 --xtrabackup-plugin-dir=/usr/lib64/xtrabackup/plugin --target-dir=$tmp"
 
 # shellcheck disable=SC2086
-xtrabackup ${XB_USE_MEMORY+--use-memory=$XB_USE_MEMORY} --prepare ${XB_EXTRA_ARGS} $transition_option --rollback-prepared-trx \
+xtrabackup ${XB_EXTRA_ARGS} ${XB_USE_MEMORY+--use-memory=$XB_USE_MEMORY} --prepare $transition_option --rollback-prepared-trx \
 	--xtrabackup-plugin-dir=/usr/lib64/xtrabackup/plugin --target-dir="$tmp"
 
-echo "+ xtrabackup --defaults-group=mysqld --datadir=/datadir --move-back ${XB_EXTRA_ARGS} --binlog-info=ON \
+echo "+ xtrabackup ${XB_EXTRA_ARGS} --defaults-group=mysqld --datadir=/datadir --move-back  --binlog-info=ON \
 --force-non-empty-directories $master_key_options \
 --keyring-vault-config=/etc/mysql/vault-keyring-secret/keyring_vault.conf --early-plugin-load=keyring_vault.so \
 --xtrabackup-plugin-dir=/usr/lib64/xtrabackup/plugin --target-dir=$tmp"
 
 # shellcheck disable=SC2086
-xtrabackup --defaults-group=mysqld --datadir=/datadir --move-back ${XB_EXTRA_ARGS} \
+xtrabackup ${XB_EXTRA_ARGS} --defaults-group=mysqld --datadir=/datadir --move-back \
 	--force-non-empty-directories $transition_option $master_key_options \
 	--keyring-vault-config=/etc/mysql/vault-keyring-secret/keyring_vault.conf --early-plugin-load=keyring_vault.so \
 	--xtrabackup-plugin-dir=/usr/lib64/xtrabackup/plugin --target-dir="$tmp"

@@ -37,27 +37,15 @@ main() {
 	apply_config "$conf_dir/client.yml"
 	kubectl_bin apply -f "$test_dir/conf/secrets.yml"
 	cat_config "$conf_dir/$cluster.yml" \
-		| yq eval '.spec.crVersion = "1.16.1"' - \
+		| yq eval '.spec.crVersion = "1.17.0"' - \
 		| kubectl_bin apply -f -
-
-	desc "test 1.16.1"
-	kubectl_bin patch pxc "$cluster" --type=merge --patch '{
-        "spec": {"crVersion":"1.16.1"}
-    }'
-	wait_cluster_consistency "$cluster" 3 2
-	wait_for_sts_generation "$cluster-pxc" "1" "1"
-	desc "compare k8s objects"
-	compare_kubectl service/$cluster-pxc "-1161"
-	compare_kubectl service/$cluster-proxysql "-1161"
-	compare_kubectl statefulset/$cluster-pxc "-1161"
-	compare_kubectl statefulset/$cluster-proxysql "-1161"
 
 	desc "test 1.17.0"
 	kubectl_bin patch pxc "$cluster" --type=merge --patch '{
         "spec": {"crVersion":"1.17.0"}
     }'
 	wait_cluster_consistency "$cluster" 3 2
-	wait_for_sts_generation "$cluster-pxc" "2" "1"
+	wait_for_sts_generation "$cluster-pxc" "1" "1"
 	desc "compare k8s objects"
 	compare_kubectl service/$cluster-pxc "-1170"
 	compare_kubectl service/$cluster-proxysql "-1170"
@@ -69,12 +57,24 @@ main() {
         "spec": {"crVersion":"1.18.0"}
     }'
 	wait_cluster_consistency "$cluster" 3 2
-	wait_for_sts_generation "$cluster-pxc" "3" "1"
+	wait_for_sts_generation "$cluster-pxc" "2" "1"
 	desc "compare k8s objects"
 	compare_kubectl service/$cluster-pxc "-1180"
 	compare_kubectl service/$cluster-proxysql "-1180"
 	compare_kubectl statefulset/$cluster-pxc "-1180"
 	compare_kubectl statefulset/$cluster-proxysql "-1180"
+
+	desc "test 1.19.0"
+	kubectl_bin patch pxc "$cluster" --type=merge --patch '{
+        "spec": {"crVersion":"1.19.0"}
+    }'
+	wait_cluster_consistency "$cluster" 3 2
+	wait_for_sts_generation "$cluster-pxc" "3" "1"
+	desc "compare k8s objects"
+	compare_kubectl service/$cluster-pxc "-1190"
+	compare_kubectl service/$cluster-proxysql "-1190"
+	compare_kubectl statefulset/$cluster-pxc "-1190"
+	compare_kubectl statefulset/$cluster-proxysql "-1190"
 
 	destroy "${namespace}"
 	desc "test passed"

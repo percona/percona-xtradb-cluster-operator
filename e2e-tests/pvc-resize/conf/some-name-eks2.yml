@@ -1,9 +1,10 @@
-apiVersion: pxc.percona.com/v1-6-0
+apiVersion: pxc.percona.com/v1
 kind: PerconaXtraDBCluster
 metadata:
-  name: demand-backup-cloud
+  name: some-name
   finalizers:
-    - percona.com/delete-pxc-pods-in-order
+    - percona.com/delete-proxysql-pvc
+    - percona.com/delete-pxc-pvc
   # annotations:
   #   percona.com/issue-vault-token: "true"
 spec:
@@ -13,15 +14,6 @@ spec:
   pxc:
     size: 3
     image: -pxc
-    configuration: |
-      [mysqld]
-      wsrep_log_conflicts
-      log_error_verbosity=3
-      wsrep_debug=1
-      [sst]
-      xbstream-opts=--decompress
-      [xtrabackup]
-      compress=lz4
     resources:
       requests:
         memory: 0.1G
@@ -31,15 +23,16 @@ spec:
         cpu: "1"
     volumeSpec:
       persistentVolumeClaim:
+        storageClassName: gp2-resizable
         resources:
           requests:
-            storage: 2Gi
+            storage: 3Gi
     affinity:
       antiAffinityTopologyKey: "kubernetes.io/hostname"
-  proxysql:
+  haproxy:
     enabled: true
     size: 2
-    image: -proxysql
+    image: -haproxy
     resources:
       requests:
         memory: 0.1G
@@ -47,20 +40,17 @@ spec:
       limits:
         memory: 1G
         cpu: 700m
-    volumeSpec:
-      persistentVolumeClaim:
-        resources:
-          requests:
-            storage: 2Gi
     affinity:
       antiAffinityTopologyKey: "kubernetes.io/hostname"
+  logcollector:
+    enabled: true
+    image: -logcollector
   pmm:
     enabled: false
     image: perconalab/pmm-client:1.17.1
     serverHost: monitoring-service
     serverUser: pmm
   backup:
-    activeDeadlineSeconds: 3600
     image: -backup
     storages:
       pvc:
@@ -70,37 +60,20 @@ spec:
             accessModes: [ "ReadWriteOnce" ]
             resources:
               requests:
-                storage: 1Gi
+                storage: 1G
       aws-s3:
         type: s3
         s3:
           region: us-east-1
           bucket: operator-testing
           credentialsSecret: aws-s3-secret
-        containerOptions:
-          args:
-            xbstream:
-            - '--parallel=2'
-            xbcloud: 
-            - '--parallel=2'
-      aws-s3-iam:
-        type: s3
-        s3:
-          region: us-east-1
-          bucket: operator-testing
-        containerOptions:
-          args:
-            xbstream:
-            - '--parallel=2'
-            xbcloud: 
-            - '--parallel=2'
       minio:
         type: s3
         s3:
           credentialsSecret: minio-secret
           region: us-east-1
           bucket: operator-testing
-          endpointUrl: http://minio-service.#namespace:9000/
+          endpointUrl: http://minio-service:9000/
       gcp-cs:
         type: s3
         s3:
@@ -108,9 +81,3 @@ spec:
           region: us-east-1
           bucket: operator-testing
           endpointUrl: https://storage.googleapis.com
-      azure-blob:
-        type: azure
-        azure:
-          credentialsSecret: azure-secret
-          container: operator-testing
-          storageClass: Cool

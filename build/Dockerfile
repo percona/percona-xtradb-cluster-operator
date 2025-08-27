@@ -55,6 +55,7 @@ COPY --from=go_builder /usr/local/bin/percona-xtradb-cluster-operator /usr/local
 COPY --from=go_builder /usr/local/bin/peer-list /peer-list
 COPY --from=go_builder /usr/local/bin/pitr /pitr
 COPY --from=go_builder /usr/local/bin/mysql-state-monitor /mysql-state-monitor
+COPY --from=go_builder /usr/share/zoneinfo /usr/share/zoneinfo
 COPY build/pxc-entrypoint.sh /pxc-entrypoint.sh
 COPY build/pxc-init-entrypoint.sh /pxc-init-entrypoint.sh
 COPY build/pitr-init-entrypoint.sh /pitr-init-entrypoint.sh

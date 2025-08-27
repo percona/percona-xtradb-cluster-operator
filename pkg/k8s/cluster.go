@@ -136,7 +136,7 @@ func PauseClusterWithWait(ctx context.Context, cl client.Client, cr *api.Percona
 		}
 	}
 
-	err = waitForPVCShutdown(ctx, cl, ls, cr.Namespace)
+	err = waitForPVCShutdown(ctx, cl, ls, cr.Namespace, pvcNameTemplate)
 	if err != nil {
 		return errors.Wrap(err, "shutdown pvc")
 	}
@@ -172,7 +172,7 @@ func waitForPodsShutdown(ctx context.Context, cl client.Client, ls map[string]st
 
 const waitLimitSec int64 = 300
 
-func waitForPVCShutdown(ctx context.Context, cl client.Client, ls map[string]string, namespace string) error {
+func waitForPVCShutdown(ctx context.Context, cl client.Client, ls map[string]string, namespace, pvcNameTemplate string) error {
 	for i := int64(0); i < waitLimitSec; i++ {
 		pvcs := corev1.PersistentVolumeClaimList{}
 
@@ -188,7 +188,15 @@ func waitForPVCShutdown(ctx context.Context, cl client.Client, ls map[string]str
 			return errors.Wrap(err, "get pvc list")
 		}
 
-		if len(pvcs.Items) == 1 {
+		filtered := []corev1.PersistentVolumeClaim{}
+		for _, pvc := range pvcs.Items {
+			// check prefix to filter out extraPVCs
+			if strings.HasPrefix(pvc.Name, pvcNameTemplate) {
+				filtered = append(filtered, pvc)
+			}
+		}
+
+		if len(filtered) == 1 {
 			return nil
 		}
 

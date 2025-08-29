@@ -47,7 +47,7 @@ destination() {
 xbcloud get --parallel="$(grep -c processor /proc/cpuinfo)" ${XBCLOUD_ARGS} "$(destination).sst_info" | xbstream -x -C "${tmp}" --parallel="$(grep -c processor /proc/cpuinfo)" $XBSTREAM_EXTRA_ARGS
 
 MYSQL_VERSION=$(parse_ini 'mysql-version' "$tmp/sst_info")
-if check_for_version "$MYSQL_VERSION" '8.0.0'; then
+if [ -z "$MYSQL_VERSION" ] || check_for_version "$MYSQL_VERSION" '8.0.0'; then
 	XBSTREAM_EXTRA_ARGS="$XBSTREAM_EXTRA_ARGS --decompress"
 fi
 
@@ -69,7 +69,7 @@ if [[ -n $transition_key && $transition_key != null ]]; then
 	echo transition-key exists
 fi
 
-if ! check_for_version "$MYSQL_VERSION" '8.0.0'; then
+if [ -n "$MYSQL_VERSION" ] && ! check_for_version "$MYSQL_VERSION" '8.0.0'; then
 	# shellcheck disable=SC2086
 	innobackupex ${XB_USE_MEMORY+--use-memory=$XB_USE_MEMORY} --parallel="$(grep -c processor /proc/cpuinfo)" ${XB_EXTRA_ARGS} --decompress "$tmp"
 	XB_EXTRA_ARGS="$XB_EXTRA_ARGS --binlog-info=ON"

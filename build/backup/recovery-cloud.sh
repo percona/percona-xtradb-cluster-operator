@@ -75,20 +75,31 @@ if ! check_for_version "$MYSQL_VERSION" '8.0.0'; then
 	XB_EXTRA_ARGS="$XB_EXTRA_ARGS --binlog-info=ON"
 fi
 
-echo "+ xtrabackup ${XB_EXTRA_ARGS} ${XB_USE_MEMORY+--use-memory=$XB_USE_MEMORY} --prepare --binlog-info=ON --rollback-prepared-trx \
+# Extract --defaults-file from XB_EXTRA_ARGS if present and place it as the first argument
+# This fixes the issue where --defaults-file must be the first argument for xtrabackup
+DEFAULTS_FILE=""
+REMAINING_XB_ARGS=""
+if [[ "$XB_EXTRA_ARGS" =~ --defaults-file=([^[:space:]]+) ]]; then
+	DEFAULTS_FILE="--defaults-file=${BASH_REMATCH[1]}"
+	REMAINING_XB_ARGS=$(echo "$XB_EXTRA_ARGS" | sed 's/--defaults-file=[^[:space:]]*//g' | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//')
+else
+	REMAINING_XB_ARGS="$XB_EXTRA_ARGS"
+fi
+
+echo "+ xtrabackup $DEFAULTS_FILE ${XB_USE_MEMORY+--use-memory=$XB_USE_MEMORY} --prepare $REMAINING_XB_ARGS --binlog-info=ON --rollback-prepared-trx \
 --xtrabackup-plugin-dir=/usr/lib64/xtrabackup/plugin --target-dir=$tmp"
 
 # shellcheck disable=SC2086
-xtrabackup ${XB_EXTRA_ARGS} ${XB_USE_MEMORY+--use-memory=$XB_USE_MEMORY} --prepare $transition_option --rollback-prepared-trx \
+xtrabackup $DEFAULTS_FILE ${XB_USE_MEMORY+--use-memory=$XB_USE_MEMORY} --prepare $REMAINING_XB_ARGS $transition_option --rollback-prepared-trx \
 	--xtrabackup-plugin-dir=/usr/lib64/xtrabackup/plugin "--target-dir=$tmp"
 
-echo "+ xtrabackup ${XB_EXTRA_ARGS} --defaults-group=mysqld --datadir=/datadir --move-back  --binlog-info=ON \
+echo "+ xtrabackup $DEFAULTS_FILE --defaults-group=mysqld --datadir=/datadir --move-back $REMAINING_XB_ARGS --binlog-info=ON \
 --force-non-empty-directories $master_key_options \
 --keyring-vault-config=/etc/mysql/vault-keyring-secret/keyring_vault.conf --early-plugin-load=keyring_vault.so \
 --xtrabackup-plugin-dir=/usr/lib64/xtrabackup/plugin --target-dir=$tmp"
 
 # shellcheck disable=SC2086
-xtrabackup ${XB_EXTRA_ARGS} --defaults-group=mysqld --datadir=/datadir --move-back \
+xtrabackup $DEFAULTS_FILE --defaults-group=mysqld --datadir=/datadir --move-back $REMAINING_XB_ARGS \
 	--force-non-empty-directories $transition_option $master_key_options \
 	--keyring-vault-config=/etc/mysql/vault-keyring-secret/keyring_vault.conf --early-plugin-load=keyring_vault.so \
 	--xtrabackup-plugin-dir=/usr/lib64/xtrabackup/plugin "--target-dir=$tmp"

@@ -64,14 +64,8 @@ if [[ -n $transition_key && $transition_key != null ]]; then
 	echo transition-key exists
 fi
 
-if ! check_for_version "$MYSQL_VERSION" '8.0.0'; then
-	# shellcheck disable=SC2086
-	innobackupex ${XB_EXTRA_ARGS} ${XB_USE_MEMORY+--use-memory=$XB_USE_MEMORY} --parallel="$(grep -c processor /proc/cpuinfo)" --decompress "$tmp"
-	XB_EXTRA_ARGS="$XB_EXTRA_ARGS --binlog-info=ON"
-fi
-
 # Extract --defaults-file from XB_EXTRA_ARGS if present and place it as the first argument
-# This fixes the issue where --defaults-file must be the first argument for xtrabackup
+# This fixes the issue where --defaults-file must be the first argument for xtrabackup and innobackupex
 DEFAULTS_FILE=""
 REMAINING_XB_ARGS=""
 if [[ "$XB_EXTRA_ARGS" =~ --defaults-file=([^[:space:]]+) ]]; then
@@ -79,6 +73,12 @@ if [[ "$XB_EXTRA_ARGS" =~ --defaults-file=([^[:space:]]+) ]]; then
 	REMAINING_XB_ARGS=$(echo "$XB_EXTRA_ARGS" | sed 's/--defaults-file=[^[:space:]]*//g' | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//')
 else
 	REMAINING_XB_ARGS="$XB_EXTRA_ARGS"
+fi
+
+if ! check_for_version "$MYSQL_VERSION" '8.0.0'; then
+	# shellcheck disable=SC2086
+	innobackupex $DEFAULTS_FILE ${XB_USE_MEMORY+--use-memory=$XB_USE_MEMORY} --parallel="$(grep -c processor /proc/cpuinfo)" $REMAINING_XB_ARGS --decompress "$tmp"
+	XB_EXTRA_ARGS="$XB_EXTRA_ARGS --binlog-info=ON"
 fi
 
 echo "+ xtrabackup $DEFAULTS_FILE ${XB_USE_MEMORY+--use-memory=$XB_USE_MEMORY} --prepare $REMAINING_XB_ARGS --binlog-info=ON --rollback-prepared-trx \

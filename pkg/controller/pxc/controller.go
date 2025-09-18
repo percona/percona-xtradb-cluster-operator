@@ -930,11 +930,13 @@ func (r *ReconcilePerconaXtraDBCluster) createOrUpdate(ctx context.Context, obj 
 			obj.SetResourceVersion(oldObject.GetResourceVersion())
 		}
 
-		log.V(1).Info("Updating object",
+		log.Info("Updating object",
 			"object", obj.GetName(),
 			"kind", obj.GetObjectKind(),
 			"hashChanged", oldObject.GetAnnotations()["percona.com/last-config-hash"] != hash,
 			"metaChanged", !isObjectMetaEqual(obj, oldObject),
+			"oldHash", oldObject.GetAnnotations()["percona.com/last-config-hash"],
+			"newHash", hash,
 		)
 		if util.IsLogLevelVerbose() && !util.IsLogStructured() {
 			fmt.Println(cmp.Diff(oldObject, obj))

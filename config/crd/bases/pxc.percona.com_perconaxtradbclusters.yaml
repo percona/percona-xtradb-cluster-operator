@@ -4249,6 +4249,15 @@ spec:
                     type: object
                   enabled:
                     type: boolean
+                  fluentBitBufferSettings:
+                    properties:
+                      bufferChunkSize:
+                        type: string
+                      bufferMaxSize:
+                        type: string
+                      memBufLimit:
+                        type: string
+                    type: object
                   hookScript:
                     type: string
                   image:

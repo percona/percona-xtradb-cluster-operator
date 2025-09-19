@@ -1608,6 +1608,12 @@ var _ = Describe("Liveness/Readiness Probes", Ordered, func() {
 
 			return defaultReadiness, *liveness
 		}),
+		Entry("[liveness] custom success threshold", func() (corev1.Probe, corev1.Probe) {
+			liveness := defaultLiveness.DeepCopy()
+			liveness.SuccessThreshold = defaultLiveness.SuccessThreshold
+
+			return defaultReadiness, *liveness
+		}),
 		Entry("[liveness] custom failure threshold", func() (corev1.Probe, corev1.Probe) {
 			liveness := defaultLiveness.DeepCopy()
 			liveness.FailureThreshold = defaultLiveness.FailureThreshold + 1
@@ -1726,6 +1732,12 @@ var _ = Describe("Liveness/Readiness Probes", Ordered, func() {
 		Entry("[liveness] custom period seconds", func() (corev1.Probe, corev1.Probe) {
 			liveness := defaultHAProxyLiveness.DeepCopy()
 			liveness.PeriodSeconds = defaultHAProxyLiveness.PeriodSeconds + 10
+
+			return defaultHAProxyReadiness, *liveness
+		}),
+		Entry("[liveness] custom success threshold", func() (corev1.Probe, corev1.Probe) {
+			liveness := defaultHAProxyLiveness.DeepCopy()
+			liveness.SuccessThreshold = defaultHAProxyLiveness.SuccessThreshold
 
 			return defaultHAProxyReadiness, *liveness
 		}),

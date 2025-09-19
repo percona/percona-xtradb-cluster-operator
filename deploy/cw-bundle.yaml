@@ -12036,7 +12036,7 @@ spec:
           value: percona-xtradb-cluster-operator
         - name: DISABLE_TELEMETRY
           value: "false"
-        image: perconalab/percona-xtradb-cluster-operator:main
+        image: perconalab/percona-xtradb-cluster-operator:dependabot-go_modules-k8s-io-apimachinery-0-34-1
         imagePullPolicy: Always
         resources:
           limits:

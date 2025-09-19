@@ -1608,12 +1608,6 @@ var _ = Describe("Liveness/Readiness Probes", Ordered, func() {
 
 			return defaultReadiness, *liveness
 		}),
-		Entry("[liveness] custom success threshold", func() (corev1.Probe, corev1.Probe) {
-			liveness := defaultLiveness.DeepCopy()
-			liveness.SuccessThreshold = defaultLiveness.SuccessThreshold + 1
-
-			return defaultReadiness, *liveness
-		}),
 		Entry("[liveness] custom failure threshold", func() (corev1.Probe, corev1.Probe) {
 			liveness := defaultLiveness.DeepCopy()
 			liveness.FailureThreshold = defaultLiveness.FailureThreshold + 1

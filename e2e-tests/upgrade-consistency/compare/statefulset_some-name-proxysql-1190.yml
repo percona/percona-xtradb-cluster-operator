@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  generation: 2
+  generation: 3
   name: some-name-proxysql
   ownerReferences:
     - controller: true
@@ -210,6 +210,7 @@ spec:
       restartPolicy: Always
       schedulerName: default-scheduler
       securityContext:
+        fsGroup: 1001
         supplementalGroups:
           - 1001
       serviceAccount: default

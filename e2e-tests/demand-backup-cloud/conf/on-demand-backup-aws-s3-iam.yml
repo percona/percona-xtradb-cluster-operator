@@ -1,0 +1,8 @@
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBClusterBackup
+metadata:
+  name: on-demand-backup-aws-s3-iam
+spec:
+  pxcCluster: demand-backup-cloud
+  storageName: aws-s3-iam
+  activeDeadlineSeconds: 7200

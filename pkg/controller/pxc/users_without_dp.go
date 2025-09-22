@@ -52,6 +52,10 @@ func (r *ReconcilePerconaXtraDBCluster) updateUsersWithoutDP(ctx context.Context
 			if err := r.handlePMMUser(ctx, cr, secrets, internalSecrets, res); err != nil {
 				return res, err
 			}
+		case users.PMMServerToken:
+			if err := r.handlePMM3User(ctx, cr, secrets, internalSecrets, res); err != nil {
+				return res, err
+			}
 		}
 	}
 

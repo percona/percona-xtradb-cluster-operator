@@ -10714,6 +10714,8 @@ spec:
                     items:
                       type: string
                     type: array
+                  certValidityDuration:
+                    type: string
                   enabled:
                     type: boolean
                   issuerConf:

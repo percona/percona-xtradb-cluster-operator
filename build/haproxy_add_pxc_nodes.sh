@@ -33,16 +33,16 @@ function main() {
 		shutdown_on_mark_down='on-marked-down shutdown-sessions'
 	fi
 
-	while read pxc_host; do
+	while read -r pxc_host; do
 		if [ -z "$pxc_host" ]; then
 			log 'Could not find PEERS ...'
 			exit 0
 		fi
 
 		node_name=$(echo "$pxc_host" | cut -d . -f -1)
-		node_id=$(echo $node_name | awk -F'-' '{print $NF}')
+		node_id=$(echo "$node_name" | awk -F'-' '{print $NF}')
 		NODE_LIST_REPL+=("server $node_name $pxc_host:3306 $send_proxy $SERVER_OPTIONS${shutdown_on_mark_down:+ }$shutdown_on_mark_down")
-		if [ "x$node_id" == 'x0' ]; then
+		if [ "$node_id" = '0' ]; then
 			firs_node_replica="$pxc_host"
 			main_node="$pxc_host"
 			firs_node="server $node_name $pxc_host:3306 $send_proxy $SERVER_OPTIONS on-marked-up shutdown-backup-sessions${shutdown_on_mark_down:+ }$shutdown_on_mark_down"
@@ -84,11 +84,11 @@ function main() {
 	EOF
 
 	log "number of available nodes are ${#NODE_LIST_REPL[@]}"
-	echo "${#NODE_LIST_REPL[@]}" >$path_to_haproxy_cfg/AVAILABLE_NODES
-	(
+	echo "${#NODE_LIST_REPL[@]}" >"$path_to_haproxy_cfg/AVAILABLE_NODES"
+	{
 		IFS=$'\n'
 		echo "${NODE_LIST[*]}"
-	) >>"$path_to_haproxy_cfg/haproxy.cfg"
+	} >>"$path_to_haproxy_cfg/haproxy.cfg"
 
 	cat <<-EOF >>"$path_to_haproxy_cfg/haproxy.cfg"
 		    backend galera-admin-nodes
@@ -151,7 +151,7 @@ function main() {
 		haproxy -c -f "$path_to_custom_global_cnf/haproxy-global.cfg" -f $path_to_haproxy_cfg/haproxy.cfg || EC=$?
 	fi
 
-	if [ -f "$path_to_custom_global_cnf/haproxy-global.cfg" -a -z "$EC" ]; then
+	if [ -f "$path_to_custom_global_cnf/haproxy-global.cfg" ] && [ -z "$EC" ]; then
 		SOCKET_CUSTOM=$(grep 'stats socket' "$path_to_custom_global_cnf/haproxy-global.cfg" | awk '{print $3}')
 		if [ -S "$SOCKET_CUSTOM" ]; then
 			SOCKET="$SOCKET_CUSTOM"

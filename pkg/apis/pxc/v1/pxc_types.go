@@ -626,9 +626,6 @@ type HAProxyHealthCheckSpec struct {
 	// +kubebuilder:validation:Minimum=1
 	// +optional
 	Rise *int32 `json:"rise,omitempty"`
-	// ShutdownOnMarkDown terminates existing client connections when backend is marked down (default: false)
-	// +optional
-	ShutdownOnMarkDown bool `json:"shutdownOnMarkDown,omitempty"`
 }
 
 type ReplicasServiceExpose struct {

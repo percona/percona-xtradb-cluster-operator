@@ -569,46 +569,41 @@ func (c *HAProxy) UpdateStrategy(cr *api.PerconaXtraDBCluster) appsv1.StatefulSe
 // buildHAProxyHealthCheckEnvVars builds environment variables for HAProxy health check configuration
 // from the health check spec. These control how quickly HAProxy detects and responds to backend failures.
 //
-// Default values:
+// If healthCheck is nil, returns an empty array to allow custom HA_SERVER_OPTIONS to be set via secret.
+// If healthCheck is configured, generates HA_SERVER_OPTIONS with custom values.
+//
+// Default values (when healthCheck fields are not specified):
 //   - interval: 10000ms (10s between health checks)
 //   - rise: 1 (1 successful check to mark server up)
 //   - fall: 2 (2 failed checks to mark server down, total 20s with default interval)
-//   - shutdownOnMarkDown: false (existing connections are not terminated on backend failure)
 //
 // The generated HA_SERVER_OPTIONS environment variable is used by haproxy_add_pxc_nodes.sh
 // to configure the "server" lines in the HAProxy backend configuration.
 func buildHAProxyHealthCheckEnvVars(healthCheck *api.HAProxyHealthCheckSpec) []corev1.EnvVar {
+	// If no health check spec is provided, don't set HA_SERVER_OPTIONS
+	// This allows it to be customized via secret or use the script's default
+	if healthCheck == nil {
+		return []corev1.EnvVar{}
+	}
+
 	interval := int32(10000)
 	rise := int32(1)
 	fall := int32(2)
-	shutdownOnMarkDown := false
 
-	if healthCheck != nil {
-		if healthCheck.Interval != nil {
-			interval = *healthCheck.Interval
-		}
-		if healthCheck.Rise != nil {
-			rise = *healthCheck.Rise
-		}
-		if healthCheck.Fall != nil {
-			fall = *healthCheck.Fall
-		}
-		shutdownOnMarkDown = healthCheck.ShutdownOnMarkDown
+	if healthCheck.Interval != nil {
+		interval = *healthCheck.Interval
+	}
+	if healthCheck.Rise != nil {
+		rise = *healthCheck.Rise
+	}
+	if healthCheck.Fall != nil {
+		fall = *healthCheck.Fall
 	}
 
-	envVars := []corev1.EnvVar{
+	return []corev1.EnvVar{
 		{
 			Name:  "HA_SERVER_OPTIONS",
 			Value: fmt.Sprintf("resolvers kubernetes check inter %d rise %d fall %d weight 1", interval, rise, fall),
 		},
 	}
-
-	if shutdownOnMarkDown {
-		envVars = append(envVars, corev1.EnvVar{
-			Name:  "HA_SHUTDOWN_ON_MARK_DOWN",
-			Value: "yes",
-		})
-	}
-
-	return envVars
 }

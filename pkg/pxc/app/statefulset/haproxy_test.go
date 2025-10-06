@@ -114,10 +114,10 @@ func TestHAProxyHealthCheckEnvVars(t *testing.T) {
 		healthCheck     *api.HAProxyHealthCheckSpec
 		expectedEnvVars map[string]string
 	}{
-		"default values": {
-			healthCheck: nil,
+		"nil healthCheck allows secret override": {
+			healthCheck:     nil,
 			expectedEnvVars: map[string]string{
-				"HA_SERVER_OPTIONS": "resolvers kubernetes check inter 10000 rise 1 fall 2 weight 1",
+				// No HA_SERVER_OPTIONS - allows custom value from secret or uses script default
 			},
 		},
 		"custom interval only": {
@@ -152,27 +152,6 @@ func TestHAProxyHealthCheckEnvVars(t *testing.T) {
 			},
 			expectedEnvVars: map[string]string{
 				"HA_SERVER_OPTIONS": "resolvers kubernetes check inter 3000 rise 1 fall 2 weight 1",
-			},
-		},
-		"shutdown on mark down enabled": {
-			healthCheck: &api.HAProxyHealthCheckSpec{
-				ShutdownOnMarkDown: true,
-			},
-			expectedEnvVars: map[string]string{
-				"HA_SERVER_OPTIONS":        "resolvers kubernetes check inter 10000 rise 1 fall 2 weight 1",
-				"HA_SHUTDOWN_ON_MARK_DOWN": "yes",
-			},
-		},
-		"all custom values with shutdown": {
-			healthCheck: &api.HAProxyHealthCheckSpec{
-				Interval:           func() *int32 { i := int32(3000); return &i }(),
-				Fall:               func() *int32 { i := int32(2); return &i }(),
-				Rise:               func() *int32 { i := int32(1); return &i }(),
-				ShutdownOnMarkDown: true,
-			},
-			expectedEnvVars: map[string]string{
-				"HA_SERVER_OPTIONS":        "resolvers kubernetes check inter 3000 rise 1 fall 2 weight 1",
-				"HA_SHUTDOWN_ON_MARK_DOWN": "yes",
 			},
 		},
 	}
@@ -229,15 +208,6 @@ func TestHAProxyHealthCheckEnvVars(t *testing.T) {
 				}
 				if !found {
 					t.Errorf("%s env var not found in container", expectedName)
-				}
-			}
-
-			// Verify HA_SHUTDOWN_ON_MARK_DOWN is not present when not expected
-			if _, expected := tt.expectedEnvVars["HA_SHUTDOWN_ON_MARK_DOWN"]; !expected {
-				for _, env := range c.Env {
-					if env.Name == "HA_SHUTDOWN_ON_MARK_DOWN" {
-						t.Errorf("unexpected HA_SHUTDOWN_ON_MARK_DOWN env var found")
-					}
 				}
 			}
 		})

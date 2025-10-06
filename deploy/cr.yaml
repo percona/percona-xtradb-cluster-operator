@@ -219,8 +219,6 @@ spec:
 #      fall: 2
 #      # Number of consecutive successful checks before marking server up (default: 1)
 #      rise: 1
-#      # Terminate existing client connections when backend is marked down (default: false)
-#      shutdownOnMarkDown: true
 #    configuration: |
 #
 #    the actual default configuration file can be found here https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/main/build/haproxy-global.cfg

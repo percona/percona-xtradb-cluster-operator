@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -31,7 +31,7 @@ jobs:
           ./e2e-tests/build
 
       - name: Run Trivy vulnerability scanner image (linux/arm64)
-        uses: aquasecurity/trivy-action@0.31.0
+        uses: aquasecurity/trivy-action@0.32.0
         with:
           image-ref: '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}-arm64'
           format: 'table'
@@ -50,7 +50,7 @@ jobs:
           ./e2e-tests/build
 
       - name: Run Trivy vulnerability scanner image (linux/amd64)
-        uses: aquasecurity/trivy-action@0.31.0
+        uses: aquasecurity/trivy-action@0.32.0
         with:
           image-ref: '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}-amd64'
           format: 'table'

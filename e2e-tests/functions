@@ -1389,11 +1389,11 @@ deploy_chaos_mesh() {
 		container_runtime="containerd"
 		socket_path="/run/containerd/containerd.sock"
 	elif [[ $current_runtime == 'docker' ]]; then
-		container_runtime=docker
-		socket_path=/var/run/docker.sock
+		container_runtime="docker"
+		socket_path="/var/run/docker.sock"
 	elif [[ $current_runtime == 'cri-o' ]]; then
-		container_runtime=crio
-		socket_path=/var/run/crio/crio.sock
+		container_runtime="crio"
+		socket_path="/var/run/crio/crio.sock"
 	else
 		echo "Unknown runtime: $current_runtime"
 		exit 1

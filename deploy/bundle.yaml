@@ -249,6 +249,8 @@ spec:
                 properties:
                   bucket:
                     type: string
+                  caBundle:
+                    x-kubernetes-preserve-unknown-fields: true
                   credentialsSecret:
                     type: string
                   endpointUrl:
@@ -403,6 +405,8 @@ spec:
                     properties:
                       bucket:
                         type: string
+                      caBundle:
+                        x-kubernetes-preserve-unknown-fields: true
                       credentialsSecret:
                         type: string
                       endpointUrl:
@@ -601,6 +605,8 @@ spec:
                         properties:
                           bucket:
                             type: string
+                          caBundle:
+                            x-kubernetes-preserve-unknown-fields: true
                           credentialsSecret:
                             type: string
                           endpointUrl:
@@ -1926,6 +1932,8 @@ spec:
                           properties:
                             bucket:
                               type: string
+                            caBundle:
+                              x-kubernetes-preserve-unknown-fields: true
                             credentialsSecret:
                               type: string
                             endpointUrl:

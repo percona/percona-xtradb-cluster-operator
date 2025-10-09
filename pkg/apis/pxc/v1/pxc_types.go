@@ -4,6 +4,7 @@ package v1
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -767,6 +768,85 @@ type BackupStorageS3Spec struct {
 	CredentialsSecret string `json:"credentialsSecret"`
 	Region            string `json:"region,omitempty"`
 	EndpointURL       string `json:"endpointUrl,omitempty"`
+
+	// CABundle specifies the CA bundle to use for the S3 connection.
+	// This is useful for self-signed certificates or certificates signed using custom CAs.
+	// This can be specified as a string or a Secret key selector.
+	// For example:
+	// 	caBundle: <YOUR CA BUNDLE STRING>
+	// or
+	// 	caBundle:
+	// 	  fromSecret:
+	// 	    name: <YOUR CA SECRET NAME>
+	// 		key: <KEY IN SECRET CONTAINING THE CA BUNDLE>
+	// +kubebuilder:validation:Schemaless
+	// +kubebuilder:pruning:PreserveUnknownFields
+	CABundle *StringOrDataSource `json:"caBundle,omitempty"`
+}
+
+// StringOrDataSource can represent a value either as a string or a Secret key selector.
+type StringOrDataSource struct {
+	Value      string      `json:"-"`
+	DataSource *DataSource `json:"-"`
+}
+
+type DataSource struct {
+	FromSecret *corev1.SecretKeySelector `json:"fromSecret,omitempty"`
+}
+
+var (
+	_ json.Marshaler   = &StringOrDataSource{}
+	_ json.Unmarshaler = &StringOrDataSource{}
+)
+
+func (s *StringOrDataSource) MarshalJSON() ([]byte, error) {
+	if s.Value != "" {
+		return json.Marshal(s.Value)
+	}
+	return json.Marshal(s.DataSource)
+}
+
+func (s *StringOrDataSource) UnmarshalJSON(data []byte) error {
+	// First try to unmarshal as a string
+	var stringValue string
+	if err := json.Unmarshal(data, &stringValue); err == nil {
+		s.Value = stringValue
+		s.DataSource = nil
+		return nil
+	}
+
+	// If that fails, try to unmarshal as a data source
+	var secretRef *corev1.SecretKeySelector
+	if err := json.Unmarshal(data, &secretRef); err == nil {
+		s.DataSource = &DataSource{FromSecret: secretRef}
+		s.Value = ""
+		return nil
+	}
+
+	// If both fail, return an error indicating the data doesn't match either format
+	return fmt.Errorf("data must be either a string or a SecretKeySelector")
+}
+
+func (s *StringOrDataSource) DeepCopy() *StringOrDataSource {
+	if s.DataSource != nil {
+		switch {
+		case s.DataSource.FromSecret != nil:
+			return &StringOrDataSource{DataSource: &DataSource{
+				FromSecret: s.DataSource.FromSecret.DeepCopy(),
+			}}
+		}
+	}
+	return &StringOrDataSource{Value: s.Value}
+}
+
+func NewStringOrDataSource(value any) *StringOrDataSource {
+	switch v := value.(type) {
+	case string:
+		return &StringOrDataSource{Value: v}
+	case *corev1.SecretKeySelector:
+		return &StringOrDataSource{DataSource: &DataSource{FromSecret: v}}
+	}
+	return nil
 }
 
 // BucketAndPrefix returns bucket name and backup prefix from Bucket.

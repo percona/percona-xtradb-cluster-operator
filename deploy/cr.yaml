@@ -468,6 +468,10 @@ spec:
 #        limits:
 #          memory: 200M
 #          cpu: 200m
+#      securityContext:
+#        privileged: false
+#        runAsUser: 0
+#        runAsGroup: 0
 #    envVarsSecret: my-env-var-secrets
     resources:
       requests:

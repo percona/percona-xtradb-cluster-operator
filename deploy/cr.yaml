@@ -470,8 +470,8 @@ spec:
 #          cpu: 200m
 #      securityContext:
 #        privileged: false
-#        runAsUser: 0
-#        runAsGroup: 0
+#        runAsUser: 1001
+#        runAsGroup: 1001
 #    envVarsSecret: my-env-var-secrets
     resources:
       requests:

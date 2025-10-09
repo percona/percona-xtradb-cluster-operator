@@ -12136,7 +12136,7 @@ spec:
           value: percona-xtradb-cluster-operator
         - name: DISABLE_TELEMETRY
           value: "false"
-        image: perconalab/percona-xtradb-cluster-operator:everest-1332
+        image: perconalab/percona-xtradb-cluster-operator:k8spxc-1332
         imagePullPolicy: Always
         livenessProbe:
           failureThreshold: 3

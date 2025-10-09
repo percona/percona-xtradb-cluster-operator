@@ -10,6 +10,12 @@ if [ -n "$VERIFY_TLS" ] && [[ $VERIFY_TLS == "false" ]]; then
 	AWS_S3_NO_VERIFY_SSL='--no-verify-ssl'
 fi
 
+if [ -n "$CA_BUNDLE" ]; then
+	touch /tmp/ca.crt
+	echo "$CA_BUNDLE" > /tmp/ca.crt
+	export AWS_CA_BUNDLE='/tmp/ca.crt'
+fi
+
 is_object_exist() {
 	local bucket="$1"
 	local path="$2"

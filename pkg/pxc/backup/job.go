@@ -323,6 +323,21 @@ func SetStorageS3(job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBackup) erro
 		job.Template.Spec.Containers[0].Env = append(job.Template.Spec.Containers[0].Env, accessKey, secretKey)
 	}
 
+	if caBundle := s3.CABundle; caBundle != nil {
+		envVar := corev1.EnvVar{}
+		switch {
+		case caBundle.GetValue() != "":
+			envVar.Name = "CA_BUNDLE"
+			envVar.Value = caBundle.GetValue()
+		case caBundle.GetSecretKeySelector() != nil:
+			envVar.Name = "CA_BUNDLE"
+			envVar.ValueFrom = &corev1.EnvVarSource{
+				SecretKeyRef: caBundle.GetSecretKeySelector(),
+			}
+		}
+		job.Template.Spec.Containers[0].Env = append(job.Template.Spec.Containers[0].Env, envVar)
+	}
+
 	job.Template.Spec.Containers[0].Env = append(job.Template.Spec.Containers[0].Env, region, endpoint)
 
 	bucket, prefix := s3.BucketAndPrefix()

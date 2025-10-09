@@ -773,12 +773,12 @@ type BackupStorageS3Spec struct {
 	// This is useful for self-signed certificates or certificates signed using custom CAs.
 	// This can be specified as a string or a Secret key selector.
 	// For example:
-	// 	caBundle: <YOUR CA BUNDLE STRING>
+	// 	caBundle: <YOUR BASE64 ENCODED CA BUNDLE STRING>
 	// or
 	// 	caBundle:
 	// 	  fromSecret:
 	// 	    name: <YOUR CA SECRET NAME>
-	// 		key: <KEY IN SECRET CONTAINING THE CA BUNDLE>
+	// 		key: <KEY IN SECRET CONTAINING THE BASE64 ENCODED CA BUNDLE>
 	// +kubebuilder:validation:Schemaless
 	// +kubebuilder:pruning:PreserveUnknownFields
 	CABundle *StringOrDataSource `json:"caBundle,omitempty"`
@@ -788,6 +788,17 @@ type BackupStorageS3Spec struct {
 type StringOrDataSource struct {
 	Value      string      `json:"-"`
 	DataSource *DataSource `json:"-"`
+}
+
+func (s *StringOrDataSource) GetValue() string {
+	return s.Value
+}
+
+func (s *StringOrDataSource) GetSecretKeySelector() *corev1.SecretKeySelector {
+	if s.DataSource == nil {
+		return nil
+	}
+	return s.DataSource.FromSecret
 }
 
 type DataSource struct {

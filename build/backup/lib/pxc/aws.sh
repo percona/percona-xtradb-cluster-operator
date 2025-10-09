@@ -10,10 +10,13 @@ if [ -n "$VERIFY_TLS" ] && [[ $VERIFY_TLS == "false" ]]; then
 	AWS_S3_NO_VERIFY_SSL='--no-verify-ssl'
 fi
 
-if [ -n "$CA_BUNDLE" ]; then
-	touch /tmp/ca.crt
-	echo "$CA_BUNDLE" > /tmp/ca.crt
-	export AWS_CA_BUNDLE='/tmp/ca.crt'
+caBundleFile="/etc/s3/certs/ca.crt"
+if [ -f "$caBundleFile" ]; then
+	export AWS_CA_BUNDLE="$caBundleFile"
+elif [ -n "$CA_BUNDLE" ]; then
+	touch $caBundleFile
+	echo "$CA_BUNDLE" | base64 -d > $caBundleFile
+	export AWS_CA_BUNDLE="$caBundleFile"
 fi
 
 is_object_exist() {

@@ -791,11 +791,14 @@ type StringOrDataSource struct {
 }
 
 func (s *StringOrDataSource) GetValue() string {
+	if s == nil {
+		return ""
+	}
 	return s.Value
 }
 
 func (s *StringOrDataSource) GetSecretKeySelector() *corev1.SecretKeySelector {
-	if s.DataSource == nil {
+	if s == nil || s.DataSource == nil {
 		return nil
 	}
 	return s.DataSource.FromSecret
@@ -827,15 +830,15 @@ func (s *StringOrDataSource) UnmarshalJSON(data []byte) error {
 	}
 
 	// If that fails, try to unmarshal as a data source
-	var secretRef *corev1.SecretKeySelector
-	if err := json.Unmarshal(data, &secretRef); err == nil {
-		s.DataSource = &DataSource{FromSecret: secretRef}
+	var dataSource *DataSource
+	if err := json.Unmarshal(data, &dataSource); err == nil {
+		s.DataSource = dataSource
 		s.Value = ""
 		return nil
 	}
 
 	// If both fail, return an error indicating the data doesn't match either format
-	return fmt.Errorf("data must be either a string or a SecretKeySelector")
+	return fmt.Errorf("invalid value provided for StringOrDataSource")
 }
 
 func (s *StringOrDataSource) DeepCopy() *StringOrDataSource {
@@ -848,16 +851,6 @@ func (s *StringOrDataSource) DeepCopy() *StringOrDataSource {
 		}
 	}
 	return &StringOrDataSource{Value: s.Value}
-}
-
-func NewStringOrDataSource(value any) *StringOrDataSource {
-	switch v := value.(type) {
-	case string:
-		return &StringOrDataSource{Value: v}
-	case *corev1.SecretKeySelector:
-		return &StringOrDataSource{DataSource: &DataSource{FromSecret: v}}
-	}
-	return nil
 }
 
 // BucketAndPrefix returns bucket name and backup prefix from Bucket.

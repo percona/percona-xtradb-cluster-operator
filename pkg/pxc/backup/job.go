@@ -157,15 +157,21 @@ func appendCABundleSecret(job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBack
 		return nil
 	}
 
+	const (
+		volumeName = "ca-bundle"
+		mountPath  = "/tmp/s3/certs"
+		certFile   = "ca.crt"
+	)
+
 	vol := corev1.Volume{
-		Name: "ca-bundle",
+		Name: volumeName,
 		VolumeSource: corev1.VolumeSource{
 			Secret: &corev1.SecretVolumeSource{
 				SecretName: secretKeySel.Name,
 				Items: []corev1.KeyToPath{
 					{
 						Key:  secretKeySel.Key,
-						Path: "ca.crt",
+						Path: certFile,
 					},
 				},
 			},
@@ -173,8 +179,8 @@ func appendCABundleSecret(job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBack
 	}
 
 	mnt := corev1.VolumeMount{
-		Name:      "ca-bundle",
-		MountPath: "/etc/s3/certs",
+		Name:      volumeName,
+		MountPath: mountPath,
 	}
 	job.Template.Spec.Volumes = append(job.Template.Spec.Volumes, vol)
 	job.Template.Spec.Containers[0].VolumeMounts = append(job.Template.Spec.Containers[0].VolumeMounts, mnt)

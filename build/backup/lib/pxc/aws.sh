@@ -10,11 +10,12 @@ if [ -n "$VERIFY_TLS" ] && [[ $VERIFY_TLS == "false" ]]; then
 	AWS_S3_NO_VERIFY_SSL='--no-verify-ssl'
 fi
 
-caBundleFile="/etc/s3/certs/ca.crt"
+caBundleDir="/tmp/s3/certs"
+caBundleFile="$caBundleDir/ca.crt"
 if [ -f "$caBundleFile" ]; then
 	export AWS_CA_BUNDLE="$caBundleFile"
 elif [ -n "$CA_BUNDLE" ]; then
-	touch $caBundleFile
+	mkdir -p $caBundleDir && touch $caBundleFile
 	echo "$CA_BUNDLE" | base64 -d > $caBundleFile
 	export AWS_CA_BUNDLE="$caBundleFile"
 fi

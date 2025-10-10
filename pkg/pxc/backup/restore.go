@@ -181,6 +181,40 @@ func PVCRestorePod(cr *api.PerconaXtraDBClusterRestore, bcpStorageName, pvcName 
 	}, nil
 }
 
+func appendCABundleSecretVolume(
+	volumes *[]corev1.Volume,
+	volumeMounts *[]corev1.VolumeMount,
+	secretKeySel *corev1.SecretKeySelector,
+) {
+	const (
+		volumeName = "ca-bundle"
+		mountPath  = "/tmp/s3/certs"
+		certFile   = "ca.crt"
+	)
+
+	vol := corev1.Volume{
+		Name: volumeName,
+		VolumeSource: corev1.VolumeSource{
+			Secret: &corev1.SecretVolumeSource{
+				SecretName: secretKeySel.Name,
+				Items: []corev1.KeyToPath{
+					{
+						Key:  secretKeySel.Key,
+						Path: certFile,
+					},
+				},
+			},
+		},
+	}
+	*volumes = append(*volumes, vol)
+
+	mnt := corev1.VolumeMount{
+		Name:      volumeName,
+		MountPath: mountPath,
+	}
+	*volumeMounts = append(*volumeMounts, mnt)
+}
+
 func RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, cluster *api.PerconaXtraDBCluster, initImage string, scheme *runtime.Scheme, destination api.PXCBackupDestination, pitr bool) (*batchv1.Job, error) {
 	switch bcp.Status.GetStorageType(cluster) {
 	case api.BackupStorageAzure:
@@ -250,6 +284,7 @@ func RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClust
 		if cluster.CompareVersionWith("1.18.0") >= 0 {
 			command = []string{"/opt/percona/backup/recovery-cloud.sh"}
 		}
+
 		if pitr {
 			if cluster.Spec.Backup == nil && len(cluster.Spec.Backup.Storages) == 0 {
 				return nil, errors.New("no storage section")
@@ -261,6 +296,10 @@ func RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClust
 			if cluster.CompareVersionWith("1.15.0") < 0 {
 				command = []string{"pitr", "recover"}
 			}
+		}
+
+		if bcp.Status.S3 != nil && bcp.Status.S3.CABundle.GetSecretKeySelector() != nil {
+			appendCABundleSecretVolume(&volumes, &volumeMounts, bcp.Status.S3.CABundle.GetSecretKeySelector())
 		}
 	default:
 		return nil, errors.Errorf("invalid storage type was specified in status, got: %s", bcp.Status.GetStorageType(cluster))
@@ -588,6 +627,12 @@ func s3Envs(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBa
 				},
 			},
 		},
+	}
+	if caBundle := bcp.Status.S3.CABundle.GetValue(); caBundle != "" {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "CA_BUNDLE",
+			Value: caBundle,
+		})
 	}
 	if pitr {
 		bucket := ""

@@ -148,45 +148,6 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, cluster *api.PerconaXtraDBClu
 	}, nil
 }
 
-func appendCABundleSecret(job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBackup) error {
-	if len(job.Template.Spec.Containers) == 0 {
-		return errors.New("no containers in job spec")
-	}
-	secretKeySel := cr.Status.S3.CABundle.GetSecretKeySelector()
-	if secretKeySel == nil {
-		return nil
-	}
-
-	const (
-		volumeName = "ca-bundle"
-		mountPath  = "/tmp/s3/certs"
-		certFile   = "ca.crt"
-	)
-
-	vol := corev1.Volume{
-		Name: volumeName,
-		VolumeSource: corev1.VolumeSource{
-			Secret: &corev1.SecretVolumeSource{
-				SecretName: secretKeySel.Name,
-				Items: []corev1.KeyToPath{
-					{
-						Key:  secretKeySel.Key,
-						Path: certFile,
-					},
-				},
-			},
-		},
-	}
-
-	mnt := corev1.VolumeMount{
-		Name:      volumeName,
-		MountPath: mountPath,
-	}
-	job.Template.Spec.Volumes = append(job.Template.Spec.Volumes, vol)
-	job.Template.Spec.Containers[0].VolumeMounts = append(job.Template.Spec.Containers[0].VolumeMounts, mnt)
-	return nil
-}
-
 func appendStorageSecret(job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBackup) error {
 	// Volume for secret
 	secretVol := corev1.Volume{
@@ -392,9 +353,13 @@ func SetStorageS3(job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBackup) erro
 		return errors.Wrap(err, "failed to append storage secrets")
 	}
 
-	// add CA bundle secret volume
-	if err := appendCABundleSecret(job, cr); err != nil {
-		return errors.Wrap(err, "failed to append CA bundle secret")
+	// add CA bundle secret volume if specified
+	if sel := s3.CABundle.GetSecretKeySelector(); sel != nil {
+		appendCABundleSecretVolume(
+			&job.Template.Spec.Volumes,
+			&job.Template.Spec.Containers[0].VolumeMounts,
+			sel,
+		)
 	}
 
 	return nil

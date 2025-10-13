@@ -136,7 +136,9 @@ func New(ctx context.Context, c Config) (*Collector, error) {
 		}
 		// if c.S3BucketURL ends with "/", we need prefix to be like "data/more-data/", not "data/more-data//"
 		prefix = path.Clean(prefix) + "/"
-		s, err = storage.NewS3(ctx, c.BackupStorageS3.Endpoint, c.BackupStorageS3.AccessKeyID, c.BackupStorageS3.AccessKey, bucketArr[0], prefix, c.BackupStorageS3.Region, c.VerifyTLS)
+		// TODO: Add s3 CA Bundle support
+		caBundle := []byte{}
+		s, err = storage.NewS3(ctx, c.BackupStorageS3.Endpoint, c.BackupStorageS3.AccessKeyID, c.BackupStorageS3.AccessKey, bucketArr[0], prefix, c.BackupStorageS3.Region, c.VerifyTLS, caBundle)
 		if err != nil {
 			return nil, errors.Wrap(err, "new storage manager")
 		}

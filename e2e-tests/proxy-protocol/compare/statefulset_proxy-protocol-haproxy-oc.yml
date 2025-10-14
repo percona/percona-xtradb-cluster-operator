@@ -29,11 +29,7 @@ spec:
         app.kubernetes.io/part-of: percona-xtradb-cluster
     spec:
       containers:
-        - args:
-            - haproxy
-          command:
-            - /opt/percona/haproxy-entrypoint.sh
-          env:
+        - env:
             - name: PXC_SERVICE
               value: proxy-protocol-pxc
             - name: LIVENESS_CHECK_TIMEOUT
@@ -107,11 +103,11 @@ spec:
             - -on-change=/opt/percona/haproxy_add_pxc_nodes.sh
             - -service=$(PXC_SERVICE)
             - -protocol=$(PEER_LIST_SRV_PROTOCOL)
-          command:
-            - /opt/percona/haproxy-entrypoint.sh
           env:
             - name: PXC_SERVICE
               value: proxy-protocol-pxc
+            - name: HA_SERVER_OPTIONS
+              value: resolvers kubernetes check inter 10000 rise 1 fall 2 weight 1
             - name: IS_PROXY_PROTOCOL
               value: "yes"
             - name: REPLICAS_SVC_ONLY_READERS

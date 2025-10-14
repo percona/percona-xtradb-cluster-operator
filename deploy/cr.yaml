@@ -212,6 +212,13 @@ spec:
 #    schedulerName: mycustom-scheduler
 #    readinessDelaySec: 15
 #    livenessDelaySec: 600
+#    healthCheck:
+#      # Interval in milliseconds between health checks (default: 10000)
+#      interval: 3000
+#      # Number of consecutive failed checks before marking server down (default: 2)
+#      fall: 2
+#      # Number of consecutive successful checks before marking server up (default: 1)
+#      rise: 1
 #    configuration: |
 #
 #    the actual default configuration file can be found here https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/main/build/haproxy-global.cfg

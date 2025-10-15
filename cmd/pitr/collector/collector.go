@@ -127,13 +127,14 @@ const (
 )
 
 func getCABundle(caBundle, caBundlePath string) ([]byte, error) {
-	if caBundle != "" {
+	switch {
+	case caBundle != "":
 		return base64.StdEncoding.DecodeString(caBundle)
-	}
-	if caBundlePath != "" {
+	case caBundlePath != "":
 		return os.ReadFile(caBundlePath)
+	default:
+		return nil, nil
 	}
-	return nil, nil
 }
 
 func New(ctx context.Context, c Config) (*Collector, error) {

@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/md5"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"io/fs"
@@ -100,11 +101,13 @@ type Config struct {
 }
 
 type BackupS3 struct {
-	Endpoint    string `env:"ENDPOINT" envDefault:"s3.amazonaws.com"`
-	AccessKeyID string `env:"ACCESS_KEY_ID,required"`
-	AccessKey   string `env:"SECRET_ACCESS_KEY,required"`
-	BucketURL   string `env:"S3_BUCKET_URL,required"`
-	Region      string `env:"DEFAULT_REGION,required"`
+	Endpoint     string `env:"ENDPOINT" envDefault:"s3.amazonaws.com"`
+	AccessKeyID  string `env:"ACCESS_KEY_ID,required"`
+	AccessKey    string `env:"SECRET_ACCESS_KEY,required"`
+	BucketURL    string `env:"S3_BUCKET_URL,required"`
+	Region       string `env:"DEFAULT_REGION,required"`
+	CABundle     string `env:"CA_BUNDLE"`
+	CABundlePath string `env:"CA_BUNDLE_PATH"`
 }
 
 type BackupAzure struct {
@@ -123,6 +126,16 @@ const (
 	timelinePath      string = "/tmp/pitr-timeline" // path to file with timeline
 )
 
+func getCABundle(caBundle, caBundlePath string) ([]byte, error) {
+	if caBundle != "" {
+		return base64.StdEncoding.DecodeString(caBundle)
+	}
+	if caBundlePath != "" {
+		return os.ReadFile(caBundlePath)
+	}
+	return nil, nil
+}
+
 func New(ctx context.Context, c Config) (*Collector, error) {
 	var s storage.Storage
 	var err error
@@ -136,8 +149,10 @@ func New(ctx context.Context, c Config) (*Collector, error) {
 		}
 		// if c.S3BucketURL ends with "/", we need prefix to be like "data/more-data/", not "data/more-data//"
 		prefix = path.Clean(prefix) + "/"
-		// TODO: Add s3 CA Bundle support
-		caBundle := []byte{}
+		caBundle, err := getCABundle(c.BackupStorageS3.CABundle, c.BackupStorageS3.CABundlePath)
+		if err != nil {
+			return nil, errors.Wrap(err, "get ca bundle")
+		}
 		s, err = storage.NewS3(ctx, c.BackupStorageS3.Endpoint, c.BackupStorageS3.AccessKeyID, c.BackupStorageS3.AccessKey, bucketArr[0], prefix, c.BackupStorageS3.Region, c.VerifyTLS, caBundle)
 		if err != nil {
 			return nil, errors.Wrap(err, "new storage manager")

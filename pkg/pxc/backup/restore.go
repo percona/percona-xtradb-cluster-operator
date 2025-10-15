@@ -26,6 +26,11 @@ import (
 
 var log = logf.Log.WithName("backup/restore")
 
+const (
+	caBundleCertDir  = "/tmp/s3/certs"
+	caBundleCertFile = "ca.crt"
+)
+
 func PVCRestoreService(cr *api.PerconaXtraDBClusterRestore, cluster *api.PerconaXtraDBCluster) *corev1.Service {
 	restoreSvcName := pvcRestoreSvcName(cr)
 
@@ -186,12 +191,7 @@ func appendCABundleSecretVolume(
 	volumeMounts *[]corev1.VolumeMount,
 	secretKeySel *corev1.SecretKeySelector,
 ) {
-	const (
-		volumeName = "ca-bundle"
-		mountPath  = "/tmp/s3/certs"
-		certFile   = "ca.crt"
-	)
-
+	const volumeName = "ca-bundle"
 	vol := corev1.Volume{
 		Name: volumeName,
 		VolumeSource: corev1.VolumeSource{
@@ -200,7 +200,7 @@ func appendCABundleSecretVolume(
 				Items: []corev1.KeyToPath{
 					{
 						Key:  secretKeySel.Key,
-						Path: certFile,
+						Path: caBundleCertFile,
 					},
 				},
 			},
@@ -210,7 +210,7 @@ func appendCABundleSecretVolume(
 
 	mnt := corev1.VolumeMount{
 		Name:      volumeName,
-		MountPath: mountPath,
+		MountPath: caBundleCertDir,
 	}
 	*volumeMounts = append(*volumeMounts, mnt)
 }
@@ -633,6 +633,11 @@ func s3Envs(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBa
 			Name:  "CA_BUNDLE",
 			Value: caBundle,
 		})
+	} else if sel := bcp.Status.S3.CABundle.GetSecretKeySelector(); sel != nil {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "CA_BUNDLE_PATH",
+			Value: path.Join(caBundleCertDir, caBundleCertFile),
+		})
 	}
 	if pitr {
 		bucket := ""
@@ -693,6 +698,17 @@ func s3Envs(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBa
 				Value: "s3",
 			},
 		}...)
+		if caBundle := storageS3.CABundle.GetValue(); caBundle != "" {
+			envs = append(envs, corev1.EnvVar{
+				Name:  "BINLOG_CA_BUNDLE",
+				Value: caBundle,
+			})
+		} else if sel := storageS3.CABundle.GetSecretKeySelector(); sel != nil {
+			envs = append(envs, corev1.EnvVar{
+				Name:  "BINLOG_CA_BUNDLE_PATH",
+				Value: path.Join(caBundleCertDir, caBundleCertFile),
+			})
+		}
 	}
 	return envs, nil
 }

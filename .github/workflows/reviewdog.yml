@@ -86,9 +86,6 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: '1.25'
-      - name: Clean cached tools and dependencies
-        run: |
-          go clean -cache
       - name: check on release branch
         if: ${{ contains(github.head_ref, 'release-') || contains(github.base_ref, 'release-') }}
         run: |

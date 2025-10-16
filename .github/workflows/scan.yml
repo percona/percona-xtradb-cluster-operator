@@ -16,6 +16,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v5
 
+      - name: Clean cached tools and dependencies
+        run: |
+          go clean -cache
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 

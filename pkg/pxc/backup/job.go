@@ -198,7 +198,6 @@ func appendStorageSecret(job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBacku
 		secretIntVol,
 		secretVaultVol,
 	)
-
 	return nil
 }
 
@@ -323,6 +322,13 @@ func SetStorageS3(job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBackup) erro
 		job.Template.Spec.Containers[0].Env = append(job.Template.Spec.Containers[0].Env, accessKey, secretKey)
 	}
 
+	if caBundle := s3.CABundle.GetValue(); caBundle != "" {
+		job.Template.Spec.Containers[0].Env = append(job.Template.Spec.Containers[0].Env, corev1.EnvVar{
+			Name:  "CA_BUNDLE",
+			Value: caBundle,
+		})
+	}
+
 	job.Template.Spec.Containers[0].Env = append(job.Template.Spec.Containers[0].Env, region, endpoint)
 
 	bucket, prefix := s3.BucketAndPrefix()
@@ -345,6 +351,15 @@ func SetStorageS3(job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBackup) erro
 	err := appendStorageSecret(job, cr)
 	if err != nil {
 		return errors.Wrap(err, "failed to append storage secrets")
+	}
+
+	// add CA bundle secret volume if specified
+	if sel := s3.CABundle.GetSecretKeySelector(); sel != nil {
+		appendCABundleSecretVolume(
+			&job.Template.Spec.Volumes,
+			&job.Template.Spec.Containers[0].VolumeMounts,
+			sel,
+		)
 	}
 
 	return nil

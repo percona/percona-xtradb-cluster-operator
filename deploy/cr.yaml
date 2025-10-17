@@ -468,6 +468,8 @@ spec:
 #        limits:
 #          memory: 200M
 #          cpu: 200m
+#      securityContext:
+#        privileged: false
 #    envVarsSecret: my-env-var-secrets
     resources:
       requests:

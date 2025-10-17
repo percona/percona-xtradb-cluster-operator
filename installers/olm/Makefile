@@ -6,6 +6,9 @@ VERSION ?= $(shell git rev-parse --abbrev-ref HEAD | $(SED) -e 's^/^-^g; s^[.]^-
 IMAGE ?= $(IMAGE_TAG_BASE):$(VERSION)
 MODE ?= namespace
 DEPLOYDIR = ./deploy
+OS_KERNEL  ?= $(shell bash -c 'echo $${1,,}' - `uname -s`)
+OS_MACHINE ?= $(shell bash -c 'echo $${1/x86_/amd}' - `uname -m`)
+SYSTEM = $(OS_KERNEL)-$(OS_MACHINE)
 
 BUNDLEDIR = $(DEPLOYDIR)/csv/redhat
 BUNDLE_CHANNELS := --channels=stable
@@ -18,9 +21,9 @@ ENVTEST_K8S_VERSION = 1.23
 .SUFFIXES:
 
 CONTAINER ?= docker
-OPENSHIFT_VERSIONS ?= v4.13-v4.16
+OPENSHIFT_VERSIONS ?= v4.15-v4.19
 PACKAGE_CHANNEL ?= stable
-MIN_KUBE_VERSION ?= 1.24.0
+MIN_KUBE_VERSION ?= 1.31.0
 DOCKER_DEFAULT_PLATFORM ?= linux/amd64
 SHELL := /bin/bash
 REPO_ROOT = $(shell git rev-parse --show-toplevel)
@@ -60,15 +63,14 @@ bundles/community:
 	cd ../../config/manager/$(MODE)/ && $(KUSTOMIZE) edit set image pxc-operator=$(IMAGE)
 	./generate.sh community
 
-	env operator-sdk bundle validate $@ --select-optional='suite=operatorframework'
-	env operator-sdk bundle validate $@ --select-optional='name=community' --optional-values='index-path=$@/Dockerfile'
+	env operator-sdk bundle validate $@ --select-optional suite=operatorframework
 	@echo "$(GREEN)!!!!!!!!!!! Build stored in installers/olm/bundles/community !!!!!!!!!!!!!!!$(RESET)"
 
 .PHONY: bundles/redhat
 bundles/redhat:
 	cd ../../config/manager/$(MODE)/ && $(KUSTOMIZE) edit set image pxc-operator=$(IMAGE)
 	./generate.sh redhat
-	env operator-sdk bundle validate $@ --select-optional='suite=operatorframework'
+	env operator-sdk bundle validate $@ --select-optional suite=operatorframework
 	@echo "$(GREEN)!!!!!!!!!!! Build stored in installers/olm/bundles/redhat !!!!!!!!!!!!!!!$(RESET)"
 
 # The 'marketplace' configuration is currently identical to the 'redhat', so we just copy it here.
@@ -76,7 +78,7 @@ bundles/redhat:
 bundles/marketplace:
 	cd ../../config/manager/$(MODE)/ && $(KUSTOMIZE) edit set image pxc-operator=$(IMAGE)
 	./generate.sh marketplace
-	env operator-sdk bundle validate $@ --select-optional='suite=operatorframework'
+	env operator-sdk bundle validate $@ --select-optional suite=operatorframework
 	@echo "$(GREEN)!!!!!!!!!!! Build stored in installers/olm/bundles/marketplace !!!!!!!!!!!!!!!$(RESET)"
 
 .PHONY: clean
@@ -119,13 +121,13 @@ tools/$(SYSTEM)/kubectl:
 tools: tools/$(SYSTEM)/operator-sdk
 tools/$(SYSTEM)/operator-sdk:
 	install -d '$(dir $@)'
-	curl -fSL -o '$@' 'https://github.com/operator-framework/operator-sdk/releases/download/v1.39.1/operator-sdk_$(OS_KERNEL)_$(OS_MACHINE)'
+	curl -fSL -o '$@' 'https://github.com/operator-framework/operator-sdk/releases/download/v1.41.1/operator-sdk_$(OS_KERNEL)_$(OS_MACHINE)'
 	chmod u+x '$@'
 
 tools: tools/$(SYSTEM)/opm
 tools/$(SYSTEM)/opm:
 	install -d '$(dir $@)'
-	curl -fSL -o '$@' 'https://github.com/operator-framework/operator-registry/releases/download/v1.50.0/$(OS_KERNEL)-$(OS_MACHINE)-opm'
+	curl -fSL -o '$@' 'https://github.com/operator-framework/operator-registry/releases/download/v1.56.0/$(OS_KERNEL)-$(OS_MACHINE)-opm'
 	chmod u+x '$@'
 
 tools/$(SYSTEM)/venv:

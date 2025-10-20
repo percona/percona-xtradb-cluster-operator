@@ -316,6 +316,7 @@ func TestOperatorRestart(t *testing.T) {
 	ctx := context.Background()
 
 	const clusterName = "test-cluster"
+	const datadirPvcName = "datadir-" + clusterName + "-pxc-0"
 	const namespace = "namespace"
 	const backupName = clusterName + "-backup"
 	const restoreName = clusterName + "-restore"
@@ -436,7 +437,7 @@ func TestOperatorRestart(t *testing.T) {
 				cr.Status.State = state
 				objects := append(tt.objects, tt.bcp, cr, cluster, crSecret, &corev1.PersistentVolumeClaim{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "pvc1",
+						Name:      datadirPvcName,
 						Namespace: namespace,
 						Labels:    statefulset.NewNode(cluster).Labels(),
 					},

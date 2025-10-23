@@ -14,9 +14,6 @@ LIB_PATH='/opt/percona/backup/lib/pxc'
 
 SOCAT_OPTS="TCP-LISTEN:4444,reuseaddr,retry=30"
 
-FIRST_RECEIVED=0
-SST_FAILED=0
-
 check_ssl() {
 	CA=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
 	if [ -f /var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt ]; then
@@ -45,16 +42,12 @@ check_ssl() {
 
 # shellcheck disable=SC2317
 handle_sigterm() {
-	if ((FIRST_RECEIVED == 0)); then
-		pid_s=$(ps -C socat -o pid= || true)
-		if [ -n "${pid_s}" ]; then
-			log 'ERROR' 'SST request failed'
-			SST_FAILED=1
-			kill "$pid_s"
-			exit 1
-		else
-			log 'INFO' 'SST request was finished'
-		fi
+	pid_s=$(ps -C socat -o pid= || true)
+	if [ -n "${pid_s}" ]; then
+		kill "$pid_s"
+		log 'ERROR' 'Sigterm during a socat'
+		touch /tmp/backup-is-failed
+		exit 1
 	fi
 }
 
@@ -71,39 +64,48 @@ backup_volume() {
 
 	local socat_status
 
+	log 'INFO' 'Starting first socat for SST'
 	# shellcheck disable=SC2086
 	socat -u "$SOCAT_OPTS" stdio | xbstream -x $XBSTREAM_EXTRA_ARGS &
 	wait $!
 	socat_status=$?
 
-	log 'INFO' 'Socat was started'
-
-	FIRST_RECEIVED=1
 	if [[ ${socat_status} -ne 0 ]]; then
 		log 'ERROR' 'Socat(1) failed'
 		log 'ERROR' 'Backup was finished unsuccessfully'
+		touch /tmp/backup-is-failed
 		exit 1
 	fi
-	log 'INFO' "Socat(1) returned $?"
+
+	if [ ! -f "$BACKUP_DIR/${SST_INFO_NAME}" ]; then
+		log 'ERROR' 'SST file not found, while Socat was successful, unexpected'
+		touch /tmp/backup-is-failed
+		exit 1
+	fi
+	log 'INFO' 'SST transfer completed'
+	touch /tmp/sst-is-done
+
 	vault_store "$BACKUP_DIR/${SST_INFO_NAME}"
 
-	if ((SST_FAILED == 0)); then
-		if ! socat -u "$SOCAT_OPTS" stdio >xtrabackup.stream; then
-			log 'ERROR' 'Socat(2) failed'
-			log 'ERROR' 'Backup was finished unsuccessfully'
-			exit 1
-		fi
-		log 'INFO' "Socat(2) returned $?"
+	if ! socat -u "$SOCAT_OPTS" stdio >xtrabackup.stream; then
+		log 'ERROR' 'Socat(2) failed'
+		log 'ERROR' 'Backup was finished unsuccessfully'
+		touch /tmp/backup-is-failed
+		exit 1
 	fi
+	log 'INFO' 'Snapshot transfer completed'
 
-	trap '' 15
 	stat xtrabackup.stream
 	if (($(stat -c%s xtrabackup.stream) < 5000000)); then
 		log 'ERROR' 'Backup is empty'
 		log 'ERROR' 'Backup was finished unsuccessfully'
+		touch /tmp/backup-is-failed
 		exit 1
 	fi
 	md5sum xtrabackup.stream | tee md5sum.txt
+
+	log 'INFO' 'Backup finished'
+	touch /tmp/backup-is-completed
 }
 
 backup_s3() {
@@ -112,18 +114,27 @@ backup_s3() {
 	s3_add_bucket_dest
 	local socat_status
 
+	log 'INFO' 'Starting first socat for SST'
 	# shellcheck disable=SC2086
 	socat -u "$SOCAT_OPTS" stdio | xbstream -x -C /tmp $XBSTREAM_EXTRA_ARGS &
 	wait $!
 	socat_status=$?
-	log 'INFO' 'Socat was started'
 
-	FIRST_RECEIVED=1
 	if [[ ${socat_status} -ne 0 ]]; then
 		log 'ERROR' 'Socat(1) failed'
 		log 'ERROR' 'Backup was finished unsuccessfully'
+		touch /tmp/backup-is-failed
 		exit 1
 	fi
+
+	if [ ! -f /tmp/"${SST_INFO_NAME}" ]; then
+		log 'ERROR' 'SST file not found, while Socat was successful, unexpected'
+		touch /tmp/backup-is-failed
+		exit 1
+	fi
+	log 'INFO' 'SST transfer completed'
+	touch /tmp/sst-is-done
+
 	vault_store /tmp/${SST_INFO_NAME}
 
 	# shellcheck disable=SC2086
@@ -131,14 +142,11 @@ backup_s3() {
 		| xbcloud put --storage=s3 --parallel="$(grep -c processor /proc/cpuinfo)" --md5 $XBCLOUD_ARGS --s3-bucket="$S3_BUCKET" "$S3_BUCKET_PATH.$SST_INFO_NAME" 2>&1 \
 		| (grep -v "error: http request failed: Couldn't resolve host name" || exit 1)
 
-	if ((SST_FAILED == 0)); then
-		# shellcheck disable=SC2086
-		socat -u "$SOCAT_OPTS" stdio \
-			| xbcloud put --storage=s3 --parallel="$(grep -c processor /proc/cpuinfo)" --md5 $XBCLOUD_ARGS --s3-bucket="$S3_BUCKET" "$S3_BUCKET_PATH" 2>&1 \
-			| (grep -v "error: http request failed: Couldn't resolve host name" || exit 1)
-	fi
-
-	trap '' 15
+	# shellcheck disable=SC2086
+	socat -u "$SOCAT_OPTS" stdio \
+		| xbcloud put --storage=s3 --parallel="$(grep -c processor /proc/cpuinfo)" --md5 $XBCLOUD_ARGS --s3-bucket="$S3_BUCKET" "$S3_BUCKET_PATH" 2>&1 \
+		| (grep -v "error: http request failed: Couldn't resolve host name" || exit 1)
+	log 'INFO' 'Snapshot transfer completed'
 
 	# shellcheck disable=SC2086
 	aws $AWS_S3_NO_VERIFY_SSL s3 ls "s3://$S3_BUCKET/$S3_BUCKET_PATH.md5"
@@ -147,8 +155,12 @@ backup_s3() {
 	if [[ $md5_size =~ "Object does not exist" ]] || ((md5_size < 23000)); then
 		log 'ERROR' 'Backup is empty'
 		log 'ERROR' 'Backup was finished unsuccessfull'
+		touch /tmp/backup-is-failed
 		exit 1
 	fi
+
+	log 'INFO' 'Backup finished'
+	touch /tmp/backup-is-completed
 }
 
 backup_azure() {
@@ -158,18 +170,28 @@ backup_azure() {
 	log 'INFO' "Backup to $ENDPOINT/$AZURE_CONTAINER_NAME/$BACKUP_PATH"
 
 	local socat_status
+	log 'INFO' 'Starting first socat for SST'
 	# shellcheck disable=SC2086
 	socat -u "$SOCAT_OPTS" stdio | xbstream -x -C /tmp $XBSTREAM_EXTRA_ARGS &
 	wait $!
 	socat_status=$?
 	log 'INFO' 'Socat was started'
 
-	FIRST_RECEIVED=1
 	if [[ ${socat_status} -ne 0 ]]; then
 		log 'ERROR' 'Socat(1) failed'
 		log 'ERROR' 'Backup was finished unsuccessfully'
+		touch /tmp/backup-is-failed
 		exit 1
 	fi
+
+	if [ ! -f /tmp/${SST_INFO_NAME} ]; then
+		log 'ERROR' 'SST file not found, while Socat was successful, unexpected'
+		touch /tmp/backup-is-failed
+		exit 1
+	fi
+	log 'INFO' 'SST transfer completed'
+	touch /tmp/sst-is-done
+
 	vault_store /tmp/${SST_INFO_NAME}
 
 	# shellcheck disable=SC2086
@@ -177,12 +199,14 @@ backup_azure() {
 		| xbcloud put --storage=azure --parallel="$(grep -c processor /proc/cpuinfo)" $XBCLOUD_ARGS "$BACKUP_PATH.$SST_INFO_NAME" 2>&1 \
 		| (grep -v "error: http request failed: Couldn't resolve host name" || exit 1)
 
-	if ((SST_FAILED == 0)); then
-		# shellcheck disable=SC2086
-		socat -u "$SOCAT_OPTS" stdio \
-			| xbcloud put --storage=azure --parallel="$(grep -c processor /proc/cpuinfo)" $XBCLOUD_ARGS "$BACKUP_PATH" 2>&1 \
-			| (grep -v "error: http request failed: Couldn't resolve host name" || exit 1)
-	fi
+	# shellcheck disable=SC2086
+	socat -u "$SOCAT_OPTS" stdio \
+		| xbcloud put --storage=azure --parallel="$(grep -c processor /proc/cpuinfo)" $XBCLOUD_ARGS "$BACKUP_PATH" 2>&1 \
+		| (grep -v "error: http request failed: Couldn't resolve host name" || exit 1)
+	log 'INFO' 'Snapshot transfer completed'
+
+	log 'INFO' 'Backup finished'
+	touch /tmp/backup-is-completed
 }
 
 check_ssl
@@ -196,11 +220,3 @@ elif [ -n "$AZURE_CONTAINER_NAME" ]; then
 else
 	backup_volume
 fi
-
-if ((SST_FAILED == 0)); then
-	touch /tmp/backup-is-completed
-fi
-
-log 'INFO' 'Backup finished'
-
-exit $SST_FAILED

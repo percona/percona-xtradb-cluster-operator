@@ -145,7 +145,14 @@ backup_s3() {
 	# shellcheck disable=SC2086
 	socat -u "$SOCAT_OPTS" stdio \
 		| xbcloud put --storage=s3 --parallel="$(grep -c processor /proc/cpuinfo)" --md5 $XBCLOUD_ARGS --s3-bucket="$S3_BUCKET" "$S3_BUCKET_PATH" 2>&1 \
-		| (grep -v "error: http request failed: Couldn't resolve host name" || exit 1)
+		| (grep -v "error: http request failed: Couldn't resolve host name" || exit 1) \
+		| tee /tmp/xbcloud-snapshot.log
+
+	if grep 'Upload failed: backup is incomplete' /tmp/xbcloud-snapshot.log; then
+		log 'ERROR' 'Upload is incomplete, maybe the donor interrupted the connection?'
+		touch /tmp/backup-is-failed
+		exit 1
+	fi
 	log 'INFO' 'Snapshot transfer completed'
 
 	# shellcheck disable=SC2086
@@ -202,7 +209,14 @@ backup_azure() {
 	# shellcheck disable=SC2086
 	socat -u "$SOCAT_OPTS" stdio \
 		| xbcloud put --storage=azure --parallel="$(grep -c processor /proc/cpuinfo)" $XBCLOUD_ARGS "$BACKUP_PATH" 2>&1 \
-		| (grep -v "error: http request failed: Couldn't resolve host name" || exit 1)
+		| (grep -v "error: http request failed: Couldn't resolve host name" || exit 1) \
+		| tee /tmp/xbcloud-snapshot.log
+
+	if grep 'Upload failed: backup is incomplete' /tmp/xbcloud-snapshot.log; then
+		log 'ERROR' 'Upload is incomplete, maybe the donor interrupted the connection?'
+		touch /tmp/backup-is-failed
+		exit 1
+	fi
 	log 'INFO' 'Snapshot transfer completed'
 
 	log 'INFO' 'Backup finished'

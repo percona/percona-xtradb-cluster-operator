@@ -26,6 +26,11 @@ import (
 
 var log = logf.Log.WithName("backup/restore")
 
+const (
+	caBundleCertDir  = "/tmp/s3/certs"
+	caBundleCertFile = "ca.crt"
+)
+
 func PVCRestoreService(cr *api.PerconaXtraDBClusterRestore, cluster *api.PerconaXtraDBCluster) *corev1.Service {
 	restoreSvcName := pvcRestoreSvcName(cr)
 
@@ -181,6 +186,35 @@ func PVCRestorePod(cr *api.PerconaXtraDBClusterRestore, bcpStorageName, pvcName 
 	}, nil
 }
 
+func appendCABundleSecretVolume(
+	volumes *[]corev1.Volume,
+	volumeMounts *[]corev1.VolumeMount,
+	secretKeySel *corev1.SecretKeySelector,
+) {
+	const volumeName = "ca-bundle"
+	vol := corev1.Volume{
+		Name: volumeName,
+		VolumeSource: corev1.VolumeSource{
+			Secret: &corev1.SecretVolumeSource{
+				SecretName: secretKeySel.Name,
+				Items: []corev1.KeyToPath{
+					{
+						Key:  secretKeySel.Key,
+						Path: caBundleCertFile,
+					},
+				},
+			},
+		},
+	}
+	*volumes = append(*volumes, vol)
+
+	mnt := corev1.VolumeMount{
+		Name:      volumeName,
+		MountPath: caBundleCertDir,
+	}
+	*volumeMounts = append(*volumeMounts, mnt)
+}
+
 func RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, cluster *api.PerconaXtraDBCluster, initImage string, scheme *runtime.Scheme, destination api.PXCBackupDestination, pitr bool) (*batchv1.Job, error) {
 	switch bcp.Status.GetStorageType(cluster) {
 	case api.BackupStorageAzure:
@@ -250,6 +284,7 @@ func RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClust
 		if cluster.CompareVersionWith("1.18.0") >= 0 {
 			command = []string{"/opt/percona/backup/recovery-cloud.sh"}
 		}
+
 		if pitr {
 			if cluster.Spec.Backup == nil && len(cluster.Spec.Backup.Storages) == 0 {
 				return nil, errors.New("no storage section")
@@ -261,6 +296,10 @@ func RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClust
 			if cluster.CompareVersionWith("1.15.0") < 0 {
 				command = []string{"pitr", "recover"}
 			}
+		}
+
+		if bcp.Status.S3 != nil && bcp.Status.S3.CABundle.GetSecretKeySelector() != nil {
+			appendCABundleSecretVolume(&volumes, &volumeMounts, bcp.Status.S3.CABundle.GetSecretKeySelector())
 		}
 	default:
 		return nil, errors.Errorf("invalid storage type was specified in status, got: %s", bcp.Status.GetStorageType(cluster))
@@ -589,6 +628,17 @@ func s3Envs(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBa
 			},
 		},
 	}
+	if caBundle := bcp.Status.S3.CABundle.GetValue(); caBundle != "" {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "CA_BUNDLE",
+			Value: caBundle,
+		})
+	} else if sel := bcp.Status.S3.CABundle.GetSecretKeySelector(); sel != nil {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "CA_BUNDLE_PATH",
+			Value: path.Join(caBundleCertDir, caBundleCertFile),
+		})
+	}
 	if pitr {
 		bucket := ""
 		storageS3 := new(api.BackupStorageS3Spec)
@@ -648,6 +698,17 @@ func s3Envs(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBa
 				Value: "s3",
 			},
 		}...)
+		if caBundle := storageS3.CABundle.GetValue(); caBundle != "" {
+			envs = append(envs, corev1.EnvVar{
+				Name:  "BINLOG_CA_BUNDLE",
+				Value: caBundle,
+			})
+		} else if sel := storageS3.CABundle.GetSecretKeySelector(); sel != nil {
+			envs = append(envs, corev1.EnvVar{
+				Name:  "BINLOG_CA_BUNDLE_PATH",
+				Value: path.Join(caBundleCertDir, caBundleCertFile),
+			})
+		}
 	}
 	return envs, nil
 }

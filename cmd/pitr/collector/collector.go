@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/md5"
-	"encoding/base64"
 	"fmt"
 	"io"
 	"io/fs"
@@ -101,13 +100,11 @@ type Config struct {
 }
 
 type BackupS3 struct {
-	Endpoint     string `env:"ENDPOINT" envDefault:"s3.amazonaws.com"`
-	AccessKeyID  string `env:"ACCESS_KEY_ID,required"`
-	AccessKey    string `env:"SECRET_ACCESS_KEY,required"`
-	BucketURL    string `env:"S3_BUCKET_URL,required"`
-	Region       string `env:"DEFAULT_REGION,required"`
-	CABundle     string `env:"CA_BUNDLE"`
-	CABundlePath string `env:"CA_BUNDLE_PATH"`
+	Endpoint    string `env:"ENDPOINT" envDefault:"s3.amazonaws.com"`
+	AccessKeyID string `env:"ACCESS_KEY_ID,required"`
+	AccessKey   string `env:"SECRET_ACCESS_KEY,required"`
+	BucketURL   string `env:"S3_BUCKET_URL,required"`
+	Region      string `env:"DEFAULT_REGION,required"`
 }
 
 type BackupAzure struct {
@@ -126,15 +123,14 @@ const (
 	timelinePath      string = "/tmp/pitr-timeline" // path to file with timeline
 )
 
-func getCABundle(caBundle, caBundlePath string) ([]byte, error) {
-	switch {
-	case caBundle != "":
-		return base64.StdEncoding.DecodeString(caBundle)
-	case caBundlePath != "":
-		return os.ReadFile(caBundlePath)
-	default:
+func getCABundle() ([]byte, error) {
+	data, err := os.ReadFile("/tmp/s3/certs/ca.crt")
+	if errors.Is(err, os.ErrNotExist) {
 		return nil, nil
+	} else if err != nil {
+		return nil, errors.Wrap(err, "cannot read ca bundle")
 	}
+	return data, nil
 }
 
 func New(ctx context.Context, c Config) (*Collector, error) {
@@ -150,7 +146,7 @@ func New(ctx context.Context, c Config) (*Collector, error) {
 		}
 		// if c.S3BucketURL ends with "/", we need prefix to be like "data/more-data/", not "data/more-data//"
 		prefix = path.Clean(prefix) + "/"
-		caBundle, err := getCABundle(c.BackupStorageS3.CABundle, c.BackupStorageS3.CABundlePath)
+		caBundle, err := getCABundle()
 		if err != nil {
 			return nil, errors.Wrap(err, "get ca bundle")
 		}

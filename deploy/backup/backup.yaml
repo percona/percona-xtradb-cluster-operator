@@ -1,21 +1,7 @@
 apiVersion: pxc.percona.com/v1
 kind: PerconaXtraDBClusterBackup
 metadata:
-#  finalizers:
-#    - percona.com/delete-backup
   name: backup1
 spec:
-  pxcCluster: cluster1
-  storageName: fs-pvc
-#  activeDeadlineSeconds: 3600
-#  startingDeadlineSeconds: 300
-#  suspendedDeadlineSeconds: 1200
-#  containerOptions:
-#    env:
-#    - name: VERIFY_TLS
-#      value: "false"
-#    args:
-#      xbcloud:
-#      - "--someflag=abc"
-#      xbstream:
-#      - "--someflag=abc"
+  pxcCluster: minimal-cluster
+  storageName: minio-s3

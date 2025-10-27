@@ -2,7 +2,6 @@ package storage
 
 import (
 	"context"
-	"encoding/base64"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/pkg/errors"
@@ -106,21 +105,10 @@ func getAzureOptionsFromBackup(ctx context.Context, cl client.Client, backup *ap
 }
 
 func getS3CABundle(ctx context.Context, cl client.Client, s3 *api.BackupStorageS3Spec, namespace string) ([]byte, error) {
-	caConfig := s3.CABundle
-	if caConfig == nil {
+	selector := s3.CABundle
+	if selector == nil {
 		return nil, nil
 	}
-	// use inline value if provided
-	if caBundle := caConfig.GetValue(); caBundle != "" {
-		// base64 decode the ca bundle
-		caBundle, err := base64.StdEncoding.DecodeString(caBundle)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to decode ca bundle")
-		}
-		return caBundle, nil
-	}
-	// otherwise get the value from the secret
-	selector := caConfig.GetSecretKeySelector()
 	secret := &corev1.Secret{}
 	if err := cl.Get(ctx, types.NamespacedName{
 		Name:      selector.Name,
@@ -128,7 +116,11 @@ func getS3CABundle(ctx context.Context, cl client.Client, s3 *api.BackupStorageS
 	}, secret); err != nil {
 		return nil, errors.Wrap(err, "failed to get ca bundle secret")
 	}
-	return secret.Data[selector.Key], nil
+	caBundle := secret.Data[selector.Key]
+	if len(caBundle) == 0 {
+		return nil, nil
+	}
+	return caBundle, nil
 }
 
 func getS3Options(

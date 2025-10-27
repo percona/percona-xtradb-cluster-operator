@@ -5,8 +5,13 @@ metadata:
 #  annotations:
 #    percona.com/headless-service: "true"
 spec:
-  pxcCluster: cluster1
+  pxcCluster: minimal-cluster
   backupName: backup1
+  pitr:
+    type: date
+    date: "2025-10-15 09:11:03"
+    backupSource:
+      storageName: minio-s3
 #  containerOptions:
 #    env:
 #    - name: VERIFY_TLS

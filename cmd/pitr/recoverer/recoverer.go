@@ -3,7 +3,6 @@ package recoverer
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
 	"io"
 	"log"
 	"net/url"
@@ -52,15 +51,14 @@ type Config struct {
 	BinlogStorageAzure BinlogAzure
 }
 
-func getCABundle(caBundle, caBundlePath string) ([]byte, error) {
-	switch {
-	case caBundle != "":
-		return base64.StdEncoding.DecodeString(caBundle)
-	case caBundlePath != "":
-		return os.ReadFile(caBundlePath)
-	default:
+func getCABundle() ([]byte, error) {
+	data, err := os.ReadFile("/tmp/s3/certs/ca.crt")
+	if errors.Is(err, os.ErrNotExist) {
 		return nil, nil
+	} else if err != nil {
+		return nil, errors.Wrap(err, "cannot read ca bundle")
 	}
+	return data, nil
 }
 
 func (c Config) storages(ctx context.Context) (storage.Storage, storage.Storage, error) {
@@ -71,7 +69,7 @@ func (c Config) storages(ctx context.Context) (storage.Storage, storage.Storage,
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "get bucket and prefix")
 		}
-		binlogCABundle, err := getCABundle(c.BinlogStorageS3.CABundle, c.BinlogStorageS3.CABundlePath)
+		binlogCABundle, err := getCABundle()
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "get binlog ca bundle for binlog storage")
 		}
@@ -85,7 +83,7 @@ func (c Config) storages(ctx context.Context) (storage.Storage, storage.Storage,
 			return nil, nil, errors.Wrap(err, "get bucket and prefix")
 		}
 		prefix = prefix[:len(prefix)-1]
-		caBundle, err := getCABundle(c.BackupStorageS3.CABundle, c.BackupStorageS3.CABundlePath)
+		caBundle, err := getCABundle()
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "get ca bundle")
 		}
@@ -114,13 +112,11 @@ func (c Config) storages(ctx context.Context) (storage.Storage, storage.Storage,
 }
 
 type BackupS3 struct {
-	Endpoint     string `env:"ENDPOINT" envDefault:"s3.amazonaws.com"`
-	AccessKeyID  string `env:"ACCESS_KEY_ID,required"`
-	AccessKey    string `env:"SECRET_ACCESS_KEY,required"`
-	Region       string `env:"DEFAULT_REGION,required"`
-	BackupDest   string `env:"S3_BUCKET_URL,required"`
-	CABundle     string `env:"CA_BUNDLE"`
-	CABundlePath string `env:"CA_BUNDLE_PATH"`
+	Endpoint    string `env:"ENDPOINT" envDefault:"s3.amazonaws.com"`
+	AccessKeyID string `env:"ACCESS_KEY_ID,required"`
+	AccessKey   string `env:"SECRET_ACCESS_KEY,required"`
+	Region      string `env:"DEFAULT_REGION,required"`
+	BackupDest  string `env:"S3_BUCKET_URL,required"`
 }
 
 type BackupAzure struct {
@@ -135,13 +131,11 @@ type BackupAzure struct {
 }
 
 type BinlogS3 struct {
-	Endpoint     string `env:"BINLOG_S3_ENDPOINT" envDefault:"s3.amazonaws.com"`
-	AccessKeyID  string `env:"BINLOG_ACCESS_KEY_ID,required"`
-	AccessKey    string `env:"BINLOG_SECRET_ACCESS_KEY,required"`
-	Region       string `env:"BINLOG_S3_REGION,required"`
-	BucketURL    string `env:"BINLOG_S3_BUCKET_URL,required"`
-	CABundle     string `env:"BINLOG_CA_BUNDLE"`
-	CABundlePath string `env:"BINLOG_CA_BUNDLE_PATH"`
+	Endpoint    string `env:"BINLOG_S3_ENDPOINT" envDefault:"s3.amazonaws.com"`
+	AccessKeyID string `env:"BINLOG_ACCESS_KEY_ID,required"`
+	AccessKey   string `env:"BINLOG_SECRET_ACCESS_KEY,required"`
+	Region      string `env:"BINLOG_S3_REGION,required"`
+	BucketURL   string `env:"BINLOG_S3_BUCKET_URL,required"`
 }
 
 type BinlogAzure struct {

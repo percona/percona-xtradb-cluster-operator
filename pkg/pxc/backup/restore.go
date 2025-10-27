@@ -207,7 +207,6 @@ func appendCABundleSecretVolume(
 		},
 	}
 	*volumes = append(*volumes, vol)
-
 	mnt := corev1.VolumeMount{
 		Name:      volumeName,
 		MountPath: caBundleCertDir,
@@ -298,8 +297,9 @@ func RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClust
 			}
 		}
 
-		if bcp.Status.S3 != nil && bcp.Status.S3.CABundle.GetSecretKeySelector() != nil {
-			appendCABundleSecretVolume(&volumes, &volumeMounts, bcp.Status.S3.CABundle.GetSecretKeySelector())
+		// attach optional CA bundle file as a volume (if specified)
+		if bcp.Status.S3 != nil && bcp.Status.S3.CABundle != nil {
+			appendCABundleSecretVolume(&volumes, &volumeMounts, bcp.Status.S3.CABundle)
 		}
 	default:
 		return nil, errors.Errorf("invalid storage type was specified in status, got: %s", bcp.Status.GetStorageType(cluster))
@@ -628,17 +628,6 @@ func s3Envs(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBa
 			},
 		},
 	}
-	if caBundle := bcp.Status.S3.CABundle.GetValue(); caBundle != "" {
-		envs = append(envs, corev1.EnvVar{
-			Name:  "CA_BUNDLE",
-			Value: caBundle,
-		})
-	} else if sel := bcp.Status.S3.CABundle.GetSecretKeySelector(); sel != nil {
-		envs = append(envs, corev1.EnvVar{
-			Name:  "CA_BUNDLE_PATH",
-			Value: path.Join(caBundleCertDir, caBundleCertFile),
-		})
-	}
 	if pitr {
 		bucket := ""
 		storageS3 := new(api.BackupStorageS3Spec)
@@ -698,17 +687,6 @@ func s3Envs(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBa
 				Value: "s3",
 			},
 		}...)
-		if caBundle := storageS3.CABundle.GetValue(); caBundle != "" {
-			envs = append(envs, corev1.EnvVar{
-				Name:  "BINLOG_CA_BUNDLE",
-				Value: caBundle,
-			})
-		} else if sel := storageS3.CABundle.GetSecretKeySelector(); sel != nil {
-			envs = append(envs, corev1.EnvVar{
-				Name:  "BINLOG_CA_BUNDLE_PATH",
-				Value: path.Join(caBundleCertDir, caBundleCertFile),
-			})
-		}
 	}
 	return envs, nil
 }

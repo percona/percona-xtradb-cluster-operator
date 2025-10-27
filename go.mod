@@ -3,10 +3,10 @@ module github.com/percona/percona-xtradb-cluster-operator
 go 1.25.3
 
 require (
-	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.6.2
+	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.6.3
 	github.com/Percona-Lab/percona-version-service/api v0.0.0-20201216104127-a39f2dded3cc
 	github.com/caarlos0/env v3.5.0+incompatible
-	github.com/cert-manager/cert-manager v1.19.0
+	github.com/cert-manager/cert-manager v1.19.1
 	github.com/flosch/pongo2/v6 v6.0.0
 	github.com/go-ini/ini v1.67.0
 	github.com/go-logr/logr v1.4.3
@@ -20,7 +20,7 @@ require (
 	github.com/google/go-cmp v0.7.0
 	github.com/hashicorp/go-version v1.7.0
 	github.com/minio/minio-go/v7 v7.0.95
-	github.com/onsi/ginkgo/v2 v2.26.0
+	github.com/onsi/ginkgo/v2 v2.27.1
 	github.com/onsi/gomega v1.38.2
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.23.2

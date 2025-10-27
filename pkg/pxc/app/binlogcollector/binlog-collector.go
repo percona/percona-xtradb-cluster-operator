@@ -186,7 +186,7 @@ func GetDeployment(cr *api.PerconaXtraDBCluster, initImage string, existingMatch
 		container.VolumeMounts = append(container.VolumeMounts,
 			corev1.VolumeMount{
 				Name:      "ca-bundle",
-				MountPath: "/tmp/s3/certs",
+				MountPath: naming.BackupStorageCAFileDirectory,
 			},
 		)
 	}

@@ -26,10 +26,10 @@ import (
 
 var log = logf.Log.WithName("backup/restore")
 
-const (
-	caBundleCertDir  = "/tmp/s3/certs"
-	caBundleCertFile = "ca.crt"
-)
+// const (
+// 	caBundleCertDir  = "/tmp/s3/certs"
+// 	caBundleCertFile = "ca.crt"
+// )
 
 func PVCRestoreService(cr *api.PerconaXtraDBClusterRestore, cluster *api.PerconaXtraDBCluster) *corev1.Service {
 	restoreSvcName := pvcRestoreSvcName(cr)
@@ -200,7 +200,7 @@ func appendCABundleSecretVolume(
 				Items: []corev1.KeyToPath{
 					{
 						Key:  secretKeySel.Key,
-						Path: caBundleCertFile,
+						Path: naming.BackupStorageCAFileName,
 					},
 				},
 			},
@@ -209,7 +209,7 @@ func appendCABundleSecretVolume(
 	*volumes = append(*volumes, vol)
 	mnt := corev1.VolumeMount{
 		Name:      volumeName,
-		MountPath: caBundleCertDir,
+		MountPath: naming.BackupStorageCAFileDirectory,
 	}
 	*volumeMounts = append(*volumeMounts, mnt)
 }

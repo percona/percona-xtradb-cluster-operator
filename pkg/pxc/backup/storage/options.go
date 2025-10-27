@@ -216,7 +216,7 @@ func getS3OptionsFromBackup(ctx context.Context, cl client.Client, cluster *api.
 
 	var caBundle []byte
 	if s3 := backup.Status.S3; s3.CABundle != nil {
-		caBundle, err = getS3CABundle(ctx, cl, s3, cluster.GetNamespace())
+		caBundle, err = getS3CABundle(ctx, cl, s3, backup.GetNamespace())
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get ca bundle")
 		}

@@ -1,0 +1,93 @@
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBCluster
+metadata:
+  name: test-cluster
+  finalizers:
+    - percona.com/delete-pxc-pods-in-order
+spec:
+  tls:
+    SANs:
+      - "minio-service.#namespace"
+  secretsName: my-cluster-secrets
+  pause: false
+  pxc:
+    size: 3
+    image: -pxc
+    configuration: |
+      [mysqld]
+      wsrep_log_conflicts
+      log_error_verbosity=3
+      wsrep_debug=1
+      [sst]
+      xbstream-opts=--decompress
+      [xtrabackup]
+      compress=lz4
+    resources:
+      requests:
+        memory: 0.1G
+        cpu: 100m
+      limits:
+        memory: "2G"
+        cpu: "1"
+    volumeSpec:
+      persistentVolumeClaim:
+        resources:
+          requests:
+            storage: 2Gi
+    affinity:
+      antiAffinityTopologyKey: "kubernetes.io/hostname"
+  proxysql:
+    enabled: true
+    size: 2
+    image: -proxysql
+    resources:
+      requests:
+        memory: 0.6G
+        cpu: 600m
+      limits:
+        memory: 1G
+        cpu: 700m
+    volumeSpec:
+      persistentVolumeClaim:
+        resources:
+          requests:
+            storage: 2Gi
+    affinity:
+      antiAffinityTopologyKey: "kubernetes.io/hostname"
+  pmm:
+    enabled: false
+    image: perconalab/pmm-client:1.17.1
+    serverHost: monitoring-service
+    serverUser: pmm
+  backup:
+    activeDeadlineSeconds: 3600
+    allowParallel: false
+    backoffLimit: 3
+    image: -backup
+    pitr:
+      enabled: true
+      storageName: minio-binlogs
+      timeBetweenUploads: 55
+    storages:
+      minio:
+        type: s3
+        s3:
+          credentialsSecret: minio-secret
+          region: us-east-1
+          bucket: operator-testing
+          endpointUrl: https://minio-service:9000
+          caBundle:
+            name: minio-tls-certs
+            key: tls.crt
+        verifyTLS: true
+      minio-binlogs:
+        type: s3
+        s3:
+          credentialsSecret: minio-secret
+          region: us-east-1
+          bucket: operator-testing/binlogs
+          endpointUrl: https://minio-service:9000
+          caBundle:
+            name: minio-tls-certs
+            key: tls.crt
+        verifyTLS: true

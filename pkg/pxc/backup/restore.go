@@ -26,11 +26,6 @@ import (
 
 var log = logf.Log.WithName("backup/restore")
 
-// const (
-// 	caBundleCertDir  = "/tmp/s3/certs"
-// 	caBundleCertFile = "ca.crt"
-// )
-
 func PVCRestoreService(cr *api.PerconaXtraDBClusterRestore, cluster *api.PerconaXtraDBCluster) *corev1.Service {
 	restoreSvcName := pvcRestoreSvcName(cr)
 

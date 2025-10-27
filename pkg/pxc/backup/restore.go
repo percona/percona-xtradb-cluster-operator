@@ -292,7 +292,7 @@ func RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClust
 			}
 		}
 
-		// attach optional CA bundle file as a volume (if specified)
+		// add ca bundle (this is used by the aws-cli to verify the connection to S3)
 		if bcp.Status.S3 != nil && bcp.Status.S3.CABundle != nil {
 			appendCABundleSecretVolume(&volumes, &volumeMounts, bcp.Status.S3.CABundle)
 		}

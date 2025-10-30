@@ -9,6 +9,11 @@ set_debug
 
 GTID_PATTERN='[A-F0-9a-f]{8}-[A-F0-9a-f]{4}-[A-F0-9a-f]{4}-[A-F0-9a-f]{4}-[A-F0-9a-f]{12}:[0-9]+'
 
+if [[ $IMAGE_PXC =~ 5\.7 ]]; then
+	echo "Skipping PITR test because 5.7 doesn't support it!"
+	exit 0
+fi
+
 write_test_data() {
 	local cluster=$1
 	local config=$2

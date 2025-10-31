@@ -92,7 +92,7 @@ void pushLogFile(String FILE_NAME) {
     def LOG_FILE_PATH="e2e-tests/logs/${FILE_NAME}.log"
     def LOG_FILE_NAME="${FILE_NAME}.log"
     echo "Push logfile $LOG_FILE_NAME file to S3!"
-    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+    withCredentials([aws(credentialsId: 'AMI/OVF', accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
         sh """
             S3_PATH=s3://percona-jenkins-artifactory-public/\$JOB_NAME/\$(git rev-parse --short HEAD)
             aws s3 ls \$S3_PATH/${LOG_FILE_NAME} || :
@@ -104,7 +104,7 @@ void pushLogFile(String FILE_NAME) {
 void pushArtifactFile(String FILE_NAME) {
     echo "Push $FILE_NAME file to S3!"
 
-    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+    withCredentials([aws(credentialsId: 'AMI/OVF', accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
         sh """
             touch ${FILE_NAME}
             S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/\$(git rev-parse --short HEAD)
@@ -129,7 +129,7 @@ void initTests() {
 void markPassedTests() {
     echo "Marking passed tests in the tests map!"
 
-    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+    withCredentials([aws(credentialsId: 'AMI/OVF', accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
         sh """
             aws s3 ls "s3://percona-jenkins-artifactory/${JOB_NAME}/${env.GIT_SHORT_COMMIT}/" || :
         """
@@ -291,7 +291,7 @@ void prepareNode() {
         sudo curl -sLo /usr/local/bin/kubectl https://dl.k8s.io/release/\$(curl -Ls https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl && sudo chmod +x /usr/local/bin/kubectl
         kubectl version --client --output=yaml
 
-        curl -fsSL https://get.helm.sh/helm-v3.18.3-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
+        curl -fsSL https://get.helm.sh/helm-v3.19.0-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
 
         sudo curl -fsSL https://github.com/mikefarah/yq/releases/download/v4.44.1/yq_linux_amd64 -o /usr/local/bin/yq && sudo chmod +x /usr/local/bin/yq
         sudo curl -fsSL https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux64 -o /usr/local/bin/jq && sudo chmod +x /usr/local/bin/jq
@@ -466,7 +466,7 @@ pipeline {
                         mkdir -p $(dirname ${docker_tag_file})
                         echo ${DOCKER_TAG} > "${docker_tag_file}"
                             sg docker -c "
-                                docker login -u '${USER}' -p '${PASS}'
+                                echo '\$PASS' | docker login -u '\$USER' --password-stdin
                                 export RELEASE=0
                                 export IMAGE=\$DOCKER_TAG
                                 ./e2e-tests/build
@@ -621,7 +621,7 @@ pipeline {
                             }
                         }
                         makeReport()
-                        step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
+                        junit testResults: '*.xml', healthScaleFactor: 1.0
                         archiveArtifacts '*.xml'
 
                         unstash 'IMAGE'

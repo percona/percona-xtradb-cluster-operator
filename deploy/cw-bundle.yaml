@@ -2132,6 +2132,29 @@ spec:
                 type: boolean
               enableVolumeExpansion:
                 type: boolean
+              generatedSecretsOptions:
+                properties:
+                  maxLength:
+                    default: 20
+                    maximum: 128
+                    minimum: 8
+                    type: integer
+                  minLength:
+                    default: 16
+                    maximum: 128
+                    minimum: 8
+                    type: integer
+                  symbols:
+                    default: '!#$%&()*+,-.<=>?@[]^_{}~'
+                    maxLength: 32
+                    type: string
+                required:
+                - maxLength
+                - minLength
+                - symbols
+                type: object
+                x-kubernetes-validations:
+                - rule: self.maxLength > self.minLength
               haproxy:
                 properties:
                   affinity:
@@ -12138,7 +12161,7 @@ spec:
           value: percona-xtradb-cluster-operator
         - name: DISABLE_TELEMETRY
           value: "false"
-        image: perconalab/percona-xtradb-cluster-operator:main
+        image: perconalab/percona-xtradb-cluster-operator:feat-add-generated-secrets-options
         imagePullPolicy: Always
         resources:
           limits:

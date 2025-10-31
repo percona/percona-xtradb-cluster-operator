@@ -29,26 +29,27 @@ import (
 
 // PerconaXtraDBClusterSpec defines the desired state of PerconaXtraDBCluster
 type PerconaXtraDBClusterSpec struct {
-	Platform               version.Platform                     `json:"platform,omitempty"`
-	CRVersion              string                               `json:"crVersion,omitempty"`
-	Pause                  bool                                 `json:"pause,omitempty"`
-	SecretsName            string                               `json:"secretsName,omitempty"`
-	VaultSecretName        string                               `json:"vaultSecretName,omitempty"`
-	SSLSecretName          string                               `json:"sslSecretName,omitempty"`
-	SSLInternalSecretName  string                               `json:"sslInternalSecretName,omitempty"`
-	LogCollectorSecretName string                               `json:"logCollectorSecretName,omitempty"`
-	TLS                    *TLSSpec                             `json:"tls,omitempty"`
-	PXC                    *PXCSpec                             `json:"pxc,omitempty"`
-	ProxySQL               *ProxySQLSpec                        `json:"proxysql,omitempty"`
-	HAProxy                *HAProxySpec                         `json:"haproxy,omitempty"`
-	PMM                    *PMMSpec                             `json:"pmm,omitempty"`
-	LogCollector           *LogCollectorSpec                    `json:"logcollector,omitempty"`
-	Backup                 *PXCScheduledBackup                  `json:"backup,omitempty"`
-	UpdateStrategy         appsv1.StatefulSetUpdateStrategyType `json:"updateStrategy,omitempty"`
-	UpgradeOptions         UpgradeOptions                       `json:"upgradeOptions,omitempty"`
-	AllowUnsafeConfig      bool                                 `json:"allowUnsafeConfigurations,omitempty"`
-	Unsafe                 UnsafeFlags                          `json:"unsafeFlags,omitempty"`
-	VolumeExpansionEnabled bool                                 `json:"enableVolumeExpansion,omitempty"`
+	Platform                version.Platform                     `json:"platform,omitempty"`
+	CRVersion               string                               `json:"crVersion,omitempty"`
+	Pause                   bool                                 `json:"pause,omitempty"`
+	SecretsName             string                               `json:"secretsName,omitempty"`
+	GeneratedSecretsOptions *GeneratedSecretsOptions             `json:"generatedSecretsOptions,omitempty"`
+	VaultSecretName         string                               `json:"vaultSecretName,omitempty"`
+	SSLSecretName           string                               `json:"sslSecretName,omitempty"`
+	SSLInternalSecretName   string                               `json:"sslInternalSecretName,omitempty"`
+	LogCollectorSecretName  string                               `json:"logCollectorSecretName,omitempty"`
+	TLS                     *TLSSpec                             `json:"tls,omitempty"`
+	PXC                     *PXCSpec                             `json:"pxc,omitempty"`
+	ProxySQL                *ProxySQLSpec                        `json:"proxysql,omitempty"`
+	HAProxy                 *HAProxySpec                         `json:"haproxy,omitempty"`
+	PMM                     *PMMSpec                             `json:"pmm,omitempty"`
+	LogCollector            *LogCollectorSpec                    `json:"logcollector,omitempty"`
+	Backup                  *PXCScheduledBackup                  `json:"backup,omitempty"`
+	UpdateStrategy          appsv1.StatefulSetUpdateStrategyType `json:"updateStrategy,omitempty"`
+	UpgradeOptions          UpgradeOptions                       `json:"upgradeOptions,omitempty"`
+	AllowUnsafeConfig       bool                                 `json:"allowUnsafeConfigurations,omitempty"`
+	Unsafe                  UnsafeFlags                          `json:"unsafeFlags,omitempty"`
+	VolumeExpansionEnabled  bool                                 `json:"enableVolumeExpansion,omitempty"`
 
 	// Deprecated, should be removed in the future. Use InitContainer.Image instead
 	InitImage string `json:"initImage,omitempty"`
@@ -59,6 +60,35 @@ type PerconaXtraDBClusterSpec struct {
 	IgnoreLabels              []string          `json:"ignoreLabels,omitempty"`
 
 	Users []User `json:"users,omitempty"`
+}
+
+// +kubebuilder:validation:XValidation:rule="self.maxLength > self.minLength"
+type GeneratedSecretsOptions struct {
+	// When set to true (the default), special symbols such as *!$%^ will be included in password generation
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MaxLength=32
+	// +kubebuilder:default="!#$%&()*+,-.<=>?@[]^_{}~"
+	Symbols string `json:"symbols"`
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Maximum=128
+	// +kubebuilder:validation:Minimum=8
+	// +kubebuilder:default=20
+	MaxLength int `json:"maxLength"`
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Maximum=128
+	// +kubebuilder:validation:Minimum=8
+	// +kubebuilder:default=16
+	MinLength int `json:"minLength"`
+}
+
+func (cr *PerconaXtraDBCluster) setGenSecretsOptionsDefaults() {
+	if cr.Spec.GeneratedSecretsOptions == nil {
+		cr.Spec.GeneratedSecretsOptions = &GeneratedSecretsOptions{
+			Symbols:   "!#$%&()*+,-.<=>?@[]^_{}~",
+			MaxLength: 20,
+			MinLength: 16,
+		}
+	}
 }
 
 type SecretKeySelector struct {
@@ -1189,6 +1219,7 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 
 	cr.setProbesDefaults()
 	cr.setPodSecurityContext()
+	cr.setGenSecretsOptionsDefaults()
 
 	if cr.Spec.EnableCRValidationWebhook == nil {
 		falseVal := false

@@ -163,6 +163,34 @@ func GetDeployment(cr *api.PerconaXtraDBCluster, initImage string, existingMatch
 		},
 	)
 
+	// Add CA bundle to the container, if specified
+	storage, ok := cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName]
+	if ok && storage.S3 != nil && storage.S3.CABundle != nil {
+		sel := storage.S3.CABundle
+		volumes = append(volumes,
+			corev1.Volume{
+				Name: "ca-bundle",
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName: sel.Name,
+						Items: []corev1.KeyToPath{
+							{
+								Key:  sel.Key,
+								Path: "ca.crt",
+							},
+						},
+					},
+				},
+			},
+		)
+		container.VolumeMounts = append(container.VolumeMounts,
+			corev1.VolumeMount{
+				Name:      "ca-bundle",
+				MountPath: naming.BackupStorageCAFileDirectory,
+			},
+		)
+	}
+
 	depl := appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "apps/v1",

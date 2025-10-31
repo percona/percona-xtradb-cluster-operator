@@ -198,7 +198,6 @@ func appendStorageSecret(job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBacku
 		secretIntVol,
 		secretVaultVol,
 	)
-
 	return nil
 }
 
@@ -345,6 +344,15 @@ func SetStorageS3(job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBackup) erro
 	err := appendStorageSecret(job, cr)
 	if err != nil {
 		return errors.Wrap(err, "failed to append storage secrets")
+	}
+
+	// add ca bundle (this is used by the aws-cli to verify the connection to S3)
+	if sel := s3.CABundle; sel != nil {
+		appendCABundleSecretVolume(
+			&job.Template.Spec.Volumes,
+			&job.Template.Spec.Containers[0].VolumeMounts,
+			sel,
+		)
 	}
 
 	return nil

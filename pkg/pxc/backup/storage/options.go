@@ -104,6 +104,25 @@ func getAzureOptionsFromBackup(ctx context.Context, cl client.Client, backup *ap
 	}, nil
 }
 
+func getS3CABundle(ctx context.Context, cl client.Client, s3 *api.BackupStorageS3Spec, namespace string) ([]byte, error) {
+	selector := s3.CABundle
+	if selector == nil {
+		return nil, nil
+	}
+	secret := &corev1.Secret{}
+	if err := cl.Get(ctx, types.NamespacedName{
+		Name:      selector.Name,
+		Namespace: namespace,
+	}, secret); err != nil {
+		return nil, errors.Wrap(err, "failed to get ca bundle secret")
+	}
+	caBundle := secret.Data[selector.Key]
+	if len(caBundle) == 0 {
+		return nil, nil
+	}
+	return caBundle, nil
+}
+
 func getS3Options(
 	ctx context.Context,
 	cl client.Client,
@@ -138,6 +157,14 @@ func getS3Options(
 		verify = false
 	}
 
+	var caBundle []byte
+	if s3.CABundle != nil {
+		caBundle, err = getS3CABundle(ctx, cl, s3, cluster.GetNamespace())
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to get ca bundle")
+		}
+	}
+
 	return &S3Options{
 		Endpoint:        s3.EndpointURL,
 		AccessKeyID:     accessKeyID,
@@ -146,6 +173,7 @@ func getS3Options(
 		Prefix:          prefix,
 		Region:          region,
 		VerifyTLS:       verify,
+		CABundle:        caBundle,
 	}, nil
 }
 
@@ -186,6 +214,14 @@ func getS3OptionsFromBackup(ctx context.Context, cl client.Client, cluster *api.
 		}
 	}
 
+	var caBundle []byte
+	if s3 := backup.Status.S3; s3.CABundle != nil {
+		caBundle, err = getS3CABundle(ctx, cl, s3, backup.GetNamespace())
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to get ca bundle")
+		}
+	}
+
 	return &S3Options{
 		Endpoint:        backup.Status.S3.EndpointURL,
 		AccessKeyID:     accessKeyID,
@@ -194,6 +230,7 @@ func getS3OptionsFromBackup(ctx context.Context, cl client.Client, cluster *api.
 		Prefix:          prefix,
 		Region:          region,
 		VerifyTLS:       verifyTLS,
+		CABundle:        caBundle,
 	}, nil
 }
 
@@ -207,6 +244,7 @@ type S3Options struct {
 	Prefix          string
 	Region          string
 	VerifyTLS       bool
+	CABundle        []byte
 }
 
 func (o *S3Options) Type() api.BackupStorageType {

@@ -120,6 +120,19 @@ spec:
                     properties:
                       bucket:
                         type: string
+                      caBundle:
+                        properties:
+                          key:
+                            type: string
+                          name:
+                            default: ""
+                            type: string
+                          optional:
+                            type: boolean
+                        required:
+                        - key
+                        type: object
+                        x-kubernetes-map-type: atomic
                       credentialsSecret:
                         type: string
                       endpointUrl:
@@ -318,6 +331,19 @@ spec:
                         properties:
                           bucket:
                             type: string
+                          caBundle:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                default: ""
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                            x-kubernetes-map-type: atomic
                           credentialsSecret:
                             type: string
                           endpointUrl:

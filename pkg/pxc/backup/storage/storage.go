@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"io"
 	"net/http"
@@ -41,7 +42,7 @@ func NewClient(ctx context.Context, opts Options) (Storage, error) {
 		if !ok {
 			return nil, errors.New("invalid options type")
 		}
-		return NewS3(ctx, opts.Endpoint, opts.AccessKeyID, opts.SecretAccessKey, opts.BucketName, opts.Prefix, opts.Region, opts.VerifyTLS)
+		return NewS3(ctx, opts.Endpoint, opts.AccessKeyID, opts.SecretAccessKey, opts.BucketName, opts.Prefix, opts.Region, opts.VerifyTLS, opts.CABundle)
 	case api.BackupStorageAzure:
 		opts, ok := opts.(*AzureOptions)
 		if !ok {
@@ -60,7 +61,17 @@ type S3 struct {
 }
 
 // NewS3 return new Manager, useSSL using ssl for connection with storage
-func NewS3(ctx context.Context, endpoint, accessKeyID, secretAccessKey, bucketName, prefix, region string, verifyTLS bool) (Storage, error) {
+func NewS3(
+	ctx context.Context,
+	endpoint,
+	accessKeyID,
+	secretAccessKey,
+	bucketName,
+	prefix,
+	region string,
+	verifyTLS bool,
+	caBundle []byte,
+) (Storage, error) {
 	if endpoint == "" {
 		endpoint = "https://s3.amazonaws.com"
 		// We can't use default endpoint if region is not us-east-1
@@ -74,6 +85,17 @@ func NewS3(ctx context.Context, endpoint, accessKeyID, secretAccessKey, bucketNa
 	transport := http.DefaultTransport
 	transport.(*http.Transport).TLSClientConfig = &tls.Config{
 		InsecureSkipVerify: !verifyTLS,
+	}
+	// if caBundle is provided, we use it for the TLS client config
+	if len(caBundle) > 0 {
+		roots, err := x509.SystemCertPool()
+		if err != nil {
+			return nil, errors.Wrap(err, "get system cert pool")
+		}
+		if ok := roots.AppendCertsFromPEM(caBundle); !ok {
+			return nil, errors.New("failed to append certs from PEM")
+		}
+		transport.(*http.Transport).TLSClientConfig.RootCAs = roots
 	}
 	minioClient, err := minio.New(strings.TrimRight(endpoint, "/"), &minio.Options{
 		Creds:     credentials.NewStaticV4(accessKeyID, secretAccessKey, ""),

@@ -70,8 +70,13 @@ check_latest_restorable_time() {
 main() {
 	create_infra $namespace
 
+	deploy_cert_manager
+	kubectl_bin apply -f "$test_dir/conf/issuer.yml"
+	sed "s/#namespace/$namespace/g" $test_dir/conf/cert.yml |
+	 kubectl_bin apply -f "-"
+	sleep 30 # wait for the certificates to be issued
+	
 	minio_cert_secret="minio-tls-certs"
-	kubectl_bin apply -f "$test_dir/conf/minio-tls.yaml"
 	start_minio "$minio_cert_secret"
 	cluster="test-cluster"
 	

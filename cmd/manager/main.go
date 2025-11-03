@@ -11,7 +11,6 @@ import (
 	_ "github.com/Percona-Lab/percona-version-service/api"
 	certmgrscheme "github.com/cert-manager/cert-manager/pkg/client/clientset/versioned/scheme"
 	"github.com/go-logr/logr"
-	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	uzap "go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	eventsv1 "k8s.io/api/events/v1"
@@ -28,6 +27,7 @@ import (
 	ctrlWebhook "sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/apis"
+	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/controller"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/version"

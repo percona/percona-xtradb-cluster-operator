@@ -1368,7 +1368,7 @@ func (in *TLSSpec) DeepCopyInto(out *TLSSpec) {
 	}
 	if in.IssuerConf != nil {
 		in, out := &in.IssuerConf, &out.IssuerConf
-		*out = new(apismetav1.IssuerReference)
+		*out = new(apismetav1.ObjectReference)
 		**out = **in
 	}
 }

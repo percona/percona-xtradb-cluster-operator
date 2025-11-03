@@ -101,14 +101,30 @@ func main() {
 		}),
 	}
 
+	groupKinds := []string{
+		"PerconaXtraDBCluster." + pxcv1.SchemeGroupVersion.Group,
+		"PerconaXtraDBClusterBackup." + pxcv1.SchemeGroupVersion.Group,
+		"PerconaXtraDBClusterRestore." + pxcv1.SchemeGroupVersion.Group,
+	}
+
+	defaultConcurrency := 1
+	options.Controller.GroupKindConcurrency = make(map[string]int, len(groupKinds))
+	for _, gk := range groupKinds {
+		options.Controller.GroupKindConcurrency[gk] = defaultConcurrency
+	}
+
 	if s := os.Getenv("MAX_CONCURRENT_RECONCILES"); s != "" {
-		if i, err := strconv.Atoi(s); err == nil && i > 0 {
-			options.Controller.GroupKindConcurrency["PerconaXtraDBCluster."+pxcv1.SchemeGroupVersion.Group] = i
-			options.Controller.GroupKindConcurrency["PerconaXtraDBClusterBackup."+pxcv1.SchemeGroupVersion.Group] = i
-			options.Controller.GroupKindConcurrency["PerconaXtraDBClusterRestore."+pxcv1.SchemeGroupVersion.Group] = i
-		} else {
-			setupLog.Error(err, "MAX_CONCURRENT_RECONCILES must be a positive number")
+		i, err := strconv.Atoi(s)
+		if err != nil {
+			setupLog.Error(err, "MAX_CONCURRENT_RECONCILES must be a valid integer", "value", s)
 			os.Exit(1)
+		}
+		if i <= 0 {
+			setupLog.Error(nil, "MAX_CONCURRENT_RECONCILES must be a positive number", "value", i)
+			os.Exit(1)
+		}
+		for _, gk := range groupKinds {
+			options.Controller.GroupKindConcurrency[gk] = i
 		}
 	}
 

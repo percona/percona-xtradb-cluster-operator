@@ -45,6 +45,8 @@ spec:
           value: percona-xtradb-cluster-operator
         - name: DISABLE_TELEMETRY
           value: "false"
+        - name: MAX_CONCURRENT_RECONCILES
+          value: "1"
         image: perconalab/percona-xtradb-cluster-operator:main
         imagePullPolicy: Always
         livenessProbe:

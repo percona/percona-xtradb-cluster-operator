@@ -11,6 +11,7 @@ import (
 	_ "github.com/Percona-Lab/percona-version-service/api"
 	certmgrscheme "github.com/cert-manager/cert-manager/pkg/client/clientset/versioned/scheme"
 	"github.com/go-logr/logr"
+	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	uzap "go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	eventsv1 "k8s.io/api/events/v1"
@@ -98,6 +99,17 @@ func main() {
 		WebhookServer: ctrlWebhook.NewServer(ctrlWebhook.Options{
 			Port: 9443,
 		}),
+	}
+
+	if s := os.Getenv("MAX_CONCURRENT_RECONCILES"); s != "" {
+		if i, err := strconv.Atoi(s); err == nil && i > 0 {
+			options.Controller.GroupKindConcurrency["PerconaXtraDBCluster."+pxcv1.SchemeGroupVersion.Group] = i
+			options.Controller.GroupKindConcurrency["PerconaXtraDBClusterBackup."+pxcv1.SchemeGroupVersion.Group] = i
+			options.Controller.GroupKindConcurrency["PerconaXtraDBClusterRestore."+pxcv1.SchemeGroupVersion.Group] = i
+		} else {
+			setupLog.Error(err, "MAX_CONCURRENT_RECONCILES must be a positive number")
+			os.Exit(1)
+		}
 	}
 
 	// Add support for MultiNamespace set in WATCH_NAMESPACE

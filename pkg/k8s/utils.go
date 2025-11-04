@@ -11,7 +11,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
-	"github.com/percona/percona-xtradb-cluster-operator/version"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/version"
 )
 
 const WatchNamespaceEnvVar = "WATCH_NAMESPACE"
@@ -50,7 +50,7 @@ func GetInitImage(ctx context.Context, cr *api.PerconaXtraDBCluster, cli client.
 	if err != nil {
 		return "", err
 	}
-	if cr.CompareVersionWith(version.Version) != 0 {
+	if cr.CompareVersionWith(version.Version()) != 0 {
 		imageName = strings.Split(imageName, ":")[0] + ":" + cr.Spec.CRVersion
 	}
 	return imageName, nil

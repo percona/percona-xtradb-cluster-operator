@@ -4,6 +4,7 @@ package v1
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"strings"
 
@@ -23,7 +24,7 @@ import (
 
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/util"
-	"github.com/percona/percona-xtradb-cluster-operator/version"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/version"
 )
 
 // PerconaXtraDBClusterSpec defines the desired state of PerconaXtraDBCluster
@@ -94,19 +95,37 @@ type PXCSpec struct {
 	*PodSpec            `json:",inline"`
 }
 
+// ServiceExpose defines the configuration options for exposing a k8s Service.
+// +kubebuilder:validation:XValidation:rule="!(has(self.loadBalancerClass)) || self.type == 'LoadBalancer'",message="'loadBalancerClass' can only be set when service type is 'LoadBalancer'"
 type ServiceExpose struct {
 	// Deprecated: for ExposePrimary you don't need to specify this flag.
-	Enabled                  bool                                    `json:"enabled,omitempty"`
-	Type                     corev1.ServiceType                      `json:"type,omitempty"`
-	LoadBalancerSourceRanges []string                                `json:"loadBalancerSourceRanges,omitempty"`
-	LoadBalancerIP           string                                  `json:"loadBalancerIP,omitempty"`
-	Annotations              map[string]string                       `json:"annotations,omitempty"`
-	Labels                   map[string]string                       `json:"labels,omitempty"`
-	ExternalTrafficPolicy    corev1.ServiceExternalTrafficPolicyType `json:"externalTrafficPolicy,omitempty"`
-	InternalTrafficPolicy    corev1.ServiceInternalTrafficPolicy     `json:"internalTrafficPolicy,omitempty"`
+	Enabled bool               `json:"enabled,omitempty"`
+	Type    corev1.ServiceType `json:"type,omitempty"`
+	// LoadBalancerClass enables to use a load balancer implementation other than the cloud provider default.
+	// This field can only be set when the Service type is 'LoadBalancer', and only when creating or updating
+	// a Service to type 'LoadBalancer'. Once set, it can not be changed.
+	LoadBalancerClass        *string  `json:"loadBalancerClass,omitempty"`
+	LoadBalancerSourceRanges []string `json:"loadBalancerSourceRanges,omitempty"`
+	// Deprecated: in Kubernetes v1.24+ and should be removed in 1.21.0 operator version
+	LoadBalancerIP        string                                  `json:"loadBalancerIP,omitempty"`
+	Annotations           map[string]string                       `json:"annotations,omitempty"`
+	Labels                map[string]string                       `json:"labels,omitempty"`
+	ExternalTrafficPolicy corev1.ServiceExternalTrafficPolicyType `json:"externalTrafficPolicy,omitempty"`
+	InternalTrafficPolicy corev1.ServiceInternalTrafficPolicy     `json:"internalTrafficPolicy,omitempty"`
 
 	// Deprecated: Use ExternalTrafficPolicy instead
 	TrafficPolicy corev1.ServiceExternalTrafficPolicyType `json:"trafficPolicy,omitempty"`
+}
+
+// GetLoadBalancerClass returns the configured LoadBalancer class.
+func (s *ServiceExpose) GetLoadBalancerClass() (*string, error) {
+	if s.Type != corev1.ServiceTypeLoadBalancer {
+		return nil, fmt.Errorf("expose type %s is not LoadBalancer", s.Type)
+	}
+	if s.LoadBalancerClass != nil && *s.LoadBalancerClass == "" {
+		return nil, errors.New("load balancer class not provided or is empty")
+	}
+	return s.LoadBalancerClass, nil
 }
 
 type ReplicationChannel struct {
@@ -196,15 +215,56 @@ type PXCScheduledBackupSchedule struct {
 	Name string `json:"name,omitempty"`
 	// +kubebuilder:validation:Required
 	Schedule string `json:"schedule,omitempty"`
-	Keep     int    `json:"keep,omitempty"`
+	// Deprecated: Use Retention instead. This field will be removed after version 1.21.
+	Keep int `json:"keep,omitempty"`
+	// +optional
+	Retention *PXCScheduledBackupRetention `json:"retention,omitempty"`
 	// +kubebuilder:validation:Required
 	StorageName string `json:"storageName,omitempty"`
+}
+
+type PXCScheduledBackupRetentionType string
+
+const (
+	pxcScheduledBackupRetentionCount PXCScheduledBackupRetentionType = "count"
+)
+
+// PXCScheduledBackupRetention defines how backups are retained.
+type PXCScheduledBackupRetention struct {
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Enum=count
+	Type PXCScheduledBackupRetentionType `json:"type,omitempty"`
+
+	// +kubebuilder:validation:Minimum=0
+	Count int `json:"count,omitempty"`
+
+	// When set to true (the default), backups will be deleted from storage.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:default=true
+	DeleteFromStorage bool `json:"deleteFromStorage"`
+}
+
+// GetRetention resolves the retention configuration of the PXCScheduledBackupSchedule spec.
+func (s PXCScheduledBackupSchedule) GetRetention() PXCScheduledBackupRetention {
+	if s.Retention != nil {
+		return *s.Retention
+	}
+	return PXCScheduledBackupRetention{
+		Type:  pxcScheduledBackupRetentionCount,
+		Count: s.Keep,
+		// with the legacy configuration, we always deleted old backups through the finalizers
+		DeleteFromStorage: true,
+	}
+}
+
+// IsValidCountRetention checks if the retention is of type count and the count has a non-zero value.
+func (s PXCScheduledBackupRetention) IsValidCountRetention() bool {
+	return s.Type == pxcScheduledBackupRetentionCount && s.Count > 0
 }
 
 type AppState string
 
 const (
-	AppStateUnknown  AppState = "unknown"
 	AppStateInit     AppState = "initializing"
 	AppStatePaused   AppState = "paused"
 	AppStateStopping AppState = "stopping"
@@ -243,9 +303,7 @@ type ReplicationChannelStatus struct {
 type ConditionStatus string
 
 const (
-	ConditionTrue    ConditionStatus = "True"
-	ConditionFalse   ConditionStatus = "False"
-	ConditionUnknown ConditionStatus = "Unknown"
+	ConditionTrue ConditionStatus = "True"
 )
 
 type ClusterCondition struct {
@@ -471,8 +529,7 @@ type PodSpec struct {
 	SSLInternalSecretName         string                        `json:"sslInternalSecretName,omitempty"`
 	EnvVarsSecretName             string                        `json:"envVarsSecret,omitempty"`
 	TerminationGracePeriodSeconds *int64                        `json:"gracePeriod,omitempty"`
-	ForceUnsafeBootstrap          bool                          `json:"forceUnsafeBootstrap,omitempty"`
-	MySQLAllocator                string                        `json:"mysqlAllocator,omitempty"`
+	MySQLAllocator                string                        `json:"mysqlAllocator,omitempty"`  
 
 	// Deprecated: Use ServiceExpose.Type instead
 	ServiceType corev1.ServiceType `json:"serviceType,omitempty"`
@@ -484,8 +541,6 @@ type PodSpec struct {
 	ReplicasExternalTrafficPolicy corev1.ServiceExternalTrafficPolicyType `json:"replicasExternalTrafficPolicy,omitempty"`
 	// Deprecated: Use ServiceExpose.LoadBalancerSourceRanges instead
 	LoadBalancerSourceRanges []string `json:"loadBalancerSourceRanges,omitempty"`
-	// Deprecated: Use ServiceExpose.LoadBalancerIP instead
-	LoadBalancerIP string `json:"loadBalancerIP,omitempty"`
 	// Deprecated: Use ServiceExpose.Annotations instead
 	ServiceAnnotations map[string]string `json:"serviceAnnotations,omitempty"`
 	// Deprecated: Use ServiceExpose.Labels instead
@@ -556,8 +611,6 @@ type HAProxySpec struct {
 	ReplicasServiceEnabled *bool `json:"replicasServiceEnabled,omitempty"`
 	// Deprecated: Use ExposeReplicas.LoadBalancerSourceRanges instead
 	ReplicasLoadBalancerSourceRanges []string `json:"replicasLoadBalancerSourceRanges,omitempty"`
-	// Deprecated: Use ExposeReplica.LoadBalancerIP instead
-	ReplicasLoadBalancerIP string `json:"replicasLoadBalancerIP,omitempty"`
 }
 
 type ReplicasServiceExpose struct {
@@ -587,10 +640,12 @@ type LogCollectorSpec struct {
 }
 
 type PMMSpec struct {
-	Enabled                  bool                        `json:"enabled,omitempty"`
-	ServerHost               string                      `json:"serverHost,omitempty"`
-	Image                    string                      `json:"image,omitempty"`
+	Enabled    bool   `json:"enabled,omitempty"`
+	ServerHost string `json:"serverHost,omitempty"`
+	Image      string `json:"image,omitempty"`
+	// Deprecated, ServerUser is used for PMM2. PMM2 is reaching its EOL.
 	ServerUser               string                      `json:"serverUser,omitempty"`
+	CustomClusterName        string                      `json:"customClusterName,omitempty"`
 	PxcParams                string                      `json:"pxcParams,omitempty"`
 	ProxysqlParams           string                      `json:"proxysqlParams,omitempty"`
 	Resources                corev1.ResourceRequirements `json:"resources,omitempty"`
@@ -605,6 +660,7 @@ func (spec *PMMSpec) IsEnabled(secret *corev1.Secret) bool {
 	return spec.Enabled && spec.HasSecret(secret)
 }
 
+// HasSecret is used for supporting PMM2.
 func (spec *PMMSpec) HasSecret(secret *corev1.Secret) bool {
 	for _, key := range []string{users.PMMServer, users.PMMServerKey} {
 		if _, ok := secret.Data[key]; ok {
@@ -614,6 +670,7 @@ func (spec *PMMSpec) HasSecret(secret *corev1.Secret) bool {
 	return false
 }
 
+// UseAPI is used for supporting PMM2.
 func (spec *PMMSpec) UseAPI(secret *corev1.Secret) bool {
 	if _, ok := secret.Data[users.PMMServerKey]; !ok {
 		if _, ok := secret.Data[users.PMMServer]; ok {
@@ -787,8 +844,6 @@ func ContainsVolume(vs []corev1.Volume, name string) bool {
 	return false
 }
 
-const WorkloadSA = "default"
-
 // +kubebuilder:object:generate=false
 type CustomVolumeGetter func(nsName, cvName, cmName string, useDefaultVolume bool) (corev1.Volume, error)
 
@@ -863,7 +918,7 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 	}
 	workloadSA := "percona-xtradb-cluster-operator-workload"
 	if cr.CompareVersionWith("1.6.0") >= 0 {
-		workloadSA = WorkloadSA
+		workloadSA = "default"
 	}
 
 	c := &cr.Spec
@@ -1339,6 +1394,12 @@ func (cr *PerconaXtraDBCluster) Version() *v.Version {
 // Returns -1, 0, or 1 if given version is smaller, equal, or larger than the current version, respectively.
 func (cr *PerconaXtraDBCluster) CompareVersionWith(ver string) int {
 	return cr.Version().Compare(v.Must(v.NewVersion(ver)))
+}
+
+// CompareMySQLVersion compares given version to current MySQL version.
+// Returns -1, 0, or 1 if given version is smaller, equal, or larger than the current version, respectively.
+func (cr *PerconaXtraDBCluster) CompareMySQLVersion(ver string) int {
+	return v.Must(v.NewVersion(cr.Status.PXC.Version)).Compare(v.Must(v.NewVersion(ver)))
 }
 
 // ConfigHasKey check if cr.Spec.PXC.Configuration has given key in given section

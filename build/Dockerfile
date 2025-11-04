@@ -1,4 +1,4 @@
-FROM --platform=${BUILDPLATFORM} golang:1.23 AS go_builder
+FROM --platform=${BUILDPLATFORM} golang:1.25 AS go_builder
 WORKDIR /go/src/github.com/percona/percona-xtradb-cluster-operator
 
 COPY go.mod go.sum ./
@@ -59,13 +59,13 @@ COPY build/pxc-entrypoint.sh /pxc-entrypoint.sh
 COPY build/pxc-init-entrypoint.sh /pxc-init-entrypoint.sh
 COPY build/pitr-init-entrypoint.sh /pitr-init-entrypoint.sh
 COPY build/backup-init-entrypoint.sh /backup-init-entrypoint.sh
-COPY build/unsafe-bootstrap.sh /unsafe-bootstrap.sh
 COPY build/pxc-configure-pxc.sh /pxc-configure-pxc.sh
 COPY build/liveness-check.sh /liveness-check.sh
 COPY build/readiness-check.sh /readiness-check.sh
 COPY build/pmm-prerun.sh /pmm-prerun.sh
 COPY build/get-pxc-state /get-pxc-state
 COPY build/wsrep_cmd_notify_handler.sh /wsrep_cmd_notify_handler.sh
+COPY build/prepare_restored_cluster.sh /prepare_restored_cluster.sh
 
 COPY build/haproxy-entrypoint.sh /haproxy-entrypoint.sh
 COPY build/haproxy-init-entrypoint.sh /haproxy-init-entrypoint.sh
@@ -83,5 +83,7 @@ COPY build/proxysql-admin.cnf /proxysql-admin.cnf
 COPY build/proxysql_add_cluster_nodes.sh /proxysql_add_cluster_nodes.sh
 COPY build/proxysql_add_proxysql_nodes.sh /proxysql_add_proxysql_nodes.sh
 COPY build/proxysql_add_pxc_nodes.sh /proxysql_add_pxc_nodes.sh
+
+COPY build/backup /backup
 
 USER 2

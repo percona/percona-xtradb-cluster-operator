@@ -8,8 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"k8s.io/klog/v2"
-
+	_ "github.com/Percona-Lab/percona-version-service/api"
 	certmgrscheme "github.com/cert-manager/cert-manager/pkg/client/clientset/versioned/scheme"
 	"github.com/go-logr/logr"
 	uzap "go.uber.org/zap"
@@ -18,6 +17,7 @@ import (
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -26,12 +26,11 @@ import (
 	metricsServer "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	ctrlWebhook "sigs.k8s.io/controller-runtime/pkg/webhook"
 
-	_ "github.com/Percona-Lab/percona-version-service/api"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/apis"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/controller"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/version"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/webhook"
-	"github.com/percona/percona-xtradb-cluster-operator/version"
 )
 
 var (

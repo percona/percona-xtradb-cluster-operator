@@ -41,6 +41,12 @@ func PitrInitContainer(cluster *api.PerconaXtraDBCluster, initImageName string) 
 			securityContext = cluster.Spec.InitContainer.ContainerSecurityContext
 		}
 	}
+
+	resources := corev1.ResourceRequirements{}
+	if cluster.Spec.InitContainer.Resources != nil {
+		resources = *cluster.Spec.InitContainer.Resources
+	}
+
 	return corev1.Container{
 		VolumeMounts: []corev1.VolumeMount{
 			{
@@ -53,7 +59,7 @@ func PitrInitContainer(cluster *api.PerconaXtraDBCluster, initImageName string) 
 		Name:            "pitr-init",
 		Command:         []string{"/pitr-init-entrypoint.sh"},
 		SecurityContext: securityContext,
-		Resources:       *cluster.Spec.InitContainer.Resources,
+		Resources:       resources,
 	}
 }
 

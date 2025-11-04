@@ -18,7 +18,7 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage"
 	fakestorage "github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage/fake"
-	"github.com/percona/percona-xtradb-cluster-operator/version"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/version"
 )
 
 func TestValidate(t *testing.T) {
@@ -322,7 +322,7 @@ func TestOperatorRestart(t *testing.T) {
 	const s3SecretName = "my-cluster-name-backup-s3"
 	const azureSecretName = "my-cluster-name-backup-azure"
 
-	states := []api.BcpRestoreStates{
+	states := []api.RestoreState{
 		api.RestoreNew,
 		api.RestoreStopCluster,
 		api.RestoreRestore,

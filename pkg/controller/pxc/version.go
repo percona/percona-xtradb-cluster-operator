@@ -23,7 +23,7 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/queries"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
-	"github.com/percona/percona-xtradb-cluster-operator/version"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/version"
 )
 
 type Schedule struct {
@@ -228,15 +228,13 @@ func (r *ReconcilePerconaXtraDBCluster) scheduleEnsurePXCVersion(ctx context.Con
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) getNewVersions(ctx context.Context, cr *apiv1.PerconaXtraDBCluster, vs VersionService) (DepVersion, error) {
-	log := logf.FromContext(ctx)
-
+func (r *ReconcilePerconaXtraDBCluster) getVersionMeta(cr *apiv1.PerconaXtraDBCluster) (versionMeta, error) {
 	watchNs, err := k8s.GetWatchNamespace()
 	if err != nil {
-		return DepVersion{}, errors.Wrap(err, "get WATCH_NAMESPACE env variable")
+		return versionMeta{}, errors.Wrap(err, "get WATCH_NAMESPACE env variable")
 	}
 
-	vm := versionMeta{
+	return versionMeta{
 		Apply:                 cr.Spec.UpgradeOptions.Apply,
 		Platform:              string(cr.Spec.Platform),
 		KubeVersion:           r.serverVersion.Info.GitVersion,
@@ -247,22 +245,40 @@ func (r *ReconcilePerconaXtraDBCluster) getNewVersions(ctx context.Context, cr *
 		BackupVersion:         cr.Status.Backup.Version,
 		LogCollectorVersion:   cr.Status.LogCollector.Version,
 		CRUID:                 string(cr.GetUID()),
-		ClusterWideEnabled:    watchNs == "",
+		ClusterWideEnabled:    len(watchNs) == 0 || len(strings.Split(watchNs, ",")) > 1,
 		UserManagementEnabled: len(cr.Spec.Users) > 0,
+	}, nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) getNewVersions(ctx context.Context, cr *apiv1.PerconaXtraDBCluster, vs VersionService) (DepVersion, error) {
+	log := logf.FromContext(ctx)
+
+	vm, err := r.getVersionMeta(cr)
+	if err != nil {
+		return DepVersion{}, errors.Wrap(err, "build version metadata")
 	}
 
 	endpoint := apiv1.GetDefaultVersionServiceEndpoint()
 	log.V(1).Info("Use version service endpoint", "endpoint", endpoint)
 
+	isPMM3, err := r.isPMM3Configured(ctx, cr)
+	if err != nil {
+		return DepVersion{}, errors.Wrap(err, "get PMM3 config")
+	}
+
+	verOpts := versionOptions{
+		PMM3Enabled: isPMM3,
+	}
+
 	if telemetryEnabled() && (!versionUpgradeEnabled(cr) || cr.Spec.UpgradeOptions.VersionServiceEndpoint != apiv1.GetDefaultVersionServiceEndpoint()) {
-		_, err := vs.GetExactVersion(cr, endpoint, vm)
+		_, err := vs.GetExactVersion(cr, endpoint, vm, verOpts)
 		if err != nil {
 			log.Error(err, "failed to send telemetry to "+apiv1.GetDefaultVersionServiceEndpoint())
 		}
 		return DepVersion{}, nil
 	}
 
-	newVersion, err := vs.GetExactVersion(cr, cr.Spec.UpgradeOptions.VersionServiceEndpoint, vm)
+	newVersion, err := vs.GetExactVersion(cr, cr.Spec.UpgradeOptions.VersionServiceEndpoint, vm, verOpts)
 	if err != nil {
 		return DepVersion{}, errors.Wrap(err, "failed to check version")
 	}
@@ -374,6 +390,24 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(ctx context.Context, cr
 	time.Sleep(1 * time.Second)
 
 	return nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) isPMM3Configured(ctx context.Context, cr *apiv1.PerconaXtraDBCluster) (bool, error) {
+	secret := new(corev1.Secret)
+	err := r.client.Get(ctx, types.NamespacedName{
+		Name: "internal-" + cr.Name, Namespace: cr.Namespace,
+	}, secret)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return false, nil
+		}
+		return false, errors.Wrap(err, "get internal secret for determining if pmm3 is configured")
+	}
+
+	if v, exists := secret.Data[users.PMMServerToken]; exists && len(v) != 0 {
+		return true, nil
+	}
+	return false, nil
 }
 
 func (r *ReconcilePerconaXtraDBCluster) mysqlVersion(ctx context.Context, cr *apiv1.PerconaXtraDBCluster, sfs apiv1.StatefulApp) (string, error) {
@@ -502,7 +536,7 @@ func (r *ReconcilePerconaXtraDBCluster) setCRVersion(ctx context.Context, cr *ap
 	}
 
 	orig := cr.DeepCopy()
-	cr.Spec.CRVersion = version.Version
+	cr.Spec.CRVersion = version.Version()
 
 	if err := r.client.Patch(ctx, cr, client.MergeFrom(orig)); err != nil {
 		return errors.Wrap(err, "patch CR")

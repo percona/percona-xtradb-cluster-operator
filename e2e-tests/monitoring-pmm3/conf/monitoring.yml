@@ -1,0 +1,58 @@
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBCluster
+metadata:
+  name: monitoring
+spec:
+  secretsName: my-cluster-secrets
+  sslSecretName: some-name-ssl
+  pxc:
+    size: 3
+    image: -pxc
+    resources:
+      requests:
+        memory: 500M
+        cpu: 300m
+    volumeSpec:
+      persistentVolumeClaim:
+        resources:
+          requests:
+            storage: 2Gi
+    affinity:
+      antiAffinityTopologyKey: none
+    envVarsSecret: my-env-var-secrets
+  haproxy:
+    enabled: true
+    size: 2
+    image: -haproxy
+    resources:
+      requests:
+        memory: 500M
+        cpu: 300m
+    affinity:
+      antiAffinityTopologyKey: none
+    envVarsSecret: my-env-var-secrets
+  pmm:
+    enabled: true
+    image: perconalab/pmm-client:3.1.0
+    serverHost: monitoring-service
+    customClusterName: "foo-custom-cluster-name"
+    pxcParams: "--disable-tablestats-limit=2000"
+    resources:
+      limits:
+        cpu: 1000m
+        memory: 1000M
+      requests:
+        cpu: 308m
+        memory: 508M
+    readinessProbes:
+      initialDelaySeconds: 15
+      timeoutSeconds: 15
+      periodSeconds: 30
+      successThreshold: 1
+      failureThreshold: 5
+    livenessProbes:
+      initialDelaySeconds: 300
+      timeoutSeconds: 5
+      periodSeconds: 10
+      successThreshold: 1
+      failureThreshold: 3

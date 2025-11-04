@@ -31,7 +31,10 @@ func NewPXC(addr string, user, pass string) (*PXC, error) {
 	config.Passwd = pass
 	config.Net = "tcp"
 	config.Addr = addr + ":33062"
-	config.Params = map[string]string{"interpolateParams": "true"}
+	config.Params = map[string]string{
+		"interpolateParams": "true",
+		"tls":               "preferred",
+	}
 	config.DBName = "mysql"
 
 	mysqlDB, err := sql.Open("mysql", config.FormatDSN())
@@ -203,7 +206,7 @@ func (p *PXC) SubtractGTIDSet(ctx context.Context, set, subSet string) (string, 
 }
 
 func getNodesByServiceName(ctx context.Context, pxcServiceName string) ([]string, error) {
-	cmd := exec.CommandContext(ctx, "/opt/percona/peer-list", "-on-start=/usr/bin/get-pxc-state", "-service="+pxcServiceName)
+	cmd := exec.CommandContext(ctx, "/opt/percona/peer-list", "-on-start=/opt/percona/get-pxc-state.sh", "-service="+pxcServiceName)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return nil, errors.Wrap(err, "get peer-list output")

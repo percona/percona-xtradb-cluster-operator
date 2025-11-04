@@ -29,6 +29,7 @@ spec:
       command: ["/bin/sh"]
       args: ["-c", "while true; do trap 'exit 0' SIGINT SIGTERM SIGQUIT SIGKILL; done;"]
       name: my-sidecar-1
+    envVarsSecret: my-env-var-secrets
   proxysql:
     enabled: false
   pmm:

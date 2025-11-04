@@ -109,5 +109,8 @@ spec:
     schedule:
       - name: each-hour-pvc
         schedule: "0 */1 * * *"
-        keep: 30
+        retention:
+          type: "count"
+          count: 30
+          deleteFromStorage: true
         storageName: pvc

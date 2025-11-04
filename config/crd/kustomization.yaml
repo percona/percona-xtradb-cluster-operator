@@ -7,6 +7,11 @@ resources:
 - bases/pxc.percona.com_perconaxtradbclusterrestores.yaml
 #+kubebuilder:scaffold:crdkustomizeresource
 
+patchesStrategicMerge:
+  - patches/versionlabel_in_pxc.yaml
+  - patches/versionlabel_in_pxcbackup.yaml
+  - patches/versionlabel_in_pxcrestore.yaml
+
 patches:
   - path: patches/deprecated-1.2.json
     target:

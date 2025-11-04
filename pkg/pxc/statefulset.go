@@ -16,9 +16,16 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 )
 
-// StatefulSet returns StatefulSet according for app to podSpec
-func StatefulSet(ctx context.Context, cl client.Client, sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, secret *corev1.Secret,
-	initImageName string, vg api.CustomVolumeGetter,
+// StatefulSet returns StatefulSet according to app to podSpec provided.
+func StatefulSet(
+	ctx context.Context,
+	cl client.Client,
+	sfs api.StatefulApp,
+	podSpec *api.PodSpec,
+	cr *api.PerconaXtraDBCluster,
+	secret *corev1.Secret,
+	initImageName string,
+	vg api.CustomVolumeGetter,
 ) (*appsv1.StatefulSet, error) {
 	log := logf.FromContext(ctx)
 
@@ -57,19 +64,12 @@ func StatefulSet(ctx context.Context, cl client.Client, sfs api.StatefulApp, pod
 		return nil, errors.Wrap(err, "app container")
 	}
 
-	if cr.Spec.PMM != nil && cr.Spec.PMM.Enabled {
-		if !cr.Spec.PMM.HasSecret(secret) {
-			log.Info(`Can't enable PMM: either "pmmserverkey" key doesn't exist in the secrets, or secrets and internal secrets are out of sync`,
-				"secrets", cr.Spec.SecretsName, "internalSecrets", "internal-"+cr.Name)
-		} else {
-			pmmC, err := sfs.PMMContainer(ctx, cl, cr.Spec.PMM, secret, cr)
-			if err != nil {
-				return nil, errors.Wrap(err, "pmm container error")
-			}
-			if pmmC != nil {
-				pod.Containers = append(pod.Containers, *pmmC)
-			}
-		}
+	pmmC, err := sfs.PMMContainer(ctx, cl, cr.Spec.PMM, secret, cr)
+	if err != nil {
+		log.Info(`"pmm container error"`, "secrets", cr.Spec.SecretsName, "internalSecrets", "internal-"+cr.Name, "error", err)
+	}
+	if pmmC != nil {
+		pod.Containers = append(pod.Containers, *pmmC)
 	}
 
 	if cr.Spec.LogCollector != nil && cr.Spec.LogCollector.Enabled && cr.CompareVersionWith("1.7.0") >= 0 {
@@ -85,16 +85,6 @@ func StatefulSet(ctx context.Context, cl client.Client, sfs api.StatefulApp, pod
 	initContainers := sfs.InitContainers(cr, initImageName)
 	if len(initContainers) > 0 {
 		pod.InitContainers = append(pod.InitContainers, initContainers...)
-	}
-
-	if podSpec.ForceUnsafeBootstrap && cr.CompareVersionWith("1.10.0") < 0 {
-		ic := appC.DeepCopy()
-		ic.Name = ic.Name + "-init-unsafe"
-		ic.Resources = podSpec.Resources
-		ic.ReadinessProbe = nil
-		ic.LivenessProbe = nil
-		ic.Command = []string{"/var/lib/mysql/unsafe-bootstrap.sh"}
-		pod.InitContainers = append(pod.InitContainers, *ic)
 	}
 
 	sideC, err := sfs.SidecarContainers(podSpec, secrets, cr)

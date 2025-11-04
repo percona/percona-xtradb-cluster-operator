@@ -19,8 +19,7 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/clientcmd"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/apis"
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
-	"github.com/percona/percona-xtradb-cluster-operator/version"
-	//+kubebuilder:scaffold:imports
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/version"
 )
 
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
@@ -40,6 +39,9 @@ func TestAPIs(t *testing.T) {
 
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
+
+	errEnv := os.Setenv("WATCH_NAMESPACE", "default")
+	Expect(errEnv).NotTo(HaveOccurred())
 
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
@@ -65,6 +67,9 @@ var _ = BeforeSuite(func() {
 
 var _ = AfterSuite(func() {
 	By("tearing down the test environment")
+	errEnv := os.Unsetenv("WATCH_NAMESPACE")
+	Expect(errEnv).NotTo(HaveOccurred())
+
 	err := testEnv.Stop()
 	Expect(err).NotTo(HaveOccurred())
 })

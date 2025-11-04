@@ -20,12 +20,6 @@ main() {
 	desc 'check if certificate issued manually'
 	tlsSecretsShouldExist "$cluster-ssl"
 
-	local ownerName=$(kubectl_bin get secrets/$cluster-ssl -o json | jq '.metadata.ownerReferences[0].name')
-	if [ $ownerName != '"'$cluster'"' ]; then
-		desc 'invalid owner of secret'
-		exit 1
-	fi
-
 	# generation = 2 on this step
 	desc 'check disabling tls'
 	kubectl_bin patch pxc "$cluster" --type=merge --patch '{"spec": {"tls":{"enabled": false}, "unsafeFlags": {"tls": true}}}' # generation + 1 (total 3)

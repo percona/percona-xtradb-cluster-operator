@@ -174,7 +174,10 @@ func (r *ReconcilePerconaXtraDBCluster) reconcilePersistentVolumes(ctx context.C
 			for _, event := range events.Items {
 				eventTime := event.EventTime.Time
 				if event.EventTime.IsZero() {
-					eventTime = event.DeprecatedFirstTimestamp.Time
+					eventTime = event.DeprecatedLastTimestamp.Time
+					if eventTime.IsZero() {
+						eventTime = event.DeprecatedFirstTimestamp.Time
+					}
 				}
 
 				if eventTime.Before(resizeStartedAt) {
@@ -231,6 +234,9 @@ func (r *ReconcilePerconaXtraDBCluster) reconcilePersistentVolumes(ctx context.C
 	}
 
 	if requested.Cmp(actual) < 0 {
+		if err := r.revertVolumeTemplate(ctx, cr, configured); err != nil {
+			return errors.Wrapf(err, "revert volume template in pxc/%s", cr.Name)
+		}
 		return errors.Errorf("requested storage (%s) is less than actual storage (%s)", requested.String(), actual.String())
 	}
 
@@ -244,7 +250,9 @@ func (r *ReconcilePerconaXtraDBCluster) reconcilePersistentVolumes(ctx context.C
 		return nil
 	}
 
-	err = k8s.AnnotateObject(ctx, r.client, cr, map[string]string{pxcv1.AnnotationPVCResizeInProgress: metav1.Now().Format(time.RFC3339)})
+	now := metav1.Now().Format(time.RFC3339)
+
+	err = k8s.AnnotateObject(ctx, r.client, cr, map[string]string{pxcv1.AnnotationPVCResizeInProgress: now})
 	if err != nil {
 		return errors.Wrap(err, "annotate pxc")
 	}

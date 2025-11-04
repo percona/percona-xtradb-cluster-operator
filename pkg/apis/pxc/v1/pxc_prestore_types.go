@@ -19,14 +19,14 @@ type PerconaXtraDBClusterRestoreSpec struct {
 
 // PerconaXtraDBClusterRestoreStatus defines the observed state of PerconaXtraDBClusterRestore
 type PerconaXtraDBClusterRestoreStatus struct {
-	State         BcpRestoreStates `json:"state,omitempty"`
-	Comments      string           `json:"comments,omitempty"`
-	CompletedAt   *metav1.Time     `json:"completed,omitempty"`
-	LastScheduled *metav1.Time     `json:"lastscheduled,omitempty"`
-	PXCSize       int32            `json:"clusterSize,omitempty"`
-	HAProxySize   int32            `json:"haproxySize,omitempty"`
-	ProxySQLSize  int32            `json:"proxysqlSize,omitempty"`
-	Unsafe        UnsafeFlags      `json:"unsafeFlags,omitempty"`
+	State         RestoreState `json:"state,omitempty"`
+	Comments      string       `json:"comments,omitempty"`
+	CompletedAt   *metav1.Time `json:"completed,omitempty"`
+	LastScheduled *metav1.Time `json:"lastscheduled,omitempty"`
+	PXCSize       int32        `json:"clusterSize,omitempty"`
+	HAProxySize   int32        `json:"haproxySize,omitempty"`
+	ProxySQLSize  int32        `json:"proxysqlSize,omitempty"`
+	Unsafe        UnsafeFlags  `json:"unsafeFlags,omitempty"`
 }
 
 type PITR struct {
@@ -63,17 +63,18 @@ type PerconaXtraDBClusterRestoreList struct {
 	Items           []PerconaXtraDBClusterRestore `json:"items"`
 }
 
-type BcpRestoreStates string
+type RestoreState string
 
 const (
-	RestoreNew          BcpRestoreStates = ""
-	RestoreStarting     BcpRestoreStates = "Starting"
-	RestoreStopCluster  BcpRestoreStates = "Stopping Cluster"
-	RestoreRestore      BcpRestoreStates = "Restoring"
-	RestoreStartCluster BcpRestoreStates = "Starting Cluster"
-	RestorePITR         BcpRestoreStates = "Point-in-time recovering"
-	RestoreFailed       BcpRestoreStates = "Failed"
-	RestoreSucceeded    BcpRestoreStates = "Succeeded"
+	RestoreNew            RestoreState = ""
+	RestoreStarting       RestoreState = "Starting"
+	RestoreStopCluster    RestoreState = "Stopping Cluster"
+	RestoreRestore        RestoreState = "Restoring"
+	RestoreStartCluster   RestoreState = "Starting Cluster"
+	RestorePITR           RestoreState = "Point-in-time recovering"
+	RestorePrepareCluster RestoreState = "Preparing Cluster"
+	RestoreFailed         RestoreState = "Failed"
+	RestoreSucceeded      RestoreState = "Succeeded"
 )
 
 const AnnotationUnsafePITR = "percona.com/unsafe-pitr"

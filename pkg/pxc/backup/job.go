@@ -100,6 +100,11 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, cluster *api.PerconaXtraDBClu
 		initContainers = append(initContainers, statefulset.BackupInitContainer(cluster, initImage, storage.ContainerSecurityContext))
 	}
 
+	cmd := []string{"bash", "/usr/bin/backup.sh"}
+	if cluster.CompareVersionWith("1.18.0") >= 0 {
+		cmd = []string{"bash", "/opt/percona/backup/backup.sh"}
+	}
+
 	return batchv1.JobSpec{
 		ActiveDeadlineSeconds: activeDeadlineSeconds,
 		BackoffLimit:          &backoffLimit,
@@ -124,7 +129,7 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, cluster *api.PerconaXtraDBClu
 						Image:           bcp.image,
 						SecurityContext: storage.ContainerSecurityContext,
 						ImagePullPolicy: bcp.imagePullPolicy,
-						Command:         []string{"bash", "/usr/bin/backup.sh"},
+						Command:         cmd,
 						Env:             envs,
 						Resources:       storage.Resources,
 						VolumeMounts:    volumeMounts,

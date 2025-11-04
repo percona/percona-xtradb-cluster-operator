@@ -234,6 +234,11 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.Per
 		}
 	}
 
+	if cr.CompareVersionWith("1.18.0") >= 0 {
+		// PEER_LIST_SRV_PROTOCOL is configured through the secret: EnvVarsSecretName
+		pxcMonit.Args = append(pxcMonit.Args, "-protocol=$(PEER_LIST_SRV_PROTOCOL)")
+	}
+
 	proxysqlMonit := corev1.Container{
 		Name:            "proxysql-monit",
 		Image:           spec.Image,
@@ -323,6 +328,11 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.Per
 		proxysqlMonit.Env[1] = operEnv
 	}
 
+	if cr.CompareVersionWith("1.18.0") >= 0 {
+		// PEER_LIST_SRV_PROTOCOL is configured through the secret: EnvVarsSecretName
+		proxysqlMonit.Args = append(proxysqlMonit.Args, "-protocol=$(PEER_LIST_SRV_PROTOCOL)")
+	}
+
 	return []corev1.Container{pxcMonit, proxysqlMonit}, nil
 }
 
@@ -331,10 +341,35 @@ func (c *Proxy) LogCollectorContainer(_ *api.LogCollectorSpec, _ string, _ strin
 }
 
 func (c *Proxy) PMMContainer(ctx context.Context, cl client.Client, spec *api.PMMSpec, secret *corev1.Secret, cr *api.PerconaXtraDBCluster) (*corev1.Container, error) {
+	if cr.Spec.PMM == nil || !cr.Spec.PMM.Enabled {
+		return nil, nil
+	}
+
 	envVarsSecret := &corev1.Secret{}
 	err := cl.Get(ctx, types.NamespacedName{Name: cr.Spec.PXC.EnvVarsSecretName, Namespace: cr.Namespace}, envVarsSecret)
 	if client.IgnoreNotFound(err) != nil {
 		return nil, errors.Wrap(err, "get env vars secret")
+	}
+
+	if v, exists := secret.Data[users.PMMServerToken]; exists && len(v) != 0 {
+		pmm3Container, err := app.PMM3Client(cr, secret, envVarsSecret)
+		if err != nil {
+			return nil, errors.Wrap(err, "get pmm3 container")
+		}
+
+		pmm3Container.Env = append(pmm3Container.Env, pmm3ProxySQLEnvVars(spec.ProxysqlParams)...)
+
+		return &pmm3Container, nil
+	}
+
+	clusterName := cr.Name
+	if cr.CompareVersionWith("1.18.0") >= 0 && cr.Spec.PMM.CustomClusterName != "" {
+		clusterName = cr.Spec.PMM.CustomClusterName
+	}
+
+	// Checking the secret to determine if the PMM2 container can be constructed.
+	if !cr.Spec.PMM.HasSecret(secret) {
+		return nil, errors.New("can't enable PMM2: either pmmserverkey key doesn't exist in the secrets, or secrets and internal secrets are out of sync")
 	}
 
 	ct := app.PMMClient(cr, spec, secret, envVarsSecret)
@@ -418,7 +453,7 @@ func (c *Proxy) PMMContainer(ctx context.Context, cl client.Client, spec *api.PM
 		clusterPmmEnvs := []corev1.EnvVar{
 			{
 				Name:  "CLUSTER_NAME",
-				Value: cr.Name,
+				Value: clusterName,
 			},
 			{
 				Name:  "PMM_ADMIN_CUSTOM_PARAMS",
@@ -460,6 +495,28 @@ func (c *Proxy) PMMContainer(ctx context.Context, cl client.Client, spec *api.PM
 	}
 
 	return &ct, nil
+}
+
+// pmm3ProxySQLEnvVars returns a list of environment variables to configure the PMM3 container for monitoring proxysql.
+func pmm3ProxySQLEnvVars(pmmProxysqlParams string) []corev1.EnvVar {
+	return []corev1.EnvVar{
+		{
+			Name:  "DB_TYPE",
+			Value: "proxysql",
+		},
+		{
+			Name:  "PMM_ADMIN_CUSTOM_PARAMS",
+			Value: pmmProxysqlParams,
+		},
+		{
+			Name:  "DB_ARGS",
+			Value: "--dsn $(MONITOR_USER):$(MONITOR_PASSWORD)@tcp(localhost:6032)/",
+		},
+		{
+			Name:  "DB_PORT",
+			Value: "6032",
+		},
+	}
 }
 
 func (c *Proxy) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg api.CustomVolumeGetter) (*api.Volume, error) {

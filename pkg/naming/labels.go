@@ -16,6 +16,8 @@ const (
 	LabelAppKubernetesComponent = appKuberenetesPrefix + "component"
 	LabelAppKubernetesManagedBy = appKuberenetesPrefix + "managed-by"
 	LabelAppKubernetesPartOf    = appKuberenetesPrefix + "part-of"
+
+	LabelOperatorVersion = appKuberenetesPrefix + "version"
 )
 
 const (
@@ -38,13 +40,19 @@ func GetLabelBackupType(cr *api.PerconaXtraDBCluster) string {
 	return LabelPerconaBackupType
 }
 
-func LabelsCluster(cr *api.PerconaXtraDBCluster) map[string]string {
+func Labels() map[string]string {
 	return map[string]string{
-		LabelAppKubernetesName:      "percona-xtradb-cluster",
-		LabelAppKubernetesInstance:  cr.Name,
-		LabelAppKubernetesManagedBy: "percona-xtradb-cluster-operator",
-		LabelAppKubernetesPartOf:    "percona-xtradb-cluster",
+		LabelAppKubernetesName:   "percona-xtradb-cluster",
+		LabelAppKubernetesPartOf: "percona-xtradb-cluster",
 	}
+}
+
+func LabelsCluster(cr *api.PerconaXtraDBCluster) map[string]string {
+	l := Labels()
+	l[LabelAppKubernetesInstance] = cr.Name
+	l[LabelAppKubernetesManagedBy] = "percona-xtradb-cluster-operator"
+
+	return l
 }
 
 const (

@@ -125,7 +125,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(ctx context.Context
 		}
 	}
 
-	primary, err := r.getPrimaryPod(cr)
+	primary, err := r.getPrimaryPod(ctx, cr)
 	if err != nil {
 		return errors.Wrap(err, "get primary pxc pod")
 	}
@@ -232,12 +232,17 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(ctx context.Context
 		}
 	}
 
-	authPlugin, err := primaryDB.ReadVariable("default_authentication_plugin")
-	if err != nil {
-		return errors.Wrap(err, "failed to get default_authentication_plugin variable value")
+	authPluginVar := "default_authentication_plugin"
+	if cr.CompareMySQLVersion("8.4.0") >= 0 {
+		authPluginVar = "authentication_policy"
 	}
 
-	shouldGetMasterKey := authPlugin == "caching_sha2_password"
+	authPlugin, err := primaryDB.ReadVariable(authPluginVar)
+	if err != nil {
+		return errors.Wrapf(err, "failed to get %s variable value", authPluginVar)
+	}
+
+	shouldGetMasterKey := strings.Contains(authPlugin, "caching_sha2_password")
 
 	for _, channel := range cr.Spec.PXC.ReplicationChannels {
 		if channel.IsSource {
@@ -551,6 +556,13 @@ func NewExposedPXCService(svcName string, cr *api.PerconaXtraDBCluster) *corev1.
 		svc.Spec.Type = corev1.ServiceTypeLoadBalancer
 	default:
 		svc.Spec.Type = corev1.ServiceTypeClusterIP
+	}
+
+	if cr.CompareVersionWith("1.18.0") >= 0 {
+		loadBalancerClass, err := cr.Spec.PXC.Expose.GetLoadBalancerClass()
+		if err == nil {
+			svc.Spec.LoadBalancerClass = loadBalancerClass
+		}
 	}
 
 	return svc

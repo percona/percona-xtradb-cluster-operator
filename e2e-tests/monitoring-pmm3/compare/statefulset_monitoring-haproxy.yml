@@ -1,0 +1,322 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  generation: 3
+  name: monitoring-haproxy
+  ownerReferences:
+    - controller: true
+      kind: PerconaXtraDBCluster
+      name: monitoring
+spec:
+  podManagementPolicy: OrderedReady
+  replicas: 2
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: haproxy
+      app.kubernetes.io/instance: monitoring
+      app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+      app.kubernetes.io/name: percona-xtradb-cluster
+      app.kubernetes.io/part-of: percona-xtradb-cluster
+  serviceName: monitoring-haproxy
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: haproxy
+        app.kubernetes.io/instance: monitoring
+        app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+        app.kubernetes.io/name: percona-xtradb-cluster
+        app.kubernetes.io/part-of: percona-xtradb-cluster
+    spec:
+      containers:
+        - env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.namespace
+            - name: PMM_AGENT_SERVER_ADDRESS
+              value: monitoring-service
+            - name: PMM_AGENT_SERVER_USERNAME
+              value: service_token
+            - name: PMM_AGENT_SERVER_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: pmmservertoken
+                  name: internal-monitoring
+            - name: PMM_AGENT_LISTEN_PORT
+              value: "7777"
+            - name: PMM_AGENT_PORTS_MIN
+              value: "30100"
+            - name: PMM_AGENT_PORTS_MAX
+              value: "30105"
+            - name: PMM_AGENT_CONFIG_FILE
+              value: /usr/local/percona/pmm/config/pmm-agent.yaml
+            - name: PMM_AGENT_SERVER_INSECURE_TLS
+              value: "1"
+            - name: PMM_AGENT_LISTEN_ADDRESS
+              value: 0.0.0.0
+            - name: PMM_AGENT_SETUP_METRICS_MODE
+              value: push
+            - name: PMM_AGENT_SETUP
+              value: "1"
+            - name: PMM_AGENT_SETUP_FORCE
+              value: "1"
+            - name: PMM_AGENT_SETUP_NODE_TYPE
+              value: container
+            - name: PMM_AGENT_SIDECAR
+              value: "true"
+            - name: PMM_AGENT_SIDECAR_SLEEP
+              value: "5"
+            - name: PMM_AGENT_PATHS_TEMPDIR
+              value: /tmp/pmm
+            - name: PMM_AGENT_PRERUN_SCRIPT
+              value: /var/lib/mysql/pmm-prerun.sh
+            - name: DB_CLUSTER
+              value: pxc
+            - name: DB_USER
+              value: monitor
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: monitor
+                  name: internal-monitoring
+            - name: DB_HOST
+              value: localhost
+            - name: CLUSTER_NAME
+              value: foo-custom-cluster-name
+            - name: PMM_AGENT_SETUP_NODE_NAME
+              value: $(PMM_PREFIX)$(POD_NAMESPACE)-$(POD_NAME)
+            - name: DB_TYPE
+              value: haproxy
+            - name: MONITOR_USER
+              value: monitor
+            - name: MONITOR_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: monitor
+                  name: internal-monitoring
+            - name: PMM_ADMIN_CUSTOM_PARAMS
+              value: --listen-port=8404
+            - name: DB_PORT
+              value: "3306"
+          envFrom:
+            - secretRef:
+                name: my-env-var-secrets
+                optional: true
+          imagePullPolicy: Always
+          lifecycle:
+            preStop:
+              exec:
+                command:
+                  - bash
+                  - -c
+                  - pmm-admin unregister --force
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /local/Status
+              port: 7777
+              scheme: HTTP
+            initialDelaySeconds: 300
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 5
+          name: pmm-client
+          ports:
+            - containerPort: 7777
+              protocol: TCP
+            - containerPort: 30100
+              protocol: TCP
+            - containerPort: 30101
+              protocol: TCP
+            - containerPort: 30102
+              protocol: TCP
+            - containerPort: 30103
+              protocol: TCP
+            - containerPort: 30104
+              protocol: TCP
+            - containerPort: 30105
+              protocol: TCP
+          readinessProbe:
+            failureThreshold: 5
+            httpGet:
+              path: /local/Status
+              port: 7777
+              scheme: HTTP
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            successThreshold: 1
+            timeoutSeconds: 15
+          resources:
+            limits:
+              cpu: "1"
+              memory: 1G
+            requests:
+              cpu: 308m
+              memory: 508M
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /var/lib/mysql
+              name: bin
+        - env:
+            - name: PXC_SERVICE
+              value: monitoring-pxc
+            - name: LIVENESS_CHECK_TIMEOUT
+              value: "5"
+            - name: READINESS_CHECK_TIMEOUT
+              value: "1"
+          envFrom:
+            - secretRef:
+                name: my-env-var-secrets
+                optional: true
+          imagePullPolicy: Always
+          livenessProbe:
+            exec:
+              command:
+                - /opt/percona/haproxy_liveness_check.sh
+            failureThreshold: 4
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            successThreshold: 1
+            timeoutSeconds: 5
+          name: haproxy
+          ports:
+            - containerPort: 3306
+              name: mysql
+              protocol: TCP
+            - containerPort: 3307
+              name: mysql-replicas
+              protocol: TCP
+            - containerPort: 3309
+              name: proxy-protocol
+              protocol: TCP
+            - containerPort: 33062
+              name: mysql-admin
+              protocol: TCP
+            - containerPort: 33060
+              name: mysqlx
+              protocol: TCP
+            - containerPort: 8404
+              name: stats
+              protocol: TCP
+          readinessProbe:
+            exec:
+              command:
+                - /opt/percona/haproxy_readiness_check.sh
+            failureThreshold: 3
+            initialDelaySeconds: 15
+            periodSeconds: 5
+            successThreshold: 1
+            timeoutSeconds: 1
+          resources:
+            requests:
+              cpu: 300m
+              memory: 500M
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /etc/haproxy-custom/
+              name: haproxy-custom
+            - mountPath: /etc/haproxy/pxc
+              name: haproxy-auto
+            - mountPath: /opt/percona
+              name: bin
+            - mountPath: /etc/mysql/mysql-users-secret
+              name: mysql-users-secret-file
+            - mountPath: /etc/mysql/haproxy-env-secret
+              name: my-env-var-secrets
+        - args:
+            - /opt/percona/peer-list
+            - -on-change=/opt/percona/haproxy_add_pxc_nodes.sh
+            - -service=$(PXC_SERVICE)
+            - -protocol=$(PEER_LIST_SRV_PROTOCOL)
+          env:
+            - name: PXC_SERVICE
+              value: monitoring-pxc
+            - name: REPLICAS_SVC_ONLY_READERS
+              value: "false"
+          envFrom:
+            - secretRef:
+                name: my-env-var-secrets
+                optional: true
+          imagePullPolicy: Always
+          name: pxc-monit
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /etc/haproxy-custom/
+              name: haproxy-custom
+            - mountPath: /etc/haproxy/pxc
+              name: haproxy-auto
+            - mountPath: /etc/mysql/mysql-users-secret
+              name: mysql-users-secret-file
+            - mountPath: /etc/mysql/haproxy-env-secret
+              name: my-env-var-secrets
+            - mountPath: /opt/percona
+              name: bin
+      dnsPolicy: ClusterFirst
+      initContainers:
+        - command:
+            - /pxc-init-entrypoint.sh
+          imagePullPolicy: Always
+          name: pxc-init
+          resources:
+            limits:
+              cpu: 50m
+              memory: 50M
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /var/lib/mysql
+              name: bin
+        - command:
+            - /haproxy-init-entrypoint.sh
+          imagePullPolicy: Always
+          name: haproxy-init
+          resources:
+            limits:
+              cpu: 50m
+              memory: 50M
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /opt/percona
+              name: bin
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      serviceAccount: default
+      serviceAccountName: default
+      terminationGracePeriodSeconds: 30
+      volumes:
+        - configMap:
+            defaultMode: 420
+            name: monitoring-haproxy
+            optional: true
+          name: haproxy-custom
+        - emptyDir: {}
+          name: haproxy-auto
+        - name: mysql-users-secret-file
+          secret:
+            defaultMode: 420
+            optional: false
+            secretName: internal-monitoring
+        - name: my-env-var-secrets
+          secret:
+            defaultMode: 420
+            optional: true
+            secretName: my-env-var-secrets
+        - emptyDir: {}
+          name: bin
+  updateStrategy:
+    rollingUpdate:
+      partition: 0
+    type: RollingUpdate

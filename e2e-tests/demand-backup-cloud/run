@@ -150,7 +150,7 @@ main() {
 		desc "Run recovery from s3 for $cluster cluster"
 		run_recovery_check "$cluster" "${backup_name_aws}"
 
-		desc "Run recovery from s3 source with defult optoins"
+		desc "Run recovery from s3 source with default options"
 		run_recovery_from_source
 
 		desc 'Run recovery from s3 source without s3:// prefix in destination'
@@ -173,7 +173,7 @@ main() {
 		desc "Run recovery from azure for $cluster cluster"
 		run_recovery_check "$cluster" "${backup_name_azure}"
 
-		desc "Run recovery from azure source with defult optoins"
+		desc "Run recovery from azure source with default options"
 		run_recovery_from_source 'azure' "${backup_name_azure}"
 
 		desc 'Run recovery from azure source without azure:// prefix in destination'
@@ -199,6 +199,15 @@ main() {
 		check_backup_deletion "https://s3.amazonaws.com/${backup_dest_aws}.sst_info/sst_info.00000000000000000000" "aws-s3"
 		check_backup_deletion "https://storage.googleapis.com/${backup_dest_gcp}.sst_info/sst_info.00000000000000000000" "gcp-cs"
 		check_backup_deletion "https://engk8soperators.blob.core.windows.net/${backup_dest_azure}.sst_info/sst_info.00000000000000000000" "azure-blob"
+
+		if [ "$EKS" = 1 ]; then
+			backup_name_aws_iam="on-demand-backup-aws-s3-iam"
+			desc "Run backup ${backup_name_aws_iam} for $cluster cluster using IAM"
+			run_backup_with_delete "${backup_name_aws_iam}"
+			desc "Check backup existence for $backup_name_aws_iam"
+			backup_dest_aws_iam=$(kubectl_bin get pxc-backup "$backup_name_aws_iam" -o jsonpath='{.status.destination}' | sed -e 's/.json$//' | cut -c 6-)
+			check_backup_existence "https://s3.amazonaws.com/${backup_dest_aws_iam}.sst_info/sst_info.00000000000000000000" "aws-s3-iam"
+		fi
 
 		destroy $namespace
 		desc "test passed"

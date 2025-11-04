@@ -196,5 +196,8 @@ spec:
     schedule:
       - name: each-min-aws-s3
         schedule: "* * * * *"
-        keep: 1
+        retention:
+          type: "count"
+          count: 1
+          deleteFromStorage: true
         storageName: aws-s3

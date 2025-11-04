@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"path"
 	"strings"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/pkg/errors"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 )
@@ -175,14 +177,27 @@ func (s *S3) GetPrefix() string {
 }
 
 func (s *S3) DeleteObject(ctx context.Context, objectName string) error {
-	objPath := path.Join(s.prefix, objectName)
-	err := s.client.RemoveObject(ctx, s.bucketName, objPath, minio.RemoveObjectOptions{})
+	log := logf.FromContext(ctx).WithValues("bucket", s.bucketName, "prefix", s.prefix)
+
+	// minio sdk automatically URL-encodes the path
+	p := path.Join(s.prefix, objectName)
+	objPath, err := url.QueryUnescape(p)
+	if err != nil {
+		return errors.Wrapf(err, "failed to unescape object path %s", p)
+	}
+
+	log.V(1).Info("deleting object", "object", objPath)
+
+	err = s.client.RemoveObject(ctx, s.bucketName, objPath, minio.RemoveObjectOptions{})
 	if err != nil {
 		if minio.ToErrorResponse(errors.Cause(err)).Code == "NoSuchKey" {
 			return ErrObjectNotFound
 		}
 		return errors.Wrapf(err, "failed to remove object %s", objectName)
 	}
+
+	log.V(1).Info("object deleted", "object", objPath)
+
 	return nil
 }
 
@@ -274,7 +289,11 @@ func (a *Azure) GetPrefix() string {
 }
 
 func (a *Azure) DeleteObject(ctx context.Context, objectName string) error {
+	log := logf.FromContext(ctx).WithValues("container", a.container, "prefix", a.prefix, "object", objectName)
+
 	objPath := path.Join(a.prefix, objectName)
+	log.V(1).Info("deleting object", "object", objPath)
+
 	_, err := a.client.DeleteBlob(ctx, a.container, objPath, nil)
 	if err != nil {
 		if bloberror.HasCode(errors.Cause(err), bloberror.BlobNotFound) {
@@ -282,5 +301,8 @@ func (a *Azure) DeleteObject(ctx context.Context, objectName string) error {
 		}
 		return errors.Wrapf(err, "delete blob %s", objPath)
 	}
+
+	log.V(1).Info("object deleted", "object", objPath)
+
 	return nil
 }

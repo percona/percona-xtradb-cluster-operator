@@ -10,7 +10,7 @@ metadata:
 #  annotations:
 #    percona.com/issue-vault-token: "true"
 spec:
-  crVersion: 1.18.0
+  crVersion: 1.19.0
 #  enableVolumeExpansion: false
 #  ignoreAnnotations:
 #    - iam.amazonaws.com/role
@@ -64,11 +64,11 @@ spec:
 #    expose:
 #      enabled: true
 #      type: LoadBalancer
+#      loadBalancerClass: "eks.amazonaws.com/nlb"
 #      externalTrafficPolicy: Local
 #      internalTrafficPolicy: Local
 #      loadBalancerSourceRanges:
 #        - 10.0.0.0/8
-#      loadBalancerIP: 127.0.0.1
 #      annotations:
 #        networking.gke.io/load-balancer-type: "Internal"
 #      labels:
@@ -284,6 +284,7 @@ spec:
 #      failureThreshold: 4
 #    exposePrimary:
 #      type: ClusterIP
+#      loadBalancerClass: "eks.amazonaws.com/nlb"
 #      annotations:
 #        service.beta.kubernetes.io/aws-load-balancer-backend-protocol: tcp
 #      externalTrafficPolicy: Cluster
@@ -292,11 +293,11 @@ spec:
 #        rack: rack-22
 #      loadBalancerSourceRanges:
 #        - 10.0.0.0/8
-#      loadBalancerIP: 127.0.0.1
 #    exposeReplicas:
 #      enabled: true
 #      onlyReaders: false
 #      type: ClusterIP
+#      loadBalancerClass: "eks.amazonaws.com/nlb"
 #      annotations:
 #        service.beta.kubernetes.io/aws-load-balancer-backend-protocol: tcp
 #      externalTrafficPolicy: Cluster
@@ -305,7 +306,6 @@ spec:
 #        rack: rack-22
 #      loadBalancerSourceRanges:
 #        - 10.0.0.0/8
-#      loadBalancerIP: 127.0.0.1
 #    runtimeClassName: image-rc
 #    sidecars:
 #    - image: busybox
@@ -447,6 +447,7 @@ spec:
 #    expose:
 #      enabled: false
 #      type: ClusterIP
+#      loadBalancerClass: "eks.amazonaws.com/nlb"
 #      annotations:
 #        service.beta.kubernetes.io/aws-load-balancer-backend-protocol: tcp
 #      externalTrafficPolicy: Cluster
@@ -455,7 +456,6 @@ spec:
 #        rack: rack-22
 #      loadBalancerSourceRanges:
 #        - 10.0.0.0/8
-#      loadBalancerIP: 127.0.0.1
 #    runtimeClassName: image-rc
 #    sidecars:
 #    - image: busybox
@@ -469,6 +469,8 @@ spec:
 #        limits:
 #          memory: 200M
 #          cpu: 200m
+#      securityContext:
+#        privileged: false
 #    envVarsSecret: my-env-var-secrets
     resources:
       requests:
@@ -579,6 +581,7 @@ spec:
     enabled: false
     image: perconalab/pmm-client:dev-latest
     serverHost: monitoring-service
+#    customClusterName: "testClusterName"
 #    serverUser: admin
 #    pxcParams: "--disable-tablestats-limit=2000"
 #    proxysqlParams: "--custom-labels=CUSTOM-LABELS"
@@ -740,9 +743,15 @@ spec:
     schedule:
 #      - name: "sat-night-backup"
 #        schedule: "0 0 * * 6"
-#        keep: 3
+#        retention:
+#          type: "count"
+#          count: 5
+#          deleteFromStorage: true
 #        storageName: s3-us-west
       - name: "daily-backup"
         schedule: "0 0 * * *"
-        keep: 5
+        retention:
+          type: "count"
+          count: 5
+          deleteFromStorage: true
         storageName: fs-pvc

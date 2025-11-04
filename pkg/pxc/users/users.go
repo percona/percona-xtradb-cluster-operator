@@ -12,18 +12,19 @@ import (
 )
 
 const (
-	Root         = "root"
-	Operator     = "operator"
-	Monitor      = "monitor"
-	Xtrabackup   = "xtrabackup"
-	Replication  = "replication"
-	ProxyAdmin   = "proxyadmin"
-	PMMServer    = "pmmserver"
-	PMMServerKey = "pmmserverkey"
+	Root           = "root"
+	Operator       = "operator"
+	Monitor        = "monitor"
+	Xtrabackup     = "xtrabackup"
+	Replication    = "replication"
+	ProxyAdmin     = "proxyadmin"
+	PMMServer      = "pmmserver"
+	PMMServerKey   = "pmmserverkey"
+	PMMServerToken = "pmmservertoken"
 )
 
 var UserNames = []string{Root, Operator, Monitor, Xtrabackup,
-	Replication, ProxyAdmin, PMMServer, PMMServerKey}
+	Replication, ProxyAdmin, PMMServer, PMMServerKey, PMMServerToken}
 
 type Manager struct {
 	db *sql.DB

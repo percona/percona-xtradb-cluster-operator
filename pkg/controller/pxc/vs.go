@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pkg/errors"
+
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	vsc "github.com/percona/percona-xtradb-cluster-operator/pkg/version/client"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/version/client/models"
@@ -66,51 +68,47 @@ func (vs VersionServiceClient) GetExactVersion(cr *api.PerconaXtraDBCluster, end
 
 	pxcVersion, err := getVersion(resp.Payload.Versions[0].Matrix.Pxc)
 	if err != nil {
-		return DepVersion{}, err
+		return DepVersion{}, errors.Wrapf(err, "get pxc version")
 	}
 
 	backupVersion, err := getVersion(resp.Payload.Versions[0].Matrix.Backup)
 	if err != nil {
-		return DepVersion{}, err
+		return DepVersion{}, errors.Wrapf(err, "get backup version")
 	}
 
 	pmmVersion, err := getPMMVersion(resp.Payload.Versions[0].Matrix.Pmm, opts.PMM3Enabled)
 	if err != nil {
-		return DepVersion{}, err
+		return DepVersion{}, errors.Wrapf(err, "get pmm version")
 	}
 
 	proxySqlVersion, err := getVersion(resp.Payload.Versions[0].Matrix.Proxysql)
 	if err != nil {
-		return DepVersion{}, err
+		return DepVersion{}, errors.Wrapf(err, "get proxysql version")
 	}
 
 	haproxyVersion, err := getVersion(resp.Payload.Versions[0].Matrix.Haproxy)
 	if err != nil {
-		return DepVersion{}, err
+		return DepVersion{}, errors.Wrap(err, "haproxy version")
+	}
+
+	logCollectorVersion, err := getVersion(resp.Payload.Versions[0].Matrix.LogCollector)
+	if err != nil {
+		return DepVersion{}, errors.Wrap(err, "get logcollector version")
 	}
 
 	dv := DepVersion{
-		PXCImage:        resp.Payload.Versions[0].Matrix.Pxc[pxcVersion].ImagePath,
-		PXCVersion:      pxcVersion,
-		BackupImage:     resp.Payload.Versions[0].Matrix.Backup[backupVersion].ImagePath,
-		BackupVersion:   backupVersion,
-		ProxySqlImage:   resp.Payload.Versions[0].Matrix.Proxysql[proxySqlVersion].ImagePath,
-		ProxySqlVersion: proxySqlVersion,
-		PMMImage:        resp.Payload.Versions[0].Matrix.Pmm[pmmVersion].ImagePath,
-		PMMVersion:      pmmVersion,
-		HAProxyImage:    resp.Payload.Versions[0].Matrix.Haproxy[haproxyVersion].ImagePath,
-		HAProxyVersion:  haproxyVersion,
-	}
-
-	if cr.CompareVersionWith("1.7.0") >= 0 {
-		logCollectorVersion, err := getVersion(resp.Payload.Versions[0].Matrix.LogCollector)
-		if err != nil {
-			return DepVersion{}, err
-		}
-
-		dv.LogCollectorVersion = logCollectorVersion
-		dv.LogCollectorImage = resp.Payload.Versions[0].Matrix.LogCollector[logCollectorVersion].ImagePath
-
+		PXCImage:            resp.Payload.Versions[0].Matrix.Pxc[pxcVersion].ImagePath,
+		PXCVersion:          pxcVersion,
+		BackupImage:         resp.Payload.Versions[0].Matrix.Backup[backupVersion].ImagePath,
+		BackupVersion:       backupVersion,
+		ProxySqlImage:       resp.Payload.Versions[0].Matrix.Proxysql[proxySqlVersion].ImagePath,
+		ProxySqlVersion:     proxySqlVersion,
+		PMMImage:            resp.Payload.Versions[0].Matrix.Pmm[pmmVersion].ImagePath,
+		PMMVersion:          pmmVersion,
+		HAProxyImage:        resp.Payload.Versions[0].Matrix.Haproxy[haproxyVersion].ImagePath,
+		HAProxyVersion:      haproxyVersion,
+		LogCollectorVersion: logCollectorVersion,
+		LogCollectorImage:   resp.Payload.Versions[0].Matrix.LogCollector[logCollectorVersion].ImagePath,
 	}
 
 	return dv, nil
@@ -138,7 +136,7 @@ func getPMMVersion(versions map[string]models.VersionVersion, isPMM3 bool) (stri
 	if isPMM3 && pmm3Version == "" {
 		return "", fmt.Errorf("pmm3 is configured, but no pmm3 version exists")
 	}
-	if pmm3Version != "" {
+	if isPMM3 && pmm3Version != "" {
 		return pmm3Version, nil
 	}
 	if pmm2Version != "" {
@@ -150,7 +148,7 @@ func getPMMVersion(versions map[string]models.VersionVersion, isPMM3 bool) (stri
 
 func getVersion(versions map[string]models.VersionVersion) (string, error) {
 	if len(versions) != 1 {
-		return "", fmt.Errorf("response has multiple or zero versions")
+		return "", fmt.Errorf("response has multiple or zero versions %v", versions)
 	}
 
 	for k := range versions {

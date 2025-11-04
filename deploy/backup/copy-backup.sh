@@ -186,7 +186,7 @@ copy_files_xbcloud() {
 	echo ""
 	echo "Downloading started"
 	env -i "${CREDENTIALS}" "${xbcloud}" get "${backup_path}" --parallel=10 1>"$dest_dir/xtrabackup.stream" 2>"$dest_dir/transfer.log"
-	if [ -f "$dest_dir/xtrabackup.stream" ] && [ "$(file -b "$dest_dir/xtrabackup.stream")" = "data" ]; then
+	if [ -f "$dest_dir/xtrabackup.stream" ] && [ "$(file -b "$dest_dir/xtrabackup.stream")" == "data" ]; then
 		echo "Downloading finished"
 	else
 		echo "Download failed: $dest_dir/xtrabackup.stream file is missing or not of type 'data'."

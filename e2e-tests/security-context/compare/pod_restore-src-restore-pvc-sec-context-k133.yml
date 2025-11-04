@@ -3,6 +3,7 @@ kind: Pod
 metadata:
   annotations:
     openshift.io/scc: privileged
+  generation: 1
   labels:
     app.kubernetes.io/instance: sec-context
     app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
@@ -84,9 +85,6 @@ spec:
       key: node.kubernetes.io/unreachable
       operator: Exists
       tolerationSeconds: 300
-    - effect: NoSchedule
-      key: node.kubernetes.io/memory-pressure
-      operator: Exists
   volumes:
     - name: backup
       persistentVolumeClaim:
@@ -126,8 +124,3 @@ spec:
                     apiVersion: v1
                     fieldPath: metadata.namespace
                   path: namespace
-          - configMap:
-              items:
-                - key: service-ca.crt
-                  path: service-ca.crt
-              name: openshift-service-ca.crt

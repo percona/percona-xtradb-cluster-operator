@@ -126,8 +126,3 @@ spec:
                     apiVersion: v1
                     fieldPath: metadata.namespace
                   path: namespace
-          - configMap:
-              items:
-                - key: service-ca.crt
-                  path: service-ca.crt
-              name: openshift-service-ca.crt

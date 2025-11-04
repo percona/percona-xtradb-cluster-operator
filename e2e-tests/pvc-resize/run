@@ -192,9 +192,10 @@ has_error_status $resize_start_time $resize_finish_time
 if [ "$EKS" == 1 -o -n "$OPENSHIFT" ]; then
 	# EKS rate limits PVC expansion for the same EBS volume (1 expand operation in every 6 hours),
 	# so we need to delete and recreate the cluster
+	# We create second cluster with 3G size
 	echo "Deleting and recreating PXC cluster ${cluster}"
 	kubectl_bin delete pxc ${cluster}
-	spinup_pxc "${cluster}" "$test_dir/conf/$cluster-eks.yml" "3" "10" "${conf_dir}/secrets.yml"
+	spinup_pxc "${cluster}" "$test_dir/conf/$cluster-eks2.yml" "3" "10" "${conf_dir}/secrets.yml"
 	echo "Enabling PVC resize for 2nd eks/openshift cluster"
 	kubectl_bin patch pxc "${cluster}" --type=json -p='[{"op": "add", "path": "/spec/enableVolumeExpansion", "value":true }]'
 	sleep 10

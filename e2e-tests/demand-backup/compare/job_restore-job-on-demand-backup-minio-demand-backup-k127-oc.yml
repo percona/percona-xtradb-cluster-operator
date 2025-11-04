@@ -119,4 +119,3 @@ spec:
             secretName: some-name-vault
         - emptyDir: {}
           name: bin
-

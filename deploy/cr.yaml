@@ -10,7 +10,7 @@ metadata:
 #  annotations:
 #    percona.com/issue-vault-token: "true"
 spec:
-  crVersion: 1.18.0
+  crVersion: 1.19.0
 #  enableVolumeExpansion: false
 #  ignoreAnnotations:
 #    - iam.amazonaws.com/role
@@ -468,6 +468,8 @@ spec:
 #        limits:
 #          memory: 200M
 #          cpu: 200m
+#      securityContext:
+#        privileged: false
 #    envVarsSecret: my-env-var-secrets
     resources:
       requests:

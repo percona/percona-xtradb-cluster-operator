@@ -95,8 +95,8 @@ check_optins_in_restore_pod() {
 
 	echo  "Waiting for ${restore_name} pod to become Complete"
 	sleep 1
-    kubectl_bin wait --for=jsonpath='{.status.phase}'=Succeeded pod --selector=percona.com/restore-job-name=restore-job-${restore_name}-${cluster_name} --timeout=200s
-	restore_pod=$(kubectl_bin get pods --selector=percona.com/restore-job-name=restore-job-${restore_name}-${cluster_name}  -o jsonpath='{.items[].metadata.name}')
+	kubectl_bin wait --for=jsonpath='{.status.phase}'=Succeeded pod --selector=percona.com/restore-job-name=restore-job-${restore_name}-${cluster_name} --timeout=200s
+	restore_pod=$(kubectl_bin get pods --selector=percona.com/restore-job-name=restore-job-${restore_name}-${cluster_name} -o jsonpath='{.items[].metadata.name}')
 
 	echo "Grep logs of pod/${restore_pod}"
 	if kubectl logs ${restore_pod} | grep -q 'xtrabackup --defaults-file'; then

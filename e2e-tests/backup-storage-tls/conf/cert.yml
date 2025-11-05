@@ -1,0 +1,12 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: minio-tls-certs
+spec:
+  commonName: minio-service.#namespace
+  dnsNames:
+  - minio-service.#namespace
+  - minio-service.#namespace.svc.cluster.local
+  secretName: minio-tls-certs
+  issuerRef:
+    name: selfsigning-issuer

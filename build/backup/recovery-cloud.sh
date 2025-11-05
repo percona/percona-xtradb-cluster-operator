@@ -74,7 +74,14 @@ fi
 DEFAULTS_FILE=""
 REMAINING_XB_ARGS=""
 if [[ "$XB_EXTRA_ARGS" =~ --defaults-file=([^[:space:]]+) ]]; then
-	DEFAULTS_FILE="--defaults-file=${BASH_REMATCH[1]}"
+	defaults_file_path="${BASH_REMATCH[1]}"
+	# If the path is relative (doesn't start with /), prepend $tmp directory
+	if [[ "$defaults_file_path" != /* ]]; then
+		# Remove leading ./ if present
+		defaults_file_path="${defaults_file_path#./}"
+		defaults_file_path="$tmp/$defaults_file_path"
+	fi
+	DEFAULTS_FILE="--defaults-file=$defaults_file_path"
 	REMAINING_XB_ARGS=$(echo "$XB_EXTRA_ARGS" | sed 's/--defaults-file=[^[:space:]]*//g' | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//')
 else
 	REMAINING_XB_ARGS="$XB_EXTRA_ARGS"

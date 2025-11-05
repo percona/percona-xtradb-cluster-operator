@@ -123,6 +123,8 @@ spec:
               value: cluster1-pxc
             - name: REPLICAS_SVC_ONLY_READERS
               value: "false"
+            - name: HA_SERVER_OPTIONS
+              value: resolvers kubernetes check inter 10000 rise 1 fall 2 weight 1
           envFrom:
             - secretRef:
                 name: cluster1-env-vars-haproxy

@@ -234,11 +234,6 @@ func (c *HAProxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.P
 		SecurityContext: spec.ContainerSecurityContext,
 	}
 
-	// Add health check configuration
-	if cr.Spec.HAProxy != nil {
-		container.Env = append(container.Env, buildHAProxyHealthCheckEnvVars(cr.Spec.HAProxy.HealthCheck)...)
-	}
-
 	if cr.CompareVersionWith("1.15.0") >= 0 {
 		container.Command = []string{"/opt/percona/haproxy-entrypoint.sh"}
 	}
@@ -298,6 +293,10 @@ func (c *HAProxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.P
 			Name:  "REPLICAS_SVC_ONLY_READERS",
 			Value: strconv.FormatBool(cr.Spec.HAProxy.ExposeReplicas.OnlyReaders),
 		})
+		// Add health check configuration env vars after REPLICAS_SVC_ONLY_READERS
+		if cr.Spec.HAProxy != nil {
+			container.Env = append(container.Env, buildHAProxyHealthCheckEnvVars(cr.Spec.HAProxy.HealthCheck)...)
+		}
 		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
 			Name:      app.BinVolumeName,
 			MountPath: app.BinVolumeMountPath,

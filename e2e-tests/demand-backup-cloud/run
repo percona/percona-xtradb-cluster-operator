@@ -91,7 +91,7 @@ delete_backup_pod() {
 
 check_optins_in_restore_pod() {
 	local restore_name=$1
-    local cluster_name=$2
+	local cluster_name=$2
 
 	echo  "Waiting for ${restore_name} pod to become Complete"
 	sleep 1

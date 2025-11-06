@@ -172,7 +172,7 @@ func generateUserPass(
 
 func userPasswordChanged(secret *corev1.Secret, dbUser *users.User, key, passKey string) bool {
 	if secret.Annotations == nil {
-		return false
+		return dbUser != nil
 	}
 
 	hash, ok := secret.Annotations[key]

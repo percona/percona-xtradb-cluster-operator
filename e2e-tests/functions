@@ -1799,7 +1799,7 @@ run_recovery_check_pitr() {
 get_pvc_name_for_backup() {
   local backup_name="$1"
 
-  local destination=$(kubectl get pxc-backup "$backup_name" -n "$NAMESPACE" -o jsonpath='{.status.destination}')
+  local destination=$(kubectl_bin get pxc-backup "$backup_name" -o jsonpath='{.status.destination}')
   if [[ -z "$destination" ]]; then
     echo "No destination found in backup $backup_name"
     return 1

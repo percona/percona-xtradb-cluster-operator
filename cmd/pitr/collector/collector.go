@@ -22,6 +22,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/percona/percona-xtradb-cluster-operator/cmd/pitr/pxc"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage"
 )
 
@@ -136,7 +137,14 @@ func New(ctx context.Context, c Config) (*Collector, error) {
 		}
 		// if c.S3BucketURL ends with "/", we need prefix to be like "data/more-data/", not "data/more-data//"
 		prefix = path.Clean(prefix) + "/"
-		s, err = storage.NewS3(ctx, c.BackupStorageS3.Endpoint, c.BackupStorageS3.AccessKeyID, c.BackupStorageS3.AccessKey, bucketArr[0], prefix, c.BackupStorageS3.Region, c.VerifyTLS)
+
+		// try to read the S3 CA bundle
+		caBundle, err := os.ReadFile(path.Join(naming.BackupStorageCAFileDirectory, naming.BackupStorageCAFileName))
+		if err != nil && !errors.Is(err, os.ErrNotExist) {
+			return nil, errors.Wrap(err, "read CA bundle file")
+		}
+
+		s, err = storage.NewS3(ctx, c.BackupStorageS3.Endpoint, c.BackupStorageS3.AccessKeyID, c.BackupStorageS3.AccessKey, bucketArr[0], prefix, c.BackupStorageS3.Region, c.VerifyTLS, caBundle)
 		if err != nil {
 			return nil, errors.Wrap(err, "new storage manager")
 		}

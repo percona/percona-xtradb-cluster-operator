@@ -10,6 +10,12 @@ if [ -n "$VERIFY_TLS" ] && [[ $VERIFY_TLS == "false" ]]; then
 	AWS_S3_NO_VERIFY_SSL='--no-verify-ssl'
 fi
 
+caBundleDir="/etc/s3/certs"
+caBundleFile="$caBundleDir/ca.crt"
+if [ -f "$caBundleFile" ]; then
+	export AWS_CA_BUNDLE="$caBundleFile"
+fi
+
 is_object_exist() {
 	local bucket="$1"
 	local path="$2"

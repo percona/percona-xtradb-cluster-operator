@@ -12,6 +12,7 @@ fail() {
 
 $dir/affinity/run || fail "affinity"
 $dir/auto-tuning/run || fail "auto-tuning"
+$dir/backup-storage-tls/run || fail "backup-storage-tls"
 $dir/big-data/run || fail "big-data"
 $dir/cross-site/run || fail "cross-site"
 $dir/demand-backup-encrypted-with-tls/run || fail "demand-backup-encrypted-with-tls"

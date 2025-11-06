@@ -185,7 +185,7 @@ copy_files_xbcloud() {
 
 	echo ""
 	echo "Downloading started"
-	env -i "${CREDENTIALS}" "${xbcloud}" get "${backup_path}" --parallel=10 1>"$dest_dir/xtrabackup.stream" 2>"$dest_dir/transfer.log"
+	env -i ${CREDENTIALS} "${xbcloud}" get "${backup_path}" --parallel=10 1>"$dest_dir/xtrabackup.stream" 2>"$dest_dir/transfer.log"
 	if [ -f "$dest_dir/xtrabackup.stream" ] && [ "$(file -b "$dest_dir/xtrabackup.stream")" == "data" ]; then
 		echo "Downloading finished"
 	else

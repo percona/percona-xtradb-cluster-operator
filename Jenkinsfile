@@ -130,17 +130,21 @@ void markPassedTests() {
     echo "Marking passed tests in the tests map!"
 
     withCredentials([aws(credentialsId: 'AMI/OVF', accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-        sh """
-            aws s3 ls "s3://percona-jenkins-artifactory/${JOB_NAME}/${env.GIT_SHORT_COMMIT}/" || :
-        """
+        def existingArtifacts = sh(
+            script: """
+                aws s3 ls s3://percona-jenkins-artifactory/\$JOB_NAME/${env.GIT_SHORT_COMMIT}/ 2>/dev/null | awk '{print \$4}' || echo ''
+            """,
+            returnStdout: true
+        ).trim()
 
-        for (int i=0; i<tests.size(); i++) {
+        def artifactSet = existingArtifacts.split('\n').findAll { it }.toSet()
+
+        for (int i = 0; i < tests.size(); i++) {
             def testNameWithMysqlVersion = tests[i]["name"] +"-"+ tests[i]["mysql_ver"].replace(".", "-")
-            def file="${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$testNameWithMysqlVersion"
-            def retFileExists = sh(script: "aws s3api head-object --bucket percona-jenkins-artifactory --key ${JOB_NAME}/${env.GIT_SHORT_COMMIT}/${file} >/dev/null 2>&1", returnStatus: true)
+            def file = "${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$testNameWithMysqlVersion"
 
-            if (retFileExists == 0) {
-                tests[i]["result"] = "passed"
+            if (artifactSet.contains(file)) {
+                tests[i]['result'] = 'passed'
             }
         }
     }

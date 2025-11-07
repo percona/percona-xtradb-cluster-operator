@@ -3017,6 +3017,8 @@ spec:
                     items:
                       type: string
                     type: array
+                  mysqlAllocator:
+                    type: string
                   nodeSelector:
                     additionalProperties:
                       type: string
@@ -6544,6 +6546,8 @@ spec:
                     items:
                       type: string
                     type: array
+                  mysqlAllocator:
+                    type: string
                   nodeSelector:
                     additionalProperties:
                       type: string
@@ -9533,6 +9537,8 @@ spec:
                     items:
                       type: string
                     type: array
+                  mysqlAllocator:
+                    type: string
                   nodeSelector:
                     additionalProperties:
                       type: string

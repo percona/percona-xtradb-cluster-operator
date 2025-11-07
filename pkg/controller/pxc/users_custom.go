@@ -172,6 +172,8 @@ func generateUserPass(
 
 func userPasswordChanged(secret *corev1.Secret, dbUser *users.User, key, passKey string) bool {
 	if secret.Annotations == nil {
+		// If annotations are nil and the user is created (not nil),
+		// we assume that password has changed.
 		return dbUser != nil
 	}
 

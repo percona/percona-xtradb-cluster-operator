@@ -24,9 +24,13 @@ function main() {
 
 	SERVER_OPTIONS=${HA_SERVER_OPTIONS:-'resolvers kubernetes check inter 10000 rise 1 fall 2 weight 1 on-marked-down shutdown-sessions'}
 	send_proxy=''
+	shutdown_on_mark_down=''
 	path_to_haproxy_cfg='/etc/haproxy/pxc'
 	if [[ "${IS_PROXY_PROTOCOL}" = "yes" ]]; then
 		send_proxy='send-proxy-v2'
+	fi
+	if [[ "${HA_SHUTDOWN_ON_MARK_DOWN}" = "yes" ]]; then
+		shutdown_on_mark_down='on-marked-down shutdown-sessions'
 	fi
 
 	while read pxc_host; do
@@ -37,19 +41,19 @@ function main() {
 
 		node_name=$(echo "$pxc_host" | cut -d . -f -1)
 		node_id=$(echo $node_name | awk -F'-' '{print $NF}')
-		NODE_LIST_REPL+=("server $node_name $pxc_host:3306 $send_proxy $SERVER_OPTIONS")
+		NODE_LIST_REPL+=("server $node_name $pxc_host:3306 $send_proxy $SERVER_OPTIONS${shutdown_on_mark_down:+ }$shutdown_on_mark_down")
 		if [ "x$node_id" == 'x0' ]; then
 			firs_node_replica="$pxc_host"
 			main_node="$pxc_host"
-			firs_node="server $node_name $pxc_host:3306 $send_proxy $SERVER_OPTIONS on-marked-up shutdown-backup-sessions"
-			firs_node_admin="server $node_name $pxc_host:33062 $SERVER_OPTIONS on-marked-up shutdown-backup-sessions"
-			firs_node_mysqlx="server $node_name $pxc_host:33060 $SERVER_OPTIONS on-marked-up shutdown-backup-sessions"
+			firs_node="server $node_name $pxc_host:3306 $send_proxy $SERVER_OPTIONS on-marked-up shutdown-backup-sessions${shutdown_on_mark_down:+ }$shutdown_on_mark_down"
+			firs_node_admin="server $node_name $pxc_host:33062 $SERVER_OPTIONS on-marked-up shutdown-backup-sessions${shutdown_on_mark_down:+ }$shutdown_on_mark_down"
+			firs_node_mysqlx="server $node_name $pxc_host:33060 $SERVER_OPTIONS on-marked-up shutdown-backup-sessions${shutdown_on_mark_down:+ }$shutdown_on_mark_down"
 			continue
 		fi
 		NODE_LIST_BACKUP+=("galera-nodes/$node_name" "galera-admin-nodes/$node_name")
-		NODE_LIST+=("server $node_name $pxc_host:3306 $send_proxy $SERVER_OPTIONS backup")
-		NODE_LIST_ADMIN+=("server $node_name $pxc_host:33062 $SERVER_OPTIONS backup")
-		NODE_LIST_MYSQLX+=("server $node_name $pxc_host:33060 $send_proxy $SERVER_OPTIONS backup")
+		NODE_LIST+=("server $node_name $pxc_host:3306 $send_proxy $SERVER_OPTIONS backup${shutdown_on_mark_down:+ }$shutdown_on_mark_down")
+		NODE_LIST_ADMIN+=("server $node_name $pxc_host:33062 $SERVER_OPTIONS backup${shutdown_on_mark_down:+ }$shutdown_on_mark_down")
+		NODE_LIST_MYSQLX+=("server $node_name $pxc_host:33060 $send_proxy $SERVER_OPTIONS backup${shutdown_on_mark_down:+ }$shutdown_on_mark_down")
 	done
 
 	if [ -n "$firs_node" ]; then

@@ -19,6 +19,7 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/config"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/util"
@@ -753,6 +754,10 @@ func PrepareJob(
 			MountPath: "/var/lib/mysql",
 		},
 		{
+			Name:      "config",
+			MountPath: "/etc/percona-xtradb-cluster.conf.d",
+		},
+		{
 			Name:      "mysql-users-secret-file",
 			MountPath: "/etc/mysql/mysql-users-secret",
 		},
@@ -778,6 +783,7 @@ func PrepareJob(
 				},
 			},
 		},
+		app.GetConfigVolumes("config", config.CustomConfigMapName(cluster.Name, "pxc")),
 		app.GetSecretVolumes("mysql-users-secret-file", "internal-"+cluster.Name, false),
 		app.GetSecretVolumes("vault-keyring-secret", cluster.Spec.PXC.VaultSecretName, true),
 		app.GetSecretVolumes("ssl", cluster.Spec.PXC.SSLSecretName, !cluster.TLSEnabled()),

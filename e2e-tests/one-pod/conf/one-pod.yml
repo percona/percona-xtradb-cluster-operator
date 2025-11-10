@@ -16,6 +16,7 @@ spec:
       gtid_mode=on
       enforce_gtid_consistency=on
 
+      server_id=1
       log-bin=binlog
       log-slave-updates
 

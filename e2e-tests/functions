@@ -5,23 +5,55 @@ BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 GIT_BRANCH=${VERSION:-$(git rev-parse --abbrev-ref HEAD | sed -e 's^/^-^g; s^[.]^-^g;' | tr '[:upper:]' '[:lower:]')}
 API="pxc.percona.com/v1"
 OPERATOR_VERSION="$(grep 'crVersion' $(realpath $(dirname ${BASH_SOURCE[0]})/../deploy/cr.yaml) | awk '{print $2}')"
-IMAGE=${IMAGE:-"perconalab/percona-xtradb-cluster-operator:${GIT_BRANCH}"}
 MYSQL_VERSION=${MYSQL_VERSION:-"8.0"}
-IMAGE_PXC=${IMAGE_PXC:-"perconalab/percona-xtradb-cluster-operator:main-pxc${MYSQL_VERSION}"}
-IMAGE_PROXY=${IMAGE_PROXY:-"perconalab/percona-xtradb-cluster-operator:main-proxysql"}
-IMAGE_HAPROXY=${IMAGE_HAPROXY:-"perconalab/percona-xtradb-cluster-operator:main-haproxy"}
-IMAGE_BACKUP=${IMAGE_BACKUP:-"perconalab/percona-xtradb-cluster-operator:main-pxc${MYSQL_VERSION}-backup"}
-IMAGE_LOGCOLLECTOR=${IMAGE_LOGCOLLECTOR:-"perconalab/percona-xtradb-cluster-operator:main-logcollector"}
 SKIP_REMOTE_BACKUPS=${SKIP_REMOTE_BACKUPS:-1}
 PMM_SERVER_VER=${PMM_SERVER_VER:-"9.9.9"}
-IMAGE_PMM_CLIENT=${IMAGE_PMM_CLIENT:-"perconalab/pmm-client:dev-latest"}
-IMAGE_PMM_SERVER=${IMAGE_PMM_SERVER:-"perconalab/pmm-server:dev-latest"}
-IMAGE_PMM3_CLIENT=${IMAGE_PMM3_CLIENT:-"perconalab/pmm-client:3.1.0"}
-IMAGE_PMM3_SERVER=${IMAGE_PMM3_SERVER:-"perconalab/pmm-server:3.1.0"}
-CERT_MANAGER_VER="1.17.1"
+CERT_MANAGER_VER="1.18.2"
 MINIO_VER="5.4.0"
 CHAOS_MESH_VER="2.7.1"
 VAULT_VER="0.30.0"
+
+export IMAGE=${IMAGE:-"perconalab/percona-xtradb-cluster-operator:${GIT_BRANCH}"}
+export IMAGE_PXC=${IMAGE_PXC:-"perconalab/percona-xtradb-cluster-operator:main-pxc${MYSQL_VERSION}"}
+export IMAGE_PROXY=${IMAGE_PROXY:-"perconalab/percona-xtradb-cluster-operator:main-proxysql"}
+export IMAGE_HAPROXY=${IMAGE_HAPROXY:-"perconalab/percona-xtradb-cluster-operator:main-haproxy"}
+export IMAGE_BACKUP=${IMAGE_BACKUP:-"perconalab/percona-xtradb-cluster-operator:main-pxc${MYSQL_VERSION}-backup"}
+export IMAGE_LOGCOLLECTOR=${IMAGE_LOGCOLLECTOR:-"perconalab/percona-xtradb-cluster-operator:main-logcollector"}
+export IMAGE_PMM_CLIENT=${IMAGE_PMM_CLIENT:-"perconalab/pmm-client:dev-latest"}
+export IMAGE_PMM_SERVER=${IMAGE_PMM_SERVER:-"perconalab/pmm-server:dev-latest"}
+export IMAGE_PMM3_CLIENT=${IMAGE_PMM3_CLIENT:-"perconalab/pmm-client:3.1.0"}
+export IMAGE_PMM3_SERVER=${IMAGE_PMM3_SERVER:-"perconalab/pmm-server:3.1.0"}
+
+if oc get projects 2>/dev/null; then
+	OPENSHIFT=$(oc version -o json | jq -r '.openshiftVersion' | grep -oE '^[0-9]+\.[0-9]+')
+fi
+
+add_docker_reg() {
+	local var=$1
+
+	var_value=$(eval "echo \$$var")
+	if [[ $var_value == $REGISTRY_NAME/* ]]; then
+		continue
+	fi
+	if [[ $var_value == percona/percona-xtradb-cluster-operator:* ]]; then
+		new_value="${REGISTRY_NAME_FULL}${var_value}"
+		export "$var=$new_value"
+	fi
+}
+
+add_docker_reg_all_vars() {
+	REGISTRY_NAME="docker.io"
+	REGISTRY_NAME_FULL="$REGISTRY_NAME/"
+
+	for var in $(printenv | grep -E '^IMAGE' | awk -F'=' '{print $1}'); do
+		add_docker_reg $var
+	done
+}
+
+if [[ -n ${OPENSHIFT} && $(echo "${OPENSHIFT} >= "4.19"" | bc -l) -eq 1 ]]; then
+	add_docker_reg_all_vars
+fi
+
 tmp_dir=$(mktemp -d)
 sed=$(which gsed || which sed)
 date=$(which gdate || which date)
@@ -45,14 +77,16 @@ if [ -f "$conf_dir/cloud-secret.yml" ]; then
 	SKIP_REMOTE_BACKUPS=''
 fi
 
-if oc get projects 2>/dev/null; then
-	OPENSHIFT=$(oc version -o json | jq -r '.openshiftVersion' | grep -oE '^[0-9]+\.[0-9]+')
-fi
-
 if [ $(kubectl version -o json | jq -r '.serverVersion.gitVersion' | grep "\-eks\-") ]; then
 	EKS=1
 else
 	EKS=0
+fi
+
+if kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}' | grep -q "azmk8s.io"; then
+	AKS=1
+else
+	AKS=0
 fi
 
 KUBE_VERSION=$(kubectl version -o json | jq -r '.serverVersion.major + "." + .serverVersion.minor' | $sed -r 's/[^0-9.]+//g')
@@ -67,6 +101,12 @@ set_debug() {
 
 log() {
 	echo "[$(date +%Y-%m-%dT%H:%M:%S%z)]" $*
+}
+
+replace_docker_registry() {
+	local file_path=$1
+
+	$sed -E -i "s|^([[:space:]]*image:[[:space:]]*)(percona/percona-xtradb-cluster-operator:.*)|\1$REGISTRY_NAME_FULL\2|" $file_path
 }
 
 HELM_VERSION=$(helm version -c | $sed -re 's/.*SemVer:"([^"]+)".*/\1/; s/.*\bVersion:"([^"]+)".*/\1/')
@@ -305,7 +345,7 @@ deploy_operator() {
 			| sed -e "s^image: .*^image: ${IMAGE}^" \
 			| sed -e "s^failureThreshold: .*^failureThreshold: 10^" \
 			| yq eval '(select(.kind == "Deployment").spec.template.spec.containers[] | select(.name == "percona-xtradb-cluster-operator").env[] | select(.name == "DISABLE_TELEMETRY").value) = "true"' - \
-			| yq eval '(select(.kind == "Deployment").spec.template.spec.containers[] | select(.name == "percona-xtradb-cluster-operator").env[] | select(.name == "LOG_LEVEL").value) = "DEBUG"' - \
+			| yq eval '(select(.kind == "Deployment").spec.template.spec.containers[] | select(.name == "percona-xtradb-cluster-operator").env[] | select(.name == "LOG_LEVEL").value) = "VERBOSE"' - \
 			| kubectl_bin apply -f -
 	else
 		apply_rbac rbac
@@ -313,7 +353,7 @@ deploy_operator() {
 			| sed -e "s^image: .*^image: ${IMAGE}^" \
 			| sed -e "s^failureThreshold: .*^failureThreshold: 10^" \
 			| yq eval '(select(.kind == "Deployment").spec.template.spec.containers[] | select(.name == "percona-xtradb-cluster-operator").env[] | select(.name == "DISABLE_TELEMETRY").value) = "true"' - \
-			| yq eval '(select(.kind == "Deployment").spec.template.spec.containers[] | select(.name == "percona-xtradb-cluster-operator").env[] | select(.name == "LOG_LEVEL").value) = "DEBUG"' - \
+			| yq eval '(select(.kind == "Deployment").spec.template.spec.containers[] | select(.name == "percona-xtradb-cluster-operator").env[] | select(.name == "LOG_LEVEL").value) = "VERBOSE"' - \
 			| kubectl_bin apply -f -
 	fi
 
@@ -422,7 +462,9 @@ compare_kubectl() {
 		expected_result=${expected_result//.yml/-84.yml}
 	fi
 
-	if version_gt "1.29" && [ -f ${expected_result//.yml/-k129.yml} ]; then
+	if version_gt "1.33" && [ -f ${expected_result//.yml/-k133.yml} ]; then
+		expected_result=${expected_result//.yml/-k133.yml}
+	elif version_gt "1.29" && [ -f ${expected_result//.yml/-k129.yml} ]; then
 		expected_result=${expected_result//.yml/-k129.yml}
 	elif version_gt "1.27" && [ -f ${expected_result//.yml/-k127.yml} ]; then
 		expected_result=${expected_result//.yml/-k127.yml}
@@ -442,6 +484,10 @@ compare_kubectl() {
 
 	if [ "$EKS" = 1 -a -f ${expected_result//.yml/-eks.yml} ]; then
 		expected_result=${expected_result//.yml/-eks.yml}
+	fi
+
+	if [ "$AKS" = 1 -a -f ${expected_result//.yml/-aks.yml} ]; then
+		expected_result=${expected_result//.yml/-aks.yml}
 	fi
 
 	kubectl_bin get -o yaml ${resource} \
@@ -1086,6 +1132,9 @@ run_recovery_check() {
 
 	if [ "$backup" != "on-demand-backup-minio" ]; then
 		log 'copy backup'
+		if [ -n "$OPENSHIFT" ]; then
+			replace_docker_registry $src_dir/deploy/backup/copy-backup.sh
+		fi
 		bash $src_dir/deploy/backup/copy-backup.sh $backup $tmp_dir/backup
 	fi
 }
@@ -1188,6 +1237,7 @@ start_vault() {
 	if [[ -n ${OPENSHIFT} ]]; then
 		platform=openshift
 		oc patch clusterrole system:auth-delegator --type='json' -p '[{"op":"add","path":"/rules/-", "value":{"apiGroups":["security.openshift.io"], "attributeRestrictions":null, "resourceNames": ["privileged"], "resources":["securitycontextconstraints"],"verbs":["use"]}}]'
+		local extra_args="--set server.image.repository=docker.io/hashicorp/vault --set injector.image.repository=docker.io/hashicorp/vault-k8s"
 	fi
 	create_namespace "$name" "skip_clean"
 	deploy_helm "$name"
@@ -1207,7 +1257,8 @@ start_vault() {
 			--set server.extraVolumes[0].type=secret \
 			--set server.extraVolumes[0].name=$name \
 			--set server.extraEnvironmentVars.VAULT_CACERT=/vault/userconfig/$name/vault.ca \
-			--set server.standalone.config="
+			$extra_args \
+			--set server.standalone.config=" \
 listener \"tcp\" {
     address = \"[::]:8200\"
     cluster_address = \"[::]:8201\"
@@ -1226,6 +1277,7 @@ storage \"file\" {
 			--version $VAULT_VER \
 			--namespace "$name" \
 			--set dataStorage.enabled=false \
+			$extra_args \
 			--set global.platform="${platform}"
 	fi
 
@@ -1530,6 +1582,9 @@ function prepare_cr_yaml() {
 			.spec.proxysql.enabled = true
 		' "${cr_yaml}"
 	fi
+	if  [[ -n ${OPENSHIFT} && $(echo "${OPENSHIFT} >= "4.19"" | bc -l) -eq 1  ]]; then
+		replace_docker_registry "${cr_yaml}"
+	fi
 }
 
 function kpatch_delete_field() {
@@ -1676,6 +1731,7 @@ deploy_pmm_server() {
 	helm uninstall monitoring || :
 
 	retry 10 60 helm install monitoring --set imageRepo=${IMAGE_PMM_SERVER%:*} --set imageTag=${IMAGE_PMM_SERVER#*:} $additional_params https://percona-charts.storage.googleapis.com/pmm-server-$PMM_SERVER_VER.tgz
+	kubectl wait pod monitoring-0 --for=condition=Ready --timeout=420s
 }
 
 run_recovery_check_pitr() {

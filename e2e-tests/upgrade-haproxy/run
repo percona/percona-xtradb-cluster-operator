@@ -16,6 +16,7 @@ TARGET_IMAGE_PMM_CLIENT="${IMAGE_PMM_CLIENT}"
 TARGET_IMAGE_PROXY="${IMAGE_PROXY}"
 TARGET_IMAGE_HAPROXY="${IMAGE_HAPROXY}"
 TARGET_IMAGE_BACKUP="${IMAGE_BACKUP}"
+TARGET_IMAGE_LOGCOLLECTOR="${IMAGE_LOGCOLLECTOR}"
 if [[ ${TARGET_IMAGE_PXC} == *"percona-xtradb-cluster-operator"* ]]; then
 	PXC_VER=$(echo -n "${TARGET_IMAGE_PXC}" | $sed -r 's/.*([0-9].[0-9])$/\1/')
 else
@@ -38,10 +39,15 @@ if [[ "$(echo ${TARGET_IMAGE} | cut -d'/' -f1)" == "perconalab" ]]; then
 	IMAGE="${IMAGE/percona/perconalab}"
 fi
 IMAGE_PXC=$(echo "${INIT_OPERATOR_IMAGES}" | jq -r '.versions[].matrix.pxc[].imagePath')
-IMAGE_PMM_CLIENT=$(echo "${INIT_OPERATOR_IMAGES}" | jq -r '.versions[].matrix.pmm[].imagePath')
+IMAGE_PMM_CLIENT=$(echo "${INIT_OPERATOR_IMAGES}" | jq -r '.versions[].matrix.pmm[].imagePath' | tail -n1)
 IMAGE_PROXY=$(echo "${INIT_OPERATOR_IMAGES}" | jq -r '.versions[].matrix.proxysql[].imagePath')
 IMAGE_HAPROXY=$(echo "${INIT_OPERATOR_IMAGES}" | jq -r '.versions[].matrix.haproxy[].imagePath')
 IMAGE_BACKUP=$(echo "${INIT_OPERATOR_IMAGES}" | jq -r '.versions[].matrix.backup[].imagePath')
+IMAGE_LOGCOLLECTOR=$(echo "${INIT_OPERATOR_IMAGES}" | jq -r '.versions[].matrix.logCollector[].imagePath')
+
+if [[ -n ${OPENSHIFT} && $(echo "${OPENSHIFT} >= "4.19"" | bc -l) -eq 1 ]]; then
+	add_docker_reg_all_vars
+fi
 
 if [[ ${TARGET_OPERATOR_VER} == "${INIT_OPERATOR_VER}" ]]; then
 	echo "INIT_OPERATOR_VER and TARGET_OPERATOR_VER variables are the same: ${INIT_OPERATOR_VER}! Something is wrong!"
@@ -105,6 +111,7 @@ function main() {
 	${IMAGE_HAPROXY} == $(kubectl_bin get pxc "${CLUSTER}" -o jsonpath='{.spec.haproxy.image}') &&
 	${IMAGE_BACKUP} == $(kubectl_bin get pxc "${CLUSTER}" -o jsonpath='{.spec.backup.image}') &&
 	${IMAGE_PMM_CLIENT} == $(kubectl_bin get pxc "${CLUSTER}" -o jsonpath='{.spec.pmm.image}') &&
+	${IMAGE_LOGCOLLECTOR} == $(kubectl_bin get pxc "${CLUSTER}" -o jsonpath='{.spec.logcollector.image}') &&
 	${IMAGE_PXC} == $(kubectl_bin get pxc "${CLUSTER}" -o jsonpath='{.spec.pxc.image}') ]]; then
 		: Operator image has been updated correctly
 	else
@@ -121,6 +128,7 @@ function main() {
             "pmm": { "image": "'"${TARGET_IMAGE_PMM_CLIENT}"'" },
             "haproxy": { "image": "'"${TARGET_IMAGE_HAPROXY}"'" },
             "proxysql": { "image": "'"${TARGET_IMAGE_PROXY}"'" },
+            "logcollector": { "image": "'"${TARGET_IMAGE_LOGCOLLECTOR}"'" },
             "backup": { "image": "'"${TARGET_IMAGE_BACKUP}"'" }
         }}'
 	sleep 10
@@ -132,6 +140,7 @@ function main() {
 	${TARGET_IMAGE_HAPROXY} == $(kubectl_bin get pxc "${CLUSTER}" -o jsonpath='{.spec.haproxy.image}') &&
 	${TARGET_IMAGE_BACKUP} == $(kubectl_bin get pxc "${CLUSTER}" -o jsonpath='{.spec.backup.image}') &&
 	${TARGET_IMAGE_PMM_CLIENT} == $(kubectl_bin get pxc "${CLUSTER}" -o jsonpath='{.spec.pmm.image}') &&
+	${TARGET_IMAGE_LOGCOLLECTOR} == $(kubectl_bin get pxc "${CLUSTER}" -o jsonpath='{.spec.logcollector.image}') &&
 	${TARGET_IMAGE_PXC} == $(kubectl_bin get pxc "${CLUSTER}" -o jsonpath='{.spec.pxc.image}') ]]; then
 		: Cluster images have been updated correctly
 	else

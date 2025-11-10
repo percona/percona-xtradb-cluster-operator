@@ -104,12 +104,14 @@ type ServiceExpose struct {
 	// LoadBalancerClass enables to use a load balancer implementation other than the cloud provider default.
 	// This field can only be set when the Service type is 'LoadBalancer', and only when creating or updating
 	// a Service to type 'LoadBalancer'. Once set, it can not be changed.
-	LoadBalancerClass        *string                                 `json:"loadBalancerClass,omitempty"`
-	LoadBalancerSourceRanges []string                                `json:"loadBalancerSourceRanges,omitempty"`
-	Annotations              map[string]string                       `json:"annotations,omitempty"`
-	Labels                   map[string]string                       `json:"labels,omitempty"`
-	ExternalTrafficPolicy    corev1.ServiceExternalTrafficPolicyType `json:"externalTrafficPolicy,omitempty"`
-	InternalTrafficPolicy    corev1.ServiceInternalTrafficPolicy     `json:"internalTrafficPolicy,omitempty"`
+	LoadBalancerClass        *string  `json:"loadBalancerClass,omitempty"`
+	LoadBalancerSourceRanges []string `json:"loadBalancerSourceRanges,omitempty"`
+	// Deprecated: in Kubernetes v1.24+ and should be removed in 1.21.0 operator version
+	LoadBalancerIP        string                                  `json:"loadBalancerIP,omitempty"`
+	Annotations           map[string]string                       `json:"annotations,omitempty"`
+	Labels                map[string]string                       `json:"labels,omitempty"`
+	ExternalTrafficPolicy corev1.ServiceExternalTrafficPolicyType `json:"externalTrafficPolicy,omitempty"`
+	InternalTrafficPolicy corev1.ServiceInternalTrafficPolicy     `json:"internalTrafficPolicy,omitempty"`
 
 	// Deprecated: Use ExternalTrafficPolicy instead
 	TrafficPolicy corev1.ServiceExternalTrafficPolicyType `json:"trafficPolicy,omitempty"`
@@ -240,7 +242,7 @@ type PXCScheduledBackupRetention struct {
 	// When set to true (the default), backups will be deleted from storage.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:default=true
-	DeleteFromStorage bool `json:"deleteFromStorage,omitempty"`
+	DeleteFromStorage bool `json:"deleteFromStorage"`
 }
 
 // GetRetention resolves the retention configuration of the PXCScheduledBackupSchedule spec.
@@ -762,10 +764,11 @@ const (
 )
 
 type BackupStorageS3Spec struct {
-	Bucket            string `json:"bucket"`
-	CredentialsSecret string `json:"credentialsSecret"`
-	Region            string `json:"region,omitempty"`
-	EndpointURL       string `json:"endpointUrl,omitempty"`
+	Bucket            string                    `json:"bucket"`
+	CredentialsSecret string                    `json:"credentialsSecret"`
+	Region            string                    `json:"region,omitempty"`
+	EndpointURL       string                    `json:"endpointUrl,omitempty"`
+	CABundle          *corev1.SecretKeySelector `json:"caBundle,omitempty"`
 }
 
 // BucketAndPrefix returns bucket name and backup prefix from Bucket.

@@ -1610,7 +1610,7 @@ var _ = Describe("Liveness/Readiness Probes", Ordered, func() {
 		}),
 		Entry("[liveness] custom success threshold", func() (corev1.Probe, corev1.Probe) {
 			liveness := defaultLiveness.DeepCopy()
-			liveness.SuccessThreshold = defaultLiveness.SuccessThreshold + 1
+			liveness.SuccessThreshold = defaultLiveness.SuccessThreshold
 
 			return defaultReadiness, *liveness
 		}),
@@ -1737,7 +1737,7 @@ var _ = Describe("Liveness/Readiness Probes", Ordered, func() {
 		}),
 		Entry("[liveness] custom success threshold", func() (corev1.Probe, corev1.Probe) {
 			liveness := defaultHAProxyLiveness.DeepCopy()
-			liveness.SuccessThreshold = defaultHAProxyLiveness.SuccessThreshold + 1
+			liveness.SuccessThreshold = defaultHAProxyLiveness.SuccessThreshold
 
 			return defaultHAProxyReadiness, *liveness
 		}),
@@ -1748,6 +1748,200 @@ var _ = Describe("Liveness/Readiness Probes", Ordered, func() {
 			return defaultHAProxyReadiness, *liveness
 		}),
 	)
+})
+
+var _ = Describe("Backup reconciliation", Ordered, func() {
+	ctx := context.Background()
+
+	const ns = "backup-reconcile"
+	namespace := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      ns,
+			Namespace: ns,
+		},
+	}
+
+	BeforeAll(func() {
+		By("Creating the Namespace to perform the tests")
+		err := k8sClient.Create(ctx, namespace)
+		Expect(err).To(Not(HaveOccurred()))
+	})
+
+	AfterAll(func() {
+		By("Deleting the Namespace to perform the tests")
+		_ = k8sClient.Delete(ctx, namespace)
+	})
+
+	Context("Backup job recreation", Ordered, func() {
+		const crName = "backup-recreation-test"
+		crNamespacedName := types.NamespacedName{Name: crName, Namespace: ns}
+
+		cr, err := readDefaultCR(crName, ns)
+		It("should read default cr.yaml", func() {
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should create PerconaXtraDBCluster with backup configuration", func() {
+			cr.Spec.Backup = &api.PXCScheduledBackup{
+				Image: "backup-image",
+				Storages: map[string]*api.BackupStorageSpec{
+					"s3-us-west": {
+						Type: api.BackupStorageS3,
+						S3: &api.BackupStorageS3Spec{
+							Bucket:            "test-bucket",
+							Region:            "us-west-2",
+							CredentialsSecret: "test-s3-secret",
+						},
+					},
+				},
+				Schedule: []api.PXCScheduledBackupSchedule{
+					{
+						Name:        "daily-backup",
+						Schedule:    "0 2 * * *",
+						StorageName: "s3-us-west",
+						Retention: &api.PXCScheduledBackupRetention{
+							Type:              "count",
+							Count:             7,
+							DeleteFromStorage: true,
+						},
+					},
+				},
+			}
+
+			Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
+		})
+
+		It("should reconcile and create initial backup job", func() {
+			rec := reconciler()
+			_, err := rec.Reconcile(ctx, ctrl.Request{NamespacedName: crNamespacedName})
+			Expect(err).NotTo(HaveOccurred())
+
+			backupNamePrefix := backupJobClusterPrefix(cr.Namespace + "-" + cr.Name)
+			backupJobName := backupNamePrefix + "-daily-backup"
+
+			job, ok := rec.crons.backupJobs.Load(backupJobName)
+			Expect(ok).To(BeTrue())
+
+			backupJob := job.(BackupScheduleJob)
+			Expect(backupJob.Schedule).To(Equal("0 2 * * *"))
+			Expect(backupJob.StorageName).To(Equal("s3-us-west"))
+			Expect(backupJob.Retention.DeleteFromStorage).To(BeTrue())
+		})
+
+		It("should recreate backup job when schedule changes", func() {
+			err := k8sClient.Get(ctx, client.ObjectKeyFromObject(cr), cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			orig := cr.DeepCopy()
+			cr.Spec.Backup.Schedule[0].Schedule = "0 3 * * *"
+
+			err = k8sClient.Patch(ctx, cr, client.MergeFrom(orig))
+			Expect(err).NotTo(HaveOccurred())
+
+			rec := reconciler()
+			_, err = rec.Reconcile(ctx, ctrl.Request{NamespacedName: crNamespacedName})
+			Expect(err).NotTo(HaveOccurred())
+
+			backupNamePrefix := backupJobClusterPrefix(cr.Namespace + "-" + cr.Name)
+			backupJobName := backupNamePrefix + "-daily-backup"
+
+			job, ok := rec.crons.backupJobs.Load(backupJobName)
+			Expect(ok).To(BeTrue())
+
+			backupJob := job.(BackupScheduleJob)
+			Expect(backupJob.Schedule).To(Equal("0 3 * * *"))
+		})
+
+		It("should recreate backup job when storage name changes", func() {
+			err := k8sClient.Get(ctx, client.ObjectKeyFromObject(cr), cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			orig := cr.DeepCopy()
+			cr.Spec.Backup.Storages["s3-eu-west"] = &api.BackupStorageSpec{
+				Type: api.BackupStorageS3,
+				S3: &api.BackupStorageS3Spec{
+					Bucket:            "test-bucket-eu",
+					Region:            "eu-west-1",
+					CredentialsSecret: "test-s3-secret",
+				},
+			}
+			cr.Spec.Backup.Schedule[0].StorageName = "s3-eu-west"
+
+			err = k8sClient.Patch(ctx, cr, client.MergeFrom(orig))
+			Expect(err).NotTo(HaveOccurred())
+
+			rec := reconciler()
+			_, err = rec.Reconcile(ctx, ctrl.Request{NamespacedName: crNamespacedName})
+			Expect(err).NotTo(HaveOccurred())
+
+			backupNamePrefix := backupJobClusterPrefix(cr.Namespace + "-" + cr.Name)
+			backupJobName := backupNamePrefix + "-daily-backup"
+
+			job, ok := rec.crons.backupJobs.Load(backupJobName)
+			Expect(ok).To(BeTrue())
+
+			backupJob := job.(BackupScheduleJob)
+			Expect(backupJob.StorageName).To(Equal("s3-eu-west"))
+		})
+
+		It("should recreate backup job when retention DeleteFromStorage changes", func() {
+			currentCr := &api.PerconaXtraDBCluster{}
+			err := k8sClient.Get(ctx, client.ObjectKeyFromObject(cr), currentCr)
+			Expect(err).NotTo(HaveOccurred())
+
+			orig := currentCr.DeepCopy()
+			currentCr.Spec.Backup.Schedule[0].Retention.DeleteFromStorage = false
+
+			err = k8sClient.Patch(ctx, currentCr, client.MergeFrom(orig))
+			Expect(err).NotTo(HaveOccurred())
+
+			rec := reconciler()
+			_, err = rec.Reconcile(ctx, ctrl.Request{NamespacedName: crNamespacedName})
+			Expect(err).NotTo(HaveOccurred())
+
+			backupNamePrefix := backupJobClusterPrefix(cr.Namespace + "-" + cr.Name)
+			backupJobName := backupNamePrefix + "-daily-backup"
+
+			job, ok := rec.crons.backupJobs.Load(backupJobName)
+			Expect(ok).To(BeTrue())
+
+			backupJob := job.(BackupScheduleJob)
+			Expect(backupJob.Retention.DeleteFromStorage).To(BeFalse())
+		})
+
+		It("should recreate backup job when existing job has different properties", func() {
+			rec := reconciler()
+			backupNamePrefix := backupJobClusterPrefix(cr.Namespace + "-" + cr.Name)
+			backupJobName := backupNamePrefix + "-daily-backup"
+
+			existingJob := BackupScheduleJob{
+				PXCScheduledBackupSchedule: api.PXCScheduledBackupSchedule{
+					Name:        backupJobName,
+					Schedule:    "0 3 * * *",
+					StorageName: "s3-eu-west",
+					Retention: &api.PXCScheduledBackupRetention{
+						Type:              "count",
+						Count:             5,
+						DeleteFromStorage: true, // altered in comparison to the existing cr configuration.
+					},
+				},
+				JobID: 999,
+			}
+
+			rec.crons.backupJobs.Store(backupJobName, existingJob)
+
+			_, err := rec.Reconcile(ctx, ctrl.Request{NamespacedName: crNamespacedName})
+			Expect(err).NotTo(HaveOccurred())
+
+			job, ok := rec.crons.backupJobs.Load(backupJobName)
+			Expect(ok).To(BeTrue())
+
+			backupJob := job.(BackupScheduleJob)
+			Expect(backupJob.Schedule).To(Equal("0 3 * * *"))
+			Expect(backupJob.StorageName).To(Equal("s3-eu-west"))
+			Expect(backupJob.Retention.DeleteFromStorage).To(BeFalse())
+		})
+	})
 })
 
 var _ = Describe("CR validations", Ordered, func() {

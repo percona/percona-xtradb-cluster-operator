@@ -100,6 +100,11 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, cluster *api.PerconaXtraDBClu
 		initContainers = append(initContainers, statefulset.BackupInitContainer(cluster, initImage, storage.ContainerSecurityContext))
 	}
 
+	cmd := []string{"bash", "/usr/bin/backup.sh"}
+	if cluster.CompareVersionWith("1.18.0") >= 0 {
+		cmd = []string{"bash", "/opt/percona/backup/backup.sh"}
+	}
+
 	return batchv1.JobSpec{
 		ActiveDeadlineSeconds: activeDeadlineSeconds,
 		BackoffLimit:          &backoffLimit,
@@ -124,7 +129,7 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, cluster *api.PerconaXtraDBClu
 						Image:           bcp.image,
 						SecurityContext: storage.ContainerSecurityContext,
 						ImagePullPolicy: bcp.imagePullPolicy,
-						Command:         []string{"bash", "/opt/percona/backup/backup.sh"},
+						Command:         cmd,
 						Env:             envs,
 						Resources:       storage.Resources,
 						VolumeMounts:    volumeMounts,
@@ -193,7 +198,6 @@ func appendStorageSecret(job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBacku
 		secretIntVol,
 		secretVaultVol,
 	)
-
 	return nil
 }
 
@@ -340,6 +344,15 @@ func SetStorageS3(job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBackup) erro
 	err := appendStorageSecret(job, cr)
 	if err != nil {
 		return errors.Wrap(err, "failed to append storage secrets")
+	}
+
+	// add ca bundle (this is used by the aws-cli to verify the connection to S3)
+	if sel := s3.CABundle; sel != nil {
+		appendCABundleSecretVolume(
+			&job.Template.Spec.Volumes,
+			&job.Template.Spec.Containers[0].VolumeMounts,
+			sel,
+		)
 	}
 
 	return nil

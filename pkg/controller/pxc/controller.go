@@ -39,7 +39,6 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/config"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/util"
@@ -361,7 +360,6 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 	}
 
 	r.resyncPXCUsersWithProxySQL(ctx, o)
-
 	if o.Status.PXC.Version == "" || strings.HasSuffix(o.Status.PXC.Version, "intermediate") {
 		err := r.ensurePXCVersion(ctx, o, VersionServiceClient{OpVersion: o.Version().String()})
 		if err != nil {
@@ -601,169 +599,6 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(ctx context.Context, cr *api.Perc
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDBCluster) error {
-	autotuneCm := config.AutoTuneConfigMapName(cr.Name, "pxc")
-
-	_, ok := cr.Spec.PXC.Resources.Limits[corev1.ResourceMemory]
-	if ok {
-		configMap, err := config.NewAutoTuneConfigMap(cr, cr.Spec.PXC.Resources.Limits.Memory(), autotuneCm)
-		if err != nil {
-			return errors.Wrap(err, "new autotune configmap")
-		}
-
-		err = k8s.SetControllerReference(cr, configMap, r.scheme)
-		if err != nil {
-			return errors.Wrap(err, "set autotune configmap controller ref")
-		}
-
-		err = createOrUpdateConfigmap(r.client, configMap)
-		if err != nil {
-			return errors.Wrap(err, "create or update autotune configmap")
-		}
-	} else {
-		if err := deleteConfigMapIfExists(r.client, cr, autotuneCm); err != nil {
-			return errors.Wrap(err, "delete autotune configmap")
-		}
-	}
-
-	pxcConfigName := config.CustomConfigMapName(cr.Name, "pxc")
-	if cr.Spec.PXC.Configuration != "" {
-		configMap := config.NewConfigMap(cr, pxcConfigName, "init.cnf", cr.Spec.PXC.Configuration)
-		err := k8s.SetControllerReference(cr, configMap, r.scheme)
-		if err != nil {
-			return errors.Wrap(err, "set controller ref")
-		}
-
-		err = createOrUpdateConfigmap(r.client, configMap)
-		if err != nil {
-			return errors.Wrap(err, "pxc config map")
-		}
-	} else {
-		if err := deleteConfigMapIfExists(r.client, cr, pxcConfigName); err != nil {
-			return errors.Wrap(err, "delete pxc config map")
-		}
-	}
-
-	if cr.CompareVersionWith("1.11.0") >= 0 {
-		pxcHookScriptName := config.HookScriptConfigMapName(cr.Name, "pxc")
-		if cr.Spec.PXC != nil && cr.Spec.PXC.HookScript != "" {
-			err := r.createHookScriptConfigMap(cr, cr.Spec.PXC.PodSpec.HookScript, pxcHookScriptName)
-			if err != nil {
-				return errors.Wrap(err, "create pxc hookscript config map")
-			}
-		} else {
-			if err := deleteConfigMapIfExists(r.client, cr, pxcHookScriptName); err != nil {
-				return errors.Wrap(err, "delete pxc hookscript config map")
-			}
-		}
-
-		proxysqlHookScriptName := config.HookScriptConfigMapName(cr.Name, "proxysql")
-		if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.HookScript != "" {
-			err := r.createHookScriptConfigMap(cr, cr.Spec.ProxySQL.HookScript, proxysqlHookScriptName)
-			if err != nil {
-				return errors.Wrap(err, "create proxysql hookscript config map")
-			}
-		} else {
-			if err := deleteConfigMapIfExists(r.client, cr, proxysqlHookScriptName); err != nil {
-				return errors.Wrap(err, "delete proxysql hookscript config map")
-			}
-		}
-		haproxyHookScriptName := config.HookScriptConfigMapName(cr.Name, "haproxy")
-		if cr.Spec.HAProxy != nil && cr.Spec.HAProxy.HookScript != "" {
-			err := r.createHookScriptConfigMap(cr, cr.Spec.HAProxy.PodSpec.HookScript, haproxyHookScriptName)
-			if err != nil {
-				return errors.Wrap(err, "create haproxy hookscript config map")
-			}
-		} else {
-			if err := deleteConfigMapIfExists(r.client, cr, haproxyHookScriptName); err != nil {
-				return errors.Wrap(err, "delete haproxy config map")
-			}
-		}
-		logCollectorHookScriptName := config.HookScriptConfigMapName(cr.Name, "logcollector")
-		if cr.Spec.LogCollector != nil && cr.Spec.LogCollector.HookScript != "" {
-			err := r.createHookScriptConfigMap(cr, cr.Spec.LogCollector.HookScript, logCollectorHookScriptName)
-			if err != nil {
-				return errors.Wrap(err, "create logcollector hookscript config map")
-			}
-		} else {
-			if err := deleteConfigMapIfExists(r.client, cr, logCollectorHookScriptName); err != nil {
-				return errors.Wrap(err, "delete logcollector config map")
-			}
-		}
-	}
-
-	proxysqlConfigName := config.CustomConfigMapName(cr.Name, "proxysql")
-	if cr.Spec.ProxySQLEnabled() {
-		if cr.Spec.ProxySQL.Configuration != "" {
-			configMap := config.NewConfigMap(cr, proxysqlConfigName, "proxysql.cnf", cr.Spec.ProxySQL.Configuration)
-			err := k8s.SetControllerReference(cr, configMap, r.scheme)
-			if err != nil {
-				return errors.Wrap(err, "set controller ref ProxySQL")
-			}
-
-			err = createOrUpdateConfigmap(r.client, configMap)
-			if err != nil {
-				return errors.Wrap(err, "proxysql config map")
-			}
-		}
-	} else {
-		if err := deleteConfigMapIfExists(r.client, cr, proxysqlConfigName); err != nil {
-			return errors.Wrap(err, "delete proxySQL config map")
-		}
-	}
-
-	haproxyConfigName := config.CustomConfigMapName(cr.Name, "haproxy")
-	if cr.HAProxyEnabled() && cr.Spec.HAProxy.Configuration != "" {
-		configMap := config.NewConfigMap(cr, haproxyConfigName, "haproxy-global.cfg", cr.Spec.HAProxy.Configuration)
-		err := k8s.SetControllerReference(cr, configMap, r.scheme)
-		if err != nil {
-			return errors.Wrap(err, "set controller ref HAProxy")
-		}
-
-		err = createOrUpdateConfigmap(r.client, configMap)
-		if err != nil {
-			return errors.Wrap(err, "haproxy config map")
-		}
-	} else {
-		if err := deleteConfigMapIfExists(r.client, cr, haproxyConfigName); err != nil {
-			return errors.Wrap(err, "delete haproxy config map")
-		}
-	}
-
-	logCollectorConfigName := config.CustomConfigMapName(cr.Name, "logcollector")
-	if cr.Spec.LogCollector != nil && cr.Spec.LogCollector.Configuration != "" {
-		configMap := config.NewConfigMap(cr, logCollectorConfigName, "fluentbit_custom.conf", cr.Spec.LogCollector.Configuration)
-		err := k8s.SetControllerReference(cr, configMap, r.scheme)
-		if err != nil {
-			return errors.Wrap(err, "set controller ref LogCollector")
-		}
-		err = createOrUpdateConfigmap(r.client, configMap)
-		if err != nil {
-			return errors.Wrap(err, "logcollector config map")
-		}
-	} else {
-		if err := deleteConfigMapIfExists(r.client, cr, logCollectorConfigName); err != nil {
-			return errors.Wrap(err, "delete log collector config map")
-		}
-	}
-
-	return nil
-}
-
-func (r *ReconcilePerconaXtraDBCluster) createHookScriptConfigMap(cr *api.PerconaXtraDBCluster, hookScript string, configMapName string) error {
-	configMap := config.NewConfigMap(cr, configMapName, "hook.sh", hookScript)
-	err := k8s.SetControllerReference(cr, configMap, r.scheme)
-	if err != nil {
-		return errors.Wrap(err, "set controller ref")
-	}
-
-	err = createOrUpdateConfigmap(r.client, configMap)
-	if err != nil {
-		return errors.Wrap(err, "create or update configmap")
-	}
-	return nil
-}
-
 func (r *ReconcilePerconaXtraDBCluster) reconcilePDB(ctx context.Context, cr *api.PerconaXtraDBCluster, spec *api.PodDisruptionBudgetSpec, sfs api.StatefulApp) error {
 	if spec == nil {
 		return nil
@@ -782,7 +617,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcilePDB(ctx context.Context, cr *ap
 		return errors.Wrap(err, "set owner reference")
 	}
 
-	return errors.Wrap(r.createOrUpdate(ctx, cr, pdb), "reconcile pdb")
+	return errors.Wrap(r.createOrUpdate(ctx, pdb), "reconcile pdb")
 }
 
 func (r *ReconcilePerconaXtraDBCluster) deletePXCPods(ctx context.Context, cr *api.PerconaXtraDBCluster) error {
@@ -1037,50 +872,7 @@ func (r *ReconcilePerconaXtraDBCluster) resyncPXCUsersWithProxySQL(ctx context.C
 	}()
 }
 
-func createOrUpdateConfigmap(cl client.Client, configMap *corev1.ConfigMap) error {
-	currMap := &corev1.ConfigMap{}
-	err := cl.Get(context.TODO(), types.NamespacedName{
-		Namespace: configMap.Namespace,
-		Name:      configMap.Name,
-	}, currMap)
-	if err != nil && !k8serrors.IsNotFound(err) {
-		return errors.Wrap(err, "get current configmap")
-	}
-
-	if k8serrors.IsNotFound(err) {
-		return cl.Create(context.TODO(), configMap)
-	}
-
-	if !reflect.DeepEqual(currMap.Data, configMap.Data) {
-		return cl.Update(context.TODO(), configMap)
-	}
-
-	return nil
-}
-
-func deleteConfigMapIfExists(cl client.Client, cr *api.PerconaXtraDBCluster, cmName string) error {
-	configMap := &corev1.ConfigMap{}
-
-	err := cl.Get(context.TODO(), types.NamespacedName{
-		Namespace: cr.Namespace,
-		Name:      cmName,
-	}, configMap)
-	if err != nil && !k8serrors.IsNotFound(err) {
-		return errors.Wrap(err, "get config map")
-	}
-
-	if k8serrors.IsNotFound(err) {
-		return nil
-	}
-
-	if !metav1.IsControlledBy(configMap, cr) {
-		return nil
-	}
-
-	return cl.Delete(context.Background(), configMap)
-}
-
-func (r *ReconcilePerconaXtraDBCluster) createOrUpdate(ctx context.Context, cr *api.PerconaXtraDBCluster, obj client.Object) error {
+func (r *ReconcilePerconaXtraDBCluster) createOrUpdate(ctx context.Context, obj client.Object) error {
 	log := logf.FromContext(ctx)
 
 	if obj.GetAnnotations() == nil {
@@ -1204,7 +996,7 @@ func (r *ReconcilePerconaXtraDBCluster) createOrUpdateService(ctx context.Contex
 		return errors.Wrap(err, "set controller reference")
 	}
 	if !saveOldMeta && len(cr.Spec.IgnoreAnnotations) == 0 && len(cr.Spec.IgnoreLabels) == 0 {
-		return r.createOrUpdate(ctx, cr, svc)
+		return r.createOrUpdate(ctx, svc)
 	}
 	oldSvc := new(corev1.Service)
 	err = r.client.Get(ctx, types.NamespacedName{
@@ -1213,7 +1005,7 @@ func (r *ReconcilePerconaXtraDBCluster) createOrUpdateService(ctx context.Contex
 	}, oldSvc)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
-			return r.createOrUpdate(ctx, cr, svc)
+			return r.createOrUpdate(ctx, svc)
 		}
 		return errors.Wrap(err, "get object")
 	}
@@ -1224,7 +1016,7 @@ func (r *ReconcilePerconaXtraDBCluster) createOrUpdateService(ctx context.Contex
 	}
 	setIgnoredAnnotationsAndLabels(cr, svc, oldSvc)
 
-	return r.createOrUpdate(ctx, cr, svc)
+	return r.createOrUpdate(ctx, svc)
 }
 
 func getObjectHash(obj runtime.Object) (string, error) {

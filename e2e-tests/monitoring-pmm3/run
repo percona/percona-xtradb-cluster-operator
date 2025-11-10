@@ -103,20 +103,25 @@ get_pmm_server_token() {
 	fi
 
 	local create_response create_status_code create_json_response
-	create_response=$(curl --insecure -s -X POST -H 'Content-Type: application/json' -H 'Accept: application/json' \
-		-d "{\"name\":\"${key_name}\", \"role\":\"Admin\", \"isDisabled\":false}" \
-		--user "admin:${ADMIN_PASSWORD}" \
-		"https://$(get_service_ip monitoring-service)/graph/api/serviceaccounts" \
-		-w "\n%{http_code}")
+	local retry=0
+	until [[ $create_status_code == 201 ]]; do
+		create_response=$(curl --insecure -s -X POST -H 'Content-Type: application/json' -H 'Accept: application/json' \
+			-d "{\"name\":\"${key_name}\", \"role\":\"Admin\", \"isDisabled\":false}" \
+			--user "admin:${ADMIN_PASSWORD}" \
+			"https://$(get_service_ip monitoring-service)/graph/api/serviceaccounts" \
+			-w "\n%{http_code}")
 
-	create_status_code=$(echo "$create_response" | tail -n1)
-	create_json_response=$(echo "$create_response" | sed '$ d')
+		create_status_code=$(echo "$create_response" | tail -n1)
+		create_json_response=$(echo "$create_response" | sed '$ d')
 
-	if [[ $create_status_code -ne 201 ]]; then
-		echo "Error: Failed to create PMM service account. HTTP Status: $create_status_code" >&2
-		echo "Response: $create_json_response" >&2
-		return 1
-	fi
+		sleep 5
+		let retry+=1
+		if [ "$retry" -ge 24 ]; then
+			echo "Error: Failed to create PMM service account. HTTP Status: $create_status_code" >&2
+			echo "Response: $create_json_response" >&2
+			return 1
+		fi
+	done
 
 	local service_account_id
 	service_account_id=$(echo "$create_json_response" | jq -r '.id')
@@ -143,6 +148,42 @@ get_pmm_server_token() {
 	fi
 
 	echo "$token_json_response" | jq -r '.key'
+}
+
+verify_custom_cluster_name() {
+	local expected_cluster=$1
+	local token=$2
+	shift 2
+	local service_names=("$@")
+
+	local endpoint
+	endpoint=$(get_service_endpoint monitoring-service)
+
+	local response
+	response=$(curl -s -k \
+		-H "Authorization: Bearer ${token}" \
+		"https://$endpoint/v1/inventory/services")
+
+	local verified=0
+
+	for service_name in "${service_names[@]}"; do
+		local actual_cluster
+		actual_cluster=$(echo "$response" | jq -r --arg name "$service_name" '
+			.mysql[] | select(.service_name == $name) | .cluster
+		')
+
+		if [[ -z $actual_cluster || $actual_cluster == "null" ]]; then
+			echo "Service '$service_name' not found in PMM."
+			verified=1
+		elif [[ $actual_cluster != "$expected_cluster" ]]; then
+			echo "$service_name: Cluster mismatch"
+			echo "PMM reports: $actual_cluster"
+			echo "Expected:    $expected_cluster"
+			verified=1
+		fi
+	done
+
+	return $verified
 }
 
 delete_pmm_server_token() {
@@ -380,6 +421,9 @@ get_metric_values haproxy_backend_active_servers pxc-prefix-$namespace-$cluster-
 
 desc 'check QAN data'
 get_qan20_values $cluster-pxc-0 $NEW_TOKEN
+
+desc 'verify that the custom cluster name is configured'
+verify_custom_cluster_name pxc-prefix-foo-custom-cluster-name $NEW_TOKEN pxc-prefix-$namespace-$cluster-pxc-0 pxc-prefix-$namespace-$cluster-pxc-1 pxc-prefix-$namespace-$cluster-pxc-2
 
 nodeList=($(get_node_id_from_pmm))
 nodeList_from_pmm=($(does_node_id_exists "${nodeList[@]}"))

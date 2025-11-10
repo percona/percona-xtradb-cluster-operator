@@ -119,6 +119,8 @@ func PVCRestorePod(cr *api.PerconaXtraDBClusterRestore, bcpStorageName, pvcName 
 		},
 	}
 
+	cmd := []string{"recovery-pvc-donor.sh"}
+
 	var initContainers []corev1.Container
 	if cluster.CompareVersionWith("1.18.0") >= 0 {
 		volumes = append(volumes,
@@ -137,6 +139,7 @@ func PVCRestorePod(cr *api.PerconaXtraDBClusterRestore, bcpStorageName, pvcName 
 			},
 		)
 		initContainers = []corev1.Container{statefulset.BackupInitContainer(cluster, initImage, cluster.Spec.PXC.ContainerSecurityContext)}
+		cmd = []string{"/opt/percona/backup/recovery-pvc-donor.sh"}
 	}
 	return &corev1.Pod{
 		TypeMeta: metav1.TypeMeta{
@@ -158,7 +161,7 @@ func PVCRestorePod(cr *api.PerconaXtraDBClusterRestore, bcpStorageName, pvcName 
 					Name:            "ncat",
 					Image:           cluster.Spec.Backup.Image,
 					ImagePullPolicy: cluster.Spec.Backup.ImagePullPolicy,
-					Command:         []string{"/opt/percona/backup/recovery-pvc-donor.sh"},
+					Command:         cmd,
 					SecurityContext: cluster.Spec.Backup.Storages[bcpStorageName].ContainerSecurityContext,
 					VolumeMounts:    volumeMounts,
 					Resources:       cr.Spec.Resources,
@@ -176,6 +179,34 @@ func PVCRestorePod(cr *api.PerconaXtraDBClusterRestore, bcpStorageName, pvcName 
 			RuntimeClassName:          cluster.Spec.Backup.Storages[bcpStorageName].RuntimeClassName,
 		},
 	}, nil
+}
+
+func appendCABundleSecretVolume(
+	volumes *[]corev1.Volume,
+	volumeMounts *[]corev1.VolumeMount,
+	secretKeySel *corev1.SecretKeySelector,
+) {
+	const volumeName = "ca-bundle"
+	vol := corev1.Volume{
+		Name: volumeName,
+		VolumeSource: corev1.VolumeSource{
+			Secret: &corev1.SecretVolumeSource{
+				SecretName: secretKeySel.Name,
+				Items: []corev1.KeyToPath{
+					{
+						Key:  secretKeySel.Key,
+						Path: naming.BackupStorageCAFileName,
+					},
+				},
+			},
+		},
+	}
+	*volumes = append(*volumes, vol)
+	mnt := corev1.VolumeMount{
+		Name:      volumeName,
+		MountPath: naming.BackupStorageCAFileDirectory,
+	}
+	*volumeMounts = append(*volumeMounts, mnt)
 }
 
 func RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, cluster *api.PerconaXtraDBCluster, initImage string, scheme *runtime.Scheme, destination api.PXCBackupDestination, pitr bool) (*batchv1.Job, error) {
@@ -224,7 +255,10 @@ func RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClust
 	var command []string
 	switch bcp.Status.GetStorageType(cluster) {
 	case api.BackupStorageFilesystem:
-		command = []string{"/opt/percona/backup/recovery-pvc-joiner.sh"}
+		command = []string{"recovery-pvc-joiner.sh"}
+		if cluster.CompareVersionWith("1.18.0") >= 0 {
+			command = []string{"/opt/percona/backup/recovery-pvc-joiner.sh"}
+		}
 		volumeMounts = append(volumeMounts, []corev1.VolumeMount{
 			{
 				Name:      "ssl",
@@ -240,10 +274,11 @@ func RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClust
 			sslVolume,
 		}...)
 	case api.BackupStorageAzure, api.BackupStorageS3:
-		command = []string{"/opt/percona/backup/recovery-cloud.sh"}
-		if bcp.Status.GetStorageType(cluster) == api.BackupStorageS3 && cluster.CompareVersionWith("1.12.0") < 0 {
-			command = []string{"/opt/percona/backup/recovery-s3.sh"}
+		command = []string{"recovery-cloud.sh"}
+		if cluster.CompareVersionWith("1.18.0") >= 0 {
+			command = []string{"/opt/percona/backup/recovery-cloud.sh"}
 		}
+
 		if pitr {
 			if cluster.Spec.Backup == nil && len(cluster.Spec.Backup.Storages) == 0 {
 				return nil, errors.New("no storage section")
@@ -255,6 +290,11 @@ func RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClust
 			if cluster.CompareVersionWith("1.15.0") < 0 {
 				command = []string{"pitr", "recover"}
 			}
+		}
+
+		// add ca bundle (this is used by the aws-cli to verify the connection to S3)
+		if bcp.Status.S3 != nil && bcp.Status.S3.CABundle != nil {
+			appendCABundleSecretVolume(&volumes, &volumeMounts, bcp.Status.S3.CABundle)
 		}
 	default:
 		return nil, errors.Errorf("invalid storage type was specified in status, got: %s", bcp.Status.GetStorageType(cluster))

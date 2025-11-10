@@ -67,8 +67,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(ctx context.Context, cr
 				sch = schRaw.(BackupScheduleJob)
 			}
 
-			if !ok || sch.PXCScheduledBackupSchedule.Schedule != bcp.Schedule ||
-				sch.PXCScheduledBackupSchedule.StorageName != bcp.StorageName {
+			if !ok || shouldRecreateBackupJob(bcp, sch) {
 				log.Info("Creating or updating backup job", "name", bcp.Name, "schedule", bcp.Schedule)
 				r.deleteBackupJob(bcp.Name)
 				jobID, err := r.crons.AddFuncWithSeconds(bcp.Schedule, r.createBackupJob(ctx, cr, bcp, strg.Type))
@@ -116,6 +115,25 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(ctx context.Context, cr
 	})
 
 	return nil
+}
+
+// shouldRecreateBackupJob determines whether the existing backup job needs to be recreated.
+func shouldRecreateBackupJob(expected api.PXCScheduledBackupSchedule, existing BackupScheduleJob) bool {
+	recreate := existing.PXCScheduledBackupSchedule.Schedule != expected.Schedule ||
+		existing.PXCScheduledBackupSchedule.StorageName != expected.StorageName
+
+	if recreate {
+		return true
+	}
+
+	if existing.PXCScheduledBackupSchedule.Retention != nil && expected.Retention != nil {
+		if existing.PXCScheduledBackupSchedule.Retention.DeleteFromStorage !=
+			expected.Retention.DeleteFromStorage {
+			return true
+		}
+	}
+
+	return false
 }
 
 func backupJobClusterPrefix(clusterName string) string {

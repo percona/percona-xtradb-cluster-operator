@@ -40,6 +40,9 @@ func TestAPIs(t *testing.T) {
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
+	errEnv := os.Setenv("WATCH_NAMESPACE", "default")
+	Expect(errEnv).NotTo(HaveOccurred())
+
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "..", "config", "crd", "bases")},
@@ -64,6 +67,9 @@ var _ = BeforeSuite(func() {
 
 var _ = AfterSuite(func() {
 	By("tearing down the test environment")
+	errEnv := os.Unsetenv("WATCH_NAMESPACE")
+	Expect(errEnv).NotTo(HaveOccurred())
+
 	err := testEnv.Stop()
 	Expect(err).NotTo(HaveOccurred())
 })

@@ -20,7 +20,7 @@ func NewPVC(cr *api.PerconaXtraDBClusterBackup, cluster *api.PerconaXtraDBCluste
 			Kind:       "PersistentVolumeClaim",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      naming.BackupJobName(cr.Name, false),
+			Name:      naming.BackupJobName(cr.Name),
 			Namespace: cr.Namespace,
 			Labels:    ls,
 		},

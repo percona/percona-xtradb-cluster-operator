@@ -3,6 +3,7 @@ package pxcrestore
 import (
 	"context"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/pkg/errors"
@@ -23,6 +24,7 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/clientcmd"
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/binlogcollector"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage"
@@ -109,6 +111,27 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(ctx context.Context, re
 
 	switch cr.Status.State {
 	case api.RestoreSucceeded, api.RestoreFailed:
+		for _, jobName := range []string{
+			naming.RestoreJobName(cr, false),
+			naming.RestoreJobName(cr, true),
+		} {
+			if err := k8sretry.RetryOnConflict(k8sretry.DefaultRetry, func() error {
+				job := new(batchv1.Job)
+				if err := r.client.Get(ctx, types.NamespacedName{
+					Name:      jobName,
+					Namespace: cr.Namespace,
+				}, job); err != nil {
+					if k8serrors.IsNotFound(err) {
+						return nil
+					}
+					return errors.Wrap(err, "failed to get job")
+				}
+				job.Finalizers = slices.DeleteFunc(job.Finalizers, func(s string) bool { return s == naming.FinalizerKeepJob })
+				return r.client.Update(ctx, job)
+			}); err != nil {
+				return reconcile.Result{}, errors.Wrap(err, "failed to remove keep-job finalizer")
+			}
+		}
 		return reconcile.Result{}, nil
 	}
 

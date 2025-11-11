@@ -154,6 +154,7 @@ type TLSSpec struct {
 	SANs       []string                `json:"SANs,omitempty"`
 	IssuerConf *cmmeta.ObjectReference `json:"issuerConf,omitempty"`
 	Duration   *metav1.Duration        `json:"certValidityDuration,omitempty"`
+	CADuration *metav1.Duration        `json:"caValidityDuration,omitempty"`
 }
 
 const (

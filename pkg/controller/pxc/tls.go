@@ -74,9 +74,9 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(ctx context.Conte
 	caIssuerName := cr.Name + "-pxc-ca-issuer"
 	issuerKind := "Issuer"
 	issuerGroup := ""
-	duration := &metav1.Duration{Duration: pxctls.DefaultValidity}
-	if cr.Spec.TLS != nil && cr.Spec.TLS.Duration != nil {
-		duration = cr.Spec.TLS.Duration
+	caDuration := &metav1.Duration{Duration: pxctls.DefaultCAValidity}
+	if cr.Spec.TLS != nil && cr.Spec.TLS.CADuration != nil {
+		caDuration = cr.Spec.TLS.CADuration
 	}
 
 	if cr.Spec.TLS != nil && cr.Spec.TLS.IssuerConf != nil {
@@ -102,7 +102,7 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(ctx context.Conte
 					Kind:  issuerKind,
 					Group: issuerGroup,
 				},
-				Duration:    duration,
+				Duration:    caDuration,
 				RenewBefore: &metav1.Duration{Duration: 730 * time.Hour},
 			},
 		}
@@ -122,6 +122,11 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(ctx context.Conte
 		if err := r.createIssuer(ctx, cr, issuerName, caCert.Spec.SecretName); err != nil {
 			return err
 		}
+	}
+
+	duration := &metav1.Duration{Duration: pxctls.DefaultCertValidity}
+	if cr.Spec.TLS != nil && cr.Spec.TLS.Duration != nil {
+		duration = cr.Spec.TLS.Duration
 	}
 
 	kubeCert := &cm.Certificate{
@@ -282,7 +287,7 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLManualy(ctx context.Context, cr
 	if cr.Spec.TLS != nil && len(cr.Spec.TLS.SANs) > 0 {
 		proxyHosts = append(proxyHosts, cr.Spec.TLS.SANs...)
 	}
-	caCert, tlsCert, key, err := pxctls.Issue(proxyHosts)
+	caCert, tlsCert, key, err := pxctls.Issue(proxyHosts, cr.CompareVersionWith("1.19.0") >= 0)
 	if err != nil {
 		return fmt.Errorf("create proxy certificate: %v", err)
 	}
@@ -320,7 +325,7 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLManualy(ctx context.Context, cr
 	if cr.Spec.TLS != nil && len(cr.Spec.TLS.SANs) > 0 {
 		pxcHosts = append(pxcHosts, cr.Spec.TLS.SANs...)
 	}
-	caCert, tlsCert, key, err = pxctls.Issue(pxcHosts)
+	caCert, tlsCert, key, err = pxctls.Issue(pxcHosts, cr.CompareVersionWith("1.19.0") >= 0)
 	if err != nil {
 		return fmt.Errorf("create pxc certificate: %v", err)
 	}

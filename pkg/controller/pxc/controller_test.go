@@ -12,20 +12,21 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	gs "github.com/onsi/gomega/gstruct"
-	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	// +kubebuilder:scaffold:imports
+
+	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 )
 
 var _ = Describe("PerconaXtraDB Cluster", Ordered, func() {
@@ -303,7 +304,6 @@ var _ = Describe("Finalizer delete-proxysql-pvc", Ordered, func() {
 	})
 
 	Context("delete-proxysql-pvc finalizer specified", Ordered, func() {
-
 		cr, err := readDefaultCR(crName, ns)
 
 		It("should read default cr.yaml", func() {
@@ -328,7 +328,6 @@ var _ = Describe("Finalizer delete-proxysql-pvc", Ordered, func() {
 		})
 
 		It("Should create proxysql sts", func() {
-
 			Expect(k8sClient.Get(ctx, types.NamespacedName{
 				Name:      cr.Name + "-proxysql",
 				Namespace: cr.Namespace,
@@ -387,7 +386,6 @@ var _ = Describe("Finalizer delete-proxysql-pvc", Ordered, func() {
 					}, &sfsWithOwner)
 					return k8serrors.IsNotFound(err)
 				}, time.Second*15, time.Millisecond*250).Should(BeTrue())
-
 			})
 
 			It("controller should remove pvc for proxysql", func() {
@@ -427,7 +425,6 @@ var _ = Describe("Finalizer delete-proxysql-pvc", Ordered, func() {
 
 					return k8serrors.IsNotFound(err)
 				}, time.Second*15, time.Millisecond*250).Should(BeFalse())
-
 			})
 		})
 	})
@@ -464,7 +461,6 @@ var _ = Describe("Finalizer delete-pxc-pvc", Ordered, func() {
 	})
 
 	Context("delete-pxc-pvc finalizer specified", Ordered, func() {
-
 		cr, err := readDefaultCR(crName, ns)
 
 		It("should read default cr.yaml", func() {
@@ -486,7 +482,6 @@ var _ = Describe("Finalizer delete-pxc-pvc", Ordered, func() {
 		})
 
 		It("Should create pxc sts", func() {
-
 			Expect(k8sClient.Get(ctx, types.NamespacedName{
 				Name:      cr.Name + "-pxc",
 				Namespace: cr.Namespace,
@@ -545,7 +540,6 @@ var _ = Describe("Finalizer delete-pxc-pvc", Ordered, func() {
 					}, &sfsWithOwner)
 					return k8serrors.IsNotFound(err)
 				}, time.Second*15, time.Millisecond*250).Should(BeTrue())
-
 			})
 
 			It("controller should remove pvc for pxc", func() {
@@ -585,7 +579,6 @@ var _ = Describe("Finalizer delete-pxc-pvc", Ordered, func() {
 
 					return k8serrors.IsNotFound(err)
 				}, time.Second*15, time.Millisecond*250).Should(BeTrue())
-
 			})
 		})
 	})
@@ -2049,6 +2042,232 @@ var _ = Describe("CR validations", Ordered, func() {
 			It("should create the cluster", func() {
 				Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
 			})
+		})
+	})
+})
+
+var _ = Describe("Affinity", Ordered, func() {
+	ctx := context.Background()
+
+	const ns = "affinity"
+	namespace := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      ns,
+			Namespace: ns,
+		},
+	}
+
+	BeforeAll(func() {
+		By("Creating the Namespace to perform the tests")
+		err := k8sClient.Create(ctx, namespace)
+		Expect(err).To(Not(HaveOccurred()))
+	})
+
+	AfterAll(func() {
+		By("Deleting the Namespace to perform the tests")
+		_ = k8sClient.Delete(ctx, namespace)
+	})
+
+	simpleAffinity := func(topologyKey string, ls map[string]string) *corev1.Affinity {
+		return &corev1.Affinity{
+			PodAntiAffinity: &corev1.PodAntiAffinity{
+				RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
+					{
+						LabelSelector: &metav1.LabelSelector{MatchLabels: ls},
+						TopologyKey:   topologyKey,
+					},
+				},
+			},
+		}
+	}
+
+	componentAffinityTest := func(cr *api.PerconaXtraDBCluster, stsNamespacedName types.NamespacedName, lsFunc func(cr *api.PerconaXtraDBCluster) map[string]string, podSpecFunc func(cr *api.PerconaXtraDBCluster) *api.PodSpec) {
+		affinityCheck := func(toSet *api.PodAffinity, expected *corev1.Affinity) {
+			BeforeAll(func() {
+				Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cr), cr)).To(Succeed())
+
+				orig := cr.DeepCopy()
+
+				podSpecFunc(cr).Affinity = toSet
+				Expect(k8sClient.Patch(ctx, cr, client.MergeFrom(orig))).To(Succeed())
+			})
+
+			It("should reconcile", func() {
+				_, err := reconciler().Reconcile(ctx, ctrl.Request{NamespacedName: client.ObjectKeyFromObject(cr)})
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should get sts with specified affinity", func() {
+				sts := new(appsv1.StatefulSet)
+				Expect(k8sClient.Get(ctx, stsNamespacedName, sts)).To(Succeed())
+
+				Expect(sts.Spec.Template.Spec.Affinity).To(Equal(expected))
+			})
+		}
+		When("no affinity is set", func() {
+			affinityCheck(nil, simpleAffinity("kubernetes.io/hostname", lsFunc(cr)))
+		})
+		When("topologyKey key is set to `none`", func() {
+			affinityCheck(&api.PodAffinity{TopologyKey: ptr.To("none")}, nil)
+		})
+		When("hostname affinity is set", func() {
+			topologyKey := "kubernetes.io/hostname"
+			affinityCheck(&api.PodAffinity{TopologyKey: ptr.To(topologyKey)}, simpleAffinity(topologyKey, lsFunc(cr)))
+		})
+		When("zone affinity is set", func() {
+			topologyKey := "failure-domain.beta.kubernetes.io/zone"
+			affinityCheck(&api.PodAffinity{TopologyKey: ptr.To(topologyKey)}, simpleAffinity(topologyKey, lsFunc(cr)))
+		})
+		When("region affinity is set", func() {
+			topologyKey := "failure-domain.beta.kubernetes.io/region"
+			affinityCheck(&api.PodAffinity{TopologyKey: ptr.To(topologyKey)}, simpleAffinity(topologyKey, lsFunc(cr)))
+		})
+		When("custom affinity is set", func() {
+			customAffinity := &corev1.Affinity{
+				NodeAffinity: &corev1.NodeAffinity{
+					RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+						NodeSelectorTerms: []corev1.NodeSelectorTerm{
+							{
+								MatchExpressions: []corev1.NodeSelectorRequirement{
+									{
+										Key:      "kubernetes.io/e2e-az-name",
+										Operator: "In",
+										Values:   []string{"e2e-az1", "e2e-az2"},
+									},
+								},
+							},
+						},
+					},
+					PreferredDuringSchedulingIgnoredDuringExecution: []corev1.PreferredSchedulingTerm{
+						{
+							Weight: 1,
+							Preference: corev1.NodeSelectorTerm{
+								MatchExpressions: []corev1.NodeSelectorRequirement{
+									{
+										Key:      "another-node-label-key",
+										Operator: "In",
+										Values:   []string{"another-node-label-value"},
+									},
+								},
+							},
+						},
+					},
+				},
+				PodAffinity: &corev1.PodAffinity{
+					RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
+						{
+							LabelSelector: &metav1.LabelSelector{
+								MatchExpressions: []metav1.LabelSelectorRequirement{
+									{
+										Key:      "security",
+										Operator: "In",
+										Values:   []string{"S1"},
+									},
+								},
+							},
+							TopologyKey: "failure-domain.beta.kubernetes.io/zone",
+						},
+					},
+				},
+				PodAntiAffinity: &corev1.PodAntiAffinity{
+					PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
+						{
+							Weight: 100,
+							PodAffinityTerm: corev1.PodAffinityTerm{
+								LabelSelector: &metav1.LabelSelector{
+									MatchExpressions: []metav1.LabelSelectorRequirement{
+										{
+											Key:      "security",
+											Operator: "In",
+											Values:   []string{"S2"},
+										},
+									},
+								},
+								TopologyKey: "kubernetes.io/hostname",
+							},
+						},
+					},
+				},
+			}
+
+			affinityCheck(&api.PodAffinity{
+				TopologyKey: ptr.To("kubernetes.io/hostname"),
+				Advanced:    customAffinity.DeepCopy(),
+			}, customAffinity)
+		})
+	}
+
+	Context("HAProxy", Ordered, func() {
+		const crName = ns + "-haproxy"
+
+		cr, err := readDefaultCR(crName, ns)
+		It("should read default cr.yaml", func() {
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		crNamespacedName := client.ObjectKeyFromObject(cr)
+
+		It("should create PerconaXtraDBCluster", func() {
+			cr.Spec.HAProxy.Enabled = true
+			cr.Spec.ProxySQL.Enabled = false
+
+			Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
+		})
+
+		It("should reconcile", func() {
+			_, err := reconciler().Reconcile(ctx, ctrl.Request{NamespacedName: crNamespacedName})
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		sts := statefulset.NewHAProxy(cr).StatefulSet()
+		componentAffinityTest(cr, client.ObjectKeyFromObject(sts), naming.LabelsHAProxy, func(cr *api.PerconaXtraDBCluster) *api.PodSpec {
+			return &cr.Spec.HAProxy.PodSpec
+		})
+
+		It("should reconcile", func() {
+			_, err := reconciler().Reconcile(ctx, ctrl.Request{NamespacedName: crNamespacedName})
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		sts = statefulset.NewNode(cr).StatefulSet()
+		componentAffinityTest(cr, client.ObjectKeyFromObject(sts), naming.LabelsPXC, func(cr *api.PerconaXtraDBCluster) *api.PodSpec {
+			return cr.Spec.PXC.PodSpec
+		})
+	})
+
+	Context("ProxySQL", Ordered, func() {
+		const crName = ns + "-proxysql"
+
+		cr, err := readDefaultCR(crName, ns)
+		It("should read default cr.yaml", func() {
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should create PerconaXtraDBCluster", func() {
+			cr.Spec.HAProxy.Enabled = false
+			cr.Spec.ProxySQL.Enabled = true
+
+			Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
+		})
+
+		It("should reconcile", func() {
+			_, err := reconciler().Reconcile(ctx, ctrl.Request{NamespacedName: client.ObjectKeyFromObject(cr)})
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		sts := statefulset.NewProxy(cr).StatefulSet()
+		componentAffinityTest(cr, client.ObjectKeyFromObject(sts), naming.LabelsProxySQL, func(cr *api.PerconaXtraDBCluster) *api.PodSpec {
+			return &cr.Spec.ProxySQL.PodSpec
+		})
+
+		It("should reconcile", func() {
+			_, err := reconciler().Reconcile(ctx, ctrl.Request{NamespacedName: client.ObjectKeyFromObject(cr)})
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		sts = statefulset.NewNode(cr).StatefulSet()
+		componentAffinityTest(cr, client.ObjectKeyFromObject(sts), naming.LabelsPXC, func(cr *api.PerconaXtraDBCluster) *api.PodSpec {
+			return cr.Spec.PXC.PodSpec
 		})
 	})
 })

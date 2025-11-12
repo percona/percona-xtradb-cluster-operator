@@ -89,6 +89,25 @@ delete_backup_pod() {
 
 }
 
+check_optins_in_restore_pod() {
+	local restore_name=$1
+	local cluster_name=$2
+
+	echo "Waiting for ${restore_name} pod to become Complete"
+	sleep 1
+	kubectl_bin wait --for=jsonpath='{.status.phase}'=Succeeded pod --selector=percona.com/restore-job-name=restore-job-${restore_name}-${cluster_name} --timeout=200s
+	restore_pod=$(kubectl_bin get pods --selector=percona.com/restore-job-name=restore-job-${restore_name}-${cluster_name} -o jsonpath='{.items[].metadata.name}')
+
+	echo "Grep logs of pod/${restore_pod}"
+	if kubectl logs ${restore_pod} | grep -q 'xtrabackup --defaults-file'; then
+		echo "Custom options are in the correct order for XtraBackup"
+		return 0
+	else
+		echo "Custom options are in the incorrect order for XtraBackup"
+		exit 1
+	fi
+}
+
 check_cloud_storage_cleanup() {
 	local backup_name=$1
 
@@ -149,6 +168,9 @@ main() {
 
 		desc "Run recovery from s3 for $cluster cluster"
 		run_recovery_check "$cluster" "${backup_name_aws}"
+
+		desc "Check correct order for custom options"
+		check_optins_in_restore_pod "${backup_name_aws}" "$cluster"
 
 		desc "Run recovery from s3 source with default options"
 		run_recovery_from_source

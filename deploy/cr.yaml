@@ -682,6 +682,9 @@ spec:
           bucket: S3-BACKUP-BUCKET-NAME-HERE
           credentialsSecret: my-cluster-name-backup-s3
           region: us-west-2
+#          caBundle:
+#           name: s3-ca-bundle-secret
+#           key: ca.crt
       azure-blob:
         type: azure
         azure:

@@ -550,10 +550,10 @@ type PodSpec struct {
 	ReplicasServiceLabels map[string]string `json:"replicasServiceLabels,omitempty"`
 
 	SchedulerName string `json:"schedulerName,omitempty"`
-	// Deprecated: Use ReadinessProbes.initialDelaySeconds instead
+	// Deprecated: Unsupported from version 1.19.0 and will be deleted in 1.22.0. Use ReadinessProbes.initialDelaySeconds instead
 	ReadinessInitialDelaySeconds *int32       `json:"readinessDelaySec,omitempty"`
 	ReadinessProbes              corev1.Probe `json:"readinessProbes,omitempty"`
-	// Deprecated: Use LivenessProbes.initialDelaySeconds instead
+	// Deprecated: Unsupported from version 1.19.0 and will be deleted in 1.22.0. Use LivenessProbes.initialDelaySeconds instead
 	LivenessInitialDelaySeconds *int32                            `json:"livenessDelaySec,omitempty"`
 	LivenessProbes              corev1.Probe                      `json:"livenessProbes,omitempty"`
 	PodSecurityContext          *corev1.PodSecurityContext        `json:"podSecurityContext,omitempty"`

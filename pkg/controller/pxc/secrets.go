@@ -123,7 +123,7 @@ func generatePass(usernames ...string) ([]byte, error) {
 		if err != nil {
 			return nil, errors.Wrap(err, "get rand int")
 		}
-		b[i] = passSymbols[randInt.Int64()]
+		b[i] = symbols[randInt.Int64()]
 	}
 
 	return b, nil

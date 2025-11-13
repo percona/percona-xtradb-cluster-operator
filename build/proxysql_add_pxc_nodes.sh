@@ -18,6 +18,7 @@ function wait_for_mysql() {
 		echo "MySQL is not up yet... sleeping ..."
 		sleep 1
 	done
+	echo "MySQL host ${h} is up and running."
 }
 
 function proxysql_admin_exec() {
@@ -35,55 +36,129 @@ function wait_for_proxy() {
 		echo "ProxySQL is not up yet... sleeping ..."
 		sleep 1
 	done
+	echo "ProxySQL is up and running."
 }
+
+PERCONA_SCHEDULER_CFG=/opt/percona/scheduler-config.toml
 
 function main() {
 	echo "Running $0"
 
-	read -ra first_host
-	if [ -z "$first_host" ]; then
-		echo "Could not find PEERS ..."
-		exit
-	fi
-	pod_zero=$(echo "$first_host" | cut -d . -f 1 | sed -r 's/-[0-9]+$/-0/')
-	service=$(echo "$first_host" | cut -d . -f 2-)
+	local service
+	local pod_zero
+	local update_weights
+	local hosts
+
+	while read host; do
+		if [[ -z ${host} ]]; then
+			echo "No host provided via stdin."
+			exit 0
+		fi
+
+		service=$(echo $host | cut -d . -f 2-)
+		pod_name=$(echo $host | cut -d . -f -1)
+		pod_zero=$(echo $pod_name | sed "s/-[0-9]*$/-0/")
+		pod_id=$(echo $pod_name | awk -F'-' '{print $NF}')
+
+		hosts=$((hosts + 1))
+
+		write_weight=1000
+		read_weight=1000
+		case ${pod_id} in
+			0)
+				write_weight=1000000
+				read_weight=600
+				;;
+			*)
+				write_weight=$((write_weight - pod_id))
+				read_weight=$((read_weight - pod_id))
+				;;
+		esac
+
+		update_weights="${update_weights} UPDATE mysql_servers SET weight=${read_weight} WHERE hostgroup_id IN (10, 8010) AND hostname LIKE \"${pod_name}%\"; UPDATE mysql_servers SET weight=${write_weight} WHERE hostgroup_id IN (11, 8011) AND hostname LIKE \"${pod_name}%\";"
+	done
 
 	sleep 15s # wait for evs.inactive_timeout
 	wait_for_mysql "$service"
 	wait_for_proxy
 
+	sed -i "s/^clusterHost.*=.*$/clusterHost=\"${service}\"/" ${PERCONA_SCHEDULER_CFG}
+
 	SSL_ARG=""
 	if [ "$(proxysql_admin_exec "127.0.0.1" 'SELECT variable_value FROM global_variables WHERE variable_name="mysql-have_ssl"')" = "true" ]; then
 		SSL_ARG="--use-ssl=yes"
+		if [ "${SCHEDULER_ENABLED}" == "true" ]; then
+			sed -i "s/^useSSL.*=.*$/useSSL=1/" ${PERCONA_SCHEDULER_CFG}
+		else
+			SSL_ARG="--use-ssl=yes"
+		fi
 	fi
 
-	local tmp=$(mktemp)
-	sed "s/WRITE_NODE=.*/WRITE_NODE='$pod_zero.$service:3306'/g" /etc/proxysql-admin.cnf >${tmp}
-	cat ${tmp} >/etc/proxysql-admin.cnf
+	if [ "${SCHEDULER_ENABLED}" == "true" ]; then
+		if proxysql-admin --config-file=/etc/proxysql-admin.cnf --is-enabled >/dev/null 2>&1; then
+			echo "Cleaning setup from proxysql-admin..."
+			proxysql-admin --config-file=/etc/proxysql-admin.cnf --disable
 
-	proxysql-admin \
-		--config-file=/etc/proxysql-admin.cnf \
-		--cluster-hostname="$first_host" \
-		--enable \
-		--update-cluster \
-		--force \
-		--remove-all-servers \
-		--disable-updates \
-		--force \
-		$SSL_ARG
+			echo "Cleaning proxysql_servers..."
+			proxysql_admin_exec "127.0.0.1" "DELETE FROM proxysql_servers; LOAD PROXYSQL SERVERS TO RUNTIME;"
+		fi
 
-	proxysql-admin \
-		--config-file=/etc/proxysql-admin.cnf \
-		--cluster-hostname="$first_host" \
-		--sync-multi-cluster-users \
-		--add-query-rule \
-		--disable-updates \
-		--force
+		if [ "$(proxysql_admin_exec "127.0.0.1" 'SELECT count(*) FROM runtime_scheduler')" -eq 0 ]; then
+			percona-scheduler-admin --config-file=${PERCONA_SCHEDULER_CFG} --enable --force
+		fi
 
-	proxysql-admin \
-		--config-file=/etc/proxysql-admin.cnf \
-		--cluster-hostname="$first_host" \
-		--update-mysql-version
+		# don't remove and re-add servers if not necessary
+		if [[ "$(proxysql_admin_exec 127.0.0.1 'SELECT COUNT(DISTINCT(hostname)) FROM mysql_servers;')" != ${hosts} ]]; then
+			percona-scheduler-admin \
+				--config-file=${PERCONA_SCHEDULER_CFG} \
+				--write-node="${pod_zero}.${service}:3306" \
+				--update-cluster \
+				--remove-all-servers
+			proxysql_admin_exec "127.0.0.1" "${update_weights}; LOAD MYSQL SERVERS TO RUNTIME;"
+		fi
+
+		# update weights if ProxySQL is restarted
+		if [[ "$(proxysql_admin_exec 127.0.0.1 'SELECT COUNT(DISTINCT(hostname)) FROM mysql_servers WHERE weight=1000;')" > 0 ]]; then
+			proxysql_admin_exec "127.0.0.1" "${update_weights}; LOAD MYSQL SERVERS TO RUNTIME;"
+		fi
+
+		percona-scheduler-admin \
+			--config-file=${PERCONA_SCHEDULER_CFG} \
+			--sync-multi-cluster-users \
+			--add-query-rule
+
+		percona-scheduler-admin \
+			--config-file=${PERCONA_SCHEDULER_CFG} \
+			--update-mysql-version
+	else
+		if percona-scheduler-admin --config-file=${PERCONA_SCHEDULER_CFG} --is-enabled >/dev/null 2>&1; then
+			echo "Cleaning setup from percona-scheduler-admin..."
+			percona-scheduler-admin --config-file=${PERCONA_SCHEDULER_CFG} --disable
+		fi
+
+		proxysql-admin \
+			--config-file=/etc/proxysql-admin.cnf \
+			--cluster-hostname="${pod_zero}.${service}" \
+			--enable \
+			--update-cluster \
+			--force \
+			--remove-all-servers \
+			--disable-updates \
+			$SSL_ARG
+
+		proxysql-admin \
+			--config-file=/etc/proxysql-admin.cnf \
+			--cluster-hostname="${pod_zero}.${service}" \
+			--sync-multi-cluster-users \
+			--add-query-rule \
+			--disable-updates \
+			--force
+
+		proxysql-admin \
+			--config-file=/etc/proxysql-admin.cnf \
+			--cluster-hostname="${pod_zero}.${service}" \
+			--update-mysql-version
+	fi
 
 	echo "All done!"
 }

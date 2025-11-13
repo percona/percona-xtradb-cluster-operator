@@ -1,0 +1,87 @@
+#!/bin/bash
+
+set -o errexit
+
+test_dir=$(realpath $(dirname $0))
+. ${test_dir}/../functions
+
+set_debug
+
+cluster="some-name"
+
+create_infra ${namespace}
+
+desc "create PXC cluster: ${cluster}"
+spinup_pxc "${cluster}" "${test_dir}/conf/${cluster}.yml"
+wait_cluster_consistency "${cluster}" 3 2
+
+desc 'check if service and statefulset created with expected config'
+compare_kubectl statefulset/${cluster}-pxc
+compare_kubectl statefulset/${cluster}-proxysql
+compare_kubectl service/${cluster}-pxc
+compare_kubectl service/${cluster}-proxysql
+compare_kubectl service/${cluster}-proxysql-unready
+
+# give some time for mysql_servers to be populated
+# this won't be needed once we add probes to ProxySQL containers
+sleep 60
+
+desc 'check if scheduler is enabled in all ProxySQL servers'
+compare_mysql_cmd_local 'scheduler-0' 'SELECT * FROM runtime_scheduler;' \
+	"-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" \
+	"${cluster}-proxysql-0"
+log "scheduler is enabled in ${cluster}-proxysql-0: OK"
+compare_mysql_cmd_local 'scheduler-1' 'SELECT * FROM runtime_scheduler;' \
+	"-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" \
+	"${cluster}-proxysql-1"
+log "scheduler is enabled in ${cluster}-proxysql-1: OK"
+
+desc 'check if scheduler is doing its job in all ProxySQL servers'
+compare_mysql_cmd_local 'mysql-servers-0' 'SELECT hostgroup_id,SUBSTRING(hostname, 0, 16),weight,status FROM runtime_mysql_servers;' \
+	"-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" \
+	"${cluster}-proxysql-0"
+log "mysql_servers are configured in ${cluster}-proxysql-0: OK"
+compare_mysql_cmd_local 'mysql-servers-1' 'SELECT hostgroup_id,SUBSTRING(hostname, 0, 16),weight,status FROM runtime_mysql_servers;' \
+	"-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" \
+	"${cluster}-proxysql-1"
+log "mysql_servers are configured in ${cluster}-proxysql-1: OK"
+
+desc 'check scaling PXC up'
+kubectl_bin patch pxc ${cluster} --type=merge -p '{"spec": {"pxc": {"size": 5}}}'
+wait_pod ${cluster}-pxc-3
+wait_pod ${cluster}-pxc-4
+
+# give some time for mysql_servers to be populated
+# this won't be needed once we add probes to ProxySQL containers
+sleep 60
+
+compare_mysql_cmd_local 'mysql-servers-0-1' 'SELECT hostgroup_id,SUBSTRING(hostname, 0, 16),weight,status FROM runtime_mysql_servers;' \
+	"-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" \
+	"${cluster}-proxysql-0"
+log "new mysql_servers are configured in ${cluster}-proxysql-0: OK"
+compare_mysql_cmd_local 'mysql-servers-1-1' 'SELECT hostgroup_id,SUBSTRING(hostname, 0, 16),weight,status FROM runtime_mysql_servers;' \
+	"-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" \
+	"${cluster}-proxysql-1"
+log "new mysql_servers are configured in ${cluster}-proxysql-1: OK"
+
+desc 'check scaling ProxySQL up'
+kubectl_bin patch pxc ${cluster} --type=merge -p '{"spec": {"proxysql": {"size": 3}}}'
+wait_pod ${cluster}-proxysql-2
+
+# give some time for mysql_servers to be populated
+# this won't be needed once we add probes to ProxySQL containers
+sleep 60
+
+compare_mysql_cmd_local 'scheduler-2' 'SELECT * FROM runtime_scheduler;' \
+	"-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" \
+	"${cluster}-proxysql-2"
+log "scheduler is enabled in ${cluster}-proxysql-2: OK"
+
+compare_mysql_cmd_local 'mysql-servers-2' 'SELECT hostgroup_id,SUBSTRING(hostname, 0, 16),weight,status FROM runtime_mysql_servers;' \
+	"-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" \
+	"${cluster}-proxysql-2"
+log "mysql_servers are configured in ${cluster}-proxysql-2: OK"
+
+desc "test passed"
+
+destroy ${namespace}

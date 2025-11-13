@@ -36,6 +36,7 @@ mysql_variables=
 	poll_timeout=2000
 	interfaces="0.0.0.0:3306"
 	default_schema="information_schema"
+	default_authentication_plugin="caching_sha2_password"
 	stacksize=1048576
 	connect_timeout_server=10000
 	monitor_history=60000

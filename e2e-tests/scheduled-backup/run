@@ -248,7 +248,7 @@ main() {
 		BACKUP_DEST_AZURE=$(kubectl_bin get pxc-backup "$FIRST_AZURE_BACKUP" -o jsonpath='{.status.destination}' | sed -e 's/.json$//' | cut -c 9-)
 
 		desc "Check backup existence"
-		check_backup_existence "https://s3.amazonaws.com/${BACKUP_DEST_AWS}.sst_info/sst_info.00000000000000000000" "aws-s3"
+		check_backup_existence_aws "$BACKUP_DEST_AWS" ".sst_info/sst_info.00000000000000000000" "aws-s3"
 		check_backup_existence "https://storage.googleapis.com/${BACKUP_DEST_GCP}.sst_info/sst_info.00000000000000000000" "gcp-cs"
 		check_backup_existence "https://engk8soperators.blob.core.windows.net/${BACKUP_DEST_AZURE}.sst_info/sst_info.00000000000000000000" "azure-blob"
 

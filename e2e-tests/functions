@@ -1604,6 +1604,27 @@ function kpatch_set_field() {
 	kubectl_bin patch $type $name --type=json -p "[{\"op\": \"replace\", \"path\": \"$path\", \"value\": $value}]" >/dev/null
 }
 
+function check_backup_existence_aws() {
+	bucket=$(echo "$1" | cut -d'/' -f1)
+	key_prefix=$(echo "$1" | cut -d'/' -f2-)
+	key=$2
+	storage_name=$3
+	retry=0
+
+	until aws s3api head-object --bucket "$bucket" --key "${key_prefix}${key}" &>/dev/null; do
+		if [ $retry -ge 30 ]; then
+			echo "max retry count $retry reached. something went wrong with operator or kubernetes cluster"
+			echo "Backup was not found in bucket -- $storage_name"
+			exit 1
+		fi
+		echo "waiting for backup in $storage_name"
+		sleep 10
+		((retry += 1))
+	done
+	
+	echo "Backup found in $storage_name"
+}
+
 function check_backup_existence() {
 	path=$1
 	storage_name=$2

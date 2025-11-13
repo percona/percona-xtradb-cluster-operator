@@ -218,22 +218,24 @@ void makeReport() {
 }
 
 void clusterRunner(String cluster) {
-    def clusterCreated=0
+    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+        def clusterCreated=0
 
-    for (int i=0; i<tests.size(); i++) {
-        if (tests[i]["result"] == "skipped" && currentBuild.nextBuild == null) {
-            tests[i]["result"] = "failure"
-            tests[i]["cluster"] = cluster
-            if (clusterCreated == 0) {
-                createCluster(cluster)
-                clusterCreated++
+        for (int i=0; i<tests.size(); i++) {
+            if (tests[i]["result"] == "skipped" && currentBuild.nextBuild == null) {
+                tests[i]["result"] = "failure"
+                tests[i]["cluster"] = cluster
+                if (clusterCreated == 0) {
+                    createCluster(cluster)
+                    clusterCreated++
+                }
+                runTest(i)
             }
-            runTest(i)
         }
-    }
 
-    if (clusterCreated >= 1) {
-        shutdownCluster(cluster)
+        if (clusterCreated >= 1) {
+            shutdownCluster(cluster)
+        }
     }
 }
 

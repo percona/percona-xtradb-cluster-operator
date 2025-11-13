@@ -211,14 +211,14 @@ main() {
 		backup_dest_azure=$(kubectl_bin get pxc-backup "$backup_name_azure" -o jsonpath='{.status.destination}' | sed -e 's/.json$//' | cut -c 9-)
 
 		desc "Check backup existence"
-		check_backup_existence "https://s3.amazonaws.com/${backup_dest_aws}.sst_info/sst_info.00000000000000000000" "aws-s3"
+		check_backup_existence_aws "$backup_dest_aws" ".sst_info/sst_info.00000000000000000000" "aws-s3"
 		check_backup_existence "https://storage.googleapis.com/${backup_dest_gcp}.sst_info/sst_info.00000000000000000000" "gcp-cs"
 		check_backup_existence "https://engk8soperators.blob.core.windows.net/${backup_dest_azure}.sst_info/sst_info.00000000000000000000" "azure-blob"
 
 		kubectl_bin delete pxc-backup --all
 
 		desc "Check backup deletion"
-		check_backup_deletion "https://s3.amazonaws.com/${backup_dest_aws}.sst_info/sst_info.00000000000000000000" "aws-s3"
+		check_backup_existence_aws "$backup_dest_aws" ".sst_info/sst_info.00000000000000000000" "aws-s3"
 		check_backup_deletion "https://storage.googleapis.com/${backup_dest_gcp}.sst_info/sst_info.00000000000000000000" "gcp-cs"
 		check_backup_deletion "https://engk8soperators.blob.core.windows.net/${backup_dest_azure}.sst_info/sst_info.00000000000000000000" "azure-blob"
 

@@ -23,7 +23,7 @@ func TestPrepareJob(t *testing.T) {
 		},
 		Spec: pxcv1.PerconaXtraDBClusterSpec{
 			CRVersion: version.Version(),
-			Backup: &pxcv1.PXCScheduledBackup{
+			Backup: &pxcv1.BackupSpec{
 				Image: "percona/percona-xtrabackup:8.0",
 				Storages: map[string]*pxcv1.BackupStorageSpec{
 					"test-storage": {

@@ -224,7 +224,6 @@ func RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClust
 		return nil, errors.Errorf("no storage type was specified in status, got: %s", bcp.Status.GetStorageType(cluster))
 	}
 
-	jobName := "restore-job-" + cr.Name + "-" + cr.Spec.PXCCluster
 	volumeMounts := []corev1.VolumeMount{
 		{
 			Name:      "datadir",
@@ -283,7 +282,6 @@ func RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClust
 			if cluster.Spec.Backup == nil && len(cluster.Spec.Backup.Storages) == 0 {
 				return nil, errors.New("no storage section")
 			}
-			jobName = "pitr-job-" + cr.Name + "-" + cr.Spec.PXCCluster
 			volumeMounts = []corev1.VolumeMount{}
 			volumes = []corev1.Volume{}
 			command = []string{"/opt/percona/pitr", "recover"}
@@ -346,6 +344,7 @@ func RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClust
 		initContainers = []corev1.Container{statefulset.BackupInitContainer(cluster, initImage, cluster.Spec.PXC.ContainerSecurityContext)}
 	}
 
+	jobName := naming.RestoreJobName(cr, pitr)
 	job := &batchv1.Job{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "batch/v1",
@@ -355,8 +354,12 @@ func RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClust
 			Name:      jobName,
 			Namespace: cr.Namespace,
 			Labels:    naming.LabelsRestoreJob(cluster, jobName, bcp.Status.StorageName),
+			Finalizers: []string{
+				naming.FinalizerKeepJob,
+			},
 		},
 		Spec: batchv1.JobSpec{
+			TTLSecondsAfterFinished: cluster.Spec.Backup.TTLSecondsAfterFinished,
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: cluster.Spec.PXC.Annotations,

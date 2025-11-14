@@ -12,9 +12,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	gs "github.com/onsi/gomega/gstruct"
-	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -25,7 +22,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	// +kubebuilder:scaffold:imports
+
+	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 )
 
 var _ = Describe("PerconaXtraDB Cluster", Ordered, func() {
@@ -303,7 +303,6 @@ var _ = Describe("Finalizer delete-proxysql-pvc", Ordered, func() {
 	})
 
 	Context("delete-proxysql-pvc finalizer specified", Ordered, func() {
-
 		cr, err := readDefaultCR(crName, ns)
 
 		It("should read default cr.yaml", func() {
@@ -328,7 +327,6 @@ var _ = Describe("Finalizer delete-proxysql-pvc", Ordered, func() {
 		})
 
 		It("Should create proxysql sts", func() {
-
 			Expect(k8sClient.Get(ctx, types.NamespacedName{
 				Name:      cr.Name + "-proxysql",
 				Namespace: cr.Namespace,
@@ -387,7 +385,6 @@ var _ = Describe("Finalizer delete-proxysql-pvc", Ordered, func() {
 					}, &sfsWithOwner)
 					return k8serrors.IsNotFound(err)
 				}, time.Second*15, time.Millisecond*250).Should(BeTrue())
-
 			})
 
 			It("controller should remove pvc for proxysql", func() {
@@ -427,7 +424,6 @@ var _ = Describe("Finalizer delete-proxysql-pvc", Ordered, func() {
 
 					return k8serrors.IsNotFound(err)
 				}, time.Second*15, time.Millisecond*250).Should(BeFalse())
-
 			})
 		})
 	})
@@ -464,7 +460,6 @@ var _ = Describe("Finalizer delete-pxc-pvc", Ordered, func() {
 	})
 
 	Context("delete-pxc-pvc finalizer specified", Ordered, func() {
-
 		cr, err := readDefaultCR(crName, ns)
 
 		It("should read default cr.yaml", func() {
@@ -486,7 +481,6 @@ var _ = Describe("Finalizer delete-pxc-pvc", Ordered, func() {
 		})
 
 		It("Should create pxc sts", func() {
-
 			Expect(k8sClient.Get(ctx, types.NamespacedName{
 				Name:      cr.Name + "-pxc",
 				Namespace: cr.Namespace,
@@ -545,7 +539,6 @@ var _ = Describe("Finalizer delete-pxc-pvc", Ordered, func() {
 					}, &sfsWithOwner)
 					return k8serrors.IsNotFound(err)
 				}, time.Second*15, time.Millisecond*250).Should(BeTrue())
-
 			})
 
 			It("controller should remove pvc for pxc", func() {
@@ -585,7 +578,6 @@ var _ = Describe("Finalizer delete-pxc-pvc", Ordered, func() {
 
 					return k8serrors.IsNotFound(err)
 				}, time.Second*15, time.Millisecond*250).Should(BeTrue())
-
 			})
 		})
 	})
@@ -1782,7 +1774,7 @@ var _ = Describe("Backup reconciliation", Ordered, func() {
 		})
 
 		It("should create PerconaXtraDBCluster with backup configuration", func() {
-			cr.Spec.Backup = &api.PXCScheduledBackup{
+			cr.Spec.Backup = &api.BackupSpec{
 				Image: "backup-image",
 				Storages: map[string]*api.BackupStorageSpec{
 					"s3-us-west": {

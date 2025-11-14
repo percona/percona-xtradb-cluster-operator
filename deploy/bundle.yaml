@@ -2177,6 +2177,9 @@ spec:
                   suspendedDeadlineSeconds:
                     format: int64
                     type: integer
+                  ttlSecondsAfterFinished:
+                    format: int32
+                    type: integer
                 type: object
               crVersion:
                 type: string

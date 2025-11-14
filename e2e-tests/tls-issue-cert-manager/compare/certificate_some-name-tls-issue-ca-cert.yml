@@ -7,17 +7,13 @@ metadata:
     app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
     app.kubernetes.io/name: percona-xtradb-cluster
     app.kubernetes.io/part-of: percona-xtradb-cluster
-  name: some-name-tls-issue-ssl
+  name: some-name-tls-issue-ca-cert
 spec:
-  commonName: some-name-tls-issue-proxysql
-  dnsNames:
-    - some-name-tls-issue-pxc
-    - some-name-tls-issue-proxysql
-    - '*.some-name-tls-issue-pxc'
-    - '*.some-name-tls-issue-proxysql'
-    - test.com
-  duration: 1160h0m0s
+  commonName: some-name-tls-issue-ca
+  duration: 16280h0m0s
+  isCA: true
   issuerRef:
     kind: Issuer
-    name: some-name-tls-issue-pxc-issuer
-  secretName: some-name-tls-issue-ssl
+    name: some-name-tls-issue-pxc-ca-issuer
+  renewBefore: 730h0m0s
+  secretName: some-name-tls-issue-ca-cert

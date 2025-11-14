@@ -16,6 +16,7 @@ spec:
     - '*.some-name-tls-issueref-pxc'
     - '*.some-name-tls-issueref-proxysql'
     - test.com
+  duration: 2160h0m0s
   issuerRef:
     kind: ClusterIssuer
     name: special-selfsigned-issuer

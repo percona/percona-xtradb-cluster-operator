@@ -15,6 +15,7 @@ spec:
     - no-proxysql-proxysql
     - '*.no-proxysql-pxc'
     - '*.no-proxysql-proxysql'
+  duration: 2160h0m0s
   issuerRef:
     kind: Issuer
     name: no-proxysql-pxc-issuer

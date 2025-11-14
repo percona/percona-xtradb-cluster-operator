@@ -154,6 +154,25 @@ main() {
 		echo "Skipping test because SKIP_REMOTE_BACKUPS variable is set!"
 		exit 0
 	else
+		if command -v aws >/dev/null 2>&1; then
+			echo "AWS CLI is installed"
+		else
+			echo "AWS CLI is not installed"
+			exit 1
+		fi
+		if command -v gsutil >/dev/null 2>&1; then
+			echo "gutil is installed"
+		else
+			echo "gsutil command is not installed"
+			exit 1
+		fi
+		if command -v az >/dev/null 2>&1; then
+			echo "Azure CLI is installed"
+		else
+			echo "Azure CLI is not installed"
+			exit 1
+		fi
+
 		create_infra $namespace
 
 		cluster="demand-backup-cloud"
@@ -211,16 +230,21 @@ main() {
 		backup_dest_azure=$(kubectl_bin get pxc-backup "$backup_name_azure" -o jsonpath='{.status.destination}' | sed -e 's/.json$//' | cut -c 9-)
 
 		desc "Check backup existence"
-		check_backup_existence_aws "$backup_dest_aws" ".sst_info/sst_info.00000000000000000000" "aws-s3"
-		check_backup_existence "https://storage.googleapis.com/${backup_dest_gcp}.sst_info/sst_info.00000000000000000000" "gcp-cs"
-		check_backup_existence "https://engk8soperators.blob.core.windows.net/${backup_dest_azure}.sst_info/sst_info.00000000000000000000" "azure-blob"
+		setup_aws_credentials
+		check_backup_existence_aws "$backup_dest_aws" ".sst_info/sst_info.00000000000000000000"
+		
+		setup_gcs_credentials
+		check_backup_existence_gcs "${backup_dest_gcp}"
+		
+		setup_azure_credentials
+		check_backup_existence_azure "${backup_dest_azure}" ".sst_info/sst_info.00000000000000000000"
 
 		kubectl_bin delete pxc-backup --all
 
 		desc "Check backup deletion"
-		check_backup_existence_aws "$backup_dest_aws" ".sst_info/sst_info.00000000000000000000" "aws-s3"
-		check_backup_deletion "https://storage.googleapis.com/${backup_dest_gcp}.sst_info/sst_info.00000000000000000000" "gcp-cs"
-		check_backup_deletion "https://engk8soperators.blob.core.windows.net/${backup_dest_azure}.sst_info/sst_info.00000000000000000000" "azure-blob"
+		check_backup_deletion_aws "$backup_dest_aws" ".sst_info/sst_info.00000000000000000000"
+		check_backup_deletion_gcs "${backup_dest_gcp}"
+		check_backup_deletion_azure "${backup_dest_azure}" ".sst_info/sst_info.00000000000000000000"
 
 		if [ "$EKS" = 1 ]; then
 			backup_name_aws_iam="on-demand-backup-aws-s3-iam"
@@ -228,7 +252,7 @@ main() {
 			run_backup_with_delete "${backup_name_aws_iam}"
 			desc "Check backup existence for $backup_name_aws_iam"
 			backup_dest_aws_iam=$(kubectl_bin get pxc-backup "$backup_name_aws_iam" -o jsonpath='{.status.destination}' | sed -e 's/.json$//' | cut -c 6-)
-			check_backup_existence "https://s3.amazonaws.com/${backup_dest_aws_iam}.sst_info/sst_info.00000000000000000000" "aws-s3-iam"
+			check_backup_existence_aws "${backup_dest_aws_iam}" ".sst_info/sst_info.00000000000000000000"
 		fi
 
 		destroy $namespace

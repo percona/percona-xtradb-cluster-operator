@@ -1604,11 +1604,124 @@ function kpatch_set_field() {
 	kubectl_bin patch $type $name --type=json -p "[{\"op\": \"replace\", \"path\": \"$path\", \"value\": $value}]" >/dev/null
 }
 
+function setup_aws_credentials() {
+    local secret_name="aws-s3-secret"
+    
+    if [[ -n "$AWS_ACCESS_KEY_ID" ]] && [[ -n "$AWS_SECRET_ACCESS_KEY" ]]; then
+        echo "AWS credentials already set in environment"
+        return 0
+    fi
+    
+    echo "Setting up AWS credentials from secret: $secret_name"
+    
+    # Disable tracing for the entire credential section
+    local trace_was_on=0
+    if [[ $- == *x* ]]; then
+        trace_was_on=1
+        set +x
+    fi
+
+    AWS_ACCESS_KEY_ID=$(kubectl get secret "$secret_name" -o jsonpath='{.data.AWS_ACCESS_KEY_ID}' 2>/dev/null | base64 -d 2>/dev/null)
+    AWS_SECRET_ACCESS_KEY=$(kubectl get secret "$secret_name" -o jsonpath='{.data.AWS_SECRET_ACCESS_KEY}' 2>/dev/null | base64 -d 2>/dev/null)
+    
+    if [[ -z "$AWS_ACCESS_KEY_ID" ]] || [[ -z "$AWS_SECRET_ACCESS_KEY" ]]; then
+        # Re-enable tracing before error message if it was on
+        [[ $trace_was_on -eq 1 ]] && set -x
+        echo "Failed to extract AWS credentials from secret"
+        return 1
+    fi
+    
+    export AWS_ACCESS_KEY_ID
+    export AWS_SECRET_ACCESS_KEY
+    
+    # Re-enable tracing if it was on
+    [[ $trace_was_on -eq 1 ]] && set -x
+    
+    echo "AWS credentials configured successfully"
+}
+
+function setup_gcs_credentials() {
+    local secret_name="gcp-cs-secret"
+
+    if gsutil ls >/dev/null 2>&1; then
+        echo "GCS credentials already set in environment"
+        return 0
+    fi
+
+    echo "Setting up GCS credentials from K8s secret: $secret_name"
+    
+    # Disable tracing for the entire credential section
+    local trace_was_on=0
+    if [[ $- == *x* ]]; then
+        trace_was_on=1
+        set +x
+    fi
+    
+    ACCESS_KEY_ID=$(kubectl get secret "$secret_name" -o jsonpath='{.data.AWS_ACCESS_KEY_ID}' 2>/dev/null | base64 -d 2>/dev/null)
+    SECRET_ACCESS_KEY=$(kubectl get secret "$secret_name" -o jsonpath='{.data.AWS_SECRET_ACCESS_KEY}' 2>/dev/null | base64 -d 2>/dev/null)
+    
+    if [[ -z "$ACCESS_KEY_ID" ]] || [[ -z "$SECRET_ACCESS_KEY" ]]; then
+        # Re-enable tracing before error message if it was on
+        [[ $trace_was_on -eq 1 ]] && set -x
+        echo "Failed to extract GCS credentials from secret" >&2
+        return 1
+    fi
+    
+    boto_tmp=$(mktemp /tmp/boto.XXXXXX)
+    chmod 600 "$boto_tmp"
+
+    cat <<EOF >"$boto_tmp"
+[Credentials]
+gs_access_key_id = ${ACCESS_KEY_ID}
+gs_secret_access_key = ${SECRET_ACCESS_KEY}
+EOF
+
+    export BOTO_CONFIG="$boto_tmp"
+
+    unset ACCESS_KEY_ID
+    unset SECRET_ACCESS_KEY
+    
+    [[ $trace_was_on -eq 1 ]] && set -x
+    
+    echo "GCS credentials configured successfully"
+}
+
+function setup_azure_credentials() {
+    local secret_name="azure-secret"
+
+    echo "Setting up Azure credentials from K8s secret: $secret_name"
+    
+    # Disable tracing for the entire credential section
+    local trace_was_on=0
+    if [[ $- == *x* ]]; then
+        trace_was_on=1
+        set +x
+    fi
+    
+    AZURE_STORAGE_ACCOUNT=$(kubectl_bin get secret "$secret_name" -o jsonpath='{.data.AZURE_STORAGE_ACCOUNT_NAME}' 2>/dev/null | base64 -d 2>/dev/null)
+    AZURE_STORAGE_KEY=$(kubectl_bin get secret "$secret_name" -o jsonpath='{.data.AZURE_STORAGE_ACCOUNT_KEY}' 2>/dev/null | base64 -d 2>/dev/null)
+
+    if [[ -z "$AZURE_STORAGE_ACCOUNT" ]] || [[ -z "$AZURE_STORAGE_KEY" ]]; then
+        # Re-enable tracing before error message if it was on
+        [[ $trace_was_on -eq 1 ]] && set -x
+        echo "Failed to extract Azure credentials from secret" >&2
+        return 1
+    fi
+
+    export AZURE_STORAGE_ACCOUNT
+    export AZURE_STORAGE_KEY
+
+    # Re-enable tracing if it was on
+    [[ $trace_was_on -eq 1 ]] && set -x
+
+    echo "Azure credentials configured successfully"
+}
+
 function check_backup_existence_aws() {
 	bucket=$(echo "$1" | cut -d'/' -f1)
 	key_prefix=$(echo "$1" | cut -d'/' -f2-)
 	key=$2
-	storage_name=$3
+	storage_name="aws-s3"
 	retry=0
 
 	until aws s3api head-object --bucket "$bucket" --key "${key_prefix}${key}" &>/dev/null; do
@@ -1622,39 +1735,113 @@ function check_backup_existence_aws() {
 		((retry += 1))
 	done
 	
-	echo "Backup found in $storage_name"
+	echo "Backup ${key_prefix}${key} found in bucket $bucket in $storage_name"
 }
 
-function check_backup_existence() {
-	path=$1
-	storage_name=$2
+function check_backup_existence_gcs() {
+	backup_dest_gcp=$1
+	storage_name="gcp-cs"
 	retry=0
-	until [[ $(curl -sw '%{http_code}' -o /dev/null "$path") -eq 200 ]]; do
+
+	gcs_path="gs://${backup_dest_gcp}.sst_info/sst_info.00000000000000000000"
+
+	until gsutil ls "$gcs_path" >/dev/null 2>&1; do
+		if [ $retry -ge 30 ]; then
+			echo "Max retry count $retry reached. Something went wrong with operator or Kubernetes cluster."
+			echo "Backup was not found in bucket -- $storage_name"
+			exit 1
+		fi
+		echo "Waiting for backup in $storage_name ($gcs_path)..."
+		sleep 10
+		((retry += 1))
+	done
+	
+	echo "Backup found in $storage_name: $gcs_path"
+}
+
+function check_backup_existence_azure() {
+	container=$(echo "$1" | cut -d'/' -f1)
+	blob_prefix=$(echo "$1" | cut -d'/' -f2-)
+	blob=$2
+	storage_name="azure-blob"
+	retry=0
+	blob_path="${blob_prefix}${blob}"
+
+	until az storage blob show --container-name "$container" --name "$blob_path" &>/dev/null; do
 		if [ $retry -ge 30 ]; then
 			echo "max retry count $retry reached. something went wrong with operator or kubernetes cluster"
-			echo "Backup was not found in bucket -- $storage_name"
+			echo "Backup was not found in container -- $storage_name"
 			exit 1
 		fi
 		echo "waiting for backup in $storage_name"
 		sleep 10
 		((retry += 1))
 	done
+	
+	echo "Backup ${blob_path} found in container $container in $storage_name"
 }
 
-function check_backup_deletion() {
-	path=$1
-	storage_name=$2
+function check_backup_deletion_aws() {
+	bucket=$(echo "$1" | cut -d'/' -f1)
+	key_prefix=$(echo "$1" | cut -d'/' -f2-)
+	key=$2
+	storage_name="aws-s3"
 	retry=0
-	until [[ $(curl -sw '%{http_code}' -o /dev/null "$path") -eq 403 ]] || [[ $(curl -sw '%{http_code}' -o /dev/null "$path") -eq 404 ]] || [[ $(curl -sw '%{http_code}' -o /dev/null "$path") -eq 400 ]]; do
-		if [ $retry -ge 30 ]; then
+
+	while aws s3api head-object --bucket "$bucket" --key "${key_prefix}${key}" &>/dev/null; do
+		if [ $retry -ge 15 ]; then
 			echo "max retry count $retry reached. something went wrong with operator or kubernetes cluster"
-			echo "Backup was not removed from bucket -- $storage_name"
+			echo "Backup still exists in $storage_name (expected it to be deleted)"
 			exit 1
 		fi
-		echo "waiting for backup deletion $storage_name"
+		echo "waiting for backup to be deleted from $storage_name"
 		sleep 10
 		((retry += 1))
 	done
+	
+	echo "Backup ${key_prefix}${key} in bucket $bucket not found in $storage_name"
+}
+
+function check_backup_deletion_gcs() {
+    backup_dest_gcp=$1
+    storage_name="gcp-cs"
+    retry=0
+    gcs_path="gs://${backup_dest_gcp}.sst_info/sst_info.00000000000000000000"
+
+    while gsutil ls "$gcs_path" >/dev/null 2>&1; do
+        if [ $retry -ge 15 ]; then
+            echo "max retry count $retry reached. something went wrong with operator or kubernetes cluster"
+            echo "Backup $gcs_path still exists in $storage_name (expected it to be deleted)"
+            exit 1
+        fi
+        echo "waiting for backup to be deleted from $storage_name"
+        sleep 10
+        ((retry += 1))
+    done
+
+    echo "Backup $gcs_path not found in $storage_name"
+}
+
+function check_backup_deletion_azure() {
+	container=$(echo "$1" | cut -d'/' -f1)
+	blob_prefix=$(echo "$1" | cut -d'/' -f2-)
+	blob=$2
+	storage_name="azure-blob"
+	retry=0
+	blob_path="${blob_prefix}${blob}"
+
+	while az storage blob show --container-name "$container" --name "$blob_path" &>/dev/null; do
+		if [ $retry -ge 15 ]; then
+			echo "max retry count $retry reached. something went wrong with operator or kubernetes cluster"
+			echo "Backup still exists in $storage_name (expected it to be deleted)"
+			exit 1
+		fi
+		echo "waiting for backup to be deleted from $storage_name"
+		sleep 10
+		((retry += 1))
+	done
+	
+	echo "Backup ${blob_path} in container $container not found in $storage_name"
 }
 
 check_passwords_leak() {

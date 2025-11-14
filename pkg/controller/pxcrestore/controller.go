@@ -106,7 +106,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(ctx context.Context, re
 			return rr, nil
 		}
 		// Error reading the object - requeue the request.
-		return rr, err
+		return reconcile.Result{}, err
 	}
 
 	switch cr.Status.State {
@@ -149,19 +149,19 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(ctx context.Context, re
 
 	otherRestore, err := isOtherRestoreInProgress(ctx, r.client, cr)
 	if err != nil {
-		return rr, errors.Wrap(err, "failed to check if other restore is in progress")
+		return reconcile.Result{}, errors.Wrap(err, "failed to check if other restore is in progress")
 	}
 	if otherRestore != nil {
 		err = errors.Errorf("unable to continue, concurrent restore job %s running now", otherRestore.Name)
 		cr.Status.State = api.RestoreFailed
 		cr.Status.Comments = err.Error()
-		return rr, err
+		return reconcile.Result{}, err
 	}
 
 	if err := cr.CheckNsetDefaults(); err != nil {
 		cr.Status.State = api.RestoreFailed
 		cr.Status.Comments = err.Error()
-		return rr, err
+		return reconcile.Result{}, err
 	}
 
 	cluster := new(api.PerconaXtraDBCluster)
@@ -170,25 +170,25 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(ctx context.Context, re
 			cr.Status.State = api.RestoreFailed
 			cr.Status.Comments = err.Error()
 		}
-		return rr, errors.Wrapf(err, "get cluster %s", cr.Spec.PXCCluster)
+		return reconcile.Result{}, errors.Wrapf(err, "get cluster %s", cr.Spec.PXCCluster)
 	}
 
 	if err := cluster.CheckNSetDefaults(r.serverVersion, log); err != nil {
 		cr.Status.State = api.RestoreFailed
 		cr.Status.Comments = err.Error()
-		return rr, errors.Wrap(err, "wrong PXC options")
+		return reconcile.Result{}, errors.Wrap(err, "wrong PXC options")
 	}
 
 	bcp, err := getBackup(ctx, r.client, cr)
 	if err != nil {
 		cr.Status.State = api.RestoreFailed
 		cr.Status.Comments = err.Error()
-		return rr, errors.Wrap(err, "get backup")
+		return reconcile.Result{}, errors.Wrap(err, "get backup")
 	}
 
 	restorer, err := r.getRestorer(ctx, cr, bcp, cluster)
 	if err != nil {
-		return rr, errors.Wrap(err, "failed to get restorer")
+		return reconcile.Result{}, errors.Wrap(err, "failed to get restorer")
 	}
 
 	switch cr.Status.State {
@@ -206,7 +206,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(ctx context.Context, re
 		return r.reconcileStateStartCluster(ctx, restorer, cr, cluster)
 	}
 
-	return rr, errors.Errorf("unknown state: %s", cr.Status.State)
+	return reconcile.Result{}, errors.Errorf("unknown state: %s", cr.Status.State)
 }
 
 func (r *ReconcilePerconaXtraDBClusterRestore) reconcileStateStartCluster(ctx context.Context, restorer Restorer, cr *api.PerconaXtraDBClusterRestore, cluster *api.PerconaXtraDBCluster) (reconcile.Result, error) {

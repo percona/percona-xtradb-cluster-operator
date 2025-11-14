@@ -219,7 +219,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 
 	if err := r.checkDeadlines(ctx, cluster, cr); err != nil {
 		if err := r.setFailedStatus(ctx, cr, err); err != nil {
-			return rr, errors.Wrap(err, "update status")
+			return reconcile.Result{}, errors.Wrap(err, "update status")
 		}
 
 		if errors.Is(err, errSuspendedDeadlineExceeded) {
@@ -233,7 +233,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 	}
 
 	if err := r.reconcileBackupJob(ctx, cr, cluster); err != nil {
-		return rr, errors.Wrap(err, "reconcile backup job")
+		return reconcile.Result{}, errors.Wrap(err, "reconcile backup job")
 	}
 
 	if err := cluster.CanBackup(); err != nil {
@@ -281,28 +281,22 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 	}
 
 	job := new(batchv1.Job)
-	if err := r.client.Get(ctx, types.NamespacedName{
-		Name:      naming.BackupJobName(cr.Name),
-		Namespace: cr.Namespace,
-	}, job); err != nil {
-		if !k8sErrors.IsNotFound(err) {
-			return reconcile.Result{}, errors.Wrap(err, "get job")
-		}
-		job, err = r.createBackupJob(ctx, cr, cluster, storage)
-		if err != nil {
-			err = errors.Wrap(err, "create backup job")
+	job, err = r.createBackupJob(ctx, cr, cluster, storage)
+	if err != nil {
+		err = errors.Wrap(err, "create backup job")
 
-			if err := r.setFailedStatus(ctx, cr, err); err != nil {
-				return rr, errors.Wrap(err, "update status")
-			}
-
-			return reconcile.Result{}, err
+		if err := r.setFailedStatus(ctx, cr, err); err != nil {
+			return reconcile.Result{}, errors.Wrap(err, "update status")
 		}
+
+		return reconcile.Result{}, err
 	}
 
-	err = r.updateJobStatus(ctx, cr, job, cr.Spec.StorageName, storage, cluster)
+	if err := r.updateJobStatus(ctx, cr, job, cr.Spec.StorageName, storage, cluster); err != nil {
+		return reconcile.Result{}, err
+	}
 
-	return rr, err
+	return rr, nil
 }
 
 func (r *ReconcilePerconaXtraDBClusterBackup) createBackupJob(
@@ -380,6 +374,12 @@ func (r *ReconcilePerconaXtraDBClusterBackup) createBackupJob(
 	}
 
 	if err := r.client.Create(ctx, job); err != nil {
+		if k8sErrors.IsAlreadyExists(err) {
+			if err := r.client.Get(ctx, client.ObjectKeyFromObject(job), job); err != nil {
+				return nil, errors.Wrap(err, "get backup job")
+			}
+			return job, nil
+		}
 		return nil, errors.Wrap(err, "create backup job")
 	}
 	log.Info("Created a new backup job", "namespace", job.Namespace, "name", job.Name)

@@ -197,7 +197,6 @@ grep -q "^progress=" $CFG && sed -i "s|^progress=.*|progress=1|" $CFG
 grep -q "^\[sst\]" "$CFG" || printf '[sst]\n' >>"$CFG"
 grep -q "^cpat=" "$CFG" || sed '/^\[sst\]/a cpat=.*\\.pem$\\|.*init\\.ok$\\|.*galera\\.cache$\\|.*wsrep_recovery_verbose\\.log$\\|.*readiness-check\\.sh$\\|.*liveness-check\\.sh$\\|.*get-pxc-state$\\|.*sst_in_progress$\\|.*sleep-forever$\\|.*pmm-prerun\\.sh$\\|.*sst-xb-tmpdir$\\|.*\\.sst$\\|.*gvwstate\\.dat$\\|.*grastate\\.dat$\\|.*\\.err$\\|.*\\.log$\\|.*RPM_UPGRADE_MARKER$\\|.*RPM_UPGRADE_HISTORY$\\|.*pxc-entrypoint\\.sh$\\|.*unsafe-bootstrap\\.sh$\\|.*pxc-configure-pxc\\.sh\\|.*peer-list$\\|.*auth_plugin$\\|.*version_info$\\|.*mysql-state-monitor$\\|.*mysql-state-monitor\\.log$\\|.*notify\\.sock$\\|.*mysql\\.state$\\|.*wsrep_cmd_notify_handler\\.sh$\\|.*core\\..*$' "$CFG" 1<>"$CFG"
 
-
 if [[ $MYSQL_VERSION == '8.0' && $MYSQL_PATCH_VERSION -ge 26 ]] || [[ $MYSQL_VERSION == '8.4' ]]; then
 	grep -q "^skip_replica_start=ON" "$CFG" || sed -i "/\[mysqld\]/a skip_replica_start=ON" $CFG
 else

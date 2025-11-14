@@ -280,7 +280,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 		cr.Status.VerifyTLS = storage.VerifyTLS
 	}
 
-	job := new(batchv1.Job)
+	var job *batchv1.Job
 	job, err = r.createBackupJob(ctx, cr, cluster, storage)
 	if err != nil {
 		err = errors.Wrap(err, "create backup job")

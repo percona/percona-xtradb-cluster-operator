@@ -5,6 +5,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 )
 
@@ -31,9 +34,7 @@ func (r *repeatingReader) Read(p []byte) (int, error) {
 
 func TestGeneratePassProxyadmin(t *testing.T) {
 	idx := strings.Index(passSymbols, "*")
-	if idx == -1 {
-		t.Fatal("we can delete this test if passSymbols doesn't contain '*'")
-	}
+	require.NotEqual(t, -1, idx, "we can delete this test if passSymbols doesn't contain '*'")
 	randReader = &repeatingReader{
 		pattern: []byte{
 			byte(idx),
@@ -49,18 +50,10 @@ func TestGeneratePassProxyadmin(t *testing.T) {
 	}
 
 	p, err := generatePass("")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.HasPrefix(string(p), "*") {
-		t.Fatal("expected '*' prefix when no rules are applied to the password")
-	}
+	require.NoError(t, err)
+	assert.Equal(t, true, strings.HasPrefix(string(p), "*"), "expected '*' prefix when no rules are applied to the password")
 
 	p, err = generatePass(users.ProxyAdmin)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if strings.HasPrefix(string(p), "*") {
-		t.Fatal("unexpected '*' prefix: proxyadmin passwords should not include it")
-	}
+	require.NoError(t, err)
+	assert.Equal(t, false, strings.HasPrefix(string(p), "*"), "unexpected '*' prefix: proxyadmin passwords should not include it")
 }

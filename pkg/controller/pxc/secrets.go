@@ -107,15 +107,19 @@ var randReader = rand.Reader
 func generatePass(username string) ([]byte, error) {
 	b := make([]byte, passwordLen)
 
+	firstSymbols := passSymbols
+	otherSymbols := passSymbols
+	if username == users.ProxyAdmin {
+		otherSymbols = strings.NewReplacer(":", "", ";", "").Replace(passSymbols)
+		firstSymbols = strings.ReplaceAll(otherSymbols, "*", "")
+	}
+
 	for i := range passwordLen {
-		symbols := passSymbols
-		if username == users.ProxyAdmin {
-			if i == 0 {
-				symbols = strings.ReplaceAll(symbols, "*", "")
-			}
-			symbols = strings.ReplaceAll(symbols, ":", "")
-			symbols = strings.ReplaceAll(symbols, ";", "")
+		symbols := otherSymbols
+		if i == 0 {
+			symbols = firstSymbols
 		}
+
 		randInt, err := rand.Int(randReader, big.NewInt(int64(len(symbols))))
 		if err != nil {
 			return nil, errors.Wrap(err, "get rand int")

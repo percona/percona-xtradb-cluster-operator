@@ -27,6 +27,7 @@ import (
 	ctrlWebhook "sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/apis"
+	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/controller"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/version"
@@ -98,6 +99,33 @@ func main() {
 		WebhookServer: ctrlWebhook.NewServer(ctrlWebhook.Options{
 			Port: 9443,
 		}),
+	}
+
+	groupKinds := []string{
+		"PerconaXtraDBCluster." + pxcv1.SchemeGroupVersion.Group,
+		"PerconaXtraDBClusterBackup." + pxcv1.SchemeGroupVersion.Group,
+		"PerconaXtraDBClusterRestore." + pxcv1.SchemeGroupVersion.Group,
+	}
+
+	defaultConcurrency := 1
+	options.Controller.GroupKindConcurrency = make(map[string]int, len(groupKinds))
+	for _, gk := range groupKinds {
+		options.Controller.GroupKindConcurrency[gk] = defaultConcurrency
+	}
+
+	if s := os.Getenv("MAX_CONCURRENT_RECONCILES"); s != "" {
+		i, err := strconv.Atoi(s)
+		if err != nil {
+			setupLog.Error(err, "MAX_CONCURRENT_RECONCILES must be a valid integer", "value", s)
+			os.Exit(1)
+		}
+		if i <= 0 {
+			setupLog.Error(nil, "MAX_CONCURRENT_RECONCILES must be a positive number", "value", i)
+			os.Exit(1)
+		}
+		for _, gk := range groupKinds {
+			options.Controller.GroupKindConcurrency[gk] = i
+		}
 	}
 
 	// Add support for MultiNamespace set in WATCH_NAMESPACE

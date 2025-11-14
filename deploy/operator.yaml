@@ -47,7 +47,7 @@ spec:
           value: "false"
         - name: MAX_CONCURRENT_RECONCILES
           value: "1"
-        image: perconalab/percona-xtradb-cluster-operator:K8SPXC-1594-00-01
+        image: perconalab/percona-xtradb-cluster-operator:main
         imagePullPolicy: Always
         livenessProbe:
           failureThreshold: 3

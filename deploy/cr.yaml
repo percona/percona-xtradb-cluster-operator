@@ -1,7 +1,7 @@
 apiVersion: pxc.percona.com/v1
 kind: PerconaXtraDBCluster
 metadata:
-  name: kech-cluster1
+  name: cluster1
   finalizers:
     - percona.com/delete-pxc-pods-in-order
 #    - percona.com/delete-ssl

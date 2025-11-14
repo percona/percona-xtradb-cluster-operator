@@ -48,7 +48,7 @@ func TestGeneratePassProxyadmin(t *testing.T) {
 		},
 	}
 
-	p, err := generatePass()
+	p, err := generatePass("")
 	if err != nil {
 		t.Fatal(err)
 	}

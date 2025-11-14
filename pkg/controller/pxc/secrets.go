@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"fmt"
 	"math/big"
-	"slices"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -105,14 +104,12 @@ const (
 var randReader = rand.Reader
 
 // generatePass generates a random password of length passwordLen.
-// The optional rules parameter expects usernames and adjusts the
-// password generation logic based on them.
-func generatePass(usernames ...string) ([]byte, error) {
+func generatePass(username string) ([]byte, error) {
 	b := make([]byte, passwordLen)
 
 	for i := range passwordLen {
 		symbols := passSymbols
-		if slices.Contains(usernames, users.ProxyAdmin) {
+		if username == users.ProxyAdmin {
 			if i == 0 {
 				symbols = strings.ReplaceAll(symbols, "*", "")
 			}

@@ -6,8 +6,8 @@ metadata:
     - percona.com/delete-pxc-pods-in-order
 spec:
   tls:
-   certValidityDuration: 2160h
-   caValidityDuration: 26280h
+   certValidityDuration: 1160h
+   caValidityDuration: 16280h
    SANs:
      - test.com
   secretsName: my-cluster-secrets

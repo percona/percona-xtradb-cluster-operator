@@ -10,7 +10,7 @@ metadata:
   name: some-name-tls-issue-ca-cert
 spec:
   commonName: some-name-tls-issue-ca
-  duration: 26280h0m0s
+  duration: 16280h0m0s
   isCA: true
   issuerRef:
     kind: Issuer

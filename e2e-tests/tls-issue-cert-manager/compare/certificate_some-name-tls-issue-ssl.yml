@@ -16,7 +16,7 @@ spec:
     - '*.some-name-tls-issue-pxc'
     - '*.some-name-tls-issue-proxysql'
     - test.com
-  duration: 2160h0m0s
+  duration: 1160h0m0s
   issuerRef:
     kind: Issuer
     name: some-name-tls-issue-pxc-issuer

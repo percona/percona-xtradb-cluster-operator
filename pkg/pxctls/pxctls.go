@@ -15,6 +15,7 @@ import (
 const (
 	DefaultCAValidity   = time.Hour * 24 * 365 * 3
 	DefaultCertValidity = time.Hour * 24 * 90
+	DefaultRenewBefore  = 730 * time.Hour
 )
 
 var (

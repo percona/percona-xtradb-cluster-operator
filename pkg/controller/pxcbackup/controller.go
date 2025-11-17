@@ -137,22 +137,8 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 	}
 
 	if cr.Status.State == api.BackupSucceeded || cr.Status.State == api.BackupFailed {
-		err := k8sretry.RetryOnConflict(k8sretry.DefaultRetry, func() error {
-			job := new(batchv1.Job)
-			if err := r.client.Get(ctx, types.NamespacedName{
-				Name:      naming.BackupJobName(cr.Name),
-				Namespace: cr.Namespace,
-			}, job); err != nil {
-				if k8sErrors.IsNotFound(err) {
-					return nil
-				}
-				return errors.Wrap(err, "failed to get job")
-			}
-			job.Finalizers = slices.DeleteFunc(job.Finalizers, func(s string) bool { return s == naming.FinalizerKeepJob })
-			return r.client.Update(ctx, job)
-		})
-		if err != nil {
-			return reconcile.Result{}, errors.Wrap(err, "failed to remove keep-job finalizer")
+		if err := r.runJobFinalizers(ctx, cr); err != nil {
+			return reconcile.Result{}, errors.Wrap(err, "run finalizers")
 		}
 
 		if len(cr.GetFinalizers()) > 0 {
@@ -746,7 +732,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) suspendJobIfNeeded(
 	log := logf.FromContext(ctx)
 
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		job, err := r.getBackupJob(ctx, cluster, cr)
+		job, err := r.getBackupJob(ctx, cr)
 		if err != nil {
 			if k8sErrors.IsNotFound(err) {
 				return nil
@@ -800,7 +786,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) resumeJobIfNeeded(
 	log := logf.FromContext(ctx)
 
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		job, err := r.getBackupJob(ctx, cluster, cr)
+		job, err := r.getBackupJob(ctx, cr)
 		if err != nil {
 			if k8sErrors.IsNotFound(err) {
 				return nil
@@ -856,15 +842,13 @@ func (r *ReconcilePerconaXtraDBClusterBackup) reconcileBackupJob(
 
 func (r *ReconcilePerconaXtraDBClusterBackup) getBackupJob(
 	ctx context.Context,
-	cluster *api.PerconaXtraDBCluster,
 	cr *api.PerconaXtraDBClusterBackup,
 ) (*batchv1.Job, error) {
 	jobName := naming.BackupJobName(cr.Name)
 
 	job := new(batchv1.Job)
 
-	err := r.client.Get(ctx, types.NamespacedName{Namespace: cr.Namespace, Name: jobName}, job)
-	if err != nil {
+	if err := r.client.Get(ctx, types.NamespacedName{Namespace: cr.Namespace, Name: jobName}, job); err != nil {
 		return nil, err
 	}
 
@@ -876,14 +860,35 @@ func (r *ReconcilePerconaXtraDBClusterBackup) cleanUpSuspendedJob(
 	cluster *api.PerconaXtraDBCluster,
 	cr *api.PerconaXtraDBClusterBackup,
 ) error {
-	job, err := r.getBackupJob(ctx, cluster, cr)
+	job, err := r.getBackupJob(ctx, cr)
 	if err != nil {
 		return errors.Wrap(err, "get job")
+	}
+
+	if err := r.runJobFinalizers(ctx, cr); err != nil {
+		return errors.Wrap(err, "run job finalizers")
 	}
 
 	if err := r.client.Delete(ctx, job); err != nil {
 		return errors.Wrap(err, "delete job")
 	}
 
+	return nil
+}
+
+func (r *ReconcilePerconaXtraDBClusterBackup) runJobFinalizers(ctx context.Context, cr *api.PerconaXtraDBClusterBackup) error {
+	if err := k8sretry.RetryOnConflict(k8sretry.DefaultRetry, func() error {
+		job, err := r.getBackupJob(ctx, cr)
+		if err != nil {
+			if k8sErrors.IsNotFound(err) {
+				return nil
+			}
+			return errors.Wrap(err, "failed to get job")
+		}
+		job.Finalizers = slices.DeleteFunc(job.Finalizers, func(s string) bool { return s == naming.FinalizerKeepJob })
+		return r.client.Update(ctx, job)
+	}); err != nil {
+		return errors.Wrap(err, "failed to remove keep-job finalizer")
+	}
 	return nil
 }

@@ -11,24 +11,26 @@ import (
 )
 
 func TestConfigureGroupKindConcurrency(t *testing.T) {
-	groupKinds := []string{
-		"PerconaXtraDBCluster." + pxcv1.SchemeGroupVersion.Group,
-		"PerconaXtraDBClusterBackup." + pxcv1.SchemeGroupVersion.Group,
-		"PerconaXtraDBClusterRestore." + pxcv1.SchemeGroupVersion.Group,
-	}
-
 	tests := map[string]struct {
 		envValue      string
 		expectedError string
-		expectedVal   int
+		expectedVal   map[string]int
 	}{
 		"default concurrency when env not set": {
-			envValue:    "",
-			expectedVal: 1,
+			envValue: "",
+			expectedVal: map[string]int{
+				"PerconaXtraDBCluster." + pxcv1.SchemeGroupVersion.Group:        1,
+				"PerconaXtraDBClusterBackup." + pxcv1.SchemeGroupVersion.Group:  1,
+				"PerconaXtraDBClusterRestore." + pxcv1.SchemeGroupVersion.Group: 1,
+			},
 		},
 		"valid custom concurrency": {
-			envValue:    "5",
-			expectedVal: 5,
+			envValue: "5",
+			expectedVal: map[string]int{
+				"PerconaXtraDBCluster." + pxcv1.SchemeGroupVersion.Group:        5,
+				"PerconaXtraDBClusterBackup." + pxcv1.SchemeGroupVersion.Group:  5,
+				"PerconaXtraDBClusterRestore." + pxcv1.SchemeGroupVersion.Group: 5,
+			},
 		},
 		"invalid non-integer value": {
 			envValue:      "invalid",
@@ -67,11 +69,7 @@ func TestConfigureGroupKindConcurrency(t *testing.T) {
 				assert.Contains(t, err.Error(), tt.expectedError)
 			} else {
 				assert.NoError(t, err)
-				assert.Len(t, options.Controller.GroupKindConcurrency, 3)
-				for k, v := range options.Controller.GroupKindConcurrency {
-					assert.Equal(t, tt.expectedVal, v)
-					assert.Contains(t, groupKinds, k)
-				}
+				assert.Equal(t, tt.expectedVal, options.Controller.GroupKindConcurrency)
 
 				// ensure that the original options are not affected
 				assert.Equal(t, scheme, options.Scheme)

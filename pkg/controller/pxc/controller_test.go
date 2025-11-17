@@ -2081,7 +2081,17 @@ var _ = Describe("Affinity", Ordered, func() {
 		}
 	}
 
-	componentAffinityTest := func(cr *api.PerconaXtraDBCluster, stsNamespacedName types.NamespacedName, lsFunc func(cr *api.PerconaXtraDBCluster) map[string]string, podSpecFunc func(cr *api.PerconaXtraDBCluster) *api.PodSpec) {
+	componentAffinityTest := func(cr *api.PerconaXtraDBCluster, componentFunc func(cr *api.PerconaXtraDBCluster) api.StatefulApp, podSpecFunc func(cr *api.PerconaXtraDBCluster) *api.PodSpec) {
+		Describe("start", func() {
+			It("should create PerconaXtraDBCluster", func() {
+				Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
+			})
+
+			It("should reconcile", func() {
+				_, err := reconciler().Reconcile(ctx, ctrl.Request{NamespacedName: client.ObjectKeyFromObject(cr)})
+				Expect(err).NotTo(HaveOccurred())
+			})
+		})
 		affinityCheck := func(toSet *api.PodAffinity, expected *corev1.Affinity) {
 			BeforeAll(func() {
 				Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cr), cr)).To(Succeed())
@@ -2098,29 +2108,29 @@ var _ = Describe("Affinity", Ordered, func() {
 			})
 
 			It("should get sts with specified affinity", func() {
-				sts := new(appsv1.StatefulSet)
-				Expect(k8sClient.Get(ctx, stsNamespacedName, sts)).To(Succeed())
+				sts := componentFunc(cr).StatefulSet()
+				Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(sts), sts)).To(Succeed())
 
 				Expect(sts.Spec.Template.Spec.Affinity).To(Equal(expected))
 			})
 		}
 		When("no affinity is set", func() {
-			affinityCheck(nil, simpleAffinity("kubernetes.io/hostname", lsFunc(cr)))
+			affinityCheck(nil, simpleAffinity("kubernetes.io/hostname", componentFunc(cr).Labels()))
 		})
 		When("topologyKey key is set to `none`", func() {
 			affinityCheck(&api.PodAffinity{TopologyKey: ptr.To("none")}, nil)
 		})
 		When("hostname affinity is set", func() {
 			topologyKey := "kubernetes.io/hostname"
-			affinityCheck(&api.PodAffinity{TopologyKey: ptr.To(topologyKey)}, simpleAffinity(topologyKey, lsFunc(cr)))
+			affinityCheck(&api.PodAffinity{TopologyKey: ptr.To(topologyKey)}, simpleAffinity(topologyKey, componentFunc(cr).Labels()))
 		})
 		When("zone affinity is set", func() {
 			topologyKey := "failure-domain.beta.kubernetes.io/zone"
-			affinityCheck(&api.PodAffinity{TopologyKey: ptr.To(topologyKey)}, simpleAffinity(topologyKey, lsFunc(cr)))
+			affinityCheck(&api.PodAffinity{TopologyKey: ptr.To(topologyKey)}, simpleAffinity(topologyKey, componentFunc(cr).Labels()))
 		})
 		When("region affinity is set", func() {
 			topologyKey := "failure-domain.beta.kubernetes.io/region"
-			affinityCheck(&api.PodAffinity{TopologyKey: ptr.To(topologyKey)}, simpleAffinity(topologyKey, lsFunc(cr)))
+			affinityCheck(&api.PodAffinity{TopologyKey: ptr.To(topologyKey)}, simpleAffinity(topologyKey, componentFunc(cr).Labels()))
 		})
 		When("custom affinity is set", func() {
 			customAffinity := &corev1.Affinity{
@@ -2197,77 +2207,41 @@ var _ = Describe("Affinity", Ordered, func() {
 		})
 	}
 
-	Context("HAProxy", Ordered, func() {
-		const crName = ns + "-haproxy"
-
+	Context("PXC", Ordered, func() {
+		const crName = ns + "-pxc"
 		cr, err := readDefaultCR(crName, ns)
 		It("should read default cr.yaml", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		crNamespacedName := client.ObjectKeyFromObject(cr)
-
-		It("should create PerconaXtraDBCluster", func() {
-			cr.Spec.HAProxy.Enabled = true
-			cr.Spec.ProxySQL.Enabled = false
-
-			Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
-		})
-
-		It("should reconcile", func() {
-			_, err := reconciler().Reconcile(ctx, ctrl.Request{NamespacedName: crNamespacedName})
-			Expect(err).NotTo(HaveOccurred())
-		})
-
-		sts := statefulset.NewHAProxy(cr).StatefulSet()
-		componentAffinityTest(cr, client.ObjectKeyFromObject(sts), naming.LabelsHAProxy, func(cr *api.PerconaXtraDBCluster) *api.PodSpec {
-			return &cr.Spec.HAProxy.PodSpec
-		})
-
-		It("should reconcile", func() {
-			_, err := reconciler().Reconcile(ctx, ctrl.Request{NamespacedName: crNamespacedName})
-			Expect(err).NotTo(HaveOccurred())
-		})
-
-		sts = statefulset.NewNode(cr).StatefulSet()
-		componentAffinityTest(cr, client.ObjectKeyFromObject(sts), naming.LabelsPXC, func(cr *api.PerconaXtraDBCluster) *api.PodSpec {
+		componentAffinityTest(cr, statefulset.NewNode, func(cr *api.PerconaXtraDBCluster) *api.PodSpec {
 			return cr.Spec.PXC.PodSpec
+		})
+	})
+
+	Context("HAProxy", Ordered, func() {
+		const crName = ns + "-haproxy"
+		cr, err := readDefaultCR(crName, ns)
+		It("should read default cr.yaml", func() {
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		componentAffinityTest(cr, statefulset.NewHAProxy, func(cr *api.PerconaXtraDBCluster) *api.PodSpec {
+			return &cr.Spec.HAProxy.PodSpec
 		})
 	})
 
 	Context("ProxySQL", Ordered, func() {
 		const crName = ns + "-proxysql"
-
 		cr, err := readDefaultCR(crName, ns)
 		It("should read default cr.yaml", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
+		cr.Spec.HAProxy.Enabled = false
+		cr.Spec.ProxySQL.Enabled = true
 
-		It("should create PerconaXtraDBCluster", func() {
-			cr.Spec.HAProxy.Enabled = false
-			cr.Spec.ProxySQL.Enabled = true
-
-			Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
-		})
-
-		It("should reconcile", func() {
-			_, err := reconciler().Reconcile(ctx, ctrl.Request{NamespacedName: client.ObjectKeyFromObject(cr)})
-			Expect(err).NotTo(HaveOccurred())
-		})
-
-		sts := statefulset.NewProxy(cr).StatefulSet()
-		componentAffinityTest(cr, client.ObjectKeyFromObject(sts), naming.LabelsProxySQL, func(cr *api.PerconaXtraDBCluster) *api.PodSpec {
+		componentAffinityTest(cr, statefulset.NewProxy, func(cr *api.PerconaXtraDBCluster) *api.PodSpec {
 			return &cr.Spec.ProxySQL.PodSpec
-		})
-
-		It("should reconcile", func() {
-			_, err := reconciler().Reconcile(ctx, ctrl.Request{NamespacedName: client.ObjectKeyFromObject(cr)})
-			Expect(err).NotTo(HaveOccurred())
-		})
-
-		sts = statefulset.NewNode(cr).StatefulSet()
-		componentAffinityTest(cr, client.ObjectKeyFromObject(sts), naming.LabelsPXC, func(cr *api.PerconaXtraDBCluster) *api.PodSpec {
-			return cr.Spec.PXC.PodSpec
 		})
 	})
 })

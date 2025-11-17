@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"os"
 	"runtime"
 	"strconv"
@@ -101,31 +102,10 @@ func main() {
 		}),
 	}
 
-	groupKinds := []string{
-		"PerconaXtraDBCluster." + pxcv1.SchemeGroupVersion.Group,
-		"PerconaXtraDBClusterBackup." + pxcv1.SchemeGroupVersion.Group,
-		"PerconaXtraDBClusterRestore." + pxcv1.SchemeGroupVersion.Group,
-	}
-
-	defaultConcurrency := 1
-	options.Controller.GroupKindConcurrency = make(map[string]int, len(groupKinds))
-	for _, gk := range groupKinds {
-		options.Controller.GroupKindConcurrency[gk] = defaultConcurrency
-	}
-
-	if s := os.Getenv("MAX_CONCURRENT_RECONCILES"); s != "" {
-		i, err := strconv.Atoi(s)
-		if err != nil {
-			setupLog.Error(err, "MAX_CONCURRENT_RECONCILES must be a valid integer", "value", s)
-			os.Exit(1)
-		}
-		if i <= 0 {
-			setupLog.Error(nil, "MAX_CONCURRENT_RECONCILES must be a positive number", "value", i)
-			os.Exit(1)
-		}
-		for _, gk := range groupKinds {
-			options.Controller.GroupKindConcurrency[gk] = i
-		}
+	err = configureGroupKindConcurrency(&options)
+	if err != nil {
+		setupLog.Error(err, "failed to configure group kind concurrency")
+		os.Exit(1)
 	}
 
 	// Add support for MultiNamespace set in WATCH_NAMESPACE
@@ -254,4 +234,32 @@ func getLogLevel(log logr.Logger) zapcore.LevelEnabler {
 		log.Info("Unsupported log level", "level", l)
 		return zapcore.InfoLevel
 	}
+}
+
+func configureGroupKindConcurrency(options *ctrl.Options) error {
+	groupKinds := []string{
+		"PerconaXtraDBCluster." + pxcv1.SchemeGroupVersion.Group,
+		"PerconaXtraDBClusterBackup." + pxcv1.SchemeGroupVersion.Group,
+		"PerconaXtraDBClusterRestore." + pxcv1.SchemeGroupVersion.Group,
+	}
+
+	const defaultConcurrency = 1
+	options.Controller.GroupKindConcurrency = make(map[string]int, len(groupKinds))
+	for _, gk := range groupKinds {
+		options.Controller.GroupKindConcurrency[gk] = defaultConcurrency
+	}
+
+	if s := os.Getenv("MAX_CONCURRENT_RECONCILES"); s != "" {
+		i, err := strconv.Atoi(s)
+		if err != nil {
+			return fmt.Errorf("MAX_CONCURRENT_RECONCILES must be a valid integer: %s", s)
+		}
+		if i <= 0 {
+			return fmt.Errorf("MAX_CONCURRENT_RECONCILES must be a positive number: %d", i)
+		}
+		for _, gk := range groupKinds {
+			options.Controller.GroupKindConcurrency[gk] = i
+		}
+	}
+	return nil
 }

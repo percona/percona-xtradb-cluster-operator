@@ -33,15 +33,30 @@ func TestConfigureGroupKindConcurrency(t *testing.T) {
 			},
 		},
 		"invalid non-integer value": {
-			envValue:      "invalid",
+			envValue: "invalid",
+			expectedVal: map[string]int{
+				"PerconaXtraDBCluster." + pxcv1.SchemeGroupVersion.Group:        1,
+				"PerconaXtraDBClusterBackup." + pxcv1.SchemeGroupVersion.Group:  1,
+				"PerconaXtraDBClusterRestore." + pxcv1.SchemeGroupVersion.Group: 1,
+			},
 			expectedError: "valid integer",
 		},
 		"zero value rejected": {
-			envValue:      "0",
+			envValue: "0",
+			expectedVal: map[string]int{
+				"PerconaXtraDBCluster." + pxcv1.SchemeGroupVersion.Group:        1,
+				"PerconaXtraDBClusterBackup." + pxcv1.SchemeGroupVersion.Group:  1,
+				"PerconaXtraDBClusterRestore." + pxcv1.SchemeGroupVersion.Group: 1,
+			},
 			expectedError: "positive number",
 		},
 		"negative value rejected": {
-			envValue:      "-1",
+			envValue: "-1",
+			expectedVal: map[string]int{
+				"PerconaXtraDBCluster." + pxcv1.SchemeGroupVersion.Group:        1,
+				"PerconaXtraDBClusterBackup." + pxcv1.SchemeGroupVersion.Group:  1,
+				"PerconaXtraDBClusterRestore." + pxcv1.SchemeGroupVersion.Group: 1,
+			},
 			expectedError: "positive number",
 		},
 	}
@@ -69,8 +84,6 @@ func TestConfigureGroupKindConcurrency(t *testing.T) {
 				assert.Contains(t, err.Error(), tt.expectedError)
 			} else {
 				assert.NoError(t, err)
-				assert.Equal(t, tt.expectedVal, options.Controller.GroupKindConcurrency)
-
 				// ensure that the original options are not affected
 				assert.Equal(t, scheme, options.Scheme)
 				assert.Equal(t, metricsServer.Options{
@@ -80,6 +93,7 @@ func TestConfigureGroupKindConcurrency(t *testing.T) {
 				assert.Equal(t, "election-id", options.LeaderElectionID)
 				assert.True(t, options.LeaderElection)
 			}
+			assert.Equal(t, tt.expectedVal, options.Controller.GroupKindConcurrency)
 		})
 	}
 }

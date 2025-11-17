@@ -103,7 +103,7 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(ctx context.Conte
 					Group: issuerGroup,
 				},
 				Duration:    caDuration,
-				RenewBefore: &metav1.Duration{Duration: 730 * time.Hour},
+				RenewBefore: &metav1.Duration{Duration: pxctls.DefaultRenewBefore},
 			},
 		}
 		if cr.CompareVersionWith("1.16.0") >= 0 {

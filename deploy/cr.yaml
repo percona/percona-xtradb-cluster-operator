@@ -757,3 +757,7 @@ spec:
           count: 5
           deleteFromStorage: true
         storageName: fs-pvc
+#  passwordGenerationOptions:
+#    symbols: "!#$%&()*+,-.<=>?@[]^_{}~"
+#    maxLength: 20
+#    minLength: 16

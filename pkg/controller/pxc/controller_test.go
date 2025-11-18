@@ -634,7 +634,7 @@ var _ = Describe("Authentication policy", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("should use mysql_native_password", func() {
+		It("should use caching_sha2_password", func() {
 			sts := appsv1.StatefulSet{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      crName + "-pxc",
@@ -648,7 +648,7 @@ var _ = Describe("Authentication policy", Ordered, func() {
 				if c.Name == "pxc" {
 					Expect(c.Env).Should(ContainElement(gs.MatchFields(gs.IgnoreExtras, gs.Fields{
 						"Name":  Equal("DEFAULT_AUTHENTICATION_PLUGIN"),
-						"Value": Equal("mysql_native_password"),
+						"Value": Equal("caching_sha2_password"),
 					})))
 				}
 			}

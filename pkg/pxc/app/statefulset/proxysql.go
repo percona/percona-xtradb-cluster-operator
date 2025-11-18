@@ -25,7 +25,7 @@ type Proxy struct {
 	cr *api.PerconaXtraDBCluster
 }
 
-func NewProxy(cr *api.PerconaXtraDBCluster) *Proxy {
+func NewProxy(cr *api.PerconaXtraDBCluster) api.StatefulApp {
 	return &Proxy{
 		cr: cr.DeepCopy(),
 	}

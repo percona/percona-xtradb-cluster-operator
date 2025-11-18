@@ -717,9 +717,9 @@ var _ = Describe("Authentication policy", Ordered, func() {
 				Expect(k8sClient.Update(ctx, cr)).Should(Succeed())
 			})
 
-			It("should NOT reconcile", func() {
+			It("should reconcile without an error", func() {
 				_, err := reconciler().Reconcile(ctx, ctrl.Request{NamespacedName: crNamespacedName})
-				Expect(err).To(MatchError("failed to enable ProxySQL: for mysql version 8.0 you can't switch from HAProxy to ProxySQL"))
+				Expect(err).NotTo(HaveOccurred())
 			})
 		})
 	})

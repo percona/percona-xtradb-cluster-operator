@@ -54,8 +54,8 @@ type PXCBackupSpec struct {
 	StartingDeadlineSeconds  *int64                  `json:"startingDeadlineSeconds,omitempty"`
 	SuspendedDeadlineSeconds *int64                  `json:"suspendedDeadlineSeconds,omitempty"`
 	// RunningDeadlineSeconds is the number of seconds to wait for the backup to transition to the 'Running' state.
-	// Once this threshold is reached, the backup will be marked as failed. Default is 300 seconds (5m).
-	// +kubebuilder:default:=300
+	// Once this threshold is reached, the backup will be marked as failed.
+	// When unspecified, uses the value from the parent cluster's .spec.backup.runningDeadlineSeconds (which defaults to 5m).
 	RunningDeadlineSeconds *int32 `json:"runningDeadlineSeconds,omitempty"`
 }
 

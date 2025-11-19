@@ -7,6 +7,11 @@
 - name: pxc8.0-backup
   image: registry.connect.redhat.com/percona/percona-xtradb-cluster-operator-containers@sha256:<update_pxc8.0-backup_SHA_value>
 - name: operator
+- name: pxc8.4
+  image: registry.connect.redhat.com/percona/percona-xtradb-cluster-operator-containers@sha256:<update_pxc8.4_SHA_value>
+- name: pxc8.4-backup
+  image: registry.connect.redhat.com/percona/percona-xtradb-cluster-operator-containers@sha256:<update_pxc8.4-backup_SHA_value>
+- name: operator
   image: registry.connect.redhat.com/percona/percona-xtradb-cluster-operator@sha256:<update_operator_SHA_value>
 - name: haproxy
   image: registry.connect.redhat.com/percona/percona-xtradb-cluster-operator-containers@sha256:<update_haproxy_SHA_value>

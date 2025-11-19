@@ -26,7 +26,7 @@ type HAProxy struct {
 	cr *api.PerconaXtraDBCluster
 }
 
-func NewHAProxy(cr *api.PerconaXtraDBCluster) *HAProxy {
+func NewHAProxy(cr *api.PerconaXtraDBCluster) api.StatefulApp {
 	return &HAProxy{
 		cr: cr.DeepCopy(),
 	}

@@ -156,8 +156,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	err = webhook.SetupWebhook(mgr)
-	if err != nil {
+	ctx := k8s.StartStopSignalHandler(mgr.GetClient(), strings.Split(namespace, ","))
+
+	if err := webhook.SetupWebhook(ctx, mgr); err != nil {
 		setupLog.Error(err, "set up validation webhook")
 		os.Exit(1)
 	}
@@ -187,8 +188,6 @@ func main() {
 	}
 
 	setupLog.Info("Starting the Cmd.")
-
-	ctx := k8s.StartStopSignalHandler(mgr.GetClient(), strings.Split(namespace, ","))
 
 	// Start the Cmd
 	if err := mgr.Start(ctx); err != nil {

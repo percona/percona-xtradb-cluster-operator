@@ -163,6 +163,10 @@ spec:
                 type: object
               pxcCluster:
                 type: string
+              runningDeadlineSeconds:
+                default: 300
+                format: int32
+                type: integer
               startingDeadlineSeconds:
                 format: int64
                 type: integer

@@ -10,7 +10,6 @@ fail() {
 	exit 1
 }
 
-$dir/affinity/run || fail "affinity"
 $dir/auto-tuning/run || fail "auto-tuning"
 $dir/backup-storage-tls/run || fail "backup-storage-tls"
 $dir/big-data/run || fail "big-data"

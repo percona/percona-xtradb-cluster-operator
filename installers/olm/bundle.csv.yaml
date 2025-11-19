@@ -2,11 +2,12 @@
 # https://docs.openshift.com/container-platform/4.7/operators/operator_sdk/osdk-generating-csvs.html
 # https://redhat-connect.gitbook.io/certified-operator-guide/ocp-deployment/operator-metadata/creating-the-csv
 # https://pkg.go.dev/github.com/operator-framework/api@v0.10.1/pkg/operators/v1alpha1#ClusterServiceVersion
-
+---
 apiVersion: operators.coreos.com/v1alpha1
 kind: ClusterServiceVersion
 metadata:
   name: ''
+  namespace: default
   annotations:
     features.operators.openshift.io/disconnected: "false"
     features.operators.openshift.io/fips-compliant: "false"
@@ -18,12 +19,13 @@ metadata:
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
     features.operators.openshift.io/csi: "false"
-    support: percona/percona.com
+    support: Percona
     # The following affect how the package is indexed at OperatorHub.io:
     # https://operatorhub.io/?category=Database
     # https://sdk.operatorframework.io/docs/advanced-topics/operator-capabilities/operator-capabilities/
     categories: Database
     capabilities: Deep Insights
+    certified: 'true'
     description: >-
       Percona Operator for MySQL based on Percona XtraDB Cluster manages the lifecycle of Percona XtraDB
       cluster instances.
@@ -120,7 +122,7 @@ spec:
 
       * Update Reader members before Writer member at cluster upgrades
 
-      * Support MySQL versions 5.7 and 8.0
+      * Support MySQL versions 5.7, 8.0 and 8.4
 
       ### Before You Start
 
@@ -165,9 +167,13 @@ spec:
   version:
   links:
     - name: Percona
-      url: https://www.percona.com/
+      url: 'https://www.percona.com/'
+    - name: Percona Kubernetes Operators Landing Page
+      url: 'https://www.percona.com/software/percona-kubernetes-operators'
     - name: Documentation
-      url: https://docs.percona.com/percona-operator-for-mysql/pxc/index.html
+      url: 'https://percona.github.io/percona-xtradb-cluster-operator/'
+    - name: Github
+      url: 'https://github.com/percona/percona-xtradb-cluster-operator'
   maintainers:
     - name: Percona
       email: info@percona.com

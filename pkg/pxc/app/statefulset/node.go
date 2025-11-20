@@ -273,13 +273,19 @@ func (c *Node) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.Perc
 }
 
 func (c *Node) LogCollectorContainer(spec *api.LogCollectorSpec, logPsecrets string, logRsecrets string, cr *api.PerconaXtraDBCluster) ([]corev1.Container, error) {
+	// Use correct POD_NAMESPACE for CR version >= 1.19.0, otherwise use POD_NAMESPASE for backward compatibility
+	podNamespaceEnvName := "POD_NAMESPASE"
+	if cr.CompareVersionWith("1.19.0") >= 0 {
+		podNamespaceEnvName = "POD_NAMESPACE"
+	}
+
 	logProcEnvs := []corev1.EnvVar{
 		{
 			Name:  "LOG_DATA_DIR",
 			Value: "/var/lib/mysql",
 		},
 		{
-			Name: "POD_NAMESPASE",
+			Name: podNamespaceEnvName,
 			ValueFrom: &corev1.EnvVarSource{
 				FieldRef: &corev1.ObjectFieldSelector{
 					FieldPath: "metadata.namespace",
@@ -354,12 +360,14 @@ func (c *Node) LogCollectorContainer(spec *api.LogCollectorSpec, logPsecrets str
 	}
 
 	if cr.Spec.LogCollector != nil {
-		if cr.Spec.LogCollector.Configuration != "" {
-			logProcContainer.VolumeMounts = append(logProcContainer.VolumeMounts, corev1.VolumeMount{
-				Name:      "logcollector-config",
-				MountPath: "/etc/fluentbit/custom",
-			})
-		}
+		// Always mount the logcollector config volume since we always generate configuration
+		// with buffer settings (operator-generated config takes priority over custom config)
+		// We mount it as fluentbit_pxc.conf to override the default Docker configuration
+		logProcContainer.VolumeMounts = append(logProcContainer.VolumeMounts, corev1.VolumeMount{
+			Name:      "logcollector-config",
+			MountPath: "/etc/fluentbit/fluentbit_pxc.conf",
+			SubPath:   "fluentbit_pxc.conf",
+		})
 
 		if cr.Spec.LogCollector.HookScript != "" {
 			logProcContainer.VolumeMounts = append(logProcContainer.VolumeMounts, corev1.VolumeMount{
@@ -590,7 +598,9 @@ func (c *Node) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg ap
 		app.GetSecretVolumes("mysql-users-secret-file", "internal-"+cr.Name, false),
 	)
 
-	if cr.Spec.LogCollector != nil && cr.Spec.LogCollector.Configuration != "" {
+	if cr.Spec.LogCollector != nil {
+		// Always create the logcollector config volume since we always generate configuration
+		// with buffer settings (operator-generated config takes priority over custom config)
 		vol.Volumes = append(vol.Volumes,
 			app.GetConfigVolumes("logcollector-config", config.CustomConfigMapName(cr.Name, "logcollector")))
 	}

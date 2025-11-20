@@ -47,6 +47,8 @@ spec:
           value: "false"
         - name: S3_WORKERS_LIMIT
           value: "10"
+        - name: MAX_CONCURRENT_RECONCILES
+          value: "1"
         image: perconalab/percona-xtradb-cluster-operator:main
         imagePullPolicy: Always
         livenessProbe:

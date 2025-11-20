@@ -20,6 +20,7 @@ one-pod,8.0
 pitr,8.0
 pitr-gap-errors,8.0
 proxy-protocol,8.0
+proxy-switch,8.0
 proxysql-sidecar-res-limits,8.0
 pvc-resize,5.7
 pvc-resize,8.0

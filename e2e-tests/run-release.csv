@@ -20,6 +20,7 @@ operator-self-healing-chaos
 pitr
 pitr-gap-errors
 proxy-protocol
+proxy-switch
 proxysql-sidecar-res-limits
 pvc-resize
 recreate

@@ -67,7 +67,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) checkSuspendedDeadline(
 ) error {
 	log := logf.FromContext(ctx)
 
-	job, err := r.getBackupJob(ctx, cluster, cr)
+	job, err := r.getBackupJob(ctx, cr)
 	if err != nil {
 		if k8sErrors.IsNotFound(err) {
 			return nil

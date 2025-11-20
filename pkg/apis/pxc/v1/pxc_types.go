@@ -23,6 +23,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxctls"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/util"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/version"
 )
@@ -185,6 +186,8 @@ type TLSSpec struct {
 	Enabled    *bool                   `json:"enabled,omitempty"`
 	SANs       []string                `json:"SANs,omitempty"`
 	IssuerConf *cmmeta.ObjectReference `json:"issuerConf,omitempty"`
+	Duration   *metav1.Duration        `json:"certValidityDuration,omitempty"`
+	CADuration *metav1.Duration        `json:"caValidityDuration,omitempty"`
 }
 
 const (
@@ -1213,7 +1216,7 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 	}
 
 	if len(c.Platform) == 0 {
-		if len(serverVersion.Platform) > 0 {
+		if serverVersion != nil && len(serverVersion.Platform) > 0 {
 			c.Platform = serverVersion.Platform
 		} else {
 			c.Platform = version.PlatformKubernetes
@@ -1245,6 +1248,21 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 					corev1.ResourceCPU:    resource.MustParse("50m"),
 				},
 			}
+		}
+	}
+
+	if tls := cr.Spec.TLS; cr.TLSEnabled() {
+		if tls.Duration == nil {
+			tls.Duration = &metav1.Duration{Duration: pxctls.DefaultCertValidity}
+		}
+		if tls.CADuration == nil {
+			tls.CADuration = &metav1.Duration{Duration: pxctls.DefaultCAValidity}
+		}
+		if tls.CADuration.Duration < tls.Duration.Duration {
+			return errors.New(".spec.tls.caDuration shouldn't be smaller than .spec.tls.duration")
+		}
+		if tls.CADuration.Duration < pxctls.DefaultRenewBefore {
+			return errors.Errorf(".spec.tls.caDuration shouldn't be smaller than %d hours", int(pxctls.DefaultRenewBefore.Hours()))
 		}
 	}
 

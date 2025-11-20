@@ -11770,6 +11770,10 @@ spec:
                     items:
                       type: string
                     type: array
+                  caValidityDuration:
+                    type: string
+                  certValidityDuration:
+                    type: string
                   enabled:
                     type: boolean
                   issuerConf:
@@ -12183,6 +12187,10 @@ spec:
           value: percona-xtradb-cluster-operator
         - name: DISABLE_TELEMETRY
           value: "false"
+        - name: S3_WORKERS_LIMIT
+          value: "10"
+        - name: MAX_CONCURRENT_RECONCILES
+          value: "1"
         image: perconalab/percona-xtradb-cluster-operator:main
         imagePullPolicy: Always
         livenessProbe:

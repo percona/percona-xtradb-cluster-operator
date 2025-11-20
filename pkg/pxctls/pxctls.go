@@ -12,12 +12,19 @@ import (
 	"time"
 )
 
-const DefaultValidity = time.Hour * 24 * 365 * 3
+const (
+	DefaultCAValidity   = time.Hour * 24 * 365 * 3
+	DefaultCertValidity = time.Hour * 24 * 90
+	DefaultRenewBefore  = 730 * time.Hour
+)
 
-var validityNotAfter = time.Now().Add(DefaultValidity)
+var (
+	caValidityNotAfter   = time.Now().Add(DefaultCAValidity)
+	certValidityNotAfter = time.Now().Add(DefaultCertValidity)
+)
 
 // Issue returns CA certificate, TLS certificate and TLS private key
-func Issue(hosts []string) (caCert []byte, tlsCert []byte, tlsKey []byte, err error) {
+func Issue(hosts []string, is1190 bool) (caCert []byte, tlsCert []byte, tlsKey []byte, err error) {
 	rsaBits := 2048
 	priv, err := rsa.GenerateKey(rand.Reader, rsaBits)
 	if err != nil {
@@ -38,7 +45,7 @@ func Issue(hosts []string) (caCert []byte, tlsCert []byte, tlsKey []byte, err er
 		SerialNumber:          serialNumber,
 		Subject:               subject,
 		NotBefore:             time.Now(),
-		NotAfter:              validityNotAfter,
+		NotAfter:              caValidityNotAfter,
 		KeyUsage:              x509.KeyUsageCertSign,
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
 		BasicConstraintsValid: true,
@@ -68,12 +75,15 @@ func Issue(hosts []string) (caCert []byte, tlsCert []byte, tlsKey []byte, err er
 		Subject:               subject,
 		Issuer:                issuer,
 		NotBefore:             time.Now(),
-		NotAfter:              validityNotAfter,
+		NotAfter:              caValidityNotAfter,
 		DNSNames:              hosts,
 		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
 		BasicConstraintsValid: true,
 		IsCA:                  false,
+	}
+	if is1190 {
+		tlsTemplate.NotAfter = certValidityNotAfter
 	}
 	clientKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {

@@ -170,7 +170,7 @@ func (h *hook) createWebhook(ownerRef metav1.OwnerReference) error {
 
 // SetupWebhook prepares certificates for webhook and
 // create ValidatingWebhookConfiguration k8s object
-func SetupWebhook(mgr manager.Manager) error {
+func SetupWebhook(ctx context.Context, mgr manager.Manager) error {
 	err := admissionregistration.AddToScheme(mgr.GetScheme())
 	if err != nil {
 		return errors.Wrap(err, "add admissionregistration to scheme")
@@ -181,7 +181,7 @@ func SetupWebhook(mgr manager.Manager) error {
 		return errors.Wrap(err, "get operator namespace")
 	}
 
-	ca, err := setupCertificates(mgr.GetAPIReader(), namespace)
+	ca, err := setupCertificates(ctx, mgr.GetAPIReader(), namespace)
 	if err != nil {
 		return errors.Wrap(err, "prepare hook tls certs")
 	}
@@ -209,9 +209,9 @@ func SetupWebhook(mgr manager.Manager) error {
 	return nil
 }
 
-func setupCertificates(cl client.Reader, namespace string) ([]byte, error) {
+func setupCertificates(ctx context.Context, cl client.Reader, namespace string) ([]byte, error) {
 	certSecret := &corev1.Secret{}
-	err := cl.Get(context.TODO(), types.NamespacedName{
+	err := cl.Get(ctx, types.NamespacedName{
 		Namespace: namespace,
 		Name:      "pxc-webhook-ssl",
 	}, certSecret)
@@ -222,7 +222,7 @@ func setupCertificates(cl client.Reader, namespace string) ([]byte, error) {
 	var ca, crt, key []byte
 
 	if k8serrors.IsNotFound(err) {
-		ca, crt, key, err = pxctls.Issue([]string{"percona-xtradb-cluster-operator." + namespace + ".svc"})
+		ca, crt, key, err = pxctls.Issue([]string{"percona-xtradb-cluster-operator." + namespace + ".svc"}, true)
 		if err != nil {
 			return nil, errors.Wrap(err, "issue tls certificates")
 		}

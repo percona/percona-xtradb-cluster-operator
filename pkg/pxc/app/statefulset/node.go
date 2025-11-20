@@ -27,7 +27,7 @@ type Node struct {
 	cr *api.PerconaXtraDBCluster
 }
 
-func NewNode(cr *api.PerconaXtraDBCluster) *Node {
+func NewNode(cr *api.PerconaXtraDBCluster) api.StatefulApp {
 	return &Node{
 		cr: cr.DeepCopy(),
 	}
@@ -558,7 +558,8 @@ func pmm3PXCNodeEnvVars(PmmPxcParams string) []corev1.EnvVar {
 		{
 			Name:  "DB_ARGS",
 			Value: "--query-source=perfschema",
-		}, {
+		},
+		{
 			Name:  "PMM_ADMIN_CUSTOM_PARAMS",
 			Value: PmmPxcParams,
 		},

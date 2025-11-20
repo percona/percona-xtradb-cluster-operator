@@ -37,6 +37,9 @@ spec:
 #  enableCRValidationWebhook: true
   tls:
     enabled: true
+#    # 90 days in hours
+#    certValidityDuration: 2160h
+#    caValidityDuration: 26280h
 #    SANs:
 #      - pxc-1.example.com
 #      - pxc-2.example.com
@@ -468,6 +471,8 @@ spec:
 #        limits:
 #          memory: 200M
 #          cpu: 200m
+#      securityContext:
+#        privileged: false
 #    envVarsSecret: my-env-var-secrets
     resources:
       requests:
@@ -680,6 +685,9 @@ spec:
           bucket: S3-BACKUP-BUCKET-NAME-HERE
           credentialsSecret: my-cluster-name-backup-s3
           region: us-west-2
+#          caBundle:
+#           name: s3-ca-bundle-secret
+#           key: ca.crt
       azure-blob:
         type: azure
         azure:

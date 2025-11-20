@@ -2,7 +2,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.3
+    controller-gen.kubebuilder.io/version: v0.19.0
   labels:
     app.kubernetes.io/component: crd
     app.kubernetes.io/name: percona-xtradb-cluster
@@ -249,6 +249,19 @@ spec:
                 properties:
                   bucket:
                     type: string
+                  caBundle:
+                    properties:
+                      key:
+                        type: string
+                      name:
+                        default: ""
+                        type: string
+                      optional:
+                        type: boolean
+                    required:
+                    - key
+                    type: object
+                    x-kubernetes-map-type: atomic
                   credentialsSecret:
                     type: string
                   endpointUrl:
@@ -281,7 +294,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.3
+    controller-gen.kubebuilder.io/version: v0.19.0
   labels:
     app.kubernetes.io/component: crd
     app.kubernetes.io/name: percona-xtradb-cluster
@@ -403,6 +416,19 @@ spec:
                     properties:
                       bucket:
                         type: string
+                      caBundle:
+                        properties:
+                          key:
+                            type: string
+                          name:
+                            default: ""
+                            type: string
+                          optional:
+                            type: boolean
+                        required:
+                        - key
+                        type: object
+                        x-kubernetes-map-type: atomic
                       credentialsSecret:
                         type: string
                       endpointUrl:
@@ -601,6 +627,19 @@ spec:
                         properties:
                           bucket:
                             type: string
+                          caBundle:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                default: ""
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                            x-kubernetes-map-type: atomic
                           credentialsSecret:
                             type: string
                           endpointUrl:
@@ -709,7 +748,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.3
+    controller-gen.kubebuilder.io/version: v0.19.0
   labels:
     app.kubernetes.io/component: crd
     app.kubernetes.io/name: percona-xtradb-cluster
@@ -1926,6 +1965,19 @@ spec:
                           properties:
                             bucket:
                               type: string
+                            caBundle:
+                              properties:
+                                key:
+                                  type: string
+                                name:
+                                  default: ""
+                                  type: string
+                                optional:
+                                  type: boolean
+                              required:
+                              - key
+                              type: object
+                              x-kubernetes-map-type: atomic
                             credentialsSecret:
                               type: string
                             endpointUrl:
@@ -11715,6 +11767,10 @@ spec:
                     items:
                       type: string
                     type: array
+                  caValidityDuration:
+                    type: string
+                  certValidityDuration:
+                    type: string
                   enabled:
                     type: boolean
                   issuerConf:
@@ -12128,6 +12184,10 @@ spec:
           value: percona-xtradb-cluster-operator
         - name: DISABLE_TELEMETRY
           value: "false"
+        - name: S3_WORKERS_LIMIT
+          value: "10"
+        - name: MAX_CONCURRENT_RECONCILES
+          value: "1"
         image: perconalab/percona-xtradb-cluster-operator:main
         imagePullPolicy: Always
         livenessProbe:

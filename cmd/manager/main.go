@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"os"
 	"runtime"
 	"strconv"
@@ -27,6 +28,7 @@ import (
 	ctrlWebhook "sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/apis"
+	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/controller"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/version"
@@ -100,6 +102,12 @@ func main() {
 		}),
 	}
 
+	err = configureGroupKindConcurrency(&options)
+	if err != nil {
+		setupLog.Error(err, "failed to configure group kind concurrency")
+		os.Exit(1)
+	}
+
 	// Add support for MultiNamespace set in WATCH_NAMESPACE
 	if len(namespace) > 0 {
 		namespaces := make(map[string]cache.Config)
@@ -148,8 +156,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	err = webhook.SetupWebhook(mgr)
-	if err != nil {
+	ctx := k8s.StartStopSignalHandler(mgr.GetClient(), strings.Split(namespace, ","))
+
+	if err := webhook.SetupWebhook(ctx, mgr); err != nil {
 		setupLog.Error(err, "set up validation webhook")
 		os.Exit(1)
 	}
@@ -179,8 +188,6 @@ func main() {
 	}
 
 	setupLog.Info("Starting the Cmd.")
-
-	ctx := k8s.StartStopSignalHandler(mgr.GetClient(), strings.Split(namespace, ","))
 
 	// Start the Cmd
 	if err := mgr.Start(ctx); err != nil {
@@ -226,4 +233,32 @@ func getLogLevel(log logr.Logger) zapcore.LevelEnabler {
 		log.Info("Unsupported log level", "level", l)
 		return zapcore.InfoLevel
 	}
+}
+
+func configureGroupKindConcurrency(options *ctrl.Options) error {
+	groupKinds := []string{
+		"PerconaXtraDBCluster." + pxcv1.SchemeGroupVersion.Group,
+		"PerconaXtraDBClusterBackup." + pxcv1.SchemeGroupVersion.Group,
+		"PerconaXtraDBClusterRestore." + pxcv1.SchemeGroupVersion.Group,
+	}
+
+	const defaultConcurrency = 1
+	options.Controller.GroupKindConcurrency = make(map[string]int, len(groupKinds))
+	for _, gk := range groupKinds {
+		options.Controller.GroupKindConcurrency[gk] = defaultConcurrency
+	}
+
+	if s := os.Getenv("MAX_CONCURRENT_RECONCILES"); s != "" {
+		i, err := strconv.Atoi(s)
+		if err != nil {
+			return fmt.Errorf("MAX_CONCURRENT_RECONCILES must be a valid integer: %s", s)
+		}
+		if i <= 0 {
+			return fmt.Errorf("MAX_CONCURRENT_RECONCILES must be a positive number: %d", i)
+		}
+		for _, gk := range groupKinds {
+			options.Controller.GroupKindConcurrency[gk] = i
+		}
+	}
+	return nil
 }

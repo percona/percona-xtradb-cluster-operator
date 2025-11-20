@@ -69,26 +69,44 @@ if [[ -n $transition_key && $transition_key != null ]]; then
 	echo transition-key exists
 fi
 
+# Extract --defaults-file from XB_EXTRA_ARGS if present and place it as the first argument
+# This fixes the issue where --defaults-file must be the first argument for xtrabackup and innobackupex
+DEFAULTS_FILE=""
+REMAINING_XB_ARGS=""
+if [[ "$XB_EXTRA_ARGS" =~ --defaults-file=([^[:space:]]+) ]]; then
+	defaults_file_path="${BASH_REMATCH[1]}"
+	# If the path is relative (doesn't start with /), prepend $tmp directory
+	if [[ "$defaults_file_path" != /* ]]; then
+		# Remove leading ./ if present
+		defaults_file_path="${defaults_file_path#./}"
+		defaults_file_path="$tmp/$defaults_file_path"
+	fi
+	DEFAULTS_FILE="--defaults-file=$defaults_file_path"
+	REMAINING_XB_ARGS=$(echo "$XB_EXTRA_ARGS" | sed 's/--defaults-file=[^[:space:]]*//g' | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//')
+else
+	REMAINING_XB_ARGS="$XB_EXTRA_ARGS"
+fi
+
 if ! check_for_version "$MYSQL_VERSION" '8.0.0'; then
 	# shellcheck disable=SC2086
-	innobackupex ${XB_USE_MEMORY+--use-memory=$XB_USE_MEMORY} --parallel="$(grep -c processor /proc/cpuinfo)" ${XB_EXTRA_ARGS} --decompress "$tmp"
+	innobackupex $DEFAULTS_FILE ${XB_USE_MEMORY+--use-memory=$XB_USE_MEMORY} --parallel="$(grep -c processor /proc/cpuinfo)" $REMAINING_XB_ARGS --decompress "$tmp"
 	XB_EXTRA_ARGS="$XB_EXTRA_ARGS --binlog-info=ON"
 fi
 
-echo "+ xtrabackup ${XB_USE_MEMORY+--use-memory=$XB_USE_MEMORY} --prepare ${XB_EXTRA_ARGS} --binlog-info=ON --rollback-prepared-trx \
+echo "+ xtrabackup $DEFAULTS_FILE ${XB_USE_MEMORY+--use-memory=$XB_USE_MEMORY} --prepare $REMAINING_XB_ARGS --binlog-info=ON --rollback-prepared-trx \
 --xtrabackup-plugin-dir=/usr/lib64/xtrabackup/plugin --target-dir=$tmp"
 
 # shellcheck disable=SC2086
-xtrabackup ${XB_USE_MEMORY+--use-memory=$XB_USE_MEMORY} --prepare ${XB_EXTRA_ARGS} $transition_option --rollback-prepared-trx \
+xtrabackup $DEFAULTS_FILE ${XB_USE_MEMORY+--use-memory=$XB_USE_MEMORY} --prepare $REMAINING_XB_ARGS $transition_option --rollback-prepared-trx \
 	--xtrabackup-plugin-dir=/usr/lib64/xtrabackup/plugin "--target-dir=$tmp"
 
-echo "+ xtrabackup --defaults-group=mysqld --datadir=/datadir --move-back ${XB_EXTRA_ARGS} --binlog-info=ON \
+echo "+ xtrabackup $DEFAULTS_FILE --defaults-group=mysqld --datadir=/datadir --move-back $REMAINING_XB_ARGS --binlog-info=ON \
 --force-non-empty-directories $master_key_options \
 --keyring-vault-config=/etc/mysql/vault-keyring-secret/keyring_vault.conf --early-plugin-load=keyring_vault.so \
 --xtrabackup-plugin-dir=/usr/lib64/xtrabackup/plugin --target-dir=$tmp"
 
 # shellcheck disable=SC2086
-xtrabackup --defaults-group=mysqld --datadir=/datadir --move-back ${XB_EXTRA_ARGS} \
+xtrabackup $DEFAULTS_FILE --defaults-group=mysqld --datadir=/datadir --move-back $REMAINING_XB_ARGS \
 	--force-non-empty-directories $transition_option $master_key_options \
 	--keyring-vault-config=/etc/mysql/vault-keyring-secret/keyring_vault.conf --early-plugin-load=keyring_vault.so \
 	--xtrabackup-plugin-dir=/usr/lib64/xtrabackup/plugin "--target-dir=$tmp"

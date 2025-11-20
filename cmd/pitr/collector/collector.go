@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/md5"
 	"fmt"
+	"golang.org/x/sys/unix"
 	"io"
 	"io/fs"
 	"log"
@@ -17,13 +18,11 @@ import (
 	"time"
 
 	"github.com/go-sql-driver/mysql"
-	"github.com/pkg/errors"
-	"github.com/prometheus/client_golang/prometheus"
-	"golang.org/x/sys/unix"
-
 	"github.com/percona/percona-xtradb-cluster-operator/cmd/pitr/pxc"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage"
+	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 const collectorPasswordPath = "/etc/mysql/mysql-users-secret/xtrabackup"
@@ -621,16 +620,30 @@ func mergeErrors(a, b error) error {
 	return b
 }
 
+func extractIncrementalNumber(binlogName string) (string, error) {
+	parts := strings.Split(binlogName, ".")
+	if len(parts) < 2 {
+		return "", fmt.Errorf("invalid binlog name format: %s", binlogName)
+	}
+	return parts[len(parts)-1], nil
+}
+
 func (c *Collector) manageBinlog(ctx context.Context, binlog pxc.Binlog) (err error) {
 	binlogTmstmp, err := c.db.GetBinLogFirstTimestamp(ctx, binlog.Name)
 	if err != nil {
 		return errors.Wrapf(err, "get first timestamp for %s", binlog.Name)
 	}
 
-	binlogName := fmt.Sprintf("binlog_%s_%x", binlogTmstmp, md5.Sum([]byte(binlog.GTIDSet.Raw())))
+	incrementalNum, err := extractIncrementalNumber(binlog.Name) // extracts e.g. "000011"
+	if err != nil {
+		return errors.Wrapf(err, "extract incremental number from %s", binlog.Name)
+	}
+
+	// Construct internal storage filename with timestamp, incremental number, and GTID md5 hash
+	binlogName := fmt.Sprintf("binlog_%s_%s_%x", binlogTmstmp, incrementalNum, md5.Sum([]byte(binlog.GTIDSet.Raw())))
 
 	var setBuffer bytes.Buffer
-	// no error handling because WriteString() always return nil error
+	// no error handling because WriteString() always returns nil error
 	// nolint:errcheck
 	setBuffer.WriteString(binlog.GTIDSet.Raw())
 
@@ -641,6 +654,7 @@ func (c *Collector) manageBinlog(ctx context.Context, binlog pxc.Binlog) (err er
 		return errors.Wrap(err, "remove temp file")
 	}
 
+	// Create named pipe with original binlog.Name
 	err = syscall.Mkfifo(tmpDir+binlog.Name, 0o666)
 	if err != nil {
 		return errors.Wrap(err, "make named pipe file error")
@@ -686,6 +700,7 @@ func (c *Collector) manageBinlog(ctx context.Context, binlog pxc.Binlog) (err er
 
 	go readBinlog(ctx, file, pw, errBuf, binlog.Name)
 
+	// Use constructed binlogName for storage keys
 	err = c.storage.PutObject(ctx, binlogName, pr, -1)
 	if err != nil {
 		return errors.Wrapf(err, "put %s object", binlog.Name)
@@ -703,7 +718,7 @@ func (c *Collector) manageBinlog(ctx context.Context, binlog pxc.Binlog) (err er
 		return errors.Wrap(err, "put gtid-set object")
 	}
 	for _, gtidSet := range binlog.GTIDSet.List() {
-		// no error handling because WriteString() always return nil error
+		// no error handling because WriteString() always returns nil error
 		// nolint:errcheck
 		setBuffer.WriteString(binlog.GTIDSet.Raw())
 

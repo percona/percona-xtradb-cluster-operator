@@ -136,6 +136,21 @@ check_binlog_gap_restore() {
 			exit 1
 		fi
 		kubectl_bin delete -f "$test_dir/conf/${restore}.yaml"
+	elif [ "$type" == "backup-source" ]; then
+		local restore=restore-on-pitr-minio-gap-bs
+		destination=$(kubectl_bin get pxc-backup on-pitr-minio-gap -o jsonpath='{.status.destination}')
+		cat "${test_dir}/conf/${restore}.yaml" \
+			| $sed -e "s~#destination~${destination}~" \
+			| $sed -e "s~minio-service.#namespace~minio-service.${namespace}~" \
+			| kubectl_bin apply -f -
+
+		wait_backup_restore "${restore}" "Failed"
+		local backup_error=$(kubectl_bin get pxc-restore ${restore} -ojsonpath='{.status.comments}' | grep -c "Backup doesn't guarantee consistent recovery with PITR. Annotate PerconaXtraDBClusterRestore with percona.com/unsafe-pitr to force it.")
+		if [[ $backup_error -eq 0 ]]; then
+			echo "ERROR: Backup does not have pitr-not-ready file in the storage."
+			exit 1
+		fi
+		kubectl_bin delete -f "$test_dir/conf/${restore}.yaml"
 	elif [ "$type" == "force" ]; then
 		local restore=restore-on-pitr-minio-gap-force
 		kubectl_bin apply -f "$test_dir/conf/${restore}.yaml"
@@ -354,6 +369,7 @@ main() {
 	run_backup "$cluster" "on-pitr-minio-gap"
 	create_binlog_gap
 	check_binlog_gap_error
+	check_binlog_gap_restore "backup-source"
 	check_binlog_gap_restore "error"
 	check_binlog_gap_restore "force"
 	check_binlog_gap_restore "no-pitr"
@@ -365,4 +381,7 @@ main() {
 	desc "test passed"
 }
 
+#cluster="pitr-gap-errors"
+#namespace="pitr-gap-errors-29180"
+#check_binlog_gap_restore "backup-source"
 main

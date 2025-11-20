@@ -21,9 +21,10 @@ import (
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/binlogcollector"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage"
 )
 
-func CheckPITRErrors(ctx context.Context, cl client.Client, clcmd *clientcmd.Client, cr *api.PerconaXtraDBCluster) error {
+func CheckPITRErrors(ctx context.Context, cl client.Client, clcmd *clientcmd.Client, cr *api.PerconaXtraDBCluster, storageFunc storage.NewClientFunc) error {
 	log := logf.FromContext(ctx)
 
 	if cr.Spec.Backup == nil || !cr.Spec.Backup.PITR.Enabled {
@@ -64,7 +65,7 @@ func CheckPITRErrors(ctx context.Context, cl client.Client, clcmd *clientcmd.Cli
 	stdoutBuf := &bytes.Buffer{}
 	stderrBuf := &bytes.Buffer{}
 
-	err = clcmd.Exec(collectorPod, "pitr", []string{"/bin/bash", "-c", "cat /tmp/gap-detected || true"}, nil, stdoutBuf, stderrBuf, false)
+	err = clcmd.Exec(collectorPod, "pitr", []string{"/bin/bash", "-c", "cat " + naming.GapDetected + " || true"}, nil, stdoutBuf, stderrBuf, false)
 	if err != nil {
 		return errors.Wrapf(err, "exec binlog collector pod %s", collectorPod.Name)
 	}
@@ -84,6 +85,10 @@ func CheckPITRErrors(ctx context.Context, cl client.Client, clcmd *clientcmd.Cli
 		LastTransitionTime: metav1.Now(),
 	}
 	meta.SetStatusCondition(&backup.Status.Conditions, condition)
+
+	if err := addPitrNotReadyFileToBackup(ctx, cl, cr, backup, storageFunc); err != nil {
+		return errors.Wrap(err, "add pitr-not-ready file")
+	}
 
 	if err := cl.Status().Update(ctx, backup); err != nil {
 		return errors.Wrap(err, "update backup status")
@@ -160,6 +165,24 @@ func UpdatePITRTimeline(ctx context.Context, cl client.Client, clcmd *clientcmd.
 	}
 
 	log.Info("Updated PITR timelines", "latest", backup.Status.LatestRestorableTime, "lastBackup", backup.Name)
+
+	return nil
+}
+
+func addPitrNotReadyFileToBackup(ctx context.Context, cl client.Client, cr *api.PerconaXtraDBCluster, backup *api.PerconaXtraDBClusterBackup, storageFunc storage.NewClientFunc) error {
+	opts, err := storage.GetOptionsFromBackup(ctx, cl, cr, backup)
+	if err != nil {
+		return errors.Wrap(err, "failed to get storage options")
+	}
+	scli, err := storageFunc(ctx, opts)
+	if err != nil {
+		return errors.Wrap(err, "failed to create s3 client")
+	}
+
+	filepath := backup.Status.Destination.BackupName() + "." + naming.PITRNotReady
+	if err = scli.PutObject(ctx, filepath, bytes.NewBuffer([]byte{}), 0); err != nil {
+		return errors.Wrap(err, "put pitr-not-ready object")
+	}
 
 	return nil
 }

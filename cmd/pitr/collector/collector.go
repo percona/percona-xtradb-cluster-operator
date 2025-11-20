@@ -119,9 +119,8 @@ type BackupAzure struct {
 }
 
 const (
-	lastSetFilePrefix string = "last-binlog-set-"   // filename prefix for object where the last binlog set will stored
-	gtidPostfix       string = "-gtid-set"          // filename postfix for files with GTID set
-	timelinePath      string = "/tmp/pitr-timeline" // path to file with timeline
+	lastSetFilePrefix string = "last-binlog-set-" // filename prefix for object where the last binlog set will stored
+	gtidPostfix       string = "-gtid-set"        // filename postfix for files with GTID set
 )
 
 func New(ctx context.Context, c Config) (*Collector, error) {
@@ -320,11 +319,12 @@ func (c *Collector) filterBinLogs(ctx context.Context, logs []pxc.Binlog, lastBi
 }
 
 func createGapFile(gtidSet pxc.GTIDSet) error {
-	p := "/tmp/gap-detected"
+	p := naming.GapDetected
 	f, err := os.Create(p)
 	if err != nil {
 		return errors.Wrapf(err, "create %s", p)
 	}
+	defer f.Close()
 
 	_, err = f.WriteString(gtidSet.Raw())
 	if err != nil {
@@ -346,10 +346,11 @@ func fileExists(name string) (bool, error) {
 }
 
 func createTimelineFile(firstTs string) error {
-	f, err := os.Create(timelinePath)
+	f, err := os.Create(naming.TimelinePath)
 	if err != nil {
-		return errors.Wrapf(err, "create %s", timelinePath)
+		return errors.Wrapf(err, "create %s", naming.TimelinePath)
 	}
+	defer f.Close()
 
 	_, err = f.WriteString(firstTs)
 	if err != nil {
@@ -360,9 +361,9 @@ func createTimelineFile(firstTs string) error {
 }
 
 func updateTimelineFile(lastTs string) error {
-	f, err := os.OpenFile(timelinePath, os.O_RDWR, 0o644)
+	f, err := os.OpenFile(naming.TimelinePath, os.O_RDWR, 0o644)
 	if err != nil {
-		return errors.Wrapf(err, "open %s", timelinePath)
+		return errors.Wrapf(err, "open %s", naming.TimelinePath)
 	}
 	defer f.Close()
 
@@ -373,7 +374,7 @@ func updateTimelineFile(lastTs string) error {
 	}
 
 	if err := scanner.Err(); err != nil {
-		return errors.Wrapf(err, "scan %s", timelinePath)
+		return errors.Wrapf(err, "scan %s", naming.TimelinePath)
 	}
 
 	if len(lines) > 1 {
@@ -383,11 +384,11 @@ func updateTimelineFile(lastTs string) error {
 	}
 
 	if _, err := f.Seek(0, 0); err != nil {
-		return errors.Wrapf(err, "seek %s", timelinePath)
+		return errors.Wrapf(err, "seek %s", naming.TimelinePath)
 	}
 
 	if err := f.Truncate(0); err != nil {
-		return errors.Wrapf(err, "truncate %s", timelinePath)
+		return errors.Wrapf(err, "truncate %s", naming.TimelinePath)
 	}
 
 	_, err = f.WriteString(strings.Join(lines, "\n"))
@@ -575,7 +576,7 @@ func (c *Collector) CollectBinLogs(ctx context.Context) error {
 		return nil
 	}
 
-	if exists, err := fileExists(timelinePath); !exists && err == nil {
+	if exists, err := fileExists(naming.TimelinePath); !exists && err == nil {
 		firstTs, err := c.db.GetBinLogFirstTimestamp(ctx, binlogList[0].Name)
 		if err != nil {
 			return errors.Wrap(err, "get first timestamp")

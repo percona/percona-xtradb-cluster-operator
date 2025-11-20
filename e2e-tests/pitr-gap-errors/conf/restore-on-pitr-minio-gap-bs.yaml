@@ -1,0 +1,19 @@
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBClusterRestore
+metadata:
+  name: restore-on-pitr-minio-gap-bs
+spec:
+  pxcCluster: pitr-gap-errors
+  pitr:
+    type: latest
+    backupSource:
+      storageName: "minio-binlogs"
+  backupSource:
+    destination: #destination
+    s3:
+      bucket: operator-testing
+      credentialsSecret: minio-secret
+      endpointUrl: https://minio-service.#namespace:9000/
+      region: us-east-1
+    verifyTLS: false
+

@@ -24,7 +24,7 @@ compare_kubectl service/${cluster}-proxysql-unready
 
 # give some time for mysql_servers to be populated
 # this won't be needed once we add probes to ProxySQL containers
-sleep 60
+sleep 90
 
 desc 'check if scheduler is enabled in all ProxySQL servers'
 compare_mysql_cmd_local 'scheduler-0' 'SELECT * FROM runtime_scheduler;' \
@@ -53,7 +53,7 @@ wait_pod ${cluster}-pxc-4
 
 # give some time for mysql_servers to be populated
 # this won't be needed once we add probes to ProxySQL containers
-sleep 60
+sleep 90
 
 compare_mysql_cmd_local 'mysql-servers-0-1' 'SELECT hostgroup_id,SUBSTRING(hostname, 0, 16),weight,status FROM runtime_mysql_servers;' \
 	"-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" \
@@ -70,7 +70,7 @@ wait_pod ${cluster}-proxysql-2
 
 # give some time for mysql_servers to be populated
 # this won't be needed once we add probes to ProxySQL containers
-sleep 60
+sleep 90
 
 compare_mysql_cmd_local 'scheduler-2' 'SELECT * FROM runtime_scheduler;' \
 	"-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" \

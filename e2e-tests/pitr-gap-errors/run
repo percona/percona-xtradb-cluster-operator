@@ -381,7 +381,4 @@ main() {
 	desc "test passed"
 }
 
-#cluster="pitr-gap-errors"
-#namespace="pitr-gap-errors-29180"
-#check_binlog_gap_restore "backup-source"
 main

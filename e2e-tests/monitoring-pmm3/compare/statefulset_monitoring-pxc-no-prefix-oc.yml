@@ -199,6 +199,8 @@ spec:
               value: /var/lib/mysql/notify.sock
             - name: MYSQL_STATE_FILE
               value: /var/lib/mysql/mysql.state
+            - name: LD_PRELOAD
+              value: /usr/lib64/libjemalloc.so.1
           envFrom:
             - secretRef:
                 name: my-env-var-secrets

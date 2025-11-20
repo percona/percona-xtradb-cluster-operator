@@ -1,0 +1,34 @@
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBCluster
+metadata:
+  name: some-name
+  finalizers:
+    - percona.com/delete-pxc-pods-in-order
+spec:
+  secretsName: my-cluster-secrets
+  pxc:
+    size: 3
+    image: -pxc
+    resources:
+      requests:
+        memory: 0.1G
+        cpu: 100m
+      limits:
+        memory: "2G"
+        cpu: "1"
+    volumeSpec:
+      persistentVolumeClaim:
+        resources:
+          requests:
+            storage: 2Gi
+  haproxy:
+    enabled: true
+    size: 2
+    image: -haproxy
+    resources:
+      requests:
+        memory: 0.1G
+        cpu: 100m
+      limits:
+        memory: 1G
+        cpu: 700m

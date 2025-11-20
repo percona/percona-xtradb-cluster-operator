@@ -267,7 +267,7 @@ func (c *Node) AppContainer(ctx context.Context, cl client.Client, spec *api.Pod
 		}...)
 	}
 
-	if cr.CompareVersionWith("1.18.0") >= 0 {
+	if cr.CompareVersionWith("1.19.0") >= 0 {
 		const (
 			ldPreloadKey    = "LD_PRELOAD"
 			libJemallocPath = "/usr/lib64/libjemalloc.so.1"
@@ -286,8 +286,24 @@ func (c *Node) AppContainer(ctx context.Context, cl client.Client, spec *api.Pod
 			activateTcmalloc = true
 		}
 
-		// Let's set LD_PRELOAD via appc.Env always. It takes precedence over EnvFrom
+		// deactivate
+		if !activateJemalloc {
+			ldPreloadValue = strings.ReplaceAll(ldPreloadValue, libJemallocPath, "")
+		}
+		if !activateTcmalloc {
+			ldPreloadValue = strings.ReplaceAll(ldPreloadValue, libTcmallocPath, "")
+		}
 
+		// activate
+		if activateJemalloc && !strings.Contains(ldPreloadValue, libJemallocPath) {
+			ldPreloadValue += ":" + libJemallocPath
+		}
+		if activateTcmalloc && !strings.Contains(ldPreloadValue, libTcmallocPath) {
+			ldPreloadValue += ":" + libTcmallocPath
+		}
+
+		// Set LD_PRELOAD via appc.Env always. It takes precedence over EnvFrom.
+		// This ensures we're not breaking existing deployments with LD_PRELOAD set.
 		envVarsSecret := &corev1.Secret{}
 		err := cl.Get(ctx, types.NamespacedName{Name: cr.Spec.PXC.EnvVarsSecretName, Namespace: cr.Namespace}, envVarsSecret)
 		if client.IgnoreNotFound(err) == nil {
@@ -295,22 +311,6 @@ func (c *Node) AppContainer(ctx context.Context, cl client.Client, spec *api.Pod
 			if val, ok := envVarsSecret.Data[ldPreloadKey]; ok {
 				ldPreloadValue = string(val)
 			}
-		}
-
-		// deactivate
-		if !activateJemalloc {
-			ldPreloadValue = strings.Replace(ldPreloadValue, libJemallocPath, "", -1)
-		}
-		if !activateTcmalloc {
-			ldPreloadValue = strings.Replace(ldPreloadValue, libTcmallocPath, "", -1)
-		}
-
-		// activate
-		if activateJemalloc && !strings.Contains(ldPreloadValue, libJemallocPath) {
-			ldPreloadValue += ":" + libJemallocPath
-		}
-		if activateTcmalloc &&  !strings.Contains(ldPreloadValue, libTcmallocPath) {
-			ldPreloadValue += ":" + libTcmallocPath
 		}
 
 		// prefix/suffix and consecutive : (colons) don't do any harm

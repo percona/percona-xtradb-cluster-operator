@@ -3017,8 +3017,6 @@ spec:
                     items:
                       type: string
                     type: array
-                  mysqlAllocator:
-                    type: string
                   nodeSelector:
                     additionalProperties:
                       type: string
@@ -6546,8 +6544,6 @@ spec:
                     items:
                       type: string
                     type: array
-                  mysqlAllocator:
-                    type: string
                   nodeSelector:
                     additionalProperties:
                       type: string
@@ -9538,6 +9534,10 @@ spec:
                       type: string
                     type: array
                   mysqlAllocator:
+                    default: jemalloc
+                    enum:
+                    - jemalloc
+                    - tcmalloc
                     type: string
                   nodeSelector:
                     additionalProperties:
@@ -11760,6 +11760,8 @@ spec:
                             type: string
                         type: object
                     type: object
+                required:
+                - mysqlAllocator
                 type: object
               secretsName:
                 type: string

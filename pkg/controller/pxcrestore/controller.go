@@ -8,8 +8,6 @@ import (
 	"github.com/pkg/errors"
 	batchv1 "k8s.io/api/batch/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	k8sretry "k8s.io/client-go/util/retry"
@@ -267,17 +265,22 @@ func (r *ReconcilePerconaXtraDBClusterRestore) reconcileStateNew(ctx context.Con
 	}
 
 	if cr.Spec.PITR != nil {
-		if err := backup.CheckPITRErrors(ctx, r.client, r.clientcmd, cluster); err != nil {
+		if err := backup.CheckPITRErrors(ctx, r.client, r.clientcmd, cluster, r.newStorageClientFunc); err != nil {
 			return reconcile.Result{}, err
 		}
 
 		annotations := cr.GetAnnotations()
 		_, unsafePITR := annotations[api.AnnotationUnsafePITR]
-		cond := meta.FindStatusCondition(bcp.Status.Conditions, api.BackupConditionPITRReady)
-		if cond != nil && cond.Status == metav1.ConditionFalse && !unsafePITR {
-			cr.Status.Comments = fmt.Sprintf("Backup doesn't guarantee consistent recovery with PITR. Annotate PerconaXtraDBClusterRestore with %s to force it.", api.AnnotationUnsafePITR)
-			cr.Status.State = api.RestoreFailed
-			return reconcile.Result{}, nil
+		if !unsafePITR {
+			ready, err := r.isPITRReady(ctx, cluster, bcp)
+			if err != nil {
+				return reconcile.Result{}, errors.Wrap(err, "is pitr ready")
+			}
+			if !ready {
+				cr.Status.Comments = fmt.Sprintf("Backup doesn't guarantee consistent recovery with PITR. Annotate PerconaXtraDBClusterRestore with %s to force it.", api.AnnotationUnsafePITR)
+				cr.Status.State = api.RestoreFailed
+				return reconcile.Result{}, nil
+			}
 		}
 	}
 

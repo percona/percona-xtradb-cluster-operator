@@ -135,7 +135,7 @@ func (s *S3) GetObject(ctx context.Context, objectName string) (io.ReadCloser, e
 
 	// minio client returns error only on Read() method, so we need to call it to see if object exists
 	_, err = oldObj.Read([]byte{})
-	if err != nil {
+	if err != nil && err != io.EOF {
 		if minio.ToErrorResponse(errors.Cause(err)).Code == "NoSuchKey" {
 			return nil, ErrObjectNotFound
 		}

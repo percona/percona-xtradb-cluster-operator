@@ -378,7 +378,7 @@ var GapFileNotFound = errors.New("gap file not found")
 
 func RemoveGapFile(c *clientcmd.Client, pod *corev1.Pod) error {
 	stderrBuf := &bytes.Buffer{}
-	err := c.Exec(pod, "pitr", []string{"/bin/bash", "-c", "rm /tmp/gap-detected"}, nil, nil, stderrBuf, false)
+	err := c.Exec(pod, "pitr", []string{"/bin/bash", "-c", "rm " + naming.GapDetected}, nil, nil, stderrBuf, false)
 	if err != nil {
 		if strings.Contains(stderrBuf.String(), "No such file or directory") {
 			return GapFileNotFound
@@ -424,5 +424,4 @@ func InvalidateCache(
 		"file", gtidCacheKey)
 
 	return stg.DeleteObject(ctx, gtidCacheKey)
-
 }

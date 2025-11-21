@@ -79,6 +79,20 @@ main() {
 	cluster="pitr"
 	spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml"
 
+	kubectl_bin delete pod -l "app.kubernetes.io/component=pitr"
+	sleep 30
+	pitr_pod=$(
+		kubectl_bin get pods \
+			--selector="app.kubernetes.io/component=pitr" \
+			-o 'jsonpath={.items[].metadata.name}'
+	)
+	wait_pod "$pitr_pod"
+	function_exists_count=$(kubectl_bin logs -l "app.kubernetes.io/component=pitr" --tail=-1 2>/dev/null | grep -c 'already exists')
+	if [ "$function_exists_count" -eq 0 ]; then
+		echo "There are no 'function ... already exists' logs"
+		exit 1
+	fi
+
 	run_backup "$cluster" "on-pitr-minio"
 
 	# Temporarily skipping this check

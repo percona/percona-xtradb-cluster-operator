@@ -22,7 +22,7 @@ function main() {
 	firs_node_replica=''
 	main_node=''
 
-	SERVER_OPTIONS=${HA_SERVER_OPTIONS:-'resolvers kubernetes check inter 10000 rise 1 fall 2 weight 1 on-marked-down shutdown-sessions'}
+	SERVER_OPTIONS=${HA_SERVER_OPTIONS:-'resolvers kubernetes check inter 10000 rise 1 fall 2 weight 1'}
 	send_proxy=''
 	shutdown_on_mark_down=''
 	path_to_haproxy_cfg='/etc/haproxy/pxc'

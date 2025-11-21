@@ -49,6 +49,8 @@ function main() {
 	local update_weights
 	local hosts
 
+	sleep 15s # wait for evs.inactive_timeout
+
 	while read host; do
 		if [[ -z ${host} ]]; then
 			echo "No host provided via stdin."
@@ -59,6 +61,8 @@ function main() {
 		pod_name=$(echo $host | cut -d . -f -1)
 		pod_zero=$(echo $pod_name | sed "s/-[0-9]*$/-0/")
 		pod_id=$(echo $pod_name | awk -F'-' '{print $NF}')
+
+		wait_for_mysql "${host}"
 
 		hosts=$((hosts + 1))
 
@@ -78,8 +82,6 @@ function main() {
 		update_weights="${update_weights} UPDATE mysql_servers SET weight=${read_weight} WHERE hostgroup_id IN (10, 8010) AND hostname LIKE \"${pod_name}%\"; UPDATE mysql_servers SET weight=${write_weight} WHERE hostgroup_id IN (11, 8011) AND hostname LIKE \"${pod_name}%\";"
 	done
 
-	sleep 15s # wait for evs.inactive_timeout
-	wait_for_mysql "$service"
 	wait_for_proxy
 
 	sed -i "s/^clusterHost.*=.*$/clusterHost=\"${service}\"/" ${PERCONA_SCHEDULER_CFG}

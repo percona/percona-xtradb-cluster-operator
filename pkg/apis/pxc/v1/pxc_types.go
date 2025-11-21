@@ -1272,15 +1272,16 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 }
 
 const (
-	maxSafePXCSize   = 5
-	minSafeProxySize = 2
+	maxSafePXCSize             = 5
+	minSafeProxySize           = 2
+	DefaultInitialDelaySeconds = 300
 )
 
 func (cr *PerconaXtraDBCluster) setProbesDefaults() {
 	if cr.Spec.PXC.LivenessInitialDelaySeconds != nil {
 		cr.Spec.PXC.LivenessProbes.InitialDelaySeconds = *cr.Spec.PXC.LivenessInitialDelaySeconds
 	} else if cr.Spec.PXC.LivenessProbes.InitialDelaySeconds == 0 {
-		cr.Spec.PXC.LivenessProbes.InitialDelaySeconds = 300
+		cr.Spec.PXC.LivenessProbes.InitialDelaySeconds = DefaultInitialDelaySeconds
 	}
 
 	if cr.Spec.PXC.LivenessProbes.TimeoutSeconds == 0 {

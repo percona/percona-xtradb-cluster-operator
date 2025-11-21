@@ -57,7 +57,7 @@ main() {
 	fi
 
 	backup_job_name=$(kubectl get pod -l "percona.com/backup-job-name=xb-on-demand-backup-minio" -o jsonpath='{.items[].metadata.name}')
-	kubectl logs "$backup_job_name" | egrep "xbcloud put --storage=s3 --parallel=[0-9]+ --md5 --insecure (--curl-retriable-errors=7 )?--parallel=2 --curl-retriable-errors=8"
+	kubectl logs "$backup_job_name" | grep -E "xbcloud put --storage=s3 --parallel=[0-9]+ --md5 --insecure (--curl-retriable-errors=7 )?--parallel=2 --curl-retriable-errors=8"
 	kubectl logs "$backup_job_name" | grep "xbstream -x -C /tmp --parallel=2"
 
 	new_pass=$(echo -n "newpass" | base64)
@@ -71,9 +71,9 @@ main() {
 	restore_job_name=$(kubectl get pod -l "percona.com/restore-job-name=restore-job-on-demand-backup-minio-demand-backup" -o jsonpath='{.items[].metadata.name}')
 	kubectl logs "$restore_job_name" | grep "xtrabackup  --defaults-group=mysqld --datadir=/datadir --move-back --parallel=3"
 	kubectl logs "$restore_job_name" | grep "xtrabackup  --use-memory=1500000000 --prepare --parallel=3"
-	kubectl logs "$restore_job_name" | egrep "xbcloud get --parallel=[0-9]+ --insecure (--curl-retriable-errors=7 )?--parallel=3"
-	kubectl logs "$restore_job_name" | egrep "xbstream -x -C .* --parallel=[0-9]+ --parallel=3"
-	kubectl logs "$restore_job_name" | egrep "(xbstream --decompress -x -C .* --parallel=[0-9]+ --parallel=3|xbstream -x -C .* --parallel=[0-9]+ --parallel=3)"
+	kubectl logs "$restore_job_name" | grep -E "xbcloud get --parallel=[0-9]+ --insecure (--curl-retriable-errors=7 )?--parallel=3"
+	kubectl logs "$restore_job_name" | grep -E "xbstream -x -C .* --parallel=[0-9]+ --parallel=3"
+	kubectl logs "$restore_job_name" | grep -E "(xbstream --decompress -x -C .* --parallel=[0-9]+ --parallel=3|xbstream -x -C .* --parallel=[0-9]+ --parallel=3)"
 
 	desc "Check backup deletion"
 	kubectl_bin delete pxc-backup --all

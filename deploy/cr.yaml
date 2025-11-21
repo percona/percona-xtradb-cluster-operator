@@ -37,6 +37,9 @@ spec:
 #  enableCRValidationWebhook: true
   tls:
     enabled: true
+#    # 90 days in hours
+#    certValidityDuration: 2160h
+#    caValidityDuration: 26280h
 #    SANs:
 #      - pxc-1.example.com
 #      - pxc-2.example.com
@@ -757,3 +760,7 @@ spec:
           count: 5
           deleteFromStorage: true
         storageName: fs-pvc
+#  passwordGenerationOptions:
+#    symbols: "!#$%&()*+,-.<=>?@[]^_{}~"
+#    maxLength: 20
+#    minLength: 16

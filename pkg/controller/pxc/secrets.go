@@ -39,7 +39,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsersSecret(ctx context.Context
 		if err := validatePasswords(secretObj); err != nil {
 			return nil, errors.Wrap(err, "validate passwords")
 		}
-		isChanged, err := setUserSecretDefaults(secretObj)
+		isChanged, err := setUserSecretDefaults(secretObj, cr.Spec.PasswordGenerationOptions)
 		if err != nil {
 			return nil, errors.Wrap(err, "set user secret defaults")
 		}
@@ -64,7 +64,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsersSecret(ctx context.Context
 		Type: corev1.SecretTypeOpaque,
 	}
 
-	if _, err = setUserSecretDefaults(secretObj); err != nil {
+	if _, err = setUserSecretDefaults(secretObj, cr.Spec.PasswordGenerationOptions); err != nil {
 		return nil, errors.Wrap(err, "set user secret defaults")
 	}
 
@@ -77,14 +77,14 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsersSecret(ctx context.Context
 	return secretObj, nil
 }
 
-func setUserSecretDefaults(secret *corev1.Secret) (isChanged bool, err error) {
+func setUserSecretDefaults(secret *corev1.Secret, secretsOptions *api.PasswordGenerationOptions) (isChanged bool, err error) {
 	if secret.Data == nil {
 		secret.Data = make(map[string][]byte)
 	}
 	users := []string{users.Root, users.Xtrabackup, users.Monitor, users.ProxyAdmin, users.Operator, users.Replication}
 	for _, user := range users {
 		if pass, ok := secret.Data[user]; !ok || len(pass) == 0 {
-			secret.Data[user], err = generatePass()
+			secret.Data[user], err = generatePass(secretsOptions)
 			if err != nil {
 				return false, errors.Wrapf(err, "create %s users password", user)
 			}
@@ -96,20 +96,18 @@ func setUserSecretDefaults(secret *corev1.Secret) (isChanged bool, err error) {
 }
 
 const (
-	passwordMaxLen = 20
-	passwordMinLen = 16
-	passSymbols    = "ABCDEFGHIJKLMNOPQRSTUVWXYZ" +
+	passBaseSymbols = "ABCDEFGHIJKLMNOPQRSTUVWXYZ" +
 		"abcdefghijklmnopqrstuvwxyz" +
-		"0123456789" +
-		"!#$%&()*+,-.<=>?@[]^_{}~"
+		"0123456789"
 )
 
-// generatePass generates a random password
-func generatePass() ([]byte, error) {
+// generatePass generates a random password with or without special symbols
+func generatePass(secretsOptions *api.PasswordGenerationOptions) ([]byte, error) {
 	mrand.Seed(time.Now().UnixNano())
-	ln := mrand.Intn(passwordMaxLen-passwordMinLen) + passwordMinLen
+	ln := mrand.Intn(secretsOptions.MaxLength-secretsOptions.MinLength) + secretsOptions.MinLength
 	b := make([]byte, ln)
 	for i := 0; i < ln; i++ {
+		passSymbols := passBaseSymbols + secretsOptions.Symbols
 		randInt, err := rand.Int(rand.Reader, big.NewInt(int64(len(passSymbols))))
 		if err != nil {
 			return nil, errors.Wrap(err, "get rand int")

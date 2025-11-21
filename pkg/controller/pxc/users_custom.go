@@ -151,7 +151,7 @@ func generateUserPass(
 
 	log := logf.FromContext(ctx)
 
-	pass, err := generatePass()
+	pass, err := generatePass(cr.Spec.PasswordGenerationOptions)
 	if err != nil {
 		return errors.Wrap(err, "generate custom user password")
 	}
@@ -172,7 +172,9 @@ func generateUserPass(
 
 func userPasswordChanged(secret *corev1.Secret, dbUser *users.User, key, passKey string) bool {
 	if secret.Annotations == nil {
-		return false
+		// If annotations are nil and the user is created (not nil),
+		// we assume that password has changed.
+		return dbUser != nil
 	}
 
 	hash, ok := secret.Annotations[key]
@@ -283,7 +285,7 @@ func getUserSecret(ctx context.Context, cl client.Client, cr *api.PerconaXtraDBC
 
 	_, hasPass := secret.Data[passKey]
 	if !hasPass && name == defaultName {
-		pass, err := generatePass()
+		pass, err := generatePass(cr.Spec.PasswordGenerationOptions)
 		if err != nil {
 			return nil, errors.Wrap(err, "generate custom user password")
 		}

@@ -23,32 +23,34 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxctls"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/util"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/version"
 )
 
 // PerconaXtraDBClusterSpec defines the desired state of PerconaXtraDBCluster
 type PerconaXtraDBClusterSpec struct {
-	Platform               version.Platform                     `json:"platform,omitempty"`
-	CRVersion              string                               `json:"crVersion,omitempty"`
-	Pause                  bool                                 `json:"pause,omitempty"`
-	SecretsName            string                               `json:"secretsName,omitempty"`
-	VaultSecretName        string                               `json:"vaultSecretName,omitempty"`
-	SSLSecretName          string                               `json:"sslSecretName,omitempty"`
-	SSLInternalSecretName  string                               `json:"sslInternalSecretName,omitempty"`
-	LogCollectorSecretName string                               `json:"logCollectorSecretName,omitempty"`
-	TLS                    *TLSSpec                             `json:"tls,omitempty"`
-	PXC                    *PXCSpec                             `json:"pxc,omitempty"`
-	ProxySQL               *ProxySQLSpec                        `json:"proxysql,omitempty"`
-	HAProxy                *HAProxySpec                         `json:"haproxy,omitempty"`
-	PMM                    *PMMSpec                             `json:"pmm,omitempty"`
-	LogCollector           *LogCollectorSpec                    `json:"logcollector,omitempty"`
-	Backup                 *PXCScheduledBackup                  `json:"backup,omitempty"`
-	UpdateStrategy         appsv1.StatefulSetUpdateStrategyType `json:"updateStrategy,omitempty"`
-	UpgradeOptions         UpgradeOptions                       `json:"upgradeOptions,omitempty"`
-	AllowUnsafeConfig      bool                                 `json:"allowUnsafeConfigurations,omitempty"`
-	Unsafe                 UnsafeFlags                          `json:"unsafeFlags,omitempty"`
-	VolumeExpansionEnabled bool                                 `json:"enableVolumeExpansion,omitempty"`
+	Platform                  version.Platform                     `json:"platform,omitempty"`
+	CRVersion                 string                               `json:"crVersion,omitempty"`
+	Pause                     bool                                 `json:"pause,omitempty"`
+	SecretsName               string                               `json:"secretsName,omitempty"`
+	PasswordGenerationOptions *PasswordGenerationOptions           `json:"passwordGenerationOptions,omitempty"`
+	VaultSecretName           string                               `json:"vaultSecretName,omitempty"`
+	SSLSecretName             string                               `json:"sslSecretName,omitempty"`
+	SSLInternalSecretName     string                               `json:"sslInternalSecretName,omitempty"`
+	LogCollectorSecretName    string                               `json:"logCollectorSecretName,omitempty"`
+	TLS                       *TLSSpec                             `json:"tls,omitempty"`
+	PXC                       *PXCSpec                             `json:"pxc,omitempty"`
+	ProxySQL                  *ProxySQLSpec                        `json:"proxysql,omitempty"`
+	HAProxy                   *HAProxySpec                         `json:"haproxy,omitempty"`
+	PMM                       *PMMSpec                             `json:"pmm,omitempty"`
+	LogCollector              *LogCollectorSpec                    `json:"logcollector,omitempty"`
+	Backup                    *PXCScheduledBackup                  `json:"backup,omitempty"`
+	UpdateStrategy            appsv1.StatefulSetUpdateStrategyType `json:"updateStrategy,omitempty"`
+	UpgradeOptions            UpgradeOptions                       `json:"upgradeOptions,omitempty"`
+	AllowUnsafeConfig         bool                                 `json:"allowUnsafeConfigurations,omitempty"`
+	Unsafe                    UnsafeFlags                          `json:"unsafeFlags,omitempty"`
+	VolumeExpansionEnabled    bool                                 `json:"enableVolumeExpansion,omitempty"`
 
 	// Deprecated, should be removed in the future. Use InitContainer.Image instead
 	InitImage string `json:"initImage,omitempty"`
@@ -59,6 +61,37 @@ type PerconaXtraDBClusterSpec struct {
 	IgnoreLabels              []string          `json:"ignoreLabels,omitempty"`
 
 	Users []User `json:"users,omitempty"`
+}
+
+// +kubebuilder:validation:XValidation:rule="self.maxLength > self.minLength"
+type PasswordGenerationOptions struct {
+	// Special symbols to include in password generation
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MaxLength=32
+	// +kubebuilder:default="!#$%&()*+,-.<=>?@[]^_{}~"
+	Symbols string `json:"symbols"`
+	// Max password length
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Maximum=32
+	// +kubebuilder:validation:Minimum=8
+	// +kubebuilder:default=20
+	MaxLength int `json:"maxLength"`
+	// Min password length
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Maximum=32
+	// +kubebuilder:validation:Minimum=8
+	// +kubebuilder:default=16
+	MinLength int `json:"minLength"`
+}
+
+func (cr *PerconaXtraDBCluster) setPasswordGenerationOptionsDefaults() {
+	if cr.Spec.PasswordGenerationOptions == nil {
+		cr.Spec.PasswordGenerationOptions = &PasswordGenerationOptions{
+			Symbols:   "!#$%&()*+,-.<=>?@[]^_{}~",
+			MaxLength: 20,
+			MinLength: 16,
+		}
+	}
 }
 
 type SecretKeySelector struct {
@@ -153,6 +186,8 @@ type TLSSpec struct {
 	Enabled    *bool                   `json:"enabled,omitempty"`
 	SANs       []string                `json:"SANs,omitempty"`
 	IssuerConf *cmmeta.ObjectReference `json:"issuerConf,omitempty"`
+	Duration   *metav1.Duration        `json:"certValidityDuration,omitempty"`
+	CADuration *metav1.Duration        `json:"caValidityDuration,omitempty"`
 }
 
 const (
@@ -1183,7 +1218,7 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 	}
 
 	if len(c.Platform) == 0 {
-		if len(serverVersion.Platform) > 0 {
+		if serverVersion != nil && len(serverVersion.Platform) > 0 {
 			c.Platform = serverVersion.Platform
 		} else {
 			c.Platform = version.PlatformKubernetes
@@ -1192,6 +1227,7 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 
 	cr.setProbesDefaults()
 	cr.setPodSecurityContext()
+	cr.setPasswordGenerationOptionsDefaults()
 
 	if cr.Spec.EnableCRValidationWebhook == nil {
 		falseVal := false
@@ -1214,6 +1250,21 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 					corev1.ResourceCPU:    resource.MustParse("50m"),
 				},
 			}
+		}
+	}
+
+	if tls := cr.Spec.TLS; cr.TLSEnabled() {
+		if tls.Duration == nil {
+			tls.Duration = &metav1.Duration{Duration: pxctls.DefaultCertValidity}
+		}
+		if tls.CADuration == nil {
+			tls.CADuration = &metav1.Duration{Duration: pxctls.DefaultCAValidity}
+		}
+		if tls.CADuration.Duration < tls.Duration.Duration {
+			return errors.New(".spec.tls.caDuration shouldn't be smaller than .spec.tls.duration")
+		}
+		if tls.CADuration.Duration < pxctls.DefaultRenewBefore {
+			return errors.Errorf(".spec.tls.caDuration shouldn't be smaller than %d hours", int(pxctls.DefaultRenewBefore.Hours()))
 		}
 	}
 

@@ -351,19 +351,27 @@ func (p *PXC) UninstallBinlogUDFComponent(ctx context.Context) error {
 }
 
 func (p *PXC) CreateCollectorFunctions(ctx context.Context) error {
-	_, err := p.db.ExecContext(ctx, "CREATE FUNCTION IF NOT EXISTS get_last_record_timestamp_by_binlog RETURNS INTEGER SONAME 'binlog_utils_udf.so'")
-	if err != nil {
-		return errors.Wrap(err, "create function get_first_record_timestamp_by_binlog")
+	m := map[string]string{
+		"get_last_record_timestamp_by_binlog":  "INTEGER",
+		"get_gtid_set_by_binlog":               "STRING",
+		"get_first_record_timestamp_by_binlog": "INTEGER",
 	}
 
-	_, err = p.db.ExecContext(ctx, "CREATE FUNCTION IF NOT EXISTS get_gtid_set_by_binlog RETURNS STRING SONAME 'binlog_utils_udf.so'")
-	if err != nil {
-		return errors.Wrap(err, "create function get_gtid_set_by_binlog")
-	}
+	for functionName, returnType := range m {
+		var x int
+		err := p.db.QueryRowContext(ctx, `SELECT 1 FROM mysql.func WHERE name = ? LIMIT 1`, functionName).Scan(&x)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return errors.Wrapf(err, "check if function %s exists", functionName)
+		}
+		if err == nil {
+			log.Printf("function %s already exists", functionName)
+			continue
+		}
 
-	_, err = p.db.ExecContext(ctx, "CREATE FUNCTION IF NOT EXISTS get_first_record_timestamp_by_binlog RETURNS INTEGER SONAME 'binlog_utils_udf.so'")
-	if err != nil {
-		return errors.Wrap(err, "create function get_first_record_timestamp_by_binlog")
+		createQ := fmt.Sprintf("CREATE FUNCTION IF NOT EXISTS %s RETURNS %s SONAME 'binlog_utils_udf.so'", functionName, returnType)
+		if _, err := p.db.ExecContext(ctx, createQ); err != nil {
+			return errors.Wrapf(err, "create function %s", functionName)
+		}
 	}
 
 	return nil

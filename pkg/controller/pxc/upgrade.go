@@ -263,7 +263,9 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(ctx context.Context, sfs api
 	log.Info("primary pod", "pod", primary)
 
 	waitLimit := 2 * 60 * 60 // 2 hours
-	if cr.Spec.PXC.LivenessInitialDelaySeconds != nil {
+	if cr.Spec.PXC.LivenessProbes.InitialDelaySeconds != api.DefaultInitialDelaySeconds {
+		waitLimit = int(cr.Spec.PXC.LivenessProbes.InitialDelaySeconds)
+	} else if cr.Spec.PXC.LivenessInitialDelaySeconds != nil {
 		waitLimit = int(*cr.Spec.PXC.LivenessInitialDelaySeconds)
 	}
 

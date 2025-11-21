@@ -304,6 +304,11 @@ spec:
 #        rack: rack-22
 #      loadBalancerSourceRanges:
 #        - 10.0.0.0/8
+#    healthCheck:
+#      interval: 10000
+#      rise: 1
+#      fall: 2
+#      shutdownOnMarkDown: true
 #    runtimeClassName: image-rc
 #    sidecars:
 #    - image: busybox

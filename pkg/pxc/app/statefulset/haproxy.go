@@ -575,7 +575,7 @@ func (c *HAProxy) UpdateStrategy(cr *api.PerconaXtraDBCluster) appsv1.StatefulSe
 //   - interval: 10000ms (10s between health checks)
 //   - rise: 1 (1 successful check to mark server up)
 //   - fall: 2 (2 failed checks to mark server down, total 20s with default interval)
-//   - shutdownOnMarkDown: false (existing connections are not terminated on backend failure)
+//   - shutdownOnMarkDown: true (existing connections are terminated on backend failure)
 //
 // The generated HA_SERVER_OPTIONS environment variable is used by haproxy_add_pxc_nodes.sh
 // to configure the "server" lines in the HAProxy backend configuration.
@@ -583,7 +583,7 @@ func buildHAProxyHealthCheckEnvVars(healthCheck *api.HAProxyHealthCheckSpec) []c
 	interval := int32(10000)
 	rise := int32(1)
 	fall := int32(2)
-	shutdownOnMarkDown := false
+	shutdownOnMarkDown := true
 
 	if healthCheck != nil {
 		if healthCheck.Interval != nil {

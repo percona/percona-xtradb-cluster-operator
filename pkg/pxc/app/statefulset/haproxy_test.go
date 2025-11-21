@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/version"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -184,7 +185,7 @@ func TestHAProxyHealthCheckEnvVars(t *testing.T) {
 					Name: "test-cluster",
 				},
 				Spec: api.PerconaXtraDBClusterSpec{
-					CRVersion: "1.18.0",
+					CRVersion: version.Version(),
 					HAProxy: &api.HAProxySpec{
 						PodSpec: api.PodSpec{
 							Image:             "test-image",

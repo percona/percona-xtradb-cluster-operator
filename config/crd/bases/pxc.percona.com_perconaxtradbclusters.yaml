@@ -124,6 +124,10 @@ spec:
                       timeoutSeconds:
                         type: number
                     type: object
+                  runningDeadlineSeconds:
+                    default: 300
+                    format: int32
+                    type: integer
                   schedule:
                     items:
                       properties:

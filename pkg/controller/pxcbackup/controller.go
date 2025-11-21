@@ -608,7 +608,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) updateJobStatus(
 		VerifyTLS:             storage.VerifyTLS,
 	}
 
-	if job.Status.Active == 1 {
+	if ptr.Deref(job.Status.Ready, 0) == 1 {
 		status.State = api.BackupRunning
 	}
 

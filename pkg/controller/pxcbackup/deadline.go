@@ -16,10 +16,15 @@ import (
 var (
 	errSuspendedDeadlineExceeded = errors.New("suspended deadline seconds exceeded")
 	errStartingDeadlineExceeded  = errors.New("starting deadline seconds exceeded")
+	errRunningDeadlineExceeded   = errors.New("running deadline seconds exceeded")
 )
 
 func (r *ReconcilePerconaXtraDBClusterBackup) checkDeadlines(ctx context.Context, cluster *api.PerconaXtraDBCluster, cr *api.PerconaXtraDBClusterBackup) error {
 	if err := checkStartingDeadline(ctx, cluster, cr); err != nil {
+		return err
+	}
+
+	if err := r.checkRunningDeadline(ctx, cluster, cr); err != nil {
 		return err
 	}
 
@@ -58,6 +63,44 @@ func checkStartingDeadline(ctx context.Context, cluster *api.PerconaXtraDBCluste
 		"passedSeconds", since)
 
 	return errStartingDeadlineExceeded
+}
+
+func (r *ReconcilePerconaXtraDBClusterBackup) checkRunningDeadline(ctx context.Context, cluster *api.PerconaXtraDBCluster, cr *api.PerconaXtraDBClusterBackup) error {
+	log := logf.FromContext(ctx)
+
+	// check only if the current state is 'Starting'
+	if cr.Status.State != api.BackupStarting {
+		return nil
+	}
+
+	var deadlineSeconds *int32
+	if cr.Spec.RunningDeadlineSeconds != nil {
+		deadlineSeconds = cr.Spec.RunningDeadlineSeconds
+	} else if cluster.Spec.Backup.RunningDeadlineSeconds != nil {
+		deadlineSeconds = cluster.Spec.Backup.RunningDeadlineSeconds
+	}
+
+	if deadlineSeconds == nil {
+		return nil
+	}
+
+	job, err := r.getBackupJob(ctx, cluster, cr)
+	if err != nil {
+		return err
+	}
+
+	// The backup goes into 'Starting' typically around the same time as the job is created,
+	// so we will compare against the creation time of the job.
+	since := time.Since(job.CreationTimestamp.Time).Seconds()
+	if since < float64(*deadlineSeconds) {
+		return nil
+	}
+
+	log.Info("Backup didn't start running in runningDeadlineSeconds, failing the backup",
+		"runningDeadlineSeconds", *deadlineSeconds,
+		"passedSeconds", since)
+
+	return errRunningDeadlineExceeded
 }
 
 func (r *ReconcilePerconaXtraDBClusterBackup) checkSuspendedDeadline(

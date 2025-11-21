@@ -78,6 +78,46 @@ main() {
 	fi
 	echo "ProxySQL is routing to primary: $initial_primary"
 
+	desc 'switch back to HAProxy from ProxySQL'
+	kubectl_bin patch pxc "$cluster" --type=json -p '[
+    {"op": "replace", "path": "/spec/haproxy/enabled", "value": true},
+    {"op": "replace", "path": "/spec/proxysql/enabled", "value": false}
+  ]'
+
+	desc 'wait for HAProxy to be ready and ProxySQL to be removed'
+	wait_for_delete "sts/$cluster-proxysql"
+	wait_for_running "$cluster-haproxy" 3
+	wait_cluster_consistency "$cluster" 3 3
+
+	desc 'verify ProxySQL pods are deleted'
+	if kubectl_bin get pods -l "app.kubernetes.io/name=percona-xtradb-cluster,app.kubernetes.io/instance=$cluster,app.kubernetes.io/component=proxysql" 2>/dev/null | grep -q proxysql; then
+		echo "ProxySQL pods still exist after switching to HAProxy"
+		exit 1
+	fi
+
+	desc 'check cluster is ready with HAProxy'
+	wait_for_running "$cluster-pxc" 3
+	wait_for_running "$cluster-haproxy" 3
+	wait_cluster_consistency "$cluster" 3 3
+
+	desc 'verify HAProxy service exists'
+	kubectl_bin get service "$cluster-haproxy"
+
+	desc 'write data and check connectivity through HAProxy'
+	run_mysql \
+		'CREATE DATABASE IF NOT EXISTS myApp; use myApp; CREATE TABLE IF NOT EXISTS myApp (id int PRIMARY KEY);' \
+		"-h $cluster-haproxy -uroot -proot_password"
+	run_mysql \
+		'INSERT myApp.myApp (id) VALUES (100502)' \
+		"-h $cluster-haproxy -uroot -proot_password"
+	sleep 5
+	compare_mysql_cmd "select-3" "SELECT * from myApp.myApp;" "-h $cluster-haproxy -uroot -proot_password"
+
+	desc 'verify data exists on all PXC nodes'
+	compare_mysql_cmd "select-3" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
+	compare_mysql_cmd "select-3" "SELECT * from myApp.myApp;" "-h $cluster-pxc-1.$cluster-pxc -uroot -proot_password"
+	compare_mysql_cmd "select-3" "SELECT * from myApp.myApp;" "-h $cluster-pxc-2.$cluster-pxc -uroot -proot_password"
+
 	desc 'clean up'
 	destroy $namespace
 	desc "test passed"

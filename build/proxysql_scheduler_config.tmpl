@@ -1,0 +1,56 @@
+# For the detailed manual, see
+# https://github.com/percona/pxc_scheduler_handler#how-to-configure-pxc-scheduler-handler
+
+[global]
+OS = "na"
+daemonInterval = 2000
+daemonize = false
+debug = true
+lockClusterTimeout = 600
+lockFileTimeout = 60
+lockrefreshtime = 450
+logLevel = "debug"
+logTarget = "stdout"
+performance = true
+
+[setup]
+clusterHost = SCHEDULER_CLUSTERHOST
+clusterPort = SCHEDULER_CLUSTERPORT
+clusterUser = 'operator'
+clusterUserPassword = SCHEDULER_CLUSTERPASSWORD
+maxConnections=SCHEDULER_MAXCONNECTIONS
+monitorUser='monitor'
+monitorUserPassword=SCHEDULER_MONITORPASSWORD
+nodeCheckInterval=SCHEDULER_NODECHECKINTERVAL
+useSSL=0
+
+[proxysql]
+clustered = false
+host = SCHEDULER_PROXYSQLHOST
+lockfilepath = "/opt/percona"
+password = SCHEDULER_PROXYSQLPASSWORD
+port = 6032
+respectManualOfflineSoft = false
+user = 'proxyadmin'
+
+[pxccluster]
+activeFailover = 1
+checkTimeOut = SCHEDULER_CHECKTIMEOUT
+clusterId = 10
+configHgRange = 8000
+failBack = true
+hgR = 10
+hgW = 11
+mainSegment = 0
+maintenanceHgRange = 9000
+maxNumWriters = 1
+persistPrimarySettings = 0
+pingTimeout = SCHEDULER_PINGTIMEOUT
+retryDown = SCHEDULER_RETRYDOWN
+retryUp = SCHEDULER_RETRYUP
+singlePrimary = true
+sslCa = "ca.crt"
+sslCertificatePath = "/etc/proxysql/ssl-internal"
+sslClient = "tls.crt"
+sslKey = "tls.key"
+writerIsAlsoReader = SCHEDULER_WRITERALSOREADER

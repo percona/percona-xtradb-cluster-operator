@@ -340,20 +340,17 @@ func (p *Database) ProxySQLInstanceStatus(host string) ([]string, error) {
 	return statuses, nil
 }
 
-func (p *Database) PresentInHostgroups(host string) (bool, error) {
-	hostgroups := []string{WriterHostgroup, ReaderHostgroup}
-	query := fmt.Sprintf(`SELECT COUNT(*) FROM mysql_servers
-		INNER JOIN mysql_galera_hostgroups ON hostgroup_id IN (%s)
-		WHERE hostname LIKE ? GROUP BY hostname`, strings.Join(hostgroups, ","))
+func (p *Database) PresentInHostgroup(host string, hostgroup string) (bool, error) {
+	query := "SELECT COUNT(*) FROM runtime_mysql_servers WHERE hostgroup_id=? AND hostname LIKE ?"
 	var count int
-	err := p.db.QueryRow(query, host+"%").Scan(&count)
+	err := p.db.QueryRow(query, hostgroup, host+"%").Scan(&count)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return false, ErrNotFound
 		}
 		return false, err
 	}
-	if count != len(hostgroups) {
+	if count < 1 {
 		return false, nil
 	}
 	return true, nil

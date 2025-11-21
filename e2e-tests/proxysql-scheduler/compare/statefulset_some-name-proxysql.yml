@@ -2,11 +2,11 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   generation: 1
-  name: emptydir-proxysql
+  name: some-name-proxysql
   ownerReferences:
     - controller: true
       kind: PerconaXtraDBCluster
-      name: emptydir
+      name: some-name
 spec:
   persistentVolumeClaimRetentionPolicy:
     whenDeleted: Retain
@@ -17,31 +17,20 @@ spec:
   selector:
     matchLabels:
       app.kubernetes.io/component: proxysql
-      app.kubernetes.io/instance: emptydir
+      app.kubernetes.io/instance: some-name
       app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
       app.kubernetes.io/name: percona-xtradb-cluster
       app.kubernetes.io/part-of: percona-xtradb-cluster
-  serviceName: emptydir-proxysql-unready
+  serviceName: some-name-proxysql-unready
   template:
     metadata:
       labels:
         app.kubernetes.io/component: proxysql
-        app.kubernetes.io/instance: emptydir
+        app.kubernetes.io/instance: some-name
         app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
         app.kubernetes.io/name: percona-xtradb-cluster
         app.kubernetes.io/part-of: percona-xtradb-cluster
     spec:
-      affinity:
-        podAntiAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            - labelSelector:
-                matchLabels:
-                  app.kubernetes.io/component: proxysql
-                  app.kubernetes.io/instance: emptydir
-                  app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
-                  app.kubernetes.io/name: percona-xtradb-cluster
-                  app.kubernetes.io/part-of: percona-xtradb-cluster
-              topologyKey: kubernetes.io/hostname
       containers:
         - args:
             - proxysql
@@ -53,41 +42,43 @@ spec:
             - /opt/percona/proxysql-entrypoint.sh
           env:
             - name: PXC_SERVICE
-              value: emptydir-pxc
+              value: some-name-pxc
             - name: OPERATOR_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: operator
-                  name: internal-emptydir
+                  name: internal-some-name
             - name: PROXY_ADMIN_USER
               value: proxyadmin
             - name: PROXY_ADMIN_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: proxyadmin
-                  name: internal-emptydir
+                  name: internal-some-name
             - name: MONITOR_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: monitor
-                  name: internal-emptydir
+                  name: internal-some-name
             - name: SCHEDULER_CHECKTIMEOUT
-              value: "0"
+              value: "2000"
             - name: SCHEDULER_WRITERALSOREADER
-              value: "0"
+              value: "1"
             - name: SCHEDULER_RETRYUP
-              value: "0"
+              value: "1"
             - name: SCHEDULER_RETRYDOWN
-              value: "0"
+              value: "3"
             - name: SCHEDULER_PINGTIMEOUT
-              value: "0"
+              value: "1000"
             - name: SCHEDULER_NODECHECKINTERVAL
-              value: "0"
+              value: "2000"
             - name: SCHEDULER_MAXCONNECTIONS
-              value: "0"
+              value: "1000"
+            - name: SCHEDULER_ENABLED
+              value: "true"
           envFrom:
             - secretRef:
-                name: emptydir-env-vars-proxysql
+                name: some-name-env-vars-proxysql
                 optional: true
           imagePullPolicy: Always
           name: proxysql
@@ -103,7 +94,11 @@ spec:
               protocol: TCP
           resources:
             limits:
-              ephemeral-storage: 1G
+              cpu: 700m
+              memory: 1G
+            requests:
+              cpu: 100m
+              memory: 100M
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:
@@ -122,27 +117,29 @@ spec:
             - -protocol=$(PEER_LIST_SRV_PROTOCOL)
           env:
             - name: PXC_SERVICE
-              value: emptydir-pxc
+              value: some-name-pxc
             - name: OPERATOR_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: operator
-                  name: internal-emptydir
+                  name: internal-some-name
             - name: PROXY_ADMIN_USER
               value: proxyadmin
             - name: PROXY_ADMIN_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: proxyadmin
-                  name: internal-emptydir
+                  name: internal-some-name
             - name: MONITOR_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: monitor
-                  name: internal-emptydir
+                  name: internal-some-name
+            - name: SCHEDULER_ENABLED
+              value: "true"
           envFrom:
             - secretRef:
-                name: emptydir-env-vars-proxysql
+                name: some-name-env-vars-proxysql
                 optional: true
           imagePullPolicy: Always
           name: pxc-monit
@@ -156,43 +153,6 @@ spec:
               name: ssl
             - mountPath: /etc/proxysql/ssl-internal
               name: ssl-internal
-        - args:
-            - /opt/percona/peer-list
-            - -on-change=/opt/percona/proxysql_add_proxysql_nodes.sh
-            - -service=$(PROXYSQL_SERVICE)
-            - -protocol=$(PEER_LIST_SRV_PROTOCOL)
-          env:
-            - name: PROXYSQL_SERVICE
-              value: emptydir-proxysql-unready
-            - name: OPERATOR_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  key: operator
-                  name: internal-emptydir
-            - name: PROXY_ADMIN_USER
-              value: proxyadmin
-            - name: PROXY_ADMIN_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  key: proxyadmin
-                  name: internal-emptydir
-            - name: MONITOR_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  key: monitor
-                  name: internal-emptydir
-          envFrom:
-            - secretRef:
-                name: emptydir-env-vars-proxysql
-                optional: true
-          imagePullPolicy: Always
-          name: proxysql-monit
-          resources: {}
-          terminationMessagePath: /dev/termination-log
-          terminationMessagePolicy: File
-          volumeMounts:
-            - mountPath: /opt/percona
-              name: bin
       dnsPolicy: ClusterFirst
       initContainers:
         - command:
@@ -201,7 +161,8 @@ spec:
           name: pxc-init
           resources:
             limits:
-              ephemeral-storage: 1G
+              cpu: 50m
+              memory: 50M
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:
@@ -213,7 +174,8 @@ spec:
           name: proxysql-init
           resources:
             limits:
-              ephemeral-storage: 1G
+              cpu: 50m
+              memory: 50M
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:
@@ -229,13 +191,11 @@ spec:
       serviceAccountName: default
       terminationGracePeriodSeconds: 30
       volumes:
-        - emptyDir: {}
-          name: proxydata
         - name: ssl-internal
           secret:
             defaultMode: 420
             optional: true
-            secretName: emptydir-ssl-internal
+            secretName: some-name-ssl-internal
         - name: ssl
           secret:
             defaultMode: 420
@@ -247,3 +207,20 @@ spec:
     rollingUpdate:
       partition: 0
     type: RollingUpdate
+  volumeClaimTemplates:
+    - metadata:
+        labels:
+          app.kubernetes.io/component: proxysql
+          app.kubernetes.io/instance: some-name
+          app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+          app.kubernetes.io/name: percona-xtradb-cluster
+          app.kubernetes.io/part-of: percona-xtradb-cluster
+        name: proxydata
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 2Gi
+      status:
+        phase: Pending

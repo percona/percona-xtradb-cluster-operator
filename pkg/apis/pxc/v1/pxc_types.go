@@ -633,7 +633,43 @@ func (spec *PodSpec) HasSidecarInternalSecret(secret *corev1.Secret) bool {
 
 type ProxySQLSpec struct {
 	PodSpec `json:",inline"`
-	Expose  ServiceExpose `json:"expose,omitempty"`
+
+	Expose ServiceExpose `json:"expose,omitempty"`
+
+	Scheduler ProxySQLSchedulerSpec `json:"scheduler"`
+}
+
+type ProxySQLSchedulerSpec struct {
+	Enabled bool `json:"enabled,omitempty"`
+
+	// If checking a backend node (PXC) exceeds this timeout, it won't be processed.
+	// +kubebuilder:default=2000
+	CheckTimeoutMilliseconds int32 `json:"checkTimeoutMilliseconds,omitempty"`
+
+	// If you want to exclude the writer from read set it to false.
+	// When the cluster will lose its last reader, the writer will be elected as Reader, no matter what.
+	// +kubebuilder:default=true
+	WriterIsAlsoReader bool `json:"writerIsAlsoReader,omitempty"`
+
+	// Number of retries the application should do before restoring a failed node.
+	// +kubebuilder:default=1
+	SuccessThreshold int32 `json:"successThreshold,omitempty"`
+
+	// Number of retries the application should do to put DOWN a failing node.
+	// +kubebuilder:default=3
+	FailureThreshold int32 `json:"failureThreshold,omitempty"`
+
+	// The connection timeout (milliseconds) used to test the connection towards the PXC server.
+	// +kubebuilder:default=1000
+	PingTimeoutMilliseconds int32 `json:"pingTimeoutMilliseconds,omitempty"`
+
+	// How frequently the scheduler must run.
+	// +kubebuilder:default=2000
+	NodeCheckIntervalMilliseconds int32 `json:"nodeCheckIntervalMilliseconds,omitempty"`
+
+	// Max number of connections from ProxySQL to the backend servers.
+	// +kubebuilder:default=1000
+	MaxConnections int32 `json:"maxConnections,omitempty"`
 }
 
 type HAProxySpec struct {

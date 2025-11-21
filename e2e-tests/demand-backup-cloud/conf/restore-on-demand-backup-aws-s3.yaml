@@ -5,3 +5,8 @@ metadata:
 spec:
   pxcCluster: demand-backup-cloud
   backupName: on-demand-backup-aws-s3
+  containerOptions:
+    args:
+      xtrabackup:
+      - "--innodb-undo-directory=./undo"
+      - "--defaults-file=backup-my.cnf"

@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  generation: 3
+  generation: 2
   name: some-name-proxysql
   ownerReferences:
     - controller: true
@@ -109,6 +109,7 @@ spec:
             - /opt/percona/peer-list
             - -on-change=/opt/percona/proxysql_add_pxc_nodes.sh
             - -service=$(PXC_SERVICE)
+            - -protocol=$(PEER_LIST_SRV_PROTOCOL)
           env:
             - name: PXC_SERVICE
               value: some-name-pxc

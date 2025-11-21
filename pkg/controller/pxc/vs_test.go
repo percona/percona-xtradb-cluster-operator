@@ -2,6 +2,7 @@ package pxc
 
 import (
 	"fmt"
+
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/version/client/models"
 	"github.com/stretchr/testify/assert"
 	"testing"
@@ -55,7 +56,7 @@ func TestGetPMMVersion(t *testing.T) {
 				"3.1.0":  {},
 			},
 			isPMM3:   false,
-			expected: "3.1.0",
+			expected: "2.27.0",
 		},
 		"multiple versions, no 3.x": {
 			versions: map[string]models.VersionVersion{

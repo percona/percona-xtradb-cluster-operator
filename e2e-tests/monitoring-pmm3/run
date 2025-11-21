@@ -103,20 +103,25 @@ get_pmm_server_token() {
 	fi
 
 	local create_response create_status_code create_json_response
-	create_response=$(curl --insecure -s -X POST -H 'Content-Type: application/json' -H 'Accept: application/json' \
-		-d "{\"name\":\"${key_name}\", \"role\":\"Admin\", \"isDisabled\":false}" \
-		--user "admin:${ADMIN_PASSWORD}" \
-		"https://$(get_service_ip monitoring-service)/graph/api/serviceaccounts" \
-		-w "\n%{http_code}")
+	local retry=0
+	until [[ $create_status_code == 201 ]]; do
+		create_response=$(curl --insecure -s -X POST -H 'Content-Type: application/json' -H 'Accept: application/json' \
+			-d "{\"name\":\"${key_name}\", \"role\":\"Admin\", \"isDisabled\":false}" \
+			--user "admin:${ADMIN_PASSWORD}" \
+			"https://$(get_service_ip monitoring-service)/graph/api/serviceaccounts" \
+			-w "\n%{http_code}")
 
-	create_status_code=$(echo "$create_response" | tail -n1)
-	create_json_response=$(echo "$create_response" | sed '$ d')
+		create_status_code=$(echo "$create_response" | tail -n1)
+		create_json_response=$(echo "$create_response" | sed '$ d')
 
-	if [[ $create_status_code -ne 201 ]]; then
-		echo "Error: Failed to create PMM service account. HTTP Status: $create_status_code" >&2
-		echo "Response: $create_json_response" >&2
-		return 1
-	fi
+		sleep 5
+		let retry+=1
+		if [ "$retry" -ge 24 ]; then
+			echo "Error: Failed to create PMM service account. HTTP Status: $create_status_code" >&2
+			echo "Response: $create_json_response" >&2
+			return 1
+		fi
+	done
 
 	local service_account_id
 	service_account_id=$(echo "$create_json_response" | jq -r '.id')

@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"io"
 	"net/http"
@@ -41,7 +42,7 @@ func NewClient(ctx context.Context, opts Options) (Storage, error) {
 		if !ok {
 			return nil, errors.New("invalid options type")
 		}
-		return NewS3(ctx, opts.Endpoint, opts.AccessKeyID, opts.SecretAccessKey, opts.BucketName, opts.Prefix, opts.Region, opts.VerifyTLS)
+		return NewS3(ctx, opts.Endpoint, opts.AccessKeyID, opts.SecretAccessKey, opts.BucketName, opts.Prefix, opts.Region, opts.VerifyTLS, opts.CABundle)
 	case api.BackupStorageAzure:
 		opts, ok := opts.(*AzureOptions)
 		if !ok {
@@ -60,7 +61,17 @@ type S3 struct {
 }
 
 // NewS3 return new Manager, useSSL using ssl for connection with storage
-func NewS3(ctx context.Context, endpoint, accessKeyID, secretAccessKey, bucketName, prefix, region string, verifyTLS bool) (Storage, error) {
+func NewS3(
+	ctx context.Context,
+	endpoint,
+	accessKeyID,
+	secretAccessKey,
+	bucketName,
+	prefix,
+	region string,
+	verifyTLS bool,
+	caBundle []byte,
+) (Storage, error) {
 	if endpoint == "" {
 		endpoint = "https://s3.amazonaws.com"
 		// We can't use default endpoint if region is not us-east-1
@@ -74,6 +85,17 @@ func NewS3(ctx context.Context, endpoint, accessKeyID, secretAccessKey, bucketNa
 	transport := http.DefaultTransport
 	transport.(*http.Transport).TLSClientConfig = &tls.Config{
 		InsecureSkipVerify: !verifyTLS,
+	}
+	// if caBundle is provided, we use it for the TLS client config
+	if len(caBundle) > 0 {
+		roots, err := x509.SystemCertPool()
+		if err != nil {
+			return nil, errors.Wrap(err, "get system cert pool")
+		}
+		if ok := roots.AppendCertsFromPEM(caBundle); !ok {
+			return nil, errors.New("failed to append certs from PEM")
+		}
+		transport.(*http.Transport).TLSClientConfig.RootCAs = roots
 	}
 	minioClient, err := minio.New(strings.TrimRight(endpoint, "/"), &minio.Options{
 		Creds:     credentials.NewStaticV4(accessKeyID, secretAccessKey, ""),
@@ -180,9 +202,10 @@ func (s *S3) DeleteObject(ctx context.Context, objectName string) error {
 	log := logf.FromContext(ctx).WithValues("bucket", s.bucketName, "prefix", s.prefix)
 
 	// minio sdk automatically URL-encodes the path
-	objPath, err := url.QueryUnescape(path.Join(s.prefix, objectName))
+	p := path.Join(s.prefix, objectName)
+	objPath, err := url.QueryUnescape(p)
 	if err != nil {
-		return errors.Wrapf(err, "failed to unescape object path %s", objPath)
+		return errors.Wrapf(err, "failed to unescape object path %s", p)
 	}
 
 	log.V(1).Info("deleting object", "object", objPath)
@@ -290,9 +313,9 @@ func (a *Azure) GetPrefix() string {
 func (a *Azure) DeleteObject(ctx context.Context, objectName string) error {
 	log := logf.FromContext(ctx).WithValues("container", a.container, "prefix", a.prefix, "object", objectName)
 
-	log.V(1).Info("deleting object")
-
 	objPath := path.Join(a.prefix, objectName)
+	log.V(1).Info("deleting object", "object", objPath)
+
 	_, err := a.client.DeleteBlob(ctx, a.container, objPath, nil)
 	if err != nil {
 		if bloberror.HasCode(errors.Cause(err), bloberror.BlobNotFound) {
@@ -301,7 +324,7 @@ func (a *Azure) DeleteObject(ctx context.Context, objectName string) error {
 		return errors.Wrapf(err, "delete blob %s", objPath)
 	}
 
-	log.V(1).Info("object deleted")
+	log.V(1).Info("object deleted", "object", objPath)
 
 	return nil
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/md5"
 	"encoding/json"
+	stdErrors "errors"
 	"fmt"
 	"sort"
 	"strconv"
@@ -25,10 +26,13 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/queries"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/util"
 )
+
+var NoProxyDetectedError = errors.New("can't detect enabled proxy, please enable HAProxy or ProxySQL")
 
 func (r *ReconcilePerconaXtraDBCluster) updatePod(
 	ctx context.Context,
@@ -113,7 +117,9 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(
 
 	errStsWillBeDeleted := errors.New("will be deleted")
 
-	err = k8sretry.RetryOnConflict(k8sretry.DefaultRetry, func() error {
+	err = k8sretry.OnError(k8sretry.DefaultRetry, func(err error) bool {
+		return k8serrors.IsAlreadyExists(err) || k8serrors.IsConflict(err)
+	}, func() error {
 		currentSet := sfs.StatefulSet()
 		if err := r.client.Get(ctx, client.ObjectKeyFromObject(currentSet), currentSet); client.IgnoreNotFound(err) != nil {
 			return errors.Wrap(err, "get statefulset")
@@ -130,7 +136,7 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(
 		}
 		// Keep same volumeClaimTemplates labels if statefulset already exists.
 		// We can't update volumeClaimTemplates.
-		if err == nil && cr.CompareVersionWith("1.16.0") >= 0 {
+		if cr.CompareVersionWith("1.16.0") >= 0 {
 			for i, pvc := range currentSet.Spec.VolumeClaimTemplates {
 				sts.Spec.VolumeClaimTemplates[i].Labels = pvc.Labels
 			}
@@ -153,7 +159,7 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(
 		if err := k8s.SetControllerReference(cr, sts, r.scheme); err != nil {
 			return errors.Wrap(err, "set controller reference")
 		}
-		err = r.createOrUpdate(ctx, cr, sts)
+		err = r.createOrUpdate(ctx, sts)
 		if err != nil {
 			return errors.Wrap(err, "update error")
 		}
@@ -243,7 +249,7 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(ctx context.Context, sfs api
 		return nil
 	}
 
-	primary, err := r.getPrimaryPod(cr)
+	primary, err := r.getPrimaryPod(ctx, cr)
 	if err != nil {
 		return errors.Wrap(err, "get primary pod")
 	}
@@ -451,7 +457,7 @@ func (r *ReconcilePerconaXtraDBCluster) connectProxy(cr *api.PerconaXtraDBCluste
 			port = 33062
 		}
 	} else {
-		return database, errors.New("can't detect enabled proxy, please enable HAProxy or ProxySQL")
+		return database, NoProxyDetectedError
 	}
 
 	secrets := cr.Spec.SecretsName
@@ -474,9 +480,43 @@ func (r *ReconcilePerconaXtraDBCluster) connectProxy(cr *api.PerconaXtraDBCluste
 	return database, nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) getPrimaryPod(cr *api.PerconaXtraDBCluster) (string, error) {
+func (r *ReconcilePerconaXtraDBCluster) getPrimaryPod(ctx context.Context, cr *api.PerconaXtraDBCluster) (string, error) {
 	conn, err := r.connectProxy(cr)
 	if err != nil {
+		if errors.Is(err, NoProxyDetectedError) && cr.Spec.PXC.Size == 1 {
+			firstReadyPod := func() (string, error) {
+				sts := statefulset.NewNode(cr)
+
+				podList := new(corev1.PodList)
+				if err := r.client.List(ctx, podList, &client.ListOptions{
+					Namespace:     cr.Namespace,
+					LabelSelector: labels.SelectorFromSet(sts.Labels()),
+				}); err != nil {
+					return "", errors.Wrap(err, "get pod list")
+				}
+
+				readyPods := make([]corev1.Pod, 0)
+				for _, pod := range podList.Items {
+					if isPodReady(pod) {
+						readyPods = append(readyPods, pod)
+					}
+				}
+				if len(readyPods) == 0 {
+					return "", errors.New("no ready pxc pods")
+				}
+				if len(readyPods) != int(cr.Spec.PXC.Size) {
+					return "", errors.New("waiting for pxc resize")
+				}
+
+				return readyPods[0].Status.PodIP, nil
+			}
+			host, rerr := firstReadyPod()
+			if rerr == nil {
+				return host, nil
+			}
+
+			err = stdErrors.Join(rerr, err)
+		}
 		return "", errors.Wrap(err, "failed to get proxy connection")
 	}
 	defer conn.Close()

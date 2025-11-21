@@ -92,7 +92,7 @@ void pushLogFile(String FILE_NAME) {
     def LOG_FILE_PATH="e2e-tests/logs/${FILE_NAME}.log"
     def LOG_FILE_NAME="${FILE_NAME}.log"
     echo "Push logfile $LOG_FILE_NAME file to S3!"
-    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+    withCredentials([aws(credentialsId: 'AMI/OVF', accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
         sh """
             S3_PATH=s3://percona-jenkins-artifactory-public/\$JOB_NAME/\$(git rev-parse --short HEAD)
             aws s3 ls \$S3_PATH/${LOG_FILE_NAME} || :
@@ -104,7 +104,7 @@ void pushLogFile(String FILE_NAME) {
 void pushArtifactFile(String FILE_NAME) {
     echo "Push $FILE_NAME file to S3!"
 
-    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+    withCredentials([aws(credentialsId: 'AMI/OVF', accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
         sh """
             touch ${FILE_NAME}
             S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/\$(git rev-parse --short HEAD)
@@ -129,18 +129,22 @@ void initTests() {
 void markPassedTests() {
     echo "Marking passed tests in the tests map!"
 
-    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-        sh """
-            aws s3 ls "s3://percona-jenkins-artifactory/${JOB_NAME}/${env.GIT_SHORT_COMMIT}/" || :
-        """
+    withCredentials([aws(credentialsId: 'AMI/OVF', accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+        def existingArtifacts = sh(
+            script: """
+                aws s3 ls s3://percona-jenkins-artifactory/\$JOB_NAME/${env.GIT_SHORT_COMMIT}/ 2>/dev/null | awk '{print \$4}' || echo ''
+            """,
+            returnStdout: true
+        ).trim()
 
-        for (int i=0; i<tests.size(); i++) {
+        def artifactSet = existingArtifacts.split('\n').findAll { it }.toSet()
+
+        for (int i = 0; i < tests.size(); i++) {
             def testNameWithMysqlVersion = tests[i]["name"] +"-"+ tests[i]["mysql_ver"].replace(".", "-")
-            def file="${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$testNameWithMysqlVersion"
-            def retFileExists = sh(script: "aws s3api head-object --bucket percona-jenkins-artifactory --key ${JOB_NAME}/${env.GIT_SHORT_COMMIT}/${file} >/dev/null 2>&1", returnStatus: true)
+            def file = "${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$testNameWithMysqlVersion"
 
-            if (retFileExists == 0) {
-                tests[i]["result"] = "passed"
+            if (artifactSet.contains(file)) {
+                tests[i]['result'] = 'passed'
             }
         }
     }
@@ -206,7 +210,10 @@ void makeReport() {
         TestsReport = TestsReport + "\r\n| " + testNameWithMysqlVersion + " | [" + testResult + "](" + testUrl + ") | " + formatTime(testTime) + " |"
         TestsReportXML = TestsReportXML + '<testcase name=\\"' + testNameWithMysqlVersion + '\\" time=\\"' + testTime + '\\"><'+ testResult +'/></testcase>\n'
     }
-    TestsReport = TestsReport + "\r\n| We run $startedTestAmount out of $wholeTestAmount | | " + formatTime(totalTestTime) + " |"
+    TestsReport = TestsReport + "\r\n\r\n| Summary | Value |\r\n| ------- | ----- |"
+    TestsReport = TestsReport + "\r\n| Tests Run | $startedTestAmount/$wholeTestAmount |"
+    TestsReport = TestsReport + "\r\n| Job Duration | " + formatTime(currentBuild.duration / 1000) + " |"
+    TestsReport = TestsReport + "\r\n| Total Test Time | "  + formatTime(totalTestTime) + " |"
     TestsReportXML = TestsReportXML + '</testsuite>\n'
 
     sh """
@@ -215,22 +222,24 @@ void makeReport() {
 }
 
 void clusterRunner(String cluster) {
-    def clusterCreated=0
+    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+        def clusterCreated=0
 
-    for (int i=0; i<tests.size(); i++) {
-        if (tests[i]["result"] == "skipped" && currentBuild.nextBuild == null) {
-            tests[i]["result"] = "failure"
-            tests[i]["cluster"] = cluster
-            if (clusterCreated == 0) {
-                createCluster(cluster)
-                clusterCreated++
+        for (int i=0; i<tests.size(); i++) {
+            if (tests[i]["result"] == "skipped" && currentBuild.nextBuild == null) {
+                tests[i]["result"] = "failure"
+                tests[i]["cluster"] = cluster
+                if (clusterCreated == 0) {
+                    createCluster(cluster)
+                    clusterCreated++
+                }
+                runTest(i)
             }
-            runTest(i)
         }
-    }
 
-    if (clusterCreated >= 1) {
-        shutdownCluster(cluster)
+        if (clusterCreated >= 1) {
+            shutdownCluster(cluster)
+        }
     }
 }
 
@@ -288,7 +297,7 @@ void prepareNode() {
         sudo curl -sLo /usr/local/bin/kubectl https://dl.k8s.io/release/\$(curl -Ls https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl && sudo chmod +x /usr/local/bin/kubectl
         kubectl version --client --output=yaml
 
-        curl -fsSL https://get.helm.sh/helm-v3.18.3-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
+        curl -fsSL https://get.helm.sh/helm-v3.19.0-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
 
         sudo curl -fsSL https://github.com/mikefarah/yq/releases/download/v4.44.1/yq_linux_amd64 -o /usr/local/bin/yq && sudo chmod +x /usr/local/bin/yq
         sudo curl -fsSL https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux64 -o /usr/local/bin/jq && sudo chmod +x /usr/local/bin/jq
@@ -309,6 +318,27 @@ EOF
         sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
         sudo percona-release enable-only tools
         sudo yum install -y percona-xtrabackup-80 | true
+    """
+    installAzureCLI()
+    azureAuth()
+}
+
+void azureAuth() {
+    withCredentials([azureServicePrincipal('PERCONA-OPERATORS-SP')]) {
+        sh '''
+            az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID"  --allow-no-subscriptions
+            az account set -s "$AZURE_SUBSCRIPTION_ID"
+        '''
+    }
+}
+
+void installAzureCLI() {
+    sh """
+        if ! command -v az &>/dev/null; then
+            curl -s -L https://azurecliprod.blob.core.windows.net/install.py -o install.py
+            printf "/usr/azure-cli\\n/usr/bin" | sudo python3 install.py
+            sudo /usr/azure-cli/bin/python -m pip install "urllib3<2.0.0" > /dev/null
+        fi
     """
 }
 
@@ -463,7 +493,7 @@ pipeline {
                         mkdir -p $(dirname ${docker_tag_file})
                         echo ${DOCKER_TAG} > "${docker_tag_file}"
                             sg docker -c "
-                                docker login -u '${USER}' -p '${PASS}'
+                                echo '\$PASS' | docker login -u '\$USER' --password-stdin
                                 export RELEASE=0
                                 export IMAGE=\$DOCKER_TAG
                                 ./e2e-tests/build
@@ -491,7 +521,7 @@ pipeline {
                             --rm \
                             -v $WORKSPACE/src/github.com/percona/percona-xtradb-cluster-operator:/go/src/github.com/percona/percona-xtradb-cluster-operator \
                             -w /go/src/github.com/percona/percona-xtradb-cluster-operator \
-                            golang:1.24 sh -c '
+                            golang:1.25 sh -c '
                                 go install -mod=readonly github.com/google/go-licenses@latest;
                                 /go/bin/go-licenses csv github.com/percona/percona-xtradb-cluster-operator/cmd/manager \
                                     | cut -d , -f 3 \
@@ -520,7 +550,7 @@ pipeline {
                             -w /go/src/github.com/percona/percona-xtradb-cluster-operator \
                             -e GO111MODULE=on \
                             -e GOFLAGS='-buildvcs=false' \
-                            golang:1.24 sh -c 'go build -v -o percona-xtradb-cluster-operator github.com/percona/percona-xtradb-cluster-operator/cmd/manager'
+                            golang:1.25 sh -c 'go build -v -o percona-xtradb-cluster-operator github.com/percona/percona-xtradb-cluster-operator/cmd/manager'
                     "
                 '''
 
@@ -618,7 +648,7 @@ pipeline {
                             }
                         }
                         makeReport()
-                        step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
+                        junit testResults: '*.xml', healthScaleFactor: 1.0
                         archiveArtifacts '*.xml'
 
                         unstash 'IMAGE'

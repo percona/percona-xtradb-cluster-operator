@@ -10,6 +10,12 @@ if [ -n "$VERIFY_TLS" ] && [[ $VERIFY_TLS == "false" ]]; then
 	AWS_S3_NO_VERIFY_SSL='--no-verify-ssl'
 fi
 
+caBundleDir="/etc/s3/certs"
+caBundleFile="$caBundleDir/ca.crt"
+if [ -f "$caBundleFile" ]; then
+	export AWS_CA_BUNDLE="$caBundleFile"
+fi
+
 is_object_exist() {
 	local bucket="$1"
 	local path="$2"
@@ -25,7 +31,9 @@ is_object_exist() {
 
 s3_add_bucket_dest() {
 	{ set +x; } 2>/dev/null
-	aws configure set aws_access_key_id "$ACCESS_KEY_ID"
-	aws configure set aws_secret_access_key "$SECRET_ACCESS_KEY"
+	if [ -n "$ACCESS_KEY_ID" ] && [ -n "$SECRET_ACCESS_KEY" ]; then
+		aws configure set aws_access_key_id "$ACCESS_KEY_ID"
+		aws configure set aws_secret_access_key "$SECRET_ACCESS_KEY"
+	fi
 	set -x
 }

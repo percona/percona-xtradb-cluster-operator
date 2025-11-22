@@ -49,4 +49,5 @@ mysql_variables=
 	ssl_p2s_cert=""
 	ssl_p2s_key=""
 	ssl_p2s_cipher="ECDHE-RSA-AES128-GCM-SHA256"
+	default_authentication_plugin="caching_sha2_password"
 }

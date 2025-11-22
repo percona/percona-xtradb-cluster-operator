@@ -627,7 +627,7 @@ var _ = Describe("Authentication policy", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("should use mysql_native_password", func() {
+		It("should use caching_sha2_password", func() {
 			sts := appsv1.StatefulSet{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      crName + "-pxc",
@@ -641,7 +641,7 @@ var _ = Describe("Authentication policy", Ordered, func() {
 				if c.Name == "pxc" {
 					Expect(c.Env).Should(ContainElement(gs.MatchFields(gs.IgnoreExtras, gs.Fields{
 						"Name":  Equal("DEFAULT_AUTHENTICATION_PLUGIN"),
-						"Value": Equal("mysql_native_password"),
+						"Value": Equal("caching_sha2_password"),
 					})))
 				}
 			}
@@ -710,9 +710,9 @@ var _ = Describe("Authentication policy", Ordered, func() {
 				Expect(k8sClient.Update(ctx, cr)).Should(Succeed())
 			})
 
-			It("should NOT reconcile", func() {
+			It("should reconcile without an error", func() {
 				_, err := reconciler().Reconcile(ctx, ctrl.Request{NamespacedName: crNamespacedName})
-				Expect(err).To(MatchError("failed to enable ProxySQL: for mysql version 8.0 you can't switch from HAProxy to ProxySQL"))
+				Expect(err).NotTo(HaveOccurred())
 			})
 		})
 	})

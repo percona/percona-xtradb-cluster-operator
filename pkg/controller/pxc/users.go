@@ -961,19 +961,6 @@ func (r *ReconcilePerconaXtraDBCluster) syncPXCUsersWithProxySQL(ctx context.Con
 			return errors.Wrap(err, "get proxysql pod")
 		}
 
-		// for managing the error "The cluster (with writer hostgroup:11) has not been configured in ProxySQL"
-		var checkOut, checkErr bytes.Buffer
-		checkCmd := []string{
-			"mysql", "-h127.0.0.1", "-P6032",
-			"-u$PROXY_ADMIN_USER", "-p$PROXY_ADMIN_PASSWORD",
-			"-NB", "-e", "SELECT MAX(active) FROM runtime_mysql_galera_hostgroups",
-		}
-		err = r.clientcmd.Exec(&pod, "proxysql", []string{"sh", "-c", strings.Join(checkCmd, " ")}, nil, &checkOut, &checkErr, false)
-		if err != nil || strings.TrimSpace(checkOut.String()) != "1" {
-			log.V(1).Info("ProxySQL not configured yet, skipping user sync", "pod", pod.Name)
-			return nil
-		}
-
 		var errb, outb bytes.Buffer
 		err = r.clientcmd.Exec(&pod, "proxysql", []string{"proxysql-admin", "--syncusers", "--add-query-rule"}, nil, &outb, &errb, false)
 		if err != nil {

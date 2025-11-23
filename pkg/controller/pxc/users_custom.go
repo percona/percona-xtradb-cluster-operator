@@ -151,7 +151,7 @@ func generateUserPass(
 
 	log := logf.FromContext(ctx)
 
-	pass, err := generatePass()
+	pass, err := generatePass(cr.Spec.PasswordGenerationOptions)
 	if err != nil {
 		return errors.Wrap(err, "generate custom user password")
 	}
@@ -285,7 +285,7 @@ func getUserSecret(ctx context.Context, cl client.Client, cr *api.PerconaXtraDBC
 
 	_, hasPass := secret.Data[passKey]
 	if !hasPass && name == defaultName {
-		pass, err := generatePass()
+		pass, err := generatePass(cr.Spec.PasswordGenerationOptions)
 		if err != nil {
 			return nil, errors.Wrap(err, "generate custom user password")
 		}

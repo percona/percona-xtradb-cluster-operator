@@ -308,7 +308,6 @@ spec:
 #      interval: 10000
 #      rise: 1
 #      fall: 2
-#      shutdownOnMarkDown: true
 #    runtimeClassName: image-rc
 #    sidecars:
 #    - image: busybox

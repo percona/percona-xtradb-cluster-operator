@@ -1759,8 +1759,6 @@ spec:
                         format: int32
                         minimum: 1
                         type: integer
-                      shutdownOnMarkDown:
-                        type: boolean
                     type: object
                   hookScript:
                     type: string

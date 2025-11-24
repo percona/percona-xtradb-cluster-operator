@@ -5759,6 +5759,38 @@ spec:
                     type: object
                   runtimeClassName:
                     type: string
+                  scheduler:
+                    properties:
+                      checkTimeoutMilliseconds:
+                        default: 2000
+                        format: int32
+                        type: integer
+                      enabled:
+                        type: boolean
+                      failureThreshold:
+                        default: 3
+                        format: int32
+                        type: integer
+                      maxConnections:
+                        default: 1000
+                        format: int32
+                        type: integer
+                      nodeCheckIntervalMilliseconds:
+                        default: 2000
+                        format: int32
+                        type: integer
+                      pingTimeoutMilliseconds:
+                        default: 1000
+                        format: int32
+                        type: integer
+                      successThreshold:
+                        default: 1
+                        format: int32
+                        type: integer
+                      writerIsAlsoReader:
+                        default: true
+                        type: boolean
+                    type: object
                   schedulerName:
                     type: string
                   serviceAccountName:

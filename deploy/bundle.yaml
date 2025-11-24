@@ -12243,7 +12243,7 @@ spec:
           value: "10"
         - name: MAX_CONCURRENT_RECONCILES
           value: "1"
-        image: perconalab/percona-xtradb-cluster-operator:main
+        image: perconalab/percona-xtradb-cluster-operator:K8SPXC-735-TEST-BUILD
         imagePullPolicy: Always
         livenessProbe:
           failureThreshold: 3

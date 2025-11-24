@@ -21,8 +21,8 @@ spec:
 #  sslSecretName: cluster1-ssl
 #  sslInternalSecretName: cluster1-ssl-internal
 #  logCollectorSecretName: cluster1-log-collector-secrets
-#  initContainer:
-#    image: perconalab/percona-xtradb-cluster-operator:main
+  initContainer:
+    image: perconalab/percona-xtradb-cluster-operator:K8SPXC-735-TEST-BUILD
 #    containerSecurityContext:
 #      privileged: false
 #      runAsUser: 1001
@@ -61,7 +61,7 @@ spec:
     schedule: "0 4 * * *"
   pxc:
     size: 3
-    image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0
+    image: percona/percona-xtradb-cluster:8.0.42-33.1
     autoRecovery: true
 #    expose:
 #      enabled: true
@@ -206,9 +206,9 @@ spec:
 #        exec:
 #          command: [ "/bin/true" ]
   haproxy:
-    enabled: true
+    enabled: false
     size: 3
-    image: perconalab/percona-xtradb-cluster-operator:main-haproxy
+    image: percona/haproxy:2.8.15
 #    imagePullPolicy: Always
 #    schedulerName: mycustom-scheduler
 #    configuration: |
@@ -378,9 +378,9 @@ spec:
 #        exec:
 #          command: [ "/bin/true" ]
   proxysql:
-    enabled: false
+    enabled: true
     size: 3
-    image: perconalab/percona-xtradb-cluster-operator:main-proxysql
+    image: percona/proxysql2:2.7.3
 #    imagePullPolicy: Always
 #    configuration: |
 #      datadir="/var/lib/proxysql"
@@ -433,8 +433,8 @@ spec:
 #        ssl_p2s_key="/etc/proxysql/ssl-internal/tls.key"
 #        ssl_p2s_cipher="ECDHE-RSA-AES128-GCM-SHA256"
 #      }
-#    scheduler:
-#      enabled: false
+    scheduler:
+      enabled: true
 #      writerIsAlsoReader: true
 #      checkTimeoutMilliseconds: 2000
 #      successThreshold: 1
@@ -612,7 +612,7 @@ spec:
         cpu: 300m
   backup:
 #    allowParallel: true
-    image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0-backup
+    image: percona/percona-xtrabackup:8.0.35-34.1
 #    backoffLimit: 6
 #    activeDeadlineSeconds: 3600
 #    startingDeadlineSeconds: 300

@@ -111,26 +111,8 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(ctx context.Context, re
 
 	switch cr.Status.State {
 	case api.RestoreSucceeded, api.RestoreFailed:
-		for _, jobName := range []string{
-			naming.RestoreJobName(cr, false),
-			naming.RestoreJobName(cr, true),
-		} {
-			if err := k8sretry.RetryOnConflict(k8sretry.DefaultRetry, func() error {
-				job := new(batchv1.Job)
-				if err := r.client.Get(ctx, types.NamespacedName{
-					Name:      jobName,
-					Namespace: cr.Namespace,
-				}, job); err != nil {
-					if k8serrors.IsNotFound(err) {
-						return nil
-					}
-					return errors.Wrap(err, "failed to get job")
-				}
-				job.Finalizers = slices.DeleteFunc(job.Finalizers, func(s string) bool { return s == naming.FinalizerKeepJob })
-				return r.client.Update(ctx, job)
-			}); err != nil {
-				return reconcile.Result{}, errors.Wrap(err, "failed to remove keep-job finalizer")
-			}
+		if err := r.runJobFinalizers(ctx, cr); err != nil {
+			return reconcile.Result{}, errors.Wrap(err, "run job finalizers")
 		}
 		return reconcile.Result{}, nil
 	}
@@ -544,4 +526,29 @@ func (r *ReconcilePerconaXtraDBClusterRestore) reconcileStatePrepareCluster(
 	log.Info("starting cluster", "cluster", cr.Spec.PXCCluster)
 	cr.Status.State = api.RestoreStartCluster
 	return reconcile.Result{}, nil
+}
+
+func (r *ReconcilePerconaXtraDBClusterRestore) runJobFinalizers(ctx context.Context, cr *api.PerconaXtraDBClusterRestore) error {
+	for _, jobName := range []string{
+		naming.RestoreJobName(cr, false),
+		naming.RestoreJobName(cr, true),
+	} {
+		if err := k8sretry.RetryOnConflict(k8sretry.DefaultRetry, func() error {
+			job := new(batchv1.Job)
+			if err := r.client.Get(ctx, types.NamespacedName{
+				Name:      jobName,
+				Namespace: cr.Namespace,
+			}, job); err != nil {
+				if k8serrors.IsNotFound(err) {
+					return nil
+				}
+				return errors.Wrap(err, "failed to get job")
+			}
+			job.Finalizers = slices.DeleteFunc(job.Finalizers, func(s string) bool { return s == naming.FinalizerKeepJob })
+			return r.client.Update(ctx, job)
+		}); err != nil {
+			return errors.Wrap(err, "failed to remove keep-job finalizer")
+		}
+	}
+	return nil
 }

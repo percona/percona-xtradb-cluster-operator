@@ -120,8 +120,8 @@ main() {
 	run_recovery_check "$cluster" "on-demand-backup-minio"
 	compare_kubectl job/restore-job-on-demand-backup-minio-demand-backup
 	restore_job_name=$(kubectl get pod -l "percona.com/restore-job-name=restore-job-on-demand-backup-minio-demand-backup" -o jsonpath='{.items[].metadata.name}')
-	kubectl logs "$restore_job_name" | grep "xtrabackup --defaults-group=mysqld --datadir=/datadir --move-back --parallel=3"
-	kubectl logs "$restore_job_name" | grep "xtrabackup --use-memory=1500000000 --prepare --parallel=3"
+	kubectl logs "$restore_job_name" | grep "xtrabackup  --defaults-group=mysqld --datadir=/datadir --move-back --parallel=3"
+	kubectl logs "$restore_job_name" | grep "xtrabackup  --use-memory=1500000000 --prepare --parallel=3"
 	kubectl logs "$restore_job_name" | egrep "xbcloud get --parallel=[0-9]+ --insecure (--curl-retriable-errors=7 )?--parallel=3"
 	kubectl logs "$restore_job_name" | egrep "xbstream -x -C .* --parallel=[0-9]+ --parallel=3"
 	kubectl logs "$restore_job_name" | egrep "(xbstream --decompress -x -C .* --parallel=[0-9]+ --parallel=3|xbstream -x -C .* --parallel=[0-9]+ --parallel=3)"

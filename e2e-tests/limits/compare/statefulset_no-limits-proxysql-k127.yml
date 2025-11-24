@@ -194,6 +194,20 @@ spec:
                 secretKeyRef:
                   key: monitor
                   name: internal-no-limits
+            - name: SCHEDULER_CHECKTIMEOUT
+              value: "0"
+            - name: SCHEDULER_WRITERALSOREADER
+              value: "0"
+            - name: SCHEDULER_RETRYUP
+              value: "0"
+            - name: SCHEDULER_RETRYDOWN
+              value: "0"
+            - name: SCHEDULER_PINGTIMEOUT
+              value: "0"
+            - name: SCHEDULER_NODECHECKINTERVAL
+              value: "0"
+            - name: SCHEDULER_MAXCONNECTIONS
+              value: "0"
           envFrom:
             - secretRef:
                 name: no-limits-env-vars-proxysql
@@ -262,6 +276,10 @@ spec:
           volumeMounts:
             - mountPath: /opt/percona
               name: bin
+            - mountPath: /etc/proxysql/ssl
+              name: ssl
+            - mountPath: /etc/proxysql/ssl-internal
+              name: ssl-internal
         - args:
             - /opt/percona/peer-list
             - -on-change=/opt/percona/proxysql_add_proxysql_nodes.sh

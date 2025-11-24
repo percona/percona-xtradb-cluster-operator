@@ -30,6 +30,7 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/apis"
 	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/controller"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/features"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/version"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/webhook"
@@ -157,6 +158,19 @@ func main() {
 	}
 
 	ctx := k8s.StartStopSignalHandler(mgr.GetClient(), strings.Split(namespace, ","))
+
+	fg := features.NewGate()
+	ctx = features.NewContextWithGate(ctx, fg)
+	if err := fg.Set(os.Getenv("PXCO_FEATURE_GATES")); err != nil {
+		setupLog.Error(err, "failed to set feature gates")
+		os.Exit(1)
+	}
+	setupLog.Info("Feature gates",
+		// These are set by the user
+		"PXCO_FEATURE_GATES", features.ShowAssigned(ctx),
+		// These are enabled, including features that are on by default
+		"enabled", features.ShowEnabled(ctx),
+	)
 
 	if err := webhook.SetupWebhook(ctx, mgr); err != nil {
 		setupLog.Error(err, "set up validation webhook")

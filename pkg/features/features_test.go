@@ -1,0 +1,37 @@
+package features
+
+import (
+	"context"
+	"testing"
+
+	"gotest.tools/assert"
+)
+
+func TestDefaults(t *testing.T) {
+	t.Parallel()
+	gate := NewGate()
+
+	assert.Assert(t, false == gate.Enabled(BackupXtrabackup))
+}
+
+func TestStringFormat(t *testing.T) {
+	t.Parallel()
+	gate := NewGate()
+
+	assert.NilError(t, gate.Set(""))
+	assert.NilError(t, gate.Set("BackupXtrabackup=true"))
+	assert.Assert(t, true == gate.Enabled(BackupXtrabackup))
+
+}
+
+func TestContext(t *testing.T) {
+	t.Parallel()
+	gate := NewGate()
+	ctx := NewContextWithGate(context.Background(), gate)
+
+	assert.Equal(t, ShowAssigned(ctx), "")
+
+	assert.NilError(t, gate.Set("BackupXtrabackup=true"))
+	assert.Assert(t, Enabled(ctx, BackupXtrabackup))
+	assert.Equal(t, ShowAssigned(ctx), "BackupXtrabackup=true")
+}

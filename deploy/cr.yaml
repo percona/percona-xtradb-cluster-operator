@@ -91,8 +91,6 @@ spec:
 #        port: 3306
 #        weight: 100
 #    schedulerName: mycustom-scheduler
-#    readinessDelaySec: 15
-#    livenessDelaySec: 600
 #    configuration: |
 #      [mysqld]
 #      wsrep_debug=CLIENT
@@ -213,8 +211,6 @@ spec:
     image: perconalab/percona-xtradb-cluster-operator:main-haproxy
 #    imagePullPolicy: Always
 #    schedulerName: mycustom-scheduler
-#    readinessDelaySec: 15
-#    livenessDelaySec: 600
 #    configuration: |
 #
 #    the actual default configuration file can be found here https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/main/build/haproxy-global.cfg
@@ -437,6 +433,15 @@ spec:
 #        ssl_p2s_key="/etc/proxysql/ssl-internal/tls.key"
 #        ssl_p2s_cipher="ECDHE-RSA-AES128-GCM-SHA256"
 #      }
+#    scheduler:
+#      enabled: false
+#      writerIsAlsoReader: true
+#      checkTimeoutMilliseconds: 2000
+#      successThreshold: 1
+#      failureThreshold: 3
+#      pingTimeoutMilliseconds: 1000
+#      nodeCheckIntervalMilliseconds: 2000
+#      maxConnections: 1000
 #    readinessDelaySec: 15
 #    livenessDelaySec: 600
 #    schedulerName: mycustom-scheduler

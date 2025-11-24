@@ -350,7 +350,7 @@ func (r *ReconcilePerconaXtraDBCluster) manageOperatorAdminUser(ctx context.Cont
 		return nil
 	}
 
-	pass, err := generatePass(users.Operator)
+	pass, err := generatePass(users.Operator, cr.Spec.PasswordGenerationOptions)
 	if err != nil {
 		return errors.Wrap(err, "generate password")
 	}
@@ -766,7 +766,7 @@ func (r *ReconcilePerconaXtraDBCluster) manageReplicationUser(ctx context.Contex
 	}
 	defer um.Close()
 
-	pass, err = generatePass(users.Replication)
+	pass, err = generatePass(users.Replication, cr.Spec.PasswordGenerationOptions)
 	if err != nil {
 		return errors.Wrap(err, "generate password")
 	}

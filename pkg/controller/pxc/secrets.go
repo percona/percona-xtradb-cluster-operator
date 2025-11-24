@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"fmt"
 	"math/big"
+	mrand "math/rand"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -37,7 +38,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsersSecret(ctx context.Context
 		if err := validatePasswords(secretObj); err != nil {
 			return nil, errors.Wrap(err, "validate passwords")
 		}
-		isChanged, err := setUserSecretDefaults(secretObj)
+		isChanged, err := setUserSecretDefaults(secretObj, cr.Spec.PasswordGenerationOptions)
 		if err != nil {
 			return nil, errors.Wrap(err, "set user secret defaults")
 		}
@@ -62,7 +63,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsersSecret(ctx context.Context
 		Type: corev1.SecretTypeOpaque,
 	}
 
-	if _, err = setUserSecretDefaults(secretObj); err != nil {
+	if _, err = setUserSecretDefaults(secretObj, cr.Spec.PasswordGenerationOptions); err != nil {
 		return nil, errors.Wrap(err, "set user secret defaults")
 	}
 
@@ -75,14 +76,14 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsersSecret(ctx context.Context
 	return secretObj, nil
 }
 
-func setUserSecretDefaults(secret *corev1.Secret) (isChanged bool, err error) {
+func setUserSecretDefaults(secret *corev1.Secret, secretsOptions *api.PasswordGenerationOptions) (isChanged bool, err error) {
 	if secret.Data == nil {
 		secret.Data = make(map[string][]byte)
 	}
 	users := []string{users.Root, users.Xtrabackup, users.Monitor, users.ProxyAdmin, users.Operator, users.Replication}
 	for _, user := range users {
 		if pass, ok := secret.Data[user]; !ok || len(pass) == 0 {
-			secret.Data[user], err = generatePass(user)
+			secret.Data[user], err = generatePass(user, secretsOptions)
 			if err != nil {
 				return false, errors.Wrapf(err, "create %s users password", user)
 			}
@@ -94,27 +95,33 @@ func setUserSecretDefaults(secret *corev1.Secret) (isChanged bool, err error) {
 }
 
 const (
-	passwordLen = 20
-	passSymbols = "ABCDEFGHIJKLMNOPQRSTUVWXYZ" +
+	passBaseSymbols = "ABCDEFGHIJKLMNOPQRSTUVWXYZ" +
 		"abcdefghijklmnopqrstuvwxyz" +
-		"0123456789" +
-		"!#$%&()*+,-.<=>?@[]^_{}~"
+		"0123456789"
 )
 
 var randReader = rand.Reader
 
-// generatePass generates a random password of length passwordLen.
-func generatePass(username string) ([]byte, error) {
-	b := make([]byte, passwordLen)
+func passSymbols(secretsOptions *api.PasswordGenerationOptions) string {
+	return passBaseSymbols + secretsOptions.Symbols
+}
 
-	firstSymbols := passSymbols
-	otherSymbols := passSymbols
+// generatePass generates a random password with or without special symbols
+func generatePass(username string, secretsOptions *api.PasswordGenerationOptions) ([]byte, error) {
+	ln := secretsOptions.MinLength
+	if secretsOptions.MaxLength-secretsOptions.MinLength > 0 {
+		ln += mrand.Intn(secretsOptions.MaxLength - secretsOptions.MinLength)
+	}
+	b := make([]byte, ln)
+
+	firstSymbols := passSymbols(secretsOptions)
+	otherSymbols := passSymbols(secretsOptions)
 	if username == users.ProxyAdmin {
-		otherSymbols = strings.NewReplacer(":", "", ";", "").Replace(passSymbols)
+		otherSymbols = strings.NewReplacer(":", "", ";", "").Replace(otherSymbols)
 		firstSymbols = strings.ReplaceAll(otherSymbols, "*", "")
 	}
 
-	for i := range passwordLen {
+	for i := 0; i < ln; i++ {
 		symbols := otherSymbols
 		if i == 0 {
 			symbols = firstSymbols

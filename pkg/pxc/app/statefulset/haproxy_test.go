@@ -118,7 +118,8 @@ func TestHAProxyHealthCheckEnvVars(t *testing.T) {
 		"default values": {
 			healthCheck: nil,
 			expectedEnvVars: map[string]string{
-				"HA_SERVER_OPTIONS": "resolvers kubernetes check inter 10000 rise 1 fall 2 weight 1",
+				"HA_SERVER_OPTIONS":        "resolvers kubernetes check inter 10000 rise 1 fall 2 weight 1",
+				"HA_SHUTDOWN_ON_MARK_DOWN": "yes",
 			},
 		},
 		"custom interval only": {

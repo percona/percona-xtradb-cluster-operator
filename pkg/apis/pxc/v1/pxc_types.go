@@ -93,7 +93,11 @@ type PXCSpec struct {
 	AutoRecovery        *bool                `json:"autoRecovery,omitempty"`
 	ReplicationChannels []ReplicationChannel `json:"replicationChannels,omitempty"`
 	Expose              ServiceExpose        `json:"expose,omitempty"`
-	*PodSpec            `json:",inline"`
+
+	// +kubebuilder:validation:Enum={jemalloc,tcmalloc}
+	MySQLAllocator string `json:"mysqlAllocator,omitempty"`
+
+	*PodSpec `json:",inline"`
 }
 
 // ServiceExpose defines the configuration options for exposing a k8s Service.
@@ -532,7 +536,6 @@ type PodSpec struct {
 	SSLInternalSecretName         string                        `json:"sslInternalSecretName,omitempty"`
 	EnvVarsSecretName             string                        `json:"envVarsSecret,omitempty"`
 	TerminationGracePeriodSeconds *int64                        `json:"gracePeriod,omitempty"`
-	MySQLAllocator                string                        `json:"mysqlAllocator,omitempty"`
 
 	// Deprecated: Use ServiceExpose.Type instead
 	ServiceType corev1.ServiceType `json:"serviceType,omitempty"`

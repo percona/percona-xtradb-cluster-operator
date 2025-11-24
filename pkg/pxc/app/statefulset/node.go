@@ -267,7 +267,7 @@ func (c *Node) AppContainer(ctx context.Context, cl client.Client, spec *api.Pod
 		}...)
 	}
 
-	if cr.CompareVersionWith("1.18.0") >= 0 {
+	if cr.CompareVersionWith("1.19.0") >= 0 {
 		const (
 			ldPreloadKey    = "LD_PRELOAD"
 			libJemallocPath = "/usr/lib64/libjemalloc.so.1"
@@ -278,18 +278,36 @@ func (c *Node) AppContainer(ctx context.Context, cl client.Client, spec *api.Pod
 		activateTcmalloc := false
 		ldPreloadValue := ""
 
-		// Determine allocator. jemalloc is the default one
+		// Determine the allocator
 		switch strings.ToLower(cr.Spec.PXC.MySQLAllocator) {
-		case "", "jemalloc":
+		case "jemalloc":
 			activateJemalloc = true
 		case "tcmalloc":
 			activateTcmalloc = true
 		}
 
-		// Let's set LD_PRELOAD via appc.Env always. It takes precedence over EnvFrom
+		// deactivate
+		if !activateJemalloc {
+			ldPreloadValue = strings.ReplaceAll(ldPreloadValue, libJemallocPath, "")
+		}
+		if !activateTcmalloc {
+			ldPreloadValue = strings.ReplaceAll(ldPreloadValue, libTcmallocPath, "")
+		}
 
+		// activate
+		if activateJemalloc && !strings.Contains(ldPreloadValue, libJemallocPath) {
+			ldPreloadValue += ":" + libJemallocPath
+		}
+		if activateTcmalloc && !strings.Contains(ldPreloadValue, libTcmallocPath) {
+			ldPreloadValue += ":" + libTcmallocPath
+		}
+
+		// Set LD_PRELOAD via appc.Env always. It takes precedence over EnvFrom.
+		// This ensures we're not breaking existing deployments with LD_PRELOAD set.
 		envVarsSecret := &corev1.Secret{}
-		err := cl.Get(ctx, types.NamespacedName{Name: cr.Spec.PXC.EnvVarsSecretName, Namespace: cr.Namespace}, envVarsSecret)
+		err := cl.Get(ctx, types.NamespacedName{
+			Name:      cr.Spec.PXC.EnvVarsSecretName,
+			Namespace: cr.Namespace}, envVarsSecret)
 		if client.IgnoreNotFound(err) == nil {
 			// Env vars are set via secret. Check if LD_PRELOAD is set.
 			if val, ok := envVarsSecret.Data[ldPreloadKey]; ok {
@@ -297,32 +315,18 @@ func (c *Node) AppContainer(ctx context.Context, cl client.Client, spec *api.Pod
 			}
 		}
 
-		// deactivate
-		if !activateJemalloc {
-			ldPreloadValue = strings.Replace(ldPreloadValue, libJemallocPath, "", -1)
-		}
-		if !activateTcmalloc {
-			ldPreloadValue = strings.Replace(ldPreloadValue, libTcmallocPath, "", -1)
-		}
+		if ldPreloadValue != "" {
+			// prefix/suffix and consecutive : (colons) don't do any harm
+			// but remove them for sanity.
+			re := regexp.MustCompile(":+")
+			ldPreloadValue = re.ReplaceAllString(ldPreloadValue, ":")
+			ldPreloadValue = strings.Trim(ldPreloadValue, ":")
 
-		// activate
-		if activateJemalloc && !strings.Contains(ldPreloadValue, libJemallocPath) {
-			ldPreloadValue += ":" + libJemallocPath
+			appc.Env = append(appc.Env, corev1.EnvVar{
+				Name:  ldPreloadKey,
+				Value: ldPreloadValue,
+			})
 		}
-		if activateTcmalloc &&  !strings.Contains(ldPreloadValue, libTcmallocPath) {
-			ldPreloadValue += ":" + libTcmallocPath
-		}
-
-		// prefix/suffix and consecutive : (colons) don't do any harm
-		// but remove them for sanity.
-		re := regexp.MustCompile(":+")
-		ldPreloadValue = re.ReplaceAllString(ldPreloadValue, ":")
-		ldPreloadValue = strings.Trim(ldPreloadValue, ":")
-
-		appc.Env = append(appc.Env, corev1.EnvVar{
-			Name:  ldPreloadKey,
-			Value: ldPreloadValue,
-		})
 	}
 
 	return appc, nil

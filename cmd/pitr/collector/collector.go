@@ -6,7 +6,6 @@ import (
 	"context"
 	"crypto/md5"
 	"fmt"
-	"golang.org/x/sys/unix"
 	"io"
 	"io/fs"
 	"log"
@@ -18,11 +17,13 @@ import (
 	"time"
 
 	"github.com/go-sql-driver/mysql"
+	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
+	"golang.org/x/sys/unix"
+
 	"github.com/percona/percona-xtradb-cluster-operator/cmd/pitr/pxc"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage"
-	"github.com/pkg/errors"
-	"github.com/prometheus/client_golang/prometheus"
 )
 
 const collectorPasswordPath = "/etc/mysql/mysql-users-secret/xtrabackup"

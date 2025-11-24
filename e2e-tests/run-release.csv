@@ -22,6 +22,7 @@ pitr-gap-errors
 proxy-protocol
 proxy-switch
 proxysql-sidecar-res-limits
+proxysql-scheduler
 pvc-resize
 recreate
 restore-to-encrypted-cluster

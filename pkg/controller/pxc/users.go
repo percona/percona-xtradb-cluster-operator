@@ -962,10 +962,19 @@ func (r *ReconcilePerconaXtraDBCluster) syncPXCUsersWithProxySQL(ctx context.Con
 		}
 
 		var errb, outb bytes.Buffer
-		err = r.clientcmd.Exec(&pod, "proxysql", []string{"proxysql-admin", "--syncusers", "--add-query-rule"}, nil, &outb, &errb, false)
+
+		command := []string{"proxysql-admin", "--syncusers", "--add-query-rule"}
+		if cr.Spec.ProxySQL.Scheduler.Enabled {
+			command = []string{"percona-scheduler-admin",
+				"--config-file=/opt/percona/scheduler-config.toml",
+				"--syncusers", "--add-query-rule"}
+		}
+
+		err = r.clientcmd.Exec(&pod, "proxysql", command, nil, &outb, &errb, false)
 		if err != nil {
 			return errors.Errorf("exec syncusers: %v / %s / %s", err, outb.String(), errb.String())
 		}
+
 		if len(errb.Bytes()) > 0 {
 			return errors.New("syncusers: " + errb.String())
 		}

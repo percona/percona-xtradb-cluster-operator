@@ -79,8 +79,6 @@ main() {
 	cluster="pitr"
 	spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml"
 
-	kubectl_bin delete pod -l "app.kubernetes.io/component=pitr"
-	sleep 30
 	pitr_pod=$(
 		kubectl_bin get pods \
 			--selector="app.kubernetes.io/component=pitr" \

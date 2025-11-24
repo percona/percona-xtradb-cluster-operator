@@ -471,6 +471,12 @@ if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' ] && [ -z "$wantHelp" ]; then
 		fi
 		set -x
 
+		echo "CREATE FUNCTION IF NOT EXISTS get_last_record_timestamp_by_binlog RETURNS INTEGER SONAME 'binlog_utils_udf.so'" | "${mysql[@]}"
+
+		echo "CREATE FUNCTION IF NOT EXISTS get_gtid_set_by_binlog RETURNS STRING SONAME 'binlog_utils_udf.so'" | "${mysql[@]}"
+
+		echo "CREATE FUNCTION IF NOT EXISTS get_first_record_timestamp_by_binlog RETURNS INTEGER SONAME 'binlog_utils_udf.so'" | "${mysql[@]}"
+
 		echo
 		ls /docker-entrypoint-initdb.d/ >/dev/null
 		for f in /docker-entrypoint-initdb.d/*; do

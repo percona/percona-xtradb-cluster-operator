@@ -118,8 +118,7 @@ func TestHAProxyHealthCheckEnvVars(t *testing.T) {
 		"default values": {
 			healthCheck: nil,
 			expectedEnvVars: map[string]string{
-				"HA_SERVER_OPTIONS":        "resolvers kubernetes check inter 10000 rise 1 fall 2 weight 1",
-				"HA_SHUTDOWN_ON_MARK_DOWN": "yes",
+				"HA_SERVER_OPTIONS": "resolvers kubernetes check inter 10000 rise 1 fall 2 weight 1 on-marked-down shutdown-sessions",
 			},
 		},
 		"custom interval only": {
@@ -127,7 +126,7 @@ func TestHAProxyHealthCheckEnvVars(t *testing.T) {
 				Interval: func() *int32 { i := int32(3000); return &i }(),
 			},
 			expectedEnvVars: map[string]string{
-				"HA_SERVER_OPTIONS": "resolvers kubernetes check inter 3000 rise 1 fall 2 weight 1",
+				"HA_SERVER_OPTIONS": "resolvers kubernetes check inter 3000 rise 1 fall 2 weight 1 on-marked-down shutdown-sessions",
 			},
 		},
 		"custom fall only": {
@@ -135,7 +134,7 @@ func TestHAProxyHealthCheckEnvVars(t *testing.T) {
 				Fall: func() *int32 { i := int32(3); return &i }(),
 			},
 			expectedEnvVars: map[string]string{
-				"HA_SERVER_OPTIONS": "resolvers kubernetes check inter 10000 rise 1 fall 3 weight 1",
+				"HA_SERVER_OPTIONS": "resolvers kubernetes check inter 10000 rise 1 fall 3 weight 1 on-marked-down shutdown-sessions",
 			},
 		},
 		"custom rise only": {
@@ -143,7 +142,7 @@ func TestHAProxyHealthCheckEnvVars(t *testing.T) {
 				Rise: func() *int32 { i := int32(2); return &i }(),
 			},
 			expectedEnvVars: map[string]string{
-				"HA_SERVER_OPTIONS": "resolvers kubernetes check inter 10000 rise 2 fall 2 weight 1",
+				"HA_SERVER_OPTIONS": "resolvers kubernetes check inter 10000 rise 2 fall 2 weight 1 on-marked-down shutdown-sessions",
 			},
 		},
 		"all custom values": {
@@ -153,28 +152,7 @@ func TestHAProxyHealthCheckEnvVars(t *testing.T) {
 				Rise:     func() *int32 { i := int32(1); return &i }(),
 			},
 			expectedEnvVars: map[string]string{
-				"HA_SERVER_OPTIONS": "resolvers kubernetes check inter 3000 rise 1 fall 2 weight 1",
-			},
-		},
-		"shutdown on mark down enabled": {
-			healthCheck: &api.HAProxyHealthCheckSpec{
-				ShutdownOnMarkDown: true,
-			},
-			expectedEnvVars: map[string]string{
-				"HA_SERVER_OPTIONS":        "resolvers kubernetes check inter 10000 rise 1 fall 2 weight 1",
-				"HA_SHUTDOWN_ON_MARK_DOWN": "yes",
-			},
-		},
-		"all custom values with shutdown": {
-			healthCheck: &api.HAProxyHealthCheckSpec{
-				Interval:           func() *int32 { i := int32(3000); return &i }(),
-				Fall:               func() *int32 { i := int32(2); return &i }(),
-				Rise:               func() *int32 { i := int32(1); return &i }(),
-				ShutdownOnMarkDown: true,
-			},
-			expectedEnvVars: map[string]string{
-				"HA_SERVER_OPTIONS":        "resolvers kubernetes check inter 3000 rise 1 fall 2 weight 1",
-				"HA_SHUTDOWN_ON_MARK_DOWN": "yes",
+				"HA_SERVER_OPTIONS": "resolvers kubernetes check inter 3000 rise 1 fall 2 weight 1 on-marked-down shutdown-sessions",
 			},
 		},
 	}
@@ -231,15 +209,6 @@ func TestHAProxyHealthCheckEnvVars(t *testing.T) {
 				}
 				if !found {
 					t.Errorf("%s env var not found in container", expectedName)
-				}
-			}
-
-			// Verify HA_SHUTDOWN_ON_MARK_DOWN is not present when not expected
-			if _, expected := tt.expectedEnvVars["HA_SHUTDOWN_ON_MARK_DOWN"]; !expected {
-				for _, env := range c.Env {
-					if env.Name == "HA_SHUTDOWN_ON_MARK_DOWN" {
-						t.Errorf("unexpected HA_SHUTDOWN_ON_MARK_DOWN env var found")
-					}
 				}
 			}
 		})

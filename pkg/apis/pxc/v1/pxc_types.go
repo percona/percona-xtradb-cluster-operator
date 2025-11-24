@@ -676,8 +676,8 @@ type ProxySQLSchedulerSpec struct {
 
 type HAProxySpec struct {
 	PodSpec        `json:",inline"`
-	ExposePrimary  ServiceExpose          `json:"exposePrimary,omitempty"`
-	ExposeReplicas *ReplicasServiceExpose `json:"exposeReplicas,omitempty"`
+	ExposePrimary  ServiceExpose           `json:"exposePrimary,omitempty"`
+	ExposeReplicas *ReplicasServiceExpose  `json:"exposeReplicas,omitempty"`
 	HealthCheck    *HAProxyHealthCheckSpec `json:"healthCheck,omitempty"`
 
 	// Deprecated: Use ExposeReplica.Enabled instead
@@ -699,9 +699,6 @@ type HAProxyHealthCheckSpec struct {
 	// +kubebuilder:validation:Minimum=1
 	// +optional
 	Rise *int32 `json:"rise,omitempty"`
-	// ShutdownOnMarkDown terminates existing client connections when backend is marked down (default: false)
-	// +optional
-	ShutdownOnMarkDown bool `json:"shutdownOnMarkDown,omitempty"`
 }
 
 type ReplicasServiceExpose struct {

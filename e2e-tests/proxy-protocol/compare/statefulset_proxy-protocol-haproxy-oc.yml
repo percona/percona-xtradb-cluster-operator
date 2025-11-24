@@ -117,9 +117,7 @@ spec:
             - name: REPLICAS_SVC_ONLY_READERS
               value: "false"
             - name: HA_SERVER_OPTIONS
-              value: resolvers kubernetes check inter 10000 rise 1 fall 2 weight 1
-            - name: HA_SHUTDOWN_ON_MARK_DOWN
-              value: "yes"
+              value: resolvers kubernetes check inter 10000 rise 1 fall 2 weight 1 on-marked-down shutdown-sessions
           envFrom:
             - secretRef:
                 name: proxy-protocol-env-vars-haproxy

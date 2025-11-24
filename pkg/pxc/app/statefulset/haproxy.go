@@ -575,7 +575,9 @@ func (c *HAProxy) UpdateStrategy(cr *api.PerconaXtraDBCluster) appsv1.StatefulSe
 //   - interval: 10000ms (10s between health checks)
 //   - rise: 1 (1 successful check to mark server up)
 //   - fall: 2 (2 failed checks to mark server down, total 20s with default interval)
-//   - shutdownOnMarkDown: true (existing connections are terminated on backend failure)
+//
+// The function always includes "on-marked-down shutdown-sessions" to ensure existing connections
+// are terminated when a backend is marked down.
 //
 // The generated HA_SERVER_OPTIONS environment variable is used by haproxy_add_pxc_nodes.sh
 // to configure the "server" lines in the HAProxy backend configuration.
@@ -583,7 +585,6 @@ func buildHAProxyHealthCheckEnvVars(healthCheck *api.HAProxyHealthCheckSpec) []c
 	interval := int32(10000)
 	rise := int32(1)
 	fall := int32(2)
-	shutdownOnMarkDown := true
 
 	if healthCheck != nil {
 		if healthCheck.Interval != nil {
@@ -595,22 +596,12 @@ func buildHAProxyHealthCheckEnvVars(healthCheck *api.HAProxyHealthCheckSpec) []c
 		if healthCheck.Fall != nil {
 			fall = *healthCheck.Fall
 		}
-		shutdownOnMarkDown = healthCheck.ShutdownOnMarkDown
 	}
 
-	envVars := []corev1.EnvVar{
+	return []corev1.EnvVar{
 		{
 			Name:  "HA_SERVER_OPTIONS",
-			Value: fmt.Sprintf("resolvers kubernetes check inter %d rise %d fall %d weight 1", interval, rise, fall),
+			Value: fmt.Sprintf("resolvers kubernetes check inter %d rise %d fall %d weight 1 on-marked-down shutdown-sessions", interval, rise, fall),
 		},
 	}
-
-	if shutdownOnMarkDown {
-		envVars = append(envVars, corev1.EnvVar{
-			Name:  "HA_SHUTDOWN_ON_MARK_DOWN",
-			Value: "yes",
-		})
-	}
-
-	return envVars
 }

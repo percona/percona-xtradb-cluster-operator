@@ -709,6 +709,21 @@ type LogCollectorSpec struct {
 	ImagePullPolicy          corev1.PullPolicy           `json:"imagePullPolicy,omitempty"`
 	RuntimeClassName         *string                     `json:"runtimeClassName,omitempty"`
 	HookScript               string                      `json:"hookScript,omitempty"`
+	// FluentBitBufferSettings allows configuring Fluent-bit buffer sizes to handle long log lines
+	FluentBitBufferSettings *FluentBitBufferSettings `json:"fluentBitBufferSettings,omitempty"`
+}
+
+// FluentBitBufferSettings defines buffer size settings for Fluent-bit to handle long log lines
+type FluentBitBufferSettings struct {
+	// BufferChunkSize sets the initial buffer size for reading file data (default: 64k)
+	// This should be large enough to handle the longest expected log line
+	BufferChunkSize string `json:"bufferChunkSize,omitempty"`
+	// BufferMaxSize sets the maximum buffer size per monitored file (default: 256k)
+	// This should be greater than or equal to BufferChunkSize
+	BufferMaxSize string `json:"bufferMaxSize,omitempty"`
+	// MemBufLimit sets the memory buffer limit for the input plugin (default: 10MB)
+	// This helps prevent memory issues when processing large amounts of log data
+	MemBufLimit string `json:"memBufLimit,omitempty"`
 }
 
 type PMMSpec struct {
@@ -1125,6 +1140,59 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 	if c.LogCollector != nil && c.LogCollector.Enabled {
 		if len(c.LogCollector.ImagePullPolicy) == 0 {
 			c.LogCollector.ImagePullPolicy = corev1.PullAlways
+		}
+
+		// Set default Fluent-bit buffer settings to handle long log lines
+		if c.LogCollector.FluentBitBufferSettings == nil {
+			c.LogCollector.FluentBitBufferSettings = &FluentBitBufferSettings{}
+		}
+
+		// Use enhanced defaults for version >= 1.19.0, fallback to basic defaults for older versions
+		if cr.CompareVersionWith("1.19.0") >= 0 {
+			// Enhanced defaults for newer versions to better handle long log lines
+			if c.LogCollector.FluentBitBufferSettings.BufferChunkSize == "" {
+				c.LogCollector.FluentBitBufferSettings.BufferChunkSize = "128k"
+			}
+
+			if c.LogCollector.FluentBitBufferSettings.BufferMaxSize == "" {
+				c.LogCollector.FluentBitBufferSettings.BufferMaxSize = "512k"
+			}
+
+			if c.LogCollector.FluentBitBufferSettings.MemBufLimit == "" {
+				c.LogCollector.FluentBitBufferSettings.MemBufLimit = "20MB"
+			}
+		} else {
+			// Basic defaults for older versions
+			if c.LogCollector.FluentBitBufferSettings.BufferChunkSize == "" {
+				c.LogCollector.FluentBitBufferSettings.BufferChunkSize = "64k"
+			}
+
+			if c.LogCollector.FluentBitBufferSettings.BufferMaxSize == "" {
+				c.LogCollector.FluentBitBufferSettings.BufferMaxSize = "256k"
+			}
+
+			if c.LogCollector.FluentBitBufferSettings.MemBufLimit == "" {
+				c.LogCollector.FluentBitBufferSettings.MemBufLimit = "10MB"
+			}
+		}
+
+		// Validate that Buffer_Max_Size >= Buffer_Chunk_Size (Fluent-bit requirement)
+		// If user provided invalid values, adjust Buffer_Max_Size to be at least as large as Buffer_Chunk_Size
+		if c.LogCollector.FluentBitBufferSettings.BufferChunkSize != "" && c.LogCollector.FluentBitBufferSettings.BufferMaxSize != "" {
+			chunkSize := c.LogCollector.FluentBitBufferSettings.BufferChunkSize
+			maxSize := c.LogCollector.FluentBitBufferSettings.BufferMaxSize
+
+			// Simple validation: if both are the same format (e.g., "128k"), compare them
+			if len(chunkSize) > 0 && len(maxSize) > 0 && chunkSize[len(chunkSize)-1] == maxSize[len(maxSize)-1] {
+				// Extract numeric values and compare
+				chunkNum := chunkSize[:len(chunkSize)-1]
+				maxNum := maxSize[:len(maxSize)-1]
+
+				// If chunk size is larger than max size, set max size to chunk size
+				if chunkNum > maxNum {
+					c.LogCollector.FluentBitBufferSettings.BufferMaxSize = chunkSize
+				}
+			}
 		}
 	}
 

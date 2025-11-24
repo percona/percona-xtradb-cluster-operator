@@ -55,8 +55,15 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(
 	}
 
 	// don't create statefulset if configmap is just created or updated
+	// EXCEPTION: For LogCollector config changes, we need to update StatefulSet immediately
+	// to trigger pod restarts with the new configuration
 	if res != controllerutil.OperationResultNone {
-		return nil
+		// Check if this is a LogCollector-related change that should trigger StatefulSet update
+		if cr.Spec.LogCollector != nil && cr.Spec.LogCollector.Enabled && sfs.Labels()[naming.LabelAppKubernetesComponent] == "pxc" {
+			log.Info("LogCollector ConfigMap updated, proceeding with StatefulSet update to trigger pod restart")
+		} else {
+			return nil
+		}
 	}
 
 	// embed DB configuration hash
@@ -725,12 +732,31 @@ func (r *ReconcilePerconaXtraDBCluster) isRestoreRunning(clusterName, namespace 
 }
 
 func getCustomConfigHashHex(strData map[string]string, binData map[string][]byte) (string, error) {
+	// Create deterministic content by sorting keys to ensure consistent hash calculation
 	content := struct {
 		StrData map[string]string `json:"str_data,omitempty"`
 		BinData map[string][]byte `json:"bin_data,omitempty"`
 	}{
-		StrData: strData,
-		BinData: binData,
+		StrData: make(map[string]string),
+		BinData: make(map[string][]byte),
+	}
+
+	var strKeys []string
+	for k := range strData {
+		strKeys = append(strKeys, k)
+	}
+	sort.Strings(strKeys)
+	for _, k := range strKeys {
+		content.StrData[k] = strData[k]
+	}
+
+	var binKeys []string
+	for k := range binData {
+		binKeys = append(binKeys, k)
+	}
+	sort.Strings(binKeys)
+	for _, k := range binKeys {
+		content.BinData[k] = binData[k]
 	}
 
 	allData, err := json.Marshal(content)
@@ -756,14 +782,44 @@ func (r *ReconcilePerconaXtraDBCluster) getConfigHash(ctx context.Context, cr *a
 		return "", errors.Wrap(err, "failed to get custom config")
 	}
 
+	var configHash string
 	switch obj := obj.(type) {
 	case *corev1.Secret:
-		return getCustomConfigHashHex(obj.StringData, obj.Data)
+		configHash, err = getCustomConfigHashHex(obj.StringData, obj.Data)
 	case *corev1.ConfigMap:
-		return getCustomConfigHashHex(obj.Data, obj.BinaryData)
+		configHash, err = getCustomConfigHashHex(obj.Data, obj.BinaryData)
 	default:
-		return fmt.Sprintf("%x", md5.Sum([]byte{})), nil
+		configHash = fmt.Sprintf("%x", md5.Sum([]byte{}))
 	}
+	if err != nil {
+		return "", err
+	}
+
+	// For PXC StatefulSets, also include LogCollector configuration hash if enabled
+	if ls[naming.LabelAppKubernetesComponent] == "pxc" && cr.Spec.LogCollector != nil && cr.Spec.LogCollector.Enabled {
+		logCollectorConfigName := types.NamespacedName{
+			Namespace: cr.Namespace,
+			Name:      cr.Name + "-logcollector",
+		}
+
+		logCollectorObj, err := r.getFirstExisting(ctx, logCollectorConfigName, &corev1.Secret{}, &corev1.ConfigMap{})
+		if err == nil && logCollectorObj != nil {
+			var logCollectorHash string
+			switch obj := logCollectorObj.(type) {
+			case *corev1.Secret:
+				logCollectorHash, err = getCustomConfigHashHex(obj.StringData, obj.Data)
+			case *corev1.ConfigMap:
+				logCollectorHash, err = getCustomConfigHashHex(obj.Data, obj.BinaryData)
+			}
+			if err == nil && logCollectorHash != "" {
+				// Combine the main config hash with the logcollector config hash
+				combinedHash := fmt.Sprintf("%x", md5.Sum([]byte(configHash+logCollectorHash)))
+				return combinedHash, nil
+			}
+		}
+	}
+
+	return configHash, nil
 }
 
 func (r *ReconcilePerconaXtraDBCluster) getFirstExisting(ctx context.Context, name types.NamespacedName, objs ...client.Object) (client.Object, error) {

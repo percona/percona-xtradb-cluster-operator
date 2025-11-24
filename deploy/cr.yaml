@@ -556,12 +556,16 @@ spec:
     image: perconalab/percona-xtradb-cluster-operator:main-logcollector
 #    configuration: |
 #      [OUTPUT]
-#           Name  es
-#           Match *
-#           Host  192.168.2.3
-#           Port  9200
-#           Index my_index
-#           Type  my_type
+#          Name  es
+#          Match *
+#          Host  192.168.2.3
+#          Port  9200
+#          Index my_index
+#          Type  my_type
+#    fluentBitBufferSettings:
+#      bufferChunkSize: "120k"
+#      bufferMaxSize: "512k"
+#      memBufLimit: "20MB"
     resources:
       requests:
         memory: 100M

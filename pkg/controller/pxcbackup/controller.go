@@ -27,6 +27,7 @@ import (
 
 	"github.com/percona/percona-xtradb-cluster-operator/clientcmd"
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/features"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/binlogcollector"
@@ -290,9 +291,17 @@ func (r *ReconcilePerconaXtraDBClusterBackup) createBackupJob(
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get initImage")
 	}
-	job.Spec, err = bcp.JobSpec(cr.Spec, cluster, job, initImage)
-	if err != nil {
-		return nil, errors.Wrap(err, "can't create job spec")
+
+	if features.Enabled(ctx, features.BackupXtrabackup) {
+		job.Spec, err = bcp.JobSpecXtrabackup(cr.Spec, cluster, job, initImage)
+		if err != nil {
+			return nil, errors.Wrap(err, "can't create job spec for xtrabackup")
+		}
+	} else {
+		job.Spec, err = bcp.JobSpec(cr.Spec, cluster, job, initImage)
+		if err != nil {
+			return nil, errors.Wrap(err, "can't create job spec")
+		}
 	}
 
 	switch storage.Type {
@@ -319,7 +328,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) createBackupJob(
 			return nil, errors.Wrap(err, "get backup pvc")
 		}
 
-		err := backup.SetStoragePVC(&job.Spec, cr, pvc.Name)
+		err := backup.SetStoragePVC(ctx, &job.Spec, cr, pvc.Name)
 		if err != nil {
 			return nil, errors.Wrap(err, "set storage FS")
 		}
@@ -329,7 +338,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) createBackupJob(
 		}
 		cr.Status.Destination.SetS3Destination(storage.S3.Bucket, cr.Spec.PXCCluster+"-"+cr.CreationTimestamp.Time.Format("2006-01-02-15:04:05")+"-full")
 
-		err := backup.SetStorageS3(&job.Spec, cr)
+		err := backup.SetStorageS3(ctx, &job.Spec, cr)
 		if err != nil {
 			return nil, errors.Wrap(err, "set storage FS")
 		}
@@ -339,7 +348,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) createBackupJob(
 		}
 		cr.Status.Destination.SetAzureDestination(storage.Azure.ContainerPath, cr.Spec.PXCCluster+"-"+cr.CreationTimestamp.Time.Format("2006-01-02-15:04:05")+"-full")
 
-		err := backup.SetStorageAzure(&job.Spec, cr)
+		err := backup.SetStorageAzure(ctx, &job.Spec, cr)
 		if err != nil {
 			return nil, errors.Wrap(err, "set storage FS for Azure")
 		}

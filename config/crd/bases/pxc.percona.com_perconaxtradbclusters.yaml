@@ -1749,6 +1749,21 @@ spec:
                   gracePeriod:
                     format: int64
                     type: integer
+                  healthCheck:
+                    properties:
+                      fall:
+                        format: int32
+                        minimum: 1
+                        type: integer
+                      interval:
+                        format: int32
+                        minimum: 1000
+                        type: integer
+                      rise:
+                        format: int32
+                        minimum: 1
+                        type: integer
+                    type: object
                   hookScript:
                     type: string
                   image:
@@ -8552,6 +8567,11 @@ spec:
                     items:
                       type: string
                     type: array
+                  mysqlAllocator:
+                    enum:
+                    - jemalloc
+                    - tcmalloc
+                    type: string
                   nodeSelector:
                     additionalProperties:
                       type: string

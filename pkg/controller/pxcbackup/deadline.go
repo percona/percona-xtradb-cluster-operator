@@ -2,6 +2,7 @@ package pxcbackup
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/pkg/errors"
@@ -86,7 +87,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) checkRunningDeadline(ctx context.C
 
 	job, err := r.getBackupJob(ctx, cluster, cr)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get backup job for running deadline check: %w", err)
 	}
 
 	// The backup goes into 'Starting' typically around the same time as the job is created,
@@ -116,7 +117,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) checkSuspendedDeadline(
 			return nil
 		}
 
-		return err
+		return fmt.Errorf("failed to get backup job for suspended deadline check: %w", err)
 	}
 
 	var deadlineSeconds *int64

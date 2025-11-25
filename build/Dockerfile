@@ -32,7 +32,7 @@ RUN GOOS=$GOOS GOARCH=${TARGETARCH} CGO_ENABLED=$CGO_ENABLED GO_LDFLAGS=$GO_LDFL
     
 RUN GOOS=$GOOS GOARCH=${TARGETARCH} CGO_ENABLED=$CGO_ENABLED GO_LDFLAGS=$GO_LDFLAGS \
        go build -o build/_output/bin/xtrabackup-server-sidecar \
-               cmd/xtrabackup-server-sidecar/main.go \
+               cmd/xtrabackup/server/main.go \
     && cp -r build/_output/bin/xtrabackup-server-sidecar /usr/local/bin/xtrabackup-server-sidecar
 
 RUN GOOS=$GOOS GOARCH=${TARGETARCH} CGO_ENABLED=$CGO_ENABLED GO_LDFLAGS=$GO_LDFLAGS \

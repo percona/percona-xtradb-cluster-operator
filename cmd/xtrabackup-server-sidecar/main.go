@@ -1,4 +1,4 @@
-package xtrabackupserversidecar
+package main
 
 import (
 	"fmt"

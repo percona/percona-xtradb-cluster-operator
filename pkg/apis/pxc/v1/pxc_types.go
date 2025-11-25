@@ -63,7 +63,7 @@ type PerconaXtraDBClusterSpec struct {
 	Users []User `json:"users,omitempty"`
 }
 
-// +kubebuilder:validation:XValidation:rule="self.maxLength > self.minLength"
+// +kubebuilder:validation:XValidation:rule="self.maxLength >= self.minLength"
 type PasswordGenerationOptions struct {
 	// Special symbols to include in password generation
 	// +kubebuilder:validation:Required

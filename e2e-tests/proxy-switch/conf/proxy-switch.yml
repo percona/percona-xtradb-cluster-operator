@@ -42,6 +42,8 @@ spec:
     enabled: false
     size: 3
     image: -proxysql
+    scheduler:
+      enabled: true
     resources:
       requests:
         memory: 0.1G

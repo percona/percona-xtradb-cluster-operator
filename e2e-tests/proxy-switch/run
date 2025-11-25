@@ -26,7 +26,7 @@ main() {
 	run_mysql \
 		'INSERT myApp.myApp (id) VALUES (100500)' \
 		"-h $cluster-haproxy -uroot -proot_password"
-	sleep 5
+	sleep 10
 	compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-haproxy -uroot -proot_password"
 
 	desc 'verify data exists on all PXC nodes'
@@ -55,14 +55,14 @@ main() {
 	kubectl_bin get service "$cluster-proxysql"
 
 	desc 'check connectivity through ProxySQL after switch'
-	sleep 10
+	sleep 20
 	compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-proxysql -uroot -proot_password"
 
 	desc 'write new data through ProxySQL'
 	run_mysql \
 		'INSERT myApp.myApp (id) VALUES (100501)' \
 		"-h $cluster-proxysql -uroot -proot_password"
-	sleep 5
+	sleep 10
 	compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-proxysql -uroot -proot_password"
 
 	desc 'verify new data exists on all PXC nodes'
@@ -110,7 +110,7 @@ main() {
 	run_mysql \
 		'INSERT myApp.myApp (id) VALUES (100502)' \
 		"-h $cluster-haproxy -uroot -proot_password"
-	sleep 5
+	sleep 10
 	compare_mysql_cmd "select-3" "SELECT * from myApp.myApp;" "-h $cluster-haproxy -uroot -proot_password"
 
 	desc 'verify data exists on all PXC nodes'

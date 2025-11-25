@@ -64,6 +64,14 @@ func StatefulSet(
 		return nil, errors.Wrap(err, "app container")
 	}
 
+	xbC, err := sfs.XtrabackupContainer(ctx, cr)
+	if err != nil {
+		return nil, errors.Wrap(err, "xtrabackup container")
+	}
+	if xbC != nil {
+		pod.Containers = append(pod.Containers, *xbC)
+	}
+
 	pmmC, err := sfs.PMMContainer(ctx, cl, cr.Spec.PMM, secret, cr)
 	if err != nil {
 		log.Info(`"pmm container error"`, "secrets", cr.Spec.SecretsName, "internalSecrets", "internal-"+cr.Name, "error", err)

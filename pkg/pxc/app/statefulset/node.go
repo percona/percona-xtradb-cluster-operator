@@ -8,15 +8,18 @@ import (
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/features"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	app "github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/config"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/xtrabackup/server"
 )
 
 const (
@@ -370,6 +373,46 @@ func (c *Node) LogCollectorContainer(spec *api.LogCollectorSpec, logPsecrets str
 	}
 
 	return []corev1.Container{logProcContainer, logRotContainer}, nil
+}
+
+func (c *Node) XtrabackupContainer(ctx context.Context, cr *api.PerconaXtraDBCluster) (*corev1.Container, error) {
+	if !features.Enabled(ctx, features.BackupXtrabackup) {
+		return nil, nil
+	}
+	container := &corev1.Container{
+		Name:            "xtrabackup",
+		Image:           cr.Spec.Backup.Image,
+		ImagePullPolicy: cr.Spec.Backup.ImagePullPolicy,
+		Env: []corev1.EnvVar{
+			{
+				Name: "POD_NAMESPACE",
+				ValueFrom: &corev1.EnvVarSource{
+					FieldRef: &corev1.ObjectFieldSelector{
+						FieldPath: "metadata.namespace",
+					},
+				},
+			},
+		},
+		Command: []string{"/opt/percona/xtrabackup-server-sidecar"},
+		Ports: []corev1.ContainerPort{
+			{
+				Name:          "grpc",
+				ContainerPort: server.DefaultPort,
+			},
+		},
+		// TODO: make this configurable from CR
+		Resources: corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("200m"),
+				corev1.ResourceMemory: resource.MustParse("512Mi"),
+			},
+			Limits: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("200m"),
+				corev1.ResourceMemory: resource.MustParse("512Mi"),
+			},
+		},
+	}
+	return container, nil
 }
 
 func (c *Node) PMMContainer(ctx context.Context, cl client.Client, spec *api.PMMSpec, secret *corev1.Secret, cr *api.PerconaXtraDBCluster) (*corev1.Container, error) {

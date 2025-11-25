@@ -11,7 +11,7 @@ import (
 
 const (
 	// BackupXtrabackup is a feature flag for the BackupXtrabackup feature
-	BackupXtrabackup = "BackupXtrabackup"
+	BackupXtrabackup featuregate.Feature = "BackupXtrabackup"
 )
 
 // NewGate returns a new FeatureGate.

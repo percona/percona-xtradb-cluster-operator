@@ -204,6 +204,10 @@ func (c *HAProxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.Percon
 	return appc, nil
 }
 
+func (c *HAProxy) XtrabackupContainer(ctx context.Context, cr *api.PerconaXtraDBCluster) (*corev1.Container, error) {
+	return nil, nil
+}
+
 func (c *HAProxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster) ([]corev1.Container, error) {
 	container := corev1.Container{
 		Name:            "pxc-monit",

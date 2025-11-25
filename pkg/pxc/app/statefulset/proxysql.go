@@ -178,6 +178,10 @@ func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaX
 	return appc, nil
 }
 
+func (c *Proxy) XtrabackupContainer(ctx context.Context, cr *api.PerconaXtraDBCluster) (*corev1.Container, error) {
+	return nil, nil
+}
+
 func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster) ([]corev1.Container, error) {
 	pxcMonit := corev1.Container{
 		Name:            "pxc-monit",

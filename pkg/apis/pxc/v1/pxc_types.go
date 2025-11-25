@@ -584,22 +584,24 @@ type PodSpec struct {
 	// Deprecated: Use ServiceExpose.Labels instead
 	ReplicasServiceLabels map[string]string `json:"replicasServiceLabels,omitempty"`
 
-	SchedulerName                string                            `json:"schedulerName,omitempty"`
-	ReadinessInitialDelaySeconds *int32                            `json:"readinessDelaySec,omitempty"`
-	ReadinessProbes              corev1.Probe                      `json:"readinessProbes,omitempty"`
-	LivenessInitialDelaySeconds  *int32                            `json:"livenessDelaySec,omitempty"`
-	LivenessProbes               corev1.Probe                      `json:"livenessProbes,omitempty"`
-	PodSecurityContext           *corev1.PodSecurityContext        `json:"podSecurityContext,omitempty"`
-	ContainerSecurityContext     *corev1.SecurityContext           `json:"containerSecurityContext,omitempty"`
-	ServiceAccountName           string                            `json:"serviceAccountName,omitempty"`
-	ImagePullPolicy              corev1.PullPolicy                 `json:"imagePullPolicy,omitempty"`
-	Sidecars                     []corev1.Container                `json:"sidecars,omitempty"`
-	SidecarVolumes               []corev1.Volume                   `json:"sidecarVolumes,omitempty"`
-	SidecarPVCs                  []corev1.PersistentVolumeClaim    `json:"sidecarPVCs,omitempty"`
-	RuntimeClassName             *string                           `json:"runtimeClassName,omitempty"`
-	HookScript                   string                            `json:"hookScript,omitempty"`
-	Lifecycle                    corev1.Lifecycle                  `json:"lifecycle,omitempty"`
-	TopologySpreadConstraints    []corev1.TopologySpreadConstraint `json:"topologySpreadConstraints,omitempty"`
+	SchedulerName string `json:"schedulerName,omitempty"`
+	// Deprecated: Unsupported from version 1.19.0 and will be deleted in 1.22.0. Use ReadinessProbes.initialDelaySeconds instead
+	ReadinessInitialDelaySeconds *int32       `json:"readinessDelaySec,omitempty"`
+	ReadinessProbes              corev1.Probe `json:"readinessProbes,omitempty"`
+	// Deprecated: Unsupported from version 1.19.0 and will be deleted in 1.22.0. Use LivenessProbes.initialDelaySeconds instead
+	LivenessInitialDelaySeconds *int32                            `json:"livenessDelaySec,omitempty"`
+	LivenessProbes              corev1.Probe                      `json:"livenessProbes,omitempty"`
+	PodSecurityContext          *corev1.PodSecurityContext        `json:"podSecurityContext,omitempty"`
+	ContainerSecurityContext    *corev1.SecurityContext           `json:"containerSecurityContext,omitempty"`
+	ServiceAccountName          string                            `json:"serviceAccountName,omitempty"`
+	ImagePullPolicy             corev1.PullPolicy                 `json:"imagePullPolicy,omitempty"`
+	Sidecars                    []corev1.Container                `json:"sidecars,omitempty"`
+	SidecarVolumes              []corev1.Volume                   `json:"sidecarVolumes,omitempty"`
+	SidecarPVCs                 []corev1.PersistentVolumeClaim    `json:"sidecarPVCs,omitempty"`
+	RuntimeClassName            *string                           `json:"runtimeClassName,omitempty"`
+	HookScript                  string                            `json:"hookScript,omitempty"`
+	Lifecycle                   corev1.Lifecycle                  `json:"lifecycle,omitempty"`
+	TopologySpreadConstraints   []corev1.TopologySpreadConstraint `json:"topologySpreadConstraints,omitempty"`
 }
 
 func (spec *PodSpec) HasSidecarInternalSecret(secret *corev1.Secret) bool {
@@ -1306,15 +1308,16 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 }
 
 const (
-	maxSafePXCSize   = 5
-	minSafeProxySize = 2
+	maxSafePXCSize             = 5
+	minSafeProxySize           = 2
+	DefaultInitialDelaySeconds = 300
 )
 
 func (cr *PerconaXtraDBCluster) setProbesDefaults() {
 	if cr.Spec.PXC.LivenessInitialDelaySeconds != nil {
 		cr.Spec.PXC.LivenessProbes.InitialDelaySeconds = *cr.Spec.PXC.LivenessInitialDelaySeconds
 	} else if cr.Spec.PXC.LivenessProbes.InitialDelaySeconds == 0 {
-		cr.Spec.PXC.LivenessProbes.InitialDelaySeconds = 300
+		cr.Spec.PXC.LivenessProbes.InitialDelaySeconds = DefaultInitialDelaySeconds
 	}
 
 	if cr.Spec.PXC.LivenessProbes.TimeoutSeconds == 0 {

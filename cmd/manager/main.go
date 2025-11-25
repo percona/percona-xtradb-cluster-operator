@@ -90,6 +90,19 @@ func main() {
 		os.Exit(1)
 	}
 
+	fg := features.NewGate()
+	if err := fg.Set(os.Getenv("PXCO_FEATURE_GATES")); err != nil {
+		setupLog.Error(err, "failed to set feature gates")
+		os.Exit(1)
+	}
+	fgCtx := features.NewContextWithGate(context.Background(), fg)
+	setupLog.Info("Feature gates",
+		// These are set by the user
+		"PXCO_FEATURE_GATES", features.ShowAssigned(fgCtx),
+		// These are enabled, including features that are on by default
+		"enabled", features.ShowEnabled(fgCtx),
+	)
+
 	options := ctrl.Options{
 		Scheme: scheme,
 		Metrics: metricsServer.Options{
@@ -101,6 +114,9 @@ func main() {
 		WebhookServer: ctrlWebhook.NewServer(ctrlWebhook.Options{
 			Port: 9443,
 		}),
+		BaseContext: func() context.Context {
+			return features.NewContextWithGate(context.Background(), fg)
+		},
 	}
 
 	err = configureGroupKindConcurrency(&options)
@@ -158,19 +174,6 @@ func main() {
 	}
 
 	ctx := k8s.StartStopSignalHandler(mgr.GetClient(), strings.Split(namespace, ","))
-
-	fg := features.NewGate()
-	ctx = features.NewContextWithGate(ctx, fg)
-	if err := fg.Set(os.Getenv("PXCO_FEATURE_GATES")); err != nil {
-		setupLog.Error(err, "failed to set feature gates")
-		os.Exit(1)
-	}
-	setupLog.Info("Feature gates",
-		// These are set by the user
-		"PXCO_FEATURE_GATES", features.ShowAssigned(ctx),
-		// These are enabled, including features that are on by default
-		"enabled", features.ShowEnabled(ctx),
-	)
 
 	if err := webhook.SetupWebhook(ctx, mgr); err != nil {
 		setupLog.Error(err, "set up validation webhook")

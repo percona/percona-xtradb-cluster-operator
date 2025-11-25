@@ -22,6 +22,7 @@ pitr,8.0
 pitr-gap-errors,8.0
 proxy-protocol,8.0
 proxysql-sidecar-res-limits,8.0
+proxysql-scheduler,8.0
 pvc-resize,5.7
 pvc-resize,8.0
 recreate,8.0

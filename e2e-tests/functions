@@ -12,6 +12,7 @@ CERT_MANAGER_VER="1.18.2"
 MINIO_VER="5.4.0"
 CHAOS_MESH_VER="2.7.1"
 VAULT_VER="0.30.0"
+UPDATE_COMPARE_FILES=${UPDATE_COMPARE_FILES:-0}
 
 export IMAGE=${IMAGE:-"perconalab/percona-xtradb-cluster-operator:${GIT_BRANCH}"}
 export IMAGE_PXC=${IMAGE_PXC:-"perconalab/percona-xtradb-cluster-operator:main-pxc${MYSQL_VERSION}"}
@@ -115,7 +116,6 @@ if [ "${HELM_VERSION:0:2}" == "v2" ]; then
 fi
 
 version_gt() {
-	desc "return true if kubernetes version equal or greater than desired"
 	if [ $(echo "${KUBE_VERSION} >= $1" | bc -l) -eq 1 ]; then
 		return 0
 	else
@@ -557,7 +557,16 @@ compare_kubectl() {
 			del(.spec.crVersion) |
 			del(.. | select(.[] == "percona-xtradb-cluster-operator-workload-token*"))' - >${new_result}
 
-	diff -u ${expected_result} ${new_result}
+	if [[ ${UPDATE_COMPARE_FILES} -eq 0 ]]; then
+		if ! diff -u "$expected_result" "$new_result"; then
+			log "compare_kubectl ($(caller)) failed with diff"
+			exit 1
+		fi
+	else
+		cp ${new_result} ${expected_result}
+	fi
+
+	log "compare_kubectl: ${resource} OK"
 }
 
 get_client_pod() {
@@ -618,7 +627,11 @@ compare_mysql_cmd() {
 		run_mysql "$command" "$uri" \
 			>$tmp_dir/${command_id}.sql
 	fi
-	diff -u $expected_result $tmp_dir/${command_id}.sql
+	if [[ ${UPDATE_COMPARE_FILES} -eq 0 ]]; then
+		diff -u $expected_result $tmp_dir/${command_id}.sql
+	else
+		cp $tmp_dir/${command_id}.sql $expected_result
+	fi
 }
 
 compare_mysql_cmd_local() {
@@ -643,7 +656,12 @@ compare_mysql_cmd_local() {
 		run_mysql_local "$command" "$uri" "$pod" \
 			>$tmp_dir/${command_id}.sql
 	fi
-	diff -u $expected_result $tmp_dir/${command_id}.sql
+
+	if [[ ${UPDATE_COMPARE_FILES} -eq 0 ]]; then
+		diff -u $expected_result $tmp_dir/${command_id}.sql
+	else
+		cp $tmp_dir/${command_id}.sql $expected_result
+	fi
 }
 
 get_proxy_primary() {
@@ -686,7 +704,11 @@ compare_mysql_user() {
 	(run_mysql "SHOW GRANTS;" "$uri" || :) \
 		| $sed -E "s/'(10|192)[.][0-9][^']*'//; s/'[^']*[.]internal'//" \
 			>$tmp_dir/$user.sql
-	diff -u $expected_result $tmp_dir/$user.sql
+	if [[ ${UPDATE_COMPARE_FILES} -eq 0 ]]; then
+		diff -u $expected_result $tmp_dir/$user.sql
+	else
+		cp $tmp_dir/$user.sql $expected_result
+	fi
 }
 
 compare_mysql_user_local() {
@@ -706,7 +728,11 @@ compare_mysql_user_local() {
 	(run_mysql_local "SHOW GRANTS;" "$uri" "$pod" "$container_name" || :) \
 		| $sed -E "s/'(10|192)[.][0-9][^']*'//; s/'[^']*[.]internal'//" \
 			>$tmp_dir/$user.sql
-	diff -u $expected_result $tmp_dir/$user.sql
+	if [[ ${UPDATE_COMPARE_FILES} -eq 0 ]]; then
+		diff -u $expected_result $tmp_dir/$user.sql
+	else
+		cp $tmp_dir/$user.sql $expected_result
+	fi
 }
 
 get_pumba() {

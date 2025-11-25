@@ -584,22 +584,24 @@ type PodSpec struct {
 	// Deprecated: Use ServiceExpose.Labels instead
 	ReplicasServiceLabels map[string]string `json:"replicasServiceLabels,omitempty"`
 
-	SchedulerName                string                            `json:"schedulerName,omitempty"`
-	ReadinessInitialDelaySeconds *int32                            `json:"readinessDelaySec,omitempty"`
-	ReadinessProbes              corev1.Probe                      `json:"readinessProbes,omitempty"`
-	LivenessInitialDelaySeconds  *int32                            `json:"livenessDelaySec,omitempty"`
-	LivenessProbes               corev1.Probe                      `json:"livenessProbes,omitempty"`
-	PodSecurityContext           *corev1.PodSecurityContext        `json:"podSecurityContext,omitempty"`
-	ContainerSecurityContext     *corev1.SecurityContext           `json:"containerSecurityContext,omitempty"`
-	ServiceAccountName           string                            `json:"serviceAccountName,omitempty"`
-	ImagePullPolicy              corev1.PullPolicy                 `json:"imagePullPolicy,omitempty"`
-	Sidecars                     []corev1.Container                `json:"sidecars,omitempty"`
-	SidecarVolumes               []corev1.Volume                   `json:"sidecarVolumes,omitempty"`
-	SidecarPVCs                  []corev1.PersistentVolumeClaim    `json:"sidecarPVCs,omitempty"`
-	RuntimeClassName             *string                           `json:"runtimeClassName,omitempty"`
-	HookScript                   string                            `json:"hookScript,omitempty"`
-	Lifecycle                    corev1.Lifecycle                  `json:"lifecycle,omitempty"`
-	TopologySpreadConstraints    []corev1.TopologySpreadConstraint `json:"topologySpreadConstraints,omitempty"`
+	SchedulerName string `json:"schedulerName,omitempty"`
+	// Deprecated: Unsupported from version 1.19.0 and will be deleted in 1.22.0. Use ReadinessProbes.initialDelaySeconds instead
+	ReadinessInitialDelaySeconds *int32       `json:"readinessDelaySec,omitempty"`
+	ReadinessProbes              corev1.Probe `json:"readinessProbes,omitempty"`
+	// Deprecated: Unsupported from version 1.19.0 and will be deleted in 1.22.0. Use LivenessProbes.initialDelaySeconds instead
+	LivenessInitialDelaySeconds *int32                            `json:"livenessDelaySec,omitempty"`
+	LivenessProbes              corev1.Probe                      `json:"livenessProbes,omitempty"`
+	PodSecurityContext          *corev1.PodSecurityContext        `json:"podSecurityContext,omitempty"`
+	ContainerSecurityContext    *corev1.SecurityContext           `json:"containerSecurityContext,omitempty"`
+	ServiceAccountName          string                            `json:"serviceAccountName,omitempty"`
+	ImagePullPolicy             corev1.PullPolicy                 `json:"imagePullPolicy,omitempty"`
+	Sidecars                    []corev1.Container                `json:"sidecars,omitempty"`
+	SidecarVolumes              []corev1.Volume                   `json:"sidecarVolumes,omitempty"`
+	SidecarPVCs                 []corev1.PersistentVolumeClaim    `json:"sidecarPVCs,omitempty"`
+	RuntimeClassName            *string                           `json:"runtimeClassName,omitempty"`
+	HookScript                  string                            `json:"hookScript,omitempty"`
+	Lifecycle                   corev1.Lifecycle                  `json:"lifecycle,omitempty"`
+	TopologySpreadConstraints   []corev1.TopologySpreadConstraint `json:"topologySpreadConstraints,omitempty"`
 }
 
 func (spec *PodSpec) HasSidecarInternalSecret(secret *corev1.Secret) bool {
@@ -633,7 +635,43 @@ func (spec *PodSpec) HasSidecarInternalSecret(secret *corev1.Secret) bool {
 
 type ProxySQLSpec struct {
 	PodSpec `json:",inline"`
-	Expose  ServiceExpose `json:"expose,omitempty"`
+
+	Expose ServiceExpose `json:"expose,omitempty"`
+
+	Scheduler ProxySQLSchedulerSpec `json:"scheduler"`
+}
+
+type ProxySQLSchedulerSpec struct {
+	Enabled bool `json:"enabled,omitempty"`
+
+	// If checking a backend node (PXC) exceeds this timeout, it won't be processed.
+	// +kubebuilder:default=2000
+	CheckTimeoutMilliseconds int32 `json:"checkTimeoutMilliseconds,omitempty"`
+
+	// If you want to exclude the writer from read set it to false.
+	// When the cluster will lose its last reader, the writer will be elected as Reader, no matter what.
+	// +kubebuilder:default=true
+	WriterIsAlsoReader bool `json:"writerIsAlsoReader,omitempty"`
+
+	// Number of retries the application should do before restoring a failed node.
+	// +kubebuilder:default=1
+	SuccessThreshold int32 `json:"successThreshold,omitempty"`
+
+	// Number of retries the application should do to put DOWN a failing node.
+	// +kubebuilder:default=3
+	FailureThreshold int32 `json:"failureThreshold,omitempty"`
+
+	// The connection timeout (milliseconds) used to test the connection towards the PXC server.
+	// +kubebuilder:default=1000
+	PingTimeoutMilliseconds int32 `json:"pingTimeoutMilliseconds,omitempty"`
+
+	// How frequently the scheduler must run.
+	// +kubebuilder:default=2000
+	NodeCheckIntervalMilliseconds int32 `json:"nodeCheckIntervalMilliseconds,omitempty"`
+
+	// Max number of connections from ProxySQL to the backend servers.
+	// +kubebuilder:default=1000
+	MaxConnections int32 `json:"maxConnections,omitempty"`
 }
 
 type HAProxySpec struct {
@@ -1270,15 +1308,16 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 }
 
 const (
-	maxSafePXCSize   = 5
-	minSafeProxySize = 2
+	maxSafePXCSize             = 5
+	minSafeProxySize           = 2
+	DefaultInitialDelaySeconds = 300
 )
 
 func (cr *PerconaXtraDBCluster) setProbesDefaults() {
 	if cr.Spec.PXC.LivenessInitialDelaySeconds != nil {
 		cr.Spec.PXC.LivenessProbes.InitialDelaySeconds = *cr.Spec.PXC.LivenessInitialDelaySeconds
 	} else if cr.Spec.PXC.LivenessProbes.InitialDelaySeconds == 0 {
-		cr.Spec.PXC.LivenessProbes.InitialDelaySeconds = 300
+		cr.Spec.PXC.LivenessProbes.InitialDelaySeconds = DefaultInitialDelaySeconds
 	}
 
 	if cr.Spec.PXC.LivenessProbes.TimeoutSeconds == 0 {

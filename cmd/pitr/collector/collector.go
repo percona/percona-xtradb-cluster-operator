@@ -208,13 +208,44 @@ func (c *Collector) Init(ctx context.Context) error {
 	switch {
 	case strings.HasPrefix(version, "8.0"):
 		log.Println("creating collector functions")
-		if err := db.CreateCollectorFunctions(ctx); err != nil {
+		if err := c.CreateCollectorFunctions(ctx); err != nil {
 			return errors.Wrap(err, "init 8.0: create collector functions")
 		}
 	case strings.HasPrefix(version, "8.4"):
 		log.Println("installing binlog UDF component")
 		if err := db.InstallBinlogUDFComponent(ctx); err != nil {
 			return errors.Wrap(err, "init 8.4: install component")
+		}
+	}
+
+	return nil
+}
+
+func (c *Collector) CreateCollectorFunctions(ctx context.Context) error {
+	nodes, err := pxc.GetNodesByServiceName(ctx, c.pxcServiceName)
+	if err != nil {
+		return errors.Wrap(err, "get nodes by service name")
+	}
+
+	create := func(node string) error {
+		nodeArr := strings.Split(node, ":")
+		host := nodeArr[0]
+		db, err := pxc.NewPXC(host, c.pxcUser, c.pxcPass)
+		if err != nil {
+			return errors.Errorf("creating connection for host %s: %v", host, err)
+		}
+		defer db.Close()
+		if err := db.CreateCollectorFunctions(ctx); err != nil {
+			return errors.Wrap(err, "create collector functions")
+		}
+		return nil
+	}
+
+	for _, node := range nodes {
+		if strings.Contains(node, "wsrep_ready:ON:wsrep_connected:ON:wsrep_local_state_comment:Synced:wsrep_cluster_status:Primary") {
+			if err := create(node); err != nil {
+				return err
+			}
 		}
 	}
 

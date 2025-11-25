@@ -9603,6 +9603,11 @@ spec:
                     items:
                       type: string
                     type: array
+                  mysqlAllocator:
+                    enum:
+                    - jemalloc
+                    - tcmalloc
+                    type: string
                   nodeSelector:
                     additionalProperties:
                       type: string

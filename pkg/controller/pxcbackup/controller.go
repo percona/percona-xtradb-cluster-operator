@@ -575,6 +575,24 @@ func (r *ReconcilePerconaXtraDBClusterBackup) getCluster(ctx context.Context, cr
 	return &cluster, nil
 }
 
+func getPXCBackupStateFromJob(job *batchv1.Job) api.PXCBackupState {
+	if ptr.Deref(job.Status.Ready, 0) == 1 {
+		return api.BackupRunning
+	}
+	for _, cond := range job.Status.Conditions {
+		if cond.Status != corev1.ConditionTrue {
+			continue
+		}
+		switch cond.Type {
+		case batchv1.JobFailed:
+			return api.BackupFailed
+		case batchv1.JobComplete:
+			return api.BackupSucceeded
+		}
+	}
+	return api.BackupStarting
+}
+
 func (r *ReconcilePerconaXtraDBClusterBackup) updateJobStatus(
 	ctx context.Context,
 	bcp *api.PerconaXtraDBClusterBackup,
@@ -595,7 +613,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) updateJobStatus(
 	}
 
 	status := api.PXCBackupStatus{
-		State:                 api.BackupStarting,
+		State:                 getPXCBackupStateFromJob(job),
 		Destination:           bcp.Status.Destination,
 		StorageName:           storageName,
 		S3:                    storage.S3,
@@ -608,21 +626,8 @@ func (r *ReconcilePerconaXtraDBClusterBackup) updateJobStatus(
 		VerifyTLS:             storage.VerifyTLS,
 	}
 
-	if ptr.Deref(job.Status.Ready, 0) == 1 {
-		status.State = api.BackupRunning
-	}
-
-	for _, cond := range job.Status.Conditions {
-		if cond.Status != corev1.ConditionTrue {
-			continue
-		}
-		switch cond.Type {
-		case batchv1.JobFailed:
-			status.State = api.BackupFailed
-		case batchv1.JobComplete:
-			status.State = api.BackupSucceeded
-			status.CompletedAt = job.Status.CompletionTime
-		}
+	if status.State == api.BackupSucceeded {
+		status.CompletedAt = job.Status.CompletionTime
 	}
 
 	// don't update the status if there aren't any changes.

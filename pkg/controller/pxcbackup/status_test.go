@@ -8,6 +8,7 @@ import (
 	"k8s.io/utils/ptr"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/stretchr/testify/assert"
 )
 
 func Test_getPXCBackupStateFromJob(t *testing.T) {
@@ -137,9 +138,7 @@ func Test_getPXCBackupStateFromJob(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := getPXCBackupStateFromJob(tt.job)
-			if result != tt.expected {
-				t.Errorf("getPXCBackupStateFromJob() = %v, want %v", result, tt.expected)
-			}
+			assert.Equal(t, tt.expected, result)
 		})
 	}
 }

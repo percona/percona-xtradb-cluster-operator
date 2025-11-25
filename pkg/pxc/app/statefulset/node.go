@@ -400,6 +400,12 @@ func (c *Node) XtrabackupContainer(ctx context.Context, cr *api.PerconaXtraDBClu
 				ContainerPort: server.DefaultPort,
 			},
 		},
+		VolumeMounts: []corev1.VolumeMount{
+			{
+				Name:      app.DataVolumeName,
+				MountPath: "/var/lib/mysql",
+			},
+		},
 		// TODO: make this configurable from CR
 		Resources: corev1.ResourceRequirements{
 			Requests: corev1.ResourceList{

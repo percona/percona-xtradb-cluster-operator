@@ -24,7 +24,6 @@ func TestPXCAppContainer(t *testing.T) {
 		expectedImage     string
 		expectedLDPreload string
 		expectedEnvFrom   []corev1.EnvFromSource
-		expectError       bool
 	}{
 		"success - container construction": {
 			spec: api.PXCSpec{
@@ -48,7 +47,6 @@ func TestPXCAppContainer(t *testing.T) {
 					},
 				},
 			},
-			expectError: false,
 		},
 		"allocator - jemalloc": {
 			spec: api.PXCSpec{
@@ -73,7 +71,6 @@ func TestPXCAppContainer(t *testing.T) {
 					},
 				},
 			},
-			expectError: false,
 		},
 		"allocator - tcmalloc": {
 			spec: api.PXCSpec{
@@ -98,7 +95,6 @@ func TestPXCAppContainer(t *testing.T) {
 					},
 				},
 			},
-			expectError: false,
 		},
 		"allocator - override with envFrom": {
 			spec: api.PXCSpec{
@@ -132,7 +128,6 @@ func TestPXCAppContainer(t *testing.T) {
 					},
 				},
 			},
-			expectError: false,
 		},
 	}
 
@@ -159,9 +154,7 @@ func TestPXCAppContainer(t *testing.T) {
 			pxcNode := Node{cr: cr}
 
 			c, err := pxcNode.AppContainer(t.Context(), client, tt.spec.PodSpec, tt.secrets, cr, nil)
-			if tt.expectError {
-				require.Error(t, err)
-			}
+			require.NoError(t, err)
 
 			assert.Equal(t, tt.expectedName, c.Name)
 			assert.Equal(t, tt.expectedImage, c.Image)

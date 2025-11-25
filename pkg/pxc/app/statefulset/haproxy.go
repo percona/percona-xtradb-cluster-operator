@@ -46,7 +46,7 @@ func (c *HAProxy) InitContainers(cr *api.PerconaXtraDBCluster, initImageName str
 	return inits
 }
 
-func (c *HAProxy) AppContainer(ctx context.Context, cl client.Client, spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster,
+func (c *HAProxy) AppContainer(_ context.Context, _ client.Client, spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster,
 	_ []corev1.Volume,
 ) (corev1.Container, error) {
 	appc := corev1.Container{

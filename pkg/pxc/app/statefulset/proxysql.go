@@ -2,6 +2,7 @@ package statefulset
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
@@ -175,6 +176,52 @@ func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaX
 		appc.Lifecycle = &cr.Spec.ProxySQL.Lifecycle
 	}
 
+	if cr.CompareVersionWith("1.19.0") >= 0 {
+		scheduler := cr.Spec.ProxySQL.Scheduler
+		appc.Env = append(appc.Env, []corev1.EnvVar{
+			{
+				Name:  "SCHEDULER_CHECKTIMEOUT",
+				Value: strconv.FormatInt(int64(scheduler.CheckTimeoutMilliseconds), 10),
+			},
+			{
+				Name: "SCHEDULER_WRITERALSOREADER",
+				Value: func() string {
+					if scheduler.WriterIsAlsoReader {
+						return "1"
+					}
+					return "0"
+				}(),
+			},
+			{
+				Name:  "SCHEDULER_RETRYUP",
+				Value: strconv.FormatInt(int64(scheduler.SuccessThreshold), 10),
+			},
+			{
+				Name:  "SCHEDULER_RETRYDOWN",
+				Value: strconv.FormatInt(int64(scheduler.FailureThreshold), 10),
+			},
+			{
+				Name:  "SCHEDULER_PINGTIMEOUT",
+				Value: strconv.FormatInt(int64(scheduler.PingTimeoutMilliseconds), 10),
+			},
+			{
+				Name:  "SCHEDULER_NODECHECKINTERVAL",
+				Value: strconv.FormatInt(int64(scheduler.NodeCheckIntervalMilliseconds), 10),
+			},
+			{
+				Name:  "SCHEDULER_MAXCONNECTIONS",
+				Value: strconv.FormatInt(int64(scheduler.MaxConnections), 10),
+			},
+		}...)
+
+		if scheduler.Enabled {
+			appc.Env = append(appc.Env, corev1.EnvVar{
+				Name:  "SCHEDULER_ENABLED",
+				Value: "true",
+			})
+		}
+	}
+
 	return appc, nil
 }
 
@@ -333,7 +380,32 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.Per
 		proxysqlMonit.Args = append(proxysqlMonit.Args, "-protocol=$(PEER_LIST_SRV_PROTOCOL)")
 	}
 
-	return []corev1.Container{pxcMonit, proxysqlMonit}, nil
+	if cr.CompareVersionWith("1.19.0") >= 0 {
+		pxcMonit.VolumeMounts = append(pxcMonit.VolumeMounts, []corev1.VolumeMount{
+			{
+				Name:      "ssl",
+				MountPath: "/etc/proxysql/ssl",
+			},
+			{
+				Name:      "ssl-internal",
+				MountPath: "/etc/proxysql/ssl-internal",
+			},
+		}...)
+
+		if cr.Spec.ProxySQL.Scheduler.Enabled {
+			pxcMonit.Env = append(pxcMonit.Env, corev1.EnvVar{
+				Name:  "SCHEDULER_ENABLED",
+				Value: "true",
+			})
+		}
+	}
+
+	containers := []corev1.Container{pxcMonit}
+	if !cr.Spec.ProxySQL.Scheduler.Enabled {
+		containers = append(containers, proxysqlMonit)
+	}
+
+	return containers, nil
 }
 
 func (c *Proxy) LogCollectorContainer(_ *api.LogCollectorSpec, _ string, _ string, _ *api.PerconaXtraDBCluster) ([]corev1.Container, error) {
@@ -561,6 +633,7 @@ func (c *Proxy) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg a
 			vol.PVCs[i].Labels = ls
 		}
 	}
+
 	return vol, nil
 }
 

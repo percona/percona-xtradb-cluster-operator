@@ -108,7 +108,15 @@ spec:
                     type: string
                   error:
                     type: string
-                  fsPvc:
+                  image:
+                    type: string
+                  lastscheduled:
+                    format: date-time
+                    type: string
+                  latestRestorableTime:
+                    format: date-time
+                    type: string
+                  pvc:
                     properties:
                       accessModes:
                         items:
@@ -196,14 +204,6 @@ spec:
                       volumeName:
                         type: string
                     type: object
-                  image:
-                    type: string
-                  lastscheduled:
-                    format: date-time
-                    type: string
-                  latestRestorableTime:
-                    format: date-time
-                    type: string
                   s3:
                     properties:
                       bucket:
@@ -407,7 +407,15 @@ spec:
                         type: string
                       error:
                         type: string
-                      fsPvc:
+                      image:
+                        type: string
+                      lastscheduled:
+                        format: date-time
+                        type: string
+                      latestRestorableTime:
+                        format: date-time
+                        type: string
+                      pvc:
                         properties:
                           accessModes:
                             items:
@@ -495,14 +503,6 @@ spec:
                           volumeName:
                             type: string
                         type: object
-                      image:
-                        type: string
-                      lastscheduled:
-                        format: date-time
-                        type: string
-                      latestRestorableTime:
-                        format: date-time
-                        type: string
                       s3:
                         properties:
                           bucket:

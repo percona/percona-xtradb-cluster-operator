@@ -5,8 +5,8 @@ metadata:
 #    - percona.com/delete-backup
   name: backup1
 spec:
-  pxcCluster: cluster1
-  storageName: fs-pvc
+  pxcCluster: demand-backup
+  storageName: pvc
 #  activeDeadlineSeconds: 3600
 #  startingDeadlineSeconds: 300
 #  suspendedDeadlineSeconds: 1200

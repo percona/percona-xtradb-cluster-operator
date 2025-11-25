@@ -454,8 +454,8 @@ func (in *PXCBackupStatus) DeepCopyInto(out *PXCBackupStatus) {
 		*out = new(BackupStorageAzureSpec)
 		**out = **in
 	}
-	if in.FsPvc != nil {
-		in, out := &in.FsPvc, &out.FsPvc
+	if in.Pvc != nil {
+		in, out := &in.Pvc, &out.Pvc
 		*out = new(corev1.PersistentVolumeClaimSpec)
 		(*in).DeepCopyInto(*out)
 	}
@@ -1378,7 +1378,7 @@ func (in *TLSSpec) DeepCopyInto(out *TLSSpec) {
 	}
 	if in.IssuerConf != nil {
 		in, out := &in.IssuerConf, &out.IssuerConf
-		*out = new(apismetav1.ObjectReference)
+		*out = new(apismetav1.IssuerReference)
 		**out = **in
 	}
 }

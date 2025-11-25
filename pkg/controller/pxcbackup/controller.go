@@ -422,7 +422,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) runBackupFinalizers(ctx context.Co
 		switch f {
 		case naming.FinalizerDeleteBackup:
 			storageType := cr.Status.GetStorageType(nil)
-			if (cr.Status.S3 == nil && cr.Status.Azure == nil && cr.Status.FsPvc == nil) || cr.Status.Destination == "" {
+			if (cr.Status.S3 == nil && cr.Status.Azure == nil && cr.Status.Pvc == nil) || cr.Status.Destination == "" {
 				continue
 			}
 
@@ -614,7 +614,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) updateJobStatus(
 		StorageName:           storageName,
 		S3:                    storage.S3,
 		Azure:                 storage.Azure,
-		FsPvc:                 bcp.Status.FsPvc,
+		Pvc:                   bcp.Status.Pvc,
 		StorageType:           storage.Type,
 		Image:                 bcp.Status.Image,
 		SSLSecretName:         bcp.Status.SSLSecretName,

@@ -125,7 +125,11 @@ type PXCSpec struct {
 	AutoRecovery        *bool                `json:"autoRecovery,omitempty"`
 	ReplicationChannels []ReplicationChannel `json:"replicationChannels,omitempty"`
 	Expose              ServiceExpose        `json:"expose,omitempty"`
-	*PodSpec            `json:",inline"`
+
+	// +kubebuilder:validation:Enum={jemalloc,tcmalloc}
+	MySQLAllocator string `json:"mysqlAllocator,omitempty"`
+
+	*PodSpec `json:",inline"`
 }
 
 // ServiceExpose defines the configuration options for exposing a k8s Service.
@@ -228,6 +232,10 @@ type PXCScheduledBackup struct {
 	ActiveDeadlineSeconds    *int64                        `json:"activeDeadlineSeconds,omitempty"`
 	StartingDeadlineSeconds  *int64                        `json:"startingDeadlineSeconds,omitempty"`
 	SuspendedDeadlineSeconds *int64                        `json:"suspendedDeadlineSeconds,omitempty"`
+	// RunningDeadlineSeconds is the number of seconds to wait for the backup to transition to the 'Running' state.
+	// Once this threshold is reached, the backup will be marked as failed. Default is 300 seconds (5m).
+	// +kubebuilder:default:=300
+	RunningDeadlineSeconds *int64 `json:"runningDeadlineSeconds,omitempty"`
 }
 
 func (b *PXCScheduledBackup) GetAllowParallel() bool {
@@ -584,22 +592,24 @@ type PodSpec struct {
 	// Deprecated: Use ServiceExpose.Labels instead
 	ReplicasServiceLabels map[string]string `json:"replicasServiceLabels,omitempty"`
 
-	SchedulerName                string                            `json:"schedulerName,omitempty"`
-	ReadinessInitialDelaySeconds *int32                            `json:"readinessDelaySec,omitempty"`
-	ReadinessProbes              corev1.Probe                      `json:"readinessProbes,omitempty"`
-	LivenessInitialDelaySeconds  *int32                            `json:"livenessDelaySec,omitempty"`
-	LivenessProbes               corev1.Probe                      `json:"livenessProbes,omitempty"`
-	PodSecurityContext           *corev1.PodSecurityContext        `json:"podSecurityContext,omitempty"`
-	ContainerSecurityContext     *corev1.SecurityContext           `json:"containerSecurityContext,omitempty"`
-	ServiceAccountName           string                            `json:"serviceAccountName,omitempty"`
-	ImagePullPolicy              corev1.PullPolicy                 `json:"imagePullPolicy,omitempty"`
-	Sidecars                     []corev1.Container                `json:"sidecars,omitempty"`
-	SidecarVolumes               []corev1.Volume                   `json:"sidecarVolumes,omitempty"`
-	SidecarPVCs                  []corev1.PersistentVolumeClaim    `json:"sidecarPVCs,omitempty"`
-	RuntimeClassName             *string                           `json:"runtimeClassName,omitempty"`
-	HookScript                   string                            `json:"hookScript,omitempty"`
-	Lifecycle                    corev1.Lifecycle                  `json:"lifecycle,omitempty"`
-	TopologySpreadConstraints    []corev1.TopologySpreadConstraint `json:"topologySpreadConstraints,omitempty"`
+	SchedulerName string `json:"schedulerName,omitempty"`
+	// Deprecated: Unsupported from version 1.19.0 and will be deleted in 1.22.0. Use ReadinessProbes.initialDelaySeconds instead
+	ReadinessInitialDelaySeconds *int32       `json:"readinessDelaySec,omitempty"`
+	ReadinessProbes              corev1.Probe `json:"readinessProbes,omitempty"`
+	// Deprecated: Unsupported from version 1.19.0 and will be deleted in 1.22.0. Use LivenessProbes.initialDelaySeconds instead
+	LivenessInitialDelaySeconds *int32                            `json:"livenessDelaySec,omitempty"`
+	LivenessProbes              corev1.Probe                      `json:"livenessProbes,omitempty"`
+	PodSecurityContext          *corev1.PodSecurityContext        `json:"podSecurityContext,omitempty"`
+	ContainerSecurityContext    *corev1.SecurityContext           `json:"containerSecurityContext,omitempty"`
+	ServiceAccountName          string                            `json:"serviceAccountName,omitempty"`
+	ImagePullPolicy             corev1.PullPolicy                 `json:"imagePullPolicy,omitempty"`
+	Sidecars                    []corev1.Container                `json:"sidecars,omitempty"`
+	SidecarVolumes              []corev1.Volume                   `json:"sidecarVolumes,omitempty"`
+	SidecarPVCs                 []corev1.PersistentVolumeClaim    `json:"sidecarPVCs,omitempty"`
+	RuntimeClassName            *string                           `json:"runtimeClassName,omitempty"`
+	HookScript                  string                            `json:"hookScript,omitempty"`
+	Lifecycle                   corev1.Lifecycle                  `json:"lifecycle,omitempty"`
+	TopologySpreadConstraints   []corev1.TopologySpreadConstraint `json:"topologySpreadConstraints,omitempty"`
 }
 
 func (spec *PodSpec) HasSidecarInternalSecret(secret *corev1.Secret) bool {
@@ -633,18 +643,70 @@ func (spec *PodSpec) HasSidecarInternalSecret(secret *corev1.Secret) bool {
 
 type ProxySQLSpec struct {
 	PodSpec `json:",inline"`
-	Expose  ServiceExpose `json:"expose,omitempty"`
+
+	Expose ServiceExpose `json:"expose,omitempty"`
+
+	Scheduler ProxySQLSchedulerSpec `json:"scheduler"`
+}
+
+type ProxySQLSchedulerSpec struct {
+	Enabled bool `json:"enabled,omitempty"`
+
+	// If checking a backend node (PXC) exceeds this timeout, it won't be processed.
+	// +kubebuilder:default=2000
+	CheckTimeoutMilliseconds int32 `json:"checkTimeoutMilliseconds,omitempty"`
+
+	// If you want to exclude the writer from read set it to false.
+	// When the cluster will lose its last reader, the writer will be elected as Reader, no matter what.
+	// +kubebuilder:default=true
+	WriterIsAlsoReader bool `json:"writerIsAlsoReader,omitempty"`
+
+	// Number of retries the application should do before restoring a failed node.
+	// +kubebuilder:default=1
+	SuccessThreshold int32 `json:"successThreshold,omitempty"`
+
+	// Number of retries the application should do to put DOWN a failing node.
+	// +kubebuilder:default=3
+	FailureThreshold int32 `json:"failureThreshold,omitempty"`
+
+	// The connection timeout (milliseconds) used to test the connection towards the PXC server.
+	// +kubebuilder:default=1000
+	PingTimeoutMilliseconds int32 `json:"pingTimeoutMilliseconds,omitempty"`
+
+	// How frequently the scheduler must run.
+	// +kubebuilder:default=2000
+	NodeCheckIntervalMilliseconds int32 `json:"nodeCheckIntervalMilliseconds,omitempty"`
+
+	// Max number of connections from ProxySQL to the backend servers.
+	// +kubebuilder:default=1000
+	MaxConnections int32 `json:"maxConnections,omitempty"`
 }
 
 type HAProxySpec struct {
 	PodSpec        `json:",inline"`
-	ExposePrimary  ServiceExpose          `json:"exposePrimary,omitempty"`
-	ExposeReplicas *ReplicasServiceExpose `json:"exposeReplicas,omitempty"`
+	ExposePrimary  ServiceExpose           `json:"exposePrimary,omitempty"`
+	ExposeReplicas *ReplicasServiceExpose  `json:"exposeReplicas,omitempty"`
+	HealthCheck    *HAProxyHealthCheckSpec `json:"healthCheck,omitempty"`
 
 	// Deprecated: Use ExposeReplica.Enabled instead
 	ReplicasServiceEnabled *bool `json:"replicasServiceEnabled,omitempty"`
 	// Deprecated: Use ExposeReplicas.LoadBalancerSourceRanges instead
 	ReplicasLoadBalancerSourceRanges []string `json:"replicasLoadBalancerSourceRanges,omitempty"`
+}
+
+type HAProxyHealthCheckSpec struct {
+	// Interval in milliseconds between health checks (default: 10000)
+	// +kubebuilder:validation:Minimum=1000
+	// +optional
+	Interval *int32 `json:"interval,omitempty"`
+	// Fall is the number of consecutive failed checks before marking server down (default: 2)
+	// +kubebuilder:validation:Minimum=1
+	// +optional
+	Fall *int32 `json:"fall,omitempty"`
+	// Rise is the number of consecutive successful checks before marking server up (default: 1)
+	// +kubebuilder:validation:Minimum=1
+	// +optional
+	Rise *int32 `json:"rise,omitempty"`
 }
 
 type ReplicasServiceExpose struct {
@@ -887,7 +949,7 @@ var NoCustomVolumeErr = errors.New("no custom volume found")
 // +kubebuilder:object:generate=false
 type App interface {
 	InitContainers(cr *PerconaXtraDBCluster, initImageName string) []corev1.Container
-	AppContainer(spec *PodSpec, secrets string, cr *PerconaXtraDBCluster, availableVolumes []corev1.Volume) (corev1.Container, error)
+	AppContainer(ctx context.Context, cl client.Client, spec *PodSpec, secrets string, cr *PerconaXtraDBCluster, availableVolumes []corev1.Volume) (corev1.Container, error)
 	SidecarContainers(spec *PodSpec, secrets string, cr *PerconaXtraDBCluster) ([]corev1.Container, error)
 	PMMContainer(ctx context.Context, cl client.Client, spec *PMMSpec, secret *corev1.Secret, cr *PerconaXtraDBCluster) (*corev1.Container, error)
 	LogCollectorContainer(spec *LogCollectorSpec, logPsecrets string, logRsecrets string, cr *PerconaXtraDBCluster) ([]corev1.Container, error)
@@ -1258,11 +1320,14 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 		if tls.CADuration == nil {
 			tls.CADuration = &metav1.Duration{Duration: pxctls.DefaultCAValidity}
 		}
+		if tls.Duration.Duration < pxctls.MinCertValidity {
+			return errors.Errorf(".spec.tls.certValidityDuration shouldn't be smaller than %d hours", int(pxctls.MinCertValidity.Hours()))
+		}
 		if tls.CADuration.Duration < tls.Duration.Duration {
-			return errors.New(".spec.tls.caDuration shouldn't be smaller than .spec.tls.duration")
+			return errors.New(".spec.tls.caValidityDuration shouldn't be smaller than .spec.tls.certValidityDuration")
 		}
 		if tls.CADuration.Duration < pxctls.DefaultRenewBefore {
-			return errors.Errorf(".spec.tls.caDuration shouldn't be smaller than %d hours", int(pxctls.DefaultRenewBefore.Hours()))
+			return errors.Errorf(".spec.tls.caValidityDuration shouldn't be smaller than %d hours", int(pxctls.DefaultRenewBefore.Hours()))
 		}
 	}
 
@@ -1270,15 +1335,16 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 }
 
 const (
-	maxSafePXCSize   = 5
-	minSafeProxySize = 2
+	maxSafePXCSize             = 5
+	minSafeProxySize           = 2
+	DefaultInitialDelaySeconds = 300
 )
 
 func (cr *PerconaXtraDBCluster) setProbesDefaults() {
 	if cr.Spec.PXC.LivenessInitialDelaySeconds != nil {
 		cr.Spec.PXC.LivenessProbes.InitialDelaySeconds = *cr.Spec.PXC.LivenessInitialDelaySeconds
 	} else if cr.Spec.PXC.LivenessProbes.InitialDelaySeconds == 0 {
-		cr.Spec.PXC.LivenessProbes.InitialDelaySeconds = 300
+		cr.Spec.PXC.LivenessProbes.InitialDelaySeconds = DefaultInitialDelaySeconds
 	}
 
 	if cr.Spec.PXC.LivenessProbes.TimeoutSeconds == 0 {

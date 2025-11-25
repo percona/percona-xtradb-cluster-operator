@@ -393,7 +393,7 @@ func (c *Node) XtrabackupContainer(ctx context.Context, cr *api.PerconaXtraDBClu
 				},
 			},
 		},
-		Command: []string{"/opt/percona/xtrabackup-server-sidecar"},
+		Command: []string{"/var/lib/mysql/xtrabackup-server-sidecar"},
 		Ports: []corev1.ContainerPort{
 			{
 				Name:          "grpc",

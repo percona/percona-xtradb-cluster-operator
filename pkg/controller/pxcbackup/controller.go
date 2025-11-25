@@ -318,6 +318,9 @@ func (r *ReconcilePerconaXtraDBClusterBackup) createBackupJob(
 		if err != nil {
 			return nil, errors.Wrap(err, "set storage FS")
 		}
+
+		cr.Status.SetFsPvcFromPVC(pvc)
+
 	case api.BackupStorageS3:
 		if storage.S3 == nil {
 			return nil, errors.New("s3 storage is not specified")
@@ -419,7 +422,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) runBackupFinalizers(ctx context.Co
 		switch f {
 		case naming.FinalizerDeleteBackup:
 			storageType := cr.Status.GetStorageType(nil)
-			if (cr.Status.S3 == nil && cr.Status.Azure == nil && storageType != api.BackupStorageFilesystem) || cr.Status.Destination == "" {
+			if (cr.Status.S3 == nil && cr.Status.Azure == nil && cr.Status.FsPvc == nil) || cr.Status.Destination == "" {
 				continue
 			}
 
@@ -611,6 +614,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) updateJobStatus(
 		StorageName:           storageName,
 		S3:                    storage.S3,
 		Azure:                 storage.Azure,
+		FsPvc:                 bcp.Status.FsPvc,
 		StorageType:           storage.Type,
 		Image:                 bcp.Status.Image,
 		SSLSecretName:         bcp.Status.SSLSecretName,

@@ -1,6 +1,7 @@
 package v1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	"path"
 	"strings"
 
@@ -56,22 +57,23 @@ type PXCBackupSpec struct {
 }
 
 type PXCBackupStatus struct {
-	State                 PXCBackupState          `json:"state,omitempty"`
-	Error                 string                  `json:"error,omitempty"`
-	CompletedAt           *metav1.Time            `json:"completed,omitempty"`
-	LastScheduled         *metav1.Time            `json:"lastscheduled,omitempty"`
-	Destination           PXCBackupDestination    `json:"destination,omitempty"`
-	StorageName           string                  `json:"storageName,omitempty"`
-	S3                    *BackupStorageS3Spec    `json:"s3,omitempty"`
-	Azure                 *BackupStorageAzureSpec `json:"azure,omitempty"`
-	StorageType           BackupStorageType       `json:"storage_type"`
-	Image                 string                  `json:"image,omitempty"`
-	SSLSecretName         string                  `json:"sslSecretName,omitempty"`
-	SSLInternalSecretName string                  `json:"sslInternalSecretName,omitempty"`
-	VaultSecretName       string                  `json:"vaultSecretName,omitempty"`
-	Conditions            []metav1.Condition      `json:"conditions,omitempty"`
-	VerifyTLS             *bool                   `json:"verifyTLS,omitempty"`
-	LatestRestorableTime  *metav1.Time            `json:"latestRestorableTime,omitempty"`
+	State                 PXCBackupState                    `json:"state,omitempty"`
+	Error                 string                            `json:"error,omitempty"`
+	CompletedAt           *metav1.Time                      `json:"completed,omitempty"`
+	LastScheduled         *metav1.Time                      `json:"lastscheduled,omitempty"`
+	Destination           PXCBackupDestination              `json:"destination,omitempty"`
+	StorageName           string                            `json:"storageName,omitempty"`
+	S3                    *BackupStorageS3Spec              `json:"s3,omitempty"`
+	Azure                 *BackupStorageAzureSpec           `json:"azure,omitempty"`
+	FsPvc                 *corev1.PersistentVolumeClaimSpec `json:"fsPvc,omitempty"`
+	StorageType           BackupStorageType                 `json:"storage_type"`
+	Image                 string                            `json:"image,omitempty"`
+	SSLSecretName         string                            `json:"sslSecretName,omitempty"`
+	SSLInternalSecretName string                            `json:"sslInternalSecretName,omitempty"`
+	VaultSecretName       string                            `json:"vaultSecretName,omitempty"`
+	Conditions            []metav1.Condition                `json:"conditions,omitempty"`
+	VerifyTLS             *bool                             `json:"verifyTLS,omitempty"`
+	LatestRestorableTime  *metav1.Time                      `json:"latestRestorableTime,omitempty"`
 }
 
 type PXCBackupDestination string
@@ -152,6 +154,8 @@ func (status *PXCBackupStatus) GetStorageType(cluster *PerconaXtraDBCluster) Bac
 		return BackupStorageS3
 	case status.Azure != nil:
 		return BackupStorageAzure
+	case status.FsPvc != nil:
+		return BackupStorageFilesystem
 	}
 
 	return ""
@@ -193,4 +197,12 @@ func (cr *PerconaXtraDBClusterBackup) OwnerRef(scheme *runtime.Scheme) (metav1.O
 func (cr *PerconaXtraDBClusterBackup) SetFailedStatusWithError(err error) {
 	cr.Status.State = BackupFailed
 	cr.Status.Error = err.Error()
+}
+
+func (status *PXCBackupStatus) SetFsPvcFromPVC(pvc *corev1.PersistentVolumeClaim) {
+	if status == nil || pvc == nil {
+		return
+	}
+
+	status.FsPvc = pvc.Spec.DeepCopy()
 }

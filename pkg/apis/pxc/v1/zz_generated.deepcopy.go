@@ -423,7 +423,7 @@ func (in *PXCBackupSpec) DeepCopyInto(out *PXCBackupSpec) {
 	}
 	if in.RunningDeadlineSeconds != nil {
 		in, out := &in.RunningDeadlineSeconds, &out.RunningDeadlineSeconds
-		*out = new(int32)
+		*out = new(int64)
 		**out = **in
 	}
 }
@@ -553,7 +553,7 @@ func (in *PXCScheduledBackup) DeepCopyInto(out *PXCScheduledBackup) {
 	}
 	if in.RunningDeadlineSeconds != nil {
 		in, out := &in.RunningDeadlineSeconds, &out.RunningDeadlineSeconds
-		*out = new(int32)
+		*out = new(int64)
 		**out = **in
 	}
 }

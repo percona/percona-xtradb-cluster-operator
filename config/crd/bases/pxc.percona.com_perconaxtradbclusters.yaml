@@ -126,7 +126,7 @@ spec:
                     type: object
                   runningDeadlineSeconds:
                     default: 300
-                    format: int32
+                    format: int64
                     type: integer
                   schedule:
                     items:

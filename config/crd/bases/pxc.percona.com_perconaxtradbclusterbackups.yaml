@@ -164,7 +164,7 @@ spec:
               pxcCluster:
                 type: string
               runningDeadlineSeconds:
-                format: int32
+                format: int64
                 type: integer
               startingDeadlineSeconds:
                 format: int64

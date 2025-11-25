@@ -73,7 +73,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) checkRunningDeadline(ctx context.C
 		return nil
 	}
 
-	var deadlineSeconds *int32
+	var deadlineSeconds *int64
 	if cr.Spec.RunningDeadlineSeconds != nil {
 		deadlineSeconds = cr.Spec.RunningDeadlineSeconds
 	} else if cluster.Spec.Backup.RunningDeadlineSeconds != nil {

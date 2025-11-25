@@ -144,7 +144,7 @@ var _ = Describe("Running deadline", func() {
 
 		r := reconciler(buildFakeClient(job))
 
-		cluster.Spec.Backup.RunningDeadlineSeconds = ptr.To(int32(60))
+		cluster.Spec.Backup.RunningDeadlineSeconds = ptr.To(int64(60))
 		cr.Spec.RunningDeadlineSeconds = nil
 
 		err = r.checkRunningDeadline(context.Background(), cluster, cr)
@@ -169,8 +169,8 @@ var _ = Describe("Running deadline", func() {
 
 		r := reconciler(buildFakeClient(job))
 
-		cluster.Spec.Backup.RunningDeadlineSeconds = ptr.To(int32(60)) // this one is ignored
-		cr.Spec.RunningDeadlineSeconds = ptr.To(int32(300))
+		cluster.Spec.Backup.RunningDeadlineSeconds = ptr.To(int64(60)) // this one is ignored
+		cr.Spec.RunningDeadlineSeconds = ptr.To(int64(300))
 
 		err = r.checkRunningDeadline(context.Background(), cluster, cr)
 		Expect(err).ToNot(HaveOccurred())

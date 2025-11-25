@@ -231,7 +231,7 @@ type PXCScheduledBackup struct {
 	// RunningDeadlineSeconds is the number of seconds to wait for the backup to transition to the 'Running' state.
 	// Once this threshold is reached, the backup will be marked as failed. Default is 300 seconds (5m).
 	// +kubebuilder:default:=300
-	RunningDeadlineSeconds *int32 `json:"runningDeadlineSeconds,omitempty"`
+	RunningDeadlineSeconds *int64 `json:"runningDeadlineSeconds,omitempty"`
 }
 
 func (b *PXCScheduledBackup) GetAllowParallel() bool {

@@ -57,7 +57,7 @@ func proxyInitContainers(cr *api.PerconaXtraDBCluster, initImageName string) []c
 	return inits
 }
 
-func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster,
+func (c *Proxy) AppContainer(_ context.Context, _ client.Client, spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster,
 	availableVolumes []corev1.Volume,
 ) (corev1.Container, error) {
 	appc := corev1.Container{

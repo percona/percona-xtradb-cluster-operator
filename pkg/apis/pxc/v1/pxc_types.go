@@ -1320,11 +1320,14 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 		if tls.CADuration == nil {
 			tls.CADuration = &metav1.Duration{Duration: pxctls.DefaultCAValidity}
 		}
+		if tls.Duration.Duration < pxctls.MinCertValidity {
+			return errors.Errorf(".spec.tls.certValidityDuration shouldn't be smaller than %d hours", int(pxctls.MinCertValidity.Hours()))
+		}
 		if tls.CADuration.Duration < tls.Duration.Duration {
-			return errors.New(".spec.tls.caDuration shouldn't be smaller than .spec.tls.duration")
+			return errors.New(".spec.tls.caValidityDuration shouldn't be smaller than .spec.tls.certValidityDuration")
 		}
 		if tls.CADuration.Duration < pxctls.DefaultRenewBefore {
-			return errors.Errorf(".spec.tls.caDuration shouldn't be smaller than %d hours", int(pxctls.DefaultRenewBefore.Hours()))
+			return errors.Errorf(".spec.tls.caValidityDuration shouldn't be smaller than %d hours", int(pxctls.DefaultRenewBefore.Hours()))
 		}
 	}
 

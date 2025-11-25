@@ -676,13 +676,29 @@ type ProxySQLSchedulerSpec struct {
 
 type HAProxySpec struct {
 	PodSpec        `json:",inline"`
-	ExposePrimary  ServiceExpose          `json:"exposePrimary,omitempty"`
-	ExposeReplicas *ReplicasServiceExpose `json:"exposeReplicas,omitempty"`
+	ExposePrimary  ServiceExpose           `json:"exposePrimary,omitempty"`
+	ExposeReplicas *ReplicasServiceExpose  `json:"exposeReplicas,omitempty"`
+	HealthCheck    *HAProxyHealthCheckSpec `json:"healthCheck,omitempty"`
 
 	// Deprecated: Use ExposeReplica.Enabled instead
 	ReplicasServiceEnabled *bool `json:"replicasServiceEnabled,omitempty"`
 	// Deprecated: Use ExposeReplicas.LoadBalancerSourceRanges instead
 	ReplicasLoadBalancerSourceRanges []string `json:"replicasLoadBalancerSourceRanges,omitempty"`
+}
+
+type HAProxyHealthCheckSpec struct {
+	// Interval in milliseconds between health checks (default: 10000)
+	// +kubebuilder:validation:Minimum=1000
+	// +optional
+	Interval *int32 `json:"interval,omitempty"`
+	// Fall is the number of consecutive failed checks before marking server down (default: 2)
+	// +kubebuilder:validation:Minimum=1
+	// +optional
+	Fall *int32 `json:"fall,omitempty"`
+	// Rise is the number of consecutive successful checks before marking server up (default: 1)
+	// +kubebuilder:validation:Minimum=1
+	// +optional
+	Rise *int32 `json:"rise,omitempty"`
 }
 
 type ReplicasServiceExpose struct {

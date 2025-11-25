@@ -6,7 +6,7 @@ option go_package = "github.com/percona/percona-xtradb-cluster-operator/pkg/xtra
 
 service XtrabackupService {
     rpc GetCurrentBackupConfig(GetCurrentBackupConfigRequest) returns (BackupConfig);
-    rpc CreateBackup(CreateBackupRequest) returns (CreateBackupResponse);
+    rpc CreateBackup(CreateBackupRequest) returns (stream CreateBackupResponse);
     rpc DeleteBackup(DeleteBackupRequest) returns (DeleteBackupResponse);
 }
 

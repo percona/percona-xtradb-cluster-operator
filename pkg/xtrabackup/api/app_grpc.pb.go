@@ -29,7 +29,7 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type XtrabackupServiceClient interface {
 	GetCurrentBackupConfig(ctx context.Context, in *GetCurrentBackupConfigRequest, opts ...grpc.CallOption) (*BackupConfig, error)
-	CreateBackup(ctx context.Context, in *CreateBackupRequest, opts ...grpc.CallOption) (*CreateBackupResponse, error)
+	CreateBackup(ctx context.Context, in *CreateBackupRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[CreateBackupResponse], error)
 	DeleteBackup(ctx context.Context, in *DeleteBackupRequest, opts ...grpc.CallOption) (*DeleteBackupResponse, error)
 }
 
@@ -51,15 +51,24 @@ func (c *xtrabackupServiceClient) GetCurrentBackupConfig(ctx context.Context, in
 	return out, nil
 }
 
-func (c *xtrabackupServiceClient) CreateBackup(ctx context.Context, in *CreateBackupRequest, opts ...grpc.CallOption) (*CreateBackupResponse, error) {
+func (c *xtrabackupServiceClient) CreateBackup(ctx context.Context, in *CreateBackupRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[CreateBackupResponse], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(CreateBackupResponse)
-	err := c.cc.Invoke(ctx, XtrabackupService_CreateBackup_FullMethodName, in, out, cOpts...)
+	stream, err := c.cc.NewStream(ctx, &XtrabackupService_ServiceDesc.Streams[0], XtrabackupService_CreateBackup_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
-	return out, nil
+	x := &grpc.GenericClientStream[CreateBackupRequest, CreateBackupResponse]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
 }
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type XtrabackupService_CreateBackupClient = grpc.ServerStreamingClient[CreateBackupResponse]
 
 func (c *xtrabackupServiceClient) DeleteBackup(ctx context.Context, in *DeleteBackupRequest, opts ...grpc.CallOption) (*DeleteBackupResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
@@ -76,7 +85,7 @@ func (c *xtrabackupServiceClient) DeleteBackup(ctx context.Context, in *DeleteBa
 // for forward compatibility.
 type XtrabackupServiceServer interface {
 	GetCurrentBackupConfig(context.Context, *GetCurrentBackupConfigRequest) (*BackupConfig, error)
-	CreateBackup(context.Context, *CreateBackupRequest) (*CreateBackupResponse, error)
+	CreateBackup(*CreateBackupRequest, grpc.ServerStreamingServer[CreateBackupResponse]) error
 	DeleteBackup(context.Context, *DeleteBackupRequest) (*DeleteBackupResponse, error)
 	mustEmbedUnimplementedXtrabackupServiceServer()
 }
@@ -91,8 +100,8 @@ type UnimplementedXtrabackupServiceServer struct{}
 func (UnimplementedXtrabackupServiceServer) GetCurrentBackupConfig(context.Context, *GetCurrentBackupConfigRequest) (*BackupConfig, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetCurrentBackupConfig not implemented")
 }
-func (UnimplementedXtrabackupServiceServer) CreateBackup(context.Context, *CreateBackupRequest) (*CreateBackupResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method CreateBackup not implemented")
+func (UnimplementedXtrabackupServiceServer) CreateBackup(*CreateBackupRequest, grpc.ServerStreamingServer[CreateBackupResponse]) error {
+	return status.Errorf(codes.Unimplemented, "method CreateBackup not implemented")
 }
 func (UnimplementedXtrabackupServiceServer) DeleteBackup(context.Context, *DeleteBackupRequest) (*DeleteBackupResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteBackup not implemented")
@@ -136,23 +145,16 @@ func _XtrabackupService_GetCurrentBackupConfig_Handler(srv interface{}, ctx cont
 	return interceptor(ctx, in, info, handler)
 }
 
-func _XtrabackupService_CreateBackup_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CreateBackupRequest)
-	if err := dec(in); err != nil {
-		return nil, err
+func _XtrabackupService_CreateBackup_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(CreateBackupRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
 	}
-	if interceptor == nil {
-		return srv.(XtrabackupServiceServer).CreateBackup(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: XtrabackupService_CreateBackup_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(XtrabackupServiceServer).CreateBackup(ctx, req.(*CreateBackupRequest))
-	}
-	return interceptor(ctx, in, info, handler)
+	return srv.(XtrabackupServiceServer).CreateBackup(m, &grpc.GenericServerStream[CreateBackupRequest, CreateBackupResponse]{ServerStream: stream})
 }
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type XtrabackupService_CreateBackupServer = grpc.ServerStreamingServer[CreateBackupResponse]
 
 func _XtrabackupService_DeleteBackup_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(DeleteBackupRequest)
@@ -184,14 +186,16 @@ var XtrabackupService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _XtrabackupService_GetCurrentBackupConfig_Handler,
 		},
 		{
-			MethodName: "CreateBackup",
-			Handler:    _XtrabackupService_CreateBackup_Handler,
-		},
-		{
 			MethodName: "DeleteBackup",
 			Handler:    _XtrabackupService_DeleteBackup_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "CreateBackup",
+			Handler:       _XtrabackupService_CreateBackup_Handler,
+			ServerStreams: true,
+		},
+	},
 	Metadata: "app.proto",
 }

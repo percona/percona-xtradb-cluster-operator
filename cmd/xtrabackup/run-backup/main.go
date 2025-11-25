@@ -2,8 +2,7 @@ package main
 
 import (
 	"context"
-	"encoding/json"
-	"flag"
+	"io"
 	"log"
 	"os"
 
@@ -34,28 +33,62 @@ func main() {
 
 	client := api.NewXtrabackupServiceClient(conn)
 
-	_, err = client.CreateBackup(context.Background(), req)
+	stream, err := client.CreateBackup(context.Background(), req)
 	if err != nil {
 		if status.Code(err) == codes.FailedPrecondition {
 			log.Fatal("Backup is already running")
 		}
 		log.Fatal("Failed to create backup: %w", err)
 	}
+	for {
+		_, err := stream.Recv()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			log.Fatal("Failed to receive response: %w", err)
+		}
+	}
 	log.Println("Backup created successfully")
 }
 
 func getRequestObject() *api.CreateBackupRequest {
-	var rawB64Json string
-	flag.StringVar(&rawB64Json, "request-json", "", "Request JSON in base64 encoded string")
-	flag.Parse()
-
-	if rawB64Json == "" {
-		log.Fatal("Backup config is required")
+	req := &api.CreateBackupRequest{
+		BackupConfig: &api.BackupConfig{},
 	}
 
-	req := &api.CreateBackupRequest{}
-	if err := json.Unmarshal([]byte(rawB64Json), req); err != nil {
-		log.Fatal("Failed to unmarshal request JSON: %w", err)
+	req.BackupName = os.Getenv("BACKUP_NAME")
+	storageType := os.Getenv("STORAGE_TYPE")
+	switch storageType {
+	case "s3":
+		req.BackupConfig.Type = api.BackupStorageType_S3
+		setS3Config(req)
+	case "azure":
+		req.BackupConfig.Type = api.BackupStorageType_AZURE
+		setAzureConfig(req)
+	default:
+		log.Fatalf("Invalid storage type: %s", storageType)
 	}
 	return req
+}
+
+func setS3Config(req *api.CreateBackupRequest) {
+	req.BackupConfig.S3 = &api.S3Config{
+		Bucket:       os.Getenv("S3_BUCKET"),
+		Region:       os.Getenv("DEFAULT_REGION"),
+		EndpointUrl:  os.Getenv("ENDPOINT"),
+		AccessKey:    os.Getenv("ACCESS_KEY_ID"),
+		SecretKey:    os.Getenv("SECRET_ACCESS_KEY"),
+		StorageClass: os.Getenv("S3_STORAGE_CLASS"),
+	}
+}
+
+func setAzureConfig(req *api.CreateBackupRequest) {
+	req.BackupConfig.Azure = &api.AzureConfig{
+		ContainerName:  os.Getenv("AZURE_CONTAINER_NAME"),
+		EndpointUrl:    os.Getenv("AZURE_ENDPOINT"),
+		StorageClass:   os.Getenv("AZURE_STORAGE_CLASS"),
+		StorageAccount: os.Getenv("AZURE_STORAGE_ACCOUNT"),
+		AccessKey:      os.Getenv("AZURE_ACCESS_KEY"),
+	}
 }

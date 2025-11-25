@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"time"
 
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/xtrabackup/api"
 	"google.golang.org/grpc/codes"
@@ -26,8 +27,11 @@ func (s *appServer) GetCurrentBackupConfig(ctx context.Context, req *api.GetCurr
 	return nil, status.Errorf(codes.Unimplemented, "method GetCurrentBackupConfig not implemented")
 }
 
-func (s *appServer) CreateBackup(ctx context.Context, req *api.CreateBackupRequest) (*api.CreateBackupResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method CreateBackup not implemented")
+func (s *appServer) CreateBackup(req *api.CreateBackupRequest, stream api.XtrabackupService_CreateBackupServer) error {
+	// do some work, then send message
+	time.Sleep(120 * time.Second)
+	stream.Send(&api.CreateBackupResponse{})
+	return nil
 }
 
 func (s *appServer) DeleteBackup(ctx context.Context, req *api.DeleteBackupRequest) (*api.DeleteBackupResponse, error) {

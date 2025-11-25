@@ -841,10 +841,10 @@ const file_app_proto_rawDesc = "" +
 	"\x11BackupStorageType\x12\x06\n" +
 	"\x02S3\x10\x00\x12\t\n" +
 	"\x05AZURE\x10\x01\x12\a\n" +
-	"\x03GCS\x10\x022\xee\x01\n" +
+	"\x03GCS\x10\x022\xf0\x01\n" +
 	"\x11XtrabackupService\x12O\n" +
-	"\x16GetCurrentBackupConfig\x12\".api.GetCurrentBackupConfigRequest\x1a\x11.api.BackupConfig\x12C\n" +
-	"\fCreateBackup\x12\x18.api.CreateBackupRequest\x1a\x19.api.CreateBackupResponse\x12C\n" +
+	"\x16GetCurrentBackupConfig\x12\".api.GetCurrentBackupConfigRequest\x1a\x11.api.BackupConfig\x12E\n" +
+	"\fCreateBackup\x12\x18.api.CreateBackupRequest\x1a\x19.api.CreateBackupResponse0\x01\x12C\n" +
 	"\fDeleteBackup\x12\x18.api.DeleteBackupRequest\x1a\x19.api.DeleteBackupResponseBGZEgithub.com/percona/percona-xtradb-cluster-operator/pkg/xtrabackup/apib\x06proto3"
 
 var (

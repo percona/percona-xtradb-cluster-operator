@@ -10,6 +10,7 @@ import (
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/test"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/version"
 )
 
@@ -111,9 +112,10 @@ func TestAppContainer_ProxySQL(t *testing.T) {
 				Spec: tt.spec,
 			}
 
+			client := test.BuildFakeClient()
 			proxySQL := &Proxy{cr: cr}
 
-			c, err := proxySQL.AppContainer(&tt.spec.ProxySQL.PodSpec, secretName, cr, nil)
+			c, err := proxySQL.AppContainer(t.Context(), client, &tt.spec.ProxySQL.PodSpec, secretName, cr, nil)
 			assert.Equal(t, tt.expectedContainer(), c)
 			assert.NoError(t, err)
 		})

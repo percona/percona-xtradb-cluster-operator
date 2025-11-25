@@ -124,4 +124,42 @@ fi
 
 test -e /opt/percona/hookscript/hook.sh && source /opt/percona/hookscript/hook.sh
 
-exec "$@"
+# Start zombie reaper to clean up processes spawned by sidecars
+# This is needed because proxysql (PID 1) may not properly reap all child processes
+# The reaper runs as a background process and continuously reaps zombies
+(
+       while true; do
+               sleep 0.5
+               # Reap any zombie processes that are children of PID 1
+               while wait -n 2>/dev/null; do :; done
+       done
+) &
+REAPER_PID=$!
+
+# Cleanup function
+cleanup() {
+       kill $REAPER_PID 2>/dev/null || true
+       wait $REAPER_PID 2>/dev/null || true
+}
+trap cleanup EXIT TERM INT
+
+# Run proxysql in foreground (not exec) so reaper can continue running
+# This allows the reaper to clean up zombies spawned by sidecar processes
+"$@" &
+PROXYSQL_PID=$!
+
+# Forward signals to proxysql
+forward_signal() {
+       kill -"$1" "$PROXYSQL_PID" 2>/dev/null || true
+}
+trap 'forward_signal TERM' TERM
+trap 'forward_signal INT' INT
+
+# Wait for proxysql and forward its exit code
+wait $PROXYSQL_PID
+EXIT_CODE=$?
+
+# Clean up reaper
+cleanup
+
+exit $EXIT_CODE

@@ -1,0 +1,52 @@
+#!/bin/bash
+
+set -o errexit
+
+test_dir=$(realpath $(dirname $0))
+. ${test_dir}/../functions
+
+set_debug
+
+cluster="some-name"
+
+function check_ld_preload() {
+	if ! kubectl_bin exec ${cluster}-pxc-0 -- env | grep -q LD_PRELOAD; then
+		echo "LD_PRELOAD is not set!"
+		exit 1
+	fi
+
+	ld_preload=$(kubectl_bin exec ${cluster}-pxc-0 -- bash -c 'echo ${LD_PRELOAD}')
+	log "LD_PRELOAD is set to ${ld_preload}: OK"
+
+	if ! kubectl_bin exec ${cluster}-pxc-0 -- ldd /usr/sbin/mysqld | grep -q ${ld_preload}; then
+		echo "Allocator is not used by mysqld!"
+		exit 1
+	fi
+	log "${ld_preload} is used by /usr/sbin/mysqld: OK"
+}
+
+create_infra ${namespace}
+
+desc "create PXC cluster: ${cluster}"
+spinup_pxc "${cluster}" "${test_dir}/conf/${cluster}.yml"
+wait_cluster_consistency "${cluster}" 3 2
+
+desc "CASE 1: Allocator is not set in cr.yaml: OK"
+
+kubectl_bin patch pxc ${cluster} --type=merge -p '{"spec": {"pxc": {"mysqlAllocator": "tcmalloc"}}}'
+sleep 7 # wait for reconciliation
+wait_cluster_consistency "${cluster}" 3 2
+
+check_ld_preload
+desc "CASE 2: Allocator is set to tcmalloc: OK"
+
+kubectl_bin patch pxc ${cluster} --type=merge -p '{"spec": {"pxc": {"mysqlAllocator": "jemalloc"}}}'
+sleep 7 # wait for reconciliation
+wait_cluster_consistency "${cluster}" 3 2
+
+check_ld_preload
+desc "CASE 3: Allocator is set to jemalloc: OK"
+
+desc "test passed"
+
+destroy ${namespace}

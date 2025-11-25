@@ -621,6 +621,7 @@ spec:
 #    backoffLimit: 6
 #    activeDeadlineSeconds: 3600
 #    startingDeadlineSeconds: 300
+#    runningDeadlineSeconds: 300
 #    suspendedDeadlineSeconds: 1200
 #    serviceAccountName: percona-xtradb-cluster-operator
 #    imagePullSecrets:

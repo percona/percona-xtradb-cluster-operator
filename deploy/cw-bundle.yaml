@@ -167,6 +167,9 @@ spec:
                 type: object
               pxcCluster:
                 type: string
+              runningDeadlineSeconds:
+                format: int64
+                type: integer
               startingDeadlineSeconds:
                 format: int64
                 type: integer
@@ -1164,6 +1167,10 @@ spec:
                       timeoutSeconds:
                         type: number
                     type: object
+                  runningDeadlineSeconds:
+                    default: 300
+                    format: int64
+                    type: integer
                   schedule:
                     items:
                       properties:

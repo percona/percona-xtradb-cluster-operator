@@ -1,4 +1,5 @@
 auto-tuning,8.0
+allocator,8.0
 backup-storage-tls,8.0
 cross-site,8.0
 custom-users,8.0

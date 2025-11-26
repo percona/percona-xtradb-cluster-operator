@@ -1,5 +1,5 @@
-affinity
 auto-tuning
+allocator
 backup-storage-tls
 big-data
 cross-site
@@ -22,6 +22,7 @@ pitr
 pitr-gap-errors
 proxy-protocol
 proxysql-sidecar-res-limits
+proxysql-scheduler
 pvc-resize
 recreate
 restore-to-encrypted-cluster

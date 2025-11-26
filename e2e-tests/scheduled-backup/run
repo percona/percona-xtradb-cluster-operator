@@ -231,6 +231,25 @@ main() {
 	POD_MINIO_BACKUP=$(kubectl_bin get pods | grep ${JOB_MINIO_BACKUP%-*} | awk '{print $1}')
 
 	if [ -z "$SKIP_REMOTE_BACKUPS" ]; then
+		if command -v aws >/dev/null 2>&1; then
+			echo "AWS CLI is installed"
+		else
+			echo "AWS CLI is not installed"
+			exit 1
+		fi
+		if command -v gsutil >/dev/null 2>&1; then
+			echo "gutil is installed"
+		else
+			echo "gsutil command is not installed"
+			exit 1
+		fi
+		if command -v az >/dev/null 2>&1; then
+			echo "Azure CLI is installed"
+		else
+			echo "Azure CLI is not installed"
+			exit 1
+		fi
+
 		FIRST_AWS_BACKUP=$(kubectl_bin get pxc-backup -o jsonpath='{range .items[*]}{.metadata.name}:{.spec.storageName}:{.status.state}{"\n"}{end}' | grep Succeeded | grep aws | head -n1 | cut -d: -f1)
 		JOB_AWS_BACKUP=$(kubectl_bin get jobs | grep ${FIRST_AWS_BACKUP} | awk '{print $1}')
 		POD_AWS_BACKUP=$(kubectl_bin get pods | grep ${JOB_AWS_BACKUP%-*} | awk '{print $1}')
@@ -248,9 +267,14 @@ main() {
 		BACKUP_DEST_AZURE=$(kubectl_bin get pxc-backup "$FIRST_AZURE_BACKUP" -o jsonpath='{.status.destination}' | sed -e 's/.json$//' | cut -c 9-)
 
 		desc "Check backup existence"
-		check_backup_existence "https://s3.amazonaws.com/${BACKUP_DEST_AWS}.sst_info/sst_info.00000000000000000000" "aws-s3"
-		check_backup_existence "https://storage.googleapis.com/${BACKUP_DEST_GCP}.sst_info/sst_info.00000000000000000000" "gcp-cs"
-		check_backup_existence "https://engk8soperators.blob.core.windows.net/${BACKUP_DEST_AZURE}.sst_info/sst_info.00000000000000000000" "azure-blob"
+		setup_aws_credentials
+		check_backup_existence_aws "$BACKUP_DEST_AWS" ".sst_info/sst_info.00000000000000000000"
+
+		setup_gcs_credentials
+		check_backup_existence_gcs "$BACKUP_DEST_GCP"
+
+		setup_azure_credentials
+		check_backup_existence_azure "$BACKUP_DEST_AZURE" ".sst_info/sst_info.00000000000000000000"
 
 		desc "Check that KEEP option saves correct backup's amount (1 for our settings)"
 
@@ -292,9 +316,9 @@ main() {
 		fi
 
 		desc "Check backup deletion"
-		check_backup_deletion "https://s3.amazonaws.com/${BACKUP_DEST_AWS}.sst_info/sst_info.00000000000000000000" "aws-s3"
-		check_backup_deletion "https://storage.googleapis.com/${BACKUP_DEST_GCP}.sst_info/sst_info.00000000000000000000" "gcp-cs"
-		check_backup_deletion "https://engk8soperators.blob.core.windows.net/${BACKUP_DEST_AZURE}.sst_info/sst_info.00000000000000000000" "azure-blob"
+		check_backup_deletion_aws "$BACKUP_DEST_AWS" ".sst_info/sst_info.00000000000000000000"
+		check_backup_deletion_gcs "$BACKUP_DEST_GCP"
+		check_backup_deletion_azure "$BACKUP_DEST_AZURE" ".sst_info/sst_info.00000000000000000000"
 	fi
 
 	backup_name_pvc=$(get_backup_name "pvc")

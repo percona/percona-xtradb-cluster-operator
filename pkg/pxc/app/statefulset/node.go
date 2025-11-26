@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"hash/fnv"
+	"regexp"
+	"strings"
 
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
@@ -27,7 +29,7 @@ type Node struct {
 	cr *api.PerconaXtraDBCluster
 }
 
-func NewNode(cr *api.PerconaXtraDBCluster) *Node {
+func NewNode(cr *api.PerconaXtraDBCluster) api.StatefulApp {
 	return &Node{
 		cr: cr.DeepCopy(),
 	}
@@ -44,7 +46,7 @@ func (c *Node) InitContainers(cr *api.PerconaXtraDBCluster, initImageName string
 	return inits
 }
 
-func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster, _ []corev1.Volume) (corev1.Container, error) {
+func (c *Node) AppContainer(ctx context.Context, cl client.Client, spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster, _ []corev1.Volume) (corev1.Container, error) {
 	redinessDelay := int32(15)
 	if spec.ReadinessInitialDelaySeconds != nil {
 		redinessDelay = *spec.ReadinessInitialDelaySeconds
@@ -265,7 +267,60 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 		}...)
 	}
 
+	if cr.CompareVersionWith("1.19.0") >= 0 {
+		setLDPreloadEnv(ctx, cl, cr, &appc)
+	}
+
 	return appc, nil
+}
+
+func setLDPreloadEnv(
+	ctx context.Context,
+	cl client.Client,
+	cr *api.PerconaXtraDBCluster,
+	appc *corev1.Container,
+) {
+	const (
+		ldPreloadKey    = "LD_PRELOAD"
+		libJemallocPath = "/usr/lib64/libjemalloc.so.1"
+		libTcmallocPath = "/usr/lib64/libtcmalloc.so"
+	)
+
+	ldPreloadValue := ""
+
+	// Determine the allocator
+	switch strings.ToLower(cr.Spec.PXC.MySQLAllocator) {
+	case "jemalloc":
+		ldPreloadValue += ":" + libJemallocPath
+	case "tcmalloc":
+		ldPreloadValue += ":" + libTcmallocPath
+	}
+
+	// Set LD_PRELOAD via appc.Env always. It takes precedence over EnvFrom.
+	// This ensures we're not breaking existing deployments with LD_PRELOAD set.
+	envVarsSecret := &corev1.Secret{}
+	err := cl.Get(ctx, types.NamespacedName{
+		Name:      cr.Spec.PXC.EnvVarsSecretName,
+		Namespace: cr.Namespace}, envVarsSecret)
+	if client.IgnoreNotFound(err) == nil {
+		// Env vars are set via secret. Check if LD_PRELOAD is set.
+		if val, ok := envVarsSecret.Data[ldPreloadKey]; ok {
+			ldPreloadValue = string(val)
+		}
+	}
+
+	if ldPreloadValue != "" {
+		// prefix/suffix and consecutive : (colons) don't do any harm
+		// but remove them for sanity.
+		re := regexp.MustCompile(":+")
+		ldPreloadValue = re.ReplaceAllString(ldPreloadValue, ":")
+		ldPreloadValue = strings.Trim(ldPreloadValue, ":")
+
+		appc.Env = append(appc.Env, corev1.EnvVar{
+			Name:  ldPreloadKey,
+			Value: ldPreloadValue,
+		})
+	}
 }
 
 func (c *Node) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster) ([]corev1.Container, error) {
@@ -558,7 +613,8 @@ func pmm3PXCNodeEnvVars(PmmPxcParams string) []corev1.EnvVar {
 		{
 			Name:  "DB_ARGS",
 			Value: "--query-source=perfschema",
-		}, {
+		},
+		{
 			Name:  "PMM_ADMIN_CUSTOM_PARAMS",
 			Value: PmmPxcParams,
 		},

@@ -19,6 +19,7 @@ spec:
     - no-proxysql-haproxy.namespace.svc.cluster.local
     - no-proxysql-haproxy.namespace
     - no-proxysql-haproxy
+  duration: 2160h0m0s
   issuerRef:
     kind: Issuer
     name: no-proxysql-pxc-issuer

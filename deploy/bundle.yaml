@@ -167,6 +167,9 @@ spec:
                 type: object
               pxcCluster:
                 type: string
+              runningDeadlineSeconds:
+                format: int64
+                type: integer
               startingDeadlineSeconds:
                 format: int64
                 type: integer
@@ -1428,6 +1431,10 @@ spec:
                       timeoutSeconds:
                         type: number
                     type: object
+                  runningDeadlineSeconds:
+                    default: 300
+                    format: int64
+                    type: integer
                   schedule:
                     items:
                       properties:
@@ -3049,6 +3056,21 @@ spec:
                   gracePeriod:
                     format: int64
                     type: integer
+                  healthCheck:
+                    properties:
+                      fall:
+                        format: int32
+                        minimum: 1
+                        type: integer
+                      interval:
+                        format: int32
+                        minimum: 1000
+                        type: integer
+                      rise:
+                        format: int32
+                        minimum: 1
+                        type: integer
+                    type: object
                   hookScript:
                     type: string
                   image:
@@ -5718,6 +5740,29 @@ spec:
                   runtimeClassName:
                     type: string
                 type: object
+              passwordGenerationOptions:
+                properties:
+                  maxLength:
+                    default: 20
+                    maximum: 32
+                    minimum: 8
+                    type: integer
+                  minLength:
+                    default: 16
+                    maximum: 32
+                    minimum: 8
+                    type: integer
+                  symbols:
+                    default: '!#$%&()*+,-.<=>?@[]^_{}~'
+                    maxLength: 32
+                    type: string
+                required:
+                - maxLength
+                - minLength
+                - symbols
+                type: object
+                x-kubernetes-validations:
+                - rule: self.maxLength > self.minLength
               pause:
                 type: boolean
               platform:
@@ -7037,6 +7082,38 @@ spec:
                     type: object
                   runtimeClassName:
                     type: string
+                  scheduler:
+                    properties:
+                      checkTimeoutMilliseconds:
+                        default: 2000
+                        format: int32
+                        type: integer
+                      enabled:
+                        type: boolean
+                      failureThreshold:
+                        default: 3
+                        format: int32
+                        type: integer
+                      maxConnections:
+                        default: 1000
+                        format: int32
+                        type: integer
+                      nodeCheckIntervalMilliseconds:
+                        default: 2000
+                        format: int32
+                        type: integer
+                      pingTimeoutMilliseconds:
+                        default: 1000
+                        format: int32
+                        type: integer
+                      successThreshold:
+                        default: 1
+                        format: int32
+                        type: integer
+                      writerIsAlsoReader:
+                        default: true
+                        type: boolean
+                    type: object
                   schedulerName:
                     type: string
                   serviceAccountName:
@@ -9797,6 +9874,11 @@ spec:
                     items:
                       type: string
                     type: array
+                  mysqlAllocator:
+                    enum:
+                    - jemalloc
+                    - tcmalloc
+                    type: string
                   nodeSelector:
                     additionalProperties:
                       type: string
@@ -12031,6 +12113,10 @@ spec:
                     items:
                       type: string
                     type: array
+                  caValidityDuration:
+                    type: string
+                  certValidityDuration:
+                    type: string
                   enabled:
                     type: boolean
                   issuerConf:
@@ -12444,6 +12530,10 @@ spec:
           value: percona-xtradb-cluster-operator
         - name: DISABLE_TELEMETRY
           value: "false"
+        - name: S3_WORKERS_LIMIT
+          value: "10"
+        - name: MAX_CONCURRENT_RECONCILES
+          value: "1"
         image: perconalab/percona-xtradb-cluster-operator:main
         imagePullPolicy: Always
         livenessProbe:

@@ -37,6 +37,9 @@ spec:
 #  enableCRValidationWebhook: true
   tls:
     enabled: true
+#    # 90 days in hours
+#    certValidityDuration: 2160h
+#    caValidityDuration: 26280h
 #    SANs:
 #      - pxc-1.example.com
 #      - pxc-2.example.com
@@ -60,6 +63,7 @@ spec:
     size: 3
     image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0
     autoRecovery: true
+#    mysqlAllocator: jemalloc
 #    expose:
 #      enabled: true
 #      type: LoadBalancer
@@ -88,8 +92,6 @@ spec:
 #        port: 3306
 #        weight: 100
 #    schedulerName: mycustom-scheduler
-#    readinessDelaySec: 15
-#    livenessDelaySec: 600
 #    configuration: |
 #      [mysqld]
 #      wsrep_debug=CLIENT
@@ -210,8 +212,6 @@ spec:
     image: perconalab/percona-xtradb-cluster-operator:main-haproxy
 #    imagePullPolicy: Always
 #    schedulerName: mycustom-scheduler
-#    readinessDelaySec: 15
-#    livenessDelaySec: 600
 #    configuration: |
 #
 #    the actual default configuration file can be found here https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/main/build/haproxy-global.cfg
@@ -305,6 +305,10 @@ spec:
 #        rack: rack-22
 #      loadBalancerSourceRanges:
 #        - 10.0.0.0/8
+#    healthCheck:
+#      interval: 10000
+#      rise: 1
+#      fall: 2
 #    runtimeClassName: image-rc
 #    sidecars:
 #    - image: busybox
@@ -434,6 +438,15 @@ spec:
 #        ssl_p2s_key="/etc/proxysql/ssl-internal/tls.key"
 #        ssl_p2s_cipher="ECDHE-RSA-AES128-GCM-SHA256"
 #      }
+#    scheduler:
+#      enabled: false
+#      writerIsAlsoReader: true
+#      checkTimeoutMilliseconds: 2000
+#      successThreshold: 1
+#      failureThreshold: 3
+#      pingTimeoutMilliseconds: 1000
+#      nodeCheckIntervalMilliseconds: 2000
+#      maxConnections: 1000
 #    readinessDelaySec: 15
 #    livenessDelaySec: 600
 #    schedulerName: mycustom-scheduler
@@ -608,6 +621,7 @@ spec:
 #    backoffLimit: 6
 #    activeDeadlineSeconds: 3600
 #    startingDeadlineSeconds: 300
+#    runningDeadlineSeconds: 300
 #    suspendedDeadlineSeconds: 1200
 #    serviceAccountName: percona-xtradb-cluster-operator
 #    imagePullSecrets:
@@ -757,3 +771,7 @@ spec:
           count: 5
           deleteFromStorage: true
         storageName: fs-pvc
+#  passwordGenerationOptions:
+#    symbols: "!#$%&()*+,-.<=>?@[]^_{}~"
+#    maxLength: 20
+#    minLength: 16

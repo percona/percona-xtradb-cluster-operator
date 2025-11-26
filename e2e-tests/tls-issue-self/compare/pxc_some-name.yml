@@ -5,6 +5,7 @@ metadata:
   name: some-name
 spec:
   backup:
+    runningDeadlineSeconds: 300
     storages:
       aws-s3:
         s3:

@@ -12,6 +12,7 @@ CERT_MANAGER_VER="1.18.2"
 MINIO_VER="5.4.0"
 CHAOS_MESH_VER="2.7.1"
 VAULT_VER="0.30.0"
+UPDATE_COMPARE_FILES=${UPDATE_COMPARE_FILES:-0}
 
 export IMAGE=${IMAGE:-"perconalab/percona-xtradb-cluster-operator:${GIT_BRANCH}"}
 export IMAGE_PXC=${IMAGE_PXC:-"perconalab/percona-xtradb-cluster-operator:main-pxc${MYSQL_VERSION}"}
@@ -77,7 +78,7 @@ if [ -f "$conf_dir/cloud-secret.yml" ]; then
 	SKIP_REMOTE_BACKUPS=''
 fi
 
-if [ $(kubectl version -o json | jq -r '.serverVersion.gitVersion' | grep "\-eks\-") ]; then
+if [ $(kubectl version -o json | jq -r '.serverVersion.gitVersion' | grep "-eks-") ]; then
 	EKS=1
 else
 	EKS=0
@@ -115,7 +116,6 @@ if [ "${HELM_VERSION:0:2}" == "v2" ]; then
 fi
 
 version_gt() {
-	desc "return true if kubernetes version equal or greater than desired"
 	if [ $(echo "${KUBE_VERSION} >= $1" | bc -l) -eq 1 ]; then
 		return 0
 	else
@@ -170,7 +170,7 @@ create_namespace() {
 		destroy_chaos_mesh
 		desc 'cleaned up all old namespaces'
 		kubectl_bin get ns \
-			| egrep -v "^kube-|^default|Terminating|pxc-operator|openshift|^gke-|^gmp-|^NAME" \
+			| grep -E -v "^kube-|^default|Terminating|pxc-operator|openshift|^gke-|^gmp-|^NAME" \
 			| awk '{print$1}' \
 			| xargs kubectl delete ns &
 	fi
@@ -223,7 +223,7 @@ wait_pod() {
 	local pod=$1
 	local max_retry="${2:-480}"
 	local ns=$3
-	local container=$(echo "$pod" | $sed -E 's/.*-(pxc|proxysql)-[0-9]/\1/' | egrep "^(pxc|proxysql)$")
+	local container=$(echo "$pod" | $sed -E 's/.*-(pxc|proxysql)-[0-9]/\1/' | grep -E "^(pxc|proxysql)$")
 
 	set +o xtrace
 	kubectl_bin wait --for=condition=Ready pod/${pod} --timeout="${max_retry}s" ${ns:+-n $ns} || true
@@ -257,7 +257,7 @@ wait_crash_pod() {
 	local pod=$1
 	local max_retry="${2:-480}"
 	local ns=$3
-	local container=$(echo "$pod" | $sed -E 's/.*-(pxc|proxysql)-[0-9]/\1/' | egrep "^(pxc|proxysql)$")
+	local container=$(echo "$pod" | $sed -E 's/.*-(pxc|proxysql)-[0-9]/\1/' | grep -E "^(pxc|proxysql)$")
 
 	set +o xtrace
 	retry=0
@@ -557,7 +557,16 @@ compare_kubectl() {
 			del(.spec.crVersion) |
 			del(.. | select(.[] == "percona-xtradb-cluster-operator-workload-token*"))' - >${new_result}
 
-	diff -u ${expected_result} ${new_result}
+	if [[ ${UPDATE_COMPARE_FILES} -eq 0 ]]; then
+		if ! diff -u "$expected_result" "$new_result"; then
+			log "compare_kubectl ($(caller)) failed with diff"
+			exit 1
+		fi
+	else
+		cp ${new_result} ${expected_result}
+	fi
+
+	log "compare_kubectl: ${resource} OK"
 }
 
 get_client_pod() {
@@ -592,7 +601,7 @@ run_mysql_local() {
 		bash -c "printf \"$command\n\" | mysql -sN $uri" 2>&1 \
 		| sed -e 's/mysql: //' \
 		| grep -v 'Defaulted container "pxc-client" out of:' \
-		| (egrep -v 'Using a password on the command line interface can be insecure.|Defaulted container|Defaulting container name|see all of the containers in this pod' || :)
+		| (grep -E -v 'Using a password on the command line interface can be insecure.|Defaulted container|Defaulting container name|see all of the containers in this pod' || :)
 	set_debug
 }
 
@@ -618,7 +627,11 @@ compare_mysql_cmd() {
 		run_mysql "$command" "$uri" \
 			>$tmp_dir/${command_id}.sql
 	fi
-	diff -u $expected_result $tmp_dir/${command_id}.sql
+	if [[ ${UPDATE_COMPARE_FILES} -eq 0 ]]; then
+		diff -u $expected_result $tmp_dir/${command_id}.sql
+	else
+		cp $tmp_dir/${command_id}.sql $expected_result
+	fi
 }
 
 compare_mysql_cmd_local() {
@@ -643,7 +656,12 @@ compare_mysql_cmd_local() {
 		run_mysql_local "$command" "$uri" "$pod" \
 			>$tmp_dir/${command_id}.sql
 	fi
-	diff -u $expected_result $tmp_dir/${command_id}.sql
+
+	if [[ ${UPDATE_COMPARE_FILES} -eq 0 ]]; then
+		diff -u $expected_result $tmp_dir/${command_id}.sql
+	else
+		cp $tmp_dir/${command_id}.sql $expected_result
+	fi
 }
 
 get_proxy_primary() {
@@ -686,7 +704,11 @@ compare_mysql_user() {
 	(run_mysql "SHOW GRANTS;" "$uri" || :) \
 		| $sed -E "s/'(10|192)[.][0-9][^']*'//; s/'[^']*[.]internal'//" \
 			>$tmp_dir/$user.sql
-	diff -u $expected_result $tmp_dir/$user.sql
+	if [[ ${UPDATE_COMPARE_FILES} -eq 0 ]]; then
+		diff -u $expected_result $tmp_dir/$user.sql
+	else
+		cp $tmp_dir/$user.sql $expected_result
+	fi
 }
 
 compare_mysql_user_local() {
@@ -706,7 +728,11 @@ compare_mysql_user_local() {
 	(run_mysql_local "SHOW GRANTS;" "$uri" "$pod" "$container_name" || :) \
 		| $sed -E "s/'(10|192)[.][0-9][^']*'//; s/'[^']*[.]internal'//" \
 			>$tmp_dir/$user.sql
-	diff -u $expected_result $tmp_dir/$user.sql
+	if [[ ${UPDATE_COMPARE_FILES} -eq 0 ]]; then
+		diff -u $expected_result $tmp_dir/$user.sql
+	else
+		cp $tmp_dir/$user.sql $expected_result
+	fi
 }
 
 get_pumba() {
@@ -822,7 +848,7 @@ get_service_ip() {
 		kubectl_bin get service/$service -o 'jsonpath={.spec.clusterIP}'
 		return
 	fi
-	until kubectl_bin get service/$service -o 'jsonpath={.status.loadBalancer.ingress[]}' 2>&1 | egrep -q "hostname|ip"; do
+	until kubectl_bin get service/$service -o 'jsonpath={.status.loadBalancer.ingress[]}' 2>&1 | grep -E -q "hostname|ip"; do
 		sleep 1
 	done
 	kubectl_bin get service/$service -o 'jsonpath={.status.loadBalancer.ingress[].ip}'
@@ -1007,13 +1033,13 @@ function is_table_encrypted() {
 	run_mysql \
 		"SELECT CREATE_OPTIONS FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME=\\\"$table\\\";" \
 		"-h $cluster-proxysql -uroot -proot_password" \
-		| egrep -o "ENCRYPTION=('Y'|\"Y\")"
+		| grep -E -o "ENCRYPTION=('Y'|\"Y\")"
 }
 
 function is_keyring_plugin_in_use() {
 	local cluster=$1
 	kubectl_bin exec -it $cluster-pxc-0 -c pxc -- bash -c "cat /etc/mysql/node.cnf" \
-		| egrep -o "early-plugin-load=keyring_\w+.so"
+		| grep -E -o "early-plugin-load=keyring_\w+.so"
 }
 
 function table_must_not_be_encrypted() {
@@ -1616,11 +1642,127 @@ function kpatch_set_field() {
 	kubectl_bin patch $type $name --type=json -p "[{\"op\": \"replace\", \"path\": \"$path\", \"value\": $value}]" >/dev/null
 }
 
-function check_backup_existence() {
-	path=$1
-	storage_name=$2
+function setup_aws_credentials() {
+    local secret_name="aws-s3-secret"
+    
+    if [[ -n "$AWS_ACCESS_KEY_ID" ]] && [[ -n "$AWS_SECRET_ACCESS_KEY" ]]; then
+        echo "AWS credentials already set in environment"
+        return 0
+    fi
+    
+    echo "Setting up AWS credentials from secret: $secret_name"
+    
+    # Disable tracing for the entire credential section
+    local trace_was_on=0
+    if [[ $- == *x* ]]; then
+        trace_was_on=1
+        set +x
+    fi
+
+    AWS_ACCESS_KEY_ID=$(kubectl get secret "$secret_name" -o jsonpath='{.data.AWS_ACCESS_KEY_ID}' 2>/dev/null | base64 -d 2>/dev/null)
+    AWS_SECRET_ACCESS_KEY=$(kubectl get secret "$secret_name" -o jsonpath='{.data.AWS_SECRET_ACCESS_KEY}' 2>/dev/null | base64 -d 2>/dev/null)
+    
+    if [[ -z "$AWS_ACCESS_KEY_ID" ]] || [[ -z "$AWS_SECRET_ACCESS_KEY" ]]; then
+        # Re-enable tracing before error message if it was on
+        [[ $trace_was_on -eq 1 ]] && set -x
+        echo "Failed to extract AWS credentials from secret"
+        return 1
+    fi
+    
+    export AWS_ACCESS_KEY_ID
+    export AWS_SECRET_ACCESS_KEY
+    
+    # Re-enable tracing if it was on
+    [[ $trace_was_on -eq 1 ]] && set -x
+    
+    echo "AWS credentials configured successfully"
+}
+
+function setup_gcs_credentials() {
+    local secret_name="gcp-cs-secret"
+
+    if gsutil ls >/dev/null 2>&1; then
+        echo "GCS credentials already set in environment"
+        return 0
+    fi
+
+    echo "Setting up GCS credentials from K8s secret: $secret_name"
+    
+    # Disable tracing for the entire credential section
+    local trace_was_on=0
+    if [[ $- == *x* ]]; then
+        trace_was_on=1
+        set +x
+    fi
+    
+    ACCESS_KEY_ID=$(kubectl get secret "$secret_name" -o jsonpath='{.data.AWS_ACCESS_KEY_ID}' 2>/dev/null | base64 -d 2>/dev/null)
+    SECRET_ACCESS_KEY=$(kubectl get secret "$secret_name" -o jsonpath='{.data.AWS_SECRET_ACCESS_KEY}' 2>/dev/null | base64 -d 2>/dev/null)
+    
+    if [[ -z "$ACCESS_KEY_ID" ]] || [[ -z "$SECRET_ACCESS_KEY" ]]; then
+        # Re-enable tracing before error message if it was on
+        [[ $trace_was_on -eq 1 ]] && set -x
+        echo "Failed to extract GCS credentials from secret" >&2
+        return 1
+    fi
+    
+    boto_tmp=$(mktemp /tmp/boto.XXXXXX)
+    chmod 600 "$boto_tmp"
+
+    cat <<EOF >"$boto_tmp"
+[Credentials]
+gs_access_key_id = ${ACCESS_KEY_ID}
+gs_secret_access_key = ${SECRET_ACCESS_KEY}
+EOF
+
+    export BOTO_CONFIG="$boto_tmp"
+
+    unset ACCESS_KEY_ID
+    unset SECRET_ACCESS_KEY
+    
+    [[ $trace_was_on -eq 1 ]] && set -x
+    
+    echo "GCS credentials configured successfully"
+}
+
+function setup_azure_credentials() {
+    local secret_name="azure-secret"
+
+    echo "Setting up Azure credentials from K8s secret: $secret_name"
+    
+    # Disable tracing for the entire credential section
+    local trace_was_on=0
+    if [[ $- == *x* ]]; then
+        trace_was_on=1
+        set +x
+    fi
+    
+    AZURE_STORAGE_ACCOUNT=$(kubectl_bin get secret "$secret_name" -o jsonpath='{.data.AZURE_STORAGE_ACCOUNT_NAME}' 2>/dev/null | base64 -d 2>/dev/null)
+    AZURE_STORAGE_KEY=$(kubectl_bin get secret "$secret_name" -o jsonpath='{.data.AZURE_STORAGE_ACCOUNT_KEY}' 2>/dev/null | base64 -d 2>/dev/null)
+
+    if [[ -z "$AZURE_STORAGE_ACCOUNT" ]] || [[ -z "$AZURE_STORAGE_KEY" ]]; then
+        # Re-enable tracing before error message if it was on
+        [[ $trace_was_on -eq 1 ]] && set -x
+        echo "Failed to extract Azure credentials from secret" >&2
+        return 1
+    fi
+
+    export AZURE_STORAGE_ACCOUNT
+    export AZURE_STORAGE_KEY
+
+    # Re-enable tracing if it was on
+    [[ $trace_was_on -eq 1 ]] && set -x
+
+    echo "Azure credentials configured successfully"
+}
+
+function check_backup_existence_aws() {
+	bucket=$(echo "$1" | cut -d'/' -f1)
+	key_prefix=$(echo "$1" | cut -d'/' -f2-)
+	key=$2
+	storage_name="aws-s3"
 	retry=0
-	until [[ $(curl -sw '%{http_code}' -o /dev/null "$path") -eq 200 ]]; do
+
+	until aws s3api head-object --bucket "$bucket" --key "${key_prefix}${key}" &>/dev/null; do
 		if [ $retry -ge 30 ]; then
 			echo "max retry count $retry reached. something went wrong with operator or kubernetes cluster"
 			echo "Backup was not found in bucket -- $storage_name"
@@ -1630,22 +1772,114 @@ function check_backup_existence() {
 		sleep 10
 		((retry += 1))
 	done
+	
+	echo "Backup ${key_prefix}${key} found in bucket $bucket in $storage_name"
 }
 
-function check_backup_deletion() {
-	path=$1
-	storage_name=$2
+function check_backup_existence_gcs() {
+	backup_dest_gcp=$1
+	storage_name="gcp-cs"
 	retry=0
-	until [[ $(curl -sw '%{http_code}' -o /dev/null "$path") -eq 403 ]] || [[ $(curl -sw '%{http_code}' -o /dev/null "$path") -eq 404 ]] || [[ $(curl -sw '%{http_code}' -o /dev/null "$path") -eq 400 ]]; do
+
+	gcs_path="gs://${backup_dest_gcp}.sst_info/sst_info.00000000000000000000"
+
+	until gsutil ls "$gcs_path" >/dev/null 2>&1; do
 		if [ $retry -ge 30 ]; then
-			echo "max retry count $retry reached. something went wrong with operator or kubernetes cluster"
-			echo "Backup was not removed from bucket -- $storage_name"
+			echo "Max retry count $retry reached. Something went wrong with operator or Kubernetes cluster."
+			echo "Backup was not found in bucket -- $storage_name"
 			exit 1
 		fi
-		echo "waiting for backup deletion $storage_name"
+		echo "Waiting for backup in $storage_name ($gcs_path)..."
 		sleep 10
 		((retry += 1))
 	done
+	
+	echo "Backup found in $storage_name: $gcs_path"
+}
+
+function check_backup_existence_azure() {
+	container=$(echo "$1" | cut -d'/' -f1)
+	blob_prefix=$(echo "$1" | cut -d'/' -f2-)
+	blob=$2
+	storage_name="azure-blob"
+	retry=0
+	blob_path="${blob_prefix}${blob}"
+
+	until az storage blob show --container-name "$container" --name "$blob_path" &>/dev/null; do
+		if [ $retry -ge 30 ]; then
+			echo "max retry count $retry reached. something went wrong with operator or kubernetes cluster"
+			echo "Backup was not found in container -- $storage_name"
+			exit 1
+		fi
+		echo "waiting for backup in $storage_name"
+		sleep 10
+		((retry += 1))
+	done
+	
+	echo "Backup ${blob_path} found in container $container in $storage_name"
+}
+
+function check_backup_deletion_aws() {
+	bucket=$(echo "$1" | cut -d'/' -f1)
+	key_prefix=$(echo "$1" | cut -d'/' -f2-)
+	key=$2
+	storage_name="aws-s3"
+	retry=0
+
+	while aws s3api head-object --bucket "$bucket" --key "${key_prefix}${key}" &>/dev/null; do
+		if [ $retry -ge 15 ]; then
+			echo "max retry count $retry reached. something went wrong with operator or kubernetes cluster"
+			echo "Backup still exists in $storage_name (expected it to be deleted)"
+			exit 1
+		fi
+		echo "waiting for backup to be deleted from $storage_name"
+		sleep 10
+		((retry += 1))
+	done
+	
+	echo "Backup ${key_prefix}${key} in bucket $bucket not found in $storage_name"
+}
+
+function check_backup_deletion_gcs() {
+    backup_dest_gcp=$1
+    storage_name="gcp-cs"
+    retry=0
+    gcs_path="gs://${backup_dest_gcp}.sst_info/sst_info.00000000000000000000"
+
+    while gsutil ls "$gcs_path" >/dev/null 2>&1; do
+        if [ $retry -ge 15 ]; then
+            echo "max retry count $retry reached. something went wrong with operator or kubernetes cluster"
+            echo "Backup $gcs_path still exists in $storage_name (expected it to be deleted)"
+            exit 1
+        fi
+        echo "waiting for backup to be deleted from $storage_name"
+        sleep 10
+        ((retry += 1))
+    done
+
+    echo "Backup $gcs_path not found in $storage_name"
+}
+
+function check_backup_deletion_azure() {
+	container=$(echo "$1" | cut -d'/' -f1)
+	blob_prefix=$(echo "$1" | cut -d'/' -f2-)
+	blob=$2
+	storage_name="azure-blob"
+	retry=0
+	blob_path="${blob_prefix}${blob}"
+
+	while az storage blob show --container-name "$container" --name "$blob_path" &>/dev/null; do
+		if [ $retry -ge 15 ]; then
+			echo "max retry count $retry reached. something went wrong with operator or kubernetes cluster"
+			echo "Backup still exists in $storage_name (expected it to be deleted)"
+			exit 1
+		fi
+		echo "waiting for backup to be deleted from $storage_name"
+		sleep 10
+		((retry += 1))
+	done
+	
+	echo "Backup ${blob_path} in container $container not found in $storage_name"
 }
 
 check_passwords_leak() {

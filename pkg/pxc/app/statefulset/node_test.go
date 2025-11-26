@@ -3,9 +3,11 @@ package statefulset
 import (
 	"testing"
 
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/test"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
@@ -22,6 +24,7 @@ func TestAppContainer(t *testing.T) {
 		spec              api.PerconaXtraDBClusterSpec
 		crUID             types.UID
 		expectedContainer func() corev1.Container
+		envFromSecret     *corev1.Secret
 	}{
 		"latest cr container construction ": {
 			spec: api.PerconaXtraDBClusterSpec{
@@ -42,6 +45,96 @@ func TestAppContainer(t *testing.T) {
 			},
 			expectedContainer: func() corev1.Container {
 				return defaultExpectedContainer()
+			},
+		},
+		"container construction with jemalloc": {
+			spec: api.PerconaXtraDBClusterSpec{
+				CRVersion: version.Version(),
+				PXC: &api.PXCSpec{
+					MySQLAllocator: "jemalloc",
+					PodSpec: &api.PodSpec{
+						Image:           "test-image",
+						ImagePullPolicy: corev1.PullIfNotPresent,
+						LivenessProbes: corev1.Probe{
+							TimeoutSeconds: 5,
+						},
+						ReadinessProbes: corev1.Probe{
+							TimeoutSeconds: 15,
+						},
+						EnvVarsSecretName: "test-secret",
+					},
+				},
+			},
+			expectedContainer: func() corev1.Container {
+				c := defaultExpectedContainer()
+				c.Env = append(c.Env, corev1.EnvVar{
+					Name:  "LD_PRELOAD",
+					Value: "/usr/lib64/libjemalloc.so.1",
+				})
+				return c
+			},
+		},
+		"container construction with tcmalloc": {
+			spec: api.PerconaXtraDBClusterSpec{
+				CRVersion: version.Version(),
+				PXC: &api.PXCSpec{
+					MySQLAllocator: "tcmalloc",
+					PodSpec: &api.PodSpec{
+						Image:           "test-image",
+						ImagePullPolicy: corev1.PullIfNotPresent,
+						LivenessProbes: corev1.Probe{
+							TimeoutSeconds: 5,
+						},
+						ReadinessProbes: corev1.Probe{
+							TimeoutSeconds: 15,
+						},
+						EnvVarsSecretName: "test-secret",
+					},
+				},
+			},
+			expectedContainer: func() corev1.Container {
+				c := defaultExpectedContainer()
+				c.Env = append(c.Env, corev1.EnvVar{
+					Name:  "LD_PRELOAD",
+					Value: "/usr/lib64/libtcmalloc.so",
+				})
+				return c
+			},
+		},
+		"container construction with cr configured with jemalloc but priority goes to tcmalloc from envFromSecret": {
+			spec: api.PerconaXtraDBClusterSpec{
+				CRVersion: version.Version(),
+				PXC: &api.PXCSpec{
+					MySQLAllocator: "jemalloc",
+					PodSpec: &api.PodSpec{
+						Image:           "test-image",
+						ImagePullPolicy: corev1.PullIfNotPresent,
+						LivenessProbes: corev1.Probe{
+							TimeoutSeconds: 5,
+						},
+						ReadinessProbes: corev1.Probe{
+							TimeoutSeconds: 15,
+						},
+						EnvVarsSecretName: "test-secret",
+					},
+				},
+			},
+			envFromSecret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-secret",
+					Namespace: "test-ns",
+				},
+				Data: map[string][]byte{
+					"LD_PRELOAD": []byte("/usr/lib64/libtcmalloc.so"),
+				},
+			},
+			expectedContainer: func() corev1.Container {
+				c := defaultExpectedContainer()
+				c.Env = append(c.Env, corev1.EnvVar{
+					Name:  "LD_PRELOAD",
+					Value: "/usr/lib64/libtcmalloc.so",
+				})
+				return c
 			},
 		},
 		"cr <1.19 with proxysql enabled": {
@@ -78,15 +171,23 @@ func TestAppContainer(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			cr := &api.PerconaXtraDBCluster{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "test-cluster",
-					UID:  "test-uid",
+					Name:      "test-cluster",
+					Namespace: "test-ns",
+					UID:       "test-uid",
 				},
 				Spec: tt.spec,
 			}
 
 			pxcNode := Node{cr: cr}
 
-			c, err := pxcNode.AppContainer(tt.spec.PXC.PodSpec, secretName, cr, nil)
+			objs := []runtime.Object{cr}
+			if tt.envFromSecret != nil {
+				objs = append(objs, tt.envFromSecret)
+			}
+
+			client := test.BuildFakeClient(objs...)
+
+			c, err := pxcNode.AppContainer(t.Context(), client, tt.spec.PXC.PodSpec, secretName, cr, nil)
 			assert.Equal(t, tt.expectedContainer(), c)
 			assert.NoError(t, err)
 		})

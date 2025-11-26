@@ -56,6 +56,18 @@ func GetInitImage(ctx context.Context, cr *api.PerconaXtraDBCluster, cli client.
 	return imageName, nil
 }
 
+func IsPodReady(pod corev1.Pod) bool {
+	for _, condition := range pod.Status.Conditions {
+		if condition.Status != corev1.ConditionTrue {
+			continue
+		}
+		if condition.Type == corev1.PodReady {
+			return true
+		}
+	}
+	return false
+}
+
 func operatorImageName(operatorPod *corev1.Pod) (string, error) {
 	for _, c := range operatorPod.Spec.Containers {
 		if c.Name == "percona-xtradb-cluster-operator" {

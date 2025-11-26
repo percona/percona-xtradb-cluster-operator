@@ -28,11 +28,14 @@ func main() {
 		log.Fatalf("HOST environment variable is not set")
 	}
 
-	conn, err := grpc.NewClient(fmt.Sprintf("%s:%d", serverHost, xbscserver.DefaultPort), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	connUrl := fmt.Sprintf("%s:%d", serverHost, xbscserver.DefaultPort)
+	conn, err := grpc.NewClient(connUrl, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		log.Fatal("Failed to connect to server: %w", err)
+		log.Fatalf("Failed to connect to server: %v", err)
 	}
 	defer conn.Close()
+
+	log.Printf("Created connection to server at %s", connUrl)
 
 	client := xbscapi.NewXtrabackupServiceClient(conn)
 

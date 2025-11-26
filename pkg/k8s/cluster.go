@@ -147,9 +147,32 @@ func PauseClusterWithWait(ctx context.Context, cl client.Client, cr *api.Percona
 	return nil
 }
 
+func GetPrimaryPodDNSName(ctx context.Context, cl client.Client, cr *api.PerconaXtraDBCluster) (string, error) {
+	primary, err := GetPrimaryPod(ctx, cl, cr)
+	if err != nil {
+		return "", errors.Wrap(err, "get primary pod")
+	}
+	pxcSet := statefulset.NewNode(cr)
+	podList := corev1.PodList{}
+	if err := cl.List(ctx, &podList, &client.ListOptions{
+		Namespace:     cr.Namespace,
+		LabelSelector: labels.SelectorFromSet(pxcSet.Labels()),
+	}); err != nil {
+		return "", errors.Wrap(err, "get pod list")
+	}
+	pxcSts := pxcSet.StatefulSet()
+	for _, pod := range podList.Items {
+		if pod.Status.PodIP == primary || pod.Name == primary {
+			primary = fmt.Sprintf("%s.%s.%s", pod.Name, pxcSts.GetName(), pxcSts.GetNamespace())
+			break
+		}
+	}
+	return primary, nil
+}
+
 var NoProxyDetectedError = errors.New("can't detect enabled proxy, please enable HAProxy or ProxySQL")
 
-// GetPrimaryPod returns the IP/host of the primary pod for the given cluster
+// GetPrimaryPod returns the primary pod
 func GetPrimaryPod(
 	ctx context.Context,
 	cl client.Client,

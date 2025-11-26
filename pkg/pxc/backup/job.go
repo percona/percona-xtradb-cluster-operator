@@ -68,7 +68,7 @@ func (bcp *Backup) JobSpecXtrabackup(
 	var initContainers []corev1.Container
 	initContainers = append(initContainers, statefulset.BackupInitContainer(cluster, initImage, storage.ContainerSecurityContext))
 
-	envs, err := bcp.xtrabackupJobEnvVars(cluster)
+	envs, err := bcp.xtrabackupJobEnvVars(cluster, storage)
 	if err != nil {
 		return batchv1.JobSpec{}, fmt.Errorf("failed to get xtrabackup job env vars: %w", err)
 	}
@@ -83,8 +83,11 @@ func (bcp *Backup) JobSpecXtrabackup(
 		VolumeMounts:    volumeMounts,
 		Env:             envs,
 	}
+
+	manualSelector := true
 	return batchv1.JobSpec{
 		ActiveDeadlineSeconds: spec.ActiveDeadlineSeconds,
+		ManualSelector:        &manualSelector,
 		Selector: &metav1.LabelSelector{
 			MatchLabels: job.Labels,
 		},
@@ -116,15 +119,19 @@ func (bcp *Backup) JobSpecXtrabackup(
 	}, nil
 }
 
-func (bcp *Backup) xtrabackupJobEnvVars(cluster *api.PerconaXtraDBCluster) ([]corev1.EnvVar, error) {
-	primary, err := k8s.GetPrimaryPod(context.Background(), bcp.k8sClient, cluster)
+func (bcp *Backup) xtrabackupJobEnvVars(cluster *api.PerconaXtraDBCluster, storage *api.BackupStorageSpec) ([]corev1.EnvVar, error) {
+	host, err := k8s.GetPrimaryPodDNSName(context.Background(), bcp.k8sClient, cluster)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to get primary pod")
+		return nil, errors.Wrap(err, "failed to get primary pod host")
 	}
 	envs := []corev1.EnvVar{
 		{
 			Name:  "HOST",
-			Value: primary,
+			Value: host,
+		},
+		{
+			Name:  "STORAGE_TYPE",
+			Value: string(storage.Type),
 		},
 	}
 	return envs, nil

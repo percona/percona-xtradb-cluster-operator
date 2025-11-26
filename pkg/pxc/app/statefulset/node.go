@@ -392,6 +392,12 @@ func (c *Node) XtrabackupContainer(ctx context.Context, cr *api.PerconaXtraDBClu
 					},
 				},
 			},
+			{
+				Name: "XTRABACKUP_USER_PASS",
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: app.SecretKeySelector(cr.Spec.SecretsName, users.Xtrabackup),
+				},
+			},
 		},
 		Command: []string{"/var/lib/mysql/xtrabackup-server-sidecar"},
 		Ports: []corev1.ContainerPort{
@@ -404,6 +410,10 @@ func (c *Node) XtrabackupContainer(ctx context.Context, cr *api.PerconaXtraDBClu
 			{
 				Name:      app.DataVolumeName,
 				MountPath: "/var/lib/mysql",
+			},
+			{
+				Name:      "backup-logs",
+				MountPath: app.BackupLogDir,
 			},
 		},
 		// TODO: make this configurable from CR

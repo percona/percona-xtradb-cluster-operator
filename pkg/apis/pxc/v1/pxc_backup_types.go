@@ -111,6 +111,11 @@ func (dest *PXCBackupDestination) StorageTypePrefix() string {
 	return ""
 }
 
+func (dest *PXCBackupDestination) PathWithoutBucket() string {
+	_, prefix := dest.BucketAndPrefix()
+	return path.Join(prefix, dest.BackupName())
+}
+
 func (dest *PXCBackupDestination) BucketAndPrefix() (string, string) {
 	d := strings.TrimPrefix(dest.String(), dest.StorageTypePrefix())
 	bucket, left, _ := strings.Cut(d, "/")

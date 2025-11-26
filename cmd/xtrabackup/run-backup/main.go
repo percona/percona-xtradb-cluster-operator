@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -46,6 +47,8 @@ func main() {
 		}
 		log.Fatal("Failed to create backup: %w", err)
 	}
+
+	log.Println("Backup requested")
 	for {
 		_, err := stream.Recv()
 		if err == io.EOF {
@@ -63,7 +66,19 @@ func getRequestObject() *xbscapi.CreateBackupRequest {
 		BackupConfig: &api.BackupConfig{},
 	}
 
+	containerOptions := &xbscapi.ContainerOptions{}
+	if opts := os.Getenv("CONTAINER_OPTIONS"); opts != "" {
+		err := json.Unmarshal([]byte(opts), containerOptions)
+		if err != nil {
+			log.Fatalf("Failed to unmarshal container options: %v", err)
+		}
+	}
+
 	req.BackupName = os.Getenv("BACKUP_NAME")
+	req.BackupConfig.Destination = os.Getenv("BACKUP_DEST")
+	req.BackupConfig.VerifyTls = os.Getenv("VERIFY_TLS") == "true"
+	req.BackupConfig.ContainerOptions = containerOptions
+
 	storageType := os.Getenv("STORAGE_TYPE")
 	switch storageType {
 	case "s3":
@@ -75,6 +90,12 @@ func getRequestObject() *xbscapi.CreateBackupRequest {
 	default:
 		log.Fatalf("Invalid storage type: %s", storageType)
 	}
+
+	reqJson, err := json.Marshal(req)
+	if err != nil {
+		log.Fatalf("Failed to marshal request: %v", err)
+	}
+	log.Printf("Request=", string(reqJson))
 	return req
 }
 

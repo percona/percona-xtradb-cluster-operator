@@ -8,4 +8,5 @@ const (
 
 const (
 	BinVolumeMountPath = "/opt/percona"
+	BackupLogDir       = "/var/log/xtrabackup"
 )

@@ -2,8 +2,9 @@ package server
 
 import (
 	"context"
-	"time"
+	"os"
 
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/xtrabackup/api"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -14,24 +15,31 @@ const DefaultPort = 6450
 
 type appServer struct {
 	api.UnimplementedXtrabackupServiceServer
+
+	backupStatus     backupStatus
+	namespace        string
+	newStorageFunc   storage.NewClientFunc
+	deleteBackupFunc func(ctx context.Context, cfg *api.BackupConfig, backupName string) error
 }
 
 var _ api.XtrabackupServiceServer = (*appServer)(nil)
 
 // New returns a new app server.
-func New() api.XtrabackupServiceServer {
-	return &appServer{}
+func New() (api.XtrabackupServiceServer, error) {
+	namespace, ok := os.LookupEnv("POD_NAMESPACE")
+	if !ok || namespace == "" {
+		return nil, status.Errorf(codes.InvalidArgument, "POD_NAMESPACE environment variable is not set")
+	}
+	return &appServer{
+		namespace:        namespace,
+		backupStatus:     backupStatus{},
+		newStorageFunc:   storage.NewClient,
+		deleteBackupFunc: deleteBackup,
+	}, nil
 }
 
 func (s *appServer) GetCurrentBackupConfig(ctx context.Context, req *api.GetCurrentBackupConfigRequest) (*api.BackupConfig, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetCurrentBackupConfig not implemented")
-}
-
-func (s *appServer) CreateBackup(req *api.CreateBackupRequest, stream api.XtrabackupService_CreateBackupServer) error {
-	// do some work, then send message
-	time.Sleep(120 * time.Second)
-	stream.Send(&api.CreateBackupResponse{})
-	return nil
 }
 
 func (s *appServer) DeleteBackup(ctx context.Context, req *api.DeleteBackupRequest) (*api.DeleteBackupResponse, error) {

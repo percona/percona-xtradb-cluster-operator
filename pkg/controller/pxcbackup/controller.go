@@ -292,7 +292,8 @@ func (r *ReconcilePerconaXtraDBClusterBackup) createBackupJob(
 		return nil, errors.Wrap(err, "failed to get initImage")
 	}
 
-	if features.Enabled(ctx, features.BackupXtrabackup) {
+	xtrabackupEnabled := features.Enabled(ctx, features.BackupXtrabackup)
+	if xtrabackupEnabled {
 		job.Spec, err = bcp.JobSpecXtrabackup(cr.Spec, cluster, job, initImage)
 		if err != nil {
 			return nil, errors.Wrap(err, "can't create job spec for xtrabackup")
@@ -352,6 +353,13 @@ func (r *ReconcilePerconaXtraDBClusterBackup) createBackupJob(
 		if err != nil {
 			return nil, errors.Wrap(err, "set storage FS for Azure")
 		}
+	}
+
+	if xtrabackupEnabled {
+		job.Spec.Template.Spec.Containers[0].Env = append(job.Spec.Template.Spec.Containers[0].Env, corev1.EnvVar{
+			Name:  "BACKUP_DEST",
+			Value: cr.Status.Destination.PathWithoutBucket(),
+		})
 	}
 
 	// Set PerconaXtraDBClusterBackup instance as the owner and controller

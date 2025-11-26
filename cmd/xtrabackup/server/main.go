@@ -19,7 +19,12 @@ func main() {
 
 	var serverOptions []grpc.ServerOption
 	grpcServ := grpc.NewServer(serverOptions...)
-	xbsidecarapi.RegisterXtrabackupServiceServer(grpcServ, xbsidecarserver.New())
+
+	app, err := xbsidecarserver.New()
+	if err != nil {
+		log.Fatalf("failed to create server: %v", err)
+	}
+	xbsidecarapi.RegisterXtrabackupServiceServer(grpcServ, app)
 
 	log.Printf("server listening at %v", lis.Addr())
 	if err := grpcServ.Serve(lis); err != nil {

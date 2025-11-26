@@ -89,10 +89,16 @@ func (bcp *Backup) JobSpecXtrabackup(
 			MatchLabels: job.Labels,
 		},
 		Template: corev1.PodTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				Labels:      job.Labels,
+				Annotations: storage.Annotations,
+			},
 			Spec: corev1.PodSpec{
 				Containers: []corev1.Container{
 					container,
 				},
+
+				RestartPolicy:             corev1.RestartPolicyNever,
 				Volumes:                   volumes,
 				InitContainers:            initContainers,
 				SecurityContext:           storage.PodSecurityContext,

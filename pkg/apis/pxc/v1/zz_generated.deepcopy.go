@@ -454,8 +454,8 @@ func (in *PXCBackupStatus) DeepCopyInto(out *PXCBackupStatus) {
 		*out = new(BackupStorageAzureSpec)
 		**out = **in
 	}
-	if in.Pvc != nil {
-		in, out := &in.Pvc, &out.Pvc
+	if in.PVC != nil {
+		in, out := &in.PVC, &out.PVC
 		*out = new(corev1.PersistentVolumeClaimSpec)
 		(*in).DeepCopyInto(*out)
 	}

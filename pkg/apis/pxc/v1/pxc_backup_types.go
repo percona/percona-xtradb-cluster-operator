@@ -65,7 +65,7 @@ type PXCBackupStatus struct {
 	StorageName           string                            `json:"storageName,omitempty"`
 	S3                    *BackupStorageS3Spec              `json:"s3,omitempty"`
 	Azure                 *BackupStorageAzureSpec           `json:"azure,omitempty"`
-	Pvc                   *corev1.PersistentVolumeClaimSpec `json:"pvc,omitempty"`
+	PVC                   *corev1.PersistentVolumeClaimSpec `json:"pvc,omitempty"`
 	StorageType           BackupStorageType                 `json:"storage_type"`
 	Image                 string                            `json:"image,omitempty"`
 	SSLSecretName         string                            `json:"sslSecretName,omitempty"`
@@ -154,7 +154,7 @@ func (status *PXCBackupStatus) GetStorageType(cluster *PerconaXtraDBCluster) Bac
 		return BackupStorageS3
 	case status.Azure != nil:
 		return BackupStorageAzure
-	case status.Pvc != nil:
+	case status.PVC != nil:
 		return BackupStorageFilesystem
 	}
 
@@ -204,5 +204,5 @@ func (status *PXCBackupStatus) SetFsPvcFromPVC(pvc *corev1.PersistentVolumeClaim
 		return
 	}
 
-	status.Pvc = pvc.Spec.DeepCopy()
+	status.PVC = pvc.Spec.DeepCopy()
 }

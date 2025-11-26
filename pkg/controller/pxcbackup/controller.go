@@ -285,7 +285,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) createBackupJob(
 ) (*batchv1.Job, error) {
 	log := logf.FromContext(ctx)
 
-	bcp := backup.New(cluster)
+	bcp := backup.New(cluster, r.client)
 	job := bcp.Job(cr, cluster)
 	initImage, err := k8s.GetInitImage(ctx, cluster, r.client)
 	if err != nil {

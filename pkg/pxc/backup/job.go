@@ -2,6 +2,7 @@ package backup
 
 import (
 	"context"
+	"fmt"
 	"path"
 	"strconv"
 
@@ -12,6 +13,7 @@ import (
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/features"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
@@ -38,7 +40,12 @@ func (*Backup) Job(cr *api.PerconaXtraDBClusterBackup, cluster *api.PerconaXtraD
 	}
 }
 
-func (bcp *Backup) JobSpecXtrabackup(spec api.PXCBackupSpec, cluster *api.PerconaXtraDBCluster, job *batchv1.Job, initImage string) (batchv1.JobSpec, error) {
+func (bcp *Backup) JobSpecXtrabackup(
+	spec api.PXCBackupSpec,
+	cluster *api.PerconaXtraDBCluster,
+	job *batchv1.Job,
+	initImage string,
+) (batchv1.JobSpec, error) {
 	var volumeMounts []corev1.VolumeMount
 	var volumes []corev1.Volume
 	volumes = append(volumes,
@@ -61,6 +68,11 @@ func (bcp *Backup) JobSpecXtrabackup(spec api.PXCBackupSpec, cluster *api.Percon
 	var initContainers []corev1.Container
 	initContainers = append(initContainers, statefulset.BackupInitContainer(cluster, initImage, storage.ContainerSecurityContext))
 
+	envs, err := bcp.xtrabackupJobEnvVars(cluster)
+	if err != nil {
+		return batchv1.JobSpec{}, fmt.Errorf("failed to get xtrabackup job env vars: %w", err)
+	}
+
 	container := corev1.Container{
 		Name:            "xtrabackup",
 		Image:           bcp.image,
@@ -69,6 +81,7 @@ func (bcp *Backup) JobSpecXtrabackup(spec api.PXCBackupSpec, cluster *api.Percon
 		Command:         []string{"/opt/percona/xtrabackup-run-backup"},
 		Resources:       storage.Resources,
 		VolumeMounts:    volumeMounts,
+		Env:             envs,
 	}
 	return batchv1.JobSpec{
 		ActiveDeadlineSeconds: spec.ActiveDeadlineSeconds,
@@ -95,6 +108,20 @@ func (bcp *Backup) JobSpecXtrabackup(spec api.PXCBackupSpec, cluster *api.Percon
 			},
 		},
 	}, nil
+}
+
+func (bcp *Backup) xtrabackupJobEnvVars(cluster *api.PerconaXtraDBCluster) ([]corev1.EnvVar, error) {
+	primary, err := k8s.GetPrimaryPod(context.Background(), bcp.k8sClient, cluster)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get primary pod")
+	}
+	envs := []corev1.EnvVar{
+		{
+			Name:  "HOST",
+			Value: primary,
+		},
+	}
+	return envs, nil
 }
 
 func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, cluster *api.PerconaXtraDBCluster, job *batchv1.Job, initImage string) (batchv1.JobSpec, error) {

@@ -2,11 +2,14 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log"
 	"os"
 
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/xtrabackup/api"
+	xbscapi "github.com/percona/percona-xtradb-cluster-operator/pkg/xtrabackup/api"
+	xbscserver "github.com/percona/percona-xtradb-cluster-operator/pkg/xtrabackup/server"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
@@ -25,13 +28,13 @@ func main() {
 		log.Fatalf("HOST environment variable is not set")
 	}
 
-	conn, err := grpc.NewClient(serverHost, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(fmt.Sprintf("%s:%d", serverHost, xbscserver.DefaultPort), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Fatal("Failed to connect to server: %w", err)
 	}
 	defer conn.Close()
 
-	client := api.NewXtrabackupServiceClient(conn)
+	client := xbscapi.NewXtrabackupServiceClient(conn)
 
 	stream, err := client.CreateBackup(context.Background(), req)
 	if err != nil {
@@ -52,8 +55,8 @@ func main() {
 	log.Println("Backup created successfully")
 }
 
-func getRequestObject() *api.CreateBackupRequest {
-	req := &api.CreateBackupRequest{
+func getRequestObject() *xbscapi.CreateBackupRequest {
+	req := &xbscapi.CreateBackupRequest{
 		BackupConfig: &api.BackupConfig{},
 	}
 
@@ -61,10 +64,10 @@ func getRequestObject() *api.CreateBackupRequest {
 	storageType := os.Getenv("STORAGE_TYPE")
 	switch storageType {
 	case "s3":
-		req.BackupConfig.Type = api.BackupStorageType_S3
+		req.BackupConfig.Type = xbscapi.BackupStorageType_S3
 		setS3Config(req)
 	case "azure":
-		req.BackupConfig.Type = api.BackupStorageType_AZURE
+		req.BackupConfig.Type = xbscapi.BackupStorageType_AZURE
 		setAzureConfig(req)
 	default:
 		log.Fatalf("Invalid storage type: %s", storageType)
@@ -72,8 +75,8 @@ func getRequestObject() *api.CreateBackupRequest {
 	return req
 }
 
-func setS3Config(req *api.CreateBackupRequest) {
-	req.BackupConfig.S3 = &api.S3Config{
+func setS3Config(req *xbscapi.CreateBackupRequest) {
+	req.BackupConfig.S3 = &xbscapi.S3Config{
 		Bucket:       os.Getenv("S3_BUCKET"),
 		Region:       os.Getenv("DEFAULT_REGION"),
 		EndpointUrl:  os.Getenv("ENDPOINT"),
@@ -83,8 +86,8 @@ func setS3Config(req *api.CreateBackupRequest) {
 	}
 }
 
-func setAzureConfig(req *api.CreateBackupRequest) {
-	req.BackupConfig.Azure = &api.AzureConfig{
+func setAzureConfig(req *xbscapi.CreateBackupRequest) {
+	req.BackupConfig.Azure = &xbscapi.AzureConfig{
 		ContainerName:  os.Getenv("AZURE_CONTAINER_NAME"),
 		EndpointUrl:    os.Getenv("AZURE_ENDPOINT"),
 		StorageClass:   os.Getenv("AZURE_STORAGE_CLASS"),

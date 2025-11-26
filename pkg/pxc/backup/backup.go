@@ -4,6 +4,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type Backup struct {
@@ -13,9 +14,10 @@ type Backup struct {
 	imagePullSecrets   []corev1.LocalObjectReference
 	imagePullPolicy    corev1.PullPolicy
 	serviceAccountName string
+	k8sClient          client.Client
 }
 
-func New(cr *api.PerconaXtraDBCluster) *Backup {
+func New(cr *api.PerconaXtraDBCluster, cl client.Client) *Backup {
 	return &Backup{
 		cluster:            cr.Name,
 		namespace:          cr.Namespace,
@@ -23,5 +25,6 @@ func New(cr *api.PerconaXtraDBCluster) *Backup {
 		imagePullSecrets:   cr.Spec.Backup.ImagePullSecrets,
 		imagePullPolicy:    cr.Spec.Backup.ImagePullPolicy,
 		serviceAccountName: cr.Spec.Backup.ServiceAccountName,
+		k8sClient:          cl,
 	}
 }

@@ -209,14 +209,14 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 
 		if errors.Is(err, errSuspendedDeadlineExceeded) {
 			log.Info("cleaning up suspended backup job")
-			if err := r.cleanUpJob(ctx, cluster, cr, true); err != nil {
+			if err := r.cleanUpJob(ctx, cluster, cr); err != nil {
 				return reconcile.Result{}, errors.Wrap(err, "clean up suspended job")
 			}
 		}
 
 		if errors.Is(err, errRunningDeadlineExceeded) {
 			log.Info("running deadline exceeded, deleting the job and its pods")
-			if err := r.cleanUpJob(ctx, cluster, cr, false); err != nil {
+			if err := r.cleanUpJob(ctx, cluster, cr); err != nil {
 				return reconcile.Result{}, errors.Wrap(err, "clean up running deadline exceeded job")
 			}
 		}
@@ -865,20 +865,14 @@ func (r *ReconcilePerconaXtraDBClusterBackup) cleanUpJob(
 	ctx context.Context,
 	cluster *api.PerconaXtraDBCluster,
 	cr *api.PerconaXtraDBClusterBackup,
-	preservePods bool,
 ) error {
 	job, err := r.getBackupJob(ctx, cluster, cr)
 	if err != nil {
 		return errors.Wrap(err, "get job")
 	}
 
-	deleteOpts := []client.DeleteOption{}
-	if !preservePods {
-		// Job deletion preserves pods by default, we must set this option so that pods are deleted as well.
-		deleteOpts = append(deleteOpts, client.PropagationPolicy(metav1.DeletePropagationBackground))
-	}
-
-	if err := r.client.Delete(ctx, job, deleteOpts...); err != nil {
+	// Set propagationPolicy=background because default deletion preserves pods.
+	if err := r.client.Delete(ctx, job, client.PropagationPolicy(metav1.DeletePropagationBackground)); err != nil {
 		return errors.Wrap(err, "delete job")
 	}
 

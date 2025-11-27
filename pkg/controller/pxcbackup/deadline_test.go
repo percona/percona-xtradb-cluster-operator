@@ -302,7 +302,7 @@ var _ = Describe("Suspended deadline", func() {
 		err = r.checkSuspendedDeadline(context.Background(), cluster, cr)
 		Expect(err).To(HaveOccurred())
 
-		err = r.cleanUpJob(context.Background(), cluster, cr, true)
+		err = r.cleanUpJob(context.Background(), cluster, cr)
 		Expect(err).NotTo(HaveOccurred())
 
 		j := new(batchv1.Job)

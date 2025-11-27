@@ -216,7 +216,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleRootUser(ctx context.Context, cr *
 	}
 
 	if bytes.Equal(secrets.Data[user.Name], internalSecrets.Data[user.Name]) && !passDiscarded {
-		err = r.discardOldPassword(cr, secrets, internalSecrets, user)
+		err = r.discardOldPassword(cr, internalSecrets, user)
 		if err != nil {
 			return errors.Wrap(err, "discard old pass")
 		}
@@ -227,7 +227,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleRootUser(ctx context.Context, cr *
 
 	log.Info("Password changed, updating user", "user", user.Name)
 
-	err = r.updateUserPassWithRetention(cr, secrets, internalSecrets, user)
+	err = r.updateUserPassWithRetention(cr, internalSecrets, user)
 	if err != nil {
 		return errors.Wrap(err, "update root users pass")
 	}
@@ -250,7 +250,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleRootUser(ctx context.Context, cr *
 	}
 	log.Info("Internal secrets updated", "user", user.Name)
 
-	err = r.discardOldPassword(cr, secrets, internalSecrets, user)
+	err = r.discardOldPassword(cr, internalSecrets, user)
 	if err != nil {
 		return errors.Wrap(err, "discard old password")
 	}
@@ -293,7 +293,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleOperatorUser(ctx context.Context, 
 	}
 
 	if bytes.Equal(secrets.Data[user.Name], internalSecrets.Data[user.Name]) && !passDiscarded {
-		err = r.discardOldPassword(cr, secrets, internalSecrets, user)
+		err = r.discardOldPassword(cr, internalSecrets, user)
 		if err != nil {
 			return errors.Wrap(err, "discard old pass")
 		}
@@ -304,7 +304,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleOperatorUser(ctx context.Context, 
 
 	log.Info("Password changed, updating user", "user", user.Name)
 
-	err = r.updateUserPassWithRetention(cr, secrets, internalSecrets, user)
+	err = r.updateUserPassWithRetention(cr, internalSecrets, user)
 	if err != nil {
 		return errors.Wrap(err, "update operator users pass")
 	}
@@ -324,7 +324,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleOperatorUser(ctx context.Context, 
 
 	actions.restartProxySQL = true
 
-	err = r.discardOldPassword(cr, secrets, internalSecrets, user)
+	err = r.discardOldPassword(cr, internalSecrets, user)
 	if err != nil {
 		return errors.Wrap(err, "discard operator old password")
 	}
@@ -350,7 +350,7 @@ func (r *ReconcilePerconaXtraDBCluster) manageOperatorAdminUser(ctx context.Cont
 		return nil
 	}
 
-	pass, err := generatePass(cr.Spec.PasswordGenerationOptions)
+	pass, err := generatePass(users.Operator, cr.Spec.PasswordGenerationOptions)
 	if err != nil {
 		return errors.Wrap(err, "generate password")
 	}
@@ -472,7 +472,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(ctx context.Context, c
 			actions.restartPXC = true
 		}
 
-		err = r.discardOldPassword(cr, secrets, internalSecrets, user)
+		err = r.discardOldPassword(cr, internalSecrets, user)
 		if err != nil {
 			return errors.Wrap(err, "discard old pass")
 		}
@@ -483,7 +483,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(ctx context.Context, c
 
 	log.Info("Password changed, updating user", "user", user.Name)
 
-	err = r.updateUserPassWithRetention(cr, secrets, internalSecrets, user)
+	err = r.updateUserPassWithRetention(cr, internalSecrets, user)
 	if err != nil {
 		return errors.Wrap(err, "update monitor users pass")
 	}
@@ -522,7 +522,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(ctx context.Context, c
 		return PassNotPropagatedError
 	}
 
-	err = r.discardOldPassword(cr, secrets, internalSecrets, user)
+	err = r.discardOldPassword(cr, internalSecrets, user)
 	if err != nil {
 		return errors.Wrap(err, "discard monitor old password")
 	}
@@ -594,7 +594,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleXtrabackupUser(ctx context.Context
 	}
 
 	if bytes.Equal(secrets.Data[user.Name], internalSecrets.Data[user.Name]) && !passDiscarded {
-		err = r.discardOldPassword(cr, secrets, internalSecrets, user)
+		err = r.discardOldPassword(cr, internalSecrets, user)
 		if err != nil {
 			return errors.Wrap(err, "discard old pass")
 		}
@@ -605,7 +605,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleXtrabackupUser(ctx context.Context
 
 	log.Info("Password changed, updating user", "user", user.Name)
 
-	err = r.updateUserPassWithRetention(cr, secrets, internalSecrets, user)
+	err = r.updateUserPassWithRetention(cr, internalSecrets, user)
 	if err != nil {
 		return errors.Wrap(err, "update xtrabackup users pass")
 	}
@@ -623,7 +623,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleXtrabackupUser(ctx context.Context
 	}
 	log.Info("Internal secrets updated", "user", user.Name)
 
-	err = r.discardOldPassword(cr, secrets, internalSecrets, user)
+	err = r.discardOldPassword(cr, internalSecrets, user)
 	if err != nil {
 		return errors.Wrap(err, "discard xtrabackup old pass")
 	}
@@ -704,7 +704,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleReplicationUser(ctx context.Contex
 	}
 
 	if bytes.Equal(secrets.Data[user.Name], internalSecrets.Data[user.Name]) && !passDiscarded {
-		err = r.discardOldPassword(cr, secrets, internalSecrets, user)
+		err = r.discardOldPassword(cr, internalSecrets, user)
 		if err != nil {
 			return errors.Wrap(err, "discard old pass")
 		}
@@ -715,7 +715,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleReplicationUser(ctx context.Contex
 
 	log.Info("Password changed, updating user", "user", user.Name)
 
-	err = r.updateUserPassWithRetention(cr, secrets, internalSecrets, user)
+	err = r.updateUserPassWithRetention(cr, internalSecrets, user)
 	if err != nil {
 		return errors.Wrap(err, "update replication users pass")
 	}
@@ -733,7 +733,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleReplicationUser(ctx context.Contex
 	}
 	log.Info("Internal secrets updated", "user", user.Name)
 
-	err = r.discardOldPassword(cr, secrets, internalSecrets, user)
+	err = r.discardOldPassword(cr, internalSecrets, user)
 	if err != nil {
 		return errors.Wrap(err, "discard replicaiton old pass")
 	}
@@ -766,7 +766,7 @@ func (r *ReconcilePerconaXtraDBCluster) manageReplicationUser(ctx context.Contex
 	}
 	defer um.Close()
 
-	pass, err = generatePass(cr.Spec.PasswordGenerationOptions)
+	pass, err = generatePass(users.Replication, cr.Spec.PasswordGenerationOptions)
 	if err != nil {
 		return errors.Wrap(err, "generate password")
 	}
@@ -948,7 +948,7 @@ func (r *ReconcilePerconaXtraDBCluster) syncPXCUsersWithProxySQL(ctx context.Con
 
 	for i := 0; i < int(cr.Spec.ProxySQL.Size); i++ {
 		pod := corev1.Pod{}
-		err := r.client.Get(context.TODO(),
+		err := r.client.Get(ctx,
 			types.NamespacedName{
 				Namespace: cr.Namespace,
 				Name:      cr.Name + "-proxysql-" + strconv.Itoa(i),
@@ -960,6 +960,7 @@ func (r *ReconcilePerconaXtraDBCluster) syncPXCUsersWithProxySQL(ctx context.Con
 		} else if err != nil {
 			return errors.Wrap(err, "get proxysql pod")
 		}
+
 		var errb, outb bytes.Buffer
 
 		command := []string{"proxysql-admin", "--syncusers", "--add-query-rule"}
@@ -983,7 +984,7 @@ func (r *ReconcilePerconaXtraDBCluster) syncPXCUsersWithProxySQL(ctx context.Con
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) updateUserPassWithRetention(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, user *users.SysUser) error {
+func (r *ReconcilePerconaXtraDBCluster) updateUserPassWithRetention(cr *api.PerconaXtraDBCluster, internalSecrets *corev1.Secret, user *users.SysUser) error {
 	um, err := getUserManager(cr, internalSecrets)
 	if err != nil {
 		return err
@@ -998,7 +999,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateUserPassWithRetention(cr *api.Perc
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) discardOldPassword(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, user *users.SysUser) error {
+func (r *ReconcilePerconaXtraDBCluster) discardOldPassword(cr *api.PerconaXtraDBCluster, internalSecrets *corev1.Secret, user *users.SysUser) error {
 	um, err := getUserManager(cr, internalSecrets)
 	if err != nil {
 		return err

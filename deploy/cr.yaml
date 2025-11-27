@@ -63,6 +63,7 @@ spec:
     size: 3
     image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0
     autoRecovery: true
+#    mysqlAllocator: jemalloc
 #    expose:
 #      enabled: true
 #      type: LoadBalancer
@@ -304,6 +305,10 @@ spec:
 #        rack: rack-22
 #      loadBalancerSourceRanges:
 #        - 10.0.0.0/8
+#    healthCheck:
+#      interval: 10000
+#      rise: 1
+#      fall: 2
 #    runtimeClassName: image-rc
 #    sidecars:
 #    - image: busybox
@@ -617,6 +622,7 @@ spec:
 #    backoffLimit: 6
 #    activeDeadlineSeconds: 3600
 #    startingDeadlineSeconds: 300
+#    runningDeadlineSeconds: 300
 #    suspendedDeadlineSeconds: 1200
 #    serviceAccountName: percona-xtradb-cluster-operator
 #    imagePullSecrets:

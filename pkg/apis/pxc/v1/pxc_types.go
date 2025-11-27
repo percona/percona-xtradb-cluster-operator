@@ -63,7 +63,7 @@ type PerconaXtraDBClusterSpec struct {
 	Users []User `json:"users,omitempty"`
 }
 
-// +kubebuilder:validation:XValidation:rule="self.maxLength > self.minLength"
+// +kubebuilder:validation:XValidation:rule="self.maxLength >= self.minLength"
 type PasswordGenerationOptions struct {
 	// Special symbols to include in password generation
 	// +kubebuilder:validation:Required
@@ -125,7 +125,11 @@ type PXCSpec struct {
 	AutoRecovery        *bool                `json:"autoRecovery,omitempty"`
 	ReplicationChannels []ReplicationChannel `json:"replicationChannels,omitempty"`
 	Expose              ServiceExpose        `json:"expose,omitempty"`
-	*PodSpec            `json:",inline"`
+
+	// +kubebuilder:validation:Enum={jemalloc,tcmalloc}
+	MySQLAllocator string `json:"mysqlAllocator,omitempty"`
+
+	*PodSpec `json:",inline"`
 }
 
 // ServiceExpose defines the configuration options for exposing a k8s Service.
@@ -229,6 +233,10 @@ type BackupSpec struct {
 	StartingDeadlineSeconds  *int64                        `json:"startingDeadlineSeconds,omitempty"`
 	SuspendedDeadlineSeconds *int64                        `json:"suspendedDeadlineSeconds,omitempty"`
 	TTLSecondsAfterFinished  *int32                        `json:"ttlSecondsAfterFinished,omitempty"`
+	// RunningDeadlineSeconds is the number of seconds to wait for the backup to transition to the 'Running' state.
+	// Once this threshold is reached, the backup will be marked as failed. Default is 300 seconds (5m).
+	// +kubebuilder:default:=300
+	RunningDeadlineSeconds *int64 `json:"runningDeadlineSeconds,omitempty"`
 }
 
 func (b *BackupSpec) GetAllowParallel() bool {
@@ -677,13 +685,29 @@ type ProxySQLSchedulerSpec struct {
 
 type HAProxySpec struct {
 	PodSpec        `json:",inline"`
-	ExposePrimary  ServiceExpose          `json:"exposePrimary,omitempty"`
-	ExposeReplicas *ReplicasServiceExpose `json:"exposeReplicas,omitempty"`
+	ExposePrimary  ServiceExpose           `json:"exposePrimary,omitempty"`
+	ExposeReplicas *ReplicasServiceExpose  `json:"exposeReplicas,omitempty"`
+	HealthCheck    *HAProxyHealthCheckSpec `json:"healthCheck,omitempty"`
 
 	// Deprecated: Use ExposeReplica.Enabled instead
 	ReplicasServiceEnabled *bool `json:"replicasServiceEnabled,omitempty"`
 	// Deprecated: Use ExposeReplicas.LoadBalancerSourceRanges instead
 	ReplicasLoadBalancerSourceRanges []string `json:"replicasLoadBalancerSourceRanges,omitempty"`
+}
+
+type HAProxyHealthCheckSpec struct {
+	// Interval in milliseconds between health checks (default: 10000)
+	// +kubebuilder:validation:Minimum=1000
+	// +optional
+	Interval *int32 `json:"interval,omitempty"`
+	// Fall is the number of consecutive failed checks before marking server down (default: 2)
+	// +kubebuilder:validation:Minimum=1
+	// +optional
+	Fall *int32 `json:"fall,omitempty"`
+	// Rise is the number of consecutive successful checks before marking server up (default: 1)
+	// +kubebuilder:validation:Minimum=1
+	// +optional
+	Rise *int32 `json:"rise,omitempty"`
 }
 
 type ReplicasServiceExpose struct {
@@ -926,7 +950,7 @@ var NoCustomVolumeErr = errors.New("no custom volume found")
 // +kubebuilder:object:generate=false
 type App interface {
 	InitContainers(cr *PerconaXtraDBCluster, initImageName string) []corev1.Container
-	AppContainer(spec *PodSpec, secrets string, cr *PerconaXtraDBCluster, availableVolumes []corev1.Volume) (corev1.Container, error)
+	AppContainer(ctx context.Context, cl client.Client, spec *PodSpec, secrets string, cr *PerconaXtraDBCluster, availableVolumes []corev1.Volume) (corev1.Container, error)
 	SidecarContainers(spec *PodSpec, secrets string, cr *PerconaXtraDBCluster) ([]corev1.Container, error)
 	PMMContainer(ctx context.Context, cl client.Client, spec *PMMSpec, secret *corev1.Secret, cr *PerconaXtraDBCluster) (*corev1.Container, error)
 	LogCollectorContainer(spec *LogCollectorSpec, logPsecrets string, logRsecrets string, cr *PerconaXtraDBCluster) ([]corev1.Container, error)
@@ -1297,11 +1321,14 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 		if tls.CADuration == nil {
 			tls.CADuration = &metav1.Duration{Duration: pxctls.DefaultCAValidity}
 		}
+		if tls.Duration.Duration < pxctls.MinCertValidity {
+			return errors.Errorf(".spec.tls.certValidityDuration shouldn't be smaller than %d hours", int(pxctls.MinCertValidity.Hours()))
+		}
 		if tls.CADuration.Duration < tls.Duration.Duration {
-			return errors.New(".spec.tls.caDuration shouldn't be smaller than .spec.tls.duration")
+			return errors.New(".spec.tls.caValidityDuration shouldn't be smaller than .spec.tls.certValidityDuration")
 		}
 		if tls.CADuration.Duration < pxctls.DefaultRenewBefore {
-			return errors.Errorf(".spec.tls.caDuration shouldn't be smaller than %d hours", int(pxctls.DefaultRenewBefore.Hours()))
+			return errors.Errorf(".spec.tls.caValidityDuration shouldn't be smaller than %d hours", int(pxctls.DefaultRenewBefore.Hours()))
 		}
 	}
 

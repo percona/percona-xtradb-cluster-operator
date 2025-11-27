@@ -325,19 +325,6 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 		}
 	}
 
-	if o.Spec.ProxySQLEnabled() {
-		haproxySts := appsv1.StatefulSet{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      o.Name + "-haproxy",
-				Namespace: o.Namespace,
-			},
-		}
-		err = r.client.Get(ctx, client.ObjectKeyFromObject(&haproxySts), &haproxySts)
-		if err == nil && !strings.HasPrefix(o.Status.PXC.Version, "5.7") {
-			return reconcile.Result{}, errors.Errorf("failed to enable ProxySQL: for mysql version 8.0 you can't switch from HAProxy to ProxySQL")
-		}
-	}
-
 	userSecret, err := r.reconcileUsersSecret(ctx, o)
 	if err != nil {
 		return reconcile.Result{}, errors.Wrap(err, "reconcile users secret")

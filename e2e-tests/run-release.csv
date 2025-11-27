@@ -1,4 +1,5 @@
 auto-tuning
+allocator
 backup-storage-tls
 big-data
 cross-site
@@ -20,7 +21,9 @@ operator-self-healing-chaos
 pitr
 pitr-gap-errors
 proxy-protocol
+proxy-switch
 proxysql-sidecar-res-limits
+proxysql-scheduler
 pvc-resize
 recreate
 restore-to-encrypted-cluster

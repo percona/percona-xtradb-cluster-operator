@@ -229,16 +229,17 @@ func (c *Node) AppContainer(ctx context.Context, cl client.Client, spec *api.Pod
 		},
 	}...)
 
-	if cr.CompareVersionWith("1.13.0") >= 0 {
-		plugin := "caching_sha2_password"
+	plugin := "caching_sha2_password"
+	if cr.CompareVersionWith("1.19.0") < 0 {
 		if cr.Spec.ProxySQLEnabled() {
 			plugin = "mysql_native_password"
 		}
-		appc.Env = append(appc.Env, corev1.EnvVar{
-			Name:  "DEFAULT_AUTHENTICATION_PLUGIN",
-			Value: plugin,
-		})
+
 	}
+	appc.Env = append(appc.Env, corev1.EnvVar{
+		Name:  "DEFAULT_AUTHENTICATION_PLUGIN",
+		Value: plugin,
+	})
 
 	if cr.CompareVersionWith("1.14.0") >= 0 {
 		appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{

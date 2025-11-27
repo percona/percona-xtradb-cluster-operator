@@ -84,7 +84,7 @@ func newReconciler(mgr manager.Manager) (reconcile.Reconciler, error) {
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	return builder.ControllerManagedBy(mgr).
 		Named("pxcbackup-controller").
-		Watches(&api.PerconaXtraDBClusterBackup{}, &handler.EnqueueRequestForObject{}).
+		For(&api.PerconaXtraDBClusterBackup{}).
 		Complete(r)
 }
 

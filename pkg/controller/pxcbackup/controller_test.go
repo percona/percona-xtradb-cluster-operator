@@ -144,6 +144,7 @@ var _ = Describe("Error checking deadlines", Ordered, func() {
 		Expect(err).To(Succeed())
 
 		err = k8sClient.Get(ctx, pxcBackupReq.NamespacedName, pxcBackup)
+		Expect(err).To(Not(HaveOccurred()))
 		Expect(pxcBackup.Status.State).To(Equal(pxcv1.BackupStarting))
 
 		// We will delete the job, this will cause the deadline check to fail
@@ -219,6 +220,7 @@ var _ = Describe("Backup Job deleted when running deadline is exceeded", Ordered
 		Expect(err).To(Succeed())
 
 		err = k8sClient.Get(ctx, pxcBackupReq.NamespacedName, pxcBackup)
+		Expect(err).To(Not(HaveOccurred()))
 		Expect(pxcBackup.Status.State).To(Equal(pxcv1.BackupStarting))
 
 		time.Sleep(6 * time.Second)
@@ -228,6 +230,7 @@ var _ = Describe("Backup Job deleted when running deadline is exceeded", Ordered
 
 		// Make sure that the backup is marked as failed
 		err = k8sClient.Get(ctx, pxcBackupReq.NamespacedName, pxcBackup)
+		Expect(err).To(Not(HaveOccurred()))
 		Expect(pxcBackup.Status.State).To(Equal(pxcv1.BackupFailed))
 		Expect(pxcBackup.Status.Error).To(ContainSubstring("running deadline seconds exceeded"))
 

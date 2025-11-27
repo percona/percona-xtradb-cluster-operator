@@ -9,6 +9,7 @@ one-pod
 pitr
 pitr-gap-errors
 proxy-protocol
+proxy-switch
 proxysql-scheduler
 recreate
 restore-to-encrypted-cluster

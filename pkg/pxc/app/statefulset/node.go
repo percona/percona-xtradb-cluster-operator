@@ -415,6 +415,10 @@ func (c *Node) XtrabackupContainer(ctx context.Context, cr *api.PerconaXtraDBClu
 				Name:      "backup-logs",
 				MountPath: app.BackupLogDir,
 			},
+			{
+				Name:      "tmp",
+				MountPath: "/tmp",
+			},
 		},
 		// TODO: make this configurable from CR
 		Resources: corev1.ResourceRequirements{

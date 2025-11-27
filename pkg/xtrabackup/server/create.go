@@ -284,6 +284,7 @@ func xtrabackupArgs(user, pass string, conf *api.BackupConfig) []string {
 		"--safe-slave-backup",
 		"--slave-info",
 		"--target-dir=/backup/",
+		"--socket=/tmp/mysql.sock",
 		fmt.Sprintf("--user=%s", user),
 		fmt.Sprintf("--password=%s", pass),
 	}

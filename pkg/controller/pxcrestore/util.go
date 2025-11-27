@@ -114,18 +114,16 @@ func (r *ReconcilePerconaXtraDBClusterRestore) isPITRReady(ctx context.Context, 
 	if err != nil {
 		return false, errors.Wrap(err, "new storage")
 	}
-	found := true
 
 	filepath := bcp.Status.Destination.BackupName() + "." + naming.PITRNotReady
 	objReader, err := stg.GetObject(ctx, filepath)
-	if err != nil {
-		if !errors.Is(err, storage.ErrObjectNotFound) {
-			return false, errors.Wrap(err, "get pitr-not-ready file from storage")
-		}
-		found = false
-	} else {
+	if err == nil {
 		objReader.Close()
+		return false, nil
+	}
+	if errors.Is(err, storage.ErrObjectNotFound) {
+		return true, nil
 	}
 
-	return !found, nil
+	return false, errors.Wrap(err, "get pitr-not-ready file from storage")
 }

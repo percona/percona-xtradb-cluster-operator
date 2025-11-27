@@ -7,7 +7,6 @@ import (
 	"math/big"
 	mrand "math/rand"
 	"strings"
-	"time"
 
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -84,7 +83,7 @@ func setUserSecretDefaults(secret *corev1.Secret, secretsOptions *api.PasswordGe
 	users := []string{users.Root, users.Xtrabackup, users.Monitor, users.ProxyAdmin, users.Operator, users.Replication}
 	for _, user := range users {
 		if pass, ok := secret.Data[user]; !ok || len(pass) == 0 {
-			secret.Data[user], err = generatePass(secretsOptions)
+			secret.Data[user], err = generatePass(user, secretsOptions)
 			if err != nil {
 				return false, errors.Wrapf(err, "create %s users password", user)
 			}
@@ -101,18 +100,38 @@ const (
 		"0123456789"
 )
 
+var randReader = rand.Reader
+
+func passSymbols(secretsOptions *api.PasswordGenerationOptions) string {
+	return passBaseSymbols + secretsOptions.Symbols
+}
+
 // generatePass generates a random password with or without special symbols
-func generatePass(secretsOptions *api.PasswordGenerationOptions) ([]byte, error) {
-	mrand.Seed(time.Now().UnixNano())
-	ln := mrand.Intn(secretsOptions.MaxLength-secretsOptions.MinLength) + secretsOptions.MinLength
+func generatePass(username string, secretsOptions *api.PasswordGenerationOptions) ([]byte, error) {
+	ln := secretsOptions.MinLength
+	if secretsOptions.MaxLength-secretsOptions.MinLength > 0 {
+		ln += mrand.Intn(secretsOptions.MaxLength - secretsOptions.MinLength)
+	}
 	b := make([]byte, ln)
+
+	firstSymbols := passSymbols(secretsOptions)
+	otherSymbols := passSymbols(secretsOptions)
+	if username == users.ProxyAdmin {
+		otherSymbols = strings.NewReplacer(":", "", ";", "").Replace(otherSymbols)
+		firstSymbols = strings.ReplaceAll(otherSymbols, "*", "")
+	}
+
 	for i := 0; i < ln; i++ {
-		passSymbols := passBaseSymbols + secretsOptions.Symbols
-		randInt, err := rand.Int(rand.Reader, big.NewInt(int64(len(passSymbols))))
+		symbols := otherSymbols
+		if i == 0 {
+			symbols = firstSymbols
+		}
+
+		randInt, err := rand.Int(randReader, big.NewInt(int64(len(symbols))))
 		if err != nil {
 			return nil, errors.Wrap(err, "get rand int")
 		}
-		b[i] = passSymbols[randInt.Int64()]
+		b[i] = symbols[randInt.Int64()]
 	}
 
 	return b, nil

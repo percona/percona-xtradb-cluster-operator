@@ -167,6 +167,9 @@ spec:
                 type: object
               pxcCluster:
                 type: string
+              runningDeadlineSeconds:
+                format: int64
+                type: integer
               startingDeadlineSeconds:
                 format: int64
                 type: integer
@@ -1164,6 +1167,10 @@ spec:
                       timeoutSeconds:
                         type: number
                     type: object
+                  runningDeadlineSeconds:
+                    default: 300
+                    format: int64
+                    type: integer
                   schedule:
                     items:
                       properties:
@@ -2785,6 +2792,21 @@ spec:
                   gracePeriod:
                     format: int64
                     type: integer
+                  healthCheck:
+                    properties:
+                      fall:
+                        format: int32
+                        minimum: 1
+                        type: integer
+                      interval:
+                        format: int32
+                        minimum: 1000
+                        type: integer
+                      rise:
+                        format: int32
+                        minimum: 1
+                        type: integer
+                    type: object
                   hookScript:
                     type: string
                   image:
@@ -5476,7 +5498,7 @@ spec:
                 - symbols
                 type: object
                 x-kubernetes-validations:
-                - rule: self.maxLength > self.minLength
+                - rule: self.maxLength >= self.minLength
               pause:
                 type: boolean
               platform:
@@ -9588,6 +9610,11 @@ spec:
                     items:
                       type: string
                     type: array
+                  mysqlAllocator:
+                    enum:
+                    - jemalloc
+                    - tcmalloc
+                    type: string
                   nodeSelector:
                     additionalProperties:
                       type: string

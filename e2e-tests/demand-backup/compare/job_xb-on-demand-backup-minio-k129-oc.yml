@@ -142,3 +142,4 @@ spec:
             defaultMode: 420
             optional: true
             secretName: some-name-vault
+  ttlSecondsAfterFinished: 3600

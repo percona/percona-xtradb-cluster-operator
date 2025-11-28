@@ -1775,7 +1775,7 @@ var _ = Describe("Backup reconciliation", Ordered, func() {
 		})
 
 		It("should create PerconaXtraDBCluster with backup configuration", func() {
-			cr.Spec.Backup = &api.PXCScheduledBackup{
+			cr.Spec.Backup = &api.BackupSpec{
 				Image: "backup-image",
 				Storages: map[string]*api.BackupStorageSpec{
 					"s3-us-west": {

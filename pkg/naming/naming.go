@@ -12,6 +12,7 @@ const (
 	FinalizerDeletePxcPvc         = annotationPrefix + "delete-pxc-pvc"
 	FinalizerDeleteBackup         = annotationPrefix + "delete-backup"
 	FinalizerReleaseLock          = internalAnnotationPrefix + "release-lock"
+	FinalizerKeepJob              = internalAnnotationPrefix + "keep-job"
 )
 
 const (

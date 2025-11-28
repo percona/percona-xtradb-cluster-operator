@@ -14,7 +14,6 @@ type Backup struct {
 	imagePullSecrets   []corev1.LocalObjectReference
 	imagePullPolicy    corev1.PullPolicy
 	serviceAccountName string
-	k8sClient          client.Client
 }
 
 func New(cr *api.PerconaXtraDBCluster, cl client.Client) *Backup {
@@ -25,6 +24,5 @@ func New(cr *api.PerconaXtraDBCluster, cl client.Client) *Backup {
 		imagePullSecrets:   cr.Spec.Backup.ImagePullSecrets,
 		imagePullPolicy:    cr.Spec.Backup.ImagePullPolicy,
 		serviceAccountName: cr.Spec.Backup.ServiceAccountName,
-		k8sClient:          cl,
 	}
 }

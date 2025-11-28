@@ -2,7 +2,6 @@ package backup
 
 import (
 	"context"
-	"fmt"
 	"path"
 	"strconv"
 
@@ -10,11 +9,9 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/ptr"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/features"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
@@ -39,107 +36,6 @@ func (*Backup) Job(cr *api.PerconaXtraDBClusterBackup, cluster *api.PerconaXtraD
 			Annotations: cluster.Spec.Backup.Storages[cr.Spec.StorageName].Annotations,
 		},
 	}
-}
-
-func (bcp *Backup) JobSpecXtrabackup(
-	spec api.PXCBackupSpec,
-	cluster *api.PerconaXtraDBCluster,
-	job *batchv1.Job,
-	initImage string,
-) (batchv1.JobSpec, error) {
-	var volumeMounts []corev1.VolumeMount
-	var volumes []corev1.Volume
-	volumes = append(volumes,
-		corev1.Volume{
-			Name: app.BinVolumeName,
-			VolumeSource: corev1.VolumeSource{
-				EmptyDir: &corev1.EmptyDirVolumeSource{},
-			},
-		},
-	)
-
-	volumeMounts = append(volumeMounts,
-		corev1.VolumeMount{
-			Name:      app.BinVolumeName,
-			MountPath: app.BinVolumeMountPath,
-		},
-	)
-
-	storage := cluster.Spec.Backup.Storages[spec.StorageName]
-	var initContainers []corev1.Container
-	initContainers = append(initContainers, statefulset.BackupInitContainer(cluster, initImage, storage.ContainerSecurityContext))
-
-	envs, err := bcp.xtrabackupJobEnvVars(cluster, storage)
-	if err != nil {
-		return batchv1.JobSpec{}, fmt.Errorf("failed to get xtrabackup job env vars: %w", err)
-	}
-
-	container := corev1.Container{
-		Name:            "xtrabackup",
-		Image:           bcp.image,
-		SecurityContext: storage.ContainerSecurityContext,
-		ImagePullPolicy: bcp.imagePullPolicy,
-		Command:         []string{"/opt/percona/xtrabackup-run-backup"},
-		Resources:       storage.Resources,
-		VolumeMounts:    volumeMounts,
-		Env:             envs,
-	}
-
-	manualSelector := true
-	return batchv1.JobSpec{
-		ActiveDeadlineSeconds: spec.ActiveDeadlineSeconds,
-		ManualSelector:        &manualSelector,
-		Selector: &metav1.LabelSelector{
-			MatchLabels: job.Labels,
-		},
-		Template: corev1.PodTemplateSpec{
-			ObjectMeta: metav1.ObjectMeta{
-				Labels:      job.Labels,
-				Annotations: storage.Annotations,
-			},
-			Spec: corev1.PodSpec{
-				Containers: []corev1.Container{
-					container,
-				},
-
-				RestartPolicy:             corev1.RestartPolicyNever,
-				Volumes:                   volumes,
-				InitContainers:            initContainers,
-				SecurityContext:           storage.PodSecurityContext,
-				ImagePullSecrets:          bcp.imagePullSecrets,
-				ServiceAccountName:        cluster.Spec.Backup.ServiceAccountName,
-				Affinity:                  storage.Affinity,
-				TopologySpreadConstraints: pxc.PodTopologySpreadConstraints(storage.TopologySpreadConstraints, job.Labels),
-				Tolerations:               storage.Tolerations,
-				NodeSelector:              storage.NodeSelector,
-				SchedulerName:             storage.SchedulerName,
-				PriorityClassName:         storage.PriorityClassName,
-				RuntimeClassName:          storage.RuntimeClassName,
-			},
-		},
-	}, nil
-}
-
-func (bcp *Backup) xtrabackupJobEnvVars(cluster *api.PerconaXtraDBCluster, storage *api.BackupStorageSpec) ([]corev1.EnvVar, error) {
-	host, err := k8s.GetPrimaryPodDNSName(context.Background(), bcp.k8sClient, cluster)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get primary pod host")
-	}
-	envs := []corev1.EnvVar{
-		{
-			Name:  "HOST",
-			Value: host,
-		},
-		{
-			Name:  "STORAGE_TYPE",
-			Value: string(storage.Type),
-		},
-		{
-			Name:  "VERIFY_TLS",
-			Value: fmt.Sprintf("%t", ptr.Deref(storage.VerifyTLS, true)),
-		},
-	}
-	return envs, nil
 }
 
 func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, cluster *api.PerconaXtraDBCluster, job *batchv1.Job, initImage string) (batchv1.JobSpec, error) {

@@ -2,6 +2,7 @@ package pxcbackup
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"reflect"
 	"strconv"
@@ -34,6 +35,7 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/version"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/xtrabackup"
 )
 
 // Add creates a new PerconaXtraDBClusterBackup Controller and adds it to the Manager. The Manager will set fields on the Controller
@@ -293,16 +295,20 @@ func (r *ReconcilePerconaXtraDBClusterBackup) createBackupJob(
 	}
 
 	xtrabackupEnabled := features.Enabled(ctx, features.BackupXtrabackup)
-	if xtrabackupEnabled {
-		job.Spec, err = bcp.JobSpecXtrabackup(cr.Spec, cluster, job, initImage)
-		if err != nil {
-			return nil, errors.Wrap(err, "can't create job spec for xtrabackup")
+	getJobSpec := func() (batchv1.JobSpec, error) {
+		if xtrabackupEnabled {
+			srcNode, err := k8s.GetPrimaryPodDNSName(ctx, r.client, cluster)
+			if err != nil {
+				return batchv1.JobSpec{}, errors.Wrap(err, "failed to get primary pod dns name")
+			}
+			return xtrabackup.JobSpec(&cr.Spec, cluster, job, initImage, srcNode)
 		}
-	} else {
-		job.Spec, err = bcp.JobSpec(cr.Spec, cluster, job, initImage)
-		if err != nil {
-			return nil, errors.Wrap(err, "can't create job spec")
-		}
+		return bcp.JobSpec(cr.Spec, cluster, job, initImage)
+	}
+
+	job.Spec, err = getJobSpec()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get job spec: %w (xtrabackup enabled: %t)", err, xtrabackupEnabled)
 	}
 
 	switch storage.Type {

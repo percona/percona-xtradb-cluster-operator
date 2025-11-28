@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -13,7 +12,6 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
-	xb "github.com/percona/percona-xtradb-cluster-operator/pkg/xtrabackup"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/xtrabackup/api"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
@@ -61,9 +59,7 @@ func (s *appServer) CreateBackup(req *api.CreateBackupRequest, stream api.Xtraba
 
 	g, gCtx := errgroup.WithContext(ctx)
 
-	xtrabackup := exec.CommandContext(gCtx, "xtrabackup", xtrabackupArgs(string(backupUser), backupPass, req.BackupConfig)...)
-	xtrabackup.Env = envs(req.BackupConfig)
-
+	xtrabackup := req.BackupConfig.NewXtrabackupCmd(gCtx, backupUser, backupPass)
 	xbOut, err := xtrabackup.StdoutPipe()
 	if err != nil {
 		log.Error(err, "xtrabackup stdout pipe failed")
@@ -86,10 +82,7 @@ func (s *appServer) CreateBackup(req *api.CreateBackupRequest, stream api.Xtraba
 	defer backupLog.Close() //nolint:errcheck
 	logWriter := io.MultiWriter(backupLog, os.Stderr)
 
-	xbcloud := exec.CommandContext(gCtx, "xbcloud", xb.XBCloudArgs(xb.XBCloudActionPut, req.BackupConfig)...)
-	xbcloud.Env = envs(req.BackupConfig)
-	xbcloud.Stdin = xbOut
-
+	xbcloud := req.BackupConfig.NewXbcloudCmd(gCtx, api.XBCloudActionPut, xbOut)
 	xbcloudErr, err := xbcloud.StderrPipe()
 	if err != nil {
 		log.Error(err, "xbcloud stderr pipe failed")
@@ -228,8 +221,8 @@ func deleteBackup(ctx context.Context, cfg *api.BackupConfig, backupName string)
 		defer backupLog.Close() //nolint:errcheck
 		logWriter = io.MultiWriter(backupLog, os.Stderr)
 	}
-	xbcloud := exec.CommandContext(ctx, "xbcloud", xb.XBCloudArgs(xb.XBCloudActionDelete, cfg)...)
-	xbcloud.Env = envs(cfg)
+
+	xbcloud := cfg.NewXbcloudCmd(ctx, api.XBCloudActionDelete, nil)
 	xbcloudErr, err := xbcloud.StderrPipe()
 	if err != nil {
 		return errors.Wrap(err, "xbcloud stderr pipe failed")
@@ -256,16 +249,6 @@ func deleteBackup(ctx context.Context, cfg *api.BackupConfig, backupName string)
 
 }
 
-func envs(cfg *api.BackupConfig) []string {
-	envs := os.Environ()
-	if cfg.ContainerOptions != nil {
-		for _, env := range cfg.ContainerOptions.Env {
-			envs = append(envs, fmt.Sprintf("%s=%s", env.Key, env.Value))
-		}
-	}
-	return envs
-}
-
 func sanitizeCmd(cmd *exec.Cmd) string {
 	sensitiveFlags := regexp.MustCompile("--password=(.*)|--.*-access-key=(.*)|--.*secret-key=(.*)")
 	c := []string{cmd.Path}
@@ -275,21 +258,4 @@ func sanitizeCmd(cmd *exec.Cmd) string {
 	}
 
 	return strings.Join(c, " ")
-}
-
-func xtrabackupArgs(user, pass string, conf *api.BackupConfig) []string {
-	args := []string{
-		"--backup",
-		"--stream=xbstream",
-		"--safe-slave-backup",
-		"--slave-info",
-		"--target-dir=/backup/",
-		"--socket=/tmp/mysql.sock",
-		fmt.Sprintf("--user=%s", user),
-		fmt.Sprintf("--password=%s", pass),
-	}
-	if conf != nil && conf.ContainerOptions != nil && conf.ContainerOptions.Args != nil {
-		args = append(args, conf.ContainerOptions.Args.Xtrabackup...)
-	}
-	return args
 }

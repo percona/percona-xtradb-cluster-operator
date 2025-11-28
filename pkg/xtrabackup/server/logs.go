@@ -2,6 +2,7 @@ package server
 
 import (
 	"bufio"
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -24,9 +25,11 @@ func (s *appServer) GetLogs(req *api.GetLogsRequest, stream api.XtrabackupServic
 
 	buf := bufio.NewScanner(logFile)
 	for buf.Scan() {
-		stream.Send(&api.LogChunk{
+		if err := stream.Send(&api.LogChunk{
 			Log: buf.Text(),
-		})
+		}); err != nil {
+			return fmt.Errorf("error streaming log chunk: %w", err)
+		}
 	}
 
 	if err := buf.Err(); err != nil {

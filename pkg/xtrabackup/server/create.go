@@ -32,7 +32,7 @@ func (s *appServer) CreateBackup(req *api.CreateBackupRequest, stream api.Xtraba
 
 	log = log.WithValues("namespace", s.namespace, "name", req.BackupName)
 
-	s.backupStatus.setBackupConfig(*req.BackupConfig)
+	s.backupStatus.setBackupConfig(req.BackupConfig)
 	defer s.backupStatus.removeBackupConfig()
 
 	ctx := stream.Context()

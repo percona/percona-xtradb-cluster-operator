@@ -120,7 +120,7 @@ func getRequestObject() *xbscapi.CreateBackupRequest {
 	if err != nil {
 		log.Fatalf("Failed to marshal request: %v", err)
 	}
-	log.Printf("Request=", string(reqJson))
+	log.Printf("Request=%s", string(reqJson))
 	return req
 }
 

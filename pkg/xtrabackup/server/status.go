@@ -21,9 +21,9 @@ func (s *backupStatus) doneBackup() {
 	s.isRunning.Store(false)
 }
 
-func (s *backupStatus) setBackupConfig(conf api.BackupConfig) {
+func (s *backupStatus) setBackupConfig(conf *api.BackupConfig) {
 	s.mu.Lock()
-	s.currentBackupConf = &conf
+	s.currentBackupConf = conf
 	s.mu.Unlock()
 }
 
@@ -31,10 +31,4 @@ func (s *backupStatus) removeBackupConfig() {
 	s.mu.Lock()
 	s.currentBackupConf = nil
 	s.mu.Unlock()
-}
-
-func (s *backupStatus) getBackupConfig() *api.BackupConfig {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.currentBackupConf
 }

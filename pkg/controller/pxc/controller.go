@@ -90,7 +90,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 	return builder.ControllerManagedBy(mgr).
 		Named(naming.OperatorController).
-		Watches(&api.PerconaXtraDBCluster{}, &handler.EnqueueRequestForObject{}).
+		For(&api.PerconaXtraDBCluster{}).
 		Watches(&corev1.Secret{}, enqueuePXCReferencingSecret(mgr.GetClient())).
 		Complete(r)
 }

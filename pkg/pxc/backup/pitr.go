@@ -176,7 +176,7 @@ func addPitrNotReadyFileToBackup(ctx context.Context, cl client.Client, cr *api.
 	}
 	scli, err := storageFunc(ctx, opts)
 	if err != nil {
-		return errors.Wrap(err, "failed to create s3 client")
+		return errors.Wrap(err, "failed to create storage client")
 	}
 
 	filepath := backup.Status.Destination.BackupName() + "." + naming.PITRNotReady

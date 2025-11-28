@@ -119,7 +119,7 @@ type BackupAzure struct {
 }
 
 const (
-	lastSetFilePrefix string = "last-binlog-set-" // filename prefix for object where the last binlog set will stored
+	lastSetFilePrefix string = "last-binlog-set-" // filename prefix for object where the last binlog set will be stored
 	gtidPostfix       string = "-gtid-set"        // filename postfix for files with GTID set
 )
 

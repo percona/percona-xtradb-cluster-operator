@@ -68,6 +68,7 @@ func main() {
 }
 
 func printLogs(ctx context.Context, backupName string, client xbscapi.XtrabackupServiceClient) {
+	log.Println("Requesting logs for backup", backupName)
 	stream, err := client.GetLogs(ctx, &xbscapi.GetLogsRequest{
 		BackupName: backupName,
 	})

@@ -70,6 +70,94 @@ func (BackupStorageType) EnumDescriptor() ([]byte, []int) {
 	return file_app_proto_rawDescGZIP(), []int{0}
 }
 
+type GetLogsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	BackupName    string                 `protobuf:"bytes,1,opt,name=backup_name,json=backupName,proto3" json:"backup_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetLogsRequest) Reset() {
+	*x = GetLogsRequest{}
+	mi := &file_app_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetLogsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetLogsRequest) ProtoMessage() {}
+
+func (x *GetLogsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_app_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetLogsRequest.ProtoReflect.Descriptor instead.
+func (*GetLogsRequest) Descriptor() ([]byte, []int) {
+	return file_app_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *GetLogsRequest) GetBackupName() string {
+	if x != nil {
+		return x.BackupName
+	}
+	return ""
+}
+
+type LogChunk struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Log           string                 `protobuf:"bytes,1,opt,name=log,proto3" json:"log,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LogChunk) Reset() {
+	*x = LogChunk{}
+	mi := &file_app_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LogChunk) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LogChunk) ProtoMessage() {}
+
+func (x *LogChunk) ProtoReflect() protoreflect.Message {
+	mi := &file_app_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LogChunk.ProtoReflect.Descriptor instead.
+func (*LogChunk) Descriptor() ([]byte, []int) {
+	return file_app_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *LogChunk) GetLog() string {
+	if x != nil {
+		return x.Log
+	}
+	return ""
+}
+
 type GetCurrentBackupConfigRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -78,7 +166,7 @@ type GetCurrentBackupConfigRequest struct {
 
 func (x *GetCurrentBackupConfigRequest) Reset() {
 	*x = GetCurrentBackupConfigRequest{}
-	mi := &file_app_proto_msgTypes[0]
+	mi := &file_app_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -90,7 +178,7 @@ func (x *GetCurrentBackupConfigRequest) String() string {
 func (*GetCurrentBackupConfigRequest) ProtoMessage() {}
 
 func (x *GetCurrentBackupConfigRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_app_proto_msgTypes[0]
+	mi := &file_app_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -103,7 +191,7 @@ func (x *GetCurrentBackupConfigRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetCurrentBackupConfigRequest.ProtoReflect.Descriptor instead.
 func (*GetCurrentBackupConfigRequest) Descriptor() ([]byte, []int) {
-	return file_app_proto_rawDescGZIP(), []int{0}
+	return file_app_proto_rawDescGZIP(), []int{2}
 }
 
 type CreateBackupRequest struct {
@@ -116,7 +204,7 @@ type CreateBackupRequest struct {
 
 func (x *CreateBackupRequest) Reset() {
 	*x = CreateBackupRequest{}
-	mi := &file_app_proto_msgTypes[1]
+	mi := &file_app_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -128,7 +216,7 @@ func (x *CreateBackupRequest) String() string {
 func (*CreateBackupRequest) ProtoMessage() {}
 
 func (x *CreateBackupRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_app_proto_msgTypes[1]
+	mi := &file_app_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -141,7 +229,7 @@ func (x *CreateBackupRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateBackupRequest.ProtoReflect.Descriptor instead.
 func (*CreateBackupRequest) Descriptor() ([]byte, []int) {
-	return file_app_proto_rawDescGZIP(), []int{1}
+	return file_app_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *CreateBackupRequest) GetBackupName() string {
@@ -166,7 +254,7 @@ type CreateBackupResponse struct {
 
 func (x *CreateBackupResponse) Reset() {
 	*x = CreateBackupResponse{}
-	mi := &file_app_proto_msgTypes[2]
+	mi := &file_app_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -178,7 +266,7 @@ func (x *CreateBackupResponse) String() string {
 func (*CreateBackupResponse) ProtoMessage() {}
 
 func (x *CreateBackupResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_app_proto_msgTypes[2]
+	mi := &file_app_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -191,7 +279,7 @@ func (x *CreateBackupResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateBackupResponse.ProtoReflect.Descriptor instead.
 func (*CreateBackupResponse) Descriptor() ([]byte, []int) {
-	return file_app_proto_rawDescGZIP(), []int{2}
+	return file_app_proto_rawDescGZIP(), []int{4}
 }
 
 type DeleteBackupRequest struct {
@@ -204,7 +292,7 @@ type DeleteBackupRequest struct {
 
 func (x *DeleteBackupRequest) Reset() {
 	*x = DeleteBackupRequest{}
-	mi := &file_app_proto_msgTypes[3]
+	mi := &file_app_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -216,7 +304,7 @@ func (x *DeleteBackupRequest) String() string {
 func (*DeleteBackupRequest) ProtoMessage() {}
 
 func (x *DeleteBackupRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_app_proto_msgTypes[3]
+	mi := &file_app_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -229,7 +317,7 @@ func (x *DeleteBackupRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteBackupRequest.ProtoReflect.Descriptor instead.
 func (*DeleteBackupRequest) Descriptor() ([]byte, []int) {
-	return file_app_proto_rawDescGZIP(), []int{3}
+	return file_app_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *DeleteBackupRequest) GetBackupName() string {
@@ -254,7 +342,7 @@ type DeleteBackupResponse struct {
 
 func (x *DeleteBackupResponse) Reset() {
 	*x = DeleteBackupResponse{}
-	mi := &file_app_proto_msgTypes[4]
+	mi := &file_app_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -266,7 +354,7 @@ func (x *DeleteBackupResponse) String() string {
 func (*DeleteBackupResponse) ProtoMessage() {}
 
 func (x *DeleteBackupResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_app_proto_msgTypes[4]
+	mi := &file_app_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -279,7 +367,7 @@ func (x *DeleteBackupResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteBackupResponse.ProtoReflect.Descriptor instead.
 func (*DeleteBackupResponse) Descriptor() ([]byte, []int) {
-	return file_app_proto_rawDescGZIP(), []int{4}
+	return file_app_proto_rawDescGZIP(), []int{6}
 }
 
 type BackupConfig struct {
@@ -297,7 +385,7 @@ type BackupConfig struct {
 
 func (x *BackupConfig) Reset() {
 	*x = BackupConfig{}
-	mi := &file_app_proto_msgTypes[5]
+	mi := &file_app_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -309,7 +397,7 @@ func (x *BackupConfig) String() string {
 func (*BackupConfig) ProtoMessage() {}
 
 func (x *BackupConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_app_proto_msgTypes[5]
+	mi := &file_app_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -322,7 +410,7 @@ func (x *BackupConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BackupConfig.ProtoReflect.Descriptor instead.
 func (*BackupConfig) Descriptor() ([]byte, []int) {
-	return file_app_proto_rawDescGZIP(), []int{5}
+	return file_app_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *BackupConfig) GetDestination() string {
@@ -388,7 +476,7 @@ type S3Config struct {
 
 func (x *S3Config) Reset() {
 	*x = S3Config{}
-	mi := &file_app_proto_msgTypes[6]
+	mi := &file_app_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -400,7 +488,7 @@ func (x *S3Config) String() string {
 func (*S3Config) ProtoMessage() {}
 
 func (x *S3Config) ProtoReflect() protoreflect.Message {
-	mi := &file_app_proto_msgTypes[6]
+	mi := &file_app_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -413,7 +501,7 @@ func (x *S3Config) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use S3Config.ProtoReflect.Descriptor instead.
 func (*S3Config) Descriptor() ([]byte, []int) {
-	return file_app_proto_rawDescGZIP(), []int{6}
+	return file_app_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *S3Config) GetBucket() string {
@@ -471,7 +559,7 @@ type GCSConfig struct {
 
 func (x *GCSConfig) Reset() {
 	*x = GCSConfig{}
-	mi := &file_app_proto_msgTypes[7]
+	mi := &file_app_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -483,7 +571,7 @@ func (x *GCSConfig) String() string {
 func (*GCSConfig) ProtoMessage() {}
 
 func (x *GCSConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_app_proto_msgTypes[7]
+	mi := &file_app_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -496,7 +584,7 @@ func (x *GCSConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GCSConfig.ProtoReflect.Descriptor instead.
 func (*GCSConfig) Descriptor() ([]byte, []int) {
-	return file_app_proto_rawDescGZIP(), []int{7}
+	return file_app_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *GCSConfig) GetBucket() string {
@@ -547,7 +635,7 @@ type AzureConfig struct {
 
 func (x *AzureConfig) Reset() {
 	*x = AzureConfig{}
-	mi := &file_app_proto_msgTypes[8]
+	mi := &file_app_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -559,7 +647,7 @@ func (x *AzureConfig) String() string {
 func (*AzureConfig) ProtoMessage() {}
 
 func (x *AzureConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_app_proto_msgTypes[8]
+	mi := &file_app_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -572,7 +660,7 @@ func (x *AzureConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AzureConfig.ProtoReflect.Descriptor instead.
 func (*AzureConfig) Descriptor() ([]byte, []int) {
-	return file_app_proto_rawDescGZIP(), []int{8}
+	return file_app_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *AzureConfig) GetContainerName() string {
@@ -620,7 +708,7 @@ type EnvVar struct {
 
 func (x *EnvVar) Reset() {
 	*x = EnvVar{}
-	mi := &file_app_proto_msgTypes[9]
+	mi := &file_app_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -632,7 +720,7 @@ func (x *EnvVar) String() string {
 func (*EnvVar) ProtoMessage() {}
 
 func (x *EnvVar) ProtoReflect() protoreflect.Message {
-	mi := &file_app_proto_msgTypes[9]
+	mi := &file_app_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -645,7 +733,7 @@ func (x *EnvVar) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EnvVar.ProtoReflect.Descriptor instead.
 func (*EnvVar) Descriptor() ([]byte, []int) {
-	return file_app_proto_rawDescGZIP(), []int{9}
+	return file_app_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *EnvVar) GetKey() string {
@@ -673,7 +761,7 @@ type BackupContainerArgs struct {
 
 func (x *BackupContainerArgs) Reset() {
 	*x = BackupContainerArgs{}
-	mi := &file_app_proto_msgTypes[10]
+	mi := &file_app_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -685,7 +773,7 @@ func (x *BackupContainerArgs) String() string {
 func (*BackupContainerArgs) ProtoMessage() {}
 
 func (x *BackupContainerArgs) ProtoReflect() protoreflect.Message {
-	mi := &file_app_proto_msgTypes[10]
+	mi := &file_app_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -698,7 +786,7 @@ func (x *BackupContainerArgs) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BackupContainerArgs.ProtoReflect.Descriptor instead.
 func (*BackupContainerArgs) Descriptor() ([]byte, []int) {
-	return file_app_proto_rawDescGZIP(), []int{10}
+	return file_app_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *BackupContainerArgs) GetXtrabackup() []string {
@@ -732,7 +820,7 @@ type ContainerOptions struct {
 
 func (x *ContainerOptions) Reset() {
 	*x = ContainerOptions{}
-	mi := &file_app_proto_msgTypes[11]
+	mi := &file_app_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -744,7 +832,7 @@ func (x *ContainerOptions) String() string {
 func (*ContainerOptions) ProtoMessage() {}
 
 func (x *ContainerOptions) ProtoReflect() protoreflect.Message {
-	mi := &file_app_proto_msgTypes[11]
+	mi := &file_app_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -757,7 +845,7 @@ func (x *ContainerOptions) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ContainerOptions.ProtoReflect.Descriptor instead.
 func (*ContainerOptions) Descriptor() ([]byte, []int) {
-	return file_app_proto_rawDescGZIP(), []int{11}
+	return file_app_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *ContainerOptions) GetEnv() []*EnvVar {
@@ -778,7 +866,12 @@ var File_app_proto protoreflect.FileDescriptor
 
 const file_app_proto_rawDesc = "" +
 	"\n" +
-	"\tapp.proto\x12\x03api\"\x1f\n" +
+	"\tapp.proto\x12\x03api\"1\n" +
+	"\x0eGetLogsRequest\x12\x1f\n" +
+	"\vbackup_name\x18\x01 \x01(\tR\n" +
+	"backupName\"\x1c\n" +
+	"\bLogChunk\x12\x10\n" +
+	"\x03log\x18\x01 \x01(\tR\x03log\"\x1f\n" +
 	"\x1dGetCurrentBackupConfigRequest\"n\n" +
 	"\x13CreateBackupRequest\x12\x1f\n" +
 	"\vbackup_name\x18\x01 \x01(\tR\n" +
@@ -841,11 +934,12 @@ const file_app_proto_rawDesc = "" +
 	"\x11BackupStorageType\x12\x06\n" +
 	"\x02S3\x10\x00\x12\t\n" +
 	"\x05AZURE\x10\x01\x12\a\n" +
-	"\x03GCS\x10\x022\xf0\x01\n" +
+	"\x03GCS\x10\x022\xa1\x02\n" +
 	"\x11XtrabackupService\x12O\n" +
 	"\x16GetCurrentBackupConfig\x12\".api.GetCurrentBackupConfigRequest\x1a\x11.api.BackupConfig\x12E\n" +
 	"\fCreateBackup\x12\x18.api.CreateBackupRequest\x1a\x19.api.CreateBackupResponse0\x01\x12C\n" +
-	"\fDeleteBackup\x12\x18.api.DeleteBackupRequest\x1a\x19.api.DeleteBackupResponseBGZEgithub.com/percona/percona-xtradb-cluster-operator/pkg/xtrabackup/apib\x06proto3"
+	"\fDeleteBackup\x12\x18.api.DeleteBackupRequest\x1a\x19.api.DeleteBackupResponse\x12/\n" +
+	"\aGetLogs\x12\x13.api.GetLogsRequest\x1a\r.api.LogChunk0\x01BGZEgithub.com/percona/percona-xtradb-cluster-operator/pkg/xtrabackup/apib\x06proto3"
 
 var (
 	file_app_proto_rawDescOnce sync.Once
@@ -860,40 +954,44 @@ func file_app_proto_rawDescGZIP() []byte {
 }
 
 var file_app_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_app_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
+var file_app_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
 var file_app_proto_goTypes = []any{
 	(BackupStorageType)(0),                // 0: api.BackupStorageType
-	(*GetCurrentBackupConfigRequest)(nil), // 1: api.GetCurrentBackupConfigRequest
-	(*CreateBackupRequest)(nil),           // 2: api.CreateBackupRequest
-	(*CreateBackupResponse)(nil),          // 3: api.CreateBackupResponse
-	(*DeleteBackupRequest)(nil),           // 4: api.DeleteBackupRequest
-	(*DeleteBackupResponse)(nil),          // 5: api.DeleteBackupResponse
-	(*BackupConfig)(nil),                  // 6: api.BackupConfig
-	(*S3Config)(nil),                      // 7: api.S3Config
-	(*GCSConfig)(nil),                     // 8: api.GCSConfig
-	(*AzureConfig)(nil),                   // 9: api.AzureConfig
-	(*EnvVar)(nil),                        // 10: api.EnvVar
-	(*BackupContainerArgs)(nil),           // 11: api.BackupContainerArgs
-	(*ContainerOptions)(nil),              // 12: api.ContainerOptions
+	(*GetLogsRequest)(nil),                // 1: api.GetLogsRequest
+	(*LogChunk)(nil),                      // 2: api.LogChunk
+	(*GetCurrentBackupConfigRequest)(nil), // 3: api.GetCurrentBackupConfigRequest
+	(*CreateBackupRequest)(nil),           // 4: api.CreateBackupRequest
+	(*CreateBackupResponse)(nil),          // 5: api.CreateBackupResponse
+	(*DeleteBackupRequest)(nil),           // 6: api.DeleteBackupRequest
+	(*DeleteBackupResponse)(nil),          // 7: api.DeleteBackupResponse
+	(*BackupConfig)(nil),                  // 8: api.BackupConfig
+	(*S3Config)(nil),                      // 9: api.S3Config
+	(*GCSConfig)(nil),                     // 10: api.GCSConfig
+	(*AzureConfig)(nil),                   // 11: api.AzureConfig
+	(*EnvVar)(nil),                        // 12: api.EnvVar
+	(*BackupContainerArgs)(nil),           // 13: api.BackupContainerArgs
+	(*ContainerOptions)(nil),              // 14: api.ContainerOptions
 }
 var file_app_proto_depIdxs = []int32{
-	6,  // 0: api.CreateBackupRequest.backup_config:type_name -> api.BackupConfig
-	6,  // 1: api.DeleteBackupRequest.backup_config:type_name -> api.BackupConfig
+	8,  // 0: api.CreateBackupRequest.backup_config:type_name -> api.BackupConfig
+	8,  // 1: api.DeleteBackupRequest.backup_config:type_name -> api.BackupConfig
 	0,  // 2: api.BackupConfig.type:type_name -> api.BackupStorageType
-	12, // 3: api.BackupConfig.container_options:type_name -> api.ContainerOptions
-	7,  // 4: api.BackupConfig.s3:type_name -> api.S3Config
-	8,  // 5: api.BackupConfig.gcs:type_name -> api.GCSConfig
-	9,  // 6: api.BackupConfig.azure:type_name -> api.AzureConfig
-	10, // 7: api.ContainerOptions.env:type_name -> api.EnvVar
-	11, // 8: api.ContainerOptions.args:type_name -> api.BackupContainerArgs
-	1,  // 9: api.XtrabackupService.GetCurrentBackupConfig:input_type -> api.GetCurrentBackupConfigRequest
-	2,  // 10: api.XtrabackupService.CreateBackup:input_type -> api.CreateBackupRequest
-	4,  // 11: api.XtrabackupService.DeleteBackup:input_type -> api.DeleteBackupRequest
-	6,  // 12: api.XtrabackupService.GetCurrentBackupConfig:output_type -> api.BackupConfig
-	3,  // 13: api.XtrabackupService.CreateBackup:output_type -> api.CreateBackupResponse
-	5,  // 14: api.XtrabackupService.DeleteBackup:output_type -> api.DeleteBackupResponse
-	12, // [12:15] is the sub-list for method output_type
-	9,  // [9:12] is the sub-list for method input_type
+	14, // 3: api.BackupConfig.container_options:type_name -> api.ContainerOptions
+	9,  // 4: api.BackupConfig.s3:type_name -> api.S3Config
+	10, // 5: api.BackupConfig.gcs:type_name -> api.GCSConfig
+	11, // 6: api.BackupConfig.azure:type_name -> api.AzureConfig
+	12, // 7: api.ContainerOptions.env:type_name -> api.EnvVar
+	13, // 8: api.ContainerOptions.args:type_name -> api.BackupContainerArgs
+	3,  // 9: api.XtrabackupService.GetCurrentBackupConfig:input_type -> api.GetCurrentBackupConfigRequest
+	4,  // 10: api.XtrabackupService.CreateBackup:input_type -> api.CreateBackupRequest
+	6,  // 11: api.XtrabackupService.DeleteBackup:input_type -> api.DeleteBackupRequest
+	1,  // 12: api.XtrabackupService.GetLogs:input_type -> api.GetLogsRequest
+	8,  // 13: api.XtrabackupService.GetCurrentBackupConfig:output_type -> api.BackupConfig
+	5,  // 14: api.XtrabackupService.CreateBackup:output_type -> api.CreateBackupResponse
+	7,  // 15: api.XtrabackupService.DeleteBackup:output_type -> api.DeleteBackupResponse
+	2,  // 16: api.XtrabackupService.GetLogs:output_type -> api.LogChunk
+	13, // [13:17] is the sub-list for method output_type
+	9,  // [9:13] is the sub-list for method input_type
 	9,  // [9:9] is the sub-list for extension type_name
 	9,  // [9:9] is the sub-list for extension extendee
 	0,  // [0:9] is the sub-list for field type_name
@@ -904,14 +1002,14 @@ func file_app_proto_init() {
 	if File_app_proto != nil {
 		return
 	}
-	file_app_proto_msgTypes[5].OneofWrappers = []any{}
+	file_app_proto_msgTypes[7].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_app_proto_rawDesc), len(file_app_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   12,
+			NumMessages:   14,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

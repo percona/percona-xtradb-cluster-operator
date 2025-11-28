@@ -8,6 +8,15 @@ service XtrabackupService {
     rpc GetCurrentBackupConfig(GetCurrentBackupConfigRequest) returns (BackupConfig);
     rpc CreateBackup(CreateBackupRequest) returns (stream CreateBackupResponse);
     rpc DeleteBackup(DeleteBackupRequest) returns (DeleteBackupResponse);
+    rpc GetLogs(GetLogsRequest) returns (stream LogChunk);
+}
+
+message GetLogsRequest {
+    string backup_name = 1;
+}
+
+message LogChunk {
+    string log = 1;
 }
 
 message GetCurrentBackupConfigRequest {}

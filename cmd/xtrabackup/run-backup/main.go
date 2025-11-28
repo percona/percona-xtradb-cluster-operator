@@ -7,6 +7,8 @@ import (
 	"io"
 	"log"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/xtrabackup/api"
 	xbscapi "github.com/percona/percona-xtradb-cluster-operator/pkg/xtrabackup/api"
@@ -38,9 +40,13 @@ func main() {
 
 	log.Printf("Created connection to server at %s", connUrl)
 
+	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer cancel()
 	client := xbscapi.NewXtrabackupServiceClient(conn)
 
-	stream, err := client.CreateBackup(context.Background(), req)
+	defer printLogs(ctx, req.BackupName, client)
+
+	stream, err := client.CreateBackup(ctx, req)
 	if err != nil {
 		if status.Code(err) == codes.FailedPrecondition {
 			log.Fatal("Backup is already running")
@@ -59,6 +65,24 @@ func main() {
 		}
 	}
 	log.Println("Backup created successfully")
+}
+
+func printLogs(ctx context.Context, backupName string, client xbscapi.XtrabackupServiceClient) {
+	stream, err := client.GetLogs(ctx, &xbscapi.GetLogsRequest{
+		BackupName: backupName,
+	})
+	if err != nil {
+		log.Fatal("Failed to get logs: %w", err)
+	}
+	for {
+		chunk, err := stream.Recv()
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			log.Fatal("Failed to receive log chunk: %w", err)
+		}
+		fmt.Fprint(os.Stdout, chunk.Log)
+	}
 }
 
 func getRequestObject() *xbscapi.CreateBackupRequest {

@@ -39,9 +39,11 @@ func New() (api.XtrabackupServiceServer, error) {
 }
 
 func (s *appServer) GetCurrentBackupConfig(ctx context.Context, req *api.GetCurrentBackupConfigRequest) (*api.BackupConfig, error) {
+	// TODO
 	return nil, status.Errorf(codes.Unimplemented, "method GetCurrentBackupConfig not implemented")
 }
 
 func (s *appServer) DeleteBackup(ctx context.Context, req *api.DeleteBackupRequest) (*api.DeleteBackupResponse, error) {
+	// TODO
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteBackup not implemented")
 }

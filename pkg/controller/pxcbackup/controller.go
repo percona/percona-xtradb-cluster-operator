@@ -21,7 +21,6 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -87,7 +86,7 @@ func newReconciler(mgr manager.Manager) (reconcile.Reconciler, error) {
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	return builder.ControllerManagedBy(mgr).
 		Named("pxcbackup-controller").
-		Watches(&api.PerconaXtraDBClusterBackup{}, &handler.EnqueueRequestForObject{}).
+		For(&api.PerconaXtraDBClusterBackup{}).
 		Complete(r)
 }
 
@@ -318,11 +317,6 @@ func (r *ReconcilePerconaXtraDBClusterBackup) createBackupJob(
 
 		cr.Status.Destination.SetPVCDestination(pvc.Name)
 
-		// Set PerconaXtraDBClusterBackup instance as the owner and controller
-		if err := k8s.SetControllerReference(cr, pvc, r.scheme); err != nil {
-			return nil, errors.Wrap(err, "setControllerReference")
-		}
-
 		// Check if this PVC already exists
 		err = r.client.Get(ctx, types.NamespacedName{Name: pvc.Name, Namespace: pvc.Namespace}, pvc)
 		if err != nil && k8sErrors.IsNotFound(err) {
@@ -339,6 +333,9 @@ func (r *ReconcilePerconaXtraDBClusterBackup) createBackupJob(
 		if err != nil {
 			return nil, errors.Wrap(err, "set storage FS")
 		}
+
+		cr.Status.SetFsPvcFromPVC(pvc)
+
 	case api.BackupStorageS3:
 		if storage.S3 == nil {
 			return nil, errors.New("s3 storage is not specified")
@@ -446,7 +443,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) runBackupFinalizers(ctx context.Co
 		var err error
 		switch f {
 		case naming.FinalizerDeleteBackup:
-			if (cr.Status.S3 == nil && cr.Status.Azure == nil) || cr.Status.Destination == "" {
+			if (cr.Status.S3 == nil && cr.Status.Azure == nil && cr.Status.PVC == nil) || cr.Status.Destination == "" {
 				continue
 			}
 
@@ -458,6 +455,8 @@ func (r *ReconcilePerconaXtraDBClusterBackup) runBackupFinalizers(ctx context.Co
 				err = r.runS3BackupFinalizer(ctx, cr)
 			case api.BackupStorageAzure:
 				err = r.runAzureBackupFinalizer(ctx, cr)
+			case api.BackupStorageFilesystem:
+				err = r.runFilesystemBackupFinalizer(ctx, cr)
 			default:
 				continue
 			}
@@ -543,6 +542,19 @@ func (r *ReconcilePerconaXtraDBClusterBackup) runAzureBackupFinalizer(ctx contex
 			return true
 		},
 		removeBackupObjects(ctx, azureStorage, backupName))
+	if err != nil {
+		return errors.Wrapf(err, "failed to delete backup %s", cr.Name)
+	}
+	return nil
+}
+
+func (r *ReconcilePerconaXtraDBClusterBackup) runFilesystemBackupFinalizer(ctx context.Context, cr *api.PerconaXtraDBClusterBackup) error {
+	log := logf.FromContext(ctx)
+
+	backupName := cr.Status.Destination.BackupName()
+	log.Info("Deleting backup from fs-pvc", "name", cr.Name, "backupName", backupName)
+	err := r.deleteBackupPVC(ctx, cr.Namespace, backupName)
+
 	if err != nil {
 		return errors.Wrapf(err, "failed to delete backup %s", cr.Name)
 	}
@@ -641,6 +653,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) updateJobStatus(
 		StorageName:           storageName,
 		S3:                    storage.S3,
 		Azure:                 storage.Azure,
+		PVC:                   bcp.Status.PVC,
 		StorageType:           storage.Type,
 		Image:                 bcp.Status.Image,
 		SSLSecretName:         bcp.Status.SSLSecretName,
@@ -887,5 +900,24 @@ func (r *ReconcilePerconaXtraDBClusterBackup) cleanUpSuspendedJob(
 		return errors.Wrap(err, "delete job")
 	}
 
+	return nil
+}
+
+func (r *ReconcilePerconaXtraDBClusterBackup) deleteBackupPVC(ctx context.Context, backupNamespace, backupPVCName string) error {
+	log := logf.FromContext(ctx)
+	log.Info("Deleting backup PVC", "namespace", backupNamespace, "pvc", backupPVCName)
+
+	pvc := &corev1.PersistentVolumeClaim{}
+	err := r.client.Get(ctx, types.NamespacedName{Name: backupPVCName, Namespace: backupNamespace}, pvc)
+	if err != nil {
+		return errors.Wrap(err, "get backup PVC by name")
+	}
+
+	err = r.client.Delete(ctx, pvc, &client.DeleteOptions{Preconditions: &metav1.Preconditions{UID: &pvc.UID}})
+	if err != nil {
+		return errors.Wrapf(err, "delete backup PVC %s", pvc.Name)
+	}
+
+	log.Info("Deleted backup PVC", "namespace", backupNamespace, "pvc", backupPVCName)
 	return nil
 }

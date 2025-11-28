@@ -90,7 +90,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 	return builder.ControllerManagedBy(mgr).
 		Named(naming.OperatorController).
-		Watches(&api.PerconaXtraDBCluster{}, &handler.EnqueueRequestForObject{}).
+		For(&api.PerconaXtraDBCluster{}).
 		Watches(&corev1.Secret{}, enqueuePXCReferencingSecret(mgr.GetClient())).
 		Complete(r)
 }
@@ -321,19 +321,6 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 		err = r.recoverFullClusterCrashIfNeeded(ctx, o)
 		if err != nil {
 			log.Info("Failed to check if cluster needs to recover", "err", err.Error())
-		}
-	}
-
-	if o.Spec.ProxySQLEnabled() {
-		haproxySts := appsv1.StatefulSet{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      o.Name + "-haproxy",
-				Namespace: o.Namespace,
-			},
-		}
-		err = r.client.Get(ctx, client.ObjectKeyFromObject(&haproxySts), &haproxySts)
-		if err == nil && !strings.HasPrefix(o.Status.PXC.Version, "5.7") {
-			return reconcile.Result{}, errors.Errorf("failed to enable ProxySQL: for mysql version 8.0 you can't switch from HAProxy to ProxySQL")
 		}
 	}
 

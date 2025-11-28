@@ -19,6 +19,7 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/config"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/util"
@@ -181,6 +182,34 @@ func PVCRestorePod(cr *api.PerconaXtraDBClusterRestore, bcpStorageName, pvcName 
 	}, nil
 }
 
+func appendCABundleSecretVolume(
+	volumes *[]corev1.Volume,
+	volumeMounts *[]corev1.VolumeMount,
+	secretKeySel *corev1.SecretKeySelector,
+) {
+	const volumeName = "ca-bundle"
+	vol := corev1.Volume{
+		Name: volumeName,
+		VolumeSource: corev1.VolumeSource{
+			Secret: &corev1.SecretVolumeSource{
+				SecretName: secretKeySel.Name,
+				Items: []corev1.KeyToPath{
+					{
+						Key:  secretKeySel.Key,
+						Path: naming.BackupStorageCAFileName,
+					},
+				},
+			},
+		},
+	}
+	*volumes = append(*volumes, vol)
+	mnt := corev1.VolumeMount{
+		Name:      volumeName,
+		MountPath: naming.BackupStorageCAFileDirectory,
+	}
+	*volumeMounts = append(*volumeMounts, mnt)
+}
+
 func RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, cluster *api.PerconaXtraDBCluster, initImage string, scheme *runtime.Scheme, destination api.PXCBackupDestination, pitr bool) (*batchv1.Job, error) {
 	switch bcp.Status.GetStorageType(cluster) {
 	case api.BackupStorageAzure:
@@ -250,6 +279,7 @@ func RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClust
 		if cluster.CompareVersionWith("1.18.0") >= 0 {
 			command = []string{"/opt/percona/backup/recovery-cloud.sh"}
 		}
+
 		if pitr {
 			if cluster.Spec.Backup == nil && len(cluster.Spec.Backup.Storages) == 0 {
 				return nil, errors.New("no storage section")
@@ -261,6 +291,11 @@ func RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClust
 			if cluster.CompareVersionWith("1.15.0") < 0 {
 				command = []string{"pitr", "recover"}
 			}
+		}
+
+		// add ca bundle (this is used by the aws-cli to verify the connection to S3)
+		if bcp.Status.S3 != nil && bcp.Status.S3.CABundle != nil {
+			appendCABundleSecretVolume(&volumes, &volumeMounts, bcp.Status.S3.CABundle)
 		}
 	default:
 		return nil, errors.Errorf("invalid storage type was specified in status, got: %s", bcp.Status.GetStorageType(cluster))
@@ -719,6 +754,10 @@ func PrepareJob(
 			MountPath: "/var/lib/mysql",
 		},
 		{
+			Name:      "config",
+			MountPath: "/etc/percona-xtradb-cluster.conf.d",
+		},
+		{
 			Name:      "mysql-users-secret-file",
 			MountPath: "/etc/mysql/mysql-users-secret",
 		},
@@ -744,6 +783,7 @@ func PrepareJob(
 				},
 			},
 		},
+		app.GetConfigVolumes("config", config.CustomConfigMapName(cluster.Name, "pxc")),
 		app.GetSecretVolumes("mysql-users-secret-file", "internal-"+cluster.Name, false),
 		app.GetSecretVolumes("vault-keyring-secret", cluster.Spec.PXC.VaultSecretName, true),
 		app.GetSecretVolumes("ssl", cluster.Spec.PXC.SSLSecretName, !cluster.TLSEnabled()),

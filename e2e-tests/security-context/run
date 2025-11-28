@@ -5,6 +5,7 @@ set -o errexit
 test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
 
+compare_dir="$test_dir/compare/"
 set_debug
 
 create_infra $namespace
@@ -34,7 +35,7 @@ pfx="-changes"
 apply_config "$test_dir/conf/$cluster$pfx.yml"
 sleep 30
 
-desc 'check if service and statefulset chenged to expected config'
+desc 'check if service and statefulset changed to expected config'
 compare_kubectl statefulset/$cluster-pxc $pfx
 compare_kubectl statefulset/$cluster-proxysql $pfx
 
@@ -44,6 +45,16 @@ desc 'run pvc backup'
 backup="on-demand-backup-pvc"
 kubectl_bin apply -f "$test_dir/conf/$cluster-$backup.yml"
 wait_backup $backup
+pvc_name=$(get_pvc_name_for_backup $backup)
+
+echo "$compare_dir"
+for file in "$compare_dir"*; do
+  cat "$file" \
+    | $sed -E "s#(claimName: xb-on-demand-backup-pvc)(-[0-9]{14}-[a-f0-9]{8})?#claimName: $pvc_name#" \
+    > "${file}.patched"
+  mv "${file}.patched" "$file"
+done
+
 compare_kubectl job.batch/xb-$backup
 
 kubectl_bin config set-context "$(kubectl_bin config current-context)" --namespace="$namespace"

@@ -3,8 +3,16 @@ package v1
 import (
 	"reflect"
 	"testing"
+	"time"
 
+	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxctls"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/version"
 )
 
 func TestReconcileAffinity(t *testing.T) {
@@ -153,12 +161,12 @@ func TestGetLoadBalancerClass(t *testing.T) {
 		},
 		"load balancer class is empty string": {
 			exposeType:          corev1.ServiceTypeLoadBalancer,
-			loadBalancerClass:   strPtr(""),
+			loadBalancerClass:   ptr.To(""),
 			expectedErrorString: "load balancer class not provided or is empty",
 		},
 		"valid load balancer class": {
 			exposeType:        corev1.ServiceTypeLoadBalancer,
-			loadBalancerClass: strPtr("my-lb-class"),
+			loadBalancerClass: ptr.To("my-lb-class"),
 		},
 	}
 
@@ -179,6 +187,77 @@ func TestGetLoadBalancerClass(t *testing.T) {
 	}
 }
 
-func strPtr(s string) *string {
-	return &s
+func TestCheckNSetDefaults(t *testing.T) {
+	minimalCr := PerconaXtraDBCluster{
+		Spec: PerconaXtraDBClusterSpec{
+			CRVersion: version.Version(),
+			PXC: &PXCSpec{
+				PodSpec: &PodSpec{
+					Size:  3,
+					Image: "some-image",
+					VolumeSpec: &VolumeSpec{
+						EmptyDir: &corev1.EmptyDirVolumeSource{},
+					},
+				},
+			},
+		},
+	}
+	t.Run("tls", func(t *testing.T) {
+		ctx := t.Context()
+		cr := minimalCr.DeepCopy()
+		cr.Spec.TLS = &TLSSpec{
+			Enabled: ptr.To(true),
+		}
+
+		assert.NoError(t, cr.CheckNSetDefaults(nil, logf.FromContext(ctx)))
+		assert.Equal(t, &metav1.Duration{Duration: pxctls.DefaultCertValidity}, cr.Spec.TLS.Duration)
+		assert.Equal(t, &metav1.Duration{Duration: pxctls.DefaultCAValidity}, cr.Spec.TLS.CADuration)
+
+		cr = minimalCr.DeepCopy()
+		cr.Spec.TLS = &TLSSpec{
+			Enabled: ptr.To(false),
+		}
+		cr.Spec.Unsafe.TLS = true
+
+		assert.NoError(t, cr.CheckNSetDefaults(nil, logf.FromContext(ctx)))
+		assert.Equal(t, (*metav1.Duration)(nil), cr.Spec.TLS.Duration)
+		assert.Equal(t, (*metav1.Duration)(nil), cr.Spec.TLS.CADuration)
+
+		cr = minimalCr.DeepCopy()
+		cr.Spec.TLS = &TLSSpec{
+			Enabled:    ptr.To(true),
+			Duration:   &metav1.Duration{Duration: time.Hour * 3000},
+			CADuration: &metav1.Duration{Duration: time.Hour * 1000},
+		}
+		assert.EqualError(t, cr.CheckNSetDefaults(nil, logf.FromContext(ctx)), ".spec.tls.caValidityDuration shouldn't be smaller than .spec.tls.certValidityDuration")
+
+		cr = minimalCr.DeepCopy()
+		cr.Spec.TLS = &TLSSpec{
+			Enabled:  ptr.To(true),
+			Duration: &metav1.Duration{Duration: time.Hour * 30000},
+		}
+		assert.EqualError(t, cr.CheckNSetDefaults(nil, logf.FromContext(ctx)), ".spec.tls.caValidityDuration shouldn't be smaller than .spec.tls.certValidityDuration")
+
+		cr = minimalCr.DeepCopy()
+		cr.Spec.TLS = &TLSSpec{
+			Enabled:    ptr.To(true),
+			CADuration: &metav1.Duration{Duration: time.Hour * 2000},
+		}
+		assert.EqualError(t, cr.CheckNSetDefaults(nil, logf.FromContext(ctx)), ".spec.tls.caValidityDuration shouldn't be smaller than .spec.tls.certValidityDuration")
+
+		cr = minimalCr.DeepCopy()
+		cr.Spec.TLS = &TLSSpec{
+			Enabled:    ptr.To(true),
+			CADuration: &metav1.Duration{Duration: time.Hour * 720},
+			Duration:   &metav1.Duration{Duration: time.Hour * 700},
+		}
+		assert.EqualError(t, cr.CheckNSetDefaults(nil, logf.FromContext(ctx)), ".spec.tls.caValidityDuration should be greater than 730 hours")
+
+		cr = minimalCr.DeepCopy()
+		cr.Spec.TLS = &TLSSpec{
+			Enabled:  ptr.To(true),
+			Duration: &metav1.Duration{Duration: time.Minute * 1},
+		}
+		assert.EqualError(t, cr.CheckNSetDefaults(nil, logf.FromContext(ctx)), ".spec.tls.certValidityDuration shouldn't be smaller than 1 hours")
+	})
 }

@@ -4,7 +4,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type Backup struct {
@@ -16,7 +15,7 @@ type Backup struct {
 	serviceAccountName string
 }
 
-func New(cr *api.PerconaXtraDBCluster, cl client.Client) *Backup {
+func New(cr *api.PerconaXtraDBCluster) *Backup {
 	return &Backup{
 		cluster:            cr.Name,
 		namespace:          cr.Namespace,

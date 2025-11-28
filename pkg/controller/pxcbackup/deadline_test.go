@@ -198,7 +198,7 @@ var _ = Describe("Suspended deadline", func() {
 		cr, err := readDefaultBackup("backup1", "test")
 		Expect(err).ToNot(HaveOccurred())
 
-		bcp := backup.New(cluster, buildFakeClient())
+		bcp := backup.New(cluster)
 		job := bcp.Job(cr, cluster)
 
 		job.Spec, err = bcp.JobSpec(cr.Spec, cluster, job, "")
@@ -226,7 +226,7 @@ var _ = Describe("Suspended deadline", func() {
 		cr, err := readDefaultBackup("backup1", "test")
 		Expect(err).ToNot(HaveOccurred())
 
-		bcp := backup.New(cluster, buildFakeClient())
+		bcp := backup.New(cluster)
 		job := bcp.Job(cr, cluster)
 
 		job.Spec, err = bcp.JobSpec(cr.Spec, cluster, job, "")
@@ -254,7 +254,7 @@ var _ = Describe("Suspended deadline", func() {
 		cr, err := readDefaultBackup("backup1", "test")
 		Expect(err).ToNot(HaveOccurred())
 
-		bcp := backup.New(cluster, buildFakeClient())
+		bcp := backup.New(cluster)
 		job := bcp.Job(cr, cluster)
 
 		job.Spec, err = bcp.JobSpec(cr.Spec, cluster, job, "")
@@ -282,7 +282,7 @@ var _ = Describe("Suspended deadline", func() {
 		cr, err := readDefaultBackup("backup1", "test")
 		Expect(err).ToNot(HaveOccurred())
 
-		bcp := backup.New(cluster, buildFakeClient())
+		bcp := backup.New(cluster)
 		job := bcp.Job(cr, cluster)
 
 		job.Spec, err = bcp.JobSpec(cr.Spec, cluster, job, "")
@@ -318,7 +318,7 @@ var _ = Describe("Suspended deadline", func() {
 		cr, err := readDefaultBackup("backup1", "test")
 		Expect(err).ToNot(HaveOccurred())
 
-		bcp := backup.New(cluster, buildFakeClient())
+		bcp := backup.New(cluster)
 		job := bcp.Job(cr, cluster)
 
 		job.Spec, err = bcp.JobSpec(cr.Spec, cluster, job, "")

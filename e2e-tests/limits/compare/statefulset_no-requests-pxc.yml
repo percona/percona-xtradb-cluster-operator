@@ -63,7 +63,7 @@ spec:
             - name: READINESS_CHECK_TIMEOUT
               value: "15"
             - name: DEFAULT_AUTHENTICATION_PLUGIN
-              value: mysql_native_password
+              value: caching_sha2_password
             - name: MYSQL_NOTIFY_SOCKET
               value: /var/lib/mysql/notify.sock
             - name: MYSQL_STATE_FILE

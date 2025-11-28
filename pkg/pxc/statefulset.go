@@ -69,7 +69,7 @@ func StatefulSet(
 		})
 	}
 
-	appC, err := sfs.AppContainer(podSpec, secrets, cr, pod.Volumes)
+	appC, err := sfs.AppContainer(ctx, cl, podSpec, secrets, cr, pod.Volumes)
 	if err != nil {
 		return nil, errors.Wrap(err, "app container")
 	}

@@ -251,7 +251,7 @@ func TestCheckNSetDefaults(t *testing.T) {
 			CADuration: &metav1.Duration{Duration: time.Hour * 720},
 			Duration:   &metav1.Duration{Duration: time.Hour * 700},
 		}
-		assert.EqualError(t, cr.CheckNSetDefaults(nil, logf.FromContext(ctx)), ".spec.tls.caValidityDuration shouldn't be smaller than 730 hours")
+		assert.EqualError(t, cr.CheckNSetDefaults(nil, logf.FromContext(ctx)), ".spec.tls.caValidityDuration should be greater than 730 hours")
 
 		cr = minimalCr.DeepCopy()
 		cr.Spec.TLS = &TLSSpec{

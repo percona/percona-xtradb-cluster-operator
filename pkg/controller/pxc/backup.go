@@ -228,7 +228,7 @@ func (r *ReconcilePerconaXtraDBCluster) createBackupJob(ctx context.Context, cr 
 
 func backupFinalizers(cr *api.PerconaXtraDBCluster, backupJob api.PXCScheduledBackupSchedule, storageType api.BackupStorageType) []string {
 	switch storageType {
-	case api.BackupStorageS3, api.BackupStorageAzure:
+	case api.BackupStorageS3, api.BackupStorageAzure, api.BackupStorageFilesystem:
 		if cr.CompareVersionWith("1.18.0") >= 0 && !backupJob.GetRetention().DeleteFromStorage {
 			return []string{}
 		}

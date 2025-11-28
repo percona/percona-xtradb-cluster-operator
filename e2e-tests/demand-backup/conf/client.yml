@@ -23,4 +23,4 @@ spec:
       volumes:
       - name: backup
         persistentVolumeClaim:
-          claimName: xb-on-demand-backup-pvc
+          claimName: -backup-pvc

@@ -349,8 +349,8 @@ func (r *ReconcilePerconaXtraDBCluster) waitHostgroups(
 	if !cr.Spec.ProxySQLEnabled() {
 		return nil
 	}
-  log := logf.FromContext(ctx)
-  
+	log := logf.FromContext(ctx)
+
 	database, err := k8s.GetProxyConnection(cr, r.client)
 	if err != nil {
 		return errors.Wrap(err, "connect to proxy")

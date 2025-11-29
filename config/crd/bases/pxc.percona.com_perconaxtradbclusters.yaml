@@ -1746,6 +1746,25 @@ spec:
                       rule: '!(has(self.loadBalancerClass)) || self.type == ''LoadBalancer'''
                   externalTrafficPolicy:
                     type: string
+                  extraPVCs:
+                    items:
+                      properties:
+                        claimName:
+                          type: string
+                        mountPath:
+                          type: string
+                        name:
+                          type: string
+                        readOnly:
+                          type: boolean
+                        subPath:
+                          type: string
+                      required:
+                      - claimName
+                      - mountPath
+                      - name
+                      type: object
+                    type: array
                   gracePeriod:
                     format: int64
                     type: integer
@@ -5311,6 +5330,25 @@ spec:
                       rule: '!(has(self.loadBalancerClass)) || self.type == ''LoadBalancer'''
                   externalTrafficPolicy:
                     type: string
+                  extraPVCs:
+                    items:
+                      properties:
+                        claimName:
+                          type: string
+                        mountPath:
+                          type: string
+                        name:
+                          type: string
+                        readOnly:
+                          type: boolean
+                        subPath:
+                          type: string
+                      required:
+                      - claimName
+                      - mountPath
+                      - name
+                      type: object
+                    type: array
                   gracePeriod:
                     format: int64
                     type: integer
@@ -8332,6 +8370,25 @@ spec:
                       rule: '!(has(self.loadBalancerClass)) || self.type == ''LoadBalancer'''
                   externalTrafficPolicy:
                     type: string
+                  extraPVCs:
+                    items:
+                      properties:
+                        claimName:
+                          type: string
+                        mountPath:
+                          type: string
+                        name:
+                          type: string
+                        readOnly:
+                          type: boolean
+                        subPath:
+                          type: string
+                      required:
+                      - claimName
+                      - mountPath
+                      - name
+                      type: object
+                    type: array
                   gracePeriod:
                     format: int64
                     type: integer

@@ -34,6 +34,7 @@ func NewPXC(addr string, user, pass string) (*PXC, error) {
 	config.Params = map[string]string{
 		"interpolateParams": "true",
 		"tls":               "preferred",
+		"multiStatements":   "true",
 	}
 	config.DBName = "mysql"
 
@@ -205,7 +206,7 @@ func (p *PXC) SubtractGTIDSet(ctx context.Context, set, subSet string) (string, 
 	return result, nil
 }
 
-func getNodesByServiceName(ctx context.Context, pxcServiceName string) ([]string, error) {
+func GetNodesByServiceName(ctx context.Context, pxcServiceName string) ([]string, error) {
 	cmd := exec.CommandContext(ctx, "/opt/percona/peer-list", "-on-start=/opt/percona/get-pxc-state.sh", "-service="+pxcServiceName)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -215,7 +216,7 @@ func getNodesByServiceName(ctx context.Context, pxcServiceName string) ([]string
 }
 
 func GetPXCFirstHost(ctx context.Context, pxcServiceName string) (string, error) {
-	nodes, err := getNodesByServiceName(ctx, pxcServiceName)
+	nodes, err := GetNodesByServiceName(ctx, pxcServiceName)
 	if err != nil {
 		return "", errors.Wrap(err, "get nodes by service name")
 	}
@@ -236,7 +237,7 @@ func GetPXCFirstHost(ctx context.Context, pxcServiceName string) (string, error)
 }
 
 func GetPXCOldestBinlogHost(ctx context.Context, pxcServiceName, user, pass string) (string, error) {
-	nodes, err := getNodesByServiceName(ctx, pxcServiceName)
+	nodes, err := GetNodesByServiceName(ctx, pxcServiceName)
 	if err != nil {
 		return "", errors.Wrap(err, "get nodes by service name")
 	}
@@ -351,19 +352,27 @@ func (p *PXC) UninstallBinlogUDFComponent(ctx context.Context) error {
 }
 
 func (p *PXC) CreateCollectorFunctions(ctx context.Context) error {
-	_, err := p.db.ExecContext(ctx, "CREATE FUNCTION IF NOT EXISTS get_last_record_timestamp_by_binlog RETURNS INTEGER SONAME 'binlog_utils_udf.so'")
-	if err != nil {
-		return errors.Wrap(err, "create function get_first_record_timestamp_by_binlog")
+	m := map[string]string{
+		"get_last_record_timestamp_by_binlog":  "INTEGER",
+		"get_gtid_set_by_binlog":               "STRING",
+		"get_first_record_timestamp_by_binlog": "INTEGER",
 	}
 
-	_, err = p.db.ExecContext(ctx, "CREATE FUNCTION IF NOT EXISTS get_gtid_set_by_binlog RETURNS STRING SONAME 'binlog_utils_udf.so'")
-	if err != nil {
-		return errors.Wrap(err, "create function get_gtid_set_by_binlog")
-	}
+	for functionName, returnType := range m {
+		var x int
+		err := p.db.QueryRowContext(ctx, `SELECT 1 FROM mysql.func WHERE name = ? LIMIT 1`, functionName).Scan(&x)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return errors.Wrapf(err, "check if function %s exists", functionName)
+		}
+		if err == nil {
+			log.Printf("function %s already exists", functionName)
+			continue
+		}
 
-	_, err = p.db.ExecContext(ctx, "CREATE FUNCTION IF NOT EXISTS get_first_record_timestamp_by_binlog RETURNS INTEGER SONAME 'binlog_utils_udf.so'")
-	if err != nil {
-		return errors.Wrap(err, "create function get_first_record_timestamp_by_binlog")
+		createQ := fmt.Sprintf("SET SESSION wsrep_on = OFF; CREATE FUNCTION IF NOT EXISTS %s RETURNS %s SONAME 'binlog_utils_udf.so'; SET SESSION wsrep_on = ON", functionName, returnType)
+		if _, err := p.db.ExecContext(ctx, createQ); err != nil {
+			return errors.Wrapf(err, "create function %s", functionName)
+		}
 	}
 
 	return nil

@@ -7,11 +7,14 @@ import (
 	"github.com/pkg/errors"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage"
 )
 
 func getBackup(ctx context.Context, cl client.Client, cr *api.PerconaXtraDBClusterRestore) (*api.PerconaXtraDBClusterBackup, error) {
@@ -94,4 +97,33 @@ func isJobFinished(checkJob *batchv1.Job) (bool, error) {
 		}
 	}
 	return false, nil
+}
+
+func (r *ReconcilePerconaXtraDBClusterRestore) isPITRReady(ctx context.Context, cluster *api.PerconaXtraDBCluster, bcp *api.PerconaXtraDBClusterBackup) (bool, error) {
+	cond := meta.FindStatusCondition(bcp.Status.Conditions, api.BackupConditionPITRReady)
+	if cond != nil && cond.Status == metav1.ConditionFalse {
+		return false, nil
+	}
+
+	opts, err := storage.GetOptionsFromBackup(ctx, r.client, cluster, bcp)
+	if err != nil {
+		return false, errors.Wrap(err, "failed to get storage options")
+	}
+
+	stg, err := r.newStorageClientFunc(ctx, opts)
+	if err != nil {
+		return false, errors.Wrap(err, "new storage")
+	}
+
+	filepath := bcp.Status.Destination.BackupName() + "." + naming.PITRNotReady
+	objReader, err := stg.GetObject(ctx, filepath)
+	if err == nil {
+		objReader.Close()
+		return false, nil
+	}
+	if errors.Is(err, storage.ErrObjectNotFound) {
+		return true, nil
+	}
+
+	return false, errors.Wrap(err, "get pitr-not-ready file from storage")
 }

@@ -36,22 +36,6 @@ spinup_pxc() {
 	done
 }
 
-check_pvc_md5() {
-	desc 'check backup file md5sum'
-	apply_config "$test_dir/conf/client.yml"
-	sleep 10
-	bak_client_pod=$(
-		kubectl_bin get pods \
-			--selector=name=backup-client \
-			-o 'jsonpath={.items[].metadata.name}'
-	)
-	wait_pod $bak_client_pod
-	kubectl_bin exec $bak_client_pod -- \
-		bash -c "cd /backup; md5sum -c md5sum.txt"
-	kubectl_bin delete \
-		-f $test_dir/conf/client.yml
-}
-
 run_backup() {
 	local cluster=$1
 	local backup1=$2
@@ -96,7 +80,7 @@ main() {
 
 	run_backup "$cluster" "on-demand-backup-pvc"
 	run_recovery_check "$cluster" "on-demand-backup-pvc"
-	check_pvc_md5
+	check_pvc_md5 "on-demand-backup-pvc"
 
 	if [ -z "$SKIP_REMOTE_BACKUPS" ]; then
 		run_backup "$cluster" "on-demand-backup-aws-s3"

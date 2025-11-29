@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 
+	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	cmmeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
 	"github.com/flosch/pongo2/v6"
 	"github.com/go-ini/ini"
@@ -1320,14 +1321,14 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 		if tls.CADuration == nil {
 			tls.CADuration = &metav1.Duration{Duration: pxctls.DefaultCAValidity}
 		}
-		if tls.Duration.Duration < pxctls.MinCertValidity {
-			return errors.Errorf(".spec.tls.certValidityDuration shouldn't be smaller than %d hours", int(pxctls.MinCertValidity.Hours()))
+		if tls.Duration.Duration < cmapi.MinimumCertificateDuration {
+			return errors.Errorf(".spec.tls.certValidityDuration shouldn't be smaller than %d hours", int(cmapi.MinimumCertificateDuration.Hours()))
 		}
 		if tls.CADuration.Duration < tls.Duration.Duration {
 			return errors.New(".spec.tls.caValidityDuration shouldn't be smaller than .spec.tls.certValidityDuration")
 		}
-		if tls.CADuration.Duration < pxctls.DefaultRenewBefore {
-			return errors.Errorf(".spec.tls.caValidityDuration shouldn't be smaller than %d hours", int(pxctls.DefaultRenewBefore.Hours()))
+		if tls.CADuration.Duration <= pxctls.DefaultRenewBefore {
+			return errors.Errorf(".spec.tls.caValidityDuration should be greater than %d hours", int(pxctls.DefaultRenewBefore.Hours()))
 		}
 	}
 

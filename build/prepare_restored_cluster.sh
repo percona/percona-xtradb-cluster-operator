@@ -16,12 +16,20 @@ function get_password() {
 	escape_special $(</etc/mysql/mysql-users-secret/${user})
 }
 
+MYSQL_VERSION=$(mysqld -V | awk '{print $3}' | awk -F'.' '{print $1"."$2}')
 CFG=/etc/mysql/node.cnf
 
 vault_secret="/etc/mysql/vault-keyring-secret/keyring_vault.conf"
 if [ -f "${vault_secret}" ]; then
-	sed -i "/\[mysqld\]/a early-plugin-load=keyring_vault.so" $CFG
-	sed -i "/\[mysqld\]/a keyring_vault_config=${vault_secret}" $CFG
+	if [[ $MYSQL_VERSION == '8.0' ]]; then
+		sed -i "/\[mysqld\]/a early-plugin-load=keyring_vault.so" $CFG
+		sed -i "/\[mysqld\]/a keyring_vault_config=${vault_secret}" $CFG
+	fi
+
+	if [[ $MYSQL_VERSION == '8.4' ]]; then
+		echo -n '{ "components": "file://component_keyring_vault" }' > /var/lib/mysql/mysqld.my
+		cp ${vault_secret} /var/lib/mysql/component_keyring_vault.cnf
+	fi
 fi
 
 mysqld --skip-grant-tables --skip-networking &

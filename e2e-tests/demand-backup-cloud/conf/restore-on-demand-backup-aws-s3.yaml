@@ -8,5 +8,5 @@ spec:
   containerOptions:
     args:
       xtrabackup:
-      - "--parallel=2"
+      - "--innodb-undo-directory=./undo"
       - "--defaults-file=backup-my.cnf"

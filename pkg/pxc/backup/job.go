@@ -1,6 +1,7 @@
 package backup
 
 import (
+	"context"
 	"path"
 	"strconv"
 
@@ -10,6 +11,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/features"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
@@ -201,7 +203,7 @@ func appendStorageSecret(job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBacku
 	return nil
 }
 
-func SetStoragePVC(job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBackup, volName string) error {
+func SetStoragePVC(ctx context.Context, job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBackup, volName string) error {
 	pvc := corev1.Volume{
 		Name: "xtrabackup",
 	}
@@ -224,15 +226,17 @@ func SetStoragePVC(job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBackup, vol
 		pvc,
 	}...)
 
-	err := appendStorageSecret(job, cr)
-	if err != nil {
-		return errors.Wrap(err, "failed to append storage secret")
+	if !features.Enabled(ctx, features.BackupXtrabackup) {
+		err := appendStorageSecret(job, cr)
+		if err != nil {
+			return errors.Wrap(err, "failed to append storage secret")
+		}
 	}
 
 	return nil
 }
 
-func SetStorageAzure(job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBackup) error {
+func SetStorageAzure(ctx context.Context, job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBackup) error {
 	if cr.Status.Azure == nil {
 		return errors.New("azure storage is not specified in backup status")
 	}
@@ -276,16 +280,18 @@ func SetStorageAzure(job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBackup) e
 	}
 	job.Template.Spec.Containers[0].Env = append(job.Template.Spec.Containers[0].Env, storageAccount, accessKey, containerName, endpoint, storageClass, backupPath)
 
-	// add SSL volumes
-	err := appendStorageSecret(job, cr)
-	if err != nil {
-		return errors.Wrap(err, "failed to append storage secrets")
+	if !features.Enabled(ctx, features.BackupXtrabackup) {
+		// add SSL volumes
+		err := appendStorageSecret(job, cr)
+		if err != nil {
+			return errors.Wrap(err, "failed to append storage secrets")
+		}
 	}
 
 	return nil
 }
 
-func SetStorageS3(job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBackup) error {
+func SetStorageS3(ctx context.Context, job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBackup) error {
 	if cr.Status.S3 == nil {
 		return errors.New("s3 storage is not specified in backup status")
 	}
@@ -340,19 +346,21 @@ func SetStorageS3(job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBackup) erro
 	}
 	job.Template.Spec.Containers[0].Env = append(job.Template.Spec.Containers[0].Env, bucketEnv, bucketPathEnv)
 
-	// add SSL volumes
-	err := appendStorageSecret(job, cr)
-	if err != nil {
-		return errors.Wrap(err, "failed to append storage secrets")
-	}
+	if !features.Enabled(ctx, features.BackupXtrabackup) {
+		// add SSL volumes
+		err := appendStorageSecret(job, cr)
+		if err != nil {
+			return errors.Wrap(err, "failed to append storage secrets")
+		}
 
-	// add ca bundle (this is used by the aws-cli to verify the connection to S3)
-	if sel := s3.CABundle; sel != nil {
-		appendCABundleSecretVolume(
-			&job.Template.Spec.Volumes,
-			&job.Template.Spec.Containers[0].VolumeMounts,
-			sel,
-		)
+		// add ca bundle (this is used by the aws-cli to verify the connection to S3)
+		if sel := s3.CABundle; sel != nil {
+			appendCABundleSecretVolume(
+				&job.Template.Spec.Volumes,
+				&job.Template.Spec.Containers[0].VolumeMounts,
+				sel,
+			)
+		}
 	}
 
 	return nil

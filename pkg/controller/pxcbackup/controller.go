@@ -221,17 +221,28 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 	}()
 
 	if err := r.checkDeadlines(ctx, cluster, cr); err != nil {
+		// There was an error with checking the deadline itself, we must retry.
+		if !errors.Is(err, errDeadlineExceeded) {
+			return reconcile.Result{}, errors.Wrap(err, "check deadlines")
+		}
+		// If a deadline was exceeded, we must set the status to failed so the backup can stop.
 		if err := r.setFailedStatus(ctx, cr, err); err != nil {
-			return rr, errors.Wrap(err, "update status")
+			return reconcile.Result{}, errors.Wrap(err, "update status")
 		}
 
 		if errors.Is(err, errSuspendedDeadlineExceeded) {
 			log.Info("cleaning up suspended backup job")
-			if err := r.cleanUpSuspendedJob(ctx, cluster, cr); err != nil {
+			if err := r.cleanUpJob(ctx, cluster, cr); err != nil {
 				return reconcile.Result{}, errors.Wrap(err, "clean up suspended job")
 			}
 		}
 
+		if errors.Is(err, errRunningDeadlineExceeded) {
+			log.Info("running deadline exceeded, deleting the job and its pods")
+			if err := r.cleanUpJob(ctx, cluster, cr); err != nil {
+				return reconcile.Result{}, errors.Wrap(err, "clean up running deadline exceeded job")
+			}
+		}
 		return reconcile.Result{}, nil
 	}
 
@@ -896,7 +907,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) getBackupJob(
 	return job, nil
 }
 
-func (r *ReconcilePerconaXtraDBClusterBackup) cleanUpSuspendedJob(
+func (r *ReconcilePerconaXtraDBClusterBackup) cleanUpJob(
 	ctx context.Context,
 	cluster *api.PerconaXtraDBCluster,
 	cr *api.PerconaXtraDBClusterBackup,
@@ -906,7 +917,8 @@ func (r *ReconcilePerconaXtraDBClusterBackup) cleanUpSuspendedJob(
 		return errors.Wrap(err, "get job")
 	}
 
-	if err := r.client.Delete(ctx, job); err != nil {
+	// Set propagationPolicy=background because default deletion preserves pods.
+	if err := r.client.Delete(ctx, job, client.PropagationPolicy(metav1.DeletePropagationBackground)); err != nil {
 		return errors.Wrap(err, "delete job")
 	}
 

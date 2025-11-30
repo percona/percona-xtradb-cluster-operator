@@ -155,6 +155,27 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 
 	log = log.WithValues("cluster", cluster.Name)
 
+	storage, ok := cluster.Spec.Backup.Storages[cr.Spec.StorageName]
+	if !ok {
+		err := errors.Errorf("storage %s doesn't exist", cr.Spec.StorageName)
+
+		if err := r.setFailedStatus(ctx, cr, err); err != nil {
+			return rr, errors.Wrap(err, "update status")
+		}
+
+		return reconcile.Result{}, err
+	}
+
+	// TODO: implement support
+	if storage.Type == api.BackupStorageFilesystem && features.Enabled(ctx, features.BackupXtrabackup) {
+		err := errors.New("pvc backup is not supported for xtrabackup mode")
+
+		if err := r.setFailedStatus(ctx, cr, err); err != nil {
+			return rr, errors.Wrap(err, "update status")
+		}
+		return reconcile.Result{}, err
+	}
+
 	err = cluster.CheckNSetDefaults(r.serverVersion, log)
 	if err != nil {
 		err := errors.Wrap(err, "wrong PXC options")
@@ -222,17 +243,6 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 		log.Info("Cluster is not ready for backup", "reason", err.Error())
 
 		return rr, nil
-	}
-
-	storage, ok := cluster.Spec.Backup.Storages[cr.Spec.StorageName]
-	if !ok {
-		err := errors.Errorf("storage %s doesn't exist", cr.Spec.StorageName)
-
-		if err := r.setFailedStatus(ctx, cr, err); err != nil {
-			return rr, errors.Wrap(err, "update status")
-		}
-
-		return reconcile.Result{}, err
 	}
 
 	log = log.WithValues("storage", cr.Spec.StorageName)

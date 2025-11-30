@@ -226,11 +226,9 @@ func SetStoragePVC(ctx context.Context, job *batchv1.JobSpec, cr *api.PerconaXtr
 		pvc,
 	}...)
 
-	if !features.Enabled(ctx, features.BackupXtrabackup) {
-		err := appendStorageSecret(job, cr)
-		if err != nil {
-			return errors.Wrap(err, "failed to append storage secret")
-		}
+	err := appendStorageSecret(job, cr)
+	if err != nil {
+		return errors.Wrap(err, "failed to append storage secret")
 	}
 
 	return nil

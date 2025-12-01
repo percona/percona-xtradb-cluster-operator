@@ -256,6 +256,7 @@ func defaultExpectedProxySQLSidecarContainers() []corev1.Container {
 			Name:            "pxc-monit",
 			Image:           "test-image",
 			ImagePullPolicy: corev1.PullIfNotPresent,
+			Command:         []string{"/opt/percona/proxysql_peer_list_entrypoint.sh"},
 			Args: []string{
 				"/opt/percona/peer-list",
 				"-on-change=/opt/percona/proxysql_add_pxc_nodes.sh",

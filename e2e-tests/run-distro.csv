@@ -1,3 +1,4 @@
+allocator
 auto-tuning
 default-cr
 demand-backup-encrypted-with-tls
@@ -8,6 +9,8 @@ one-pod
 pitr
 pitr-gap-errors
 proxy-protocol
+proxy-switch
+proxysql-scheduler
 recreate
 restore-to-encrypted-cluster
 scaling

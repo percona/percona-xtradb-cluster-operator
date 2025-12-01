@@ -175,8 +175,13 @@ copy_files_pvc() {
 
 	echo ""
 	echo "Downloading started"
-	$ctrl cp backup-access:/backup/ "${real_dest_dir%/}/"
-	echo "Downloading finished"
+	$ctrl cp --retries=5 backup-access:/backup/ "${real_dest_dir%/}/"
+	if [ -f "${real_dest_dir%/}/xtrabackup.stream" ] && [ "$(file -b "${real_dest_dir%/}/xtrabackup.stream")" == "data" ]; then
+		echo "Downloading finished"
+	else
+		echo "Download failed: ${real_dest_dir%/}/xtrabackup.stream file is missing or not of type 'data'."
+		exit 1
+	fi
 }
 
 copy_files_xbcloud() {
@@ -185,8 +190,13 @@ copy_files_xbcloud() {
 
 	echo ""
 	echo "Downloading started"
-	env -i "${CREDENTIALS} ${xbcloud} get ${backup_path} --parallel=10" 1>"$dest_dir/xtrabackup.stream" 2>"$dest_dir/transfer.log"
-	echo "Downloading finished"
+	env -i ${CREDENTIALS} "${xbcloud}" get "${backup_path}" --parallel=10 1>"$dest_dir/xtrabackup.stream" 2>"$dest_dir/transfer.log"
+	if [ -f "$dest_dir/xtrabackup.stream" ] && [ "$(file -b "$dest_dir/xtrabackup.stream")" == "data" ]; then
+		echo "Downloading finished"
+	else
+		echo "Download failed: $dest_dir/xtrabackup.stream file is missing or not of type 'data'."
+		exit 1
+	fi
 }
 
 stop_tmp_pod() {

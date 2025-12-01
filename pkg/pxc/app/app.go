@@ -1,11 +1,8 @@
 package app
 
 const (
-	DataVolumeName = "datadir"
-	BinVolumeName  = "bin"
-	Name           = "pxc"
-)
-
-const (
+	Name               = "pxc"
+	DataVolumeName     = "datadir"
+	BinVolumeName      = "bin"
 	BinVolumeMountPath = "/opt/percona"
 )

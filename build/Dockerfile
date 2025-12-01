@@ -42,7 +42,7 @@ RUN find $GOPATH/pkg/mod -regextype posix-extended -iregex '.*(license|notice)(\
                    && cp -v "$0" /licenses/$(echo "$0" | sed -E "s/\/(license|notice).*$//gi")' {} \;
 
 FROM registry.access.redhat.com/ubi9/ubi-minimal AS ubi9
-RUN microdnf -y update && microdnf clean all
+RUN microdnf -y update && microdnf reinstall tzdata -y && microdnf clean all
 
 LABEL name="Percona XtraDB Cluster Operator" \
       vendor="Percona" \
@@ -83,6 +83,7 @@ COPY build/proxysql-admin.cnf /proxysql-admin.cnf
 COPY build/proxysql_add_cluster_nodes.sh /proxysql_add_cluster_nodes.sh
 COPY build/proxysql_add_proxysql_nodes.sh /proxysql_add_proxysql_nodes.sh
 COPY build/proxysql_add_pxc_nodes.sh /proxysql_add_pxc_nodes.sh
+COPY build/proxysql_scheduler_config.tmpl /proxysql_scheduler_config.tmpl
 
 COPY build/backup /backup
 

@@ -124,6 +124,10 @@ spec:
                       timeoutSeconds:
                         type: number
                     type: object
+                  runningDeadlineSeconds:
+                    default: 300
+                    format: int64
+                    type: integer
                   schedule:
                     items:
                       properties:
@@ -925,6 +929,19 @@ spec:
                           properties:
                             bucket:
                               type: string
+                            caBundle:
+                              properties:
+                                key:
+                                  type: string
+                                name:
+                                  default: ""
+                                  type: string
+                                optional:
+                                  type: boolean
+                              required:
+                              - key
+                              type: object
+                              x-kubernetes-map-type: atomic
                             credentialsSecret:
                               type: string
                             endpointUrl:
@@ -1732,6 +1749,21 @@ spec:
                   gracePeriod:
                     format: int64
                     type: integer
+                  healthCheck:
+                    properties:
+                      fall:
+                        format: int32
+                        minimum: 1
+                        type: integer
+                      interval:
+                        format: int32
+                        minimum: 1000
+                        type: integer
+                      rise:
+                        format: int32
+                        minimum: 1
+                        type: integer
+                    type: object
                   hookScript:
                     type: string
                   image:
@@ -4401,6 +4433,29 @@ spec:
                   runtimeClassName:
                     type: string
                 type: object
+              passwordGenerationOptions:
+                properties:
+                  maxLength:
+                    default: 20
+                    maximum: 32
+                    minimum: 8
+                    type: integer
+                  minLength:
+                    default: 16
+                    maximum: 32
+                    minimum: 8
+                    type: integer
+                  symbols:
+                    default: '!#$%&()*+,-.<=>?@[]^_{}~'
+                    maxLength: 32
+                    type: string
+                required:
+                - maxLength
+                - minLength
+                - symbols
+                type: object
+                x-kubernetes-validations:
+                - rule: self.maxLength >= self.minLength
               pause:
                 type: boolean
               platform:
@@ -5720,6 +5775,38 @@ spec:
                     type: object
                   runtimeClassName:
                     type: string
+                  scheduler:
+                    properties:
+                      checkTimeoutMilliseconds:
+                        default: 2000
+                        format: int32
+                        type: integer
+                      enabled:
+                        type: boolean
+                      failureThreshold:
+                        default: 3
+                        format: int32
+                        type: integer
+                      maxConnections:
+                        default: 1000
+                        format: int32
+                        type: integer
+                      nodeCheckIntervalMilliseconds:
+                        default: 2000
+                        format: int32
+                        type: integer
+                      pingTimeoutMilliseconds:
+                        default: 1000
+                        format: int32
+                        type: integer
+                      successThreshold:
+                        default: 1
+                        format: int32
+                        type: integer
+                      writerIsAlsoReader:
+                        default: true
+                        type: boolean
+                    type: object
                   schedulerName:
                     type: string
                   serviceAccountName:
@@ -8480,6 +8567,11 @@ spec:
                     items:
                       type: string
                     type: array
+                  mysqlAllocator:
+                    enum:
+                    - jemalloc
+                    - tcmalloc
+                    type: string
                   nodeSelector:
                     additionalProperties:
                       type: string
@@ -10714,15 +10806,17 @@ spec:
                     items:
                       type: string
                     type: array
+                  caValidityDuration:
+                    type: string
+                  certValidityDuration:
+                    type: string
                   enabled:
                     type: boolean
                   issuerConf:
                     properties:
                       group:
-                        default: cert-manager.io
                         type: string
                       kind:
-                        default: Issuer
                         type: string
                       name:
                         type: string

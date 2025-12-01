@@ -41,6 +41,7 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/util"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/version"
 )
@@ -90,7 +91,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 	return builder.ControllerManagedBy(mgr).
 		Named(naming.OperatorController).
-		Watches(&api.PerconaXtraDBCluster{}, &handler.EnqueueRequestForObject{}).
+		For(&api.PerconaXtraDBCluster{}).
 		Watches(&corev1.Secret{}, enqueuePXCReferencingSecret(mgr.GetClient())).
 		Complete(r)
 }
@@ -324,19 +325,6 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 		}
 	}
 
-	if o.Spec.ProxySQLEnabled() {
-		haproxySts := appsv1.StatefulSet{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      o.Name + "-haproxy",
-				Namespace: o.Namespace,
-			},
-		}
-		err = r.client.Get(ctx, client.ObjectKeyFromObject(&haproxySts), &haproxySts)
-		if err == nil && !strings.HasPrefix(o.Status.PXC.Version, "5.7") {
-			return reconcile.Result{}, errors.Errorf("failed to enable ProxySQL: for mysql version 8.0 you can't switch from HAProxy to ProxySQL")
-		}
-	}
-
 	userSecret, err := r.reconcileUsersSecret(ctx, o)
 	if err != nil {
 		return reconcile.Result{}, errors.Wrap(err, "reconcile users secret")
@@ -475,7 +463,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 		return reconcile.Result{}, err
 	}
 
-	err = backup.CheckPITRErrors(ctx, r.client, r.clientcmd, o)
+	err = backup.CheckPITRErrors(ctx, r.client, r.clientcmd, o, storage.NewClient)
 	if err != nil {
 		return reconcile.Result{}, err
 	}

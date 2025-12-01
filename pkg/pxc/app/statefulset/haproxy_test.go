@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/version"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -107,4 +108,109 @@ func TestSidecarContainers_HAProxy(t *testing.T) {
 func pointerToTrue() *bool {
 	b := true
 	return &b
+}
+
+func TestHAProxyHealthCheckEnvVars(t *testing.T) {
+	tests := map[string]struct {
+		healthCheck     *api.HAProxyHealthCheckSpec
+		expectedEnvVars map[string]string
+	}{
+		"default values": {
+			healthCheck: nil,
+			expectedEnvVars: map[string]string{
+				"HA_SERVER_OPTIONS": "resolvers kubernetes check inter 10000 rise 1 fall 2 weight 1 on-marked-down shutdown-sessions",
+			},
+		},
+		"custom interval only": {
+			healthCheck: &api.HAProxyHealthCheckSpec{
+				Interval: func() *int32 { i := int32(3000); return &i }(),
+			},
+			expectedEnvVars: map[string]string{
+				"HA_SERVER_OPTIONS": "resolvers kubernetes check inter 3000 rise 1 fall 2 weight 1 on-marked-down shutdown-sessions",
+			},
+		},
+		"custom fall only": {
+			healthCheck: &api.HAProxyHealthCheckSpec{
+				Fall: func() *int32 { i := int32(3); return &i }(),
+			},
+			expectedEnvVars: map[string]string{
+				"HA_SERVER_OPTIONS": "resolvers kubernetes check inter 10000 rise 1 fall 3 weight 1 on-marked-down shutdown-sessions",
+			},
+		},
+		"custom rise only": {
+			healthCheck: &api.HAProxyHealthCheckSpec{
+				Rise: func() *int32 { i := int32(2); return &i }(),
+			},
+			expectedEnvVars: map[string]string{
+				"HA_SERVER_OPTIONS": "resolvers kubernetes check inter 10000 rise 2 fall 2 weight 1 on-marked-down shutdown-sessions",
+			},
+		},
+		"all custom values": {
+			healthCheck: &api.HAProxyHealthCheckSpec{
+				Interval: func() *int32 { i := int32(3000); return &i }(),
+				Fall:     func() *int32 { i := int32(2); return &i }(),
+				Rise:     func() *int32 { i := int32(1); return &i }(),
+			},
+			expectedEnvVars: map[string]string{
+				"HA_SERVER_OPTIONS": "resolvers kubernetes check inter 3000 rise 1 fall 2 weight 1 on-marked-down shutdown-sessions",
+			},
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			cr := &api.PerconaXtraDBCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-cluster",
+				},
+				Spec: api.PerconaXtraDBClusterSpec{
+					CRVersion: version.Version(),
+					HAProxy: &api.HAProxySpec{
+						PodSpec: api.PodSpec{
+							Image:             "test-image",
+							ImagePullPolicy:   corev1.PullIfNotPresent,
+							EnvVarsSecretName: "test-secret",
+						},
+						ExposeReplicas: &api.ReplicasServiceExpose{OnlyReaders: false},
+						HealthCheck:    tt.healthCheck,
+					},
+					PXC: &api.PXCSpec{
+						PodSpec: &api.PodSpec{
+							Configuration: "config",
+						},
+					},
+				},
+			}
+
+			haproxy := &HAProxy{cr: cr}
+
+			containers, err := haproxy.SidecarContainers(&cr.Spec.HAProxy.PodSpec, "test-secret", cr)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			if len(containers) != 1 {
+				t.Fatalf("expected 1 container, got %d", len(containers))
+			}
+
+			c := containers[0]
+
+			// Check that all expected env vars are set correctly
+			for expectedName, expectedValue := range tt.expectedEnvVars {
+				found := false
+				for _, env := range c.Env {
+					if env.Name == expectedName {
+						found = true
+						if env.Value != expectedValue {
+							t.Errorf("expected %s=%q, got %q", expectedName, expectedValue, env.Value)
+						}
+						break
+					}
+				}
+				if !found {
+					t.Errorf("%s env var not found in container", expectedName)
+				}
+			}
+		})
+	}
 }

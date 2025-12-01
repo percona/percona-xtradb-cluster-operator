@@ -28,4 +28,4 @@ spec:
     image: perconalab/percona-xtradb-cluster-operator:main-haproxy
   logcollector:
     enabled: true
-    image: perconalab/percona-xtradb-cluster-operator:main-logcollector
+    image: perconalab/fluentbit:main-logcollector

@@ -8,8 +8,6 @@ import (
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/types"
-	k8sretry "k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
@@ -192,46 +190,6 @@ func waitForPVCShutdown(ctx context.Context, cl client.Client, ls map[string]str
 			return nil
 		}
 
-		time.Sleep(time.Second * 1)
-	}
-
-	return errors.Errorf("exceeded wait limit")
-}
-
-// Deprecated: UnpauseClusterWithWait is a function which blocks reconcile process. Use UnpauseCluster instead
-func UnpauseClusterWithWait(ctx context.Context, cl client.Client, cr *api.PerconaXtraDBCluster) (err error) {
-	// tryin several times just to avoid possible conflicts with the main controller
-	err = k8sretry.RetryOnConflict(k8sretry.DefaultRetry, func() error {
-		// need to get the object with latest version of meta-data for update
-		current := new(api.PerconaXtraDBCluster)
-		rerr := cl.Get(ctx, types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, current)
-		if rerr != nil {
-			return errors.Wrap(err, "get cluster")
-		}
-		current.Spec = cr.Spec
-		return cl.Update(ctx, current)
-	})
-	if err != nil {
-		return errors.Wrap(err, "update cluster")
-	}
-
-	// give time for process new state
-	time.Sleep(10 * time.Second)
-
-	var waitLimit int32 = 2 * 60 * 60 // 2 hours
-	if cr.Spec.PXC.LivenessInitialDelaySeconds != nil {
-		waitLimit = *cr.Spec.PXC.LivenessInitialDelaySeconds * cr.Spec.PXC.Size
-	}
-
-	for i := int32(0); i < waitLimit; i++ {
-		current := new(api.PerconaXtraDBCluster)
-		err = cl.Get(ctx, types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, current)
-		if err != nil {
-			return errors.Wrap(err, "get cluster")
-		}
-		if current.Status.ObservedGeneration == current.Generation && current.Status.PXC.Status == api.AppStateReady {
-			return nil
-		}
 		time.Sleep(time.Second * 1)
 	}
 

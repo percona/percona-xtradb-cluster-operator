@@ -26,7 +26,7 @@ type HAProxy struct {
 	cr *api.PerconaXtraDBCluster
 }
 
-func NewHAProxy(cr *api.PerconaXtraDBCluster) *HAProxy {
+func NewHAProxy(cr *api.PerconaXtraDBCluster) api.StatefulApp {
 	return &HAProxy{
 		cr: cr.DeepCopy(),
 	}
@@ -46,7 +46,7 @@ func (c *HAProxy) InitContainers(cr *api.PerconaXtraDBCluster, initImageName str
 	return inits
 }
 
-func (c *HAProxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster,
+func (c *HAProxy) AppContainer(_ context.Context, _ client.Client, spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster,
 	_ []corev1.Volume,
 ) (corev1.Container, error) {
 	appc := corev1.Container{
@@ -297,6 +297,13 @@ func (c *HAProxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.P
 			Name:      app.BinVolumeName,
 			MountPath: app.BinVolumeMountPath,
 		})
+	}
+
+	// Add health check configuration env vars for v1.19.0+
+	if cr.CompareVersionWith("1.19.0") >= 0 {
+		if cr.Spec.HAProxy != nil {
+			container.Env = append(container.Env, buildHAProxyHealthCheckEnvVars(cr.Spec.HAProxy.HealthCheck)...)
+		}
 	}
 
 	if cr.CompareVersionWith("1.18.0") >= 0 {
@@ -558,5 +565,43 @@ func (c *HAProxy) UpdateStrategy(cr *api.PerconaXtraDBCluster) appsv1.StatefulSe
 				Partition: &zero,
 			},
 		}
+	}
+}
+
+// buildHAProxyHealthCheckEnvVars builds environment variables for HAProxy health check configuration
+// from the health check spec. These control how quickly HAProxy detects and responds to backend failures.
+//
+// Default values:
+//   - interval: 10000ms (10s between health checks)
+//   - rise: 1 (1 successful check to mark server up)
+//   - fall: 2 (2 failed checks to mark server down, total 20s with default interval)
+//
+// The function always includes "on-marked-down shutdown-sessions" to ensure existing connections
+// are terminated when a backend is marked down.
+//
+// The generated HA_SERVER_OPTIONS environment variable is used by haproxy_add_pxc_nodes.sh
+// to configure the "server" lines in the HAProxy backend configuration.
+func buildHAProxyHealthCheckEnvVars(healthCheck *api.HAProxyHealthCheckSpec) []corev1.EnvVar {
+	interval := int32(10000)
+	rise := int32(1)
+	fall := int32(2)
+
+	if healthCheck != nil {
+		if healthCheck.Interval != nil {
+			interval = *healthCheck.Interval
+		}
+		if healthCheck.Rise != nil {
+			rise = *healthCheck.Rise
+		}
+		if healthCheck.Fall != nil {
+			fall = *healthCheck.Fall
+		}
+	}
+
+	return []corev1.EnvVar{
+		{
+			Name:  "HA_SERVER_OPTIONS",
+			Value: fmt.Sprintf("resolvers kubernetes check inter %d rise %d fall %d weight 1 on-marked-down shutdown-sessions", interval, rise, fall),
+		},
 	}
 }

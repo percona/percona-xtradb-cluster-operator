@@ -108,6 +108,24 @@ SWAGGER = $(shell pwd)/bin/swagger
 swagger: ## Download swagger locally if necessary.
 	$(call go-get-tool,$(SWAGGER),github.com/go-swagger/go-swagger/cmd/swagger@latest)
 
+PROTOC_VERSION = 33.1
+PROTOC = $(shell pwd)/bin/protoc
+protoc: ## Download protoc locally if necessary.
+	os='linux'; \
+	arch='x86_64'; \
+	if [ "$(shell uname)" = "Darwin" ]; then \
+		os='osx'; \
+	fi; \
+	if [ "$(shell uname -m)" = "arm64" ]; then \
+		arch='aarch_64'; \
+	fi; \
+	curl -LO "https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-$${os}-$${arch}.zip"; \
+	unzip -o protoc-${PROTOC_VERSION}-$${os}-$${arch}.zip -d protoc-${PROTOC_VERSION}-$${os}-$${arch}; \
+	rm protoc-${PROTOC_VERSION}-$${os}-$${arch}.zip; \
+	mv -f protoc-${PROTOC_VERSION}-$${os}-$${arch}/bin/protoc $(PROTOC); \
+	rm -rf protoc-${PROTOC_VERSION}-$${os}-$${arch}; \
+	$(call go install google.golang.org/protobuf/cmd/protoc-gen-go@latest)
+
 # Prepare release
 include e2e-tests/release_versions
 CERT_MANAGER_VER := $(shell grep -Eo "cert-manager v.*" go.mod|grep -Eo "[0-9]+\.[0-9]+\.[0-9]+")

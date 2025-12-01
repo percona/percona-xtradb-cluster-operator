@@ -22,6 +22,7 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -896,14 +897,16 @@ func (r *ReconcilePerconaXtraDBClusterBackup) cleanUpSuspendedJob(
 func (r *ReconcilePerconaXtraDBClusterBackup) runJobFinalizers(ctx context.Context, cr *api.PerconaXtraDBClusterBackup) error {
 	if err := k8sretry.RetryOnConflict(k8sretry.DefaultRetry, func() error {
 		job, err := r.getBackupJob(ctx, cr)
-		if err != nil {
-			if k8sErrors.IsNotFound(err) {
-				return nil
-			}
+		if k8sErrors.IsNotFound(err) {
+			return nil
+		} else if err != nil {
 			return errors.Wrap(err, "failed to get job")
 		}
-		job.Finalizers = slices.DeleteFunc(job.Finalizers, func(s string) bool { return s == naming.FinalizerKeepJob })
-		return r.client.Update(ctx, job)
+
+		if ok := controllerutil.RemoveFinalizer(job, naming.FinalizerKeepJob); !ok {
+			return r.client.Update(ctx, job)
+		}
+		return nil
 	}); err != nil {
 		return errors.Wrap(err, "failed to remove keep-job finalizer")
 	}

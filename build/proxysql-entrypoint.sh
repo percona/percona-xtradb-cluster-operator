@@ -124,7 +124,7 @@ fi
 
 test -e /opt/percona/hookscript/hook.sh && source /opt/percona/hookscript/hook.sh
 
-if [[ ${SCHEDULER_ENABLED} != "true" ]]; then
+if [[ -z ${SCHEDULER_ENABLED} ]]; then
 	exec "$@"
 else
 	# Start zombie reaper to clean up processes spawned by commands

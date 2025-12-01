@@ -346,6 +346,7 @@ deploy_operator() {
 			| sed -e "s^failureThreshold: .*^failureThreshold: 10^" \
 			| yq eval '(select(.kind == "Deployment").spec.template.spec.containers[] | select(.name == "percona-xtradb-cluster-operator").env[] | select(.name == "DISABLE_TELEMETRY").value) = "true"' - \
 			| yq eval '(select(.kind == "Deployment").spec.template.spec.containers[] | select(.name == "percona-xtradb-cluster-operator").env[] | select(.name == "LOG_LEVEL").value) = "VERBOSE"' - \
+			| yq eval "(select(.kind == \"Deployment\").spec.template.spec.containers[] | select(.name == \"percona-xtradb-cluster-operator\").env[] | select(.name == \"PXCO_FEATURE_GATES\").value) = \"${PXCO_FEATURE_GATES}\"" - \
 			| kubectl_bin apply -f -
 	else
 		apply_rbac rbac
@@ -354,6 +355,7 @@ deploy_operator() {
 			| sed -e "s^failureThreshold: .*^failureThreshold: 10^" \
 			| yq eval '(select(.kind == "Deployment").spec.template.spec.containers[] | select(.name == "percona-xtradb-cluster-operator").env[] | select(.name == "DISABLE_TELEMETRY").value) = "true"' - \
 			| yq eval '(select(.kind == "Deployment").spec.template.spec.containers[] | select(.name == "percona-xtradb-cluster-operator").env[] | select(.name == "LOG_LEVEL").value) = "VERBOSE"' - \
+			| yq eval "(select(.kind == \"Deployment\").spec.template.spec.containers[] | select(.name == \"percona-xtradb-cluster-operator\").env[] | select(.name == \"PXCO_FEATURE_GATES\").value) = \"${PXCO_FEATURE_GATES}\"" - \
 			| kubectl_bin apply -f -
 	fi
 

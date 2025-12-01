@@ -102,6 +102,7 @@ func (cfg *BackupConfig) xtrabackupArgs(user, pass string) []string {
 		"--stream=xbstream",
 		"--safe-slave-backup",
 		"--slave-info",
+		"--galera-info",
 		"--target-dir=/backup/",
 		"--socket=/tmp/mysql.sock",
 		fmt.Sprintf("--user=%s", user),

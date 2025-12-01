@@ -36,3 +36,9 @@ check_for_version() {
 		return 0
 	fi
 }
+
+get_xtrabackup_version() {
+    xtrabackup_ver=$(xtrabackup --version 2>&1 | grep '^xtrabackup version' | awk '{print $3}' | sed 's/-.*//')
+
+    echo ${xtrabackup_ver}
+}

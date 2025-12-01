@@ -4,7 +4,6 @@ import (
 	"context"
 	"os"
 	"reflect"
-	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -915,7 +914,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) runJobFinalizers(ctx context.Conte
 			return errors.Wrap(err, "failed to get job")
 		}
 
-		if ok := controllerutil.RemoveFinalizer(job, naming.FinalizerKeepJob); !ok {
+		if removed := controllerutil.RemoveFinalizer(job, naming.FinalizerKeepJob); removed {
 			return r.client.Update(ctx, job)
 		}
 		return nil

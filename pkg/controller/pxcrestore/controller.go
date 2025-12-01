@@ -3,7 +3,6 @@ package pxcrestore
 import (
 	"context"
 	"fmt"
-	"slices"
 	"time"
 
 	"github.com/pkg/errors"
@@ -16,6 +15,7 @@ import (
 	k8sretry "k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -543,8 +543,11 @@ func (r *ReconcilePerconaXtraDBClusterRestore) runJobFinalizers(ctx context.Cont
 				}
 				return errors.Wrap(err, "failed to get job")
 			}
-			job.Finalizers = slices.DeleteFunc(job.Finalizers, func(s string) bool { return s == naming.FinalizerKeepJob })
-			return r.client.Update(ctx, job)
+
+			if removed := controllerutil.RemoveFinalizer(job, naming.FinalizerKeepJob); removed {
+				return r.client.Update(ctx, job)
+			}
+			return nil
 		}); err != nil {
 			return errors.Wrap(err, "failed to remove keep-job finalizer")
 		}

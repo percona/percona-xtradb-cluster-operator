@@ -1,0 +1,64 @@
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBCluster
+metadata:
+  name: some-name
+  finalizers:
+    - percona.com/delete-pxc-pods-in-order
+spec:
+  secretsName: my-cluster-secrets
+  vaultSecretName: some-name-vault
+  pause: false
+  pxc:
+    size: 3
+    image: -pxc
+    resources:
+      requests:
+        memory: 0.1G
+        cpu: 100m
+      limits:
+        memory: "2G"
+        cpu: "1"
+    volumeSpec:
+      persistentVolumeClaim:
+        resources:
+          requests:
+            storage: 2Gi
+    extraPVCs:
+      - name: extra-data-volume
+        claimName: extra-storage-0
+        mountPath: /var/lib/mysql-extra
+        readOnly: false
+    affinity:
+      antiAffinityTopologyKey: "kubernetes.io/hostname"
+  haproxy:
+    enabled: true
+    size: 2
+    image: -haproxy
+    resources:
+      requests:
+        memory: 0.1G
+        cpu: 100m
+      limits:
+        memory: 1G
+        cpu: 700m
+    affinity:
+      antiAffinityTopologyKey: "kubernetes.io/hostname"
+  logcollector:
+    enabled: false
+    image: -logcollector
+  pmm:
+    enabled: false
+    image: perconalab/pmm-client:1.17.1
+    serverHost: monitoring-service
+    serverUser: pmm
+  backup:
+    image: -backup
+    storages:
+      pvc:
+        type: filesystem
+        volume:
+          persistentVolumeClaim:
+            accessModes: [ "ReadWriteOnce" ]
+            resources:
+              requests:
+                storage: 1G

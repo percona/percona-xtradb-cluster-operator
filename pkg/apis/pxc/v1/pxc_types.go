@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 
+	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	cmmeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
 	"github.com/flosch/pongo2/v6"
 	"github.com/go-ini/ini"
@@ -63,7 +64,7 @@ type PerconaXtraDBClusterSpec struct {
 	Users []User `json:"users,omitempty"`
 }
 
-// +kubebuilder:validation:XValidation:rule="self.maxLength > self.minLength"
+// +kubebuilder:validation:XValidation:rule="self.maxLength >= self.minLength"
 type PasswordGenerationOptions struct {
 	// Special symbols to include in password generation
 	// +kubebuilder:validation:Required
@@ -232,6 +233,10 @@ type PXCScheduledBackup struct {
 	ActiveDeadlineSeconds    *int64                        `json:"activeDeadlineSeconds,omitempty"`
 	StartingDeadlineSeconds  *int64                        `json:"startingDeadlineSeconds,omitempty"`
 	SuspendedDeadlineSeconds *int64                        `json:"suspendedDeadlineSeconds,omitempty"`
+	// RunningDeadlineSeconds is the number of seconds to wait for the backup to transition to the 'Running' state.
+	// Once this threshold is reached, the backup will be marked as failed. Default is 300 seconds (5m).
+	// +kubebuilder:default:=300
+	RunningDeadlineSeconds *int64 `json:"runningDeadlineSeconds,omitempty"`
 }
 
 func (b *PXCScheduledBackup) GetAllowParallel() bool {
@@ -1316,11 +1321,14 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 		if tls.CADuration == nil {
 			tls.CADuration = &metav1.Duration{Duration: pxctls.DefaultCAValidity}
 		}
-		if tls.CADuration.Duration < tls.Duration.Duration {
-			return errors.New(".spec.tls.caDuration shouldn't be smaller than .spec.tls.duration")
+		if tls.Duration.Duration < cmapi.MinimumCertificateDuration {
+			return errors.Errorf(".spec.tls.certValidityDuration shouldn't be smaller than %d hours", int(cmapi.MinimumCertificateDuration.Hours()))
 		}
-		if tls.CADuration.Duration < pxctls.DefaultRenewBefore {
-			return errors.Errorf(".spec.tls.caDuration shouldn't be smaller than %d hours", int(pxctls.DefaultRenewBefore.Hours()))
+		if tls.CADuration.Duration < tls.Duration.Duration {
+			return errors.New(".spec.tls.caValidityDuration shouldn't be smaller than .spec.tls.certValidityDuration")
+		}
+		if tls.CADuration.Duration <= pxctls.DefaultRenewBefore {
+			return errors.Errorf(".spec.tls.caValidityDuration should be greater than %d hours", int(pxctls.DefaultRenewBefore.Hours()))
 		}
 	}
 

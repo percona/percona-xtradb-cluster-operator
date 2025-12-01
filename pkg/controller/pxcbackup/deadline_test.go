@@ -85,6 +85,98 @@ var _ = Describe("Starting deadline", func() {
 	})
 })
 
+var _ = Describe("Running deadline", func() {
+	It("should be optional", func() {
+		cluster, err := readDefaultCR("cluster1", "test")
+		Expect(err).ToNot(HaveOccurred())
+
+		bcp, err := readDefaultBackup("backup1", "test")
+		Expect(err).ToNot(HaveOccurred())
+
+		cluster.Spec.Backup.RunningDeadlineSeconds = nil
+		bcp.Spec.RunningDeadlineSeconds = nil
+		bcp.Status.State = pxcv1.BackupStarting
+
+		r := reconciler(buildFakeClient())
+
+		err = r.checkRunningDeadline(context.Background(), cluster, bcp)
+		Expect(err).ToNot(HaveOccurred())
+	})
+
+	It("should return early if not in 'Starting' state", func() {
+		r := reconciler(buildFakeClient())
+
+		cluster, err := readDefaultCR("cluster1", "test")
+		Expect(err).ToNot(HaveOccurred())
+
+		bcp, err := readDefaultBackup("backup1", "test")
+		Expect(err).ToNot(HaveOccurred())
+
+		states := []pxcv1.PXCBackupState{
+			pxcv1.BackupNew,
+			pxcv1.BackupSucceeded,
+			pxcv1.BackupFailed,
+			pxcv1.BackupSuspended,
+		}
+
+		for _, state := range states {
+			bcp.Status.State = state
+			err = r.checkRunningDeadline(context.Background(), cluster, bcp)
+			Expect(err).ToNot(HaveOccurred())
+		}
+	})
+
+	It("should use universal value if defined", func() {
+		cluster, err := readDefaultCR("cluster1", "test")
+		Expect(err).ToNot(HaveOccurred())
+
+		cr, err := readDefaultBackup("backup1", "test")
+		Expect(err).ToNot(HaveOccurred())
+		cr.Status.State = pxcv1.BackupStarting
+
+		bcp := backup.New(cluster)
+		job := bcp.Job(cr, cluster)
+
+		job.Spec, err = bcp.JobSpec(cr.Spec, cluster, job, "")
+		Expect(err).ToNot(HaveOccurred())
+		creationTs := metav1.NewTime(time.Now().Add(-2 * time.Minute))
+		job.CreationTimestamp = creationTs
+
+		r := reconciler(buildFakeClient(job))
+
+		cluster.Spec.Backup.RunningDeadlineSeconds = ptr.To(int64(60))
+		cr.Spec.RunningDeadlineSeconds = nil
+
+		err = r.checkRunningDeadline(context.Background(), cluster, cr)
+		Expect(err).To(HaveOccurred())
+	})
+
+	It("should use particular value if defined", func() {
+		cluster, err := readDefaultCR("cluster1", "test")
+		Expect(err).ToNot(HaveOccurred())
+
+		cr, err := readDefaultBackup("backup1", "test")
+		Expect(err).ToNot(HaveOccurred())
+		cr.Status.State = pxcv1.BackupStarting
+
+		bcp := backup.New(cluster)
+		job := bcp.Job(cr, cluster)
+
+		job.Spec, err = bcp.JobSpec(cr.Spec, cluster, job, "")
+		Expect(err).ToNot(HaveOccurred())
+		creationTs := metav1.NewTime(time.Now().Add(-2 * time.Minute))
+		job.CreationTimestamp = creationTs
+
+		r := reconciler(buildFakeClient(job))
+
+		cluster.Spec.Backup.RunningDeadlineSeconds = ptr.To(int64(60)) // this one is ignored
+		cr.Spec.RunningDeadlineSeconds = ptr.To(int64(300))
+
+		err = r.checkRunningDeadline(context.Background(), cluster, cr)
+		Expect(err).ToNot(HaveOccurred())
+	})
+})
+
 var _ = Describe("Suspended deadline", func() {
 	It("should do an early return without a job", func() {
 		r := reconciler(buildFakeClient())
@@ -210,7 +302,7 @@ var _ = Describe("Suspended deadline", func() {
 		err = r.checkSuspendedDeadline(context.Background(), cluster, cr)
 		Expect(err).To(HaveOccurred())
 
-		err = r.cleanUpSuspendedJob(context.Background(), cluster, cr)
+		err = r.cleanUpJob(context.Background(), cluster, cr)
 		Expect(err).NotTo(HaveOccurred())
 
 		j := new(batchv1.Job)

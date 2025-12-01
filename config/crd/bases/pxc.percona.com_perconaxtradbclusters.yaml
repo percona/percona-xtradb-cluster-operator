@@ -124,6 +124,10 @@ spec:
                       timeoutSeconds:
                         type: number
                     type: object
+                  runningDeadlineSeconds:
+                    default: 300
+                    format: int64
+                    type: integer
                   schedule:
                     items:
                       properties:
@@ -4451,7 +4455,7 @@ spec:
                 - symbols
                 type: object
                 x-kubernetes-validations:
-                - rule: self.maxLength > self.minLength
+                - rule: self.maxLength >= self.minLength
               pause:
                 type: boolean
               platform:

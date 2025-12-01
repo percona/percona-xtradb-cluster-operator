@@ -229,21 +229,21 @@ func TestCheckNSetDefaults(t *testing.T) {
 			Duration:   &metav1.Duration{Duration: time.Hour * 3000},
 			CADuration: &metav1.Duration{Duration: time.Hour * 1000},
 		}
-		assert.EqualError(t, cr.CheckNSetDefaults(nil, logf.FromContext(ctx)), ".spec.tls.caDuration shouldn't be smaller than .spec.tls.duration")
+		assert.EqualError(t, cr.CheckNSetDefaults(nil, logf.FromContext(ctx)), ".spec.tls.caValidityDuration shouldn't be smaller than .spec.tls.certValidityDuration")
 
 		cr = minimalCr.DeepCopy()
 		cr.Spec.TLS = &TLSSpec{
 			Enabled:  ptr.To(true),
 			Duration: &metav1.Duration{Duration: time.Hour * 30000},
 		}
-		assert.EqualError(t, cr.CheckNSetDefaults(nil, logf.FromContext(ctx)), ".spec.tls.caDuration shouldn't be smaller than .spec.tls.duration")
+		assert.EqualError(t, cr.CheckNSetDefaults(nil, logf.FromContext(ctx)), ".spec.tls.caValidityDuration shouldn't be smaller than .spec.tls.certValidityDuration")
 
 		cr = minimalCr.DeepCopy()
 		cr.Spec.TLS = &TLSSpec{
 			Enabled:    ptr.To(true),
 			CADuration: &metav1.Duration{Duration: time.Hour * 2000},
 		}
-		assert.EqualError(t, cr.CheckNSetDefaults(nil, logf.FromContext(ctx)), ".spec.tls.caDuration shouldn't be smaller than .spec.tls.duration")
+		assert.EqualError(t, cr.CheckNSetDefaults(nil, logf.FromContext(ctx)), ".spec.tls.caValidityDuration shouldn't be smaller than .spec.tls.certValidityDuration")
 
 		cr = minimalCr.DeepCopy()
 		cr.Spec.TLS = &TLSSpec{
@@ -251,6 +251,13 @@ func TestCheckNSetDefaults(t *testing.T) {
 			CADuration: &metav1.Duration{Duration: time.Hour * 720},
 			Duration:   &metav1.Duration{Duration: time.Hour * 700},
 		}
-		assert.EqualError(t, cr.CheckNSetDefaults(nil, logf.FromContext(ctx)), ".spec.tls.caDuration shouldn't be smaller than 730 hours")
+		assert.EqualError(t, cr.CheckNSetDefaults(nil, logf.FromContext(ctx)), ".spec.tls.caValidityDuration should be greater than 730 hours")
+
+		cr = minimalCr.DeepCopy()
+		cr.Spec.TLS = &TLSSpec{
+			Enabled:  ptr.To(true),
+			Duration: &metav1.Duration{Duration: time.Minute * 1},
+		}
+		assert.EqualError(t, cr.CheckNSetDefaults(nil, logf.FromContext(ctx)), ".spec.tls.certValidityDuration shouldn't be smaller than 1 hours")
 	})
 }

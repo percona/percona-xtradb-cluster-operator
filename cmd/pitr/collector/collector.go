@@ -119,9 +119,8 @@ type BackupAzure struct {
 }
 
 const (
-	lastSetFilePrefix string = "last-binlog-set-"   // filename prefix for object where the last binlog set will stored
-	gtidPostfix       string = "-gtid-set"          // filename postfix for files with GTID set
-	timelinePath      string = "/tmp/pitr-timeline" // path to file with timeline
+	lastSetFilePrefix string = "last-binlog-set-" // filename prefix for object where the last binlog set will be stored
+	gtidPostfix       string = "-gtid-set"        // filename postfix for files with GTID set
 )
 
 func New(ctx context.Context, c Config) (*Collector, error) {
@@ -320,11 +319,12 @@ func (c *Collector) filterBinLogs(ctx context.Context, logs []pxc.Binlog, lastBi
 }
 
 func createGapFile(gtidSet pxc.GTIDSet) error {
-	p := "/tmp/gap-detected"
+	p := naming.GapDetected
 	f, err := os.Create(p)
 	if err != nil {
 		return errors.Wrapf(err, "create %s", p)
 	}
+	defer f.Close()
 
 	_, err = f.WriteString(gtidSet.Raw())
 	if err != nil {
@@ -346,10 +346,11 @@ func fileExists(name string) (bool, error) {
 }
 
 func createTimelineFile(firstTs string) error {
-	f, err := os.Create(timelinePath)
+	f, err := os.Create(naming.TimelinePath)
 	if err != nil {
-		return errors.Wrapf(err, "create %s", timelinePath)
+		return errors.Wrapf(err, "create %s", naming.TimelinePath)
 	}
+	defer f.Close()
 
 	_, err = f.WriteString(firstTs)
 	if err != nil {
@@ -360,9 +361,9 @@ func createTimelineFile(firstTs string) error {
 }
 
 func updateTimelineFile(lastTs string) error {
-	f, err := os.OpenFile(timelinePath, os.O_RDWR, 0o644)
+	f, err := os.OpenFile(naming.TimelinePath, os.O_RDWR, 0o644)
 	if err != nil {
-		return errors.Wrapf(err, "open %s", timelinePath)
+		return errors.Wrapf(err, "open %s", naming.TimelinePath)
 	}
 	defer f.Close()
 
@@ -373,7 +374,7 @@ func updateTimelineFile(lastTs string) error {
 	}
 
 	if err := scanner.Err(); err != nil {
-		return errors.Wrapf(err, "scan %s", timelinePath)
+		return errors.Wrapf(err, "scan %s", naming.TimelinePath)
 	}
 
 	if len(lines) > 1 {
@@ -383,11 +384,11 @@ func updateTimelineFile(lastTs string) error {
 	}
 
 	if _, err := f.Seek(0, 0); err != nil {
-		return errors.Wrapf(err, "seek %s", timelinePath)
+		return errors.Wrapf(err, "seek %s", naming.TimelinePath)
 	}
 
 	if err := f.Truncate(0); err != nil {
-		return errors.Wrapf(err, "truncate %s", timelinePath)
+		return errors.Wrapf(err, "truncate %s", naming.TimelinePath)
 	}
 
 	_, err = f.WriteString(strings.Join(lines, "\n"))
@@ -575,7 +576,7 @@ func (c *Collector) CollectBinLogs(ctx context.Context) error {
 		return nil
 	}
 
-	if exists, err := fileExists(timelinePath); !exists && err == nil {
+	if exists, err := fileExists(naming.TimelinePath); !exists && err == nil {
 		firstTs, err := c.db.GetBinLogFirstTimestamp(ctx, binlogList[0].Name)
 		if err != nil {
 			return errors.Wrap(err, "get first timestamp")
@@ -621,16 +622,30 @@ func mergeErrors(a, b error) error {
 	return b
 }
 
+func extractIncrementalNumber(binlogName string) (string, error) {
+	parts := strings.Split(binlogName, ".")
+	if len(parts) < 2 {
+		return "", fmt.Errorf("invalid binlog name format: %s", binlogName)
+	}
+	return parts[len(parts)-1], nil
+}
+
 func (c *Collector) manageBinlog(ctx context.Context, binlog pxc.Binlog) (err error) {
 	binlogTmstmp, err := c.db.GetBinLogFirstTimestamp(ctx, binlog.Name)
 	if err != nil {
 		return errors.Wrapf(err, "get first timestamp for %s", binlog.Name)
 	}
 
-	binlogName := fmt.Sprintf("binlog_%s_%x", binlogTmstmp, md5.Sum([]byte(binlog.GTIDSet.Raw())))
+	incrementalNum, err := extractIncrementalNumber(binlog.Name) // extracts e.g. "000011"
+	if err != nil {
+		return errors.Wrapf(err, "extract incremental number from %s", binlog.Name)
+	}
+
+	// Construct internal storage filename with timestamp, incremental number, and GTID md5 hash
+	binlogName := fmt.Sprintf("binlog_%s_%s_%x", binlogTmstmp, incrementalNum, md5.Sum([]byte(binlog.GTIDSet.Raw())))
 
 	var setBuffer bytes.Buffer
-	// no error handling because WriteString() always return nil error
+	// no error handling because WriteString() always returns nil error
 	// nolint:errcheck
 	setBuffer.WriteString(binlog.GTIDSet.Raw())
 
@@ -641,6 +656,7 @@ func (c *Collector) manageBinlog(ctx context.Context, binlog pxc.Binlog) (err er
 		return errors.Wrap(err, "remove temp file")
 	}
 
+	// Create named pipe with original binlog.Name
 	err = syscall.Mkfifo(tmpDir+binlog.Name, 0o666)
 	if err != nil {
 		return errors.Wrap(err, "make named pipe file error")
@@ -686,6 +702,7 @@ func (c *Collector) manageBinlog(ctx context.Context, binlog pxc.Binlog) (err er
 
 	go readBinlog(ctx, file, pw, errBuf, binlog.Name)
 
+	// Use constructed binlogName for storage keys
 	err = c.storage.PutObject(ctx, binlogName, pr, -1)
 	if err != nil {
 		return errors.Wrapf(err, "put %s object", binlog.Name)
@@ -703,7 +720,7 @@ func (c *Collector) manageBinlog(ctx context.Context, binlog pxc.Binlog) (err er
 		return errors.Wrap(err, "put gtid-set object")
 	}
 	for _, gtidSet := range binlog.GTIDSet.List() {
-		// no error handling because WriteString() always return nil error
+		// no error handling because WriteString() always returns nil error
 		// nolint:errcheck
 		setBuffer.WriteString(binlog.GTIDSet.Raw())
 

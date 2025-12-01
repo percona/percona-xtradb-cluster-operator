@@ -14,10 +14,12 @@ import (
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 )
 
+var errDeadlineExceeded = errors.New("deadline exceeded")
+
 var (
-	errSuspendedDeadlineExceeded = errors.New("suspended deadline seconds exceeded")
-	errStartingDeadlineExceeded  = errors.New("starting deadline seconds exceeded")
-	errRunningDeadlineExceeded   = errors.New("running deadline seconds exceeded")
+	errSuspendedDeadlineExceeded = errors.Wrap(errDeadlineExceeded, "suspended deadline seconds exceeded")
+	errStartingDeadlineExceeded  = errors.Wrap(errDeadlineExceeded, "starting deadline seconds exceeded")
+	errRunningDeadlineExceeded   = errors.Wrap(errDeadlineExceeded, "running deadline seconds exceeded")
 )
 
 func (r *ReconcilePerconaXtraDBClusterBackup) checkDeadlines(ctx context.Context, cluster *api.PerconaXtraDBCluster, cr *api.PerconaXtraDBClusterBackup) error {

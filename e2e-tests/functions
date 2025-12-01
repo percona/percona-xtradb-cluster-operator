@@ -1150,10 +1150,25 @@ run_recovery_check() {
 	pvc_name=$(get_pvc_name_for_backup "$backup")
 	dest="pvc/$pvc_name"
 	log "run pxc-restore/${backup}"
-	cat "$test_dir/conf/restore-${backup}.yaml" \
+
+	YAML_INPUT_FILE="$test_dir/conf/restore-${backup}.yaml"
+	MODIFIED_YAML=$( \
+		cat "$YAML_INPUT_FILE" \
 		| $sed -e "s~minio-service.#namespace~minio-service.$namespace~" \
 		| $sed -e "s#<destination>#${dest}#g" \
-		| kubectl_bin apply -f -
+	)
+
+	if [[ $IMAGE_PXC =~ 5\.7 ]] && [[ "${backup}" == "on-demand-backup-aws-s3" ]]; then
+		FINAL_YAML=$( \
+			echo "$MODIFIED_YAML" \
+			| yq e '(.spec.containerOptions.args.xtrabackup[] | select(. == "--innodb-undo-directory=./undo")) = "--parallel=3"' -
+		)
+	else
+		FINAL_YAML="$MODIFIED_YAML"
+	fi
+
+	echo "$FINAL_YAML" | kubectl_bin apply -f -
+
 	wait_backup_restore ${backup}
 	kubectl_bin logs job/restore-job-${backup}-${cluster}
 	wait_for_running "$cluster-$proxy" 1
@@ -1173,6 +1188,7 @@ run_recovery_check() {
 		if [ -n "$OPENSHIFT" ]; then
 			replace_docker_registry $src_dir/deploy/backup/copy-backup.sh
 		fi
+
 		bash $src_dir/deploy/backup/copy-backup.sh $backup $tmp_dir/backup
 	fi
 }

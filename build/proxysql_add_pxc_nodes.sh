@@ -115,7 +115,8 @@ function main() {
 				--config-file=${PERCONA_SCHEDULER_CFG} \
 				--write-node="${pod_zero}.${service}:3306" \
 				--update-cluster \
-				--remove-all-servers
+				--remove-all-servers \
+				--force
 			proxysql_admin_exec "127.0.0.1" "${update_weights}; LOAD MYSQL SERVERS TO RUNTIME;"
 		fi
 

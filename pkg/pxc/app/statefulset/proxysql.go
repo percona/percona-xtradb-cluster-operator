@@ -392,6 +392,8 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.Per
 			},
 		}...)
 
+		pxcMonit.Command = []string{"/opt/percona/proxysql_peer_list_entrypoint.sh"}
+
 		if cr.Spec.ProxySQL.Scheduler.Enabled {
 			pxcMonit.Env = append(pxcMonit.Env, corev1.EnvVar{
 				Name:  "SCHEDULER_ENABLED",
@@ -401,6 +403,8 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.Per
 	}
 
 	containers := []corev1.Container{pxcMonit}
+	// we are disabling ProxySQL cluster mode in case scheduler is enabled
+	// therefore we don't need proxysqlMonit container
 	if !cr.Spec.ProxySQL.Scheduler.Enabled {
 		containers = append(containers, proxysqlMonit)
 	}

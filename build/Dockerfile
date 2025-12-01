@@ -83,6 +83,7 @@ COPY build/proxysql-admin.cnf /proxysql-admin.cnf
 COPY build/proxysql_add_cluster_nodes.sh /proxysql_add_cluster_nodes.sh
 COPY build/proxysql_add_proxysql_nodes.sh /proxysql_add_proxysql_nodes.sh
 COPY build/proxysql_add_pxc_nodes.sh /proxysql_add_pxc_nodes.sh
+COPY build/proxysql_peer_list_entrypoint.sh /proxysql_peer_list_entrypoint.sh
 COPY build/proxysql_scheduler_config.tmpl /proxysql_scheduler_config.tmpl
 
 COPY build/backup /backup

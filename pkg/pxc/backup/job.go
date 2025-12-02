@@ -19,8 +19,7 @@ import (
 )
 
 func (*Backup) Job(cr *api.PerconaXtraDBClusterBackup, cluster *api.PerconaXtraDBCluster) *batchv1.Job {
-	labelKeyBackupType := naming.GetLabelBackupType(cluster)
-	jobName := naming.BackupJobName(cr.Name, cr.Labels[labelKeyBackupType] == "cron")
+	jobName := naming.BackupJobName(cr.Name)
 
 	return &batchv1.Job{
 		TypeMeta: metav1.TypeMeta{
@@ -32,6 +31,9 @@ func (*Backup) Job(cr *api.PerconaXtraDBClusterBackup, cluster *api.PerconaXtraD
 			Namespace:   cr.Namespace,
 			Labels:      naming.LabelsBackupJob(cr, cluster, jobName),
 			Annotations: cluster.Spec.Backup.Storages[cr.Spec.StorageName].Annotations,
+			Finalizers: []string{
+				naming.FinalizerKeepJob,
+			},
 		},
 	}
 }
@@ -106,9 +108,10 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, cluster *api.PerconaXtraDBClu
 	}
 
 	return batchv1.JobSpec{
-		ActiveDeadlineSeconds: activeDeadlineSeconds,
-		BackoffLimit:          &backoffLimit,
-		ManualSelector:        &manualSelector,
+		ActiveDeadlineSeconds:   activeDeadlineSeconds,
+		BackoffLimit:            &backoffLimit,
+		ManualSelector:          &manualSelector,
+		TTLSecondsAfterFinished: cluster.Spec.Backup.TTLSecondsAfterFinished,
 		Selector: &metav1.LabelSelector{
 			MatchLabels: job.Labels,
 		},

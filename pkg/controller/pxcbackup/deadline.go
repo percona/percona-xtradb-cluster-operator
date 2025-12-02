@@ -87,7 +87,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) checkRunningDeadline(ctx context.C
 		return nil
 	}
 
-	job, err := r.getBackupJob(ctx, cluster, cr)
+	job, err := r.getBackupJob(ctx, cr)
 	if err != nil {
 		return fmt.Errorf("failed to get backup job for running deadline check: %w", err)
 	}
@@ -113,7 +113,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) checkSuspendedDeadline(
 ) error {
 	log := logf.FromContext(ctx)
 
-	job, err := r.getBackupJob(ctx, cluster, cr)
+	job, err := r.getBackupJob(ctx, cr)
 	if err != nil {
 		if k8sErrors.IsNotFound(err) {
 			return nil

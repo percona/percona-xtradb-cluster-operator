@@ -111,6 +111,7 @@ swagger: ## Download swagger locally if necessary.
 PROTOC_VERSION = 33.1
 PROTOC = $(shell pwd)/bin/protoc
 PROTOC_GEN_GO = $(shell pwd)/bin/protoc-gen-go
+PROTOC_GEN_GO_GRPC = $(shell pwd)/bin/protoc-gen-go-grpc
 protoc: ## Download protoc locally if necessary.
 	os='linux'; \
 	arch='x86_64'; \
@@ -125,7 +126,8 @@ protoc: ## Download protoc locally if necessary.
 	rm protoc-${PROTOC_VERSION}-$${os}-$${arch}.zip; \
 	mv -f protoc-${PROTOC_VERSION}-$${os}-$${arch}/bin/protoc $(PROTOC); \
 	rm -rf protoc-${PROTOC_VERSION}-$${os}-$${arch}; \
-	$(call go-get-tool,$(PROTOC_GEN_GO),google.golang.org/protobuf/cmd/protoc-gen-go@latest)
+	$(call go-get-tool,$(PROTOC_GEN_GO),google.golang.org/protobuf/cmd/protoc-gen-go@latest); \
+	$(call go-get-tool,$(PROTOC_GEN_GO_GRPC),google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest)
 
 # Prepare release
 include e2e-tests/release_versions

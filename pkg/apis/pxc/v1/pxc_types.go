@@ -532,7 +532,7 @@ func (cr *PerconaXtraDBCluster) Validate() error {
 	}
 
 	if c.PXC != nil && len(c.PXC.ExtraPVCs) > 0 {
-		if err := ValidateExtraPVCs(c.PXC.ExtraPVCs); err != nil {
+		if err := validateExtraPVCs(c.PXC.ExtraPVCs); err != nil {
 			return errors.Wrap(err, "PXC: validate extraPVCs")
 		}
 	}
@@ -1778,8 +1778,8 @@ func ExtraPVCVolumeMounts(ctx context.Context, extraPVCs []ExtraPVC) []corev1.Vo
 	return mounts
 }
 
-// ValidateExtraPVCs validates the extraPVCs configuration.
-func ValidateExtraPVCs(extraPVCs []ExtraPVC) error {
+// validateExtraPVCs validates the extraPVCs configuration.
+func validateExtraPVCs(extraPVCs []ExtraPVC) error {
 	if len(extraPVCs) == 0 {
 		return nil
 	}

@@ -261,3 +261,240 @@ func TestCheckNSetDefaults(t *testing.T) {
 		assert.EqualError(t, cr.CheckNSetDefaults(nil, logf.FromContext(ctx)), ".spec.tls.certValidityDuration shouldn't be smaller than 1 hours")
 	})
 }
+
+func TestExtraPVCVolumeMounts(t *testing.T) {
+	ctx := t.Context()
+
+	tests := map[string]struct {
+		extraPVCs []ExtraPVC
+		expected  []corev1.VolumeMount
+	}{
+		"nil extra PVCs": {
+			extraPVCs: nil,
+			expected:  nil,
+		},
+		"empty extra PVCs": {
+			extraPVCs: []ExtraPVC{},
+			expected:  nil,
+		},
+		"single extra PVC without subPath and readOnly": {
+			extraPVCs: []ExtraPVC{
+				{
+					Name:      "extra-data",
+					ClaimName: "extra-storage-0",
+					MountPath: "/var/lib/mysql-extra",
+				},
+			},
+			expected: []corev1.VolumeMount{
+				{
+					Name:      "extra-data",
+					MountPath: "/var/lib/mysql-extra",
+					SubPath:   "",
+					ReadOnly:  false,
+				},
+			},
+		},
+		"single extra PVC with subPath and readOnly": {
+			extraPVCs: []ExtraPVC{
+				{
+					Name:      "backup-volume",
+					ClaimName: "backup-storage-0",
+					MountPath: "/backups",
+					SubPath:   "mysql",
+					ReadOnly:  true,
+				},
+			},
+			expected: []corev1.VolumeMount{
+				{
+					Name:      "backup-volume",
+					MountPath: "/backups",
+					SubPath:   "mysql",
+					ReadOnly:  true,
+				},
+			},
+		},
+		"multiple extra PVCs": {
+			extraPVCs: []ExtraPVC{
+				{
+					Name:      "extra-data",
+					ClaimName: "extra-storage-0",
+					MountPath: "/var/lib/mysql-extra",
+				},
+				{
+					Name:      "backup-volume",
+					ClaimName: "backup-storage-0",
+					MountPath: "/backups",
+					SubPath:   "mysql",
+					ReadOnly:  true,
+				},
+			},
+			expected: []corev1.VolumeMount{
+				{
+					Name:      "extra-data",
+					MountPath: "/var/lib/mysql-extra",
+					SubPath:   "",
+					ReadOnly:  false,
+				},
+				{
+					Name:      "backup-volume",
+					MountPath: "/backups",
+					SubPath:   "mysql",
+					ReadOnly:  true,
+				},
+			},
+		},
+		"duplicate names - only first should be included": {
+			extraPVCs: []ExtraPVC{
+				{
+					Name:      "extra-data",
+					ClaimName: "extra-storage-0",
+					MountPath: "/var/lib/mysql-extra",
+				},
+				{
+					Name:      "extra-data",
+					ClaimName: "extra-storage-1",
+					MountPath: "/var/lib/mysql-extra2",
+				},
+			},
+			expected: []corev1.VolumeMount{
+				{
+					Name:      "extra-data",
+					MountPath: "/var/lib/mysql-extra",
+					SubPath:   "",
+					ReadOnly:  false,
+				},
+			},
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			actual := ExtraPVCVolumeMounts(ctx, tc.extraPVCs)
+			assert.Equal(t, tc.expected, actual)
+		})
+	}
+}
+
+func TestValidateExtraPVCs(t *testing.T) {
+	tests := map[string]struct {
+		extraPVCs []ExtraPVC
+		errMsg    string
+	}{
+		"nil extra PVCs": {
+			extraPVCs: nil,
+		},
+		"empty extra PVCs": {
+			extraPVCs: []ExtraPVC{},
+		},
+		"valid single extra PVC": {
+			extraPVCs: []ExtraPVC{
+				{
+					Name:      "extra-data",
+					ClaimName: "extra-storage-0",
+					MountPath: "/var/lib/mysql-extra",
+				},
+			},
+		},
+		"valid multiple extra PVCs": {
+			extraPVCs: []ExtraPVC{
+				{
+					Name:      "extra-data",
+					ClaimName: "extra-storage-0",
+					MountPath: "/var/lib/mysql-extra",
+				},
+				{
+					Name:      "backup-volume",
+					ClaimName: "backup-storage-0",
+					MountPath: "/backups",
+				},
+			},
+		},
+		"empty name": {
+			extraPVCs: []ExtraPVC{
+				{
+					Name:      "",
+					ClaimName: "extra-storage-0",
+					MountPath: "/var/lib/mysql-extra",
+				},
+			},
+			errMsg: "extraPVC: name cannot be empty",
+		},
+		"empty claim name": {
+			extraPVCs: []ExtraPVC{
+				{
+					Name:      "extra-data",
+					ClaimName: "",
+					MountPath: "/var/lib/mysql-extra",
+				},
+			},
+			errMsg: "extraPVC extra-data: claimName cannot be empty",
+		},
+		"empty mount path": {
+			extraPVCs: []ExtraPVC{
+				{
+					Name:      "extra-data",
+					ClaimName: "extra-storage-0",
+					MountPath: "",
+				},
+			},
+			errMsg: "extraPVC extra-data: mountPath cannot be empty",
+		},
+		"duplicate volume name": {
+			extraPVCs: []ExtraPVC{
+				{
+					Name:      "extra-data",
+					ClaimName: "extra-storage-0",
+					MountPath: "/var/lib/mysql-extra",
+				},
+				{
+					Name:      "extra-data",
+					ClaimName: "extra-storage-1",
+					MountPath: "/var/lib/mysql-extra2",
+				},
+			},
+			errMsg: "extraPVC: duplicate volume name extra-data",
+		},
+		"duplicate mount path": {
+			extraPVCs: []ExtraPVC{
+				{
+					Name:      "extra-data",
+					ClaimName: "extra-storage-0",
+					MountPath: "/var/lib/mysql-extra",
+				},
+				{
+					Name:      "backup-volume",
+					ClaimName: "backup-storage-0",
+					MountPath: "/var/lib/mysql-extra",
+				},
+			},
+			errMsg: "extraPVC backup-volume: duplicate mount path /var/lib/mysql-extra",
+		},
+		"duplicate claim name": {
+			extraPVCs: []ExtraPVC{
+				{
+					Name:      "extra-data",
+					ClaimName: "extra-storage-0",
+					MountPath: "/var/lib/mysql-extra",
+				},
+				{
+					Name:      "backup-volume",
+					ClaimName: "extra-storage-0",
+					MountPath: "/backups",
+				},
+			},
+			errMsg: "extraPVC backup-volume: duplicate claim name extra-storage-0",
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			err := validateExtraPVCs(tc.extraPVCs)
+			if tc.errMsg != "" {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), tc.errMsg)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}

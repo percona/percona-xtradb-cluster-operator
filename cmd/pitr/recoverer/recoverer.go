@@ -78,7 +78,6 @@ func (c Config) storages(ctx context.Context) (storage.Storage, storage.Storage,
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "get bucket and prefix")
 		}
-		prefix = prefix[:len(prefix)-1]
 		defaultStorage, err = storage.NewS3(ctx, c.BackupStorageS3.Endpoint, c.BackupStorageS3.AccessKeyID, c.BackupStorageS3.AccessKey, bucket, prefix, c.BackupStorageS3.Region, c.VerifyTLS, caBundle)
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "new storage manager")

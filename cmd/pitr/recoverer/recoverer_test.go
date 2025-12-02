@@ -170,7 +170,7 @@ func TestGetStartGTID(t *testing.T) {
 			tc.mockFn(mockStorage)
 
 			got, err := getStartGTIDSet(ctx, mockStorage)
-			if err != nil && !tc.wantErr {
+			if (err != nil) != tc.wantErr {
 				t.Errorf("getStartGTIDSet() error = %v, wantErr %v", err, tc.wantErr)
 			}
 			assert.Equal(t, tc.expected, got)

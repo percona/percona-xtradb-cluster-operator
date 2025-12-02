@@ -17,7 +17,7 @@ spec:
   containers:
   - name: populator
     image: busybox
-    command: ['sh', '-c', 'echo "Initial data" > /var/lib/mysql-extra/test-data.csv']
+    command: ['sh', '-c', 'echo "Initial data" > /data/test-data.txt && sleep infinity']
     volumeMounts:
     - name: data
       mountPath: /data

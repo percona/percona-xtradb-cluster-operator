@@ -365,7 +365,14 @@ func (r *Recoverer) recover(ctx context.Context) (err error) {
 	return nil
 }
 
+type testContextKey struct{}
+
 func getDecompressedContent(ctx context.Context, infoObj io.Reader, filename string) ([]byte, error) {
+	// this is done to support unit tests
+	if val, ok := ctx.Value(testContextKey{}).(bool); ok && val {
+		return io.ReadAll(infoObj)
+	}
+
 	tmpDir := os.TempDir()
 
 	cmd := exec.CommandContext(ctx, "xbstream", "-x", "--decompress")
@@ -485,44 +492,14 @@ func reverse(list []string) {
 }
 
 func getStartGTIDSet(ctx context.Context, s storage.Storage) (string, error) {
-	sstInfoAvailable := true
-	sstInfo, err := s.ListObjects(ctx, ".sst_info/sst_info")
+	currGTID, err := getGTID(ctx, s)
 	if err != nil {
-		return "", errors.Wrapf(err, "list sst_info objects objects")
-	}
-	if len(sstInfo) == 0 {
-		sstInfoAvailable = false
+		return "", errors.Wrapf(err, "get gtid")
 	}
 
-	var currGTID string
-	if sstInfoAvailable {
-		sort.Strings(sstInfo)
-		currGTID, err = getGTIDFromSSTInfo(ctx, sstInfo[0], s)
-		if err != nil {
-			return "", errors.Wrapf(err, "get gtid from sst_info")
-		}
-	} else {
-		currGTID, err = getGTIDFromXtrabackupBinlogInfo(ctx, s)
-		if err != nil {
-			return "", errors.Wrapf(err, "get gtid from xtrabackup_binlog_info")
-		}
-	}
-
-	xbInfo, err := s.ListObjects(ctx, "xtrabackup_info")
+	xbInfoContent, err := getXtrabackupInfo(ctx, s)
 	if err != nil {
-		return "", errors.Wrapf(err, "list xtrabackup_info objects")
-	}
-	if len(xbInfo) == 0 {
-		return "", errors.New("no xtrabackup_info objects found")
-	}
-	sort.Strings(xbInfo)
-	xbInfoObj, err := s.GetObject(ctx, xbInfo[0])
-	if err != nil {
-		return "", errors.Wrapf(err, "get xtrabackup_info object")
-	}
-	xbInfoContent, err := getDecompressedContent(ctx, xbInfoObj, "xtrabackup_info")
-	if err != nil {
-		return "", errors.Wrapf(err, "get decompressed content for xtrabackup_info")
+		return "", errors.Wrapf(err, "get xtrabackup info")
 	}
 
 	set, err := getSetFromXtrabackupInfo(currGTID, xbInfoContent)
@@ -530,6 +507,47 @@ func getStartGTIDSet(ctx context.Context, s storage.Storage) (string, error) {
 		return "", errors.Wrapf(err, "get set from xtrabackup info")
 	}
 	return fmt.Sprintf("%s:%s", currGTID, set), nil
+}
+
+func getXtrabackupInfo(ctx context.Context, s storage.Storage) ([]byte, error) {
+	xbInfo, err := s.ListObjects(ctx, "xtrabackup_info")
+	if err != nil {
+		return nil, errors.Wrapf(err, "list xtrabackup_info objects")
+	}
+	if len(xbInfo) == 0 {
+		return nil, errors.New("no xtrabackup_info objects found")
+	}
+	sort.Strings(xbInfo)
+	xbInfoObj, err := s.GetObject(ctx, xbInfo[0])
+	if err != nil {
+		return nil, errors.Wrapf(err, "get xtrabackup_info object")
+	}
+	xbInfoContent, err := getDecompressedContent(ctx, xbInfoObj, "xtrabackup_info")
+	if err != nil {
+		return nil, errors.Wrapf(err, "get decompressed content for xtrabackup_info")
+	}
+	return xbInfoContent, nil
+}
+
+func getGTID(ctx context.Context, s storage.Storage) (string, error) {
+	sstInfo, err := s.ListObjects(ctx, ".sst_info/sst_info")
+	if err != nil {
+		return "", errors.Wrapf(err, "list sst_info objects objects")
+	}
+	if len(sstInfo) > 0 {
+		sort.Strings(sstInfo)
+		return getGTIDFromSSTInfo(ctx, sstInfo[0], s)
+	}
+
+	xbBinlogInfo, err := s.ListObjects(ctx, "xtrabackup_binlog_info")
+	if err != nil {
+		return "", errors.Wrapf(err, "list xtrabackup_binlog_info objects")
+	}
+	if len(xbBinlogInfo) > 0 {
+		sort.Strings(xbBinlogInfo)
+		return getGTIDFromXtrabackupBinlogInfo(ctx, xbBinlogInfo[0], s)
+	}
+	return "", errors.New("no sst_info or xtrabackup_binlog_info objects found")
 }
 
 func getGTIDFromSSTInfo(
@@ -567,17 +585,8 @@ func parseGTIDFromSSTInfoContent(content []byte) (string, error) {
 	return string(newOut[:e]), nil
 }
 
-func getGTIDFromXtrabackupBinlogInfo(ctx context.Context, s storage.Storage) (string, error) {
-	xbBinlogInfo, err := s.ListObjects(ctx, "xtrabackup_binlog_info")
-	if err != nil {
-		return "", errors.Wrapf(err, "list xtrabackup_binlog_info objects")
-	}
-	if len(xbBinlogInfo) == 0 {
-		return "", errors.New("no xtrabackup_binlog_info objects found")
-	}
-	sort.Strings(xbBinlogInfo)
-
-	xbBinlogInfoObj, err := s.GetObject(ctx, xbBinlogInfo[0])
+func getGTIDFromXtrabackupBinlogInfo(ctx context.Context, xbBinlogInfoFile string, s storage.Storage) (string, error) {
+	xbBinlogInfoObj, err := s.GetObject(ctx, xbBinlogInfoFile)
 	if err != nil {
 		return "", errors.Wrapf(err, "get xtrabackup_binlog_info object")
 	}

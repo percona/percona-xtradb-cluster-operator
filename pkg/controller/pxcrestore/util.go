@@ -9,6 +9,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	k8sretry "k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
@@ -45,12 +46,20 @@ func getBackup(ctx context.Context, cl client.Client, cr *api.PerconaXtraDBClust
 }
 
 func setStatus(ctx context.Context, cl client.Client, cr *api.PerconaXtraDBClusterRestore) error {
-	if cr.Status.State == api.RestoreSucceeded {
-		tm := metav1.NewTime(time.Now())
-		cr.Status.CompletedAt = &tm
-	}
+	err := k8sretry.RetryOnConflict(k8sretry.DefaultRetry, func() error {
+		restore := new(api.PerconaXtraDBClusterRestore)
+		if err := cl.Get(ctx, client.ObjectKeyFromObject(cr), restore); err != nil {
+			return err
+		}
 
-	err := cl.Status().Update(ctx, cr)
+		if restore.Status.State == api.RestoreSucceeded {
+			tm := metav1.NewTime(time.Now())
+			cr.Status.CompletedAt = &tm
+		}
+		restore.Status = cr.Status
+
+		return cl.Status().Update(ctx, cr)
+	})
 	if err != nil {
 		return errors.Wrap(err, "send update")
 	}

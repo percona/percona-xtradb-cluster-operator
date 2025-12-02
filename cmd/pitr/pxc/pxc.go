@@ -249,7 +249,7 @@ func GetPXCOldestBinlogHost(ctx context.Context, pxcServiceName, user, pass stri
 			nodeArr := strings.Split(node, ":")
 			binlogTime, err := getBinlogTime(ctx, nodeArr[0], user, pass)
 			if err != nil {
-				log.Printf("ERROR: get binlog time %v", err)
+				log.Printf("ERROR: get binlog time: %v", err)
 				continue
 			}
 			if len(oldestHost) == 0 || oldestTS > 0 && binlogTime < oldestTS {
@@ -369,6 +369,7 @@ func (p *PXC) CreateCollectorFunctions(ctx context.Context) error {
 			continue
 		}
 
+		log.Printf("Creating %s function on %s node", functionName, p.GetHost())
 		createQ := fmt.Sprintf("SET SESSION wsrep_on = OFF; CREATE FUNCTION IF NOT EXISTS %s RETURNS %s SONAME 'binlog_utils_udf.so'; SET SESSION wsrep_on = ON", functionName, returnType)
 		if _, err := p.db.ExecContext(ctx, createQ); err != nil {
 			return errors.Wrapf(err, "create function %s", functionName)

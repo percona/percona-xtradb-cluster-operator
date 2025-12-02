@@ -41,6 +41,7 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/util"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/version"
 )
@@ -90,7 +91,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 	return builder.ControllerManagedBy(mgr).
 		Named(naming.OperatorController).
-		Watches(&api.PerconaXtraDBCluster{}, &handler.EnqueueRequestForObject{}).
+		For(&api.PerconaXtraDBCluster{}).
 		Watches(&corev1.Secret{}, enqueuePXCReferencingSecret(mgr.GetClient())).
 		Complete(r)
 }
@@ -462,7 +463,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 		return reconcile.Result{}, err
 	}
 
-	err = backup.CheckPITRErrors(ctx, r.client, r.clientcmd, o)
+	err = backup.CheckPITRErrors(ctx, r.client, r.clientcmd, o, storage.NewClient)
 	if err != nil {
 		return reconcile.Result{}, err
 	}

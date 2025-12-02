@@ -5,6 +5,11 @@ set -o errexit
 test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
 
+if [[ $IMAGE_PXC =~ 5\.7 ]]; then
+	echo "Skipping allocator test because 5.7 doesn't support it!"
+	exit 0
+fi
+
 set_debug
 
 cluster="some-name"

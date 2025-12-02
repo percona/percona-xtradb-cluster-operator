@@ -16,7 +16,7 @@ UPDATE_COMPARE_FILES=${UPDATE_COMPARE_FILES:-0}
 
 export IMAGE=${IMAGE:-"perconalab/percona-xtradb-cluster-operator:${GIT_BRANCH}"}
 export IMAGE_PXC=${IMAGE_PXC:-"perconalab/percona-xtradb-cluster-operator:main-pxc${MYSQL_VERSION}"}
-export IMAGE_PROXY=${IMAGE_PROXY:-"percona/proxysql3:3.0"}
+export IMAGE_PROXY=${IMAGE_PROXY:-"perconalab/proxysql3:3.0.1-1.2"}
 export IMAGE_HAPROXY=${IMAGE_HAPROXY:-"perconalab/percona-xtradb-cluster-operator:main-haproxy"}
 export IMAGE_BACKUP=${IMAGE_BACKUP:-"perconalab/percona-xtradb-cluster-operator:main-pxc${MYSQL_VERSION}-backup"}
 export IMAGE_LOGCOLLECTOR=${IMAGE_LOGCOLLECTOR:-"perconalab/percona-xtradb-cluster-operator:main-logcollector"}

@@ -5,18 +5,18 @@ set -o errexit
 test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
 
-  function create_extra_pvcs() {
-      local ns=$1
+function create_extra_pvcs() {
+	local ns=$1
 
-      echo "Creating extra PVCs in namespace ${ns}"
-      kubectl_bin apply -f ${test_dir}/conf/extra-pvc.yml -n ${ns}
+	echo "Creating extra PVCs in namespace ${ns}"
+	kubectl_bin apply -f ${test_dir}/conf/extra-pvc.yml -n ${ns}
 
-      echo "Waiting for source PVC to be bound"
-      kubectl_bin wait --for=jsonpath='{.status.phase}'=Bound pvc/extra-storage-source -n ${ns} --timeout=60s
+	echo "Waiting for source PVC to be bound"
+	kubectl_bin wait --for=jsonpath='{.status.phase}'=Bound pvc/extra-storage-source -n ${ns} --timeout=60s
 
-      echo "Waiting for populator pod to be ready"
-      kubectl_bin wait --for=condition=Ready pod/pvc-populator -n ${ns} --timeout=60s
-  }
+	echo "Waiting for populator pod to be ready"
+	kubectl_bin wait --for=condition=Ready pod/pvc-populator -n ${ns} --timeout=60s
+}
 
 function verify_extra_pvc_mounted() {
 	local pod=$1
@@ -39,10 +39,10 @@ function verify_extra_pvc_in_statefulset() {
 
 	echo "Verifying extra PVC configuration in StatefulSet ${cluster}-pxc"
 
-	local volume_exists=$(kubectl_bin get statefulset ${cluster}-pxc -o json | \
-		jq --arg claim "${expected_claim_name}" '.spec.template.spec.volumes[] | select(.persistentVolumeClaim.claimName == $claim) | .name' -r)
+	local volume_exists=$(kubectl_bin get statefulset ${cluster}-pxc -o json \
+		| jq --arg claim "${expected_claim_name}" '.spec.template.spec.volumes[] | select(.persistentVolumeClaim.claimName == $claim) | .name' -r)
 
-	if [[ -z "$volume_exists" ]]; then
+	if [[ -z $volume_exists ]]; then
 		echo "Volume with claimName ${expected_claim_name} not found in StatefulSet"
 		kubectl_bin get statefulset ${cluster}-pxc -o yaml
 		exit 1
@@ -50,10 +50,10 @@ function verify_extra_pvc_in_statefulset() {
 
 	echo "Volume ${volume_exists} with claimName ${expected_claim_name} found in StatefulSet"
 
-	local mount_exists=$(kubectl_bin get statefulset ${cluster}-pxc -o json | \
-		jq --arg path "${expected_mount_path}" '.spec.template.spec.containers[] | select(.name == "pxc") | .volumeMounts[] | select(.mountPath == $path) | .name' -r)
+	local mount_exists=$(kubectl_bin get statefulset ${cluster}-pxc -o json \
+		| jq --arg path "${expected_mount_path}" '.spec.template.spec.containers[] | select(.name == "pxc") | .volumeMounts[] | select(.mountPath == $path) | .name' -r)
 
-	if [[ -z "$mount_exists" ]]; then
+	if [[ -z $mount_exists ]]; then
 		echo "Volume mount with mountPath ${expected_mount_path} not found in pxc container"
 		kubectl_bin get statefulset ${cluster}-pxc -o yaml
 		exit 1
@@ -172,10 +172,10 @@ sleep 10
 
 desc 'verify extra PVCs are removed from StatefulSet'
 for claim in extra-storage-1 extra-storage-2; do
-	volume_exists=$(kubectl_bin get statefulset ${cluster}-pxc -o json | \
-		jq --arg claim "${claim}" '.spec.template.spec.volumes[] | select(.persistentVolumeClaim.claimName == $claim) | .name' -r)
+	volume_exists=$(kubectl_bin get statefulset ${cluster}-pxc -o json \
+		| jq --arg claim "${claim}" '.spec.template.spec.volumes[] | select(.persistentVolumeClaim.claimName == $claim) | .name' -r)
 
-	if [[ -n "$volume_exists" ]]; then
+	if [[ -n $volume_exists ]]; then
 		echo "Volume with claimName ${claim} still exists in StatefulSet after removal"
 		exit 1
 	fi

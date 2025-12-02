@@ -9,7 +9,7 @@ demand-backup,8.0
 demand-backup-flow-control,8.0
 demand-backup-parallel,8.0
 demand-backup-without-passwords,8.0
-extra-pv,8.0
+extra-pvc,8.0
 haproxy,5.7
 haproxy,8.0
 init-deploy,5.7

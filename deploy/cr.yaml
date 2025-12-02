@@ -563,7 +563,7 @@ spec:
 #     - 10.0.0.0/8
   logcollector:
     enabled: true
-    image: perconalab/percona-xtradb-cluster-operator:main-logcollector
+    image: perconalab/fluentbit:main-logcollector
 #    configuration: |
 #      [OUTPUT]
 #           Name  es

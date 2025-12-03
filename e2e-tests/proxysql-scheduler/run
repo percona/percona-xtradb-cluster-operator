@@ -78,7 +78,10 @@ log "mysql_servers are configured in ${cluster}-proxysql-1: OK"
 
 desc 'check PXC pod 1 is promoted to writer when pod-0 is down'
 # kill pxc pod 0 in loop
-for i in {1..20}; do kubectl delete pod "${cluster}-pxc-0"; sleep 20; done &
+for i in {1..20}; do
+	kubectl delete pod "${cluster}-pxc-0"
+	sleep 20
+done &
 LOOP_PID=$!
 
 echo "LOOP_PID=$LOOP_PID"
@@ -91,7 +94,7 @@ compare_mysql_servers "${cluster}-proxysql-0" "mysql-servers-0-pod0-down" $LOOP_
 retry=0
 log "mysql_servers are configured in ${cluster}-proxysql-0: OK when pod0 is down"
 
-compare_mysql_servers "${cluster}-proxysql-1"  "mysql-servers-1-pod0-down" $LOOP_PID
+compare_mysql_servers "${cluster}-proxysql-1" "mysql-servers-1-pod0-down" $LOOP_PID
 log "mysql_servers are configured in ${cluster}-proxysql-1: OK when pod0 is down"
 
 # kill process killing pxc pod 0
@@ -170,8 +173,8 @@ desc 'check if scheduler is doing its job in all ProxySQL servers'
 echo -n "waiting for pod1 and pod2 to be removed from proxysql"
 
 compare_mysql_servers "${cluster}-proxysql-0" "mysql-servers-0-two-pod-down"
-log "mysql_servers are configured in ${cluster}-proxysql-0: OK when 2 pods are down" 
-compare_mysql_servers "${cluster}-proxysql-1"  "mysql-servers-1-two-pod-down"
+log "mysql_servers are configured in ${cluster}-proxysql-0: OK when 2 pods are down"
+compare_mysql_servers "${cluster}-proxysql-1" "mysql-servers-1-two-pod-down"
 log "mysql_servers are configured in ${cluster}-proxysql-1: OK when 2 pods are down"
 compare_mysql_servers "${cluster}-proxysql-2" "mysql-servers-2-two-pod-down"
 log "mysql_servers are configured in ${cluster}-proxysql-2: OK when 2 pods are down"

@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 
+	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	cmmeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
 	"github.com/flosch/pongo2/v6"
 	"github.com/go-ini/ini"
@@ -45,7 +46,7 @@ type PerconaXtraDBClusterSpec struct {
 	HAProxy                   *HAProxySpec                         `json:"haproxy,omitempty"`
 	PMM                       *PMMSpec                             `json:"pmm,omitempty"`
 	LogCollector              *LogCollectorSpec                    `json:"logcollector,omitempty"`
-	Backup                    *PXCScheduledBackup                  `json:"backup,omitempty"`
+	Backup                    *BackupSpec                          `json:"backup,omitempty"`
 	UpdateStrategy            appsv1.StatefulSetUpdateStrategyType `json:"updateStrategy,omitempty"`
 	UpgradeOptions            UpgradeOptions                       `json:"upgradeOptions,omitempty"`
 	AllowUnsafeConfig         bool                                 `json:"allowUnsafeConfigurations,omitempty"`
@@ -218,7 +219,7 @@ const (
 	SmartUpdateStatefulSetStrategyType appsv1.StatefulSetUpdateStrategyType = "SmartUpdate"
 )
 
-type PXCScheduledBackup struct {
+type BackupSpec struct {
 	AllowParallel            *bool                         `json:"allowParallel,omitempty"`
 	Image                    string                        `json:"image,omitempty"`
 	ImagePullSecrets         []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
@@ -232,13 +233,14 @@ type PXCScheduledBackup struct {
 	ActiveDeadlineSeconds    *int64                        `json:"activeDeadlineSeconds,omitempty"`
 	StartingDeadlineSeconds  *int64                        `json:"startingDeadlineSeconds,omitempty"`
 	SuspendedDeadlineSeconds *int64                        `json:"suspendedDeadlineSeconds,omitempty"`
+	TTLSecondsAfterFinished  *int32                        `json:"ttlSecondsAfterFinished,omitempty"`
 	// RunningDeadlineSeconds is the number of seconds to wait for the backup to transition to the 'Running' state.
 	// Once this threshold is reached, the backup will be marked as failed. Default is 300 seconds (5m).
 	// +kubebuilder:default:=300
 	RunningDeadlineSeconds *int64 `json:"runningDeadlineSeconds,omitempty"`
 }
 
-func (b *PXCScheduledBackup) GetAllowParallel() bool {
+func (b *BackupSpec) GetAllowParallel() bool {
 	if b.AllowParallel == nil {
 		return true
 	}
@@ -1320,14 +1322,14 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 		if tls.CADuration == nil {
 			tls.CADuration = &metav1.Duration{Duration: pxctls.DefaultCAValidity}
 		}
-		if tls.Duration.Duration < pxctls.MinCertValidity {
-			return errors.Errorf(".spec.tls.certValidityDuration shouldn't be smaller than %d hours", int(pxctls.MinCertValidity.Hours()))
+		if tls.Duration.Duration < cmapi.MinimumCertificateDuration {
+			return errors.Errorf(".spec.tls.certValidityDuration shouldn't be smaller than %d hours", int(cmapi.MinimumCertificateDuration.Hours()))
 		}
 		if tls.CADuration.Duration < tls.Duration.Duration {
 			return errors.New(".spec.tls.caValidityDuration shouldn't be smaller than .spec.tls.certValidityDuration")
 		}
-		if tls.CADuration.Duration < pxctls.DefaultRenewBefore {
-			return errors.Errorf(".spec.tls.caValidityDuration shouldn't be smaller than %d hours", int(pxctls.DefaultRenewBefore.Hours()))
+		if tls.CADuration.Duration <= pxctls.DefaultRenewBefore {
+			return errors.Errorf(".spec.tls.caValidityDuration should be greater than %d hours", int(pxctls.DefaultRenewBefore.Hours()))
 		}
 	}
 

@@ -14,10 +14,12 @@ import (
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 )
 
+var errDeadlineExceeded = errors.New("deadline exceeded")
+
 var (
-	errSuspendedDeadlineExceeded = errors.New("suspended deadline seconds exceeded")
-	errStartingDeadlineExceeded  = errors.New("starting deadline seconds exceeded")
-	errRunningDeadlineExceeded   = errors.New("running deadline seconds exceeded")
+	errSuspendedDeadlineExceeded = errors.Wrap(errDeadlineExceeded, "suspended deadline seconds exceeded")
+	errStartingDeadlineExceeded  = errors.Wrap(errDeadlineExceeded, "starting deadline seconds exceeded")
+	errRunningDeadlineExceeded   = errors.Wrap(errDeadlineExceeded, "running deadline seconds exceeded")
 )
 
 func (r *ReconcilePerconaXtraDBClusterBackup) checkDeadlines(ctx context.Context, cluster *api.PerconaXtraDBCluster, cr *api.PerconaXtraDBClusterBackup) error {
@@ -85,7 +87,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) checkRunningDeadline(ctx context.C
 		return nil
 	}
 
-	job, err := r.getBackupJob(ctx, cluster, cr)
+	job, err := r.getBackupJob(ctx, cr)
 	if err != nil {
 		return fmt.Errorf("failed to get backup job for running deadline check: %w", err)
 	}
@@ -111,7 +113,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) checkSuspendedDeadline(
 ) error {
 	log := logf.FromContext(ctx)
 
-	job, err := r.getBackupJob(ctx, cluster, cr)
+	job, err := r.getBackupJob(ctx, cr)
 	if err != nil {
 		if k8sErrors.IsNotFound(err) {
 			return nil

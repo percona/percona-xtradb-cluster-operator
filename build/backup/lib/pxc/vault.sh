@@ -8,6 +8,10 @@ function parse_ini() {
 	local key=$1
 	local file_path=$2
 
+	if [ ! -f $file_path ]; then
+		echo "File $file_path does not exist" >&2
+		exit 0
+	fi
 	awk -F "=[ ]*" "/${key}[ ]*=/ {print \$2}" "$file_path"
 }
 

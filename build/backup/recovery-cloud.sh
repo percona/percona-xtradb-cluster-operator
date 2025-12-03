@@ -55,19 +55,25 @@ fi
 xbcloud get --parallel="$(grep -c processor /proc/cpuinfo)" ${XBCLOUD_ARGS} "$(destination)" | xbstream -x -C "${tmp}" --parallel="$(grep -c processor /proc/cpuinfo)" $XBSTREAM_EXTRA_ARGS
 
 set +o xtrace
-transition_key=$(vault_get "$tmp/sst_info")
-if [[ -n $transition_key && $transition_key != null ]]; then
-	MYSQL_VERSION=$(parse_ini 'mysql-version' "$tmp/sst_info")
-	if ! check_for_version "$MYSQL_VERSION" '5.7.29' \
-		&& [[ $MYSQL_VERSION != '5.7.28-31-57.2' ]]; then
 
-		# shellcheck disable=SC2016
-		transition_key='$transition_key'
+if [[ -f "${tmp}/sst_info" ]]; then
+	transition_key=$(vault_get "$tmp/sst_info")
+	if [[ -n $transition_key && $transition_key != null ]]; then
+		MYSQL_VERSION=$(parse_ini 'mysql-version' "$tmp/sst_info")
+		if ! check_for_version "$MYSQL_VERSION" '5.7.29' \
+			&& [[ $MYSQL_VERSION != '5.7.28-31-57.2' ]]; then
+
+			# shellcheck disable=SC2016
+			transition_key='$transition_key'
+		fi
+
+		transition_option="--transition-key=$transition_key"
+		echo transition-key exists
 	fi
+fi
 
-	transition_option="--transition-key=$transition_key"
+if [ -f "${keyring_vault}" ]; then
 	master_key_options="--generate-new-master-key"
-	echo transition-key exists
 fi
 
 # Extract --defaults-file from XB_EXTRA_ARGS if present and place it as the first argument
@@ -95,21 +101,22 @@ if ! check_for_version "$XTRABACKUP_VERSION" '8.0.0'; then
 fi
 
 echo "+ xtrabackup $DEFAULTS_FILE ${XB_USE_MEMORY+--use-memory=$XB_USE_MEMORY} --prepare $REMAINING_XB_ARGS --binlog-info=ON --rollback-prepared-trx \
+--keyring-vault-config=$keyring_vault \
 --xtrabackup-plugin-dir=/usr/lib64/xtrabackup/plugin --target-dir=$tmp"
 
 # shellcheck disable=SC2086
 xtrabackup $DEFAULTS_FILE ${XB_USE_MEMORY+--use-memory=$XB_USE_MEMORY} --prepare $REMAINING_XB_ARGS $transition_option --rollback-prepared-trx \
+	--keyring-vault-config=$keyring_vault \
 	--xtrabackup-plugin-dir=/usr/lib64/xtrabackup/plugin "--target-dir=$tmp"
 
 echo "+ xtrabackup $DEFAULTS_FILE --defaults-group=mysqld --datadir=/datadir --move-back $REMAINING_XB_ARGS --binlog-info=ON \
 --force-non-empty-directories $master_key_options \
---keyring-vault-config=/etc/mysql/vault-keyring-secret/keyring_vault.conf --early-plugin-load=keyring_vault.so \
+--keyring-vault-config=$keyring_vault --early-plugin-load=keyring_vault.so \
 --xtrabackup-plugin-dir=/usr/lib64/xtrabackup/plugin --target-dir=$tmp"
 
 # shellcheck disable=SC2086
 xtrabackup $DEFAULTS_FILE --defaults-group=mysqld --datadir=/datadir --move-back $REMAINING_XB_ARGS \
 	--force-non-empty-directories $transition_option $master_key_options \
-	--keyring-vault-config=/etc/mysql/vault-keyring-secret/keyring_vault.conf --early-plugin-load=keyring_vault.so \
-	--xtrabackup-plugin-dir=/usr/lib64/xtrabackup/plugin "--target-dir=$tmp"
+	--keyring-vault-config=$keyring_vault --early-plugin-load=keyring_vault.so "--target-dir=$tmp"
 
 rm -rf "$tmp"

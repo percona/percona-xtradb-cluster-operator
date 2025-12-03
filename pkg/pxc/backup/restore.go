@@ -115,8 +115,8 @@ func PVCRestorePod(cr *api.PerconaXtraDBClusterRestore, bcpStorageName, pvcName 
 			MountPath: "/etc/mysql/ssl-internal",
 		},
 		{
-			Name:      "vault-keyring-secret",
-			MountPath: "/etc/mysql/vault-keyring-secret",
+			Name:      statefulset.VaultSecretVolumeName,
+			MountPath: statefulset.VaultSecretMountPath,
 		},
 	}
 
@@ -231,8 +231,8 @@ func RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClust
 			MountPath: "/datadir",
 		},
 		{
-			Name:      "vault-keyring-secret",
-			MountPath: "/etc/mysql/vault-keyring-secret",
+			Name:      statefulset.VaultSecretVolumeName,
+			MountPath: statefulset.VaultSecretMountPath,
 		},
 	}
 	volumes := []corev1.Volume{
@@ -765,8 +765,8 @@ func PrepareJob(
 			MountPath: "/etc/mysql/mysql-users-secret",
 		},
 		{
-			Name:      "vault-keyring-secret",
-			MountPath: "/etc/mysql/vault-keyring-secret",
+			Name:      statefulset.VaultSecretVolumeName,
+			MountPath: statefulset.VaultSecretMountPath,
 		},
 		{
 			Name:      "ssl",

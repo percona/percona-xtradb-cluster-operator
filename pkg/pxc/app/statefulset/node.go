@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"hash/fnv"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -26,6 +27,8 @@ import (
 
 const (
 	VaultSecretVolumeName = "vault-keyring-secret"
+	VaultSecretMountPath  = "/etc/mysql/vault-keyring-secret"
+	VaultKeyringConfig    = "keyring_vault.conf"
 )
 
 type Node struct {
@@ -146,7 +149,7 @@ func (c *Node) AppContainer(ctx context.Context, cl client.Client, spec *api.Pod
 			},
 			{
 				Name:      VaultSecretVolumeName,
-				MountPath: "/etc/mysql/vault-keyring-secret",
+				MountPath: VaultSecretMountPath,
 			},
 		},
 		Env: []corev1.EnvVar{
@@ -454,6 +457,10 @@ func (c *Node) XtrabackupContainer(ctx context.Context, cr *api.PerconaXtraDBClu
 					SecretKeyRef: app.SecretKeySelector(cr.Spec.SecretsName, users.Xtrabackup),
 				},
 			},
+			{
+				Name:  "VAULT_KEYRING_PATH",
+				Value: filepath.Join(VaultSecretMountPath, VaultKeyringConfig),
+			},
 		},
 		Command: []string{"/var/lib/mysql/xtrabackup-server-sidecar"},
 		Ports: []corev1.ContainerPort{
@@ -474,6 +481,10 @@ func (c *Node) XtrabackupContainer(ctx context.Context, cr *api.PerconaXtraDBClu
 			{
 				Name:      "tmp",
 				MountPath: "/tmp",
+			},
+			{
+				Name:      "vault-keyring-secret",
+				MountPath: VaultSecretMountPath,
 			},
 		},
 		// TODO: make this configurable from CR

@@ -47,7 +47,7 @@ func TestNewXtrabackupCmd(t *testing.T) {
 
 	for i, tc := range testCases {
 		t.Run(fmt.Sprintf("test case %d", i), func(t *testing.T) {
-			cmd := tc.backupConfig.NewXtrabackupCmd(context.Background(), "root", "password123")
+			cmd := tc.backupConfig.NewXtrabackupCmd(context.Background(), "root", "password123", false)
 			assert.Equal(t, tc.expectedArgs, cmd.Args)
 		})
 	}

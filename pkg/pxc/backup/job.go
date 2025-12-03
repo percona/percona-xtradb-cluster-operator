@@ -193,8 +193,8 @@ func appendStorageSecret(job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBacku
 			MountPath: "/etc/mysql/ssl-internal",
 		},
 		corev1.VolumeMount{
-			Name:      "vault-keyring-secret",
-			MountPath: "/etc/mysql/vault-keyring-secret",
+			Name:      statefulset.VaultSecretVolumeName,
+			MountPath: statefulset.VaultSecretMountPath,
 		},
 	)
 	job.Template.Spec.Volumes = append(

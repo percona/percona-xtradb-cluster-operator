@@ -59,7 +59,7 @@ func (s *appServer) CreateBackup(req *api.CreateBackupRequest, stream api.Xtraba
 
 	g, gCtx := errgroup.WithContext(ctx)
 
-	xtrabackup := req.BackupConfig.NewXtrabackupCmd(gCtx, backupUser, backupPass)
+	xtrabackup := req.BackupConfig.NewXtrabackupCmd(gCtx, backupUser, backupPass, s.tableSpaceEncryptionEnabled)
 	xbOut, err := xtrabackup.StdoutPipe()
 	if err != nil {
 		log.Error(err, "xtrabackup stdout pipe failed")

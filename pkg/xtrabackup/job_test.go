@@ -32,7 +32,7 @@ func TestJobSpec(t *testing.T) {
 
 	cluster := &pxcv1.PerconaXtraDBCluster{
 		Spec: pxcv1.PerconaXtraDBClusterSpec{
-			Backup: &pxcv1.PXCScheduledBackup{
+			Backup: &pxcv1.BackupSpec{
 				Image:           backupImage,
 				ImagePullPolicy: corev1.PullIfNotPresent,
 				ImagePullSecrets: []corev1.LocalObjectReference{

@@ -116,7 +116,7 @@ spec:
             - -service=$(PXC_SERVICE)
             - -protocol=$(PEER_LIST_SRV_PROTOCOL)
           command:
-            - /opt/percona/proxysql_peer_list_entrypoint.sh
+            - /opt/percona/proxysql-etntrypoint.sh
           env:
             - name: PXC_SERVICE
               value: some-name-pxc

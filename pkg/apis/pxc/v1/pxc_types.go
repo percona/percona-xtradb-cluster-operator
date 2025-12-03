@@ -47,7 +47,7 @@ type PerconaXtraDBClusterSpec struct {
 	HAProxy                   *HAProxySpec                         `json:"haproxy,omitempty"`
 	PMM                       *PMMSpec                             `json:"pmm,omitempty"`
 	LogCollector              *LogCollectorSpec                    `json:"logcollector,omitempty"`
-	Backup                    *PXCScheduledBackup                  `json:"backup,omitempty"`
+	Backup                    *BackupSpec                          `json:"backup,omitempty"`
 	UpdateStrategy            appsv1.StatefulSetUpdateStrategyType `json:"updateStrategy,omitempty"`
 	UpgradeOptions            UpgradeOptions                       `json:"upgradeOptions,omitempty"`
 	AllowUnsafeConfig         bool                                 `json:"allowUnsafeConfigurations,omitempty"`
@@ -220,7 +220,7 @@ const (
 	SmartUpdateStatefulSetStrategyType appsv1.StatefulSetUpdateStrategyType = "SmartUpdate"
 )
 
-type PXCScheduledBackup struct {
+type BackupSpec struct {
 	AllowParallel            *bool                         `json:"allowParallel,omitempty"`
 	Image                    string                        `json:"image,omitempty"`
 	ImagePullSecrets         []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
@@ -234,13 +234,14 @@ type PXCScheduledBackup struct {
 	ActiveDeadlineSeconds    *int64                        `json:"activeDeadlineSeconds,omitempty"`
 	StartingDeadlineSeconds  *int64                        `json:"startingDeadlineSeconds,omitempty"`
 	SuspendedDeadlineSeconds *int64                        `json:"suspendedDeadlineSeconds,omitempty"`
+	TTLSecondsAfterFinished  *int32                        `json:"ttlSecondsAfterFinished,omitempty"`
 	// RunningDeadlineSeconds is the number of seconds to wait for the backup to transition to the 'Running' state.
 	// Once this threshold is reached, the backup will be marked as failed. Default is 300 seconds (5m).
 	// +kubebuilder:default:=300
 	RunningDeadlineSeconds *int64 `json:"runningDeadlineSeconds,omitempty"`
 }
 
-func (b *PXCScheduledBackup) GetAllowParallel() bool {
+func (b *BackupSpec) GetAllowParallel() bool {
 	if b.AllowParallel == nil {
 		return true
 	}

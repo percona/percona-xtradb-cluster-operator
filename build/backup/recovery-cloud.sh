@@ -72,7 +72,7 @@ if [[ -f "${tmp}/sst_info" ]]; then
 	fi
 fi
 
-if [ -f "${keyring_vault}" ]; then
+if [ -f "${tmp}/xtrabackup_keys" ]; then
 	master_key_options="--generate-new-master-key"
 fi
 
@@ -101,32 +101,34 @@ if ! check_for_version "$XTRABACKUP_VERSION" '8.0.0'; then
 fi
 
 DEFAULTS_GROUP="--defaults-group=mysqld"
-EARLY_PLUGIN_LOAD="--early-plugin-load=keyring_vault.so"
 if [[ "${XTRABACKUP_ENABLED}" == "true" ]]; then
 	# these must not be set for pxb
 	DEFAULTS_GROUP=""
 	DEFAULTS_FILE=""
-	# EARLY_PLUGIN_LOAD=""
+fi
+
+# If backup-my.cnf does not contian plugin_load, then --prepare will fail if you pass the --keyring-vault-config option.
+if [[ -n "$(parse_ini 'plugin_load' "${tmp}/backup-my.cnf")" ]]; then
+	KEYRING_VAULT_CONFIG="--keyring-vault-config=/etc/mysql/vault-keyring-secret/keyring_vault.conf"
 fi
 
 echo "+ xtrabackup $DEFAULTS_FILE ${XB_USE_MEMORY+--use-memory=$XB_USE_MEMORY} --prepare $REMAINING_XB_ARGS --binlog-info=ON --rollback-prepared-trx \
---keyring-vault-config=/etc/mysql/vault-keyring-secret/keyring_vault.conf \
---xtrabackup-plugin-dir=/usr/lib64/xtrabackup/plugin --target-dir=$tmp"
+	$KEYRING_VAULT_CONFIG --xtrabackup-plugin-dir=/usr/lib64/xtrabackup/plugin --target-dir=$tmp"
+
 
 # shellcheck disable=SC2086
 xtrabackup $DEFAULTS_FILE ${XB_USE_MEMORY+--use-memory=$XB_USE_MEMORY} --prepare $REMAINING_XB_ARGS $transition_option --rollback-prepared-trx \
-	--keyring-vault-config=/etc/mysql/vault-keyring-secret/keyring_vault.conf \
-	--xtrabackup-plugin-dir=/usr/lib64/xtrabackup/plugin "--target-dir=$tmp"
+	$KEYRING_VAULT_CONFIG --xtrabackup-plugin-dir=/usr/lib64/xtrabackup/plugin "--target-dir=$tmp"
 
 echo "+ xtrabackup $DEFAULTS_FILE $DEFAULTS_GROUP --datadir=/datadir --move-back $REMAINING_XB_ARGS --binlog-info=ON \
 --force-non-empty-directories $master_key_options \
---keyring-vault-config=/etc/mysql/vault-keyring-secret/keyring_vault.conf $EARLY_PLUGIN_LOAD \
+--keyring-vault-config=/etc/mysql/vault-keyring-secret/keyring_vault.conf --early-plugin-load=keyring_vault.so \
 --xtrabackup-plugin-dir=/usr/lib64/xtrabackup/plugin --target-dir=$tmp"
 
 # shellcheck disable=SC2086
 xtrabackup $DEFAULTS_FILE $DEFAULTS_GROUP --datadir=/datadir --move-back $REMAINING_XB_ARGS \
 	--force-non-empty-directories $transition_option $master_key_options \
-	--keyring-vault-config=/etc/mysql/vault-keyring-secret/keyring_vault.conf $EARLY_PLUGIN_LOAD \
+	--keyring-vault-config=/etc/mysql/vault-keyring-secret/keyring_vault.conf --early-plugin-load=keyring_vault.so \
 	--xtrabackup-plugin-dir=/usr/lib64/xtrabackup/plugin "--target-dir=$tmp"
 
 rm -rf "$tmp"

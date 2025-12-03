@@ -154,7 +154,7 @@ func TestGetS3Options(t *testing.T) {
 			if tt.storage != nil {
 				cluster = &api.PerconaXtraDBCluster{
 					Spec: api.PerconaXtraDBClusterSpec{
-						Backup: &api.PXCScheduledBackup{
+						Backup: &api.BackupSpec{
 							Storages: map[string]*api.BackupStorageSpec{
 								storageName: tt.storage,
 							},

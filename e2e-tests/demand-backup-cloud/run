@@ -89,6 +89,25 @@ delete_backup_pod() {
 
 }
 
+check_optins_in_restore_pod() {
+	local restore_name=$1
+	local cluster_name=$2
+
+	echo "Waiting for ${restore_name} pod to become Complete"
+	sleep 1
+	kubectl_bin wait --for=jsonpath='{.status.phase}'=Succeeded pod --selector=percona.com/restore-job-name=restore-job-${restore_name}-${cluster_name} --timeout=200s
+	restore_pod=$(kubectl_bin get pods --selector=percona.com/restore-job-name=restore-job-${restore_name}-${cluster_name} -o jsonpath='{.items[].metadata.name}')
+
+	echo "Grep logs of pod/${restore_pod}"
+	if kubectl logs ${restore_pod} | grep -q 'xtrabackup --defaults-file'; then
+		echo "Custom options are in the correct order for XtraBackup"
+		return 0
+	else
+		echo "Custom options are in the incorrect order for XtraBackup"
+		exit 1
+	fi
+}
+
 check_cloud_storage_cleanup() {
 	local backup_name=$1
 
@@ -135,6 +154,25 @@ main() {
 		echo "Skipping test because SKIP_REMOTE_BACKUPS variable is set!"
 		exit 0
 	else
+		if command -v aws >/dev/null 2>&1; then
+			echo "AWS CLI is installed"
+		else
+			echo "AWS CLI is not installed"
+			exit 1
+		fi
+		if command -v gsutil >/dev/null 2>&1; then
+			echo "gutil is installed"
+		else
+			echo "gsutil command is not installed"
+			exit 1
+		fi
+		if command -v az >/dev/null 2>&1; then
+			echo "Azure CLI is installed"
+		else
+			echo "Azure CLI is not installed"
+			exit 1
+		fi
+
 		create_infra $namespace
 
 		cluster="demand-backup-cloud"
@@ -150,7 +188,10 @@ main() {
 		desc "Run recovery from s3 for $cluster cluster"
 		run_recovery_check "$cluster" "${backup_name_aws}"
 
-		desc "Run recovery from s3 source with defult optoins"
+		desc "Check correct order for custom options"
+		check_optins_in_restore_pod "${backup_name_aws}" "$cluster"
+
+		desc "Run recovery from s3 source with default options"
 		run_recovery_from_source
 
 		desc 'Run recovery from s3 source without s3:// prefix in destination'
@@ -173,7 +214,7 @@ main() {
 		desc "Run recovery from azure for $cluster cluster"
 		run_recovery_check "$cluster" "${backup_name_azure}"
 
-		desc "Run recovery from azure source with defult optoins"
+		desc "Run recovery from azure source with default options"
 		run_recovery_from_source 'azure' "${backup_name_azure}"
 
 		desc 'Run recovery from azure source without azure:// prefix in destination'
@@ -189,16 +230,30 @@ main() {
 		backup_dest_azure=$(kubectl_bin get pxc-backup "$backup_name_azure" -o jsonpath='{.status.destination}' | sed -e 's/.json$//' | cut -c 9-)
 
 		desc "Check backup existence"
-		check_backup_existence "https://s3.amazonaws.com/${backup_dest_aws}.sst_info/sst_info.00000000000000000000" "aws-s3"
-		check_backup_existence "https://storage.googleapis.com/${backup_dest_gcp}.sst_info/sst_info.00000000000000000000" "gcp-cs"
-		check_backup_existence "https://engk8soperators.blob.core.windows.net/${backup_dest_azure}.sst_info/sst_info.00000000000000000000" "azure-blob"
+		setup_aws_credentials
+		check_backup_existence_aws "$backup_dest_aws" ".sst_info/sst_info.00000000000000000000"
+		
+		setup_gcs_credentials
+		check_backup_existence_gcs "${backup_dest_gcp}"
+		
+		setup_azure_credentials
+		check_backup_existence_azure "${backup_dest_azure}" ".sst_info/sst_info.00000000000000000000"
 
 		kubectl_bin delete pxc-backup --all
 
 		desc "Check backup deletion"
-		check_backup_deletion "https://s3.amazonaws.com/${backup_dest_aws}.sst_info/sst_info.00000000000000000000" "aws-s3"
-		check_backup_deletion "https://storage.googleapis.com/${backup_dest_gcp}.sst_info/sst_info.00000000000000000000" "gcp-cs"
-		check_backup_deletion "https://engk8soperators.blob.core.windows.net/${backup_dest_azure}.sst_info/sst_info.00000000000000000000" "azure-blob"
+		check_backup_deletion_aws "$backup_dest_aws" ".sst_info/sst_info.00000000000000000000"
+		check_backup_deletion_gcs "${backup_dest_gcp}"
+		check_backup_deletion_azure "${backup_dest_azure}" ".sst_info/sst_info.00000000000000000000"
+
+		if [ "$EKS" = 1 ]; then
+			backup_name_aws_iam="on-demand-backup-aws-s3-iam"
+			desc "Run backup ${backup_name_aws_iam} for $cluster cluster using IAM"
+			run_backup_with_delete "${backup_name_aws_iam}"
+			desc "Check backup existence for $backup_name_aws_iam"
+			backup_dest_aws_iam=$(kubectl_bin get pxc-backup "$backup_name_aws_iam" -o jsonpath='{.status.destination}' | sed -e 's/.json$//' | cut -c 6-)
+			check_backup_existence_aws "${backup_dest_aws_iam}" ".sst_info/sst_info.00000000000000000000"
+		fi
 
 		destroy $namespace
 		desc "test passed"

@@ -19,8 +19,7 @@ import (
 )
 
 func (*Backup) Job(cr *api.PerconaXtraDBClusterBackup, cluster *api.PerconaXtraDBCluster) *batchv1.Job {
-	labelKeyBackupType := naming.GetLabelBackupType(cluster)
-	jobName := naming.BackupJobName(cr.Name, cr.Labels[labelKeyBackupType] == "cron")
+	jobName := naming.BackupJobName(cr.Name)
 
 	return &batchv1.Job{
 		TypeMeta: metav1.TypeMeta{
@@ -32,6 +31,9 @@ func (*Backup) Job(cr *api.PerconaXtraDBClusterBackup, cluster *api.PerconaXtraD
 			Namespace:   cr.Namespace,
 			Labels:      naming.LabelsBackupJob(cr, cluster, jobName),
 			Annotations: cluster.Spec.Backup.Storages[cr.Spec.StorageName].Annotations,
+			Finalizers: []string{
+				naming.FinalizerKeepJob,
+			},
 		},
 	}
 }
@@ -100,10 +102,16 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, cluster *api.PerconaXtraDBClu
 		initContainers = append(initContainers, statefulset.BackupInitContainer(cluster, initImage, storage.ContainerSecurityContext))
 	}
 
+	cmd := []string{"bash", "/usr/bin/backup.sh"}
+	if cluster.CompareVersionWith("1.18.0") >= 0 {
+		cmd = []string{"bash", "/opt/percona/backup/backup.sh"}
+	}
+
 	return batchv1.JobSpec{
-		ActiveDeadlineSeconds: activeDeadlineSeconds,
-		BackoffLimit:          &backoffLimit,
-		ManualSelector:        &manualSelector,
+		ActiveDeadlineSeconds:   activeDeadlineSeconds,
+		BackoffLimit:            &backoffLimit,
+		ManualSelector:          &manualSelector,
+		TTLSecondsAfterFinished: cluster.Spec.Backup.TTLSecondsAfterFinished,
 		Selector: &metav1.LabelSelector{
 			MatchLabels: job.Labels,
 		},
@@ -124,7 +132,7 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, cluster *api.PerconaXtraDBClu
 						Image:           bcp.image,
 						SecurityContext: storage.ContainerSecurityContext,
 						ImagePullPolicy: bcp.imagePullPolicy,
-						Command:         []string{"bash", "/opt/percona/backup/backup.sh"},
+						Command:         cmd,
 						Env:             envs,
 						Resources:       storage.Resources,
 						VolumeMounts:    volumeMounts,
@@ -193,7 +201,6 @@ func appendStorageSecret(job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBacku
 		secretIntVol,
 		secretVaultVol,
 	)
-
 	return nil
 }
 
@@ -340,6 +347,15 @@ func SetStorageS3(job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBackup) erro
 	err := appendStorageSecret(job, cr)
 	if err != nil {
 		return errors.Wrap(err, "failed to append storage secrets")
+	}
+
+	// add ca bundle (this is used by the aws-cli to verify the connection to S3)
+	if sel := s3.CABundle; sel != nil {
+		appendCABundleSecretVolume(
+			&job.Template.Spec.Volumes,
+			&job.Template.Spec.Containers[0].VolumeMounts,
+			sel,
+		)
 	}
 
 	return nil

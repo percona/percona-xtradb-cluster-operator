@@ -7,7 +7,6 @@ import (
 	"math/big"
 	mrand "math/rand"
 	"strings"
-	"time"
 
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -39,12 +38,12 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsersSecret(ctx context.Context
 		if err := validatePasswords(secretObj); err != nil {
 			return nil, errors.Wrap(err, "validate passwords")
 		}
-		isChanged, err := setUserSecretDefaults(secretObj)
+		isChanged, err := setUserSecretDefaults(secretObj, cr.Spec.PasswordGenerationOptions)
 		if err != nil {
 			return nil, errors.Wrap(err, "set user secret defaults")
 		}
 		if isChanged {
-			err := r.client.Update(context.TODO(), secretObj)
+			err := r.client.Update(ctx, secretObj)
 			if err == nil {
 				log.Info("User secrets updated", "secrets", cr.Spec.SecretsName)
 			}
@@ -64,11 +63,11 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsersSecret(ctx context.Context
 		Type: corev1.SecretTypeOpaque,
 	}
 
-	if _, err = setUserSecretDefaults(secretObj); err != nil {
+	if _, err = setUserSecretDefaults(secretObj, cr.Spec.PasswordGenerationOptions); err != nil {
 		return nil, errors.Wrap(err, "set user secret defaults")
 	}
 
-	err = r.client.Create(context.TODO(), secretObj)
+	err = r.client.Create(ctx, secretObj)
 	if err != nil {
 		return nil, fmt.Errorf("create Users secret: %v", err)
 	}
@@ -77,14 +76,14 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsersSecret(ctx context.Context
 	return secretObj, nil
 }
 
-func setUserSecretDefaults(secret *corev1.Secret) (isChanged bool, err error) {
+func setUserSecretDefaults(secret *corev1.Secret, secretsOptions *api.PasswordGenerationOptions) (isChanged bool, err error) {
 	if secret.Data == nil {
 		secret.Data = make(map[string][]byte)
 	}
 	users := []string{users.Root, users.Xtrabackup, users.Monitor, users.ProxyAdmin, users.Operator, users.Replication}
 	for _, user := range users {
 		if pass, ok := secret.Data[user]; !ok || len(pass) == 0 {
-			secret.Data[user], err = generatePass()
+			secret.Data[user], err = generatePass(user, secretsOptions)
 			if err != nil {
 				return false, errors.Wrapf(err, "create %s users password", user)
 			}
@@ -96,25 +95,43 @@ func setUserSecretDefaults(secret *corev1.Secret) (isChanged bool, err error) {
 }
 
 const (
-	passwordMaxLen = 20
-	passwordMinLen = 16
-	passSymbols    = "ABCDEFGHIJKLMNOPQRSTUVWXYZ" +
+	passBaseSymbols = "ABCDEFGHIJKLMNOPQRSTUVWXYZ" +
 		"abcdefghijklmnopqrstuvwxyz" +
-		"0123456789" +
-		"!#$%&()*+,-.<=>?@[]^_{}~"
+		"0123456789"
 )
 
-// generatePass generates a random password
-func generatePass() ([]byte, error) {
-	mrand.Seed(time.Now().UnixNano())
-	ln := mrand.Intn(passwordMaxLen-passwordMinLen) + passwordMinLen
+var randReader = rand.Reader
+
+func passSymbols(secretsOptions *api.PasswordGenerationOptions) string {
+	return passBaseSymbols + secretsOptions.Symbols
+}
+
+// generatePass generates a random password with or without special symbols
+func generatePass(username string, secretsOptions *api.PasswordGenerationOptions) ([]byte, error) {
+	ln := secretsOptions.MinLength
+	if secretsOptions.MaxLength-secretsOptions.MinLength > 0 {
+		ln += mrand.Intn(secretsOptions.MaxLength - secretsOptions.MinLength)
+	}
 	b := make([]byte, ln)
+
+	firstSymbols := passSymbols(secretsOptions)
+	otherSymbols := passSymbols(secretsOptions)
+	if username == users.ProxyAdmin {
+		otherSymbols = strings.NewReplacer(":", "", ";", "").Replace(otherSymbols)
+		firstSymbols = strings.ReplaceAll(otherSymbols, "*", "")
+	}
+
 	for i := 0; i < ln; i++ {
-		randInt, err := rand.Int(rand.Reader, big.NewInt(int64(len(passSymbols))))
+		symbols := otherSymbols
+		if i == 0 {
+			symbols = firstSymbols
+		}
+
+		randInt, err := rand.Int(randReader, big.NewInt(int64(len(symbols))))
 		if err != nil {
 			return nil, errors.Wrap(err, "get rand int")
 		}
-		b[i] = passSymbols[randInt.Int64()]
+		b[i] = symbols[randInt.Int64()]
 	}
 
 	return b, nil

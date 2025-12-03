@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/md5"
 	"encoding/json"
+	stdErrors "errors"
 	"fmt"
 	"sort"
 	"strconv"
@@ -18,18 +19,29 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	k8sretry "k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/queries"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/util"
 )
 
-func (r *ReconcilePerconaXtraDBCluster) updatePod(ctx context.Context, sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, newAnnotations map[string]string, smartUpdate bool) error {
+var NoProxyDetectedError = errors.New("can't detect enabled proxy, please enable HAProxy or ProxySQL")
+
+func (r *ReconcilePerconaXtraDBCluster) updatePod(
+	ctx context.Context,
+	sfs api.StatefulApp,
+	podSpec *api.PodSpec,
+	cr *api.PerconaXtraDBCluster,
+	newAnnotations map[string]string,
+	smartUpdate bool,
+) error {
 	log := logf.FromContext(ctx)
 
 	if cr.PVCResizeInProgress() {
@@ -37,15 +49,20 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(ctx context.Context, sfs api.S
 		return nil
 	}
 
-	err := r.reconcileConfigMap(cr)
+	res, err := r.reconcileConfigMaps(ctx, cr)
 	if err != nil {
-		return errors.Wrap(err, "upgradePod/updateApp error: update db config error")
+		return errors.Wrap(err, "reconcile config")
+	}
+
+	// don't create statefulset if configmap is just created or updated
+	if res != controllerutil.OperationResultNone {
+		return nil
 	}
 
 	// embed DB configuration hash
-	configHash, err := r.getConfigHash(cr, sfs)
+	configHash, err := r.getConfigHash(ctx, cr, sfs)
 	if err != nil {
-		return errors.Wrap(err, "getting config hash")
+		return errors.Wrap(err, "get config hash")
 	}
 
 	envVarsHash, err := r.getSecretHash(cr, cr.Spec.PXC.EnvVarsSecretName, true)
@@ -55,22 +72,22 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(ctx context.Context, sfs api.S
 		envVarsHash, err = r.getSecretHash(cr, cr.Spec.ProxySQL.EnvVarsSecretName, true)
 	}
 	if err != nil {
-		return errors.Wrap(err, "upgradePod/updateApp error: update secret error")
+		return errors.Wrap(err, "get env vars secret hash")
 	}
 
 	var vaultConfigHash, sslHash, sslInternalHash string
 	if !isHAproxy(sfs) {
 		vaultConfigHash, err = r.getSecretHash(cr, cr.Spec.VaultSecretName, true)
 		if err != nil {
-			return errors.Wrap(err, "upgradePod/updateApp error: update secret error")
+			return errors.Wrap(err, "get vault secret hash")
 		}
 		sslHash, err = r.getSecretHash(cr, cr.Spec.PXC.SSLSecretName, !cr.TLSEnabled())
 		if err != nil {
-			return errors.Wrap(err, "upgradePod/updateApp error: update secret error")
+			return errors.Wrap(err, "get ssl secret hash")
 		}
 		sslInternalHash, err = r.getSecretHash(cr, cr.Spec.PXC.SSLInternalSecretName, !cr.TLSEnabled())
 		if err != nil && !k8serrors.IsNotFound(err) {
-			return errors.Wrap(err, "upgradePod/updateApp error: update secret error")
+			return errors.Wrap(err, "get internal ssl secret hash")
 		}
 	}
 
@@ -86,7 +103,10 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(ctx context.Context, sfs api.S
 	err = r.client.Get(ctx, types.NamespacedName{
 		Name: "internal-" + cr.Name, Namespace: cr.Namespace,
 	}, secrets)
-	if client.IgnoreNotFound(err) != nil {
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil
+		}
 		return errors.Wrap(err, "get internal secret")
 	}
 
@@ -97,10 +117,12 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(ctx context.Context, sfs api.S
 
 	errStsWillBeDeleted := errors.New("will be deleted")
 
-	err = k8sretry.RetryOnConflict(k8sretry.DefaultRetry, func() error {
+	err = k8sretry.OnError(k8sretry.DefaultRetry, func(err error) bool {
+		return k8serrors.IsAlreadyExists(err) || k8serrors.IsConflict(err)
+	}, func() error {
 		currentSet := sfs.StatefulSet()
 		if err := r.client.Get(ctx, client.ObjectKeyFromObject(currentSet), currentSet); client.IgnoreNotFound(err) != nil {
-			return errors.Wrap(err, "failed to get statefulset")
+			return errors.Wrap(err, "get statefulset")
 		}
 		if !currentSet.DeletionTimestamp.IsZero() {
 			return errStsWillBeDeleted
@@ -114,7 +136,7 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(ctx context.Context, sfs api.S
 		}
 		// Keep same volumeClaimTemplates labels if statefulset already exists.
 		// We can't update volumeClaimTemplates.
-		if err == nil && cr.CompareVersionWith("1.16.0") >= 0 {
+		if cr.CompareVersionWith("1.16.0") >= 0 {
 			for i, pvc := range currentSet.Spec.VolumeClaimTemplates {
 				sts.Spec.VolumeClaimTemplates[i].Labels = pvc.Labels
 			}
@@ -137,7 +159,7 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(ctx context.Context, sfs api.S
 		if err := k8s.SetControllerReference(cr, sts, r.scheme); err != nil {
 			return errors.Wrap(err, "set controller reference")
 		}
-		err = r.createOrUpdate(ctx, cr, sts)
+		err = r.createOrUpdate(ctx, sts)
 		if err != nil {
 			return errors.Wrap(err, "update error")
 		}
@@ -227,13 +249,13 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(ctx context.Context, sfs api
 		return nil
 	}
 
-	primary, err := r.getPrimaryPod(cr)
+	primary, err := r.getPrimaryPod(ctx, cr)
 	if err != nil {
 		return errors.Wrap(err, "get primary pod")
 	}
 	for _, pod := range list.Items {
 		if pod.Status.PodIP == primary || pod.Name == primary {
-			primary = fmt.Sprintf("%s.%s.%s", pod.Name, currentSet.Name, currentSet.Namespace)
+			primary = podFQDN(&pod, currentSet)
 			break
 		}
 	}
@@ -241,7 +263,9 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(ctx context.Context, sfs api
 	log.Info("primary pod", "pod", primary)
 
 	waitLimit := 2 * 60 * 60 // 2 hours
-	if cr.Spec.PXC.LivenessInitialDelaySeconds != nil {
+	if cr.Spec.PXC.LivenessProbes.InitialDelaySeconds != api.DefaultInitialDelaySeconds {
+		waitLimit = int(cr.Spec.PXC.LivenessProbes.InitialDelaySeconds)
+	} else if cr.Spec.PXC.LivenessInitialDelaySeconds != nil {
 		waitLimit = int(*cr.Spec.PXC.LivenessInitialDelaySeconds)
 	}
 
@@ -252,7 +276,7 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(ctx context.Context, sfs api
 	var primaryPod corev1.Pod
 	for _, pod := range list.Items {
 		pod := pod
-		if strings.HasPrefix(primary, fmt.Sprintf("%s.%s.%s", pod.Name, currentSet.Name, currentSet.Namespace)) {
+		if strings.HasPrefix(primary, podFQDN(&pod, currentSet)) {
 			primaryPod = pod
 		} else {
 			log.Info("apply changes to secondary pod", "pod", pod.Name)
@@ -283,7 +307,7 @@ func (r *ReconcilePerconaXtraDBCluster) applyNWait(ctx context.Context, cr *api.
 		}
 	}
 
-	orderInSts, err := getPodOrderInSts(sfs.Name, pod.Name)
+	orderInSts, err := getPodOrderInSts(sfs, pod)
 	if err != nil {
 		return errors.Errorf("compute pod order err, sfs name: %s, pod name: %s", sfs.Name, pod.Name)
 	}
@@ -296,26 +320,83 @@ func (r *ReconcilePerconaXtraDBCluster) applyNWait(ctx context.Context, cr *api.
 		return errors.Wrap(err, "failed to wait pod")
 	}
 
-	if err := r.waitPXCSynced(cr, pod.Name+"."+cr.Name+"-pxc."+cr.Namespace, waitLimit); err != nil {
+	if err := r.waitPXCSynced(cr, podFQDN(pod, sfs), waitLimit); err != nil {
 		return errors.Wrap(err, "failed to wait pxc sync")
 	}
 
-	if err := r.waitHostgroups(ctx, cr, sfs.Name, pod, waitLimit); err != nil {
+	if err := r.waitHostgroups(ctx, cr, sfs, pod, waitLimit); err != nil {
 		return errors.Wrap(err, "failed to wait hostgroups status")
 	}
 
-	if err := r.waitUntilOnline(ctx, cr, sfs.Name, pod, waitLimit); err != nil {
+	if err := r.waitUntilOnline(ctx, cr, sfs, pod, waitLimit); err != nil {
 		return errors.Wrap(err, "failed to wait pxc status")
 	}
 
 	return nil
 }
 
-func getPodOrderInSts(stsName string, podName string) (int, error) {
-	return strconv.Atoi(podName[len(stsName)+1:])
+func getPodOrderInSts(sts *appsv1.StatefulSet, pod *corev1.Pod) (int, error) {
+	return strconv.Atoi(pod.Name[len(sts.Name)+1:])
 }
 
-func (r *ReconcilePerconaXtraDBCluster) waitHostgroups(ctx context.Context, cr *api.PerconaXtraDBCluster, sfsName string, pod *corev1.Pod, waitLimit int) error {
+func podFQDN(pod *corev1.Pod, sts *appsv1.StatefulSet) string {
+	return fmt.Sprintf("%s.%s.%s", pod.Name, sts.Name, sts.Namespace)
+}
+
+func (r *ReconcilePerconaXtraDBCluster) waitHostgroups(
+	ctx context.Context,
+	cr *api.PerconaXtraDBCluster,
+	sfs *appsv1.StatefulSet,
+	pod *corev1.Pod,
+	waitLimit int,
+) error {
+	if !cr.Spec.ProxySQLEnabled() {
+		return nil
+	}
+
+	log := logf.FromContext(ctx)
+
+	database, err := r.connectProxy(cr)
+	if err != nil {
+		return errors.Wrap(err, "connect to proxy")
+	}
+	defer database.Close()
+
+	hostname := podFQDN(pod, sfs)
+	podIdx, err := getPodOrderInSts(sfs, pod)
+	if err != nil {
+		return errors.Wrap(err, "get pod index from name")
+	}
+
+	hostgroup := "10" // reader
+	if podIdx == 0 {
+		hostgroup = "11" // writer
+	}
+
+	return retry(time.Second*10, time.Duration(waitLimit)*time.Second, func() (bool, error) {
+		present, err := database.PresentInHostgroup(hostname, hostgroup)
+		if err != nil && !errors.Is(err, queries.ErrNotFound) {
+			return false, errors.Wrap(err, "failed to get hostgroup status")
+		}
+		if !present {
+			log.Info("waiting for pod to be present in hostgroup",
+				"pod", pod.Name, "host", hostname, "hostgroup", hostgroup)
+			return false, nil
+		}
+
+		log.Info("pod present in hostgroup",
+			"pod", pod.Name, "host", hostname, "hostgroup", hostgroup)
+		return true, nil
+	})
+}
+
+func (r *ReconcilePerconaXtraDBCluster) waitUntilOnline(
+	ctx context.Context,
+	cr *api.PerconaXtraDBCluster,
+	sfs *appsv1.StatefulSet,
+	pod *corev1.Pod,
+	waitLimit int,
+) error {
 	if !cr.Spec.ProxySQLEnabled() {
 		return nil
 	}
@@ -327,36 +408,7 @@ func (r *ReconcilePerconaXtraDBCluster) waitHostgroups(ctx context.Context, cr *
 
 	defer database.Close()
 
-	podNamePrefix := fmt.Sprintf("%s.%s.%s", pod.Name, sfsName, cr.Namespace)
-
-	return retry(time.Second*10, time.Duration(waitLimit)*time.Second,
-		func() (bool, error) {
-			present, err := database.PresentInHostgroups(podNamePrefix)
-			if err != nil && err != queries.ErrNotFound {
-				return false, errors.Wrap(err, "failed to get hostgroup status")
-			}
-			if !present {
-				return false, nil
-			}
-
-			logf.FromContext(ctx).Info("pod present in hostgroups", "pod", pod.Name)
-			return true, nil
-		})
-}
-
-func (r *ReconcilePerconaXtraDBCluster) waitUntilOnline(ctx context.Context, cr *api.PerconaXtraDBCluster, sfsName string, pod *corev1.Pod, waitLimit int) error {
-	if !cr.Spec.ProxySQLEnabled() {
-		return nil
-	}
-
-	database, err := r.connectProxy(cr)
-	if err != nil {
-		return errors.Wrap(err, "failed to get proxySQL db")
-	}
-
-	defer database.Close()
-
-	podNamePrefix := fmt.Sprintf("%s.%s.%s", pod.Name, sfsName, cr.Namespace)
+	podNamePrefix := podFQDN(pod, sfs)
 
 	return retry(time.Second*10, time.Duration(waitLimit)*time.Second,
 		func() (bool, error) {
@@ -435,7 +487,7 @@ func (r *ReconcilePerconaXtraDBCluster) connectProxy(cr *api.PerconaXtraDBCluste
 			port = 33062
 		}
 	} else {
-		return database, errors.New("can't detect enabled proxy, please enable HAProxy or ProxySQL")
+		return database, NoProxyDetectedError
 	}
 
 	secrets := cr.Spec.SecretsName
@@ -458,9 +510,43 @@ func (r *ReconcilePerconaXtraDBCluster) connectProxy(cr *api.PerconaXtraDBCluste
 	return database, nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) getPrimaryPod(cr *api.PerconaXtraDBCluster) (string, error) {
+func (r *ReconcilePerconaXtraDBCluster) getPrimaryPod(ctx context.Context, cr *api.PerconaXtraDBCluster) (string, error) {
 	conn, err := r.connectProxy(cr)
 	if err != nil {
+		if errors.Is(err, NoProxyDetectedError) && cr.Spec.PXC.Size == 1 {
+			firstReadyPod := func() (string, error) {
+				sts := statefulset.NewNode(cr)
+
+				podList := new(corev1.PodList)
+				if err := r.client.List(ctx, podList, &client.ListOptions{
+					Namespace:     cr.Namespace,
+					LabelSelector: labels.SelectorFromSet(sts.Labels()),
+				}); err != nil {
+					return "", errors.Wrap(err, "get pod list")
+				}
+
+				readyPods := make([]corev1.Pod, 0)
+				for _, pod := range podList.Items {
+					if isPodReady(pod) {
+						readyPods = append(readyPods, pod)
+					}
+				}
+				if len(readyPods) == 0 {
+					return "", errors.New("no ready pxc pods")
+				}
+				if len(readyPods) != int(cr.Spec.PXC.Size) {
+					return "", errors.New("waiting for pxc resize")
+				}
+
+				return readyPods[0].Status.PodIP, nil
+			}
+			host, rerr := firstReadyPod()
+			if rerr == nil {
+				return host, nil
+			}
+
+			err = stdErrors.Join(rerr, err)
+		}
 		return "", errors.Wrap(err, "failed to get proxy connection")
 	}
 	defer conn.Close()
@@ -657,7 +743,7 @@ func getCustomConfigHashHex(strData map[string]string, binData map[string][]byte
 	return hashHex, nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) getConfigHash(cr *api.PerconaXtraDBCluster, sfs api.StatefulApp) (string, error) {
+func (r *ReconcilePerconaXtraDBCluster) getConfigHash(ctx context.Context, cr *api.PerconaXtraDBCluster, sfs api.StatefulApp) (string, error) {
 	ls := sfs.Labels()
 
 	name := types.NamespacedName{
@@ -665,7 +751,7 @@ func (r *ReconcilePerconaXtraDBCluster) getConfigHash(cr *api.PerconaXtraDBClust
 		Name:      ls[naming.LabelAppKubernetesInstance] + "-" + ls[naming.LabelAppKubernetesComponent],
 	}
 
-	obj, err := r.getFirstExisting(name, &corev1.Secret{}, &corev1.ConfigMap{})
+	obj, err := r.getFirstExisting(ctx, name, &corev1.Secret{}, &corev1.ConfigMap{})
 	if err != nil {
 		return "", errors.Wrap(err, "failed to get custom config")
 	}
@@ -680,10 +766,10 @@ func (r *ReconcilePerconaXtraDBCluster) getConfigHash(cr *api.PerconaXtraDBClust
 	}
 }
 
-func (r *ReconcilePerconaXtraDBCluster) getFirstExisting(name types.NamespacedName, objs ...client.Object) (client.Object, error) {
+func (r *ReconcilePerconaXtraDBCluster) getFirstExisting(ctx context.Context, name types.NamespacedName, objs ...client.Object) (client.Object, error) {
 	for _, o := range objs {
-		err := r.client.Get(context.TODO(), name, o)
-		if err != nil && !k8serrors.IsNotFound(err) {
+		err := r.client.Get(ctx, name, o)
+		if client.IgnoreNotFound(err) != nil {
 			return nil, err
 		}
 		if err == nil {

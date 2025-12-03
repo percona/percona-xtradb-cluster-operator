@@ -8,14 +8,12 @@ import (
 	"github.com/pkg/errors"
 	batchv1 "k8s.io/api/batch/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	k8sretry "k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -23,6 +21,7 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/clientcmd"
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/binlogcollector"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage"
@@ -64,7 +63,7 @@ func newReconciler(mgr manager.Manager) (reconcile.Reconciler, error) {
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	return builder.ControllerManagedBy(mgr).
 		Named("pxcrestore-controller").
-		Watches(&api.PerconaXtraDBClusterRestore{}, &handler.EnqueueRequestForObject{}).
+		For(&api.PerconaXtraDBClusterRestore{}).
 		Complete(r)
 }
 
@@ -104,11 +103,14 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(ctx context.Context, re
 			return rr, nil
 		}
 		// Error reading the object - requeue the request.
-		return rr, err
+		return reconcile.Result{}, err
 	}
 
 	switch cr.Status.State {
 	case api.RestoreSucceeded, api.RestoreFailed:
+		if err := r.runJobFinalizers(ctx, cr); err != nil {
+			return reconcile.Result{}, errors.Wrap(err, "run job finalizers")
+		}
 		return reconcile.Result{}, nil
 	}
 
@@ -126,19 +128,19 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(ctx context.Context, re
 
 	otherRestore, err := isOtherRestoreInProgress(ctx, r.client, cr)
 	if err != nil {
-		return rr, errors.Wrap(err, "failed to check if other restore is in progress")
+		return reconcile.Result{}, errors.Wrap(err, "failed to check if other restore is in progress")
 	}
 	if otherRestore != nil {
 		err = errors.Errorf("unable to continue, concurrent restore job %s running now", otherRestore.Name)
 		cr.Status.State = api.RestoreFailed
 		cr.Status.Comments = err.Error()
-		return rr, err
+		return reconcile.Result{}, err
 	}
 
 	if err := cr.CheckNsetDefaults(); err != nil {
 		cr.Status.State = api.RestoreFailed
 		cr.Status.Comments = err.Error()
-		return rr, err
+		return reconcile.Result{}, err
 	}
 
 	cluster := new(api.PerconaXtraDBCluster)
@@ -147,25 +149,25 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(ctx context.Context, re
 			cr.Status.State = api.RestoreFailed
 			cr.Status.Comments = err.Error()
 		}
-		return rr, errors.Wrapf(err, "get cluster %s", cr.Spec.PXCCluster)
+		return reconcile.Result{}, errors.Wrapf(err, "get cluster %s", cr.Spec.PXCCluster)
 	}
 
 	if err := cluster.CheckNSetDefaults(r.serverVersion, log); err != nil {
 		cr.Status.State = api.RestoreFailed
 		cr.Status.Comments = err.Error()
-		return rr, errors.Wrap(err, "wrong PXC options")
+		return reconcile.Result{}, errors.Wrap(err, "wrong PXC options")
 	}
 
 	bcp, err := getBackup(ctx, r.client, cr)
 	if err != nil {
 		cr.Status.State = api.RestoreFailed
 		cr.Status.Comments = err.Error()
-		return rr, errors.Wrap(err, "get backup")
+		return reconcile.Result{}, errors.Wrap(err, "get backup")
 	}
 
 	restorer, err := r.getRestorer(ctx, cr, bcp, cluster)
 	if err != nil {
-		return rr, errors.Wrap(err, "failed to get restorer")
+		return reconcile.Result{}, errors.Wrap(err, "failed to get restorer")
 	}
 
 	switch cr.Status.State {
@@ -183,7 +185,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(ctx context.Context, re
 		return r.reconcileStateStartCluster(ctx, restorer, cr, cluster)
 	}
 
-	return rr, errors.Errorf("unknown state: %s", cr.Status.State)
+	return reconcile.Result{}, errors.Errorf("unknown state: %s", cr.Status.State)
 }
 
 func (r *ReconcilePerconaXtraDBClusterRestore) reconcileStateStartCluster(ctx context.Context, restorer Restorer, cr *api.PerconaXtraDBClusterRestore, cluster *api.PerconaXtraDBCluster) (reconcile.Result, error) {
@@ -267,17 +269,22 @@ func (r *ReconcilePerconaXtraDBClusterRestore) reconcileStateNew(ctx context.Con
 	}
 
 	if cr.Spec.PITR != nil {
-		if err := backup.CheckPITRErrors(ctx, r.client, r.clientcmd, cluster); err != nil {
+		if err := backup.CheckPITRErrors(ctx, r.client, r.clientcmd, cluster, r.newStorageClientFunc); err != nil {
 			return reconcile.Result{}, err
 		}
 
 		annotations := cr.GetAnnotations()
 		_, unsafePITR := annotations[api.AnnotationUnsafePITR]
-		cond := meta.FindStatusCondition(bcp.Status.Conditions, api.BackupConditionPITRReady)
-		if cond != nil && cond.Status == metav1.ConditionFalse && !unsafePITR {
-			cr.Status.Comments = fmt.Sprintf("Backup doesn't guarantee consistent recovery with PITR. Annotate PerconaXtraDBClusterRestore with %s to force it.", api.AnnotationUnsafePITR)
-			cr.Status.State = api.RestoreFailed
-			return reconcile.Result{}, nil
+		if !unsafePITR {
+			ready, err := r.isPITRReady(ctx, cluster, bcp)
+			if err != nil {
+				return reconcile.Result{}, errors.Wrap(err, "is pitr ready")
+			}
+			if !ready {
+				cr.Status.Comments = fmt.Sprintf("Backup doesn't guarantee consistent recovery with PITR. Annotate PerconaXtraDBClusterRestore with %s to force it.", api.AnnotationUnsafePITR)
+				cr.Status.State = api.RestoreFailed
+				return reconcile.Result{}, nil
+			}
 		}
 	}
 
@@ -384,8 +391,14 @@ func (r *ReconcilePerconaXtraDBClusterRestore) reconcileStateRestore(ctx context
 		return rr, nil
 	}
 
-	log.Info("preparing cluster", "cluster", cr.Spec.PXCCluster)
-	cr.Status.State = api.RestorePrepareCluster
+	if cluster.CompareVersionWith("1.18.0") >= 0 {
+		log.Info("preparing cluster", "cluster", cr.Spec.PXCCluster)
+		cr.Status.State = api.RestorePrepareCluster
+	} else {
+		log.Info("starting cluster", "cluster", cr.Spec.PXCCluster)
+		cr.Status.State = api.RestoreStartCluster
+	}
+
 	return rr, nil
 }
 
@@ -515,4 +528,32 @@ func (r *ReconcilePerconaXtraDBClusterRestore) reconcileStatePrepareCluster(
 	log.Info("starting cluster", "cluster", cr.Spec.PXCCluster)
 	cr.Status.State = api.RestoreStartCluster
 	return reconcile.Result{}, nil
+}
+
+func (r *ReconcilePerconaXtraDBClusterRestore) runJobFinalizers(ctx context.Context, cr *api.PerconaXtraDBClusterRestore) error {
+	for _, jobName := range []string{
+		naming.RestoreJobName(cr, false),
+		naming.RestoreJobName(cr, true),
+	} {
+		if err := k8sretry.RetryOnConflict(k8sretry.DefaultRetry, func() error {
+			job := new(batchv1.Job)
+			if err := r.client.Get(ctx, types.NamespacedName{
+				Name:      jobName,
+				Namespace: cr.Namespace,
+			}, job); err != nil {
+				if k8serrors.IsNotFound(err) {
+					return nil
+				}
+				return errors.Wrap(err, "failed to get job")
+			}
+
+			if removed := controllerutil.RemoveFinalizer(job, naming.FinalizerKeepJob); removed {
+				return r.client.Update(ctx, job)
+			}
+			return nil
+		}); err != nil {
+			return errors.Wrap(err, "failed to remove keep-job finalizer")
+		}
+	}
+	return nil
 }

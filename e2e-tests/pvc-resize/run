@@ -18,6 +18,22 @@ function get_default_storageclass() {
 	kubectl_bin get sc -o jsonpath='{.items[?(@.metadata.annotations.storageclass\.kubernetes\.io/is-default-class=="true")].metadata.name}'
 }
 
+function has_error_status() {
+	local resize_start=$1
+	local resize_finish=$2
+	local error_expected=${3:-"false"}
+
+	has_error=$(kubectl_bin get pxc $cluster -o jsonpath='{.status.conditions}' \
+		| jq -r --arg start "$resize_start" --arg end "$resize_finish" 'map(select(.type == "error" and (.lastTransitionTime >= $start and .lastTransitionTime <= $end) )) | if length > 0 then "true" else "false" end ')
+
+	if [[ $has_error != $error_expected ]]; then
+		echo "The Error status was not $error_expected in resize. Present Statuses:"
+		kubectl_bin get pxc $cluster -o jsonpath='{.status}' | jq .
+		kubectl_bin logs ${OPERATOR_NS:+-n $OPERATOR_NS} $(get_operator_pod) | tail -n 100
+		exit 1
+	fi
+}
+
 function ensure_default_sc_allows_expansion() {
 	local default_sc=$(get_default_storageclass)
 
@@ -81,6 +97,30 @@ function wait_all_pvc_resize() {
 	return 0
 }
 
+function wait_any_pvc_resize() {
+	local expected_size=$1
+	local pvc_num=${2:-1}
+	local max_retry=${3:-120}
+	local sleep_time=${4:-5}
+
+	local retry=0
+	echo "Waiting for any of pvces to be resized"
+	until [[ $(kubectl_bin get pvc -l app.kubernetes.io/component=pxc -o json | jq "[.items[] | select(.status.capacity.storage == \"$expected_size\")] | length") == $pvc_num ]]; do
+		if [[ $retry -ge $max_retry ]]; then
+			echo
+			echo "No pvces were resized, max retries exceeded"
+			return 1
+		fi
+		echo -n "."
+		sleep "$sleep_time"
+
+		retry=$((retry + 1))
+	done
+	echo
+	echo "PVC was resized"
+	return 0
+}
+
 function wait_pvc_resize() {
 	local pvc=$1
 	local expected_size=$2
@@ -139,50 +179,100 @@ echo "Enabling PVC resize"
 kubectl_bin patch pxc "${cluster}" --type=json -p='[{"op": "add", "path": "/spec/enableVolumeExpansion", "value":true }]'
 sleep 10
 
+resize_start_time=$(TZ=UTC $date +%Y-%m-%dT%H:%M:%SZ)
 wait_cluster_consistency "$cluster" 3 2
 wait_all_pvc_resize "3Gi"
+
+resize_finish_time=$(TZ=UTC $date +%Y-%m-%dT%H:%M:%SZ)
+
+# There should not be Error status during resize. Check whether there was Error status
+
+has_error_status $resize_start_time $resize_finish_time
 
 if [ "$EKS" == 1 -o -n "$OPENSHIFT" ]; then
 	# EKS rate limits PVC expansion for the same EBS volume (1 expand operation in every 6 hours),
 	# so we need to delete and recreate the cluster
+	# We create second cluster with 3G size
 	echo "Deleting and recreating PXC cluster ${cluster}"
 	kubectl_bin delete pxc ${cluster}
-	spinup_pxc "${cluster}" "$test_dir/conf/$cluster-eks.yml" "3" "10" "${conf_dir}/secrets.yml"
+	spinup_pxc "${cluster}" "$test_dir/conf/$cluster-eks2.yml" "3" "10" "${conf_dir}/secrets.yml"
 	echo "Enabling PVC resize for 2nd eks/openshift cluster"
 	kubectl_bin patch pxc "${cluster}" --type=json -p='[{"op": "add", "path": "/spec/enableVolumeExpansion", "value":true }]'
 	sleep 10
 fi
 
-desc 'create resourcequota'
+desc 'create 1st insufficient resourcequota'
 
-# We're setting the quota to 12Gi, so we can only resize the first PVC to 4Gi
+# We're setting the quota to 10Gi, so we can only resize the first PVC to 4Gi
 # the others should fail to resize due to the exceeded quota but operator should
-# handle the error and keep the cluster ready
+# handle the error and keep the cluster ready. Errored PVCs should keep old size.
 apply_resourcequota 10Gi
 patch_pvc_request "${cluster}" "4G"
 wait_cluster_consistency "$cluster" 3 2
 echo
 
-echo "Waiting for pvc/datadir-some-name-pxc-0 to be resized"
-wait_pvc_resize "persistentvolumeclaim/datadir-some-name-pxc-0" "4Gi"
-echo "pvc/datadir-some-name-pxc-0 was resized"
+echo "Waiting for any of pvces to be resized"
+wait_any_pvc_resize "4Gi"
+resized_pvc=$(kubectl_bin get pvc -l app.kubernetes.io/component=pxc -o json | jq -r '.items[] | select(.status.capacity.storage == "4Gi") | .metadata.name')
+echo "$resized_pvc was resized"
+wait_cluster_status ${cluster} "ready"
 
-# We're setting the quota to 16Gi, so we can resize all PVCs to 4Gi
+# Check that 2 PVCs keep old size: 3G
+if [[ $(kubectl_bin get pvc -l app.kubernetes.io/component=pxc -o json | jq '[.items[] | select(.status.capacity.storage == "3Gi")] | length') != 2 ]]; then
+	echo "Number of PVCs with old size is not 2."
+	exit 1
+fi
+for pvc in $(kubectl_bin get pvc -l app.kubernetes.io/component=pxc -o json | jq -r '.items[] | select(.status.capacity.storage == "3Gi") | .metadata.name'); do
+	if [[ ! $(kubectl_bin describe pvc $pvc | grep "ExceededQuota" | grep "PVC resize failed") ]]; then
+		echo "PVCs do not have ExceededQuota error."
+		exit 1
+	fi
+done
+
+desc 'update insufficient resourcequota'
+# Check that second resize with reached quota finishes with error, cluster becomes ready
+apply_resourcequota 11Gi
+patch_pvc_request "${cluster}" "4G"
+wait_cluster_consistency "$cluster" 3 2
+echo
+
+echo "Waiting for any of pvces to be resized"
+wait_any_pvc_resize "4Gi" "2"
+resized_pvc=$(kubectl_bin get pvc -l app.kubernetes.io/component=pxc -o json | jq -r '.items[] | select(.status.capacity.storage == "4Gi") | .metadata.name')
+echo "$resized_pvc was resized"
+wait_cluster_status ${cluster} "ready"
+
+# Check that 1 PVC keep old size: 3G
+if [[ $(kubectl_bin get pvc -l app.kubernetes.io/component=pxc -o json | jq '[.items[] | select(.status.capacity.storage == "3Gi")] | length') != 1 ]]; then
+	echo "Number of PVCs with old size is not 1."
+	exit 1
+fi
+for pvc in $(kubectl_bin get pvc -l app.kubernetes.io/component=pxc -o json | jq -r '.items[] | select(.status.capacity.storage == "3Gi") | .metadata.name'); do
+	if [[ ! $(kubectl_bin describe pvc $pvc | grep "ExceededQuota" | grep "PVC resize failed") ]]; then
+		echo "PVCs do not have ExceededQuota error."
+		exit 1
+	fi
+done
+desc 'update resourcequota to be sufficient'
+
+# We're setting the quota to 12Gi, so we can resize all PVCs to 4Gi
 apply_resourcequota 12Gi
 patch_pvc_request "${cluster}" "4G"
 wait_cluster_consistency "$cluster" 3 2
 echo
 wait_all_pvc_resize "4Gi"
+wait_cluster_status ${cluster} "ready"
 
 desc "test downscale"
 
-# operator shouldn't try to downscale the PVCs and set status to error
+# operator shouldn't try to downscale the PVCs. Error status should be changed to ready.
+downscale_start_time=$(TZ=UTC $date +%Y-%m-%dT%H:%M:%SZ)
 patch_pvc_request "${cluster}" "1G"
-wait_cluster_status ${cluster} "error"
-
-# user should be able to restore to the previous size and make the cluster ready
-patch_pvc_request "${cluster}" "4G"
+sleep 7
+wait_all_pvc_resize "4Gi"
 wait_cluster_status ${cluster} "ready"
+downscale_finish_time=$(TZ=UTC $date +%Y-%m-%dT%H:%M:%SZ)
+has_error_status $downscale_start_time $downscale_finish_time "true"
 
 destroy "${namespace}"
 desc "test passed"

@@ -92,7 +92,7 @@ spec:
             - name: DB_HOST
               value: localhost
             - name: CLUSTER_NAME
-              value: monitoring
+              value: foo-custom-cluster-name
             - name: PMM_AGENT_SETUP_NODE_NAME
               value: $(POD_NAMESPACE)-$(POD_NAME)
             - name: DB_TYPE
@@ -251,6 +251,8 @@ spec:
               value: monitoring-pxc
             - name: REPLICAS_SVC_ONLY_READERS
               value: "false"
+            - name: HA_SERVER_OPTIONS
+              value: resolvers kubernetes check inter 10000 rise 1 fall 2 weight 1 on-marked-down shutdown-sessions
           envFrom:
             - secretRef:
                 name: my-env-var-secrets

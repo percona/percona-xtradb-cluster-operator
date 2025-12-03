@@ -63,6 +63,7 @@ spec:
     serverHost: monitoring-service
     serverUser: pmm
   backup:
+    ttlSecondsAfterFinished: 3600
     activeDeadlineSeconds: 3600
     allowParallel: false
     backoffLimit: 3

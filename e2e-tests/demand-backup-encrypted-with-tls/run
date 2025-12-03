@@ -29,7 +29,7 @@ main() {
 	run_backup "$cluster" "on-demand-backup-pvc"
 	run_recovery_check "$cluster" "on-demand-backup-pvc"
 	kubectl_bin delete -f "$test_dir/conf/restore-on-demand-backup-pvc.yaml"
-	check_pvc_md5
+	check_pvc_md5 "on-demand-backup-pvc"
 	table_must_be_encrypted "$cluster" "myApp"
 	keyring_plugin_must_be_in_use "$cluster"
 
@@ -41,7 +41,7 @@ main() {
 		keyring_plugin_must_be_in_use "$cluster"
 	fi
 
-	mountpt=$(kubectl_bin get -f "$conf_dir/vault-secret.yaml" -o json | egrep -o "secret_mount_point = \w+" | awk -F "=[ ]*" '{print $2}')
+	mountpt=$(kubectl_bin get -f "$conf_dir/vault-secret.yaml" -o json | grep -E -o "secret_mount_point = \w+" | awk -F "=[ ]*" '{print $2}')
 	transition_keys=$(kubectl_bin exec --namespace="$vault1" -it $vault1-0 -- sh -c "
         VAULT_TOKEN=$token1 vault kv list -format=json $mountpt/backup/" \
 		| jq_filter "$mountpt/backup/")

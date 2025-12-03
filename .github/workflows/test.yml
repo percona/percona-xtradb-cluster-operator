@@ -5,9 +5,9 @@ jobs:
     name: Test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
-          go-version: '1.23'
-      - uses: actions/checkout@v4
+          go-version: '1.25'
+      - uses: actions/checkout@v6
       - name: go test
         run: make test

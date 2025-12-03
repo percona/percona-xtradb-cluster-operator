@@ -26,12 +26,15 @@ main() {
 	keyring_plugin_must_be_in_use "$cluster"
 	table_must_be_encrypted "$cluster" "myApp"
 
-	run_backup "$cluster" "on-demand-backup-pvc"
-	run_recovery_check "$cluster" "on-demand-backup-pvc"
-	kubectl_bin delete -f "$test_dir/conf/restore-on-demand-backup-pvc.yaml"
-	check_pvc_md5 "on-demand-backup-pvc"
-	table_must_be_encrypted "$cluster" "myApp"
-	keyring_plugin_must_be_in_use "$cluster"
+	# todo: add support for pvc
+	if [[ ! "$PXCO_FEATURE_GATES" == *"BackupXtrabackup=true"*  ]]; then
+		run_backup "$cluster" "on-demand-backup-pvc"
+		run_recovery_check "$cluster" "on-demand-backup-pvc"
+		kubectl_bin delete -f "$test_dir/conf/restore-on-demand-backup-pvc.yaml"
+		check_pvc_md5 "on-demand-backup-pvc"
+		table_must_be_encrypted "$cluster" "myApp"
+		keyring_plugin_must_be_in_use "$cluster"
+	fi
 
 	if [ -z "$SKIP_REMOTE_BACKUPS" ]; then
 		run_backup "$cluster" "on-demand-backup-aws-s3"
@@ -41,37 +44,40 @@ main() {
 		keyring_plugin_must_be_in_use "$cluster"
 	fi
 
-	mountpt=$(kubectl_bin get -f "$conf_dir/vault-secret.yaml" -o json | grep -E -o "secret_mount_point = \w+" | awk -F "=[ ]*" '{print $2}')
-	transition_keys=$(kubectl_bin exec --namespace="$vault1" -it $vault1-0 -- sh -c "
-        VAULT_TOKEN=$token1 vault kv list -format=json $mountpt/backup/" \
-		| jq_filter "$mountpt/backup/")
+	# in xtrabackup mode, we do not store our own transition keys, so this test is not applicable
+	if [[ ! "$PXCO_FEATURE_GATES" == *"BackupXtrabackup=true"*  ]]; then
+		mountpt=$(kubectl_bin get -f "$conf_dir/vault-secret.yaml" -o json | grep -E -o "secret_mount_point = \w+" | awk -F "=[ ]*" '{print $2}')
+		transition_keys=$(kubectl_bin exec --namespace="$vault1" -it $vault1-0 -- sh -c "
+			VAULT_TOKEN=$token1 vault kv list -format=json $mountpt/backup/" \
+			| jq_filter "$mountpt/backup/")
 
-	vault2="vault-service-2-${RANDOM}"
-	start_vault $vault2 $protocol
-	token2=$(jq -r ".root_token" <"$tmp_dir/$vault2")
-	ip2="$protocol://$vault2.$vault2.svc.cluster.local"
+		vault2="vault-service-2-${RANDOM}"
+		start_vault $vault2 $protocol
+		token2=$(jq -r ".root_token" <"$tmp_dir/$vault2")
+		ip2="$protocol://$vault2.$vault2.svc.cluster.local"
 
-	kubectl_bin run -i --tty vault-cp --image=perconalab/vault-cp:latest --restart=Never -- sh -c "
-        sed -i 's/token=cfg.old_token)/token=cfg.old_token, verify=False)/' /src/vault-cp.py \
-        && sed -i 's/token=cfg.new_token)/token=cfg.new_token, verify=False)/' /src/vault-cp.py \
-        && echo \"
-old_url = '$ip1:8200'
-old_token = '$token1'
-new_url = '$ip2:8200'
-new_token = '$token2'
-secrets = [ $transition_keys ]
-\" > /src/config.py
-    python3 /src/vault-cp.py
-    "
+		kubectl_bin run -i --tty vault-cp --image=perconalab/vault-cp:latest --restart=Never -- sh -c "
+			sed -i 's/token=cfg.old_token)/token=cfg.old_token, verify=False)/' /src/vault-cp.py \
+			&& sed -i 's/token=cfg.new_token)/token=cfg.new_token, verify=False)/' /src/vault-cp.py \
+			&& echo \"
+	old_url = '$ip1:8200'
+	old_token = '$token1'
+	new_url = '$ip2:8200'
+	new_token = '$token2'
+	secrets = [ $transition_keys ]
+	\" > /src/config.py
+		python3 /src/vault-cp.py
+		"
 
-	run_recovery_check "$cluster" "on-demand-backup-pvc"
-	table_must_be_encrypted "$cluster" "myApp"
-	keyring_plugin_must_be_in_use "$cluster"
-
-	if [ -z "$SKIP_REMOTE_BACKUPS" ]; then
-		run_recovery_check "$cluster" "on-demand-backup-aws-s3"
+		run_recovery_check "$cluster" "on-demand-backup-pvc"
 		table_must_be_encrypted "$cluster" "myApp"
 		keyring_plugin_must_be_in_use "$cluster"
+
+		if [ -z "$SKIP_REMOTE_BACKUPS" ]; then
+			run_recovery_check "$cluster" "on-demand-backup-aws-s3"
+			table_must_be_encrypted "$cluster" "myApp"
+			keyring_plugin_must_be_in_use "$cluster"
+		fi
 	fi
 
 	for i in $vault1 $vault2; do

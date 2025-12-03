@@ -46,6 +46,75 @@ function get_backup_source() {
 		| cut -d . -f 1
 }
 
+function request_streaming_57() {
+	local LOCAL_IP
+	local NODE_NAME
+	LOCAL_IP=$(hostname -i | sed -E 's/.*\b([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})\b.*/\1/')
+	NODE_NAME=$(get_backup_source)
+
+	if [ -z "$NODE_NAME" ]; then
+		/opt/percona/peer-list -on-start=/opt/percona/backup/lib/pxc/get-pxc-state.sh -service="$PXC_SERVICE"
+		log 'ERROR' 'Cannot find node for backup'
+		log 'ERROR' 'Backup was finished unsuccessful'
+		exit 1
+	fi
+
+	set +o errexit
+	log 'INFO' 'Garbd was started'
+	garbd \
+		--address "gcomm://$NODE_NAME.$PXC_SERVICE?gmcast.listen_addr=tcp://0.0.0.0:4567" \
+		--donor "$NODE_NAME" \
+		--group "$PXC_SERVICE" \
+		--options "$GARBD_OPTS" \
+		--sst "xtrabackup-v2:$LOCAL_IP:4444/xtrabackup_sst//1" \
+		--recv-script="/opt/percona/backup/run_backup.sh" 2>&1 | tee /tmp/garbd.log
+
+	local sst_info_path
+	if [[ -n $S3_BUCKET || -n $AZURE_CONTAINER_NAME ]]; then
+		sst_info_path="/tmp/${SST_INFO_NAME}"
+	else
+		sst_info_path="${BACKUP_DIR}/${SST_INFO_NAME}"
+	fi
+
+	MYSQL_VERSION=$(parse_ini 'mysql-version' "$sst_info_path")
+	if ! check_for_version "$MYSQL_VERSION" '8.0.0'; then
+		if grep 'State transfer request failed' /tmp/garbd.log; then
+			exit 1
+		fi
+		if grep 'WARN: Protocol violation. JOIN message sender ... (garb) is not in state transfer' /tmp/garbd.log; then
+			exit 1
+		fi
+		if grep 'WARN: Rejecting JOIN message from ... (garb): new State Transfer required.' /tmp/garbd.log; then
+			exit 1
+		fi
+		if grep 'INFO: Shifting CLOSED -> DESTROYED (TO: -1)' /tmp/garbd.log; then
+			exit 1
+		fi
+		if ! grep 'INFO: Sending state transfer request' /tmp/garbd.log; then
+			exit 1
+		fi
+	else
+		if grep 'Will never receive state. Need to abort' /tmp/garbd.log; then
+			exit 1
+		fi
+
+		if grep 'Donor is no longer in the cluster, interrupting script' /tmp/garbd.log; then
+			exit 1
+		elif grep 'failed: Invalid argument' /tmp/garbd.log; then
+			exit 1
+		fi
+	fi
+
+	if [ -f '/tmp/backup-is-completed' ]; then
+		log 'INFO' 'Backup was finished successfully'
+		exit 0
+	fi
+
+	log 'ERROR' 'Backup was finished unsuccessful'
+
+	exit 1
+}
+
 function request_streaming() {
 	local LOCAL_IP
 	local NODE_NAME
@@ -130,4 +199,9 @@ elif [ -n "$AZURE_CONTAINER_NAME" ]; then
 	clean_backup_azure
 fi
 
-request_streaming
+XTRABACKUP_VERSION=$(get_xtrabackup_version)
+if check_for_version "$XTRABACKUP_VERSION" '2.4.0'; then
+	request_streaming_57
+else
+	request_streaming
+fi

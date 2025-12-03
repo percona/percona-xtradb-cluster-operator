@@ -100,23 +100,33 @@ if ! check_for_version "$XTRABACKUP_VERSION" '8.0.0'; then
 	XB_EXTRA_ARGS="$XB_EXTRA_ARGS --binlog-info=ON"
 fi
 
+DEFAULTS_GROUP="--defaults-group=mysqld"
+EARLY_PLUGIN_LOAD="--early-plugin-load=keyring_vault.so"
+if [[ "${XTRABACKUP_ENABLED}" == "true" ]]; then
+	# these must not be set for pxb
+	DEFAULTS_GROUP=""
+	DEFAULTS_FILE=""
+	# EARLY_PLUGIN_LOAD=""
+fi
+
 echo "+ xtrabackup $DEFAULTS_FILE ${XB_USE_MEMORY+--use-memory=$XB_USE_MEMORY} --prepare $REMAINING_XB_ARGS --binlog-info=ON --rollback-prepared-trx \
---keyring-vault-config=$keyring_vault \
+--keyring-vault-config=/etc/mysql/vault-keyring-secret/keyring_vault.conf \
 --xtrabackup-plugin-dir=/usr/lib64/xtrabackup/plugin --target-dir=$tmp"
 
 # shellcheck disable=SC2086
 xtrabackup $DEFAULTS_FILE ${XB_USE_MEMORY+--use-memory=$XB_USE_MEMORY} --prepare $REMAINING_XB_ARGS $transition_option --rollback-prepared-trx \
-	--keyring-vault-config=$keyring_vault \
+	--keyring-vault-config=/etc/mysql/vault-keyring-secret/keyring_vault.conf \
 	--xtrabackup-plugin-dir=/usr/lib64/xtrabackup/plugin "--target-dir=$tmp"
 
-echo "+ xtrabackup $DEFAULTS_FILE --defaults-group=mysqld --datadir=/datadir --move-back $REMAINING_XB_ARGS --binlog-info=ON \
+echo "+ xtrabackup $DEFAULTS_FILE $DEFAULTS_GROUP --datadir=/datadir --move-back $REMAINING_XB_ARGS --binlog-info=ON \
 --force-non-empty-directories $master_key_options \
---keyring-vault-config=$keyring_vault --early-plugin-load=keyring_vault.so \
+--keyring-vault-config=/etc/mysql/vault-keyring-secret/keyring_vault.conf $EARLY_PLUGIN_LOAD \
 --xtrabackup-plugin-dir=/usr/lib64/xtrabackup/plugin --target-dir=$tmp"
 
 # shellcheck disable=SC2086
-xtrabackup $DEFAULTS_FILE --defaults-group=mysqld --datadir=/datadir --move-back $REMAINING_XB_ARGS \
+xtrabackup $DEFAULTS_FILE $DEFAULTS_GROUP --datadir=/datadir --move-back $REMAINING_XB_ARGS \
 	--force-non-empty-directories $transition_option $master_key_options \
-	--keyring-vault-config=$keyring_vault --early-plugin-load=keyring_vault.so "--target-dir=$tmp"
+	--keyring-vault-config=/etc/mysql/vault-keyring-secret/keyring_vault.conf $EARLY_PLUGIN_LOAD \
+	--xtrabackup-plugin-dir=/usr/lib64/xtrabackup/plugin "--target-dir=$tmp"
 
 rm -rf "$tmp"

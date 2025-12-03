@@ -59,7 +59,7 @@ PXB_VAULT_MOVEBACK_ARGS=""
 VAULT_CONFIG_FILE=/etc/mysql/vault-keyring-secret/keyring_vault.conf
 VAULT_KEYRING_COMPONENT=/opt/percona/component_keyring_vault.cnf
 if [[ -f ${VAULT_CONFIG_FILE} ]]; then
-	if check_for_version "$MYSQL_VERSION" '8.4.0'; then
+	if check_for_version "$XTRABACKUP_VERSION" '8.4.0'; then
 		cp ${VAULT_CONFIG_FILE} ${VAULT_KEYRING_COMPONENT}
 		PXB_VAULT_MOVEBACK_ARGS="--component-keyring-config=${VAULT_KEYRING_COMPONENT}"
 		PXB_VAULT_PREPARE_ARGS="${PXB_VAULT_MOVEBACK_ARGS}"

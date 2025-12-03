@@ -43,8 +43,8 @@ tmp=$(mktemp --directory /datadir/pxc_sst_XXXX)
 
 socat -u "$SOCAT_OPTS" stdio >"$tmp"/sst_info
 
-MYSQL_VERSION=$(parse_ini 'mysql-version' "$tmp/sst_info")
-if check_for_version "$MYSQL_VERSION" '8.0.0'; then
+XTRABACKUP_VERSION=$(get_xtrabackup_version)
+if check_for_version "$XTRABACKUP_VERSION" '8.0.0'; then
 	XBSTREAM_EXTRA_ARGS="$XBSTREAM_EXTRA_ARGS --decompress"
 fi
 # shellcheck disable=SC2086
@@ -55,7 +55,7 @@ PXB_VAULT_MOVEBACK_ARGS=""
 VAULT_CONFIG_FILE=/etc/mysql/vault-keyring-secret/keyring_vault.conf
 VAULT_KEYRING_COMPONENT=/opt/percona/component_keyring_vault.cnf
 if [[ -f ${VAULT_CONFIG_FILE} ]]; then
-	if check_for_version "$MYSQL_VERSION" '8.4.0'; then
+	if check_for_version "$XTRABACKUP_VERSION" '8.4.0'; then
 		cp ${VAULT_CONFIG_FILE} ${VAULT_KEYRING_COMPONENT}
 		PXB_VAULT_MOVEBACK_ARGS="--component-keyring-config=${VAULT_KEYRING_COMPONENT}"
 		PXB_VAULT_PREPARE_ARGS="${PXB_VAULT_MOVEBACK_ARGS}"
@@ -67,6 +67,7 @@ fi
 set +o xtrace
 transition_key=$(vault_get "$tmp"/sst_info)
 if [[ -n $transition_key && $transition_key != null ]]; then
+	MYSQL_VERSION=$(parse_ini 'mysql-version' "$tmp/sst_info")
 	if ! check_for_version "$MYSQL_VERSION" '5.7.29' \
 		&& [[ $MYSQL_VERSION != '5.7.28-31-57.2' ]]; then
 		# shellcheck disable=SC2016
@@ -96,7 +97,7 @@ else
 	REMAINING_XB_ARGS="$XB_EXTRA_ARGS"
 fi
 
-if ! check_for_version "$MYSQL_VERSION" '8.0.0'; then
+if ! check_for_version "$XTRABACKUP_VERSION" '8.0.0'; then
 	# shellcheck disable=SC2086
 	innobackupex $DEFAULTS_FILE ${XB_USE_MEMORY+--use-memory=$XB_USE_MEMORY} --parallel="$(grep -c processor /proc/cpuinfo)" $REMAINING_XB_ARGS --decompress "$tmp"
 	XB_EXTRA_ARGS="$XB_EXTRA_ARGS --binlog-info=ON"

@@ -36,6 +36,9 @@ deploy_pmm3_server() {
 		--set service.type=LoadBalancer \
 		$additional_params \
 		--force
+
+	wait_for_pmm_service
+}
 }
 
 spinup_pxc() {
@@ -357,7 +360,6 @@ deploy_helm $namespace
 
 desc 'install PMM Server'
 deploy_pmm3_server
-wait_pmm_service $cluster
 
 desc 'create secret'
 kubectl_bin apply -f "$test_dir/conf/secrets.yaml"

@@ -50,7 +50,6 @@ deploy_helm $namespace
 
 desc 'install PMM Server'
 deploy_pmm_server
-wait_pmm_service $cluster
 ADMIN_PASSWORD=$(kubectl_bin exec monitoring-0 -- bash -c "printenv | grep ADMIN_PASSWORD | cut -d '=' -f2")
 sleep 5
 kubectl_bin exec monitoring-0 -- bash -c "grafana-cli --homepath=/usr/share/grafana --config=/etc/grafana/grafana.ini admin reset-admin-password $ADMIN_PASSWORD"

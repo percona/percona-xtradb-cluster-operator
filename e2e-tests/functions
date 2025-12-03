@@ -1996,26 +1996,23 @@ deploy_pmm_server() {
 	helm uninstall monitoring || :
 
 	retry 10 60 helm install monitoring --set imageRepo=${IMAGE_PMM_SERVER%:*} --set imageTag=${IMAGE_PMM_SERVER#*:} $additional_params https://percona-charts.storage.googleapis.com/pmm-server-$PMM_SERVER_VER.tgz
-	kubectl wait pod monitoring-0 --for=condition=Ready --timeout=420s
+	wait_for_pmm_service
 }
 
-wait_pmm_service() {
-	service=$1
+wait_for_pmm_service() {
+	timeout=420
+	start=$(date +%s)
 
-	kubectl_bin wait --for=condition=Ready pod/$service-0 --timeout=120s >/dev/null
-
-	retry=0
-	until (get_service_endpoint $service-service && kubectl_bin exec $service-0 -- bash -c 'ls -l /proc/*/exe 2>/dev/null | grep postgres') >/dev/null; do
-		echo "Waiting for $service endpoint to be available. Retry $retry"
-		sleep 5
-		retry=$((retry + 1))
-		if [ "$retry" -ge 30 ]; then
-			echo "Max retry count $retry reached. pmm-server can't start or load balancer is not available"
-			exit 1
-		fi
+	until kubectl_bin get pod monitoring-0 >/dev/null 2>&1 \
+   	&& kubectl_bin get svc monitoring-service -o jsonpath='{.status.loadBalancer.ingress[0]}' 2>/dev/null | grep -q .; do
+    (( $(date +%s) - start >= timeout )) && {
+        echo "timeout waiting for pod and service or pod to be created"
+        exit 1
+    }
+    sleep 2
 	done
 
-	echo "The $service service is available"
+	kubectl_bin wait pod/monitoring-0 --for=condition=Ready --timeout=${timeout}s
 }
 
 run_recovery_check_pitr() {

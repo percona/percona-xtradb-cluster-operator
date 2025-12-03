@@ -4,6 +4,7 @@ metadata:
   name: some-name
   finalizers:
     - percona.com/delete-pxc-pods-in-order
+    - percona.com/delete-pxc-pvc
 spec:
   secretsName: my-cluster-secrets
   vaultSecretName: some-name-vault

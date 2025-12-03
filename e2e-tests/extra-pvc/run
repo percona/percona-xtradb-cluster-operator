@@ -182,9 +182,12 @@ for claim in extra-storage-1 extra-storage-2; do
 done
 echo "Extra PVCs successfully removed from StatefulSet"
 
-desc 'test creating cluster with extra PVCs from start'
 cluster2="some-name-2"
-kubectl_bin apply -f ${test_dir}/conf/some-name-with-extra-pvcs.yml
+desc "Deleting ${cluster} and recreating PXC cluster ${cluster1}"
+kubectl_bin delete pxc ${cluster}
+
+desc 'test creating cluster with extra PVCs from start'
+spinup_pxc "${cluster2}" "$test_dir/conf/some-name-with-extra-pvcs.yml" "3" "10"
 wait_cluster_consistency "$cluster2" 3 2
 
 desc 'verify extra PVC is configured in new cluster'

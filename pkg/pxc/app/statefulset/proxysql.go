@@ -392,7 +392,7 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.Per
 			},
 		}...)
 
-		pxcMonit.Command = []string{"/opt/percona/proxysql_peer_list_entrypoint.sh"}
+		pxcMonit.Command = []string{"/opt/percona/proxysql-entrypoint.sh"}
 
 		if cr.Spec.ProxySQL.Scheduler.Enabled {
 			pxcMonit.Env = append(pxcMonit.Env, corev1.EnvVar{

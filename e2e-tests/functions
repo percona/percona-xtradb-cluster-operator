@@ -926,7 +926,7 @@ cat_config() {
     | $sed -e "s#image:.*-logcollector\$#image: $IMAGE_LOGCOLLECTOR#" \
     | $sed -e "s~minio-service.#namespace~minio-service.$namespace~" \
     | $sed -e "s#apply:.*#apply: Never#" \
-    | $sed -e "s#claimName:..*-backup-pvc\$#claimName: $pvc_name#" \
+    | $sed -e "s#claimName:..*-backup-pvc\$#claimName: $pvc_name#"
 
 }
 

@@ -39,7 +39,6 @@ deploy_pmm3_server() {
 
 	wait_for_pmm_service
 }
-}
 
 spinup_pxc() {
 	local cluster=$1

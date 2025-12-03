@@ -18,7 +18,7 @@ func NewPVC(cr *api.PerconaXtraDBClusterBackup, cluster *api.PerconaXtraDBCluste
 		ls = naming.LabelsCluster(cluster)
 	}
 
-	base := naming.BackupJobName(cr.Name, false)
+	base := naming.BackupJobName(cr.Name)
 
 	ts := cr.CreationTimestamp.UTC().Format("20060102150405")
 

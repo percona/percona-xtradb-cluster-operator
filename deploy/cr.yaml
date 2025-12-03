@@ -618,6 +618,7 @@ spec:
   backup:
 #    allowParallel: true
     image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0-backup
+#    ttlSecondsAfterFinished: 3600
 #    backoffLimit: 6
 #    activeDeadlineSeconds: 3600
 #    startingDeadlineSeconds: 300

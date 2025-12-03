@@ -18,9 +18,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
+	k8sretry "k8s.io/client-go/util/retry"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -137,6 +139,10 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 	}
 
 	if cr.Status.State == api.BackupSucceeded || cr.Status.State == api.BackupFailed {
+		if err := r.runJobFinalizers(ctx, cr); err != nil {
+			return reconcile.Result{}, errors.Wrap(err, "run finalizers")
+		}
+
 		if len(cr.GetFinalizers()) > 0 {
 			return rr, nil
 		}
@@ -247,7 +253,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 	}
 
 	if err := r.reconcileBackupJob(ctx, cr, cluster); err != nil {
-		return rr, errors.Wrap(err, "reconcile backup job")
+		return reconcile.Result{}, errors.Wrap(err, "reconcile backup job")
 	}
 
 	if err := cluster.CanBackup(); err != nil {
@@ -283,20 +289,23 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 		cr.Status.VerifyTLS = storage.VerifyTLS
 	}
 
-	job, err := r.createBackupJob(ctx, cr, cluster, storage)
+	var job *batchv1.Job
+	job, err = r.createBackupJob(ctx, cr, cluster, storage)
 	if err != nil {
 		err = errors.Wrap(err, "create backup job")
 
 		if err := r.setFailedStatus(ctx, cr, err); err != nil {
-			return rr, errors.Wrap(err, "update status")
+			return reconcile.Result{}, errors.Wrap(err, "update status")
 		}
 
 		return reconcile.Result{}, err
 	}
 
-	err = r.updateJobStatus(ctx, cr, job, cr.Spec.StorageName, storage, cluster)
+	if err := r.updateJobStatus(ctx, cr, job, cr.Spec.StorageName, storage, cluster); err != nil {
+		return reconcile.Result{}, err
+	}
 
-	return rr, err
+	return rr, nil
 }
 
 func (r *ReconcilePerconaXtraDBClusterBackup) createBackupJob(
@@ -391,12 +400,16 @@ func (r *ReconcilePerconaXtraDBClusterBackup) createBackupJob(
 		return nil, errors.Wrap(err, "job/setControllerReference")
 	}
 
-	err = r.client.Create(ctx, job)
-	if err != nil && !k8sErrors.IsAlreadyExists(err) {
+	if err := r.client.Create(ctx, job); err != nil {
+		if k8sErrors.IsAlreadyExists(err) {
+			if err := r.client.Get(ctx, client.ObjectKeyFromObject(job), job); err != nil {
+				return nil, errors.Wrap(err, "get backup job")
+			}
+			return job, nil
+		}
 		return nil, errors.Wrap(err, "create backup job")
-	} else if err == nil {
-		log.Info("Created a new backup job", "namespace", job.Namespace, "name", job.Name)
 	}
+	log.Info("Created a new backup job", "namespace", job.Namespace, "name", job.Name)
 
 	return job, nil
 }
@@ -575,7 +588,6 @@ func (r *ReconcilePerconaXtraDBClusterBackup) runFilesystemBackupFinalizer(ctx c
 	backupName := cr.Status.Destination.BackupName()
 	log.Info("Deleting backup from fs-pvc", "name", cr.Name, "backupName", backupName)
 	err := r.deleteBackupPVC(ctx, cr.Namespace, backupName)
-
 	if err != nil {
 		return errors.Wrapf(err, "failed to delete backup %s", cr.Name)
 	}
@@ -781,7 +793,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) suspendJobIfNeeded(
 	log := logf.FromContext(ctx)
 
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		job, err := r.getBackupJob(ctx, cluster, cr)
+		job, err := r.getBackupJob(ctx, cr)
 		if err != nil {
 			if k8sErrors.IsNotFound(err) {
 				return nil
@@ -835,7 +847,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) resumeJobIfNeeded(
 	log := logf.FromContext(ctx)
 
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		job, err := r.getBackupJob(ctx, cluster, cr)
+		job, err := r.getBackupJob(ctx, cr)
 		if err != nil {
 			if k8sErrors.IsNotFound(err) {
 				return nil
@@ -891,16 +903,13 @@ func (r *ReconcilePerconaXtraDBClusterBackup) reconcileBackupJob(
 
 func (r *ReconcilePerconaXtraDBClusterBackup) getBackupJob(
 	ctx context.Context,
-	cluster *api.PerconaXtraDBCluster,
 	cr *api.PerconaXtraDBClusterBackup,
 ) (*batchv1.Job, error) {
-	labelKeyBackupType := naming.GetLabelBackupType(cluster)
-	jobName := naming.BackupJobName(cr.Name, cr.Labels[labelKeyBackupType] == "cron")
+	jobName := naming.BackupJobName(cr.Name)
 
 	job := new(batchv1.Job)
 
-	err := r.client.Get(ctx, types.NamespacedName{Namespace: cr.Namespace, Name: jobName}, job)
-	if err != nil {
+	if err := r.client.Get(ctx, types.NamespacedName{Namespace: cr.Namespace, Name: jobName}, job); err != nil {
 		return nil, err
 	}
 
@@ -912,9 +921,13 @@ func (r *ReconcilePerconaXtraDBClusterBackup) cleanUpJob(
 	cluster *api.PerconaXtraDBCluster,
 	cr *api.PerconaXtraDBClusterBackup,
 ) error {
-	job, err := r.getBackupJob(ctx, cluster, cr)
+	job, err := r.getBackupJob(ctx, cr)
 	if err != nil {
 		return errors.Wrap(err, "get job")
+	}
+
+	if err := r.runJobFinalizers(ctx, cr); err != nil {
+		return errors.Wrap(err, "run job finalizers")
 	}
 
 	// Set propagationPolicy=background because default deletion preserves pods.
@@ -922,6 +935,25 @@ func (r *ReconcilePerconaXtraDBClusterBackup) cleanUpJob(
 		return errors.Wrap(err, "delete job")
 	}
 
+	return nil
+}
+
+func (r *ReconcilePerconaXtraDBClusterBackup) runJobFinalizers(ctx context.Context, cr *api.PerconaXtraDBClusterBackup) error {
+	if err := k8sretry.RetryOnConflict(k8sretry.DefaultRetry, func() error {
+		job, err := r.getBackupJob(ctx, cr)
+		if k8sErrors.IsNotFound(err) {
+			return nil
+		} else if err != nil {
+			return errors.Wrap(err, "failed to get job")
+		}
+
+		if removed := controllerutil.RemoveFinalizer(job, naming.FinalizerKeepJob); removed {
+			return r.client.Update(ctx, job)
+		}
+		return nil
+	}); err != nil {
+		return errors.Wrap(err, "failed to remove keep-job finalizer")
+	}
 	return nil
 }
 

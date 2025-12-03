@@ -107,3 +107,4 @@ spec:
             secretName: demand-backup-ssl
         - emptyDir: {}
           name: bin
+  ttlSecondsAfterFinished: 3600

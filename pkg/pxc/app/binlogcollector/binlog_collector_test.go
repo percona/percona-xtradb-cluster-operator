@@ -4,10 +4,11 @@ import (
 	"reflect"
 	"testing"
 
-	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/version"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/version"
 )
 
 func TestGetDeployment(t *testing.T) {
@@ -26,7 +27,7 @@ func TestGetDeployment(t *testing.T) {
 						ContainerSecurityContext: &corev1.SecurityContext{},
 					},
 				},
-				Backup: &api.PXCScheduledBackup{
+				Backup: &api.BackupSpec{
 					PITR: api.PITRSpec{
 						Enabled:            true,
 						StorageName:        "test-storage",
@@ -132,9 +133,7 @@ func TestGetDeployment(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-
 			depl, err := GetDeployment(tt.cr, "perconalab/percona-xtradb-cluster-operator:main", tt.existingMatchLabels)
-
 			if err != nil {
 				t.Errorf("GetDeployment() error = %v", err)
 				return

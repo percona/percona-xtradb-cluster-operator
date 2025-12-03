@@ -19,7 +19,7 @@ export IMAGE_PXC=${IMAGE_PXC:-"perconalab/percona-xtradb-cluster-operator:main-p
 export IMAGE_PROXY=${IMAGE_PROXY:-"perconalab/percona-xtradb-cluster-operator:main-proxysql"}
 export IMAGE_HAPROXY=${IMAGE_HAPROXY:-"perconalab/percona-xtradb-cluster-operator:main-haproxy"}
 export IMAGE_BACKUP=${IMAGE_BACKUP:-"perconalab/percona-xtradb-cluster-operator:main-pxc${MYSQL_VERSION}-backup"}
-export IMAGE_LOGCOLLECTOR=${IMAGE_LOGCOLLECTOR:-"perconalab/percona-xtradb-cluster-operator:main-logcollector"}
+export IMAGE_LOGCOLLECTOR=${IMAGE_LOGCOLLECTOR:-"perconalab/fluentbit:main-logcollector"}
 export IMAGE_PMM_CLIENT=${IMAGE_PMM_CLIENT:-"perconalab/pmm-client:dev-latest"}
 export IMAGE_PMM_SERVER=${IMAGE_PMM_SERVER:-"perconalab/pmm-server:dev-latest"}
 export IMAGE_PMM3_CLIENT=${IMAGE_PMM3_CLIENT:-"perconalab/pmm-client:3.1.0"}
@@ -622,7 +622,7 @@ compare_mysql_cmd() {
 
 	run_mysql "$command" "$uri" \
 		>$tmp_dir/${command_id}.sql
-	if [ ! -s "$tmp_dir/${command_id}.sql" ]; then
+	if [[ ! -s "$tmp_dir/${command_id}.sql" || $(grep 'Unknown MySQL server host' "$tmp_dir/${command_id}.sql") ]]; then
 		sleep 20
 		run_mysql "$command" "$uri" \
 			>$tmp_dir/${command_id}.sql
@@ -911,18 +911,23 @@ EOF
 }
 
 cat_config() {
-	cat "$1" \
-		| $sed -e "s#apiVersion: pxc.percona.com/v.*\$#apiVersion: $API#" \
-		| $sed -e "s#image:.*-pxc\([0-9]*.[0-9]*\)\{0,1\}\$#image: $IMAGE_PXC#" \
-		| $sed -e "s#image:.*\/percona-xtradb-cluster:.*\$#image: $IMAGE_PXC#" \
-		| $sed -e "s#image:.*-init\$#image: $IMAGE#" \
-		| $sed -e "s#image:.*-pmm\$#image: $IMAGE_PMM_CLIENT#" \
-		| $sed -e "s#image:.*-backup\$#image: $IMAGE_BACKUP#" \
-		| $sed -e "s#image:.*-proxysql\$#image: $IMAGE_PROXY#" \
-		| $sed -e "s#image:.*-haproxy\$#image: $IMAGE_HAPROXY#" \
-		| $sed -e "s#image:.*-logcollector\$#image: $IMAGE_LOGCOLLECTOR#" \
-		| $sed -e "s~minio-service.#namespace~minio-service.$namespace~" \
-		| $sed -e "s#apply:.*#apply: Never#"
+  local input_file="$1"
+  local pvc_name="$2"
+
+  cat "$input_file" \
+    | $sed -e "s#apiVersion: pxc.percona.com/v.*\$#apiVersion: $API#" \
+    | $sed -e "s#image:.*-pxc\([0-9]*.[0-9]*\)\{0,1\}\$#image: $IMAGE_PXC#" \
+    | $sed -e "s#image:.*\/percona-xtradb-cluster:.*\$#image: $IMAGE_PXC#" \
+    | $sed -e "s#image:.*-init\$#image: $IMAGE#" \
+    | $sed -e "s#image:.*-pmm\$#image: $IMAGE_PMM_CLIENT#" \
+    | $sed -e "s#image:.*-backup\$#image: $IMAGE_BACKUP#" \
+    | $sed -e "s#image:.*-proxysql\$#image: $IMAGE_PROXY#" \
+    | $sed -e "s#image:.*-haproxy\$#image: $IMAGE_HAPROXY#" \
+    | $sed -e "s#image:.*-logcollector\$#image: $IMAGE_LOGCOLLECTOR#" \
+    | $sed -e "s~minio-service.#namespace~minio-service.$namespace~" \
+    | $sed -e "s#apply:.*#apply: Never#" \
+    | $sed -e "s#claimName:..*-backup-pvc\$#claimName: $pvc_name#"
+
 }
 
 apply_secrets() {
@@ -938,11 +943,14 @@ apply_secrets() {
 }
 
 apply_config() {
+  local config_file="$1"
+  local pvc_name="${2:-}"
+
 	if [ -z "$SKIP_REMOTE_BACKUPS" ]; then
-		cat_config "$1" \
+		cat_config "$config_file" "$pvc_name" \
 			| kubectl_bin apply -f -
 	else
-		cat_config "$1" \
+		cat_config "$config_file" "$pvc_name"\
 			| yq eval 'del(.spec.backup.schedule.[1])' - \
 			| kubectl_bin apply -f -
 	fi
@@ -980,7 +988,7 @@ spinup_pxc() {
 	kubectl_bin apply -f $secretsFile
 	apply_config "$pxcClientFile"
 	if [[ $IMAGE_PXC =~ 5\.7 ]] && [[ $cluster == 'demand-backup' || $cluster == 'demand-backup-cloud' ]]; then
-		cat_config "$config" \
+		cat_config "$config"\
 			| $sed '/\[sst\]/,+1d' \
 			| $sed 's|compress=lz4|compress|' \
 			| kubectl_bin apply -f -
@@ -1108,8 +1116,10 @@ retry() {
 }
 
 check_pvc_md5() {
+  local backup_name="$1"
 	desc 'check backup file md5sum'
-	apply_config "$test_dir/conf/client.yml"
+	pvc_name=$(get_pvc_name_for_backup "$backup_name") || exit 1
+	apply_config "$test_dir/conf/client.yml" "$pvc_name"
 	sleep 10
 	bak_client_pod=$(
 		kubectl_bin get pods \
@@ -1137,11 +1147,28 @@ run_recovery_check() {
 	local cluster=$1
 	local backup=$2
 	local proxy=$(get_proxy_engine $cluster)
-
+	pvc_name=$(get_pvc_name_for_backup "$backup")
+	dest="pvc/$pvc_name"
 	log "run pxc-restore/${backup}"
-	cat "$test_dir/conf/restore-${backup}.yaml" \
+
+	YAML_INPUT_FILE="$test_dir/conf/restore-${backup}.yaml"
+	MODIFIED_YAML=$( \
+		cat "$YAML_INPUT_FILE" \
 		| $sed -e "s~minio-service.#namespace~minio-service.$namespace~" \
-		| kubectl_bin apply -f -
+		| $sed -e "s#<destination>#${dest}#g" \
+	)
+
+	if [[ $IMAGE_PXC =~ 5\.7 ]] && [[ "${backup}" == "on-demand-backup-aws-s3" ]]; then
+		FINAL_YAML=$( \
+			echo "$MODIFIED_YAML" \
+			| yq e '(.spec.containerOptions.args.xtrabackup[] | select(. == "--innodb-undo-directory=./undo")) = "--parallel=3"' -
+		)
+	else
+		FINAL_YAML="$MODIFIED_YAML"
+	fi
+
+	echo "$FINAL_YAML" | kubectl_bin apply -f -
+
 	wait_backup_restore ${backup}
 	kubectl_bin logs job/restore-job-${backup}-${cluster}
 	wait_for_running "$cluster-$proxy" 1
@@ -1161,6 +1188,7 @@ run_recovery_check() {
 		if [ -n "$OPENSHIFT" ]; then
 			replace_docker_registry $src_dir/deploy/backup/copy-backup.sh
 		fi
+
 		bash $src_dir/deploy/backup/copy-backup.sh $backup $tmp_dir/backup
 	fi
 }
@@ -1409,10 +1437,40 @@ deploy_chaos_mesh() {
 
 	destroy_chaos_mesh
 
+	local current_runtime=$(kubectl get nodes -o jsonpath='{range .items[0]}{.status.nodeInfo.containerRuntimeVersion}{"\n"}{end}' | awk -F':' '{print $1}')
+
+	if [[ $current_runtime == 'containerd' ]]; then
+		container_runtime="containerd"
+		socket_path="/run/containerd/containerd.sock"
+	elif [[ $current_runtime == 'docker' ]]; then
+		container_runtime="docker"
+		socket_path="/var/run/docker.sock"
+	elif [[ $current_runtime == 'cri-o' ]]; then
+		container_runtime="crio"
+		socket_path="/var/run/crio/crio.sock"
+	else
+		echo "Unknown runtime: $current_runtime"
+		exit 1
+	fi
+
 	desc 'install chaos-mesh'
 	helm repo add chaos-mesh https://charts.chaos-mesh.org
-	helm install chaos-mesh chaos-mesh/chaos-mesh --namespace=${chaos_mesh_ns} --set chaosDaemon.runtime=containerd --set chaosDaemon.socketPath=/run/containerd/containerd.sock --set dashboard.create=false --version $CHAOS_MESH_VER
-	sleep 10
+	helm install chaos-mesh chaos-mesh/chaos-mesh --namespace=${chaos_mesh_ns} --set chaosDaemon.runtime=$container_runtime --set chaosDaemon.socketPath=$socket_path --set dashboard.create=false --version ${CHAOS_MESH_VER}
+	if [ -n "${OPENSHIFT}" ]; then
+		oc adm policy add-scc-to-user privileged -z chaos-daemon --namespace=${chaos_mesh_ns}
+	fi
+
+	retry=0
+	until [ "$(kubectl get daemonset chaos-daemon -n ${chaos_mesh_ns} -o jsonpath='{.status.numberReady}')" = "$(kubectl get daemonset chaos-daemon -n ${chaos_mesh_ns} -o jsonpath='{.status.desiredNumberScheduled}')" ]; do
+		if [ $retry -ge 30 ]; then
+			echo "max retry count $retry reached. something went wrong with chaos-mesh install"
+			exit 1
+		fi
+		echo "Waiting for DaemonSet chaos-daemon..."
+		sleep 5
+		((retry += 1))
+	done
+
 }
 
 destroy_chaos_mesh() {
@@ -1976,7 +2034,6 @@ run_recovery_check_pitr() {
 	local time_now=$5
 	local dest=$6
 	local gtid=$7
-
 	desc 'recover backup' $restore
 	cat "$test_dir/conf/${restore}.yaml" \
 		| $sed -e "s/<datetime>/${time_now}/g" \
@@ -2018,3 +2075,17 @@ run_recovery_check_pitr() {
 	compare_mysql_cmd $compare "SELECT * from test.test;" "-h $cluster-pxc-2.$cluster-pxc -uroot -proot_password"
 	kubectl_bin delete -f "$test_dir/conf/${restore}.yaml"
 }
+
+get_pvc_name_for_backup() {
+  local backup_name="$1"
+
+  local destination=$(kubectl_bin get pxc-backup "$backup_name" -o jsonpath='{.status.destination}')
+  if [[ -z "$destination" ]]; then
+    echo "No destination found in backup $backup_name"
+    return 1
+  fi
+  local pvc_name="${destination#pvc/}"
+
+  echo "$pvc_name"
+}
+

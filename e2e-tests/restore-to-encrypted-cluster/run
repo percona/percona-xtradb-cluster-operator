@@ -23,7 +23,7 @@ main() {
 	vault1="vault-service-1-${RANDOM}"
 	start_vault $vault1
 	run_recovery_check "$cluster" "on-demand-backup-pvc"
-	check_pvc_md5
+	check_pvc_md5 "on-demand-backup-pvc"
 	keyring_plugin_must_be_in_use "$cluster"
 	table_must_not_be_encrypted "$cluster" "myApp"
 

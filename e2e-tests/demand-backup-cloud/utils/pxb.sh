@@ -10,8 +10,8 @@ delete_backup_pod() {
 
 	backup_pod=$(kubectl_bin get pods --selector=percona.com/backup-job-name=xb-${backup_name} -o jsonpath='{.items[].metadata.name}')
 
-	# sleep for 10 seconds so that an upload is started
-	sleep 10
+	# sleep for 25 seconds so that an upload is started
+	sleep 25
 
 	echo "Deleting pod/${backup_pod} during backup"
 	kubectl logs -f ${backup_pod} | while IFS= read -r line; do

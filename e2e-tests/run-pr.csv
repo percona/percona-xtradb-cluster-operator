@@ -51,6 +51,7 @@ smart-update1,8.0
 smart-update2,8.0
 smart-update1,8.4
 smart-update2,8.4
+smart-update3,8.0
 storage,8.0
 tls-issue-cert-manager-ref,8.0
 tls-issue-cert-manager,8.0

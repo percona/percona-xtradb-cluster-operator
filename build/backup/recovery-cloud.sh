@@ -107,7 +107,7 @@ if [[ "${XTRABACKUP_ENABLED}" == "true" ]]; then
 	DEFAULTS_FILE=""
 fi
 
-# If backup-my.cnf does not contian plugin_load, then --prepare will fail if you pass the --keyring-vault-config option.
+# If backup-my.cnf does not contain plugin_load, then --prepare will fail if you pass the --keyring-vault-config option.
 if [[ -n "$(parse_ini 'plugin_load' "${tmp}/backup-my.cnf")" ]]; then
 	KEYRING_VAULT_CONFIG="--keyring-vault-config=/etc/mysql/vault-keyring-secret/keyring_vault.conf"
 fi

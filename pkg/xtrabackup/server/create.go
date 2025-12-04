@@ -22,30 +22,29 @@ import (
 )
 
 func (s *appServer) CreateBackup(req *api.CreateBackupRequest, stream api.XtrabackupService_CreateBackupServer) error {
-	log := logf.Log.WithName("xtrabackup-server").WithName("CreateBackup")
-
+	logger := s.log.WithName("CreateBackup")
 	if !s.backupStatus.tryRunBackup() {
-		log.Info("backup is already running")
+		logger.Info("backup is already running")
 		return status.Errorf(codes.FailedPrecondition, "backup is already running")
 	}
 	defer s.backupStatus.doneBackup()
 
-	log = log.WithValues("namespace", s.namespace, "name", req.BackupName)
+	logger = logger.WithValues("namespace", s.namespace, "name", req.BackupName)
 
 	s.backupStatus.setBackupConfig(req.BackupConfig)
 	defer s.backupStatus.removeBackupConfig()
 
 	ctx := stream.Context()
 
-	log.Info("Checking if backup exists")
+	logger.Info("Checking if backup exists")
 	exists, err := s.backupExists(ctx, req.BackupConfig)
 	if err != nil {
 		return errors.Wrap(err, "check if backup exists")
 	}
 	if exists {
-		log.Info("Backup already exists, deleting")
+		logger.Info("Backup already exists, deleting")
 		if err := s.deleteBackupFunc(ctx, req.BackupConfig, req.BackupName); err != nil {
-			log.Error(err, "failed to delete backup")
+			logger.Error(err, "failed to delete backup")
 			return errors.Wrap(err, "delete backup")
 		}
 	}
@@ -53,7 +52,7 @@ func (s *appServer) CreateBackup(req *api.CreateBackupRequest, stream api.Xtraba
 	backupUser := users.Xtrabackup
 	backupPass, err := getUserPassword()
 	if err != nil {
-		log.Error(err, "failed to get backup user password")
+		logger.Error(err, "failed to get backup user password")
 		return errors.Wrap(err, "get backup user password")
 	}
 
@@ -62,21 +61,21 @@ func (s *appServer) CreateBackup(req *api.CreateBackupRequest, stream api.Xtraba
 	xtrabackup := req.BackupConfig.NewXtrabackupCmd(gCtx, backupUser, backupPass, s.tableSpaceEncryptionEnabled)
 	xbOut, err := xtrabackup.StdoutPipe()
 	if err != nil {
-		log.Error(err, "xtrabackup stdout pipe failed")
+		logger.Error(err, "xtrabackup stdout pipe failed")
 		return errors.Wrap(err, "xtrabackup stdout pipe failed")
 	}
 	defer xbOut.Close() //nolint:errcheck
 
 	xbErr, err := xtrabackup.StderrPipe()
 	if err != nil {
-		log.Error(err, "xtrabackup stderr pipe failed")
+		logger.Error(err, "xtrabackup stderr pipe failed")
 		return errors.Wrap(err, "xtrabackup stderr pipe failed")
 	}
 	defer xbErr.Close() //nolint:errcheck
 
 	backupLog, err := os.Create(filepath.Join(app.BackupLogDir, req.BackupName+".log"))
 	if err != nil {
-		log.Error(err, "failed to create log file")
+		logger.Error(err, "failed to create log file")
 		return errors.Wrap(err, "failed to create log file")
 	}
 	defer backupLog.Close() //nolint:errcheck
@@ -85,12 +84,12 @@ func (s *appServer) CreateBackup(req *api.CreateBackupRequest, stream api.Xtraba
 	xbcloud := req.BackupConfig.NewXbcloudCmd(gCtx, api.XBCloudActionPut, xbOut)
 	xbcloudErr, err := xbcloud.StderrPipe()
 	if err != nil {
-		log.Error(err, "xbcloud stderr pipe failed")
+		logger.Error(err, "xbcloud stderr pipe failed")
 		return errors.Wrap(err, "xbcloud stderr pipe failed")
 	}
 	defer xbcloudErr.Close() //nolint:errcheck
 
-	log.Info(
+	logger.Info(
 		"Backup starting",
 		"destination", req.BackupConfig.Destination,
 		"storage", req.BackupConfig.Type,
@@ -100,17 +99,17 @@ func (s *appServer) CreateBackup(req *api.CreateBackupRequest, stream api.Xtraba
 
 	g.Go(func() error {
 		if err := xbcloud.Start(); err != nil {
-			log.Error(err, "failed to start xbcloud")
+			logger.Error(err, "failed to start xbcloud")
 			return err
 		}
 
 		if _, err := io.Copy(logWriter, xbcloudErr); err != nil {
-			log.Error(err, "failed to copy xbcloud stderr")
+			logger.Error(err, "failed to copy xbcloud stderr")
 			return err
 		}
 
 		if err := xbcloud.Wait(); err != nil {
-			log.Error(err, "failed waiting for xbcloud to finish")
+			logger.Error(err, "failed waiting for xbcloud to finish")
 			return err
 		}
 		return nil
@@ -118,31 +117,31 @@ func (s *appServer) CreateBackup(req *api.CreateBackupRequest, stream api.Xtraba
 
 	g.Go(func() error {
 		if err := xtrabackup.Start(); err != nil {
-			log.Error(err, "failed to start xtrabackup command")
+			logger.Error(err, "failed to start xtrabackup command")
 			return err
 		}
 
 		if _, err := io.Copy(logWriter, xbErr); err != nil {
-			log.Error(err, "failed to copy xtrabackup stderr")
+			logger.Error(err, "failed to copy xtrabackup stderr")
 			return err
 		}
 
 		if err := xtrabackup.Wait(); err != nil {
-			log.Error(err, "failed to wait for xtrabackup to finish")
+			logger.Error(err, "failed to wait for xtrabackup to finish")
 			return err
 		}
 		return nil
 	})
 
 	if err := g.Wait(); err != nil {
-		log.Error(err, "backup failed")
+		logger.Error(err, "backup failed")
 		return errors.Wrap(err, "backup failed")
 	}
 	if err := s.checkBackupMD5Size(ctx, req.BackupConfig); err != nil {
-		log.Error(err, "check backup md5 file size")
+		logger.Error(err, "check backup md5 file size")
 		return errors.Wrap(err, "check backup md5 file size")
 	}
-	log.Info("Backup finished successfully", "destination", req.BackupConfig.Destination, "storage", req.BackupConfig.Type)
+	logger.Info("Backup finished successfully", "destination", req.BackupConfig.Destination, "storage", req.BackupConfig.Type)
 
 	return nil
 }

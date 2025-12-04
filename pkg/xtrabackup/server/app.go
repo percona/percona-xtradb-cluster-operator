@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 
+	"github.com/go-logr/logr"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/xtrabackup/api"
 	"github.com/pkg/errors"
@@ -23,6 +24,7 @@ type appServer struct {
 	namespace                   string
 	newStorageFunc              storage.NewClientFunc
 	deleteBackupFunc            func(ctx context.Context, cfg *api.BackupConfig, backupName string) error
+	log                         logr.Logger
 	tableSpaceEncryptionEnabled bool
 }
 
@@ -35,11 +37,13 @@ func New() (api.XtrabackupServiceServer, error) {
 		return nil, status.Errorf(codes.InvalidArgument, "POD_NAMESPACE environment variable is not set")
 	}
 	tableSpaceEncryptionEnabled := vaultKeyringFileExists()
+	logger := zap.New()
 	return &appServer{
 		namespace:                   namespace,
 		backupStatus:                backupStatus{},
 		newStorageFunc:              storage.NewClient,
 		deleteBackupFunc:            deleteBackup,
+		log:                         logger,
 		tableSpaceEncryptionEnabled: tableSpaceEncryptionEnabled,
 	}, nil
 }

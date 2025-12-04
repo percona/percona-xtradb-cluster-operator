@@ -195,15 +195,28 @@ func TestSidecarContainers_ProxySQL(t *testing.T) {
 			secrets:   "monitor-secret",
 			crVersion: version.Version(),
 			scheduler: api.ProxySQLSchedulerSpec{
-				Enabled: true,
+				Enabled:                       true,
+				WriterIsAlsoReader:            true,
+				SuccessThreshold:              1,
+				FailureThreshold:              3,
+				MaxConnections:                1000,
+				PingTimeoutMilliseconds:       1000,
+				CheckTimeoutMilliseconds:      2000,
+				NodeCheckIntervalMilliseconds: 2000,
 			},
 			expectedContainers: func() []corev1.Container {
 				c := defaultExpectedProxySQLSidecarContainers()
 				pxcMonit := c[0]
-				pxcMonit.Env = append(pxcMonit.Env, corev1.EnvVar{
-					Name:  "SCHEDULER_ENABLED",
-					Value: "true",
-				})
+				pxcMonit.Env = append(pxcMonit.Env[:5], []corev1.EnvVar{
+					{Name: "SCHEDULER_CHECKTIMEOUT", Value: "2000"},
+					{Name: "SCHEDULER_WRITERALSOREADER", Value: "1"},
+					{Name: "SCHEDULER_RETRYUP", Value: "1"},
+					{Name: "SCHEDULER_RETRYDOWN", Value: "3"},
+					{Name: "SCHEDULER_PINGTIMEOUT", Value: "1000"},
+					{Name: "SCHEDULER_NODECHECKINTERVAL", Value: "2000"},
+					{Name: "SCHEDULER_MAXCONNECTIONS", Value: "1000"},
+					{Name: "SCHEDULER_ENABLED", Value: "true"},
+				}...)
 				return []corev1.Container{pxcMonit}
 			},
 		},

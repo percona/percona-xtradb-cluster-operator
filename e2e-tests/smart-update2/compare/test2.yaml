@@ -1,0 +1,21 @@
+  + cat /Users/marukovich/github-projects/percona/percona-xtradb-cluster-operator/e2e-tests/smart-update2/compare/disabled_telemetry.version-service-cr-8.4.log.json
+    {
+      "system": "grpc",
+      "span.kind": "server",
+      "grpc.service": "version.VersionService",
+      "grpc.method": "Apply",
+      "grpc.request.content": {
+        "msg": {
+          "product": "pxc-operator",
+          "operatorVersion": "9.9.9",
+          "apply": "8.4-latest",
+        }
+      }
+    }
+    {
+      "system": "grpc",
+      "span.kind": "server",
+      "grpc.service": "version.VersionService",
+      "grpc.method": "Apply",
+      "grpc.code": "OK"
+    }

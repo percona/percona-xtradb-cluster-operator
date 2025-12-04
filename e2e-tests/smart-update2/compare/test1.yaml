@@ -1,0 +1,23 @@
+  cat /var/folders/ww/_6wsbxjd5ysbpmgksfyrp2640000gn/T/tmp.k1D2dKMLy9/disabled_telemetry.version-service-cr.log.json
+    {
+      "system": "grpc",
+      "span.kind": "server",
+      "grpc.service": "version.VersionService",
+      "grpc.method": "Apply",
+      "grcp.start_time": "2025-12-03T10:55:47Z",
+      "grpc.request.content": {
+        "msg": {
+          "product": "pxc-operator",
+          "operatorVersion": "9.9.9",
+          "apply": "8.4-latest",
+          "platform": "kubernetes"
+        }
+      }
+    }
+    {
+      "system": "grpc",
+      "span.kind": "server",
+      "grpc.service": "version.VersionService",
+      "grpc.method": "Apply",
+      "grpc.code": "OK"
+    }

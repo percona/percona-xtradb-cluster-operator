@@ -447,8 +447,6 @@ spec:
 #      pingTimeoutMilliseconds: 1000
 #      nodeCheckIntervalMilliseconds: 2000
 #      maxConnections: 1000
-#    readinessDelaySec: 15
-#    livenessDelaySec: 600
 #    schedulerName: mycustom-scheduler
 #    imagePullSecrets:
 #      - name: private-registry-credentials

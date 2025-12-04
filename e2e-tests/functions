@@ -1021,7 +1021,8 @@ spinup_pxc() {
 		compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-$i.$cluster-pxc -uroot -p'${root_pass}' -P$port"
 	done
 
-	if [ "$(is_keyring_plugin_in_use "$cluster")" ]; then
+	if is_keyring_plugin_in_use "$cluster"; then
+		log "keyring plugin is used. checking encryption..."
 		table_must_be_encrypted "$cluster" "myApp"
 	fi
 
@@ -1038,44 +1039,68 @@ function is_table_encrypted() {
 
 function is_keyring_plugin_in_use() {
 	local cluster=$1
-	kubectl_bin exec -it $cluster-pxc-0 -c pxc -- bash -c "cat /etc/mysql/node.cnf" \
-		| grep -E -o "early-plugin-load=keyring_\w+.so"
+
+	if [[ $IMAGE_PXC =~ 8\.4 ]]; then
+		if ! kubectl_bin exec -it $cluster-pxc-0 -c pxc -- \
+			ls /var/lib/mysql/mysqld.my; then
+			return 1
+		fi
+		log "/var/lib/mysql/mysqld.my exists: OK"
+
+		if ! kubectl_bin exec -it $cluster-pxc-0 -c pxc -- \
+			ls /var/lib/mysql/component_keyring_vault.cnf; then
+			return 1
+		fi
+		log "/var/lib/mysql/component_keyring_vault.cnf exists: OK"
+	else
+		if ! kubectl_bin exec -it $cluster-pxc-0 -c pxc -- bash -c "cat /etc/mysql/node.cnf" \
+			| grep -E -o "early-plugin-load=keyring_\w+.so"; then
+			return 1
+		fi
+		log "/etc/mysql/node.cnf has keyring vault plugin: OK"
+	fi
 }
 
 function table_must_not_be_encrypted() {
 	local cluster=$1
 	local table=$2
+	log "checking table encryption: ${table}"
 	if is_table_encrypted "$cluster" "$table"; then
-		echo "error: table is encrypted"
+		log "error: table ${table} is encrypted"
 		exit 1
 	fi
+	log "${table} is not encrypted: OK"
 }
 
 function table_must_be_encrypted() {
-	desc "check table encryption"
 	local cluster=$1
 	local table=$2
+	log "checking table encryption: ${table}"
 	if ! is_table_encrypted "$cluster" "$table"; then
-		echo "error: table is not encrypted"
+		log "error: table ${table} is not encrypted"
 		exit 1
 	fi
+	log "${table} is encrypted: OK"
 }
 
 function keyring_plugin_must_be_in_use() {
 	local cluster=$1
-	desc "check keyring plugin usage"
+	log "checking keyring plugin usage"
 	if ! is_keyring_plugin_in_use "$cluster"; then
 		echo "error: keyring_plugin is not used"
 		exit 1
 	fi
+	log "keyring plugin is used: OK"
 }
 
 function keyring_plugin_must_not_be_in_use() {
 	local cluster=$1
+	log "checking keyring plugin usage"
 	if is_keyring_plugin_in_use "$cluster"; then
 		echo "error: keyring_plugin is used"
 		exit 1
 	fi
+	log "keyring plugin is not used: OK"
 }
 
 kubectl_bin() {
@@ -1368,17 +1393,25 @@ storage \"file\" {
                 && vault audit enable file file_path=/vault/vault-audit.log"
 	sleep 10
 
-	cat "$conf_dir/vault-secret.yaml" \
+	local vault_secret="${conf_dir}/vault-secret.yaml"
+	if [[ $IMAGE_PXC =~ 8\.4 ]]; then
+		vault_secret="${conf_dir}/vault-secret-84.yaml"
+	fi
+
+	cat ${vault_secret} \
 		| sed -e "s/#token/$token/" \
 		| sed -e "s/#vault_url/$protocol:\/\/$name.$name.svc.cluster.local:8200/" \
 		| sed -e "s/#secret/secret/" >"${tmp_dir}/vault-secret.yaml"
+
 	if [ $protocol == "https" ]; then
 		sed -e 's/^/    /' ${tmp_dir}/vault.ca >${tmp_dir}/vault.new.ca
 		$sed -i "s/#vault_ca/vault_ca/" "${tmp_dir}/vault-secret.yaml"
+		$sed -i "s/#84_vault_ca/\\/etc\\/mysql\\/vault\\-keyring\\-secret\\/ca\\.cert/" "${tmp_dir}/vault-secret.yaml"
 		$sed -i "/#certVal/r ${tmp_dir}/vault.new.ca" "${tmp_dir}/vault-secret.yaml"
 		$sed -i "/#certVal/d" "${tmp_dir}/vault-secret.yaml"
 	else
 		$sed -i "/#vault_ca/d" "${tmp_dir}/vault-secret.yaml"
+		$sed -i "s/#84_vault_ca//g" "${tmp_dir}/vault-secret.yaml"
 	fi
 
 	kubectl_bin apply --namespace="$namespace" -f ${tmp_dir}/vault-secret.yaml
@@ -1437,10 +1470,40 @@ deploy_chaos_mesh() {
 
 	destroy_chaos_mesh
 
+	local current_runtime=$(kubectl get nodes -o jsonpath='{range .items[0]}{.status.nodeInfo.containerRuntimeVersion}{"\n"}{end}' | awk -F':' '{print $1}')
+
+	if [[ $current_runtime == 'containerd' ]]; then
+		container_runtime="containerd"
+		socket_path="/run/containerd/containerd.sock"
+	elif [[ $current_runtime == 'docker' ]]; then
+		container_runtime="docker"
+		socket_path="/var/run/docker.sock"
+	elif [[ $current_runtime == 'cri-o' ]]; then
+		container_runtime="crio"
+		socket_path="/var/run/crio/crio.sock"
+	else
+		echo "Unknown runtime: $current_runtime"
+		exit 1
+	fi
+
 	desc 'install chaos-mesh'
 	helm repo add chaos-mesh https://charts.chaos-mesh.org
-	helm install chaos-mesh chaos-mesh/chaos-mesh --namespace=${chaos_mesh_ns} --set chaosDaemon.runtime=containerd --set chaosDaemon.socketPath=/run/containerd/containerd.sock --set dashboard.create=false --version $CHAOS_MESH_VER
-	sleep 10
+	helm install chaos-mesh chaos-mesh/chaos-mesh --namespace=${chaos_mesh_ns} --set chaosDaemon.runtime=$container_runtime --set chaosDaemon.socketPath=$socket_path --set dashboard.create=false --version ${CHAOS_MESH_VER}
+	if [ -n "${OPENSHIFT}" ]; then
+		oc adm policy add-scc-to-user privileged -z chaos-daemon --namespace=${chaos_mesh_ns}
+	fi
+
+	retry=0
+	until [ "$(kubectl get daemonset chaos-daemon -n ${chaos_mesh_ns} -o jsonpath='{.status.numberReady}')" = "$(kubectl get daemonset chaos-daemon -n ${chaos_mesh_ns} -o jsonpath='{.status.desiredNumberScheduled}')" ]; do
+		if [ $retry -ge 30 ]; then
+			echo "max retry count $retry reached. something went wrong with chaos-mesh install"
+			exit 1
+		fi
+		echo "Waiting for DaemonSet chaos-daemon..."
+		sleep 5
+		((retry += 1))
+	done
+
 }
 
 destroy_chaos_mesh() {

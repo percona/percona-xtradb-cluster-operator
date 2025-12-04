@@ -1439,10 +1439,40 @@ deploy_chaos_mesh() {
 
 	destroy_chaos_mesh
 
+	local current_runtime=$(kubectl get nodes -o jsonpath='{range .items[0]}{.status.nodeInfo.containerRuntimeVersion}{"\n"}{end}' | awk -F':' '{print $1}')
+
+	if [[ $current_runtime == 'containerd' ]]; then
+		container_runtime="containerd"
+		socket_path="/run/containerd/containerd.sock"
+	elif [[ $current_runtime == 'docker' ]]; then
+		container_runtime="docker"
+		socket_path="/var/run/docker.sock"
+	elif [[ $current_runtime == 'cri-o' ]]; then
+		container_runtime="crio"
+		socket_path="/var/run/crio/crio.sock"
+	else
+		echo "Unknown runtime: $current_runtime"
+		exit 1
+	fi
+
 	desc 'install chaos-mesh'
 	helm repo add chaos-mesh https://charts.chaos-mesh.org
-	helm install chaos-mesh chaos-mesh/chaos-mesh --namespace=${chaos_mesh_ns} --set chaosDaemon.runtime=containerd --set chaosDaemon.socketPath=/run/containerd/containerd.sock --set dashboard.create=false --version $CHAOS_MESH_VER
-	sleep 10
+	helm install chaos-mesh chaos-mesh/chaos-mesh --namespace=${chaos_mesh_ns} --set chaosDaemon.runtime=$container_runtime --set chaosDaemon.socketPath=$socket_path --set dashboard.create=false --version ${CHAOS_MESH_VER}
+	if [ -n "${OPENSHIFT}" ]; then
+		oc adm policy add-scc-to-user privileged -z chaos-daemon --namespace=${chaos_mesh_ns}
+	fi
+
+	retry=0
+	until [ "$(kubectl get daemonset chaos-daemon -n ${chaos_mesh_ns} -o jsonpath='{.status.numberReady}')" = "$(kubectl get daemonset chaos-daemon -n ${chaos_mesh_ns} -o jsonpath='{.status.desiredNumberScheduled}')" ]; do
+		if [ $retry -ge 30 ]; then
+			echo "max retry count $retry reached. something went wrong with chaos-mesh install"
+			exit 1
+		fi
+		echo "Waiting for DaemonSet chaos-daemon..."
+		sleep 5
+		((retry += 1))
+	done
+
 }
 
 destroy_chaos_mesh() {

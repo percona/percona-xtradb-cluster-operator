@@ -135,6 +135,7 @@ sleep 5
 
 desc 'verify MAX_CONCURRENT_RECONCILES is applied correctly'
 operator_logs=$(kubectl_bin logs ${OPERATOR_NS:+-n $OPERATOR_NS} ${operator_pod})
+sleep 10
 
 resources=("PerconaXtraDBCluster" "PerconaXtraDBClusterBackup" "PerconaXtraDBClusterRestore")
 for resource in "${resources[@]}"; do

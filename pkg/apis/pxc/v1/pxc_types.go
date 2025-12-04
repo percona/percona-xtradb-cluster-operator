@@ -21,6 +21,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -1724,7 +1725,9 @@ func AddSidecarPVCs(log logr.Logger, existing, sidecarPVCs []corev1.PersistentVo
 
 // ExtraPVCVolumes generates Kubernetes volumes from ExtraPVC configurations.
 // Each ExtraPVC references an existing PersistentVolumeClaim by name.
-func ExtraPVCVolumes(log logr.Logger, extraPVCs []ExtraPVC) []corev1.Volume {
+func ExtraPVCVolumes(ctx context.Context, extraPVCs []ExtraPVC) []corev1.Volume {
+	logger := ctrl.LoggerFrom(ctx)
+
 	if len(extraPVCs) == 0 {
 		return nil
 	}
@@ -1734,7 +1737,7 @@ func ExtraPVCVolumes(log logr.Logger, extraPVCs []ExtraPVC) []corev1.Volume {
 
 	for _, epvc := range extraPVCs {
 		if _, ok := names[epvc.Name]; ok {
-			log.Info("Duplicate extra PVC volume name, skipping", "volumeName", epvc.Name)
+			logger.Info("Duplicate extra PVC volume name, skipping", "volumeName", epvc.Name)
 			continue
 		}
 		names[epvc.Name] = struct{}{}

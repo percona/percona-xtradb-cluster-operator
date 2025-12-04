@@ -8,13 +8,13 @@ test_dir=$(realpath $(dirname $0))
 function create_extra_pvcs() {
 	local ns=$1
 
-	echo "Creating extra PVCs in namespace ${ns}"
+	log "Creating extra PVCs in namespace ${ns}"
 	kubectl_bin apply -f ${test_dir}/conf/extra-pvc.yml -n ${ns}
 
-	echo "Waiting for source PVC to be bound"
+	log "Waiting for source PVC to be bound"
 	kubectl_bin wait --for=jsonpath='{.status.phase}'=Bound pvc/extra-storage-source -n ${ns} --timeout=60s
 
-	echo "Waiting for populator pod to be ready"
+	log "Waiting for populator pod to be ready"
 	kubectl_bin wait --for=condition=Ready pod/pvc-populator -n ${ns} --timeout=60s
 }
 
@@ -22,14 +22,14 @@ function verify_extra_pvc_mounted() {
 	local pod=$1
 	local mount_path=$2
 
-	echo "Verifying extra PVC is mounted in pod ${pod} at ${mount_path}"
+	log "Verifying extra PVC is mounted in pod ${pod} at ${mount_path}"
 
 	if ! kubectl_bin exec ${pod} -c pxc -- test -d ${mount_path}; then
-		echo "Mount path ${mount_path} does not exist in pod ${pod}"
+		log "Mount path ${mount_path} does not exist in pod ${pod}"
 		exit 1
 	fi
 
-	echo "Mount path ${mount_path} exists in pod ${pod}"
+	log "Mount path ${mount_path} exists in pod ${pod}"
 }
 
 function verify_extra_pvc_in_statefulset() {
@@ -37,35 +37,35 @@ function verify_extra_pvc_in_statefulset() {
 	local expected_claim_name=$2
 	local expected_mount_path=$3
 
-	echo "Verifying extra PVC configuration in StatefulSet ${cluster}-pxc"
+	log "Verifying extra PVC configuration in StatefulSet ${cluster}-pxc"
 
 	local volume_exists=$(kubectl_bin get statefulset ${cluster}-pxc -o json \
 		| jq --arg claim "${expected_claim_name}" '.spec.template.spec.volumes[] | select(.persistentVolumeClaim.claimName == $claim) | .name' -r)
 
 	if [[ -z $volume_exists ]]; then
-		echo "Volume with claimName ${expected_claim_name} not found in StatefulSet"
+		log "Volume with claimName ${expected_claim_name} not found in StatefulSet"
 		kubectl_bin get statefulset ${cluster}-pxc -o yaml
 		exit 1
 	fi
 
-	echo "Volume ${volume_exists} with claimName ${expected_claim_name} found in StatefulSet"
+	log "Volume ${volume_exists} with claimName ${expected_claim_name} found in StatefulSet"
 
 	local mount_exists=$(kubectl_bin get statefulset ${cluster}-pxc -o json \
 		| jq --arg path "${expected_mount_path}" '.spec.template.spec.containers[] | select(.name == "pxc") | .volumeMounts[] | select(.mountPath == $path) | .name' -r)
 
 	if [[ -z $mount_exists ]]; then
-		echo "Volume mount with mountPath ${expected_mount_path} not found in pxc container"
+		log "Volume mount with mountPath ${expected_mount_path} not found in pxc container"
 		kubectl_bin get statefulset ${cluster}-pxc -o yaml
 		exit 1
 	fi
 
-	echo "Volume mount ${mount_exists} with mountPath ${expected_mount_path} found in pxc container"
+	log "Volume mount ${mount_exists} with mountPath ${expected_mount_path} found in pxc container"
 }
 
 function patch_cluster_add_extra_pvcs() {
 	local cluster=$1
 
-	echo "Patching cluster ${cluster} to add extraPVCs"
+	log "Patching cluster ${cluster} to add extraPVCs"
 
 	kubectl_bin patch pxc ${cluster} --type=json -p='[
 		{
@@ -86,7 +86,7 @@ function patch_cluster_add_extra_pvcs() {
 function patch_cluster_remove_extra_pvcs() {
 	local cluster=$1
 
-	echo "Patching cluster ${cluster} to remove extraPVCs"
+	log "Patching cluster ${cluster} to remove extraPVCs"
 
 	kubectl_bin patch pxc ${cluster} --type=json -p='[
 		{
@@ -99,7 +99,7 @@ function patch_cluster_remove_extra_pvcs() {
 function patch_cluster_add_multiple_extra_pvcs() {
 	local cluster=$1
 
-	echo "Patching cluster ${cluster} to add multiple extraPVCs"
+	log "Patching cluster ${cluster} to add multiple extraPVCs"
 
 	kubectl_bin patch pxc ${cluster} --type=json -p='[
 		{
@@ -159,10 +159,10 @@ desc 'verify multiple extra PVCs are mounted'
 for i in 0 1 2; do
 	verify_extra_pvc_mounted "${cluster}-pxc-${i}" "/var/lib/mysql-extra-1"
 	if kubectl_bin exec ${cluster}-pxc-${i} -c pxc -- touch /var/lib/mysql-extra-2/test-write 2>/dev/null; then
-		echo "Read-only mount /var/lib/mysql-extra-2 is writable in pod ${cluster}-pxc-${i}"
+		log "Read-only mount /var/lib/mysql-extra-2 is writable in pod ${cluster}-pxc-${i}"
 		exit 1
 	fi
-	echo "Read-only mount /var/lib/mysql-extra-2 is properly read-only in pod ${cluster}-pxc-${i}"
+	log "Read-only mount /var/lib/mysql-extra-2 is properly read-only in pod ${cluster}-pxc-${i}"
 done
 
 desc 'test removing extra PVCs from cluster'
@@ -176,11 +176,11 @@ for claim in extra-storage-1 extra-storage-2; do
 		| jq --arg claim "${claim}" '.spec.template.spec.volumes[] | select(.persistentVolumeClaim.claimName == $claim) | .name' -r)
 
 	if [[ -n $volume_exists ]]; then
-		echo "Volume with claimName ${claim} still exists in StatefulSet after removal"
+		log "Volume with claimName ${claim} still exists in StatefulSet after removal"
 		exit 1
 	fi
 done
-echo "Extra PVCs successfully removed from StatefulSet"
+log "Extra PVCs successfully removed from StatefulSet"
 
 cluster2="some-name-2"
 desc "Deleting ${cluster} and recreating PXC cluster ${cluster1}"

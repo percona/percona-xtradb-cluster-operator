@@ -13,6 +13,41 @@ deploy_cert_manager
 desc 'apply my-env-var-secrets to add PEER_LIST_SRV_PROTOCOL'
 kubectl_bin apply -f "$test_dir/conf/envsecrets.yaml"
 
+desc 'update operator config to set MAX_CONCURRENT_RECONCILES'
+expected_worker_count=5
+
+kubectl_bin get deployment ${OPERATOR_NS:+-n $OPERATOR_NS} percona-xtradb-cluster-operator -o yaml \
+	| yq eval '(.spec.template.spec.containers[] | select(.name == "percona-xtradb-cluster-operator").env[] | select(.name == "MAX_CONCURRENT_RECONCILES").value) = "'${expected_worker_count}'"' - \
+	| kubectl_bin apply ${OPERATOR_NS:+-n $OPERATOR_NS} -f -
+
+desc 'wait for operator deployment rollout to complete'
+kubectl_bin rollout status ${OPERATOR_NS:+-n $OPERATOR_NS} deployment/percona-xtradb-cluster-operator --timeout=480s
+
+desc 'wait for new operator pod to be ready'
+sleep 10
+operator_pod=$(get_operator_pod)
+echo "Operator pod: ${operator_pod}"
+wait_pod "$operator_pod" "120" "${OPERATOR_NS}"
+sleep 20
+
+desc 'verify MAX_CONCURRENT_RECONCILES is applied correctly'
+operator_logs=$(kubectl_bin logs ${OPERATOR_NS:+-n $OPERATOR_NS} ${operator_pod})
+
+resources=("PerconaXtraDBCluster" "PerconaXtraDBClusterBackup" "PerconaXtraDBClusterRestore")
+for resource in "${resources[@]}"; do
+	worker_log=$(echo "$operator_logs" | grep -A 2 "Starting Controller.*${resource}" | grep "Starting workers" | grep -o '"worker count": [0-9]*' | head -1 || echo "")
+	if [ -z "$worker_log" ]; then
+		echo "ERROR: No 'Starting workers' log found for ${resource}"
+		exit 1
+	fi
+	actual_count=$(echo "$worker_log" | grep -o '[0-9]*')
+	if [ "$actual_count" != "$expected_worker_count" ]; then
+		echo "ERROR: Worker count for ${resource} is ${actual_count}, expected ${expected_worker_count}"
+		exit 1
+	fi
+	echo "${resource} controller has correct worker count: ${actual_count}"
+done
+
 desc 'create first PXC cluster'
 cluster="some-name"
 spinup_pxc "$cluster" "$conf_dir/$cluster.yml" "3" "10" "${conf_dir}/secrets_without_tls.yml"
@@ -115,42 +150,6 @@ compare_mysql_cmd "max_allowed_packet-2" "SELECT @@max_allowed_packet;" "-h $clu
 # Temporarily skipping this check
 #desc 'check for passwords leak'
 #check_passwords_leak
-
-desc 'update operator config to set MAX_CONCURRENT_RECONCILES'
-expected_worker_count=5
-
-kubectl_bin get deployment ${OPERATOR_NS:+-n $OPERATOR_NS} percona-xtradb-cluster-operator -o yaml \
-	| yq eval '(.spec.template.spec.containers[] | select(.name == "percona-xtradb-cluster-operator").env[] | select(.name == "MAX_CONCURRENT_RECONCILES").value) = "'${expected_worker_count}'"' - \
-	| kubectl_bin apply ${OPERATOR_NS:+-n $OPERATOR_NS} -f -
-
-desc 'wait for operator deployment rollout to complete'
-kubectl_bin rollout status ${OPERATOR_NS:+-n $OPERATOR_NS} deployment/percona-xtradb-cluster-operator --timeout=480s
-
-desc 'wait for new operator pod to be ready'
-sleep 5
-operator_pod=$(get_operator_pod)
-echo "Operator pod: ${operator_pod}"
-wait_pod "$operator_pod" "120" "${OPERATOR_NS}"
-sleep 5
-
-desc 'verify MAX_CONCURRENT_RECONCILES is applied correctly'
-operator_logs=$(kubectl_bin logs ${OPERATOR_NS:+-n $OPERATOR_NS} ${operator_pod})
-sleep 10
-
-resources=("PerconaXtraDBCluster" "PerconaXtraDBClusterBackup" "PerconaXtraDBClusterRestore")
-for resource in "${resources[@]}"; do
-	worker_log=$(echo "$operator_logs" | grep -A 2 "Starting Controller.*${resource}" | grep "Starting workers" | grep -o '"worker count": [0-9]*' | head -1 || echo "")
-	if [ -z "$worker_log" ]; then
-		echo "ERROR: No 'Starting workers' log found for ${resource}"
-		exit 1
-	fi
-	actual_count=$(echo "$worker_log" | grep -o '[0-9]*')
-	if [ "$actual_count" != "$expected_worker_count" ]; then
-		echo "ERROR: Worker count for ${resource} is ${actual_count}, expected ${expected_worker_count}"
-		exit 1
-	fi
-	echo "${resource} controller has correct worker count: ${actual_count}"
-done
 
 kubectl_bin delete -f $test_dir/conf/$cluster3.yml
 destroy $namespace

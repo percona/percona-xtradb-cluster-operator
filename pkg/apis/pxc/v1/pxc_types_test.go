@@ -409,36 +409,6 @@ func TestValidateExtraPVCs(t *testing.T) {
 				},
 			},
 		},
-		"empty name": {
-			extraPVCs: []ExtraPVC{
-				{
-					Name:      "",
-					ClaimName: "extra-storage-0",
-					MountPath: "/var/lib/mysql-extra",
-				},
-			},
-			errMsg: "extraPVC: name cannot be empty",
-		},
-		"empty claim name": {
-			extraPVCs: []ExtraPVC{
-				{
-					Name:      "extra-data",
-					ClaimName: "",
-					MountPath: "/var/lib/mysql-extra",
-				},
-			},
-			errMsg: "extraPVC extra-data: claimName cannot be empty",
-		},
-		"empty mount path": {
-			extraPVCs: []ExtraPVC{
-				{
-					Name:      "extra-data",
-					ClaimName: "extra-storage-0",
-					MountPath: "",
-				},
-			},
-			errMsg: "extraPVC extra-data: mountPath cannot be empty",
-		},
 		"duplicate volume name": {
 			extraPVCs: []ExtraPVC{
 				{

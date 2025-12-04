@@ -941,14 +941,17 @@ type VolumeSpec struct {
 type ExtraPVC struct {
 	// Name of the volume as it will be referenced in the pod
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
 
 	// ClaimName is the name of the existing PersistentVolumeClaim to mount
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
 	ClaimName string `json:"claimName"`
 
 	// MountPath is the path inside the container where the volume will be mounted
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
 	MountPath string `json:"mountPath"`
 
 	// SubPath within the volume from which the container's volume should be mounted
@@ -1790,16 +1793,6 @@ func validateExtraPVCs(extraPVCs []ExtraPVC) error {
 	mountPaths := make(map[string]struct{}, len(extraPVCs))
 
 	for _, epvc := range extraPVCs {
-		if epvc.Name == "" {
-			return errors.New("extraPVC: name cannot be empty")
-		}
-		if epvc.ClaimName == "" {
-			return errors.Errorf("extraPVC %s: claimName cannot be empty", epvc.Name)
-		}
-		if epvc.MountPath == "" {
-			return errors.Errorf("extraPVC %s: mountPath cannot be empty", epvc.Name)
-		}
-
 		if _, ok := names[epvc.Name]; ok {
 			return errors.Errorf("extraPVC: duplicate volume name %s", epvc.Name)
 		}

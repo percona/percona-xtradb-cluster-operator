@@ -3060,10 +3060,13 @@ spec:
                     items:
                       properties:
                         claimName:
+                          minLength: 1
                           type: string
                         mountPath:
+                          minLength: 1
                           type: string
                         name:
+                          minLength: 1
                           type: string
                         readOnly:
                           type: boolean
@@ -6644,10 +6647,13 @@ spec:
                     items:
                       properties:
                         claimName:
+                          minLength: 1
                           type: string
                         mountPath:
+                          minLength: 1
                           type: string
                         name:
+                          minLength: 1
                           type: string
                         readOnly:
                           type: boolean
@@ -9684,10 +9690,13 @@ spec:
                     items:
                       properties:
                         claimName:
+                          minLength: 1
                           type: string
                         mountPath:
+                          minLength: 1
                           type: string
                         name:
+                          minLength: 1
                           type: string
                         readOnly:
                           type: boolean

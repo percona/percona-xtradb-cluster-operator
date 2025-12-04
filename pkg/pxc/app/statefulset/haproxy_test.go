@@ -4,11 +4,175 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/test"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/version"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+func TestAppContainer_HAProxy(t *testing.T) {
+	secretName := "my-secret"
+
+	tests := map[string]struct {
+		spec              api.PerconaXtraDBClusterSpec
+		expectedContainer func() corev1.Container
+	}{
+		"latest cr container construction": {
+			spec: api.PerconaXtraDBClusterSpec{
+				CRVersion: version.Version(),
+				HAProxy: &api.HAProxySpec{
+					PodSpec: api.PodSpec{
+						Image:             "test-image",
+						ImagePullPolicy:   corev1.PullIfNotPresent,
+						EnvVarsSecretName: "test-secret",
+						LivenessProbes: corev1.Probe{
+							TimeoutSeconds: 5,
+						},
+						ReadinessProbes: corev1.Probe{
+							TimeoutSeconds: 15,
+						},
+					},
+				},
+				PXC: &api.PXCSpec{
+					PodSpec: &api.PodSpec{},
+				},
+			},
+			expectedContainer: func() corev1.Container {
+				return defaultExpectedHAProxyContainer()
+			},
+		},
+		"container construction with extra pvcs": {
+			spec: api.PerconaXtraDBClusterSpec{
+				CRVersion: version.Version(),
+				HAProxy: &api.HAProxySpec{
+					PodSpec: api.PodSpec{
+						Image:             "test-image",
+						ImagePullPolicy:   corev1.PullIfNotPresent,
+						EnvVarsSecretName: "test-secret",
+						LivenessProbes: corev1.Probe{
+							TimeoutSeconds: 5,
+						},
+						ReadinessProbes: corev1.Probe{
+							TimeoutSeconds: 15,
+						},
+						ExtraPVCs: []api.ExtraPVC{
+							{
+								Name:      "extra-data-volume",
+								ClaimName: "extra-storage-0",
+								MountPath: "/var/lib/haproxy-extra",
+							},
+							{
+								Name:      "backup-volume",
+								ClaimName: "backup-storage-0",
+								MountPath: "/backups",
+								SubPath:   "haproxy",
+							},
+						},
+					},
+				},
+				PXC: &api.PXCSpec{
+					PodSpec: &api.PodSpec{},
+				},
+			},
+			expectedContainer: func() corev1.Container {
+				c := defaultExpectedHAProxyContainer()
+				c.VolumeMounts = append(c.VolumeMounts,
+					corev1.VolumeMount{
+						Name:      "extra-data-volume",
+						MountPath: "/var/lib/haproxy-extra",
+					},
+					corev1.VolumeMount{
+						Name:      "backup-volume",
+						MountPath: "/backups",
+						SubPath:   "haproxy",
+					},
+				)
+				return c
+			},
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			cr := &api.PerconaXtraDBCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-cluster",
+					Namespace: "test-ns",
+					UID:       "test-uid",
+				},
+				Spec: tt.spec,
+			}
+
+			client := test.BuildFakeClient()
+			haproxy := &HAProxy{cr: cr}
+
+			c, err := haproxy.AppContainer(t.Context(), client, &tt.spec.HAProxy.PodSpec, secretName, cr, nil)
+			assert.Equal(t, tt.expectedContainer(), c)
+			assert.NoError(t, err)
+		})
+	}
+}
+
+func defaultExpectedHAProxyContainer() corev1.Container {
+	fvar := true
+	return corev1.Container{
+		Name:            "haproxy",
+		Image:           "test-image",
+		ImagePullPolicy: corev1.PullIfNotPresent,
+		Command:         []string{"/opt/percona/haproxy-entrypoint.sh"},
+		Args:            []string{"haproxy"},
+		Ports: []corev1.ContainerPort{
+			{ContainerPort: 3306, Name: "mysql"},
+			{ContainerPort: 3307, Name: "mysql-replicas"},
+			{ContainerPort: 3309, Name: "proxy-protocol"},
+			{ContainerPort: 33062, Name: "mysql-admin"},
+			{ContainerPort: 33060, Name: "mysqlx"},
+			{ContainerPort: 8404, Name: "stats"},
+		},
+		VolumeMounts: []corev1.VolumeMount{
+			{Name: "haproxy-custom", MountPath: "/etc/haproxy-custom/"},
+			{Name: "haproxy-auto", MountPath: "/etc/haproxy/pxc"},
+			{Name: app.BinVolumeName, MountPath: app.BinVolumeMountPath},
+			{Name: "mysql-users-secret-file", MountPath: "/etc/mysql/mysql-users-secret"},
+			{Name: "test-secret", MountPath: "/etc/mysql/haproxy-env-secret"},
+		},
+		Env: []corev1.EnvVar{
+			{Name: "PXC_SERVICE", Value: "test-cluster-pxc"},
+			{Name: "LIVENESS_CHECK_TIMEOUT", Value: "5"},
+			{Name: "READINESS_CHECK_TIMEOUT", Value: "15"},
+		},
+		EnvFrom: []corev1.EnvFromSource{
+			{
+				SecretRef: &corev1.SecretEnvSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: "test-secret",
+					},
+					Optional: &fvar,
+				},
+			},
+		},
+		ReadinessProbe: &corev1.Probe{
+			TimeoutSeconds: 15,
+			ProbeHandler: corev1.ProbeHandler{
+				Exec: &corev1.ExecAction{
+					Command: []string{"/opt/percona/haproxy_readiness_check.sh"},
+				},
+			},
+		},
+		LivenessProbe: &corev1.Probe{
+			TimeoutSeconds: 5,
+			ProbeHandler: corev1.ProbeHandler{
+				Exec: &corev1.ExecAction{
+					Command: []string{"/opt/percona/haproxy_liveness_check.sh"},
+				},
+			},
+		},
+	}
+}
 
 func TestSidecarContainers_HAProxy(t *testing.T) {
 	tests := map[string]struct {

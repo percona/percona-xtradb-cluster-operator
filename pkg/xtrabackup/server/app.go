@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/go-logr/logr"
+	goversion "github.com/hashicorp/go-version"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/xtrabackup/api"
 	"github.com/pkg/errors"
@@ -25,6 +26,7 @@ type appServer struct {
 	newStorageFunc              storage.NewClientFunc
 	deleteBackupFunc            func(ctx context.Context, cfg *api.BackupConfig, backupName string) error
 	log                         logr.Logger
+	mysqlVersion                *goversion.Version
 	tableSpaceEncryptionEnabled bool
 }
 
@@ -37,6 +39,12 @@ func New() (api.XtrabackupServiceServer, error) {
 		return nil, status.Errorf(codes.InvalidArgument, "POD_NAMESPACE environment variable is not set")
 	}
 	tableSpaceEncryptionEnabled := vaultKeyringFileExists()
+
+	mysqlVer, err := getMySQLVersionFromXtrabackup()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get MySQL version from XtraBackup")
+	}
+
 	logger := zap.New()
 	return &appServer{
 		namespace:                   namespace,
@@ -45,6 +53,7 @@ func New() (api.XtrabackupServiceServer, error) {
 		deleteBackupFunc:            deleteBackup,
 		log:                         logger,
 		tableSpaceEncryptionEnabled: tableSpaceEncryptionEnabled,
+		mysqlVersion:                goversion.Must(goversion.NewVersion(mysqlVer)),
 	}, nil
 }
 

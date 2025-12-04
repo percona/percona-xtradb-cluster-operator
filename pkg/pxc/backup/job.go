@@ -11,7 +11,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/features"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
@@ -281,12 +280,10 @@ func SetStorageAzure(ctx context.Context, job *batchv1.JobSpec, cr *api.PerconaX
 	}
 	job.Template.Spec.Containers[0].Env = append(job.Template.Spec.Containers[0].Env, storageAccount, accessKey, containerName, endpoint, storageClass, backupPath)
 
-	if !features.Enabled(ctx, features.BackupXtrabackup) {
-		// add SSL volumes
-		err := appendStorageSecret(job, cr)
-		if err != nil {
-			return errors.Wrap(err, "failed to append storage secrets")
-		}
+	// add SSL volumes
+	err := appendStorageSecret(job, cr)
+	if err != nil {
+		return errors.Wrap(err, "failed to append storage secrets")
 	}
 
 	return nil
@@ -347,21 +344,19 @@ func SetStorageS3(ctx context.Context, job *batchv1.JobSpec, cr *api.PerconaXtra
 	}
 	job.Template.Spec.Containers[0].Env = append(job.Template.Spec.Containers[0].Env, bucketEnv, bucketPathEnv)
 
-	if !features.Enabled(ctx, features.BackupXtrabackup) {
-		// add SSL volumes
-		err := appendStorageSecret(job, cr)
-		if err != nil {
-			return errors.Wrap(err, "failed to append storage secrets")
-		}
+	// add SSL volumes
+	err := appendStorageSecret(job, cr)
+	if err != nil {
+		return errors.Wrap(err, "failed to append storage secrets")
+	}
 
-		// add ca bundle (this is used by the aws-cli to verify the connection to S3)
-		if sel := s3.CABundle; sel != nil {
-			appendCABundleSecretVolume(
-				&job.Template.Spec.Volumes,
-				&job.Template.Spec.Containers[0].VolumeMounts,
-				sel,
-			)
-		}
+	// add ca bundle (this is used by the aws-cli to verify the connection to S3)
+	if sel := s3.CABundle; sel != nil {
+		appendCABundleSecretVolume(
+			&job.Template.Spec.Volumes,
+			&job.Template.Spec.Containers[0].VolumeMounts,
+			sel,
+		)
 	}
 
 	return nil

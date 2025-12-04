@@ -330,7 +330,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) createBackupJob(
 			if err != nil {
 				return batchv1.JobSpec{}, errors.Wrap(err, "failed to get primary pod dns name")
 			}
-			return xtrabackup.JobSpec(&cr.Spec, cluster, job, initImage, srcNode)
+			return xtrabackup.JobSpec(cr, cluster, job, initImage, srcNode)
 		}
 		return bcp.JobSpec(cr.Spec, cluster, job, initImage)
 	}

@@ -4,7 +4,9 @@ backup-storage-tls,8.0
 cross-site,8.0
 custom-users,8.0
 demand-backup-cloud,8.0
+demand-backup-cloud-xtrabackup,8.0
 demand-backup-encrypted-with-tls,8.0
+demand-backup-encrypted-with-tls-xtrabackup,8.0
 demand-backup,8.0
 demand-backup-flow-control,8.0
 demand-backup-parallel,8.0
@@ -29,6 +31,7 @@ pvc-resize,5.7
 pvc-resize,8.0
 recreate,8.0
 restore-to-encrypted-cluster,8.0
+restore-to-encrypted-cluster-xtrabackup,8.0
 scaling-proxysql,8.0
 scaling,8.0
 scheduled-backup,5.7

@@ -60,11 +60,11 @@ main() {
 			sed -i 's/token=cfg.old_token)/token=cfg.old_token, verify=False)/' /src/vault-cp.py \
 			&& sed -i 's/token=cfg.new_token)/token=cfg.new_token, verify=False)/' /src/vault-cp.py \
 			&& echo \"
-	old_url = '$ip1:8200'
-	old_token = '$token1'
-	new_url = '$ip2:8200'
-	new_token = '$token2'
-	secrets = [ $transition_keys ]
+old_url = '$ip1:8200'
+old_token = '$token1'
+new_url = '$ip2:8200'
+new_token = '$token2'
+secrets = [ $transition_keys ]
 	\" > /src/config.py
 		python3 /src/vault-cp.py
 		"

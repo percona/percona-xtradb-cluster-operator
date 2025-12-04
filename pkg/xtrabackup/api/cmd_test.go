@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"testing"
 
+	goversion "github.com/hashicorp/go-version"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -47,7 +48,9 @@ func TestNewXtrabackupCmd(t *testing.T) {
 
 	for i, tc := range testCases {
 		t.Run(fmt.Sprintf("test case %d", i), func(t *testing.T) {
-			cmd := tc.backupConfig.NewXtrabackupCmd(context.Background(), "root", "password123", false)
+			cmd := tc.backupConfig.NewXtrabackupCmd(
+				context.Background(),
+				"root", "password123", goversion.Must(goversion.NewVersion("8.0.0")), false)
 			assert.Equal(t, tc.expectedArgs, cmd.Args)
 		})
 	}

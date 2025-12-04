@@ -144,8 +144,10 @@ func TestJobSpec(t *testing.T) {
 			Labels: jobLabels,
 		},
 	}
-
-	jobSpec, err := JobSpec(spec, cluster, job, initImage, primaryPodHost)
+	backup := &pxcv1.PerconaXtraDBClusterBackup{
+		Spec: *spec,
+	}
+	jobSpec, err := JobSpec(backup, cluster, job, initImage, primaryPodHost)
 	assert.NoError(t, err)
 
 	// Assert JobSpec fields

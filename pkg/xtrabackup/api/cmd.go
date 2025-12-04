@@ -6,6 +6,8 @@ import (
 	"io"
 	"os"
 	"os/exec"
+
+	goversion "github.com/hashicorp/go-version"
 )
 
 const (
@@ -25,8 +27,9 @@ func (cfg *BackupConfig) NewXtrabackupCmd(
 	ctx context.Context,
 	user,
 	password string,
+	mysqlVersion *goversion.Version,
 	withTablespaceEncryption bool) *exec.Cmd {
-	cmd := exec.CommandContext(ctx, xtrabackupCmd, cfg.xtrabackupArgs(user, password, withTablespaceEncryption)...)
+	cmd := exec.CommandContext(ctx, xtrabackupCmd, cfg.xtrabackupArgs(user, password, mysqlVersion, withTablespaceEncryption)...)
 	cmd.Env = cfg.envs()
 	return cmd
 }
@@ -100,7 +103,7 @@ func (cfg *BackupConfig) xbcloudArgs(action XBCloudAction) []string {
 	return args
 }
 
-func (cfg *BackupConfig) xtrabackupArgs(user, pass string, withTablespaceEncryption bool) []string {
+func (cfg *BackupConfig) xtrabackupArgs(user, pass string, mysqlVersion *goversion.Version, withTablespaceEncryption bool) []string {
 	args := []string{
 		"--backup",
 		"--stream=xbstream",
@@ -112,10 +115,13 @@ func (cfg *BackupConfig) xtrabackupArgs(user, pass string, withTablespaceEncrypt
 		fmt.Sprintf("--password=%s", pass),
 	}
 	if withTablespaceEncryption {
-		args = append(args,
-			"--generate-transition-key",
-			"--keyring-vault-config=/etc/mysql/vault-keyring-secret/keyring_vault.conf",
-		)
+		args = append(args, "--generate-transition-key")
+
+		vaultConfigFlag := "--keyring-vault-config=/etc/mysql/vault-keyring-secret/keyring_vault.conf"
+		if mysqlVersion.Compare(goversion.Must(goversion.NewVersion("8.4.0"))) >= 0 {
+			vaultConfigFlag = "--component-keyring-config=/etc/mysql/vault-keyring-secret/keyring_vault.conf"
+		}
+		args = append(args, vaultConfigFlag)
 	}
 	if cfg != nil && cfg.ContainerOptions != nil && cfg.ContainerOptions.Args != nil {
 		args = append(args, cfg.ContainerOptions.Args.Xtrabackup...)

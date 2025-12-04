@@ -2091,3 +2091,11 @@ get_pvc_name_for_backup() {
   echo "$pvc_name"
 }
 
+is_feature_gate_enabled() {
+	local feature_gate=$1
+	if [[ "$PXCO_FEATURE_GATES" == *"$feature_gate=true"* ]]; then
+		return 0
+	else
+		return 1
+	fi
+}

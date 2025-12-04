@@ -14,7 +14,7 @@ import (
 )
 
 func JobSpec(
-	spec *pxcv1.PXCBackupSpec,
+	backup *pxcv1.PerconaXtraDBClusterBackup,
 	cluster *pxcv1.PerconaXtraDBCluster,
 	job *batchv1.Job,
 	initImage string,
@@ -37,12 +37,12 @@ func JobSpec(
 			MountPath: app.BinVolumeMountPath,
 		},
 	)
-
-	storage := cluster.Spec.Backup.Storages[spec.StorageName]
+	spec := backup.Spec
+	storage := cluster.Spec.Backup.Storages[backup.Spec.StorageName]
 	var initContainers []corev1.Container
 	initContainers = append(initContainers, statefulset.BackupInitContainer(cluster, initImage, storage.ContainerSecurityContext))
 
-	envs, err := xtrabackupJobEnvVars(storage, primaryPodHost)
+	envs, err := xtrabackupJobEnvVars(backup, storage, primaryPodHost)
 	if err != nil {
 		return batchv1.JobSpec{}, fmt.Errorf("failed to get xtrabackup job env vars: %w", err)
 	}
@@ -94,6 +94,7 @@ func JobSpec(
 }
 
 func xtrabackupJobEnvVars(
+	backup *pxcv1.PerconaXtraDBClusterBackup,
 	storage *pxcv1.BackupStorageSpec,
 	primaryPodHost string,
 ) ([]corev1.EnvVar, error) {
@@ -109,6 +110,10 @@ func xtrabackupJobEnvVars(
 		{
 			Name:  "VERIFY_TLS",
 			Value: fmt.Sprintf("%t", ptr.Deref(storage.VerifyTLS, true)),
+		},
+		{
+			Name:  "BACKUP_NAME",
+			Value: backup.Name,
 		},
 	}
 	return envs, nil

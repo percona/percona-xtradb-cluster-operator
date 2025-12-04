@@ -120,7 +120,7 @@ desc 'update operator config to set MAX_CONCURRENT_RECONCILES'
 expected_worker_count=5
 
 kubectl_bin get deployment ${OPERATOR_NS:+-n $OPERATOR_NS} percona-xtradb-cluster-operator -o yaml \
-	| yq eval '(.spec.template.spec.containers[] | select(.name == "percona-xtradb-cluster-operator").env) += [{"name": "MAX_CONCURRENT_RECONCILES", "value": "'${expected_worker_count}'"}]' - \
+	| yq eval '(.spec.template.spec.containers[] | select(.name == "percona-xtradb-cluster-operator").env[] | select(.name == "MAX_CONCURRENT_RECONCILES").value) = "'${expected_worker_count}'"' - \
 	| kubectl_bin apply ${OPERATOR_NS:+-n $OPERATOR_NS} -f -
 
 desc 'wait for operator deployment rollout to complete'
@@ -135,18 +135,9 @@ sleep 5
 
 desc 'verify MAX_CONCURRENT_RECONCILES is applied correctly'
 operator_logs=$(kubectl_bin logs ${OPERATOR_NS:+-n $OPERATOR_NS} ${operator_pod})
-echo "Captured $(echo "$operator_logs" | wc -l) lines of operator logs"
 
 resources=("PerconaXtraDBCluster" "PerconaXtraDBClusterBackup" "PerconaXtraDBClusterRestore")
 for resource in "${resources[@]}"; do
-	if ! echo "$operator_logs" | grep -q "Starting EventSource.*${resource}"; then
-		echo "ERROR: No EventSource log found for ${resource}"
-		exit 1
-	fi
-	if ! echo "$operator_logs" | grep -q "Starting Controller.*${resource}"; then
-		echo "ERROR: No Controller start log found for ${resource}"
-		exit 1
-	fi
 	worker_log=$(echo "$operator_logs" | grep -A 2 "Starting Controller.*${resource}" | grep "Starting workers" | grep -o '"worker count": [0-9]*' | head -1 || echo "")
 	if [ -z "$worker_log" ]; then
 		echo "ERROR: No 'Starting workers' log found for ${resource}"

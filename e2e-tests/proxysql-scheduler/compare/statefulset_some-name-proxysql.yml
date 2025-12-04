@@ -137,6 +137,20 @@ spec:
                 secretKeyRef:
                   key: monitor
                   name: internal-some-name
+            - name: SCHEDULER_CHECKTIMEOUT
+              value: "2000"
+            - name: SCHEDULER_WRITERALSOREADER
+              value: "1"
+            - name: SCHEDULER_RETRYUP
+              value: "1"
+            - name: SCHEDULER_RETRYDOWN
+              value: "3"
+            - name: SCHEDULER_PINGTIMEOUT
+              value: "1000"
+            - name: SCHEDULER_NODECHECKINTERVAL
+              value: "2000"
+            - name: SCHEDULER_MAXCONNECTIONS
+              value: "1000"
             - name: SCHEDULER_ENABLED
               value: "true"
           envFrom:

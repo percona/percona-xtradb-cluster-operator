@@ -60,20 +60,6 @@ spec:
                 secretKeyRef:
                   key: monitor
                   name: internal-no-requests-no-limits
-            - name: SCHEDULER_CHECKTIMEOUT
-              value: "0"
-            - name: SCHEDULER_WRITERALSOREADER
-              value: "0"
-            - name: SCHEDULER_RETRYUP
-              value: "0"
-            - name: SCHEDULER_RETRYDOWN
-              value: "0"
-            - name: SCHEDULER_PINGTIMEOUT
-              value: "0"
-            - name: SCHEDULER_NODECHECKINTERVAL
-              value: "0"
-            - name: SCHEDULER_MAXCONNECTIONS
-              value: "0"
           envFrom:
             - secretRef:
                 name: no-requests-no-limits-env-vars-proxysql

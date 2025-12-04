@@ -15,7 +15,7 @@ func getMySQLVersionFromXtrabackup() (string, error) {
 
 func runXtrabackupVersion() (string, error) {
 	cmd := exec.Command("xtrabackup", "--version")
-	output, err := cmd.Output()
+	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return "", err
 	}
@@ -23,7 +23,6 @@ func runXtrabackupVersion() (string, error) {
 }
 
 func parseMySQLVersionFromVersionStr(versionStr string) string {
-	// Regex matches "MySQL server X.Y.Z" and captures X.Y.Z
 	re := regexp.MustCompile(`MySQL server\s+([0-9]+\.[0-9]+\.[0-9]+)`)
 	matches := re.FindStringSubmatch(versionStr)
 

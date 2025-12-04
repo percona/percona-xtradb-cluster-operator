@@ -19,8 +19,8 @@ spinup_pxc "$cluster" "$conf_dir/$cluster.yml" "3" "10" "${conf_dir}/secrets_wit
 
 desc 'check if cert-manager issued ssl certificates'
 if [ "$(kubectl get secrets ${cluster}-ssl -o jsonpath='{.metadata.annotations.cert-manager\.io/issuer-kind}')" != "Issuer" ]; then
-  echo "Cert manager didn't create the ssl certificates! Something went wrong."
-  exit 1
+	echo "Cert manager didn't create the ssl certificates! Something went wrong."
+	exit 1
 fi
 
 desc 'check if service and statefulset created with expected config'
@@ -31,14 +31,14 @@ compare_kubectl service/$cluster-proxysql
 compare_kubectl service/$cluster-proxysql-unready
 
 if [[ ! $IMAGE_PXC =~ 5\.7 ]]; then
-    desc 'check if mysql-state-monitor works as expected'
-    for pod in $(kubectl_bin get pod -l app.kubernetes.io/component=pxc --no-headers | awk '{print $1}'); do
-	state=$(kubectl_bin exec ${pod} -- cat /var/lib/mysql/mysql.state)
-	if [[ ${state} != 'ready' ]]; then
-	    echo "/var/lib/mysql/mysql.state says ${state}, it should be ready"
-	    exit 1
-	fi
-    done
+	desc 'check if mysql-state-monitor works as expected'
+	for pod in $(kubectl_bin get pod -l app.kubernetes.io/component=pxc --no-headers | awk '{print $1}'); do
+		state=$(kubectl_bin exec ${pod} -- cat /var/lib/mysql/mysql.state)
+		if [[ ${state} != 'ready' ]]; then
+			echo "/var/lib/mysql/mysql.state says ${state}, it should be ready"
+			exit 1
+		fi
+	done
 fi
 
 desc 'check PodDisruptionBudget'
@@ -62,8 +62,8 @@ compare_mysql_user "-h $cluster-proxysql -upmmserver -ppmmserver_password" "-pro
 
 desc 'write data directly, read from all'
 run_mysql \
-    'INSERT myApp.myApp (id) VALUES (100501)' \
-    "-h $cluster-pxc-2.$cluster-pxc -uroot -proot_password"
+	'INSERT myApp.myApp (id) VALUES (100501)' \
+	"-h $cluster-pxc-2.$cluster-pxc -uroot -proot_password"
 compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
 compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-pxc-1.$cluster-pxc -uroot -proot_password"
 compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-pxc-2.$cluster-pxc -uroot -proot_password"
@@ -75,8 +75,8 @@ sleep 10
 changed_primary=$(get_proxy_primary "-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$cluster-proxysql-0")
 [ -n "$changed_primary" ] && [ "$initial_primary" != "$changed_primary" ]
 run_mysql \
-    'INSERT myApp.myApp (id) VALUES (100502)' \
-    "-h $cluster-proxysql -uroot -proot_password"
+	'INSERT myApp.myApp (id) VALUES (100502)' \
+	"-h $cluster-proxysql -uroot -proot_password"
 wait_for_running "$cluster-pxc" 3
 compare_mysql_cmd "select-3" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
 compare_mysql_cmd "select-3" "SELECT * from myApp.myApp;" "-h $cluster-pxc-1.$cluster-pxc -uroot -proot_password"
@@ -101,11 +101,11 @@ compare_kubectl certificate/$cluster3-ssl-internal
 
 desc 'write data, read from all'
 run_mysql \
-    'CREATE DATABASE IF NOT EXISTS myApp; use myApp; CREATE TABLE IF NOT EXISTS myApp (id int PRIMARY KEY);' \
-    "-h $cluster3-pxc -uroot -proot_password"
+	'CREATE DATABASE IF NOT EXISTS myApp; use myApp; CREATE TABLE IF NOT EXISTS myApp (id int PRIMARY KEY);' \
+	"-h $cluster3-pxc -uroot -proot_password"
 run_mysql \
-    'INSERT myApp.myApp (id) VALUES (100500)' \
-    "-h $cluster3-pxc -uroot -proot_password"
+	'INSERT myApp.myApp (id) VALUES (100500)' \
+	"-h $cluster3-pxc -uroot -proot_password"
 sleep 10
 compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster3-pxc-0.$cluster3-pxc -uroot -proot_password"
 compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster3-pxc-1.$cluster3-pxc -uroot -proot_password"
@@ -120,8 +120,8 @@ desc 'update operator config to set MAX_CONCURRENT_RECONCILES'
 expected_worker_count=5
 
 kubectl_bin get deployment ${OPERATOR_NS:+-n $OPERATOR_NS} percona-xtradb-cluster-operator -o yaml \
-    | yq eval '(.spec.template.spec.containers[] | select(.name == "percona-xtradb-cluster-operator").env) += [{"name": "MAX_CONCURRENT_RECONCILES", "value": "'${expected_worker_count}'"}]' - \
-    | kubectl_bin apply ${OPERATOR_NS:+-n $OPERATOR_NS} -f -
+	| yq eval '(.spec.template.spec.containers[] | select(.name == "percona-xtradb-cluster-operator").env) += [{"name": "MAX_CONCURRENT_RECONCILES", "value": "'${expected_worker_count}'"}]' - \
+	| kubectl_bin apply ${OPERATOR_NS:+-n $OPERATOR_NS} -f -
 
 desc 'wait for operator deployment rollout to complete'
 kubectl_bin rollout status ${OPERATOR_NS:+-n $OPERATOR_NS} deployment/percona-xtradb-cluster-operator --timeout=480s
@@ -139,25 +139,25 @@ echo "Captured $(echo "$operator_logs" | wc -l) lines of operator logs"
 
 resources=("PerconaXtraDBCluster" "PerconaXtraDBClusterBackup" "PerconaXtraDBClusterRestore")
 for resource in "${resources[@]}"; do
-    if ! echo "$operator_logs" | grep -q "Starting EventSource.*${resource}"; then
-        echo "ERROR: No EventSource log found for ${resource}"
-        exit 1
-    fi
-    if ! echo "$operator_logs" | grep -q "Starting Controller.*${resource}"; then
-        echo "ERROR: No Controller start log found for ${resource}"
-        exit 1
-    fi
-    worker_log=$(echo "$operator_logs" | grep -A 2 "Starting Controller.*${resource}" | grep "Starting workers" | grep -o '"worker count": [0-9]*' | head -1 || echo "")
-    if [ -z "$worker_log" ]; then
-        echo "ERROR: No 'Starting workers' log found for ${resource}"
-        exit 1
-    fi
-    actual_count=$(echo "$worker_log" | grep -o '[0-9]*')
-    if [ "$actual_count" != "$expected_worker_count" ]; then
-        echo "ERROR: Worker count for ${resource} is ${actual_count}, expected ${expected_worker_count}"
-        exit 1
-    fi
-    echo "${resource} controller has correct worker count: ${actual_count}"
+	if ! echo "$operator_logs" | grep -q "Starting EventSource.*${resource}"; then
+		echo "ERROR: No EventSource log found for ${resource}"
+		exit 1
+	fi
+	if ! echo "$operator_logs" | grep -q "Starting Controller.*${resource}"; then
+		echo "ERROR: No Controller start log found for ${resource}"
+		exit 1
+	fi
+	worker_log=$(echo "$operator_logs" | grep -A 2 "Starting Controller.*${resource}" | grep "Starting workers" | grep -o '"worker count": [0-9]*' | head -1 || echo "")
+	if [ -z "$worker_log" ]; then
+		echo "ERROR: No 'Starting workers' log found for ${resource}"
+		exit 1
+	fi
+	actual_count=$(echo "$worker_log" | grep -o '[0-9]*')
+	if [ "$actual_count" != "$expected_worker_count" ]; then
+		echo "ERROR: Worker count for ${resource} is ${actual_count}, expected ${expected_worker_count}"
+		exit 1
+	fi
+	echo "${resource} controller has correct worker count: ${actual_count}"
 done
 
 kubectl_bin delete -f $test_dir/conf/$cluster3.yml

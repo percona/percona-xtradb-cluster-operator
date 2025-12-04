@@ -152,13 +152,6 @@ func defaultExpectedProxySQLContainer() corev1.Container {
 			{Name: "MONITOR_PASSWORD", ValueFrom: &corev1.EnvVarSource{
 				SecretKeyRef: app.SecretKeySelector("my-secret", users.Monitor),
 			}},
-			{Name: "SCHEDULER_CHECKTIMEOUT", Value: "0"},
-			{Name: "SCHEDULER_WRITERALSOREADER", Value: "0"},
-			{Name: "SCHEDULER_RETRYUP", Value: "0"},
-			{Name: "SCHEDULER_RETRYDOWN", Value: "0"},
-			{Name: "SCHEDULER_PINGTIMEOUT", Value: "0"},
-			{Name: "SCHEDULER_NODECHECKINTERVAL", Value: "0"},
-			{Name: "SCHEDULER_MAXCONNECTIONS", Value: "0"},
 		},
 		EnvFrom: []corev1.EnvFromSource{
 			{

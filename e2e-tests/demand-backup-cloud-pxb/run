@@ -209,7 +209,6 @@ main() {
 		desc "Check backup existence"
 		setup_aws_credentials
 		check_backup_existence_aws "$backup_dest_aws" "/xtrabackup_binlog_info.00000000000000000000"
-		
 		setup_gcs_credentials
 		check_backup_existence_gcs "${backup_dest_gcp}" "/.xtrabackup_binlog_info.00000000000000000000"
 		setup_azure_credentials

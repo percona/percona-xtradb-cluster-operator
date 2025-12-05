@@ -32,6 +32,7 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/features"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/binlogcollector"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage"
@@ -326,7 +327,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) createBackupJob(
 	xtrabackupEnabled := features.Enabled(ctx, features.BackupXtrabackup)
 	getJobSpec := func() (batchv1.JobSpec, error) {
 		if xtrabackupEnabled {
-			srcNode, err := k8s.GetPrimaryPodDNSName(ctx, r.client, cluster)
+			srcNode, err := pxc.GetPrimaryPodDNSName(ctx, r.client, cluster)
 			if err != nil {
 				return batchv1.JobSpec{}, errors.Wrap(err, "failed to get primary pod dns name")
 			}

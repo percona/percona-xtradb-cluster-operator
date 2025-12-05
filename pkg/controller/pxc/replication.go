@@ -18,6 +18,7 @@ import (
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/queries"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
@@ -126,7 +127,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(ctx context.Context
 		}
 	}
 
-	primary, err := k8s.GetPrimaryPod(ctx, r.client, cr)
+	primary, err := pxc.GetPrimaryPod(ctx, r.client, cr)
 	if err != nil {
 		return errors.Wrap(err, "get primary pxc pod")
 	}

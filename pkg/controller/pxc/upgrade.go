@@ -245,7 +245,7 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(ctx context.Context, sfs api
 		return nil
 	}
 
-	primary, err := k8s.GetPrimaryPod(ctx, r.client, cr)
+	primary, err := pxc.GetPrimaryPod(ctx, r.client, cr)
 	if err != nil {
 		return errors.Wrap(err, "get primary pod")
 	}
@@ -351,7 +351,7 @@ func (r *ReconcilePerconaXtraDBCluster) waitHostgroups(
 	}
 	log := logf.FromContext(ctx)
 
-	database, err := k8s.GetProxyConnection(cr, r.client)
+	database, err := pxc.GetProxyConnection(cr, r.client)
 	if err != nil {
 		return errors.Wrap(err, "connect to proxy")
 	}
@@ -396,7 +396,7 @@ func (r *ReconcilePerconaXtraDBCluster) waitUntilOnline(
 		return nil
 	}
 
-	database, err := k8s.GetProxyConnection(cr, r.client)
+	database, err := pxc.GetProxyConnection(cr, r.client)
 	if err != nil {
 		return errors.Wrap(err, "failed to get proxySQL db")
 	}

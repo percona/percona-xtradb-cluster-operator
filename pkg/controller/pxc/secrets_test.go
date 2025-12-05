@@ -171,32 +171,63 @@ func (r *repeatingReader) Read(p []byte) (int, error) {
 }
 
 func TestGeneratePassProxyadmin(t *testing.T) {
-	secretOptions := &api.PasswordGenerationOptions{
-		Symbols:   "!#$%&()*+,-.<=>?@[]^_{}~",
-		MaxLength: 20,
-		MinLength: 20,
-	}
-	idx := strings.Index(passSymbols(secretOptions), "*")
-	require.NotEqual(t, -1, idx, "we can delete this test if passSymbols doesn't contain '*'")
-	randReader = &repeatingReader{
-		pattern: []byte{
-			byte(idx),
-			1,
-			2,
-			3,
-			4,
-			5,
-			6,
-			7,
-			8,
-		},
-	}
+	t.Run("proxyadmin", func(t *testing.T) {
+		secretOptions := &api.PasswordGenerationOptions{
+			Symbols:   "!#$%&()*+,-.<=>?@[]^_{}~",
+			MaxLength: 20,
+			MinLength: 20,
+		}
+		idx := strings.Index(passSymbols(secretOptions), "*")
+		require.NotEqual(t, -1, idx, "we can delete this test if passSymbols doesn't contain '*'")
+		randReader = &repeatingReader{
+			pattern: []byte{
+				byte(idx),
+				1,
+				2,
+				3,
+				4,
+				5,
+				6,
+				7,
+				8,
+			},
+		}
 
-	p, err := generatePass("", secretOptions)
-	require.NoError(t, err)
-	assert.Equal(t, true, strings.HasPrefix(string(p), "*"), "expected '*' prefix when no rules are applied to the password")
+		p, err := generatePass("", secretOptions)
+		require.NoError(t, err)
+		assert.Equal(t, true, strings.HasPrefix(string(p), "*"), "expected '*' prefix when no rules are applied to the password")
 
-	p, err = generatePass(users.ProxyAdmin, secretOptions)
-	require.NoError(t, err)
-	assert.Equal(t, false, strings.HasPrefix(string(p), "*"), "unexpected '*' prefix: proxyadmin passwords should not include it")
+		p, err = generatePass(users.ProxyAdmin, secretOptions)
+		require.NoError(t, err)
+		assert.Equal(t, false, strings.HasPrefix(string(p), "*"), "unexpected '*' prefix: proxyadmin passwords should not include it")
+	})
+
+	t.Run("user password with only one symbol configured", func(t *testing.T) {
+		secretOptions := &api.PasswordGenerationOptions{
+			Symbols:   "%",
+			MaxLength: 20,
+			MinLength: 20,
+		}
+
+		for i := 0; i < 1000; i++ {
+			p, err := generatePass("", secretOptions)
+			require.NoError(t, err)
+			assert.Equal(t, true, strings.Contains(string(p), "%"))
+		}
+	})
+
+	t.Run("user password with 2 symbols configured", func(t *testing.T) {
+		secretOptions := &api.PasswordGenerationOptions{
+			Symbols:   "*&",
+			MaxLength: 20,
+			MinLength: 20,
+		}
+
+		for i := 0; i < 1000; i++ {
+			p, err := generatePass("", secretOptions)
+			require.NoError(t, err)
+			assert.Equal(t, true,
+				strings.Contains(string(p), "*") || strings.Contains(string(p), "&"))
+		}
+	})
 }

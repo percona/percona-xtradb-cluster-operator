@@ -154,7 +154,7 @@ desc 'test new users sync'
 run_mysql \
 	"CREATE USER 'testsync'@'%' IDENTIFIED BY '$newpass';" \
 	"-h $cluster-pxc -uroot -p'$newpass'"
-sleep 40
+sleep 80
 compare_mysql_cmd "select-4" "SHOW TABLES;" "-h $cluster-proxysql -utestsync -p'$newpass'"
 
 pass=$(getSecretData "internal-some-name" "operator")

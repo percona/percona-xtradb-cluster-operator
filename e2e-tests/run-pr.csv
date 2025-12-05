@@ -17,6 +17,7 @@ demand-backup-parallel,8.0
 demand-backup-parallel,8.4
 demand-backup-without-passwords,8.0
 demand-backup-without-passwords,8.4
+extra-pvc,8.0
 haproxy,5.7
 haproxy,8.0
 haproxy,8.4

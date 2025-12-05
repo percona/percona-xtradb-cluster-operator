@@ -438,7 +438,7 @@ func (c *Node) LogCollectorContainer(spec *api.LogCollectorSpec, logPsecrets str
 }
 
 func (c *Node) XtrabackupContainer(ctx context.Context, cr *api.PerconaXtraDBCluster) (*corev1.Container, error) {
-	if !features.Enabled(ctx, features.BackupXtrabackup) {
+	if !features.Enabled(ctx, features.BackupSidecar) {
 		return nil, nil
 	}
 	container := &corev1.Container{

@@ -7,7 +7,7 @@ test_dir=$(realpath $(dirname $0))
 
 set_debug
 
-PXCO_FEATURE_GATES="BackupXtrabackup=true"
+PXCO_FEATURE_GATES="BackupSidecar=true"
 
 function jq_filter() {
 	local vault_root=$1

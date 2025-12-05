@@ -174,7 +174,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 	}
 
 	// TODO: implement support
-	if storage.Type == api.BackupStorageFilesystem && features.Enabled(ctx, features.BackupXtrabackup) {
+	if storage.Type == api.BackupStorageFilesystem && features.Enabled(ctx, features.BackupSidecar) {
 		err := errors.New("pvc backup is not supported for xtrabackup mode")
 
 		if err := r.setFailedStatus(ctx, cr, err); err != nil {
@@ -324,7 +324,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) createBackupJob(
 		return nil, errors.Wrap(err, "failed to get initImage")
 	}
 
-	xtrabackupEnabled := features.Enabled(ctx, features.BackupXtrabackup)
+	xtrabackupEnabled := features.Enabled(ctx, features.BackupSidecar)
 	getJobSpec := func() (batchv1.JobSpec, error) {
 		if xtrabackupEnabled {
 			srcNode, err := pxc.GetPrimaryPodDNSName(ctx, r.client, cluster)

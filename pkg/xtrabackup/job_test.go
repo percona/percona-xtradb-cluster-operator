@@ -208,7 +208,7 @@ func TestJobSpec(t *testing.T) {
 	assert.Equal(t, app.BinVolumeMountPath, container.VolumeMounts[0].MountPath)
 
 	// Assert Environment Variables
-	assert.Len(t, container.Env, 3)
+	assert.Len(t, container.Env, 4)
 	envMap := make(map[string]string)
 	for _, env := range container.Env {
 		envMap[env.Name] = env.Value

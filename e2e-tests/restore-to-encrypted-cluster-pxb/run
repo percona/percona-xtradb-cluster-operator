@@ -7,6 +7,8 @@ test_dir=$(realpath $(dirname $0))
 
 set_debug
 
+PXCO_FEATURE_GATES="BackupXtrabackup=true"
+
 main() {
 	if [ -n "$SKIP_REMOTE_BACKUPS" ]; then
 		echo "Skipping test because SKIP_REMOTE_BACKUPS variable is set!"

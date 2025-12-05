@@ -7,6 +7,8 @@ test_dir=$(realpath $(dirname $0))
 
 set_debug
 
+PXCO_FEATURE_GATES="BackupXtrabackup=true"
+
 GTID_PATTERN='[A-F0-9a-f]{8}-[A-F0-9a-f]{4}-[A-F0-9a-f]{4}-[A-F0-9a-f]{4}-[A-F0-9a-f]{12}:[0-9]+'
 
 if [[ $IMAGE_PXC =~ 5\.7 ]]; then

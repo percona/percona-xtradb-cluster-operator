@@ -8,6 +8,7 @@ demand-backup-cloud-pxb,8.0
 demand-backup-encrypted-with-tls,8.0
 demand-backup-encrypted-with-tls,8.4
 demand-backup-encrypted-with-tls-pxb,8.0
+demand-backup-encrypted-with-tls-pxb,8.4
 demand-backup,8.0
 demand-backup-flow-control,8.0
 demand-backup-parallel,8.0

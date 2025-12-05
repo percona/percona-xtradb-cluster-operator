@@ -69,9 +69,6 @@ sed=$(which gsed || which sed)
 date=$(which gdate || which date)
 
 test_name=$(basename $test_dir)
-if is_feature_gate_enabled "BackupXtrabackup"; then
-	test_name="${test_name}-xtrabackup"
-fi
 namespace="${test_name}-${RANDOM}"
 replica_namespace="${test_name}-replica-${RANDOM}"
 conf_dir=$(realpath $test_dir/../conf || :)

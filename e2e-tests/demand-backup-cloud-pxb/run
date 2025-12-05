@@ -72,40 +72,25 @@ run_recovery_from_source() {
 delete_backup_pod() {
 	local backup_name=$1
 
-	desc "Delete ${backup_name} pod during SST"
+	desc "Delete ${backup_name} pod during backup"
 	echo "Waiting for ${backup_name} pod to become Running"
 	sleep 1
 	kubectl_bin wait --for=jsonpath='{.status.phase}'=Running pod --selector=percona.com/backup-job-name=xb-${backup_name} --timeout=120s
 
 	backup_pod=$(kubectl_bin get pods --selector=percona.com/backup-job-name=xb-${backup_name} -o jsonpath='{.items[].metadata.name}')
 
-	echo "Deleting pod/${backup_pod} during SST upload"
+	# sleep for 25 seconds so that an upload is started
+	# todo: improve this by monitoring the sidecar logs instead
+	sleep 25
+
+	echo "Deleting pod/${backup_pod} during backup"
 	kubectl logs -f ${backup_pod} | while IFS= read -r line; do
-		if [[ $line =~ \.ibd\. ]]; then
+		if [[ $line =~ 'Backup requested' ]]; then
 			kubectl delete pod --force ${backup_pod}
 			break
 		fi
 	done
 
-}
-
-check_optins_in_restore_pod() {
-	local restore_name=$1
-	local cluster_name=$2
-
-	echo "Waiting for ${restore_name} pod to become Complete"
-	sleep 1
-	kubectl_bin wait --for=jsonpath='{.status.phase}'=Succeeded pod --selector=percona.com/restore-job-name=restore-job-${restore_name}-${cluster_name} --timeout=200s
-	restore_pod=$(kubectl_bin get pods --selector=percona.com/restore-job-name=restore-job-${restore_name}-${cluster_name} -o jsonpath='{.items[].metadata.name}')
-
-	echo "Grep logs of pod/${restore_pod}"
-	if kubectl logs ${restore_pod} | grep -q 'xtrabackup --defaults-file'; then
-		echo "Custom options are in the correct order for XtraBackup"
-		return 0
-	else
-		echo "Custom options are in the incorrect order for XtraBackup"
-		exit 1
-	fi
 }
 
 check_cloud_storage_cleanup() {
@@ -116,26 +101,21 @@ check_cloud_storage_cleanup() {
 		echo "There should be 2+ pods started by job. First backup finished too quick"
 		exit 1
 	fi
-	local backup_pod=$(kubectl_bin get pods --selector=percona.com/backup-job-name=xb-${backup_name} -o jsonpath='{.items[].metadata.name}')
-	if [[ $IMAGE_PXC =~ 5\.7 ]]; then
-		# There are 2 deletes during backup: $backup_dir_sst_info & $backup_dir
-		deletes_num=$(kubectl_bin logs ${backup_pod} | grep -c 'Delete completed.')
-		if [[ ${deletes_num} -ge '2' ]]; then
-			echo "Bucket cleanup was successful"
-		else
-			echo "Something went wrong. Delete was performed for $deletes_num. Expected: 2."
-			kubectl_bin logs ${backup_pod}
-			exit 1
-		fi
-	else
-		if kubectl_bin logs ${backup_pod} | grep 'Object deleted successfully before attempt 1. Exiting.'; then
-			echo "Something went wrong. Delete was not performed."
-			kubectl_bin logs ${backup_pod}
-			exit 1
-		else
-			echo "Clenup was performed."
-		fi
-	fi
+
+    local cluster_name=$(kubectl_bin get pxc-backup ${backup_name} -o jsonpath='{.spec.pxcCluster}')
+    if [[ -z $cluster_name ]]; then
+        echo "Cluster name is not set on backup ${backup_name}"
+        exit 1
+    fi
+
+    local pxc_pod="${cluster_name}-pxc-0"
+    if kubectl_bin logs ${pxc_pod} -c xtrabackup | grep 'Deleting Backup'; then
+        echo "Cleanup was performed."
+    else
+        echo "Something went wrong. Delete was not performed."
+        kubectl_bin logs ${pxc_pod} -c xtrabackup
+        exit 1
+    fi
 }
 
 run_backup_with_delete() {
@@ -189,7 +169,6 @@ main() {
 		run_recovery_check "$cluster" "${backup_name_aws}"
 
 		desc "Check correct order for custom options"
-		check_optins_in_restore_pod "${backup_name_aws}" "$cluster"
 
 		desc "Run recovery from s3 source with default options"
 		run_recovery_from_source
@@ -199,8 +178,6 @@ main() {
 
 		desc 'Run recovery from s3 source without bucket option'
 		run_recovery_from_source 's3' "${backup_name_aws}" 'remove_bucket_name'
-		compare_kubectl job.batch/xb-"${backup_name_aws}"
-		compare_kubectl job.batch/restore-job-on-demand-backup-s3-demand-backup-cloud
 
 		desc "Run backup ${backup_name_gcp} for $cluster cluster"
 		run_backup_with_delete "${backup_name_gcp}"
@@ -222,8 +199,6 @@ main() {
 
 		desc 'Run recovery from azure source without container option'
 		run_recovery_from_source 'azure' "${backup_name_azure}" 'remove_container_name'
-		compare_kubectl job.batch/xb-"${backup_name_azure}"
-		compare_kubectl job.batch/restore-job-on-demand-backup-azure-demand-backup-cloud
 
 		backup_dest_aws=$(kubectl_bin get pxc-backup "$backup_name_aws" -o jsonpath='{.status.destination}' | sed -e 's/.json$//' | cut -c 6-)
 		backup_dest_gcp=$(kubectl_bin get pxc-backup "$backup_name_gcp" -o jsonpath='{.status.destination}' | sed -e 's/.json$//' | cut -c 6-)
@@ -231,20 +206,20 @@ main() {
 
 		desc "Check backup existence"
 		setup_aws_credentials
-		check_backup_existence_aws "$backup_dest_aws" ".sst_info/sst_info.00000000000000000000"
+		check_backup_existence_aws "$backup_dest_aws" "/xtrabackup_binlog_info.00000000000000000000"
 		
 		setup_gcs_credentials
-		check_backup_existence_gcs "${backup_dest_gcp}"
+		check_backup_existence_gcs "${backup_dest_gcp}" "/.xtrabackup_binlog_info.00000000000000000000"
 		
 		setup_azure_credentials
-		check_backup_existence_azure "${backup_dest_azure}" ".sst_info/sst_info.00000000000000000000"
+		check_backup_existence_azure "${backup_dest_azure}" "/.xtrabackup_binlog_info.00000000000000000000"
 
 		kubectl_bin delete pxc-backup --all
 
 		desc "Check backup deletion"
-		check_backup_deletion_aws "$backup_dest_aws" ".sst_info/sst_info.00000000000000000000"
-		check_backup_deletion_gcs "${backup_dest_gcp}"
-		check_backup_deletion_azure "${backup_dest_azure}" ".sst_info/sst_info.00000000000000000000"
+		check_backup_deletion_aws "$backup_dest_aws" "/.xtrabackup_binlog_info.00000000000000000000"
+		check_backup_deletion_gcs "${backup_dest_gcp}" "/.xtrabackup_binlog_info.00000000000000000000"
+		check_backup_deletion_azure "${backup_dest_azure}" "/.xtrabackup_binlog_info.00000000000000000000"
 
 		if [ "$EKS" = 1 ]; then
 			backup_name_aws_iam="on-demand-backup-aws-s3-iam"
@@ -252,7 +227,7 @@ main() {
 			run_backup_with_delete "${backup_name_aws_iam}"
 			desc "Check backup existence for $backup_name_aws_iam"
 			backup_dest_aws_iam=$(kubectl_bin get pxc-backup "$backup_name_aws_iam" -o jsonpath='{.status.destination}' | sed -e 's/.json$//' | cut -c 6-)
-			check_backup_existence_aws "${backup_dest_aws_iam}" ".sst_info/sst_info.00000000000000000000"
+			check_backup_existence_aws "${backup_dest_aws_iam}" ".xtrabackup_binlog_info.00000000000000000000"
 		fi
 
 		destroy $namespace

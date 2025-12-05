@@ -1,6 +1,0 @@
-#!/bin/bash
-
-set -o errexit
-
-test_dir=$(realpath $(dirname $0))
-PXCO_FEATURE_GATES="BackupXtrabackup=true" ${test_dir}/../demand-backup-cloud/run

@@ -39,13 +39,12 @@ check_cloud_storage_cleanup() {
     fi
 
     local pxc_pod="${cluster_name}-pxc-0"
-	logs_output=$(kubectl_bin logs ${pxc_pod} -c xtrabackup 2>&1)
     if kubectl_bin logs ${pxc_pod} -c xtrabackup | grep 'Deleting Backup'; then
+        echo "Cleanup was performed."
+    else
         echo "Something went wrong. Delete was not performed."
         kubectl_bin logs ${pxc_pod} -c xtrabackup
         exit 1
-    else
-        echo "Cleanup was performed."
     fi
 
 }

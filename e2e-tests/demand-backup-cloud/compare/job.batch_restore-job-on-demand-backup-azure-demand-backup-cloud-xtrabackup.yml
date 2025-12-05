@@ -1,0 +1,112 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  generation: 1
+  labels:
+    app.kubernetes.io/instance: demand-backup-cloud
+    app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+    app.kubernetes.io/name: percona-xtradb-cluster
+    app.kubernetes.io/part-of: percona-xtradb-cluster
+    percona.com/restore-job-name: restore-job-on-demand-backup-azure-demand-backup-cloud
+  name: restore-job-on-demand-backup-azure-demand-backup-cloud
+  ownerReferences:
+    - controller: true
+      kind: PerconaXtraDBClusterRestore
+      name: on-demand-backup-azure
+spec:
+  backoffLimit: 4
+  completionMode: NonIndexed
+  completions: 1
+  manualSelector: false
+  parallelism: 1
+  podReplacementPolicy: TerminatingOrFailed
+  selector:
+    matchLabels: {}
+  suspend: false
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/instance: demand-backup-cloud
+        app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+        app.kubernetes.io/name: percona-xtradb-cluster
+        app.kubernetes.io/part-of: percona-xtradb-cluster
+        percona.com/restore-job-name: restore-job-on-demand-backup-azure-demand-backup-cloud
+    spec:
+      containers:
+        - command:
+            - /opt/percona/backup/recovery-cloud.sh
+          env:
+            - name: PXC_SERVICE
+              value: demand-backup-cloud-pxc
+            - name: PXC_USER
+              value: xtrabackup
+            - name: PXC_PASS
+              valueFrom:
+                secretKeyRef:
+                  key: xtrabackup
+                  name: my-cluster-secrets
+            - name: VERIFY_TLS
+              value: "true"
+            - name: XTRABACKUP_ENABLED
+              value: "true"
+            - name: AZURE_STORAGE_ACCOUNT
+              valueFrom:
+                secretKeyRef:
+                  key: AZURE_STORAGE_ACCOUNT_NAME
+                  name: azure-secret
+            - name: AZURE_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  key: AZURE_STORAGE_ACCOUNT_KEY
+                  name: azure-secret
+            - name: AZURE_ENDPOINT
+            - name: AZURE_STORAGE_CLASS
+            - name: XB_USE_MEMORY
+              value: 100MB
+          imagePullPolicy: Always
+          name: xtrabackup
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /datadir
+              name: datadir
+            - mountPath: /etc/mysql/vault-keyring-secret
+              name: vault-keyring-secret
+            - mountPath: /opt/percona
+              name: bin
+      dnsPolicy: ClusterFirst
+      initContainers:
+        - command:
+            - /backup-init-entrypoint.sh
+          imagePullPolicy: Always
+          name: backup-init
+          resources:
+            limits:
+              cpu: 50m
+              memory: 50M
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /opt/percona
+              name: bin
+      restartPolicy: Never
+      schedulerName: default-scheduler
+      securityContext:
+        fsGroup: 1001
+        supplementalGroups:
+          - 1001
+      serviceAccount: default
+      serviceAccountName: default
+      terminationGracePeriodSeconds: 30
+      volumes:
+        - name: datadir
+          persistentVolumeClaim:
+            claimName: datadir-demand-backup-cloud-pxc-0
+        - name: vault-keyring-secret
+          secret:
+            defaultMode: 420
+            optional: true
+            secretName: some-name-vault
+        - emptyDir: {}
+          name: bin

@@ -27,7 +27,7 @@ main() {
 	table_must_be_encrypted "$cluster" "myApp"
 
 	# todo: add support for pvc
-	if [[ ! "$PXCO_FEATURE_GATES" == *"BackupXtrabackup=true"*  ]]; then
+	if !is_feature_gate_enabled "BackupXtrabackup"; then
 		run_backup "$cluster" "on-demand-backup-pvc"
 		run_recovery_check "$cluster" "on-demand-backup-pvc"
 		kubectl_bin delete -f "$test_dir/conf/restore-on-demand-backup-pvc.yaml"
@@ -45,7 +45,7 @@ main() {
 	fi
 
 	# in xtrabackup mode, we do not store our own transition keys, so this test is not applicable
-	if [[ ! "$PXCO_FEATURE_GATES" == *"BackupXtrabackup=true"*  ]]; then
+	if !is_feature_gate_enabled "BackupXtrabackup"; then
 		mountpt=$(kubectl_bin get -f "$conf_dir/vault-secret.yaml" -o json | grep -E -o "secret_mount_point = \w+" | awk -F "=[ ]*" '{print $2}')
 		transition_keys=$(kubectl_bin exec --namespace="$vault1" -it $vault1-0 -- sh -c "
 			VAULT_TOKEN=$token1 vault kv list -format=json $mountpt/backup/" \
@@ -65,7 +65,7 @@ old_token = '$token1'
 new_url = '$ip2:8200'
 new_token = '$token2'
 secrets = [ $transition_keys ]
-	\" > /src/config.py
+\" > /src/config.py
 		python3 /src/vault-cp.py
 		"
 

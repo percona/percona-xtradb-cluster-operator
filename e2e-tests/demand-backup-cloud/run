@@ -156,10 +156,15 @@ main() {
 		desc 'Run recovery from s3 source without s3:// prefix in destination'
 		run_recovery_from_source 's3' "${backup_name_aws}" '' 'remove_prefix_from_destination'
 
+		postfix=""
+		if is_feature_gate_enabled "BackupXtrabackup"; then
+			postfix="-xtrabackup"
+		fi
+
 		desc 'Run recovery from s3 source without bucket option'
 		run_recovery_from_source 's3' "${backup_name_aws}" 'remove_bucket_name'
-		compare_kubectl job.batch/xb-"${backup_name_aws}"
-		compare_kubectl job.batch/restore-job-on-demand-backup-s3-demand-backup-cloud
+		compare_kubectl job.batch/xb-"${backup_name_aws}" "${postfix}"
+		compare_kubectl job.batch/restore-job-on-demand-backup-s3-demand-backup-cloud "${postfix}"
 
 		desc "Run backup ${backup_name_gcp} for $cluster cluster"
 		run_backup_with_delete "${backup_name_gcp}"
@@ -181,8 +186,8 @@ main() {
 
 		desc 'Run recovery from azure source without container option'
 		run_recovery_from_source 'azure' "${backup_name_azure}" 'remove_container_name'
-		compare_kubectl job.batch/xb-"${backup_name_azure}"
-		compare_kubectl job.batch/restore-job-on-demand-backup-azure-demand-backup-cloud
+		compare_kubectl job.batch/xb-"${backup_name_azure}" "${postfix}"
+		compare_kubectl job.batch/restore-job-on-demand-backup-azure-demand-backup-cloud "${postfix}"
 
 		backup_dest_aws=$(kubectl_bin get pxc-backup "$backup_name_aws" -o jsonpath='{.status.destination}' | sed -e 's/.json$//' | cut -c 6-)
 		backup_dest_gcp=$(kubectl_bin get pxc-backup "$backup_name_gcp" -o jsonpath='{.status.destination}' | sed -e 's/.json$//' | cut -c 6-)
@@ -190,15 +195,15 @@ main() {
 
 		check_backup_file_name='.sst_info/sst_info.00000000000000000000'
 		if is_feature_gate_enabled "BackupXtrabackup"; then
-			check_backup_file_name='xtrabackup_binlog_info.00000000000000000000'
+			check_backup_file_name='/xtrabackup_binlog_info.00000000000000000000'
 		fi
 
-		desc "Check backup existence"
+		# desc "Check backup existence"
 		setup_aws_credentials
 		check_backup_existence_aws "$backup_dest_aws" "$check_backup_file_name"
 		
 		setup_gcs_credentials
-		check_backup_existence_gcs "${backup_dest_gcp}"
+		check_backup_existence_gcs "${backup_dest_gcp}" "$check_backup_file_name"
 		
 		setup_azure_credentials
 		check_backup_existence_azure "${backup_dest_azure}" "$check_backup_file_name"
@@ -207,7 +212,7 @@ main() {
 
 		desc "Check backup deletion"
 		check_backup_deletion_aws "$backup_dest_aws" "$check_backup_file_name"
-		check_backup_deletion_gcs "${backup_dest_gcp}"
+		check_backup_deletion_gcs "${backup_dest_gcp}" "$check_backup_file_name"
 		check_backup_deletion_azure "${backup_dest_azure}" "$check_backup_file_name"
 
 		if [ "$EKS" = 1 ]; then

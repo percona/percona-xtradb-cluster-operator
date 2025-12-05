@@ -2,6 +2,7 @@ package pxc
 
 import (
 	"context"
+	"crypto/rand"
 	"io"
 	"strings"
 	"testing"
@@ -170,7 +171,7 @@ func (r *repeatingReader) Read(p []byte) (int, error) {
 	return len(p), nil
 }
 
-func TestGeneratePassProxyadmin(t *testing.T) {
+func TestGeneratePass(t *testing.T) {
 	t.Run("proxyadmin", func(t *testing.T) {
 		secretOptions := &api.PasswordGenerationOptions{
 			Symbols:   "!#$%&()*+,-.<=>?@[]^_{}~",
@@ -192,6 +193,9 @@ func TestGeneratePassProxyadmin(t *testing.T) {
 				8,
 			},
 		}
+		t.Cleanup(func() {
+			randReader = rand.Reader
+		})
 
 		p, err := generatePass("", secretOptions)
 		require.NoError(t, err)

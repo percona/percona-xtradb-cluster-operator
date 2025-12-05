@@ -76,7 +76,7 @@ wait_for_upload_to_start() {
 
 	attempts=0
 	until kubectl_bin logs ${pod_name} -c xtrabackup | grep -q 'successfully uploaded chunk'; do
-		sleep 3
+		sleep 1
 		let attempts+=1
 		if [ $attempts -ge $max_attempts ]; then
 			echo "Upload did not start on time"
@@ -92,31 +92,21 @@ delete_backup_pod() {
 	local backup_name=$1
 	desc "Delete ${backup_name} pod during backup"
 	
-	echo "Waiting for ${backup_name} pod to become Running"
-	sleep 1
-	kubectl_bin wait --for=jsonpath='{.status.phase}'=Running pod --selector=percona.com/backup-job-name=xb-${backup_name} --timeout=120s
-
-	backup_pod=$(kubectl_bin get pods --selector=percona.com/backup-job-name=xb-${backup_name} -o jsonpath='{.items[].metadata.name}')
-
     local cluster_name=$(kubectl_bin get pxc-backup ${backup_name} -o jsonpath='{.spec.pxcCluster}')
     if [[ -z $cluster_name ]]; then
         echo "Cluster name is not set on backup ${backup_name}"
         exit 1
     fi
+	
+	backup_pod=$(kubectl_bin get pods --selector=percona.com/backup-job-name=xb-${backup_name} -o jsonpath='{.items[].metadata.name}')
+	echo "Waiting for pod/${backup_pod} to become Running"
+	kubectl_bin wait --for=jsonpath='{.status.phase}'=Running pod/${backup_pod} --timeout=120s
 
     local pxc_pod="${cluster_name}-pxc-0"
 
 	echo "Waiting for upload to start"
 	wait_for_upload_to_start ${pxc_pod}
-
-	echo "Deleting pod/${backup_pod} during backup"
-	kubectl logs -f ${backup_pod} | while IFS= read -r line; do
-		if [[ $line =~ 'Backup requested' ]]; then
-			kubectl delete pod --force ${backup_pod}
-			break
-		fi
-	done
-
+	kubectl delete pod --force ${backup_pod}
 }
 
 check_cloud_storage_cleanup() {

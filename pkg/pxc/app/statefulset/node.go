@@ -16,7 +16,7 @@ import (
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
-	app "github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/config"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 )
@@ -270,6 +270,9 @@ func (c *Node) AppContainer(ctx context.Context, cl client.Client, spec *api.Pod
 
 	if cr.CompareVersionWith("1.19.0") >= 0 {
 		setLDPreloadEnv(ctx, cl, cr, &appc)
+
+		extraMounts := api.ExtraPVCVolumeMounts(ctx, spec.ExtraPVCs)
+		appc.VolumeMounts = append(appc.VolumeMounts, extraMounts...)
 	}
 
 	return appc, nil

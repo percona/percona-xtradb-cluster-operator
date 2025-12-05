@@ -134,6 +134,33 @@ func generatePass(username string, secretsOptions *api.PasswordGenerationOptions
 		b[i] = symbols[randInt.Int64()]
 	}
 
+	// Ensure at least one special symbol is included if symbols are configured
+	if len(secretsOptions.Symbols) > 0 {
+		allowedSymbols := secretsOptions.Symbols
+		if username == users.ProxyAdmin {
+			allowedSymbols = strings.NewReplacer(":", "", ";", "", "*", "").Replace(allowedSymbols)
+		}
+
+		if len(allowedSymbols) > 0 {
+			startPos := 0
+			if username == users.ProxyAdmin && ln > 1 {
+				startPos = 1
+			}
+
+			posInt, err := rand.Int(randReader, big.NewInt(int64(ln-startPos)))
+			if err != nil {
+				return nil, errors.Wrap(err, "get rand position for symbol")
+			}
+			pos := int(posInt.Int64()) + startPos
+
+			symbolInt, err := rand.Int(randReader, big.NewInt(int64(len(allowedSymbols))))
+			if err != nil {
+				return nil, errors.Wrap(err, "get rand symbol")
+			}
+			b[pos] = allowedSymbols[symbolInt.Int64()]
+		}
+	}
+
 	return b, nil
 }
 

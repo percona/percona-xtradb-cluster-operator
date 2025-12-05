@@ -2066,16 +2066,15 @@ wait_for_pmm_service() {
 	timeout=420
 	start=$(date +%s)
 
-	until kubectl_bin get pod monitoring-0 >/dev/null 2>&1 \
-   	&& kubectl_bin get svc monitoring-service -o jsonpath='{.status.loadBalancer.ingress[0]}' 2>/dev/null | grep -q .; do
-    (( $(date +%s) - start >= timeout )) && {
-        echo "timeout waiting for pod and service or pod to be created"
+	until kubectl_bin get svc monitoring-service -o jsonpath='{.status.loadBalancer.ingress[0]}' 2>/dev/null | grep -q .; do
+    if (( $(date +%s) - start >= timeout )); then
+        echo "timeout waiting for service to be available"
         exit 1
-    }
+    fi
     sleep 2
 	done
 
-	kubectl_bin wait pod/monitoring-0 --for=condition=Ready --timeout=${timeout}s
+	kubectl_bin wait sts/monitoring --for=jsonpath='{.status.readyReplicas}'=1 --timeout=${timeout}s
 }
 
 run_recovery_check_pitr() {

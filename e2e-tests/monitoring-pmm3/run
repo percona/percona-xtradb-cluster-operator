@@ -36,6 +36,8 @@ deploy_pmm3_server() {
 		--set service.type=LoadBalancer \
 		$additional_params \
 		--force
+
+	wait_for_pmm_service
 }
 
 spinup_pxc() {
@@ -357,16 +359,6 @@ deploy_helm $namespace
 
 desc 'install PMM Server'
 deploy_pmm3_server
-kubectl_bin wait --for=condition=Ready pod/${cluster}-0 --timeout=120s
-until kubectl_bin exec monitoring-0 -- bash -c "ls -l /proc/*/exe 2>/dev/null| grep postgres >/dev/null"; do
-	echo "Retry $retry"
-	sleep 5
-	let retry+=1
-	if [ $retry -ge 20 ]; then
-		echo "Max retry count $retry reached. PMM3-server can't start"
-		exit 1
-	fi
-done
 
 desc 'create secret'
 kubectl_bin apply -f "$test_dir/conf/secrets.yaml"

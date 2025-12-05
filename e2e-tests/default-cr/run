@@ -66,7 +66,6 @@ function main() {
 
 	desc 'install PMM Server'
 	deploy_pmm_server
-	sleep 120
 	ADMIN_PASSWORD=$(kubectl_bin exec monitoring-0 -- bash -c "printenv | grep ADMIN_PASSWORD | cut -d '=' -f2")
 	MONITORING_ENDPOINT=$(get_service_endpoint monitoring-service)
 	API_KEY=$(curl --insecure -X POST -H "Content-Type: application/json" -d '{"name":"operator", "role": "Admin"}' "https://admin:$ADMIN_PASSWORD@$MONITORING_ENDPOINT/graph/api/auth/keys" | jq .key)

@@ -54,6 +54,23 @@ fi
 # shellcheck disable=SC2086
 xbcloud get --parallel="$(grep -c processor /proc/cpuinfo)" ${XBCLOUD_ARGS} "$(destination)" | xbstream -x -C "${tmp}" --parallel="$(grep -c processor /proc/cpuinfo)" $XBSTREAM_EXTRA_ARGS
 
+set +o xtrace
+if [[ -f "${tmp}/sst_info" ]]; then
+	transition_key=$(vault_get "$tmp/sst_info")
+	if [[ -n $transition_key && $transition_key != null ]]; then
+		MYSQL_VERSION=$(parse_ini 'mysql-version' "$tmp/sst_info")
+		if ! check_for_version "$MYSQL_VERSION" '5.7.29' \
+			&& [[ $MYSQL_VERSION != '5.7.28-31-57.2' ]]; then
+
+			# shellcheck disable=SC2016
+			transition_key='$transition_key'
+		fi
+
+		transition_option="--transition-key=$transition_key"
+		echo transition-key exists
+	fi
+fi
+
 PXB_VAULT_PREPARE_ARGS=""
 PXB_VAULT_MOVEBACK_ARGS=""
 VAULT_CONFIG_FILE=/etc/mysql/vault-keyring-secret/keyring_vault.conf
@@ -73,23 +90,7 @@ if [[ -f ${VAULT_CONFIG_FILE} ]]; then
 	fi
 fi
 
-set +o xtrace
 
-if [[ -f "${tmp}/sst_info" ]]; then
-	transition_key=$(vault_get "$tmp/sst_info")
-	if [[ -n $transition_key && $transition_key != null ]]; then
-		MYSQL_VERSION=$(parse_ini 'mysql-version' "$tmp/sst_info")
-		if ! check_for_version "$MYSQL_VERSION" '5.7.29' \
-			&& [[ $MYSQL_VERSION != '5.7.28-31-57.2' ]]; then
-
-			# shellcheck disable=SC2016
-			transition_key='$transition_key'
-		fi
-
-		transition_option="--transition-key=$transition_key"
-		echo transition-key exists
-	fi
-fi
 
 if [ -f "${tmp}/xtrabackup_keys" ]; then
 	master_key_options="--generate-new-master-key"

@@ -27,6 +27,7 @@ function get_secret_mount_point() {
 }
 
 main() {
+	# todo: support PVC for pxb
 	if [ -n "$SKIP_REMOTE_BACKUPS" ]; then
 		echo "Skipping test because SKIP_REMOTE_BACKUPS variable is set!"
 		exit 0

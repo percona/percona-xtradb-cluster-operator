@@ -116,11 +116,11 @@ func getRequestObject() *xbscapi.CreateBackupRequest {
 		log.Fatalf("Invalid storage type: %s", storageType)
 	}
 
-	reqJson, err := json.Marshal(req)
+	reqSanitized, err := sanitizeRequest(req)
 	if err != nil {
-		log.Fatalf("Failed to marshal request: %v", err)
+		log.Fatalf("Failed to sanitize request: %v", err)
 	}
-	log.Printf("Request=%s", string(reqJson))
+	log.Printf("Request=%s", reqSanitized)
 	return req
 }
 
@@ -143,4 +143,34 @@ func setAzureConfig(req *xbscapi.CreateBackupRequest) {
 		StorageAccount: os.Getenv("AZURE_STORAGE_ACCOUNT"),
 		AccessKey:      os.Getenv("AZURE_ACCESS_KEY"),
 	}
+}
+
+func sanitizeRequest(req *xbscapi.CreateBackupRequest) (string, error) {
+	// Create a deep copy to avoid modifying the original request
+	reqBytes, err := json.Marshal(req)
+	if err != nil {
+		return "", err
+	}
+
+	var reqCopy xbscapi.CreateBackupRequest
+	if err := json.Unmarshal(reqBytes, &reqCopy); err != nil {
+		return "", err
+	}
+
+	// Sanitize the copy
+	if reqCopy.BackupConfig != nil {
+		if reqCopy.BackupConfig.S3 != nil {
+			reqCopy.BackupConfig.S3.SecretKey = "********"
+			reqCopy.BackupConfig.S3.AccessKey = "********"
+		}
+		if reqCopy.BackupConfig.Azure != nil {
+			reqCopy.BackupConfig.Azure.AccessKey = "********"
+		}
+	}
+
+	js, err := json.Marshal(&reqCopy)
+	if err != nil {
+		return "", err
+	}
+	return string(js), nil
 }

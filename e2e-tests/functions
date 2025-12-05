@@ -29,6 +29,15 @@ if oc get projects 2>/dev/null; then
 	OPENSHIFT=$(oc version -o json | jq -r '.openshiftVersion' | grep -oE '^[0-9]+\.[0-9]+')
 fi
 
+is_feature_gate_enabled() {
+	local feature_gate=$1
+	if [[ "$PXCO_FEATURE_GATES" == *"$feature_gate=true"* ]]; then
+		return 0
+	else
+		return 1
+	fi
+}
+
 add_docker_reg() {
 	local var=$1
 
@@ -60,6 +69,9 @@ sed=$(which gsed || which sed)
 date=$(which gdate || which date)
 
 test_name=$(basename $test_dir)
+if is_feature_gate_enabled "BackupXtrabackup"; then
+	test_name="${test_name}-xtrabackup"
+fi
 namespace="${test_name}-${RANDOM}"
 replica_namespace="${test_name}-replica-${RANDOM}"
 conf_dir=$(realpath $test_dir/../conf || :)
@@ -2092,13 +2104,4 @@ get_pvc_name_for_backup() {
   local pvc_name="${destination#pvc/}"
 
   echo "$pvc_name"
-}
-
-is_feature_gate_enabled() {
-	local feature_gate=$1
-	if [[ "$PXCO_FEATURE_GATES" == *"$feature_gate=true"* ]]; then
-		return 0
-	else
-		return 1
-	fi
 }

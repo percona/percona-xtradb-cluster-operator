@@ -11,6 +11,7 @@ demand-backup-parallel
 demand-backup-cloud
 demand-backup-encrypted-with-tls
 demand-backup-without-passwords
+extra-pvc
 haproxy
 init-deploy
 limits

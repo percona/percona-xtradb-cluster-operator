@@ -54,6 +54,25 @@ fi
 # shellcheck disable=SC2086
 xbcloud get --parallel="$(grep -c processor /proc/cpuinfo)" ${XBCLOUD_ARGS} "$(destination)" | xbstream -x -C "${tmp}" --parallel="$(grep -c processor /proc/cpuinfo)" $XBSTREAM_EXTRA_ARGS
 
+PXB_VAULT_PREPARE_ARGS=""
+PXB_VAULT_MOVEBACK_ARGS=""
+VAULT_CONFIG_FILE=/etc/mysql/vault-keyring-secret/keyring_vault.conf
+VAULT_KEYRING_COMPONENT=/opt/percona/component_keyring_vault.cnf
+if [[ -f ${VAULT_CONFIG_FILE} ]]; then
+	if check_for_version "$XTRABACKUP_VERSION" '8.4.0'; then
+		cp ${VAULT_CONFIG_FILE} ${VAULT_KEYRING_COMPONENT}
+		PXB_VAULT_MOVEBACK_ARGS="--component-keyring-config=${VAULT_KEYRING_COMPONENT}"
+		PXB_VAULT_PREPARE_ARGS="${PXB_VAULT_MOVEBACK_ARGS}"
+	else
+		PXB_VAULT_MOVEBACK_ARGS="--keyring-vault-config=${VAULT_CONFIG_FILE} --early-plugin-load=keyring_vault.so"
+
+		# If backup-my.cnf does not contain plugin_load, then --prepare will fail if you pass the --keyring-vault-config option.
+		if [[ -n "$(parse_ini 'plugin_load' "${tmp}/backup-my.cnf")" ]] && [[ -z $transition_key ]]; then
+			PXB_VAULT_PREPARE_ARGS="--keyring-vault-config=${VAULT_CONFIG_FILE}"
+		fi
+	fi
+fi
+
 set +o xtrace
 
 if [[ -f "${tmp}/sst_info" ]]; then
@@ -107,28 +126,22 @@ if [[ "${XTRABACKUP_ENABLED}" == "true" ]]; then
 	DEFAULTS_FILE=""
 fi
 
-# If backup-my.cnf does not contain plugin_load, then --prepare will fail if you pass the --keyring-vault-config option.
-if [[ -n "$(parse_ini 'plugin_load' "${tmp}/backup-my.cnf")" ]] && [[ -z $transition_key ]]; then
-	KEYRING_VAULT_CONFIG="--keyring-vault-config=/etc/mysql/vault-keyring-secret/keyring_vault.conf"
-fi
-
-echo "+ xtrabackup $DEFAULTS_FILE ${XB_USE_MEMORY+--use-memory=$XB_USE_MEMORY} --prepare $REMAINING_XB_ARGS --binlog-info=ON --rollback-prepared-trx \
-	$KEYRING_VAULT_CONFIG --xtrabackup-plugin-dir=/usr/lib64/xtrabackup/plugin --target-dir=$tmp"
-
+echo "+ xtrabackup $DEFAULTS_FILE ${XB_USE_MEMORY+--use-memory=$XB_USE_MEMORY} --prepare \
+	$REMAINING_XB_ARGS --rollback-prepared-trx  --xtrabackup-plugin-dir=/usr/lib64/xtrabackup/plugin \
+	--target-dir=$tmp ${PXB_VAULT_PREPARE_ARGS}"
 
 # shellcheck disable=SC2086
-xtrabackup $DEFAULTS_FILE ${XB_USE_MEMORY+--use-memory=$XB_USE_MEMORY} --prepare $REMAINING_XB_ARGS $transition_option --rollback-prepared-trx \
-	$KEYRING_VAULT_CONFIG --xtrabackup-plugin-dir=/usr/lib64/xtrabackup/plugin "--target-dir=$tmp"
+xtrabackup $DEFAULTS_FILE ${XB_USE_MEMORY+--use-memory=$XB_USE_MEMORY} --prepare \
+	$REMAINING_XB_ARGS $transition_option --rollback-prepared-trx \
+	--xtrabackup-plugin-dir=/usr/lib64/xtrabackup/plugin --target-dir="$tmp" ${PXB_VAULT_PREPARE_ARGS}
 
-echo "+ xtrabackup $DEFAULTS_FILE $DEFAULTS_GROUP --datadir=/datadir --move-back $REMAINING_XB_ARGS --binlog-info=ON \
---force-non-empty-directories $master_key_options \
---keyring-vault-config=/etc/mysql/vault-keyring-secret/keyring_vault.conf --early-plugin-load=keyring_vault.so \
---xtrabackup-plugin-dir=/usr/lib64/xtrabackup/plugin --target-dir=$tmp"
+echo "+ xtrabackup $DEFAULTS_FILE --defaults-group=mysqld --datadir=/datadir --move-back \
+	$REMAINING_XB_ARGS --force-non-empty-directories $master_key_options \
+	${PXB_VAULT_MOVEBACK_ARGS} --xtrabackup-plugin-dir=/usr/lib64/xtrabackup/plugin --target-dir=$tmp"
 
 # shellcheck disable=SC2086
 xtrabackup $DEFAULTS_FILE $DEFAULTS_GROUP --datadir=/datadir --move-back $REMAINING_XB_ARGS \
 	--force-non-empty-directories $transition_option $master_key_options \
-	--keyring-vault-config=/etc/mysql/vault-keyring-secret/keyring_vault.conf --early-plugin-load=keyring_vault.so \
-	--xtrabackup-plugin-dir=/usr/lib64/xtrabackup/plugin "--target-dir=$tmp"
+	${PXB_VAULT_MOVEBACK_ARGS} --xtrabackup-plugin-dir=/usr/lib64/xtrabackup/plugin --target-dir="$tmp"
 
 rm -rf "$tmp"

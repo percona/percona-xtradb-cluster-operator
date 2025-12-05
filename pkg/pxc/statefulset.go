@@ -114,6 +114,11 @@ func StatefulSet(
 	pod.Containers = api.AddSidecarContainers(log, pod.Containers, podSpec.Sidecars)
 	pod.Volumes = api.AddSidecarVolumes(log, pod.Volumes, podSpec.SidecarVolumes)
 
+	if cr.CompareVersionWith("1.19.0") >= 0 {
+		extraVolumes := api.ExtraPVCVolumes(ctx, podSpec.ExtraPVCs)
+		pod.Volumes = append(pod.Volumes, extraVolumes...)
+	}
+
 	ls := sfs.Labels()
 
 	customLabels := make(map[string]string, len(ls))

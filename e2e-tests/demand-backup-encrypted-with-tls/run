@@ -12,6 +12,18 @@ function jq_filter() {
 	jq -r "[ .[] | .=\"'$vault_root/\"+.+\"'\" ] | join(\", \")"
 }
 
+function get_secret_mount_point() {
+	if [[ $IMAGE_PXC =~ 8\.4 ]]; then
+		kubectl_bin get -f ${conf_dir}/vault-secret-84.yaml -o yaml \
+			| yq '.data."keyring_vault.conf"' | base64 -d \
+			| jq -r .secret_mount_point
+	else
+		kubectl_bin get -f "${conf_dir}/vault-secret.yaml" -o json \
+			| grep -E -o "secret_mount_point = \w+" \
+			| awk -F "=[ ]*" '{print $2}'
+	fi
+}
+
 main() {
 	create_infra $namespace
 
@@ -46,7 +58,7 @@ main() {
 
 	# in xtrabackup mode, we do not store our own transition keys, so this test is not applicable
 	if !is_feature_gate_enabled "BackupXtrabackup"; then
-		mountpt=$(kubectl_bin get -f "$conf_dir/vault-secret.yaml" -o json | grep -E -o "secret_mount_point = \w+" | awk -F "=[ ]*" '{print $2}')
+		mountpt=$(get_secret_mount_point)
 		transition_keys=$(kubectl_bin exec --namespace="$vault1" -it $vault1-0 -- sh -c "
 			VAULT_TOKEN=$token1 vault kv list -format=json $mountpt/backup/" \
 			| jq_filter "$mountpt/backup/")

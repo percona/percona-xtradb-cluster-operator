@@ -53,6 +53,16 @@ check_finalizer_for_fs() {
 
 }
 
+check_restore_logs() {
+	local restore=$1
+	local search=$2
+
+	if ! kubectl logs ${restore} | grep -E "${search}"; then
+		log "couldn't find '${search}' in ${restore} logs"
+		exit 1
+	fi
+}
+
 main() {
 	create_infra $namespace
 
@@ -70,7 +80,7 @@ main() {
 	check_finalizer_for_fs "on-demand-backup-pvc"
 
 	run_backup "$cluster" "on-demand-backup-pvc-with-finalizer"
-  check_finalizer_for_fs "on-demand-backup-pvc-with-finalizer"
+	check_finalizer_for_fs "on-demand-backup-pvc-with-finalizer"
 
 	run_backup "$cluster" "on-demand-backup-pvc-bsource"
 	run_recovery_check "$cluster" "on-demand-backup-pvc-bsource"
@@ -120,11 +130,12 @@ main() {
 	run_recovery_check "$cluster" "on-demand-backup-minio"
 	compare_kubectl job/restore-job-on-demand-backup-minio-demand-backup
 	restore_job_name=$(kubectl get pod -l "percona.com/restore-job-name=restore-job-on-demand-backup-minio-demand-backup" -o jsonpath='{.items[].metadata.name}')
-	kubectl logs "$restore_job_name" | grep "xtrabackup  --defaults-group=mysqld --datadir=/datadir --move-back --parallel=3"
-	kubectl logs "$restore_job_name" | grep "xtrabackup  --use-memory=1500000000 --prepare --parallel=3"
-	kubectl logs "$restore_job_name" | grep -E "xbcloud get --parallel=[0-9]+ --insecure (--curl-retriable-errors=7 )?--parallel=3"
-	kubectl logs "$restore_job_name" | grep -E "xbstream -x -C .* --parallel=[0-9]+ --parallel=3"
-	kubectl logs "$restore_job_name" | grep -E "(xbstream --decompress -x -C .* --parallel=[0-9]+ --parallel=3|xbstream -x -C .* --parallel=[0-9]+ --parallel=3)"
+	
+	check_restore_logs ${restore_job_name} "xtrabackup  --defaults-group=mysqld --datadir=/datadir --move-back"
+	check_restore_logs ${restore_job_name} "xtrabackup  --use-memory=1500000000 --prepare"
+	check_restore_logs ${restore_job_name} "xbcloud get --parallel=[0-9]+ --insecure (--curl-retriable-errors=7 )?--parallel=3"
+	check_restore_logs ${restore_job_name} "xbstream -x -C .* --parallel=[0-9]+ --parallel=3"
+	check_restore_logs ${restore_job_name} "(xbstream --decompress -x -C .* --parallel=[0-9]+ --parallel=3|xbstream -x -C .* --parallel=[0-9]+ --parallel=3)"
 
 	desc "Check backup deletion"
 	kubectl_bin delete pxc-backup --all

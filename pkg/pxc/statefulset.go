@@ -60,7 +60,7 @@ func StatefulSet(
 		pod.Volumes = sfsVolume.Volumes
 	}
 
-	if features.Enabled(ctx, features.BackupXtrabackup) {
+	if features.Enabled(ctx, features.BackupSidecar) {
 		pod.Volumes = append(pod.Volumes, corev1.Volume{
 			Name: "backup-logs",
 			VolumeSource: corev1.VolumeSource{

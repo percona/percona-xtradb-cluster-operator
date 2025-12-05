@@ -39,7 +39,7 @@ function wait_for_proxy() {
 	echo "ProxySQL is up and running."
 }
 
-PERCONA_SCHEDULER_CFG=/opt/percona/scheduler-config.toml
+PERCONA_SCHEDULER_CFG=/tmp/scheduler-config.toml
 
 function main() {
 	echo "Running $0"
@@ -83,8 +83,6 @@ function main() {
 	done
 
 	wait_for_proxy
-
-	sed -i "s/^clusterHost.*=.*$/clusterHost=\"${service}\"/" ${PERCONA_SCHEDULER_CFG}
 
 	SSL_ARG=""
 	if [ "$(proxysql_admin_exec "127.0.0.1" 'SELECT variable_value FROM global_variables WHERE variable_name="mysql-have_ssl"')" = "true" ]; then

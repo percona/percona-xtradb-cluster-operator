@@ -24,7 +24,7 @@ PROXY_ADMIN_CFG=/etc/proxysql-admin.cnf
 
 # Percona scheduler
 PERCONA_SCHEDULER_CFG_TMPL=/opt/percona/proxysql_scheduler_config.tmpl
-PERCONA_SCHEDULER_CFG=/opt/percona/scheduler-config.toml
+PERCONA_SCHEDULER_CFG=/tmp/scheduler-config.toml
 if [[ -f ${PERCONA_SCHEDULER_CFG_TMPL} ]]; then
 	cp ${PERCONA_SCHEDULER_CFG_TMPL} ${PERCONA_SCHEDULER_CFG}
 fi
@@ -56,13 +56,14 @@ set -o xtrace # hide sensitive information
 # Percona scheduler
 if [[ -f ${PERCONA_SCHEDULER_CFG} ]]; then
 	set +o xtrace # hide sensitive information
-	sed_in_place "s/SCHEDULER_PROXYSQLHOST/'$(hostname -f)'/" ${PERCONA_SCHEDULER_CFG}
 	sed_in_place "s/SCHEDULER_PROXYSQLPASSWORD/'${PROXY_ADMIN_PASSWORD_ESCAPED:-admin}'/" ${PERCONA_SCHEDULER_CFG}
 	sed_in_place "s/SCHEDULER_CLUSTERPASSWORD/'${OPERATOR_PASSWORD_ESCAPED:-operator}'/" ${PERCONA_SCHEDULER_CFG}
-	sed_in_place "s/SCHEDULER_CLUSTERPORT/'${CLUSTER_PORT:-3306}'/" ${PERCONA_SCHEDULER_CFG}
 	sed_in_place "s/SCHEDULER_MONITORPASSWORD/'${MONITOR_PASSWORD_ESCAPED:-monitor}'/" ${PERCONA_SCHEDULER_CFG}
 	set -o xtrace # hide sensitive information
 
+	sed_in_place "s/SCHEDULER_PROXYSQLHOST/'$(hostname -f)'/" ${PERCONA_SCHEDULER_CFG}
+	sed_in_place "s/SCHEDULER_CLUSTERHOST/'${PXC_SERVICE}.$(hostname -f | cut -d '.' -f3-)'/" ${PERCONA_SCHEDULER_CFG}
+	sed_in_place "s/SCHEDULER_CLUSTERPORT/'${CLUSTER_PORT:-3306}'/" ${PERCONA_SCHEDULER_CFG}
 	sed_in_place "s/SCHEDULER_MAXCONNECTIONS/${SCHEDULER_MAXCONNECTIONS}/g" ${PERCONA_SCHEDULER_CFG}
 	sed_in_place "s/SCHEDULER_NODECHECKINTERVAL/${SCHEDULER_NODECHECKINTERVAL}/g" ${PERCONA_SCHEDULER_CFG}
 	sed_in_place "s/SCHEDULER_CHECKTIMEOUT/${SCHEDULER_CHECKTIMEOUT}/g" ${PERCONA_SCHEDULER_CFG}

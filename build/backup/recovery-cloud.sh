@@ -120,7 +120,7 @@ if ! check_for_version "$XTRABACKUP_VERSION" '8.0.0'; then
 fi
 
 DEFAULTS_GROUP="--defaults-group=mysqld"
-if [[ "${XTRABACKUP_ENABLED}" == "true" ]]; then
+if [[ ${XTRABACKUP_ENABLED} == "true" ]]; then
 	# these must not be set for pxb
 	DEFAULTS_GROUP=""
 	DEFAULTS_FILE=""

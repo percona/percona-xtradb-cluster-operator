@@ -225,16 +225,16 @@ main() {
 		setup_aws_credentials
 		check_backup_existence_aws "$backup_dest_aws" "/xtrabackup_binlog_info.00000000000000000000"
 		setup_gcs_credentials
-		check_backup_existence_gcs "${backup_dest_gcp}" "/.xtrabackup_binlog_info.00000000000000000000"
+		check_backup_existence_gcs "${backup_dest_gcp}" "/xtrabackup_binlog_info.00000000000000000000"
 		setup_azure_credentials
-		check_backup_existence_azure "${backup_dest_azure}" "/.xtrabackup_binlog_info.00000000000000000000"
+		check_backup_existence_azure "${backup_dest_azure}" "/xtrabackup_binlog_info.00000000000000000000"
 
 		kubectl_bin delete pxc-backup --all
 
 		desc "Check backup deletion"
-		check_backup_deletion_aws "$backup_dest_aws" "/.xtrabackup_binlog_info.00000000000000000000"
-		check_backup_deletion_gcs "${backup_dest_gcp}" "/.xtrabackup_binlog_info.00000000000000000000"
-		check_backup_deletion_azure "${backup_dest_azure}" "/.xtrabackup_binlog_info.00000000000000000000"
+		check_backup_deletion_aws "$backup_dest_aws" "/xtrabackup_binlog_info.00000000000000000000"
+		check_backup_deletion_gcs "${backup_dest_gcp}" "/xtrabackup_binlog_info.00000000000000000000"
+		check_backup_deletion_azure "${backup_dest_azure}" "/xtrabackup_binlog_info.00000000000000000000"
 
 		if [ "$EKS" = 1 ]; then
 			backup_name_aws_iam="on-demand-backup-aws-s3-iam"

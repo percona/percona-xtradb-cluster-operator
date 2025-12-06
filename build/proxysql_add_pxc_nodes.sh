@@ -3,6 +3,12 @@
 set -o errexit
 set -o xtrace
 
+function log() {
+	set +o xtrace
+	echo "[$(date +%Y-%m-%dT%H:%M:%S%z)]" $*
+	set -o xtrace
+}
+
 function mysql_root_exec() {
 	local server="$1"
 	local query="$2"
@@ -13,12 +19,21 @@ function mysql_root_exec() {
 
 function wait_for_mysql() {
 	local h="$1"
-	echo "Waiting for host $h to be online..."
-	while [ "$(mysql_root_exec "$h" 'select 1')" != "1" ]; do
-		echo "MySQL is not up yet... sleeping ..."
+	log "Waiting for host $h to be online..."
+
+	local retry=0
+	until [[ "$(mysql_root_exec "$h" 'select 1')" == "1" ]]; do
+		log "[retry ${retry}] MySQL is not up yet... sleeping..."
 		sleep 1
+
+		let retry+=1
+		if [[ $retry -ge 30 ]]; then
+			log "${h} is not up after ${retry} attempts!"
+			return 1
+		fi
 	done
-	echo "MySQL host ${h} is up and running."
+
+	log "MySQL host ${h} is up and running."
 }
 
 function proxysql_admin_exec() {
@@ -31,18 +46,27 @@ function proxysql_admin_exec() {
 
 function wait_for_proxy() {
 	local h=127.0.0.1
-	echo "Waiting for host $h to be online..."
-	while [ "$(proxysql_admin_exec "$h" 'select 1')" != "1" ]; do
-		echo "ProxySQL is not up yet... sleeping ..."
+	log "Waiting for host $h to be online..."
+
+	local retry=0
+	until [[ "$(proxysql_admin_exec "$h" 'select 1')" == "1" ]]; do
+		log "[retry ${retry}] ProxySQL is not up yet... sleeping..."
 		sleep 1
+
+		let retry+=1
+		if [[ $retry -ge 30 ]]; then
+			log "ProxySQL is not up after ${retry} attempts!"
+			return 1
+		fi
 	done
-	echo "ProxySQL is up and running."
+
+	log "ProxySQL is up and running."
 }
 
 PERCONA_SCHEDULER_CFG=/tmp/scheduler-config.toml
 
 function main() {
-	echo "Running $0"
+	log "Running $0"
 
 	local service
 	local pod_zero
@@ -53,7 +77,7 @@ function main() {
 
 	while read host; do
 		if [[ -z ${host} ]]; then
-			echo "No host provided via stdin."
+			log "No host provided via stdin."
 			exit 0
 		fi
 
@@ -96,10 +120,10 @@ function main() {
 
 	if [ "${SCHEDULER_ENABLED}" == "true" ]; then
 		if proxysql-admin --config-file=/etc/proxysql-admin.cnf --is-enabled >/dev/null 2>&1; then
-			echo "Cleaning setup from proxysql-admin..."
+			log "Cleaning setup from proxysql-admin..."
 			proxysql-admin --config-file=/etc/proxysql-admin.cnf --disable
 
-			echo "Cleaning proxysql_servers..."
+			log "Cleaning proxysql_servers..."
 			proxysql_admin_exec "127.0.0.1" "DELETE FROM proxysql_servers; LOAD PROXYSQL SERVERS TO RUNTIME;"
 		fi
 
@@ -133,7 +157,7 @@ function main() {
 			--update-mysql-version
 	else
 		if percona-scheduler-admin --config-file=${PERCONA_SCHEDULER_CFG} --is-enabled >/dev/null 2>&1; then
-			echo "Cleaning setup from percona-scheduler-admin..."
+			log "Cleaning setup from percona-scheduler-admin..."
 			percona-scheduler-admin --config-file=${PERCONA_SCHEDULER_CFG} --disable
 		fi
 
@@ -161,7 +185,7 @@ function main() {
 			--update-mysql-version
 	fi
 
-	echo "All done!"
+	log "All done!"
 }
 
 main

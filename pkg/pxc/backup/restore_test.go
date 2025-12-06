@@ -11,6 +11,7 @@ import (
 	"k8s.io/utils/ptr"
 
 	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/test"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/version"
 )
@@ -171,8 +172,8 @@ func TestPrepareJob(t *testing.T) {
 			MountPath: "/etc/mysql/mysql-users-secret",
 		},
 		{
-			Name:      "vault-keyring-secret",
-			MountPath: "/etc/mysql/vault-keyring-secret",
+			Name:      statefulset.VaultSecretVolumeName,
+			MountPath: statefulset.VaultSecretMountPath,
 		},
 		{
 			Name:      "ssl",

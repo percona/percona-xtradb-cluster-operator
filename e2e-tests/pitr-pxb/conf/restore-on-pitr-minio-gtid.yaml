@@ -1,0 +1,13 @@
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBClusterRestore
+metadata:
+  name: restore-on-pitr-minio-gtid
+spec:
+  pxcCluster: pitr
+  backupName: on-pitr-minio
+  pitr:
+    type: transaction
+    gtid: <gtid>
+    backupSource:
+      storageName: "minio-binlogs"
+

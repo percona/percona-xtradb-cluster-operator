@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backup-client
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: backup-client
+  template:
+    metadata:
+      labels:
+        name: backup-client
+    spec:
+      containers:
+      - name: backup-client
+        command: ["bash", "-c", "sleep 100500"]
+        image: -backup
+        imagePullPolicy: IfNotPresent
+        volumeMounts:
+        - mountPath: /backup
+          name: backup
+      volumes:
+      - name: backup
+        persistentVolumeClaim:
+          claimName: -backup-pvc

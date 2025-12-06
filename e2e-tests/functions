@@ -346,6 +346,7 @@ deploy_operator() {
 			| sed -e "s^failureThreshold: .*^failureThreshold: 10^" \
 			| yq eval '(select(.kind == "Deployment").spec.template.spec.containers[] | select(.name == "percona-xtradb-cluster-operator").env[] | select(.name == "DISABLE_TELEMETRY").value) = "true"' - \
 			| yq eval '(select(.kind == "Deployment").spec.template.spec.containers[] | select(.name == "percona-xtradb-cluster-operator").env[] | select(.name == "LOG_LEVEL").value) = "VERBOSE"' - \
+			| yq eval "(select(.kind == \"Deployment\").spec.template.spec.containers[] | select(.name == \"percona-xtradb-cluster-operator\").env[] | select(.name == \"PXCO_FEATURE_GATES\").value) = \"${PXCO_FEATURE_GATES}\"" - \
 			| kubectl_bin apply -f -
 	else
 		apply_rbac rbac
@@ -354,6 +355,7 @@ deploy_operator() {
 			| sed -e "s^failureThreshold: .*^failureThreshold: 10^" \
 			| yq eval '(select(.kind == "Deployment").spec.template.spec.containers[] | select(.name == "percona-xtradb-cluster-operator").env[] | select(.name == "DISABLE_TELEMETRY").value) = "true"' - \
 			| yq eval '(select(.kind == "Deployment").spec.template.spec.containers[] | select(.name == "percona-xtradb-cluster-operator").env[] | select(.name == "LOG_LEVEL").value) = "VERBOSE"' - \
+			| yq eval "(select(.kind == \"Deployment\").spec.template.spec.containers[] | select(.name == \"percona-xtradb-cluster-operator\").env[] | select(.name == \"PXCO_FEATURE_GATES\").value) = \"${PXCO_FEATURE_GATES}\"" - \
 			| kubectl_bin apply -f -
 	fi
 
@@ -502,6 +504,7 @@ compare_kubectl() {
 			del(.spec.template.spec.containers[].env[] | select(.name == "BACKUP_PATH")) |
 			del(.spec.template.spec.containers[].env[] | select(.name == "S3_BUCKET_URL")) |
 			del(.spec.template.spec.containers[].env[] | select(.name == "AZURE_CONTAINER_NAME")) |
+			del(.spec.template.spec.containers[].env[] | select(.name == "XTRABACKUP_ENABLED")) |
 			del(.metadata.selfLink) |
 			del(.metadata.deletionTimestamp) |
 			del(.metadata.annotations."kubectl.kubernetes.io/last-applied-configuration") |
@@ -1859,8 +1862,9 @@ function check_backup_existence_gcs() {
 	backup_dest_gcp=$1
 	storage_name="gcp-cs"
 	retry=0
+	key=${2:-'.sst_info/sst_info.00000000000000000000'}
 
-	gcs_path="gs://${backup_dest_gcp}.sst_info/sst_info.00000000000000000000"
+	gcs_path="gs://${backup_dest_gcp}${key}"
 
 	until gsutil ls "$gcs_path" >/dev/null 2>&1; do
 		if [ $retry -ge 30 ]; then
@@ -1923,7 +1927,8 @@ function check_backup_deletion_gcs() {
     backup_dest_gcp=$1
     storage_name="gcp-cs"
     retry=0
-    gcs_path="gs://${backup_dest_gcp}.sst_info/sst_info.00000000000000000000"
+	key=${2:-'.sst_info/sst_info.00000000000000000000'}
+    gcs_path="gs://${backup_dest_gcp}${key}"
 
     while gsutil ls "$gcs_path" >/dev/null 2>&1; do
         if [ $retry -ge 15 ]; then
@@ -2121,4 +2126,3 @@ get_pvc_name_for_backup() {
 
   echo "$pvc_name"
 }
-

@@ -238,7 +238,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) reconcileStateStartCluster(ctx co
 }
 
 func validate(ctx context.Context, restorer Restorer, cr *api.PerconaXtraDBClusterRestore) error {
-	job, err := restorer.Job()
+	job, err := restorer.Job(ctx)
 	if err != nil {
 		return errors.Wrap(err, "failed to create restore job")
 	}
@@ -247,7 +247,7 @@ func validate(ctx context.Context, restorer Restorer, cr *api.PerconaXtraDBClust
 	}
 
 	if cr.Spec.PITR != nil {
-		job, err := restorer.PITRJob()
+		job, err := restorer.PITRJob(ctx)
 		if err != nil {
 			return errors.Wrap(err, "failed to create pitr restore job")
 		}
@@ -317,7 +317,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) reconcileStateRestore(ctx context
 		RequeueAfter: time.Second * 5,
 	}
 
-	restorerJob, err := restorer.Job()
+	restorerJob, err := restorer.Job(ctx)
 	if err != nil {
 		return rr, errors.Wrap(err, "failed to create restore job")
 	}
@@ -409,7 +409,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) reconcileStatePITR(ctx context.Co
 		RequeueAfter: time.Second * 5,
 	}
 
-	restorerJob, err := restorer.PITRJob()
+	restorerJob, err := restorer.PITRJob(ctx)
 	if err != nil {
 		return rr, errors.Wrap(err, "failed to create restore job")
 	}
@@ -468,12 +468,12 @@ func createRestoreJob(ctx context.Context, cl client.Client, restorer Restorer, 
 		return errors.Wrap(err, "failed to init restore")
 	}
 
-	job, err := restorer.Job()
+	job, err := restorer.Job(ctx)
 	if err != nil {
 		return errors.Wrap(err, "failed to get restore job")
 	}
 	if pitr {
-		job, err = restorer.PITRJob()
+		job, err = restorer.PITRJob(ctx)
 		if err != nil {
 			return errors.Wrap(err, "failed to create pitr restore job")
 		}

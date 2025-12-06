@@ -1,0 +1,7 @@
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBClusterRestore
+metadata:
+  name: on-demand-backup-gcp-cs
+spec:
+  pxcCluster: demand-backup-cloud
+  backupName: on-demand-backup-gcp-cs

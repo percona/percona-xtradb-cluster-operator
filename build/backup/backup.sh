@@ -69,40 +69,20 @@ function request_streaming_57() {
 		--sst "xtrabackup-v2:$LOCAL_IP:4444/xtrabackup_sst//1" \
 		--recv-script="/opt/percona/backup/run_backup.sh" 2>&1 | tee /tmp/garbd.log
 
-	local sst_info_path
-	if [[ -n $S3_BUCKET || -n $AZURE_CONTAINER_NAME ]]; then
-		sst_info_path="/tmp/${SST_INFO_NAME}"
-	else
-		sst_info_path="${BACKUP_DIR}/${SST_INFO_NAME}"
+	if grep 'State transfer request failed' /tmp/garbd.log; then
+		exit 1
 	fi
-
-	MYSQL_VERSION=$(parse_ini 'mysql-version' "$sst_info_path")
-	if ! check_for_version "$MYSQL_VERSION" '8.0.0'; then
-		if grep 'State transfer request failed' /tmp/garbd.log; then
-			exit 1
-		fi
-		if grep 'WARN: Protocol violation. JOIN message sender ... (garb) is not in state transfer' /tmp/garbd.log; then
-			exit 1
-		fi
-		if grep 'WARN: Rejecting JOIN message from ... (garb): new State Transfer required.' /tmp/garbd.log; then
-			exit 1
-		fi
-		if grep 'INFO: Shifting CLOSED -> DESTROYED (TO: -1)' /tmp/garbd.log; then
-			exit 1
-		fi
-		if ! grep 'INFO: Sending state transfer request' /tmp/garbd.log; then
-			exit 1
-		fi
-	else
-		if grep 'Will never receive state. Need to abort' /tmp/garbd.log; then
-			exit 1
-		fi
-
-		if grep 'Donor is no longer in the cluster, interrupting script' /tmp/garbd.log; then
-			exit 1
-		elif grep 'failed: Invalid argument' /tmp/garbd.log; then
-			exit 1
-		fi
+	if grep 'WARN: Protocol violation. JOIN message sender ... (garb) is not in state transfer' /tmp/garbd.log; then
+		exit 1
+	fi
+	if grep 'WARN: Rejecting JOIN message from ... (garb): new State Transfer required.' /tmp/garbd.log; then
+		exit 1
+	fi
+	if grep 'INFO: Shifting CLOSED -> DESTROYED (TO: -1)' /tmp/garbd.log; then
+		exit 1
+	fi
+	if ! grep 'INFO: Sending state transfer request' /tmp/garbd.log; then
+		exit 1
 	fi
 
 	if [ -f '/tmp/backup-is-completed' ]; then
@@ -200,8 +180,8 @@ elif [ -n "$AZURE_CONTAINER_NAME" ]; then
 fi
 
 XTRABACKUP_VERSION=$(get_xtrabackup_version)
-if check_for_version "$XTRABACKUP_VERSION" '2.4.0'; then
-	request_streaming_57
-else
+if check_for_version "$XTRABACKUP_VERSION" '8.0.0'; then
 	request_streaming
+else
+	request_streaming_57
 fi

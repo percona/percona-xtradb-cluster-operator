@@ -46,7 +46,7 @@ function get_backup_source() {
 		| cut -d . -f 1
 }
 
-function request_streaming() {
+function request_streaming_57() {
 	local LOCAL_IP
 	local NODE_NAME
 	LOCAL_IP=$(hostname -i | sed -E 's/.*\b([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})\b.*/\1/')
@@ -69,40 +69,20 @@ function request_streaming() {
 		--sst "xtrabackup-v2:$LOCAL_IP:4444/xtrabackup_sst//1" \
 		--recv-script="/opt/percona/backup/run_backup.sh" 2>&1 | tee /tmp/garbd.log
 
-	local sst_info_path
-	if [[ -n $S3_BUCKET || -n $AZURE_CONTAINER_NAME ]]; then
-		sst_info_path="/tmp/${SST_INFO_NAME}"
-	else
-		sst_info_path="${BACKUP_DIR}/${SST_INFO_NAME}"
+	if grep 'State transfer request failed' /tmp/garbd.log; then
+		exit 1
 	fi
-
-	MYSQL_VERSION=$(parse_ini 'mysql-version' "$sst_info_path")
-	if ! check_for_version "$MYSQL_VERSION" '8.0.0'; then
-		if grep 'State transfer request failed' /tmp/garbd.log; then
-			exit 1
-		fi
-		if grep 'WARN: Protocol violation. JOIN message sender ... (garb) is not in state transfer' /tmp/garbd.log; then
-			exit 1
-		fi
-		if grep 'WARN: Rejecting JOIN message from ... (garb): new State Transfer required.' /tmp/garbd.log; then
-			exit 1
-		fi
-		if grep 'INFO: Shifting CLOSED -> DESTROYED (TO: -1)' /tmp/garbd.log; then
-			exit 1
-		fi
-		if ! grep 'INFO: Sending state transfer request' /tmp/garbd.log; then
-			exit 1
-		fi
-	else
-		if grep 'Will never receive state. Need to abort' /tmp/garbd.log; then
-			exit 1
-		fi
-
-		if grep 'Donor is no longer in the cluster, interrupting script' /tmp/garbd.log; then
-			exit 1
-		elif grep 'failed: Invalid argument' /tmp/garbd.log; then
-			exit 1
-		fi
+	if grep 'WARN: Protocol violation. JOIN message sender ... (garb) is not in state transfer' /tmp/garbd.log; then
+		exit 1
+	fi
+	if grep 'WARN: Rejecting JOIN message from ... (garb): new State Transfer required.' /tmp/garbd.log; then
+		exit 1
+	fi
+	if grep 'INFO: Shifting CLOSED -> DESTROYED (TO: -1)' /tmp/garbd.log; then
+		exit 1
+	fi
+	if ! grep 'INFO: Sending state transfer request' /tmp/garbd.log; then
+		exit 1
 	fi
 
 	if [ -f '/tmp/backup-is-completed' ]; then
@@ -113,6 +93,56 @@ function request_streaming() {
 	log 'ERROR' 'Backup was finished unsuccessful'
 
 	exit 1
+}
+
+function request_streaming() {
+	local LOCAL_IP
+	local NODE_NAME
+	LOCAL_IP=$(hostname -i | sed -E 's/.*\b([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})\b.*/\1/')
+	NODE_NAME=$(get_backup_source)
+
+	if [ -z "$NODE_NAME" ]; then
+		/opt/percona/peer-list -on-start=/opt/percona/backup/lib/pxc/get-pxc-state.sh -service="$PXC_SERVICE"
+		log 'ERROR' 'Cannot find node for backup'
+		log 'ERROR' 'Backup was finished unsuccessful'
+		exit 1
+	fi
+
+	set +o errexit
+	log 'INFO' 'Garbd was started'
+	garbd \
+	--address "gcomm://$NODE_NAME.$PXC_SERVICE?gmcast.listen_addr=tcp://0.0.0.0:4567" \
+	--donor "$NODE_NAME" \
+	--group "$PXC_SERVICE" \
+	--options "$GARBD_OPTS" \
+	--sst "xtrabackup-v2:$LOCAL_IP:4444/xtrabackup_sst//1" \
+	--extended-exit-codes \
+	--wait-for-recv-script-exit \
+	--recv-script="/opt/percona/backup/run_backup.sh"
+	GARBD_EXIT_CODE=$?
+
+	case ${GARBD_EXIT_CODE} in
+	0)
+	    log 'INFO' 'Backup was finished successfully'
+	    exit 0
+	    ;;
+	100)
+	    log 'ERROR' 'Backup was unsuccessful: Generic failure'
+	    exit 1
+	    ;;
+	101)
+	    log 'ERROR' 'Backup was unsuccessful: Donor disappeared'
+	    exit 1
+	    ;;
+	102)
+	    log 'ERROR' 'Backup was unsuccessful: SST request failure'
+	    exit 1
+	    ;;
+	*)
+	    log 'ERROR' "Backup was unsuccessful: garbd exited with ${GARBD_EXIT_CODE}"
+	    exit 1
+	    ;;
+	esac
 }
 
 # TODO: should i remove it?
@@ -149,4 +179,9 @@ elif [ -n "$AZURE_CONTAINER_NAME" ]; then
 	clean_backup_azure
 fi
 
-request_streaming
+XTRABACKUP_VERSION=$(get_xtrabackup_version)
+if check_for_version "$XTRABACKUP_VERSION" '8.0.0'; then
+	request_streaming
+else
+	request_streaming_57
+fi

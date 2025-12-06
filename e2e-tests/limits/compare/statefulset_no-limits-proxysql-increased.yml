@@ -219,6 +219,8 @@ spec:
             - -on-change=/opt/percona/proxysql_add_pxc_nodes.sh
             - -service=$(PXC_SERVICE)
             - -protocol=$(PEER_LIST_SRV_PROTOCOL)
+          command:
+            - /opt/percona/proxysql-entrypoint.sh
           env:
             - name: PXC_SERVICE
               value: no-limits-pxc
@@ -256,6 +258,8 @@ spec:
             - -on-change=/opt/percona/proxysql_add_proxysql_nodes.sh
             - -service=$(PROXYSQL_SERVICE)
             - -protocol=$(PEER_LIST_SRV_PROTOCOL)
+          command:
+            - /opt/percona/proxysql-entrypoint.sh
           env:
             - name: PROXYSQL_SERVICE
               value: no-limits-proxysql-unready

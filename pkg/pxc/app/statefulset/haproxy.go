@@ -46,7 +46,7 @@ func (c *HAProxy) InitContainers(cr *api.PerconaXtraDBCluster, initImageName str
 	return inits
 }
 
-func (c *HAProxy) AppContainer(_ context.Context, _ client.Client, spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster,
+func (c *HAProxy) AppContainer(ctx context.Context, _ client.Client, spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster,
 	_ []corev1.Volume,
 ) (corev1.Container, error) {
 	appc := corev1.Container{
@@ -199,6 +199,11 @@ func (c *HAProxy) AppContainer(_ context.Context, _ client.Client, spec *api.Pod
 
 	if cr.Spec.HAProxy != nil && (cr.Spec.HAProxy.Lifecycle.PostStart != nil || cr.Spec.HAProxy.Lifecycle.PreStop != nil) {
 		appc.Lifecycle = &cr.Spec.HAProxy.Lifecycle
+	}
+
+	if cr.CompareVersionWith("1.19.0") >= 0 {
+		extraMounts := api.ExtraPVCVolumeMounts(ctx, spec.ExtraPVCs)
+		appc.VolumeMounts = append(appc.VolumeMounts, extraMounts...)
 	}
 
 	return appc, nil

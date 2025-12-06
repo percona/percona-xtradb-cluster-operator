@@ -165,6 +165,52 @@ func TestAppContainer(t *testing.T) {
 				return c
 			},
 		},
+		"container construction with extra pvcs": {
+			spec: api.PerconaXtraDBClusterSpec{
+				CRVersion: version.Version(),
+				PXC: &api.PXCSpec{
+					PodSpec: &api.PodSpec{
+						Image:           "test-image",
+						ImagePullPolicy: corev1.PullIfNotPresent,
+						LivenessProbes: corev1.Probe{
+							TimeoutSeconds: 5,
+						},
+						ReadinessProbes: corev1.Probe{
+							TimeoutSeconds: 15,
+						},
+						EnvVarsSecretName: "test-secret",
+						ExtraPVCs: []api.ExtraPVC{
+							{
+								Name:      "extra-data-volume",
+								ClaimName: "extra-storage-0",
+								MountPath: "/var/lib/mysql-extra",
+							},
+							{
+								Name:      "backup-volume",
+								ClaimName: "backup-storage-0",
+								MountPath: "/backups",
+								SubPath:   "mysql",
+							},
+						},
+					},
+				},
+			},
+			expectedContainer: func() corev1.Container {
+				c := defaultExpectedContainer()
+				c.VolumeMounts = append(c.VolumeMounts,
+					corev1.VolumeMount{
+						Name:      "extra-data-volume",
+						MountPath: "/var/lib/mysql-extra",
+					},
+					corev1.VolumeMount{
+						Name:      "backup-volume",
+						MountPath: "/backups",
+						SubPath:   "mysql",
+					},
+				)
+				return c
+			},
+		},
 	}
 
 	for name, tt := range tests {

@@ -22,6 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxctls"
@@ -531,6 +532,12 @@ func (cr *PerconaXtraDBCluster) Validate() error {
 		}
 	}
 
+	if c.PXC != nil && len(c.PXC.ExtraPVCs) > 0 {
+		if err := validateExtraPVCs(c.PXC.ExtraPVCs); err != nil {
+			return errors.Wrap(err, "PXC: validate extraPVCs")
+		}
+	}
+
 	return nil
 }
 
@@ -608,6 +615,7 @@ type PodSpec struct {
 	Sidecars                    []corev1.Container                `json:"sidecars,omitempty"`
 	SidecarVolumes              []corev1.Volume                   `json:"sidecarVolumes,omitempty"`
 	SidecarPVCs                 []corev1.PersistentVolumeClaim    `json:"sidecarPVCs,omitempty"`
+	ExtraPVCs                   []ExtraPVC                        `json:"extraPVCs,omitempty"`
 	RuntimeClassName            *string                           `json:"runtimeClassName,omitempty"`
 	HookScript                  string                            `json:"hookScript,omitempty"`
 	Lifecycle                   corev1.Lifecycle                  `json:"lifecycle,omitempty"`
@@ -927,6 +935,32 @@ type VolumeSpec struct {
 	// EmptyDir. And represents the PVC specification.
 	// +optional
 	PersistentVolumeClaim *corev1.PersistentVolumeClaimSpec `json:"persistentVolumeClaim,omitempty"`
+}
+
+// ExtraPVC allows mounting an existing PersistentVolumeClaim to the PXC container.
+type ExtraPVC struct {
+	// Name of the volume as it will be referenced in the pod
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+
+	// ClaimName is the name of the existing PersistentVolumeClaim to mount
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	ClaimName string `json:"claimName"`
+
+	// MountPath is the path inside the container where the volume will be mounted
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	MountPath string `json:"mountPath"`
+
+	// SubPath within the volume from which the container's volume should be mounted
+	// +optional
+	SubPath string `json:"subPath,omitempty"`
+
+	// ReadOnly specifies whether the volume should be mounted as read-only
+	// +optional
+	ReadOnly bool `json:"readOnly,omitempty"`
 }
 
 type Volume struct {
@@ -1686,6 +1720,98 @@ func AddSidecarPVCs(log logr.Logger, existing, sidecarPVCs []corev1.PersistentVo
 	}
 
 	return existing
+}
+
+// ExtraPVCVolumes generates Kubernetes volumes from ExtraPVC configurations.
+// Each ExtraPVC references an existing PersistentVolumeClaim by name.
+func ExtraPVCVolumes(ctx context.Context, extraPVCs []ExtraPVC) []corev1.Volume {
+	logger := log.FromContext(ctx)
+
+	if len(extraPVCs) == 0 {
+		return nil
+	}
+
+	volumes := make([]corev1.Volume, 0, len(extraPVCs))
+	names := make(map[string]struct{}, len(extraPVCs))
+
+	for _, epvc := range extraPVCs {
+		if _, ok := names[epvc.Name]; ok {
+			logger.Info("Duplicate extra PVC volume name, skipping", "volumeName", epvc.Name)
+			continue
+		}
+		names[epvc.Name] = struct{}{}
+
+		volumes = append(volumes, corev1.Volume{
+			Name: epvc.Name,
+			VolumeSource: corev1.VolumeSource{
+				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+					ClaimName: epvc.ClaimName,
+					ReadOnly:  epvc.ReadOnly,
+				},
+			},
+		})
+	}
+
+	return volumes
+}
+
+// ExtraPVCVolumeMounts generates volume mounts from ExtraPVC configurations.
+func ExtraPVCVolumeMounts(ctx context.Context, extraPVCs []ExtraPVC) []corev1.VolumeMount {
+	logger := log.FromContext(ctx)
+
+	if len(extraPVCs) == 0 {
+		return nil
+	}
+
+	mounts := make([]corev1.VolumeMount, 0, len(extraPVCs))
+	names := make(map[string]struct{}, len(extraPVCs))
+
+	for _, epvc := range extraPVCs {
+		if _, ok := names[epvc.Name]; ok {
+			logger.Info("Duplicate extra PVC volume mount name, skipping", "volumeName", epvc.Name)
+			continue
+		}
+		names[epvc.Name] = struct{}{}
+
+		mounts = append(mounts, corev1.VolumeMount{
+			Name:      epvc.Name,
+			MountPath: epvc.MountPath,
+			SubPath:   epvc.SubPath,
+			ReadOnly:  epvc.ReadOnly,
+		})
+	}
+
+	return mounts
+}
+
+// validateExtraPVCs validates the extraPVCs configuration.
+func validateExtraPVCs(extraPVCs []ExtraPVC) error {
+	if len(extraPVCs) == 0 {
+		return nil
+	}
+
+	names := make(map[string]struct{}, len(extraPVCs))
+	claimNames := make(map[string]struct{}, len(extraPVCs))
+	mountPaths := make(map[string]struct{}, len(extraPVCs))
+
+	for _, epvc := range extraPVCs {
+		if _, ok := names[epvc.Name]; ok {
+			return errors.Errorf("extraPVC: duplicate volume name %s", epvc.Name)
+		}
+		names[epvc.Name] = struct{}{}
+
+		if _, ok := mountPaths[epvc.MountPath]; ok {
+			return errors.Errorf("extraPVC %s: duplicate mount path %s", epvc.Name, epvc.MountPath)
+		}
+		mountPaths[epvc.MountPath] = struct{}{}
+
+		if _, ok := claimNames[epvc.ClaimName]; ok {
+			return errors.Errorf("extraPVC %s: duplicate claim name %s", epvc.Name, epvc.ClaimName)
+		}
+		claimNames[epvc.ClaimName] = struct{}{}
+	}
+
+	return nil
 }
 
 func (cr *PerconaXtraDBCluster) ProxySQLUnreadyServiceNamespacedName() types.NamespacedName {

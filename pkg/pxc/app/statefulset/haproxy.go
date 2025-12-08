@@ -312,7 +312,7 @@ func (c *HAProxy) SidecarContainers(ctx context.Context, cl client.Client, spec 
 	if cr.CompareVersionWith("1.19.0") >= 0 {
 		if cr.Spec.HAProxy != nil {
 			// check if the haproxy config is defined in EnvVarsSecretName, if so - it should be prioritized
-			// despite the fact the same env could have beren already applied above in the .EnvFrom section from the secret
+			// despite the fact the same env could have been already applied above in the .EnvFrom section from the secret
 			// because .Env takes precedence over .EnvFrom in case of duplicated keys.
 			config, err := haConfigFromEnvSecret(ctx, cl, cr, haConfigEnvVarName)
 			if err != nil {

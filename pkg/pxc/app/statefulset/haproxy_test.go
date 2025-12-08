@@ -218,7 +218,7 @@ func TestSidecarContainers_HAProxy(t *testing.T) {
 			expectError: false,
 		},
 	}
-
+	ctx := context.Background()
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			cr := &api.PerconaXtraDBCluster{
@@ -240,7 +240,6 @@ func TestSidecarContainers_HAProxy(t *testing.T) {
 			}
 
 			haproxy := &HAProxy{cr: cr}
-			ctx := context.Background()
 			cl := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(&tt.secret).Build()
 
 			containers, err := haproxy.SidecarContainers(ctx, cl, &tt.spec, tt.secrets, cr)
@@ -357,7 +356,7 @@ func TestHAProxyHealthCheckEnvVars(t *testing.T) {
 			},
 		},
 	}
-
+	ctx := context.Background()
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			cr := &api.PerconaXtraDBCluster{
@@ -384,7 +383,6 @@ func TestHAProxyHealthCheckEnvVars(t *testing.T) {
 			}
 
 			haproxy := &HAProxy{cr: cr}
-			ctx := context.Background()
 			cl := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(&tt.secret).Build()
 
 			containers, err := haproxy.SidecarContainers(ctx, cl, &cr.Spec.HAProxy.PodSpec, "test-secret", cr)

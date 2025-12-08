@@ -261,7 +261,7 @@ func TestSidecarContainers_ProxySQL(t *testing.T) {
 			},
 		},
 	}
-
+	ctx := context.Background()
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			cr := &api.PerconaXtraDBCluster{
@@ -283,7 +283,6 @@ func TestSidecarContainers_ProxySQL(t *testing.T) {
 			}
 
 			proxySQL := &Proxy{cr: cr}
-			ctx := context.Background()
 			cl := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
 
 			containers, err := proxySQL.SidecarContainers(ctx, cl, &tt.spec, tt.secrets, cr)

@@ -99,6 +99,8 @@ fi
 desc 'test root'
 patch_secret "my-cluster-secrets" "root" "$newpassencrypted"
 sleep 15
+wait_cluster_consistency "$cluster" 3 2
+sleep 15
 compare_mysql_cmd "select-4" "SHOW TABLES;" "-h $cluster-proxysql -uroot -p'$newpass'"
 
 desc 'test proxyadmin'
@@ -108,6 +110,7 @@ wait_cluster_consistency "$cluster" 3 3
 patch_secret "my-cluster-secrets" "proxyadmin" "$newpassencrypted"
 sleep 15
 wait_cluster_consistency "$cluster" 3 3
+sleep 15
 compare_mysql_cmd_local "$tables_cmp_file" "SHOW TABLES;" "-h127.0.0.1 -P6032 -uproxyadmin -p'$newpass'" "$cluster-proxysql-0" "" 'proxysql'
 compare_mysql_cmd_local "$tables_cmp_file" "SHOW TABLES;" "-h127.0.0.1 -P6032 -uproxyadmin -p'$newpass'" "$cluster-proxysql-1" "" 'proxysql'
 compare_mysql_cmd_local "$tables_cmp_file" "SHOW TABLES;" "-h127.0.0.1 -P6032 -uproxyadmin -p'$newpass'" "$cluster-proxysql-2" "" 'proxysql'
@@ -117,25 +120,26 @@ kubectl_bin patch pxc some-name --type=merge -p="{\"spec\":{\"proxysql\":{\"size
 patch_secret "my-cluster-secrets" "xtrabackup" "$newpassencrypted"
 sleep 15
 wait_cluster_consistency "$cluster" 3 2
+sleep 15
 compare_mysql_cmd_local "select-3" "SHOW DATABASES;" "-h 127.0.0.1 -uxtrabackup -p'$newpass'" "$cluster-pxc-0" "" 'pxc'
 
 desc 'test monitor'
 patch_secret "my-cluster-secrets" "monitor" "$newpassencrypted"
 wait_for_password_propagation "my-cluster-secrets" "monitor"
 wait_cluster_consistency "$cluster" 3 2
-sleep 10 # give some time for proxy-admin --syncusers
+sleep 15 # give some time for proxy-admin --syncusers
 compare_mysql_cmd "select-4" "SHOW TABLES;" "-h $cluster-proxysql -umonitor -p'$newpass'"
 
 desc 'test operator'
 patch_secret "my-cluster-secrets" "operator" "$newpassencrypted"
 sleep 15
 wait_cluster_consistency "$cluster" 3 2
-sleep 10 # give some time for proxy-admin --syncusers
+sleep 15 # give some time for proxy-admin --syncusers
 compare_mysql_cmd "select-4" "SHOW TABLES;" "-h $cluster-proxysql -uoperator -p'$newpass'"
 
 desc 'change secret name'
 kubectl_bin patch pxc $cluster --type merge --patch '{"spec": {"secretsName":"my-cluster-secrets-2"}}'
-sleep 30
+sleep 15
 wait_cluster_consistency "$cluster" 3 2
 
 desc 'test new operator'
@@ -161,7 +165,7 @@ pass=$(getSecretData "internal-some-name" "operator")
 desc 'check secret without operator'
 kubectl_bin apply \
 	-f "$test_dir/conf/secrets.yml"
-sleep 15
+sleep 60
 compare_mysql_cmd "select-4" "SHOW TABLES;" "-h $cluster-proxysql -uoperator -p'$pass'"
 
 newpass="test-password2"
@@ -177,6 +181,7 @@ fi
 patch_secret "my-cluster-secrets" "monitor" "$newpassencrypted"
 sleep 15
 wait_cluster_consistency "$cluster" 3 3
+sleep 15
 compare_mysql_cmd "select-3" "SHOW DATABASES;" "-h $cluster-haproxy -umonitor -p'$newpass'"
 
 if [[ $IMAGE_PXC =~ 5\.7 ]]; then

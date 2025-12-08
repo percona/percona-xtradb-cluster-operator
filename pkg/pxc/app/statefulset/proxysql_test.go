@@ -100,6 +100,49 @@ func TestAppContainer_ProxySQL(t *testing.T) {
 				return c
 			},
 		},
+		"container construction with extra pvcs": {
+			spec: api.PerconaXtraDBClusterSpec{
+				CRVersion: version.Version(),
+				ProxySQL: &api.ProxySQLSpec{
+					PodSpec: api.PodSpec{
+						Image:             "test-image",
+						ImagePullPolicy:   corev1.PullIfNotPresent,
+						EnvVarsSecretName: "test-secret",
+						ExtraPVCs: []api.ExtraPVC{
+							{
+								Name:      "extra-data-volume",
+								ClaimName: "extra-storage-0",
+								MountPath: "/var/lib/proxysql-extra",
+							},
+							{
+								Name:      "backup-volume",
+								ClaimName: "backup-storage-0",
+								MountPath: "/backups",
+								SubPath:   "proxysql",
+							},
+						},
+					},
+				},
+				PXC: &api.PXCSpec{
+					PodSpec: &api.PodSpec{},
+				},
+			},
+			expectedContainer: func() corev1.Container {
+				c := defaultExpectedProxySQLContainer()
+				c.VolumeMounts = append(c.VolumeMounts,
+					corev1.VolumeMount{
+						Name:      "extra-data-volume",
+						MountPath: "/var/lib/proxysql-extra",
+					},
+					corev1.VolumeMount{
+						Name:      "backup-volume",
+						MountPath: "/backups",
+						SubPath:   "proxysql",
+					},
+				)
+				return c
+			},
+		},
 	}
 
 	for name, tt := range tests {

@@ -26,13 +26,14 @@ function compare_mysql_servers() {
 
 	local query='SELECT hostgroup_id,SUBSTRING(hostname, 0, 16),weight,status FROM runtime_mysql_servers WHERE status='\'ONLINE\'''
 
-	retry=0
+	local retry=0
+	echo -n "check runtime_mysql_servers in ${pod}"
 	until compare_mysql_cmd_local ${compare_file} "${query}" \
 		"-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" ${pod} &>/dev/null; do
-		sleep 3
+		sleep 10
 		echo -n .
 		let retry+=1
-		if [[ "$retry" -ge 40 ]]; then
+		if [[ "$retry" -ge 30 ]]; then
 			echo
 			kubectl get pods
 
@@ -40,13 +41,16 @@ function compare_mysql_servers() {
 				kill -9 ${loop_pid}
 			fi
 
-			compare_mysql_cmd_local ${compare_file} "${query}" \
-				"-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" ${pod}
-
-			log "max retry count (${retry}) reached. something went wrong with updating ${pod}"
-			exit 1
+			if ! compare_mysql_cmd_local ${compare_file} "${query}" \
+				"-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" ${pod}; then
+				echo
+				log "max retry count (${retry}) reached.
+				something went wrong with updating runtime_scheduler in ${pod}"
+				exit 1
+			fi
 		fi
 	done
+	echo
 }
 
 create_infra ${namespace}
@@ -94,11 +98,9 @@ echo "LOOP_PID=$LOOP_PID"
 
 sleep 10
 
-desc 'check if scheduler is doing its job in all ProxySQL servers'
-echo -n "waiting for pod0 to be removed from proxysql"
+log "waiting for pod0 to be removed from proxysql"
 compare_mysql_servers "${cluster}-proxysql-0" "mysql-servers-0-pod0-down" $LOOP_PID
-retry=0
-log "mysql_servers are configured in ${cluster}-proxysql-0 when pxc--0 is down: OK"
+log "mysql_servers are configured in ${cluster}-proxysql-0 when pxc-0 is down: OK"
 
 compare_mysql_servers "${cluster}-proxysql-1" "mysql-servers-1-pod0-down" $LOOP_PID
 log "mysql_servers are configured in ${cluster}-proxysql-1 when pxc-0 is down: OK"
@@ -108,7 +110,7 @@ kill $LOOP_PID
 
 wait_cluster_consistency "${cluster}" 3 2
 
-desc 'check scaling PXC up'
+desc 'check scaling PXC up to 5 replicas'
 kubectl_bin patch pxc ${cluster} --type=merge -p '{"spec": {"pxc": {"size": 5}}}'
 wait_pod ${cluster}-pxc-3
 wait_pod ${cluster}-pxc-4
@@ -153,7 +155,7 @@ log "new mysql_servers are configured in ${cluster}-proxysql-1: OK"
 compare_mysql_servers "${cluster}-proxysql-2" "mysql-servers-2-writerNotReader"
 log "mysql_servers are configured in ${cluster}-proxysql-2: OK"
 
-desc 'check scale down PXC'
+desc 'check scaling PXC down to 3 replicas'
 
 kubectl_bin patch pxc ${cluster} --type=merge -p '{"spec": {"pxc": {"size": 3}}}'
 wait_cluster_consistency "${cluster}" 3 3
@@ -182,7 +184,7 @@ log "mysql_servers are configured in ${cluster}-proxysql-1 when 2 pods are down:
 compare_mysql_servers "${cluster}-proxysql-2" "mysql-servers-2-two-pod-down"
 log "mysql_servers are configured in ${cluster}-proxysql-2 when 2 pods are down: OK"
 
-desc 'Check scaling back to 3 replicas'
+desc 'check scaling PXC back to 3 replicas'
 
 log "scaling PXC up to 3 replicas"
 kubectl scale sts/${cluster}-pxc --replicas=3

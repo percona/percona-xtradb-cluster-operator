@@ -63,6 +63,11 @@ spec:
     size: 3
     image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0
     autoRecovery: true
+#    extraPVCs:
+#      - name: extra-data-volume
+#        claimName: kech-extra-storage
+#        mountPath: /var/lib/mysql-extra
+#        readOnly: false
 #    mysqlAllocator: jemalloc
 #    expose:
 #      enabled: true
@@ -447,8 +452,6 @@ spec:
 #      pingTimeoutMilliseconds: 1000
 #      nodeCheckIntervalMilliseconds: 2000
 #      maxConnections: 1000
-#    readinessDelaySec: 15
-#    livenessDelaySec: 600
 #    schedulerName: mycustom-scheduler
 #    imagePullSecrets:
 #      - name: private-registry-credentials
@@ -558,7 +561,7 @@ spec:
 #     - 10.0.0.0/8
   logcollector:
     enabled: true
-    image: perconalab/percona-xtradb-cluster-operator:main-logcollector
+    image: perconalab/fluentbit:main-logcollector
 #    configuration: |
 #      [OUTPUT]
 #           Name  es
@@ -618,6 +621,7 @@ spec:
   backup:
 #    allowParallel: true
     image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0-backup
+#    ttlSecondsAfterFinished: 3600
 #    backoffLimit: 6
 #    activeDeadlineSeconds: 3600
 #    startingDeadlineSeconds: 300

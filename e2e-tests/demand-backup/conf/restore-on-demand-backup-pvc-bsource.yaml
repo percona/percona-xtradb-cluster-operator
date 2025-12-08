@@ -5,7 +5,7 @@ metadata:
 spec:
   pxcCluster: demand-backup
   backupSource:
-    destination: pvc/xb-on-demand-backup-pvc-bsource
+    destination: <destination>
     storageName: pvc
   resources:
     requests:

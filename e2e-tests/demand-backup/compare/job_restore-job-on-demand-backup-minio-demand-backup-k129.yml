@@ -122,3 +122,4 @@ spec:
             secretName: some-name-vault
         - emptyDir: {}
           name: bin
+  ttlSecondsAfterFinished: 3600

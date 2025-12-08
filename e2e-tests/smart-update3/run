@@ -34,6 +34,65 @@ function deploy_version_service {
 	sleep 10
 }
 
+function add_pxc_version_to_vs {
+	local pxc_version=${1}
+	local pxc_image=${2}
+
+	desc "Adding PXC version ${pxc_version} to version service"
+	kubectl_bin get configmap versions -o json | \
+		jq --arg ver "${pxc_version}" --arg img "${pxc_image}" \
+		'.data["operator.9.9.9.pxc-operator.json"] |= (fromjson | .versions[0].matrix.pxc += {($ver): {"imagePath": $img, "imageHash": "abc123", "status": "available", "critical": false}} | tojson)' | \
+		kubectl_bin apply -f -
+
+	# Restart version service to reload config
+	kubectl_bin delete pod -l run=version-service
+	sleep 10
+}
+
+function wait_pmm_update {
+	local cluster=${1}
+	local cluster_size=${2}
+	local expected_image=${3}
+	local pmm_version=${4}  # e.g., "2" or "3"
+	local max_retry=${5:-120}  # Default 10 minutes
+
+	desc "Waiting for PMM${pmm_version} containers to update to ${expected_image}..."
+	set +x
+	local retry=0
+	echo -n "Waiting for PMM update"
+
+	until [[ $retry -ge $max_retry ]]; do
+		local updated_count=0
+		for i in $(seq 0 $((cluster_size - 1))); do
+			local actual_pmm_image=$(kubectl_bin get pod "${cluster}-pxc-${i}" -o jsonpath='{.status.containerStatuses[?(@.name=="pmm-client")].image}' 2>/dev/null || echo "")
+			# Only check if actual image contains expected image (handles docker.io prefix)
+			if [[ "${actual_pmm_image}" == *"${expected_image}"* ]]; then
+				((updated_count += 1))
+			fi
+		done
+
+		if [[ ${updated_count} -eq ${cluster_size} ]]; then
+			echo " Done! All ${cluster_size} pods updated."
+			set -x
+			return 0
+		fi
+
+		echo -n "."
+		((retry += 1))
+		sleep 5
+	done
+
+	# Timeout reached
+	set -x
+	echo "ERROR: Timeout waiting for PMM${pmm_version} update after $((max_retry * 5)) seconds"
+	echo "Expected image: ${expected_image}"
+	for i in $(seq 0 $((cluster_size - 1))); do
+		local actual=$(kubectl_bin get pod "${cluster}-pxc-${i}" -o jsonpath='{.status.containerStatuses[?(@.name=="pmm-client")].image}' 2>/dev/null || echo "none")
+		echo "  ${cluster}-pxc-${i}: ${actual}"
+	done
+	return 1
+}
+
 function main() {
 	create_infra "${namespace}"
 	deploy_version_service
@@ -53,18 +112,30 @@ function main() {
 	yq -i eval ".spec.backup.image = \"${IMAGE_BACKUP}\"" "${tmp_dir}/${CLUSTER}-version-service-unreachable.yml"
 	spinup_pxc "${CLUSTER}" "${tmp_dir}/${CLUSTER}-version-service-unreachable.yml"
 
+	# Get actual PXC version from running cluster and add to version service
+	wait_cluster_consistency "${CLUSTER}" "${CLUSTER_SIZE}" "${PROXY_SIZE}"
+	ACTUAL_PXC_VERSION=$(kubectl_bin get pxc "${CLUSTER}" -o jsonpath='{.status.pxc.version}')
+	desc "Detected PXC version: ${ACTUAL_PXC_VERSION}"
+	add_pxc_version_to_vs "${ACTUAL_PXC_VERSION}" "${IMAGE_PXC}"
+
 	# Enable PMM2 with older version
 	kubectl_bin patch pxc/"${CLUSTER}" --type=merge -p '{"spec":{"pmm":{"enabled":true,"image":"percona/pmm-client:2.44.0","serverHost":"monitoring-service"}}}'
 	wait_cluster_consistency "${CLUSTER}" "${CLUSTER_SIZE}" "${PROXY_SIZE}"
 
+	# Get initial PMM2 image
+	initial_pmm2_image=$(kubectl_bin get pod "${CLUSTER}-pxc-0" -o jsonpath='{.status.containerStatuses[?(@.name=="pmm-client")].image}')
+	desc "Initial PMM2 image: ${initial_pmm2_image}"
+
 	# Get recommended PMM2 image from version service
 	pmm2_recommended_image=$(kubectl_bin exec -ti "$(get_operator_pod)" ${OPERATOR_NS:+-n $OPERATOR_NS} -- curl -s "${VS_URL}.${namespace}.svc.cluster.local:${VS_PORT}/versions/v1/pxc-operator/9.9.9" | jq -r '.versions[].matrix.pmm | to_entries[] | select(.value.imagePath) | select(.value.imagePath | contains("pmm-client:2")) | select(.value.status == "recommended") | .value.imagePath')
+	desc "Target PMM2 recommended image: ${pmm2_recommended_image}"
 
-	desc "Updating PMM2 to recommended: ${pmm2_recommended_image}"
+	# Update cluster to use version service with short schedule
 	kubectl_bin patch pxc/"${CLUSTER}" --type=merge -p '{"spec":{"upgradeOptions":{"versionServiceEndpoint":"'${VS_ENDPOINT}'","apply":"recommended","schedule": "* * * * *"}}}'
-	sleep 55
 
-	desc "Waiting for PMM2 containers to update..."
+	# Wait for PMM2 update
+	wait_pmm_update "${CLUSTER}" "${CLUSTER_SIZE}" "${pmm2_recommended_image}" "2" || exit 1
+
 	wait_cluster_consistency "${CLUSTER}" "${CLUSTER_SIZE}" "${PROXY_SIZE}"
 
 	# Verify PMM2 updated
@@ -92,23 +163,33 @@ function main() {
 		-p '[{"op":"remove","path":"/data/pmmserver"},{"op":"add","path":"/data/pmmservertoken","value":"'${pmm_password}'"}]'
 
 	# Prepare PMM3 cluster config
-	cp -f "${test_dir}/conf/${CLUSTER}-pmm3.yaml" "${tmp_dir}/${CLUSTER}-pmm3.yaml"
-	yq -i eval ".spec.initContainer.image = \"${IMAGE}\"" "${tmp_dir}/${CLUSTER}-pmm3.yaml"
-	yq -i eval ".spec.pxc.image = \"${IMAGE_PXC}\"" "${tmp_dir}/${CLUSTER}-pmm3.yaml"
-	yq -i eval ".spec.haproxy.image = \"${IMAGE_HAPROXY}\"" "${tmp_dir}/${CLUSTER}-pmm3.yaml"
-	yq -i eval ".spec.backup.image = \"${IMAGE_BACKUP}\"" "${tmp_dir}/${CLUSTER}-pmm3.yaml"
-	spinup_pxc "${CLUSTER}" "${tmp_dir}/${CLUSTER}-pmm3.yaml"
+	cp -f "${test_dir}/conf/${CLUSTER}-pmm3.yml" "${tmp_dir}/${CLUSTER}-pmm3.yml"
+	yq -i eval ".spec.initContainer.image = \"${IMAGE}\"" "${tmp_dir}/${CLUSTER}-pmm3.yml"
+	yq -i eval ".spec.pxc.image = \"${IMAGE_PXC}\"" "${tmp_dir}/${CLUSTER}-pmm3.yml"
+	yq -i eval ".spec.haproxy.image = \"${IMAGE_HAPROXY}\"" "${tmp_dir}/${CLUSTER}-pmm3.yml"
+	yq -i eval ".spec.backup.image = \"${IMAGE_BACKUP}\"" "${tmp_dir}/${CLUSTER}-pmm3.yml"
+	spinup_pxc "${CLUSTER}" "${tmp_dir}/${CLUSTER}-pmm3.yml"
 
+	# Get actual PXC version from running cluster and add to version service
 	wait_cluster_consistency "${CLUSTER}" "${CLUSTER_SIZE}" "${PROXY_SIZE}"
+	ACTUAL_PXC_VERSION=$(kubectl_bin get pxc "${CLUSTER}" -o jsonpath='{.status.pxc.version}')
+	desc "Detected PXC version for PMM3: ${ACTUAL_PXC_VERSION}"
+	add_pxc_version_to_vs "${ACTUAL_PXC_VERSION}" "${IMAGE_PXC}"
+
+	# Get initial PMM3 image
+	initial_pmm3_image=$(kubectl_bin get pod "${CLUSTER}-pxc-0" -o jsonpath='{.status.containerStatuses[?(@.name=="pmm-client")].image}')
+	desc "Initial PMM3 image: ${initial_pmm3_image}"
 
 	# Get recommended PMM3 image from version service
 	pmm3_recommended_image=$(kubectl_bin exec -ti "$(get_operator_pod)" ${OPERATOR_NS:+-n $OPERATOR_NS} -- curl -s "${VS_URL}.${namespace}.svc.cluster.local:${VS_PORT}/versions/v1/pxc-operator/9.9.9" | jq -r '.versions[].matrix.pmm | to_entries[] | select(.value.imagePath) | select(.value.imagePath | contains("pmm-client:3")) | select(.value.status == "recommended") | .value.imagePath')
+	desc "Target PMM3 recommended image: ${pmm3_recommended_image}"
 
-	desc "Updating PMM3 to recommended: ${pmm3_recommended_image}"
+	# Update cluster to use version service
 	kubectl_bin patch pxc/"${CLUSTER}" --type=merge -p '{"spec":{"upgradeOptions":{"versionServiceEndpoint":"'${VS_ENDPOINT}'","apply":"recommended","schedule": "* * * * *"}}}'
-	sleep 55
 
-	desc "Waiting for PMM3 containers to update..."
+	# Wait for PMM3 update
+	wait_pmm_update "${CLUSTER}" "${CLUSTER_SIZE}" "${pmm3_recommended_image}" "3" || exit 1
+
 	wait_cluster_consistency "${CLUSTER}" "${CLUSTER_SIZE}" "${PROXY_SIZE}"
 
 	# Verify PMM3 updated
@@ -121,7 +202,7 @@ function main() {
 	done
 	desc "PMM3 successfully updated to ${pmm3_recommended_image}"
 
-	kubectl_bin delete -f "${tmp_dir}/${CLUSTER}-pmm3.yaml"
+	kubectl_bin delete -f "${tmp_dir}/${CLUSTER}-pmm3.yml"
 	kubectl_bin delete pvc --all
 
 	desc 'cleanup'

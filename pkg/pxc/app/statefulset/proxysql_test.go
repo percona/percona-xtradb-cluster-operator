@@ -1,11 +1,14 @@
 package statefulset
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes/scheme"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
@@ -264,7 +267,7 @@ func TestSidecarContainers_ProxySQL(t *testing.T) {
 			},
 		},
 	}
-
+	ctx := context.Background()
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			cr := &api.PerconaXtraDBCluster{
@@ -286,8 +289,9 @@ func TestSidecarContainers_ProxySQL(t *testing.T) {
 			}
 
 			proxySQL := &Proxy{cr: cr}
+			cl := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
 
-			containers, err := proxySQL.SidecarContainers(&tt.spec, tt.secrets, cr)
+			containers, err := proxySQL.SidecarContainers(ctx, cl, &tt.spec, tt.secrets, cr)
 			assert.NoError(t, err)
 
 			expected := tt.expectedContainers()

@@ -79,6 +79,12 @@ if [ -f "$conf_dir/cloud-secret.yml" ]; then
 	SKIP_REMOTE_BACKUPS=''
 fi
 
+if doctl kubernetes cluster get $(kubectl config current-context | sed 's/^do-[^-]*-//') --format Version >/dev/null 2>&1; then
+	DOKS=1
+else
+	DOKS=0
+fi
+
 if [ $(kubectl version -o json | jq -r '.serverVersion.gitVersion' | grep "-eks-") ]; then
 	EKS=1
 else
@@ -513,6 +519,8 @@ compare_kubectl() {
 			del(.metadata.annotations."cloud.google.com/neg") |
 			del(.metadata.annotations."k8s.v1.cni.cncf.io*") |
 			del(.metadata.annotations."k8s.ovn.org/pod-networks") |
+			del(.metadata.annotations."kubernetes.digitalocean.com/load-balancer-id") |
+			del(.metadata.annotations."service.beta.kubernetes.io/do-loadbalancer-type") |
 			del(.spec.template.metadata.annotations."last-applied-secret") |
 			del(.spec.template.metadata.labels."batch.kubernetes.io/job-name") |
 			del(.spec.template.metadata.labels."job-name") |
@@ -822,23 +830,18 @@ desc() {
 get_service_endpoint() {
 	local service=$1
 
-	local hostname=$(
-		kubectl_bin get service/$service -o json \
-			| jq '.status.loadBalancer.ingress[].hostname' \
-			| sed -e 's/^"//; s/"$//;'
+	local endpoint=$(
+		kubectl_bin get service/$service -o jsonpath='{.status.loadBalancer.ingress[].hostname}'
 	)
-	if [ -n "$hostname" -a "$hostname" != "null" ]; then
-		echo $hostname
-		return
+
+	if [ -z "$endpoint" ] || [ "$endpoint" = "null" ]; then
+		endpoint=$(
+			kubectl_bin get service/$service -o jsonpath='{.status.loadBalancer.ingress[].ip}'
+		)
 	fi
 
-	local ip=$(
-		kubectl_bin get service/$service -o json \
-			| jq '.status.loadBalancer.ingress[].ip' \
-			| sed -e 's/^"//; s/"$//;'
-	)
-	if [ -n "$ip" -a "$ip" != "null" ]; then
-		echo $ip
+	if [ -n "$endpoint" ] && [ "$endpoint" != "null" ]; then
+		echo "$endpoint" | head -n 1 | sed -e 's/^"//; s/"$//;'
 		return
 	fi
 
@@ -2062,7 +2065,22 @@ deploy_pmm_server() {
 	helm uninstall monitoring || :
 
 	retry 10 60 helm install monitoring --set imageRepo=${IMAGE_PMM_SERVER%:*} --set imageTag=${IMAGE_PMM_SERVER#*:} $additional_params https://percona-charts.storage.googleapis.com/pmm-server-$PMM_SERVER_VER.tgz
-	kubectl wait pod monitoring-0 --for=condition=Ready --timeout=420s
+	wait_for_pmm_service
+}
+
+wait_for_pmm_service() {
+	timeout=420
+	start=$(date +%s)
+
+	until kubectl_bin get svc monitoring-service -o jsonpath='{.status.loadBalancer.ingress[0]}' 2>/dev/null | grep -q .; do
+    if (( $(date +%s) - start >= timeout )); then
+        echo "timeout waiting for service to be available"
+        exit 1
+    fi
+    sleep 2
+	done
+
+	kubectl_bin wait sts/monitoring --for=jsonpath='{.status.readyReplicas}'=1 --timeout=${timeout}s
 }
 
 run_recovery_check_pitr() {

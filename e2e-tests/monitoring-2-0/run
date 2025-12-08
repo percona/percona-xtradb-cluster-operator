@@ -50,16 +50,6 @@ deploy_helm $namespace
 
 desc 'install PMM Server'
 deploy_pmm_server
-kubectl_bin wait --for=condition=Ready pod/${cluster}-0 --timeout=120s
-until kubectl_bin exec monitoring-0 -- bash -c "ls -l /proc/*/exe 2>/dev/null| grep postgres >/dev/null"; do
-	echo "Retry $retry"
-	sleep 5
-	let retry+=1
-	if [ $retry -ge 20 ]; then
-		echo "Max retry count $retry reached. Pmm-server can't start"
-		exit 1
-	fi
-done
 ADMIN_PASSWORD=$(kubectl_bin exec monitoring-0 -- bash -c "printenv | grep ADMIN_PASSWORD | cut -d '=' -f2")
 sleep 5
 kubectl_bin exec monitoring-0 -- bash -c "grafana-cli --homepath=/usr/share/grafana --config=/etc/grafana/grafana.ini admin reset-admin-password $ADMIN_PASSWORD"

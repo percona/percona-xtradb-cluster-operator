@@ -1933,7 +1933,11 @@ func (s *PerconaXtraDBClusterSpec) ProxySQLEnabled() bool {
 	return s.ProxySQL != nil && s.ProxySQL.Enabled
 }
 
-const AnnotationPVCResizeInProgress = "percona.com/pvc-resize-in-progress"
+const (
+	AnnotationPVCResizeInProgress               = "percona.com/pvc-resize-in-progress"
+	AnnotationSSLCertRotationInProgress         = "percona.com/ssl-cert-rotation-in-progress"
+	AnnotationInternalSSLCertRotationInProgress = "percona.com/internal-ssl-cert-rotation-in-progress"
+)
 
 func (cr *PerconaXtraDBCluster) PVCResizeInProgress() bool {
 	_, ok := cr.Annotations[AnnotationPVCResizeInProgress]

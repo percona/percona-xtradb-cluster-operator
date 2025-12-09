@@ -32,6 +32,14 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/util"
 )
 
+const (
+	configHashAnnotation      = "percona.com/configuration-hash"
+	sslHashAnnotation         = "percona.com/ssl-hash"
+	sslInternalHashAnnotation = "percona.com/ssl-internal-hash"
+	vaultConfigHashAnnotation = "percona.com/vault-config-hash"
+	envVarsHashAnnotation     = "percona.com/env-secret-config-hash"
+)
+
 var NoProxyDetectedError = errors.New("can't detect enabled proxy, please enable HAProxy or ProxySQL")
 
 func (r *ReconcilePerconaXtraDBCluster) updatePod(
@@ -92,11 +100,11 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(
 	}
 
 	hashAnnotations := map[string]string{
-		"percona.com/configuration-hash":     configHash,
-		"percona.com/ssl-hash":               sslHash,
-		"percona.com/ssl-internal-hash":      sslInternalHash,
-		"percona.com/vault-config-hash":      vaultConfigHash,
-		"percona.com/env-secret-config-hash": envVarsHash,
+		configHashAnnotation:      configHash,
+		sslHashAnnotation:         sslHash,
+		sslInternalHashAnnotation: sslInternalHash,
+		vaultConfigHashAnnotation: vaultConfigHash,
+		envVarsHashAnnotation:     envVarsHash,
 	}
 
 	secrets := new(corev1.Secret)

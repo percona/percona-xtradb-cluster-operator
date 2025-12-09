@@ -60,20 +60,6 @@ spec:
                 secretKeyRef:
                   key: monitor
                   name: internal-sec-context
-            - name: SCHEDULER_CHECKTIMEOUT
-              value: "0"
-            - name: SCHEDULER_WRITERALSOREADER
-              value: "0"
-            - name: SCHEDULER_RETRYUP
-              value: "0"
-            - name: SCHEDULER_RETRYDOWN
-              value: "0"
-            - name: SCHEDULER_PINGTIMEOUT
-              value: "0"
-            - name: SCHEDULER_NODECHECKINTERVAL
-              value: "0"
-            - name: SCHEDULER_MAXCONNECTIONS
-              value: "0"
           envFrom:
             - secretRef:
                 name: sec-context-env-vars-proxysql
@@ -112,6 +98,8 @@ spec:
             - -on-change=/opt/percona/proxysql_add_pxc_nodes.sh
             - -service=$(PXC_SERVICE)
             - -protocol=$(PEER_LIST_SRV_PROTOCOL)
+          command:
+            - /opt/percona/proxysql-entrypoint.sh
           env:
             - name: PXC_SERVICE
               value: sec-context-pxc
@@ -153,6 +141,8 @@ spec:
             - -on-change=/opt/percona/proxysql_add_proxysql_nodes.sh
             - -service=$(PROXYSQL_SERVICE)
             - -protocol=$(PEER_LIST_SRV_PROTOCOL)
+          command:
+            - /opt/percona/proxysql-entrypoint.sh
           env:
             - name: PROXYSQL_SERVICE
               value: sec-context-proxysql-unready

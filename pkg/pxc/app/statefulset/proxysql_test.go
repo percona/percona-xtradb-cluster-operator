@@ -1,11 +1,14 @@
 package statefulset
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes/scheme"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
@@ -195,13 +198,6 @@ func defaultExpectedProxySQLContainer() corev1.Container {
 			{Name: "MONITOR_PASSWORD", ValueFrom: &corev1.EnvVarSource{
 				SecretKeyRef: app.SecretKeySelector("my-secret", users.Monitor),
 			}},
-			{Name: "SCHEDULER_CHECKTIMEOUT", Value: "0"},
-			{Name: "SCHEDULER_WRITERALSOREADER", Value: "0"},
-			{Name: "SCHEDULER_RETRYUP", Value: "0"},
-			{Name: "SCHEDULER_RETRYDOWN", Value: "0"},
-			{Name: "SCHEDULER_PINGTIMEOUT", Value: "0"},
-			{Name: "SCHEDULER_NODECHECKINTERVAL", Value: "0"},
-			{Name: "SCHEDULER_MAXCONNECTIONS", Value: "0"},
 		},
 		EnvFrom: []corev1.EnvFromSource{
 			{
@@ -245,20 +241,33 @@ func TestSidecarContainers_ProxySQL(t *testing.T) {
 			secrets:   "monitor-secret",
 			crVersion: version.Version(),
 			scheduler: api.ProxySQLSchedulerSpec{
-				Enabled: true,
+				Enabled:                       true,
+				WriterIsAlsoReader:            true,
+				SuccessThreshold:              1,
+				FailureThreshold:              3,
+				MaxConnections:                1000,
+				PingTimeoutMilliseconds:       1000,
+				CheckTimeoutMilliseconds:      2000,
+				NodeCheckIntervalMilliseconds: 2000,
 			},
 			expectedContainers: func() []corev1.Container {
 				c := defaultExpectedProxySQLSidecarContainers()
 				pxcMonit := c[0]
-				pxcMonit.Env = append(pxcMonit.Env, corev1.EnvVar{
-					Name:  "SCHEDULER_ENABLED",
-					Value: "true",
-				})
+				pxcMonit.Env = append(pxcMonit.Env[:5], []corev1.EnvVar{
+					{Name: "SCHEDULER_CHECKTIMEOUT", Value: "2000"},
+					{Name: "SCHEDULER_WRITERALSOREADER", Value: "1"},
+					{Name: "SCHEDULER_RETRYUP", Value: "1"},
+					{Name: "SCHEDULER_RETRYDOWN", Value: "3"},
+					{Name: "SCHEDULER_PINGTIMEOUT", Value: "1000"},
+					{Name: "SCHEDULER_NODECHECKINTERVAL", Value: "2000"},
+					{Name: "SCHEDULER_MAXCONNECTIONS", Value: "1000"},
+					{Name: "SCHEDULER_ENABLED", Value: "true"},
+				}...)
 				return []corev1.Container{pxcMonit}
 			},
 		},
 	}
-
+	ctx := context.Background()
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			cr := &api.PerconaXtraDBCluster{
@@ -280,8 +289,9 @@ func TestSidecarContainers_ProxySQL(t *testing.T) {
 			}
 
 			proxySQL := &Proxy{cr: cr}
+			cl := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
 
-			containers, err := proxySQL.SidecarContainers(&tt.spec, tt.secrets, cr)
+			containers, err := proxySQL.SidecarContainers(ctx, cl, &tt.spec, tt.secrets, cr)
 			assert.NoError(t, err)
 
 			expected := tt.expectedContainers()
@@ -299,6 +309,7 @@ func defaultExpectedProxySQLSidecarContainers() []corev1.Container {
 			Name:            "pxc-monit",
 			Image:           "test-image",
 			ImagePullPolicy: corev1.PullIfNotPresent,
+			Command:         []string{"/opt/percona/proxysql-entrypoint.sh"},
 			Args: []string{
 				"/opt/percona/peer-list",
 				"-on-change=/opt/percona/proxysql_add_pxc_nodes.sh",
@@ -338,6 +349,7 @@ func defaultExpectedProxySQLSidecarContainers() []corev1.Container {
 			Name:            "proxysql-monit",
 			Image:           "test-image",
 			ImagePullPolicy: corev1.PullIfNotPresent,
+			Command:         []string{"/opt/percona/proxysql-entrypoint.sh"},
 			Args: []string{
 				"/opt/percona/peer-list",
 				"-on-change=/opt/percona/proxysql_add_proxysql_nodes.sh",

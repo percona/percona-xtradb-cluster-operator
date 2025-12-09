@@ -178,43 +178,8 @@ func (c *Proxy) AppContainer(ctx context.Context, _ client.Client, spec *api.Pod
 
 	if cr.CompareVersionWith("1.19.0") >= 0 {
 		scheduler := cr.Spec.ProxySQL.Scheduler
-		appc.Env = append(appc.Env, []corev1.EnvVar{
-			{
-				Name:  "SCHEDULER_CHECKTIMEOUT",
-				Value: strconv.FormatInt(int64(scheduler.CheckTimeoutMilliseconds), 10),
-			},
-			{
-				Name: "SCHEDULER_WRITERALSOREADER",
-				Value: func() string {
-					if scheduler.WriterIsAlsoReader {
-						return "1"
-					}
-					return "0"
-				}(),
-			},
-			{
-				Name:  "SCHEDULER_RETRYUP",
-				Value: strconv.FormatInt(int64(scheduler.SuccessThreshold), 10),
-			},
-			{
-				Name:  "SCHEDULER_RETRYDOWN",
-				Value: strconv.FormatInt(int64(scheduler.FailureThreshold), 10),
-			},
-			{
-				Name:  "SCHEDULER_PINGTIMEOUT",
-				Value: strconv.FormatInt(int64(scheduler.PingTimeoutMilliseconds), 10),
-			},
-			{
-				Name:  "SCHEDULER_NODECHECKINTERVAL",
-				Value: strconv.FormatInt(int64(scheduler.NodeCheckIntervalMilliseconds), 10),
-			},
-			{
-				Name:  "SCHEDULER_MAXCONNECTIONS",
-				Value: strconv.FormatInt(int64(scheduler.MaxConnections), 10),
-			},
-		}...)
-
 		if scheduler.Enabled {
+			appc.Env = append(appc.Env, schedulerEnvVariables(scheduler)...)
 			appc.Env = append(appc.Env, corev1.EnvVar{
 				Name:  "SCHEDULER_ENABLED",
 				Value: "true",
@@ -228,7 +193,7 @@ func (c *Proxy) AppContainer(ctx context.Context, _ client.Client, spec *api.Pod
 	return appc, nil
 }
 
-func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster) ([]corev1.Container, error) {
+func (c *Proxy) SidecarContainers(ctx context.Context, cl client.Client, spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster) ([]corev1.Container, error) {
 	pxcMonit := corev1.Container{
 		Name:            "pxc-monit",
 		Image:           spec.Image,
@@ -396,19 +361,64 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.Per
 		}...)
 
 		if cr.Spec.ProxySQL.Scheduler.Enabled {
+			pxcMonit.Env = append(pxcMonit.Env, schedulerEnvVariables(cr.Spec.ProxySQL.Scheduler)...)
 			pxcMonit.Env = append(pxcMonit.Env, corev1.EnvVar{
 				Name:  "SCHEDULER_ENABLED",
 				Value: "true",
 			})
 		}
+
+		pxcMonit.Command = []string{"/opt/percona/proxysql-entrypoint.sh"}
+		proxysqlMonit.Command = []string{"/opt/percona/proxysql-entrypoint.sh"}
 	}
 
 	containers := []corev1.Container{pxcMonit}
+	// we are disabling ProxySQL cluster mode in case scheduler is enabled
+	// therefore we don't need proxysqlMonit container
 	if !cr.Spec.ProxySQL.Scheduler.Enabled {
 		containers = append(containers, proxysqlMonit)
 	}
 
 	return containers, nil
+}
+
+func schedulerEnvVariables(scheduler api.ProxySQLSchedulerSpec) []corev1.EnvVar {
+	return []corev1.EnvVar{
+		{
+			Name:  "SCHEDULER_CHECKTIMEOUT",
+			Value: strconv.FormatInt(int64(scheduler.CheckTimeoutMilliseconds), 10),
+		},
+		{
+			Name: "SCHEDULER_WRITERALSOREADER",
+			Value: func() string {
+				if scheduler.WriterIsAlsoReader {
+					return "1"
+				}
+				return "0"
+			}(),
+		},
+		{
+			Name:  "SCHEDULER_RETRYUP",
+			Value: strconv.FormatInt(int64(scheduler.SuccessThreshold), 10),
+		},
+		{
+			Name:  "SCHEDULER_RETRYDOWN",
+			Value: strconv.FormatInt(int64(scheduler.FailureThreshold), 10),
+		},
+		{
+			Name:  "SCHEDULER_PINGTIMEOUT",
+			Value: strconv.FormatInt(int64(scheduler.PingTimeoutMilliseconds), 10),
+		},
+		{
+			Name:  "SCHEDULER_NODECHECKINTERVAL",
+			Value: strconv.FormatInt(int64(scheduler.NodeCheckIntervalMilliseconds), 10),
+		},
+		{
+			Name:  "SCHEDULER_MAXCONNECTIONS",
+			Value: strconv.FormatInt(int64(scheduler.MaxConnections), 10),
+		},
+	}
+
 }
 
 func (c *Proxy) LogCollectorContainer(_ *api.LogCollectorSpec, _ string, _ string, _ *api.PerconaXtraDBCluster) ([]corev1.Container, error) {

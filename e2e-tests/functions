@@ -13,6 +13,7 @@ MINIO_VER="5.4.0"
 CHAOS_MESH_VER="2.7.1"
 VAULT_VER="0.30.0"
 UPDATE_COMPARE_FILES=${UPDATE_COMPARE_FILES:-0}
+NO_DESTROY=${NO_DESTROY:-0}
 
 export IMAGE=${IMAGE:-"perconalab/percona-xtradb-cluster-operator:${GIT_BRANCH}"}
 export IMAGE_PXC=${IMAGE_PXC:-"perconalab/percona-xtradb-cluster-operator:main-pxc${MYSQL_VERSION}"}
@@ -777,6 +778,11 @@ deploy_cert_manager() {
 destroy() {
 	local namespace="$1"
 	local ignore_logs="${2:-true}"
+
+	if [[ ${NO_DESTROY} == 1 ]]; then
+		echo "NO_DESTROY is set, not touching anything."
+		return
+	fi
 
 	desc 'destroy cluster/operator and all other resources'
 	if [ ${ignore_logs} == "false" -o "${DEBUG_TESTS}" == 1 ]; then

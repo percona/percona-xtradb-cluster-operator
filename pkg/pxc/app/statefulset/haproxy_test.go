@@ -1,6 +1,7 @@
 package statefulset
 
 import (
+	"context"
 	"reflect"
 	"testing"
 
@@ -12,6 +13,8 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/version"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes/scheme"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 func TestAppContainer_HAProxy(t *testing.T) {
@@ -184,6 +187,7 @@ func TestSidecarContainers_HAProxy(t *testing.T) {
 		expectedArgs    []string
 		expectedEnvFrom []corev1.EnvFromSource
 		expectError     bool
+		secret          corev1.Secret
 	}{
 		"success - container construction": {
 			spec: api.PodSpec{
@@ -214,7 +218,7 @@ func TestSidecarContainers_HAProxy(t *testing.T) {
 			expectError: false,
 		},
 	}
-
+	ctx := context.Background()
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			cr := &api.PerconaXtraDBCluster{
@@ -236,8 +240,9 @@ func TestSidecarContainers_HAProxy(t *testing.T) {
 			}
 
 			haproxy := &HAProxy{cr: cr}
+			cl := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(&tt.secret).Build()
 
-			containers, err := haproxy.SidecarContainers(&tt.spec, tt.secrets, cr)
+			containers, err := haproxy.SidecarContainers(ctx, cl, &tt.spec, tt.secrets, cr)
 			if tt.expectError {
 				if err == nil {
 					t.Errorf("expected error, got nil")
@@ -277,6 +282,7 @@ func pointerToTrue() *bool {
 func TestHAProxyHealthCheckEnvVars(t *testing.T) {
 	tests := map[string]struct {
 		healthCheck     *api.HAProxyHealthCheckSpec
+		secret          corev1.Secret
 		expectedEnvVars map[string]string
 	}{
 		"default values": {
@@ -319,8 +325,38 @@ func TestHAProxyHealthCheckEnvVars(t *testing.T) {
 				"HA_SERVER_OPTIONS": "resolvers kubernetes check inter 3000 rise 1 fall 2 weight 1 on-marked-down shutdown-sessions",
 			},
 		},
+		"default values and the env vars secret that defines HA_SERVER_OPTIONS": {
+			healthCheck: nil,
+			// HA_SERVER_OPTIONS env var is expected to contain the value from the secret
+			expectedEnvVars: map[string]string{
+				"HA_SERVER_OPTIONS": "resolvers kubernetes check inter 50000 rise 1 fall 2 weight 1 on-marked-down shutdown-sessions",
+			},
+			secret: corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-secret",
+				},
+				Data: map[string][]byte{
+					"HA_SERVER_OPTIONS": []byte("resolvers kubernetes check inter 50000 rise 1 fall 2 weight 1 on-marked-down shutdown-sessions"),
+				},
+			},
+		},
+		"default values and the env vars secret that defines an unrelated value": {
+			healthCheck: nil,
+			// HA_SERVER_OPTIONS env var expected to be present and contain the default value since the secret does not define HA_SERVER_OPTIONS
+			expectedEnvVars: map[string]string{
+				"HA_SERVER_OPTIONS": "resolvers kubernetes check inter 10000 rise 1 fall 2 weight 1 on-marked-down shutdown-sessions",
+			},
+			secret: corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-secret",
+				},
+				Data: map[string][]byte{
+					"UNRELATED_VAR": []byte(""),
+				},
+			},
+		},
 	}
-
+	ctx := context.Background()
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			cr := &api.PerconaXtraDBCluster{
@@ -347,8 +383,9 @@ func TestHAProxyHealthCheckEnvVars(t *testing.T) {
 			}
 
 			haproxy := &HAProxy{cr: cr}
+			cl := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(&tt.secret).Build()
 
-			containers, err := haproxy.SidecarContainers(&cr.Spec.HAProxy.PodSpec, "test-secret", cr)
+			containers, err := haproxy.SidecarContainers(ctx, cl, &cr.Spec.HAProxy.PodSpec, "test-secret", cr)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}

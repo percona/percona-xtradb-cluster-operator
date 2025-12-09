@@ -61,7 +61,7 @@ func setStatus(ctx context.Context, cl client.Client, cr *api.PerconaXtraDBClust
 		}
 		restore.Status = cr.Status
 
-		return cl.Status().Update(ctx, cr)
+		return cl.Status().Update(ctx, restore)
 	})
 	if err != nil {
 		return errors.Wrap(err, "send update")

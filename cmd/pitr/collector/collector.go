@@ -84,6 +84,7 @@ type Collector struct {
 	pxcUser         string      // user for connection to PXC
 	pxcPass         string      // password for connection to PXC
 	gtidCacheKey    string      // filename of gtid cache json
+	sourceID        string
 }
 
 type Config struct {
@@ -262,6 +263,10 @@ func (c *Collector) Run(ctx context.Context) error {
 	// remove last set because we always
 	// read it from aws file
 	c.lastUploadedSet = pxc.NewGTIDSet("")
+	c.sourceID, err = c.db.WsrepClusterStateUUID()
+	if err != nil {
+		return errors.Wrap(err, "get cluster state uuid")
+	}
 
 	err = c.CollectBinLogs(ctx)
 	if err != nil {
@@ -514,13 +519,14 @@ func (c *Collector) CollectBinLogs(ctx context.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "get GTID sets")
 	}
+
 	var lastGTIDSetList []string
-	for i := len(binlogList) - 1; i >= 0 && len(lastGTIDSetList) == 0; i-- {
+	for i := len(binlogList) - 1; i >= 0; i-- {
 		gtidSetList := binlogList[i].GTIDSet.List()
-		if gtidSetList == nil {
-			continue
+		if len(gtidSetList) != 0 {
+			lastGTIDSetList = gtidSetList
+			break
 		}
-		lastGTIDSetList = gtidSetList
 	}
 
 	if len(lastGTIDSetList) == 0 {
@@ -535,12 +541,19 @@ func (c *Collector) CollectBinLogs(ctx context.Context) error {
 		sourceID = strings.ReplaceAll(sourceID, "\n", "")
 		sourceID = strings.ReplaceAll(sourceID, "\r", "")
 
-		c.lastUploadedSet, err = c.lastGTIDSet(ctx, sourceID)
-		if err != nil {
-			return errors.Wrap(err, "get last uploaded gtid set")
-		}
-		if !c.lastUploadedSet.IsEmpty() {
-			break
+		// After a restore, the cluster will generate a new UUID, meaning
+		// lastGTIDSetList can contain GTID sets from both the current and an old source UUID.
+		// In this situation, we must prioritize the GTID set that matches the
+		// current cluster UUID. If no file exists for the current UUID, we must
+		// create a new one to avoid triggering a false binlog gap error.
+		if c.lastUploadedSet.IsEmpty() || c.sourceID == sourceID {
+			c.lastUploadedSet, err = c.lastGTIDSet(ctx, sourceID)
+			if err != nil {
+				return errors.Wrap(err, "get last uploaded gtid set")
+			}
+			if c.sourceID == sourceID {
+				break
+			}
 		}
 	}
 

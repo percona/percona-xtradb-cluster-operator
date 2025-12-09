@@ -3,6 +3,7 @@ package pxc
 import (
 	"context"
 	"database/sql"
+	stderrors "errors"
 	"fmt"
 	"log"
 	"os/exec"
@@ -62,10 +63,24 @@ func (p *PXC) GetHost() string {
 // GetGTIDSet return GTID set by binary log file name
 func (p *PXC) GetGTIDSet(ctx context.Context, binlogName string) (string, error) {
 	var binlogSet string
-	row := p.db.QueryRowContext(ctx, "SELECT get_gtid_set_by_binlog(?)", binlogName)
 
-	if err := row.Scan(&binlogSet); err != nil && !strings.Contains(err.Error(), "Binary log does not exist") {
-		return "", errors.Wrap(err, "scan set")
+	scan := func() error {
+		row := p.db.QueryRowContext(ctx, "SELECT get_gtid_set_by_binlog(?)", binlogName)
+		if err := row.Scan(&binlogSet); err != nil && !strings.Contains(err.Error(), "Binary log does not exist") {
+			return errors.Wrap(err, "scan set")
+		}
+		return nil
+	}
+
+	if err := scan(); err != nil {
+		if strings.Contains(err.Error(), "does not exist") {
+			if cerr := p.CreateCollectorFunctions(ctx); cerr != nil {
+				return "", stderrors.Join(err, cerr)
+			}
+
+			return binlogSet, scan()
+		}
+		return "", errors.Wrap(err, "scan binlog timestamp")
 	}
 
 	return binlogSet, nil
@@ -91,7 +106,7 @@ func NewGTIDSet(gtidSet string) GTIDSet {
 }
 
 func (s *GTIDSet) IsEmpty() bool {
-	return len(s.gtidSet) == 0
+	return s == nil || len(s.gtidSet) == 0
 }
 
 func (s *GTIDSet) Raw() string {
@@ -161,6 +176,21 @@ func (p *PXC) GetBinLogNamesList(ctx context.Context) ([]string, error) {
 	return binlogs, nil
 }
 
+func (p *PXC) WsrepClusterStateUUID() (string, error) {
+	var variable_name string
+	var value string
+
+	err := p.db.QueryRow("SHOW GLOBAL STATUS LIKE 'wsrep_cluster_state_uuid'").Scan(&variable_name, &value)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return "", fmt.Errorf("variable was not found")
+		}
+		return "", err
+	}
+
+	return value, nil
+}
+
 func (p *PXC) GTIDSubset(ctx context.Context, set1, set2 string) (bool, error) {
 	row := p.db.QueryRowContext(ctx, "SELECT GTID_SUBSET(?,?)", set1, set2)
 	var result int
@@ -174,9 +204,19 @@ func (p *PXC) GTIDSubset(ctx context.Context, set1, set2 string) (bool, error) {
 // GetBinLogFirstTimestamp return binary log file first timestamp
 func (p *PXC) GetBinLogFirstTimestamp(ctx context.Context, binlog string) (string, error) {
 	var timestamp string
-	row := p.db.QueryRowContext(ctx, "SELECT get_first_record_timestamp_by_binlog(?) DIV 1000000", binlog)
+	scan := func() error {
+		row := p.db.QueryRowContext(ctx, "SELECT get_first_record_timestamp_by_binlog(?) DIV 1000000", binlog)
+		err := row.Scan(&timestamp)
+		return errors.Wrap(err, "scan binlog timestamp")
+	}
+	if err := scan(); err != nil {
+		if strings.Contains(err.Error(), "does not exist") {
+			if cerr := p.CreateCollectorFunctions(ctx); cerr != nil {
+				return "", stderrors.Join(err, cerr)
+			}
 
-	if err := row.Scan(&timestamp); err != nil {
+			return timestamp, scan()
+		}
 		return "", errors.Wrap(err, "scan binlog timestamp")
 	}
 
@@ -186,9 +226,20 @@ func (p *PXC) GetBinLogFirstTimestamp(ctx context.Context, binlog string) (strin
 // GetBinLogLastTimestamp return binary log file last timestamp
 func (p *PXC) GetBinLogLastTimestamp(ctx context.Context, binlog string) (string, error) {
 	var timestamp string
-	row := p.db.QueryRowContext(ctx, "SELECT get_last_record_timestamp_by_binlog(?) DIV 1000000", binlog)
+	scan := func() error {
+		row := p.db.QueryRowContext(ctx, "SELECT get_last_record_timestamp_by_binlog(?) DIV 1000000", binlog)
+		err := row.Scan(&timestamp)
+		return errors.Wrap(err, "scan binlog timestamp")
+	}
 
-	if err := row.Scan(&timestamp); err != nil {
+	if err := scan(); err != nil {
+		if strings.Contains(err.Error(), "does not exist") {
+			if cerr := p.CreateCollectorFunctions(ctx); cerr != nil {
+				return "", stderrors.Join(err, cerr)
+			}
+
+			return timestamp, scan()
+		}
 		return "", errors.Wrap(err, "scan binlog timestamp")
 	}
 
@@ -351,14 +402,16 @@ func (p *PXC) UninstallBinlogUDFComponent(ctx context.Context) error {
 	return nil
 }
 
-func (p *PXC) CreateCollectorFunctions(ctx context.Context) error {
-	m := map[string]string{
+func collectorFunctions() map[string]string {
+	return map[string]string{
 		"get_last_record_timestamp_by_binlog":  "INTEGER",
 		"get_gtid_set_by_binlog":               "STRING",
 		"get_first_record_timestamp_by_binlog": "INTEGER",
 	}
+}
 
-	for functionName, returnType := range m {
+func (p *PXC) CreateCollectorFunctions(ctx context.Context) error {
+	for functionName, returnType := range collectorFunctions() {
 		var x int
 		err := p.db.QueryRowContext(ctx, `SELECT 1 FROM mysql.func WHERE name = ? LIMIT 1`, functionName).Scan(&x)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
@@ -370,7 +423,7 @@ func (p *PXC) CreateCollectorFunctions(ctx context.Context) error {
 		}
 
 		log.Printf("Creating %s function on %s node", functionName, p.GetHost())
-		createQ := fmt.Sprintf("SET SESSION wsrep_on = OFF; CREATE FUNCTION IF NOT EXISTS %s RETURNS %s SONAME 'binlog_utils_udf.so'; SET SESSION wsrep_on = ON", functionName, returnType)
+		createQ := fmt.Sprintf("SET SESSION wsrep_on = OFF; CREATE FUNCTION IF NOT EXISTS %s RETURNS %s SONAME 'binlog_utils_udf.so'; SET SESSION wsrep_on = ON;", functionName, returnType)
 		if _, err := p.db.ExecContext(ctx, createQ); err != nil {
 			return errors.Wrapf(err, "create function %s", functionName)
 		}
@@ -380,18 +433,11 @@ func (p *PXC) CreateCollectorFunctions(ctx context.Context) error {
 }
 
 func (p *PXC) DropCollectorFunctions(ctx context.Context) error {
-	_, err := p.db.ExecContext(ctx, "DROP FUNCTION IF EXISTS get_first_record_timestamp_by_binlog")
-	if err != nil {
-		return errors.Wrap(err, "drop get_first_record_timestamp_by_binlog function")
-	}
-	_, err = p.db.ExecContext(ctx, "DROP FUNCTION IF EXISTS get_binlog_by_gtid_set")
-	if err != nil {
-		return errors.Wrap(err, "drop get_binlog_by_gtid_set function")
-	}
-
-	_, err = p.db.ExecContext(ctx, "DROP FUNCTION IF EXISTS get_gtid_set_by_binlog")
-	if err != nil {
-		return errors.Wrap(err, "drop get_gtid_set_by_binlog function")
+	for functionName := range collectorFunctions() {
+		dropQ := fmt.Sprintf("SET SESSION wsrep_on = OFF; DROP FUNCTION IF EXISTS %s; SET SESSION wsrep_on = ON;", functionName)
+		if _, err := p.db.ExecContext(ctx, dropQ); err != nil {
+			return errors.Wrapf(err, "create function %s", functionName)
+		}
 	}
 
 	return nil

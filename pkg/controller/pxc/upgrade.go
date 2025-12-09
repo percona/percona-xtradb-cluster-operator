@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/md5"
 	"encoding/json"
-	stdErrors "errors"
 	"fmt"
 	"sort"
 	"strconv"
@@ -26,13 +25,10 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/queries"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/util"
 )
-
-var NoProxyDetectedError = errors.New("can't detect enabled proxy, please enable HAProxy or ProxySQL")
 
 func (r *ReconcilePerconaXtraDBCluster) updatePod(
 	ctx context.Context,
@@ -249,7 +245,7 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(ctx context.Context, sfs api
 		return nil
 	}
 
-	primary, err := r.getPrimaryPod(ctx, cr)
+	primary, err := pxc.GetPrimaryPod(ctx, r.client, cr)
 	if err != nil {
 		return errors.Wrap(err, "get primary pod")
 	}
@@ -353,10 +349,9 @@ func (r *ReconcilePerconaXtraDBCluster) waitHostgroups(
 	if !cr.Spec.ProxySQLEnabled() {
 		return nil
 	}
-
 	log := logf.FromContext(ctx)
 
-	database, err := r.connectProxy(cr)
+	database, err := pxc.GetProxyConnection(cr, r.client)
 	if err != nil {
 		return errors.Wrap(err, "connect to proxy")
 	}
@@ -401,7 +396,7 @@ func (r *ReconcilePerconaXtraDBCluster) waitUntilOnline(
 		return nil
 	}
 
-	database, err := r.connectProxy(cr)
+	database, err := pxc.GetProxyConnection(cr, r.client)
 	if err != nil {
 		return errors.Wrap(err, "failed to get proxySQL db")
 	}
@@ -459,108 +454,6 @@ func retry(in, limit time.Duration, f func() (bool, error)) error {
 			}
 		}
 	}
-}
-
-// connectProxy returns a new connection through the proxy (ProxySQL or HAProxy)
-func (r *ReconcilePerconaXtraDBCluster) connectProxy(cr *api.PerconaXtraDBCluster) (queries.Database, error) {
-	var database queries.Database
-	var user, host string
-	var port, proxySize int32
-
-	if cr.ProxySQLEnabled() {
-		user = users.ProxyAdmin
-		host = fmt.Sprintf("%s-proxysql-unready.%s", cr.ObjectMeta.Name, cr.Namespace)
-		proxySize = cr.Spec.ProxySQL.Size
-		port = 6032
-	} else if cr.HAProxyEnabled() {
-		user = users.Monitor
-		host = fmt.Sprintf("%s-haproxy.%s", cr.Name, cr.Namespace)
-		proxySize = cr.Spec.HAProxy.Size
-
-		hasKey, err := cr.ConfigHasKey("mysqld", "proxy_protocol_networks")
-		if err != nil {
-			return database, errors.Wrap(err, "check if config has proxy_protocol_networks key")
-		}
-
-		port = 3306
-		if hasKey && cr.CompareVersionWith("1.6.0") >= 0 {
-			port = 33062
-		}
-	} else {
-		return database, NoProxyDetectedError
-	}
-
-	secrets := cr.Spec.SecretsName
-	if cr.CompareVersionWith("1.6.0") >= 0 {
-		secrets = "internal-" + cr.Name
-	}
-
-	for i := 0; ; i++ {
-		db, err := queries.New(r.client, cr.Namespace, secrets, user, host, port, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
-		if err != nil && i < int(proxySize) {
-			time.Sleep(time.Second)
-		} else if err != nil && i == int(proxySize) {
-			return database, err
-		} else {
-			database = db
-			break
-		}
-	}
-
-	return database, nil
-}
-
-func (r *ReconcilePerconaXtraDBCluster) getPrimaryPod(ctx context.Context, cr *api.PerconaXtraDBCluster) (string, error) {
-	conn, err := r.connectProxy(cr)
-	if err != nil {
-		if errors.Is(err, NoProxyDetectedError) && cr.Spec.PXC.Size == 1 {
-			firstReadyPod := func() (string, error) {
-				sts := statefulset.NewNode(cr)
-
-				podList := new(corev1.PodList)
-				if err := r.client.List(ctx, podList, &client.ListOptions{
-					Namespace:     cr.Namespace,
-					LabelSelector: labels.SelectorFromSet(sts.Labels()),
-				}); err != nil {
-					return "", errors.Wrap(err, "get pod list")
-				}
-
-				readyPods := make([]corev1.Pod, 0)
-				for _, pod := range podList.Items {
-					if isPodReady(pod) {
-						readyPods = append(readyPods, pod)
-					}
-				}
-				if len(readyPods) == 0 {
-					return "", errors.New("no ready pxc pods")
-				}
-				if len(readyPods) != int(cr.Spec.PXC.Size) {
-					return "", errors.New("waiting for pxc resize")
-				}
-
-				return readyPods[0].Status.PodIP, nil
-			}
-			host, rerr := firstReadyPod()
-			if rerr == nil {
-				return host, nil
-			}
-
-			err = stdErrors.Join(rerr, err)
-		}
-		return "", errors.Wrap(err, "failed to get proxy connection")
-	}
-	defer conn.Close()
-
-	if cr.HAProxyEnabled() {
-		host, err := conn.Hostname()
-		if err != nil {
-			return "", err
-		}
-
-		return host, nil
-	}
-
-	return conn.PrimaryHost()
 }
 
 func (r *ReconcilePerconaXtraDBCluster) waitPXCSynced(cr *api.PerconaXtraDBCluster, host string, waitLimit int) error {

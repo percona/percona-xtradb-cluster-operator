@@ -7,7 +7,7 @@ test_dir=$(realpath $(dirname $0))
 
 set_debug
 
-PXCO_FEATURE_GATES="BackupSidecar=true"
+PXCO_FEATURE_GATES="XtrabackupSidecar=true"
 
 get_container_options() {
 	backup_name=$1

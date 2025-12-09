@@ -496,7 +496,7 @@ func restoreJobEnvs(
 		Value: strconv.FormatBool(verifyTLS),
 	})
 
-	if features.Enabled(ctx, features.BackupSidecar) {
+	if features.Enabled(ctx, features.XtrabackupSidecar) {
 		envs = append(envs, corev1.EnvVar{
 			Name:  "XTRABACKUP_ENABLED",
 			Value: "true",

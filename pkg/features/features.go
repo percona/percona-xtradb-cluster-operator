@@ -10,8 +10,8 @@ import (
 )
 
 const (
-	// BackupSidecar is a feature flag for the BackupSidecar feature
-	BackupSidecar featuregate.Feature = "BackupSidecar"
+	// XtrabackupSidecar is a feature flag for the XtrabackupSidecar feature
+	XtrabackupSidecar featuregate.Feature = "XtrabackupSidecar"
 )
 
 // NewGate returns a new FeatureGate.
@@ -19,7 +19,7 @@ func NewGate() featuregate.MutableFeatureGate {
 	gate := featuregate.NewFeatureGate()
 
 	if err := gate.Add(map[featuregate.Feature]featuregate.FeatureSpec{
-		BackupSidecar: {Default: false, PreRelease: featuregate.Alpha},
+		XtrabackupSidecar: {Default: false, PreRelease: featuregate.Alpha},
 	}); err != nil {
 		panic(err)
 	}

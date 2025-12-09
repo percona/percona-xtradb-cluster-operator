@@ -1,0 +1,64 @@
+#!/bin/bash
+
+set -o errexit
+
+test_dir=$(realpath $(dirname $0))
+. ${test_dir}/../functions
+
+set_debug
+
+PXCO_FEATURE_GATES="XtrabackupSidecar=true"
+
+function jq_filter() {
+	local vault_root=$1
+	jq -r "[ .[] | .=\"'$vault_root/\"+.+\"'\" ] | join(\", \")"
+}
+
+function get_secret_mount_point() {
+	if [[ $IMAGE_PXC =~ 8\.4 ]]; then
+		kubectl_bin get -f ${conf_dir}/vault-secret-84.yaml -o yaml \
+			| yq '.data."keyring_vault.conf"' | base64 -d \
+			| jq -r .secret_mount_point
+	else
+		kubectl_bin get -f "${conf_dir}/vault-secret.yaml" -o json \
+			| grep -E -o "secret_mount_point = \w+" \
+			| awk -F "=[ ]*" '{print $2}'
+	fi
+}
+
+main() {
+	# todo: support PVC for pxb
+	if [ -n "$SKIP_REMOTE_BACKUPS" ]; then
+		echo "Skipping test because SKIP_REMOTE_BACKUPS variable is set!"
+		exit 0
+	fi
+
+	create_infra $namespace
+
+	vault1="vault-service-1-${RANDOM}"
+	protocol="https"
+	start_vault $vault1 $protocol
+	token1=$(jq -r ".root_token" <"$tmp_dir/$vault1")
+	ip1="$protocol://$vault1.$vault1.svc.cluster.local"
+
+	cluster="some-name"
+	spinup_pxc "$cluster" "$conf_dir/$cluster.yml"
+	keyring_plugin_must_be_in_use "$cluster"
+	table_must_be_encrypted "$cluster" "myApp"
+
+	run_backup "$cluster" "on-demand-backup-aws-s3"
+	run_recovery_check "$cluster" "on-demand-backup-aws-s3"
+	kubectl_bin delete -f "$test_dir/conf/restore-on-demand-backup-aws-s3.yaml"
+	table_must_be_encrypted "$cluster" "myApp"
+	keyring_plugin_must_be_in_use "$cluster"
+
+	for i in $vault1 $vault2; do
+		helm uninstall $i || :
+		kubectl_bin delete --grace-period=0 --force=true namespace $i &
+	done
+
+	destroy $namespace
+	desc "test passed"
+}
+
+main

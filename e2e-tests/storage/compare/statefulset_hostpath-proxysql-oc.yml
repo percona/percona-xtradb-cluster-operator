@@ -93,6 +93,8 @@ spec:
             - -on-change=/opt/percona/proxysql_add_pxc_nodes.sh
             - -service=$(PXC_SERVICE)
             - -protocol=$(PEER_LIST_SRV_PROTOCOL)
+          command:
+            - /opt/percona/proxysql-entrypoint.sh
           env:
             - name: PXC_SERVICE
               value: hostpath-pxc
@@ -130,6 +132,8 @@ spec:
             - -on-change=/opt/percona/proxysql_add_proxysql_nodes.sh
             - -service=$(PROXYSQL_SERVICE)
             - -protocol=$(PEER_LIST_SRV_PROTOCOL)
+          command:
+            - /opt/percona/proxysql-entrypoint.sh
           env:
             - name: PROXYSQL_SERVICE
               value: hostpath-proxysql-unready
@@ -170,8 +174,8 @@ spec:
           name: pxc-init
           resources:
             limits:
-              cpu: 50m
-              memory: 50M
+              cpu: 100m
+              memory: 100Mi
           securityContext:
             privileged: false
           terminationMessagePath: /dev/termination-log
@@ -185,8 +189,8 @@ spec:
           name: proxysql-init
           resources:
             limits:
-              cpu: 50m
-              memory: 50M
+              cpu: 100m
+              memory: 100Mi
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:

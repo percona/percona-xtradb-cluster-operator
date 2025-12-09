@@ -107,9 +107,6 @@ function main() {
 	# Prepare cluster config
 	cp -f "${test_dir}/conf/${CLUSTER}-version-service-unreachable.yml" "${tmp_dir}/${CLUSTER}-version-service-unreachable.yml"
 	yq -i eval ".spec.initContainer.image = \"${IMAGE}\"" "${tmp_dir}/${CLUSTER}-version-service-unreachable.yml"
-	yq -i eval ".spec.pxc.image = \"${IMAGE_PXC}\"" "${tmp_dir}/${CLUSTER}-version-service-unreachable.yml"
-	yq -i eval ".spec.haproxy.image = \"${IMAGE_HAPROXY}\"" "${tmp_dir}/${CLUSTER}-version-service-unreachable.yml"
-	yq -i eval ".spec.backup.image = \"${IMAGE_BACKUP}\"" "${tmp_dir}/${CLUSTER}-version-service-unreachable.yml"
 	spinup_pxc "${CLUSTER}" "${tmp_dir}/${CLUSTER}-version-service-unreachable.yml"
 
 	# Get actual PXC version from running cluster and add to version service

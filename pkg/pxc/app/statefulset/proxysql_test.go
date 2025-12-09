@@ -1,11 +1,14 @@
 package statefulset
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes/scheme"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
@@ -97,6 +100,49 @@ func TestAppContainer_ProxySQL(t *testing.T) {
 					{Name: "SCHEDULER_MAXCONNECTIONS", Value: "1000"},
 					{Name: "SCHEDULER_ENABLED", Value: "true"},
 				}...)
+				return c
+			},
+		},
+		"container construction with extra pvcs": {
+			spec: api.PerconaXtraDBClusterSpec{
+				CRVersion: version.Version(),
+				ProxySQL: &api.ProxySQLSpec{
+					PodSpec: api.PodSpec{
+						Image:             "test-image",
+						ImagePullPolicy:   corev1.PullIfNotPresent,
+						EnvVarsSecretName: "test-secret",
+						ExtraPVCs: []api.ExtraPVC{
+							{
+								Name:      "extra-data-volume",
+								ClaimName: "extra-storage-0",
+								MountPath: "/var/lib/proxysql-extra",
+							},
+							{
+								Name:      "backup-volume",
+								ClaimName: "backup-storage-0",
+								MountPath: "/backups",
+								SubPath:   "proxysql",
+							},
+						},
+					},
+				},
+				PXC: &api.PXCSpec{
+					PodSpec: &api.PodSpec{},
+				},
+			},
+			expectedContainer: func() corev1.Container {
+				c := defaultExpectedProxySQLContainer()
+				c.VolumeMounts = append(c.VolumeMounts,
+					corev1.VolumeMount{
+						Name:      "extra-data-volume",
+						MountPath: "/var/lib/proxysql-extra",
+					},
+					corev1.VolumeMount{
+						Name:      "backup-volume",
+						MountPath: "/backups",
+						SubPath:   "proxysql",
+					},
+				)
 				return c
 			},
 		},
@@ -215,7 +261,7 @@ func TestSidecarContainers_ProxySQL(t *testing.T) {
 			},
 		},
 	}
-
+	ctx := context.Background()
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			cr := &api.PerconaXtraDBCluster{
@@ -237,8 +283,9 @@ func TestSidecarContainers_ProxySQL(t *testing.T) {
 			}
 
 			proxySQL := &Proxy{cr: cr}
+			cl := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
 
-			containers, err := proxySQL.SidecarContainers(&tt.spec, tt.secrets, cr)
+			containers, err := proxySQL.SidecarContainers(ctx, cl, &tt.spec, tt.secrets, cr)
 			assert.NoError(t, err)
 
 			expected := tt.expectedContainers()

@@ -1,14 +1,181 @@
 package statefulset
 
 import (
+	"context"
 	"reflect"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/test"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/version"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes/scheme"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
+
+func TestAppContainer_HAProxy(t *testing.T) {
+	secretName := "my-secret"
+
+	tests := map[string]struct {
+		spec              api.PerconaXtraDBClusterSpec
+		expectedContainer func() corev1.Container
+	}{
+		"latest cr container construction": {
+			spec: api.PerconaXtraDBClusterSpec{
+				CRVersion: version.Version(),
+				HAProxy: &api.HAProxySpec{
+					PodSpec: api.PodSpec{
+						Image:             "test-image",
+						ImagePullPolicy:   corev1.PullIfNotPresent,
+						EnvVarsSecretName: "test-secret",
+						LivenessProbes: corev1.Probe{
+							TimeoutSeconds: 5,
+						},
+						ReadinessProbes: corev1.Probe{
+							TimeoutSeconds: 15,
+						},
+					},
+				},
+				PXC: &api.PXCSpec{
+					PodSpec: &api.PodSpec{},
+				},
+			},
+			expectedContainer: func() corev1.Container {
+				return defaultExpectedHAProxyContainer()
+			},
+		},
+		"container construction with extra pvcs": {
+			spec: api.PerconaXtraDBClusterSpec{
+				CRVersion: version.Version(),
+				HAProxy: &api.HAProxySpec{
+					PodSpec: api.PodSpec{
+						Image:             "test-image",
+						ImagePullPolicy:   corev1.PullIfNotPresent,
+						EnvVarsSecretName: "test-secret",
+						LivenessProbes: corev1.Probe{
+							TimeoutSeconds: 5,
+						},
+						ReadinessProbes: corev1.Probe{
+							TimeoutSeconds: 15,
+						},
+						ExtraPVCs: []api.ExtraPVC{
+							{
+								Name:      "extra-data-volume",
+								ClaimName: "extra-storage-0",
+								MountPath: "/var/lib/haproxy-extra",
+							},
+							{
+								Name:      "backup-volume",
+								ClaimName: "backup-storage-0",
+								MountPath: "/backups",
+								SubPath:   "haproxy",
+							},
+						},
+					},
+				},
+				PXC: &api.PXCSpec{
+					PodSpec: &api.PodSpec{},
+				},
+			},
+			expectedContainer: func() corev1.Container {
+				c := defaultExpectedHAProxyContainer()
+				c.VolumeMounts = append(c.VolumeMounts,
+					corev1.VolumeMount{
+						Name:      "extra-data-volume",
+						MountPath: "/var/lib/haproxy-extra",
+					},
+					corev1.VolumeMount{
+						Name:      "backup-volume",
+						MountPath: "/backups",
+						SubPath:   "haproxy",
+					},
+				)
+				return c
+			},
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			cr := &api.PerconaXtraDBCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-cluster",
+					Namespace: "test-ns",
+					UID:       "test-uid",
+				},
+				Spec: tt.spec,
+			}
+
+			client := test.BuildFakeClient()
+			haproxy := &HAProxy{cr: cr}
+
+			c, err := haproxy.AppContainer(t.Context(), client, &tt.spec.HAProxy.PodSpec, secretName, cr, nil)
+			assert.Equal(t, tt.expectedContainer(), c)
+			assert.NoError(t, err)
+		})
+	}
+}
+
+func defaultExpectedHAProxyContainer() corev1.Container {
+	fvar := true
+	return corev1.Container{
+		Name:            "haproxy",
+		Image:           "test-image",
+		ImagePullPolicy: corev1.PullIfNotPresent,
+		Command:         []string{"/opt/percona/haproxy-entrypoint.sh"},
+		Args:            []string{"haproxy"},
+		Ports: []corev1.ContainerPort{
+			{ContainerPort: 3306, Name: "mysql"},
+			{ContainerPort: 3307, Name: "mysql-replicas"},
+			{ContainerPort: 3309, Name: "proxy-protocol"},
+			{ContainerPort: 33062, Name: "mysql-admin"},
+			{ContainerPort: 33060, Name: "mysqlx"},
+			{ContainerPort: 8404, Name: "stats"},
+		},
+		VolumeMounts: []corev1.VolumeMount{
+			{Name: "haproxy-custom", MountPath: "/etc/haproxy-custom/"},
+			{Name: "haproxy-auto", MountPath: "/etc/haproxy/pxc"},
+			{Name: app.BinVolumeName, MountPath: app.BinVolumeMountPath},
+			{Name: "mysql-users-secret-file", MountPath: "/etc/mysql/mysql-users-secret"},
+			{Name: "test-secret", MountPath: "/etc/mysql/haproxy-env-secret"},
+		},
+		Env: []corev1.EnvVar{
+			{Name: "PXC_SERVICE", Value: "test-cluster-pxc"},
+			{Name: "LIVENESS_CHECK_TIMEOUT", Value: "5"},
+			{Name: "READINESS_CHECK_TIMEOUT", Value: "15"},
+		},
+		EnvFrom: []corev1.EnvFromSource{
+			{
+				SecretRef: &corev1.SecretEnvSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: "test-secret",
+					},
+					Optional: &fvar,
+				},
+			},
+		},
+		ReadinessProbe: &corev1.Probe{
+			TimeoutSeconds: 15,
+			ProbeHandler: corev1.ProbeHandler{
+				Exec: &corev1.ExecAction{
+					Command: []string{"/opt/percona/haproxy_readiness_check.sh"},
+				},
+			},
+		},
+		LivenessProbe: &corev1.Probe{
+			TimeoutSeconds: 5,
+			ProbeHandler: corev1.ProbeHandler{
+				Exec: &corev1.ExecAction{
+					Command: []string{"/opt/percona/haproxy_liveness_check.sh"},
+				},
+			},
+		},
+	}
+}
 
 func TestSidecarContainers_HAProxy(t *testing.T) {
 	tests := map[string]struct {
@@ -20,6 +187,7 @@ func TestSidecarContainers_HAProxy(t *testing.T) {
 		expectedArgs    []string
 		expectedEnvFrom []corev1.EnvFromSource
 		expectError     bool
+		secret          corev1.Secret
 	}{
 		"success - container construction": {
 			spec: api.PodSpec{
@@ -50,7 +218,7 @@ func TestSidecarContainers_HAProxy(t *testing.T) {
 			expectError: false,
 		},
 	}
-
+	ctx := context.Background()
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			cr := &api.PerconaXtraDBCluster{
@@ -72,8 +240,9 @@ func TestSidecarContainers_HAProxy(t *testing.T) {
 			}
 
 			haproxy := &HAProxy{cr: cr}
+			cl := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(&tt.secret).Build()
 
-			containers, err := haproxy.SidecarContainers(&tt.spec, tt.secrets, cr)
+			containers, err := haproxy.SidecarContainers(ctx, cl, &tt.spec, tt.secrets, cr)
 			if tt.expectError {
 				if err == nil {
 					t.Errorf("expected error, got nil")
@@ -113,6 +282,7 @@ func pointerToTrue() *bool {
 func TestHAProxyHealthCheckEnvVars(t *testing.T) {
 	tests := map[string]struct {
 		healthCheck     *api.HAProxyHealthCheckSpec
+		secret          corev1.Secret
 		expectedEnvVars map[string]string
 	}{
 		"default values": {
@@ -155,8 +325,38 @@ func TestHAProxyHealthCheckEnvVars(t *testing.T) {
 				"HA_SERVER_OPTIONS": "resolvers kubernetes check inter 3000 rise 1 fall 2 weight 1 on-marked-down shutdown-sessions",
 			},
 		},
+		"default values and the env vars secret that defines HA_SERVER_OPTIONS": {
+			healthCheck: nil,
+			// HA_SERVER_OPTIONS env var is expected to contain the value from the secret
+			expectedEnvVars: map[string]string{
+				"HA_SERVER_OPTIONS": "resolvers kubernetes check inter 50000 rise 1 fall 2 weight 1 on-marked-down shutdown-sessions",
+			},
+			secret: corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-secret",
+				},
+				Data: map[string][]byte{
+					"HA_SERVER_OPTIONS": []byte("resolvers kubernetes check inter 50000 rise 1 fall 2 weight 1 on-marked-down shutdown-sessions"),
+				},
+			},
+		},
+		"default values and the env vars secret that defines an unrelated value": {
+			healthCheck: nil,
+			// HA_SERVER_OPTIONS env var expected to be present and contain the default value since the secret does not define HA_SERVER_OPTIONS
+			expectedEnvVars: map[string]string{
+				"HA_SERVER_OPTIONS": "resolvers kubernetes check inter 10000 rise 1 fall 2 weight 1 on-marked-down shutdown-sessions",
+			},
+			secret: corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-secret",
+				},
+				Data: map[string][]byte{
+					"UNRELATED_VAR": []byte(""),
+				},
+			},
+		},
 	}
-
+	ctx := context.Background()
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			cr := &api.PerconaXtraDBCluster{
@@ -183,8 +383,9 @@ func TestHAProxyHealthCheckEnvVars(t *testing.T) {
 			}
 
 			haproxy := &HAProxy{cr: cr}
+			cl := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(&tt.secret).Build()
 
-			containers, err := haproxy.SidecarContainers(&cr.Spec.HAProxy.PodSpec, "test-secret", cr)
+			containers, err := haproxy.SidecarContainers(ctx, cl, &cr.Spec.HAProxy.PodSpec, "test-secret", cr)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}

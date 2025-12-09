@@ -67,6 +67,7 @@ spec:
 #      - name: extra-data-volume
 #        claimName: kech-extra-storage
 #        mountPath: /var/lib/mysql-extra
+#        subPath: mysql
 #        readOnly: false
 #    mysqlAllocator: jemalloc
 #    expose:
@@ -328,6 +329,12 @@ spec:
 #          memory: 200M
 #          cpu: 200m
 #    envVarsSecret: my-env-var-secrets
+#    extraPVCs:
+#      - name: haproxy-extra-volume
+#        claimName: haproxy-extra-storage
+#        mountPath: /var/lib/haproxy-extra
+#        subPath: haproxy
+#        readOnly: false
     resources:
       requests:
         memory: 1G
@@ -487,6 +494,12 @@ spec:
 #      securityContext:
 #        privileged: false
 #    envVarsSecret: my-env-var-secrets
+#    extraPVCs:
+#      - name: proxysql-extra-volume
+#        claimName: proxysql-extra-storage
+#        mountPath: /var/lib/proxysql-extra
+#        subPath: proxysql
+#        readOnly: false
     resources:
       requests:
         memory: 1G

@@ -333,7 +333,7 @@ func setLDPreloadEnv(
 	}
 }
 
-func (c *Node) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster) ([]corev1.Container, error) {
+func (c *Node) SidecarContainers(ctx context.Context, cl client.Client, spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster) ([]corev1.Container, error) {
 	return nil, nil
 }
 

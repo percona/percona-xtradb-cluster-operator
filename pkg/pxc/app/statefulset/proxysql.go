@@ -232,7 +232,7 @@ func (c *Proxy) XtrabackupContainer(ctx context.Context, cr *api.PerconaXtraDBCl
 	return nil, nil
 }
 
-func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster) ([]corev1.Container, error) {
+func (c *Proxy) SidecarContainers(ctx context.Context, cl client.Client, spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster) ([]corev1.Container, error) {
 	pxcMonit := corev1.Container{
 		Name:            "pxc-monit",
 		Image:           spec.Image,

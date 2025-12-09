@@ -105,7 +105,7 @@ func StatefulSet(
 		pod.InitContainers = append(pod.InitContainers, initContainers...)
 	}
 
-	sideC, err := sfs.SidecarContainers(podSpec, secrets, cr)
+	sideC, err := sfs.SidecarContainers(ctx, cl, podSpec, secrets, cr)
 	if err != nil {
 		return nil, errors.Wrap(err, "sidecar container")
 	}

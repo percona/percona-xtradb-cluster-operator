@@ -645,9 +645,6 @@ func (r *ReconcilePerconaXtraDBClusterBackup) getCluster(ctx context.Context, cr
 }
 
 func getPXCBackupStateFromJob(job *batchv1.Job) api.PXCBackupState {
-	if ptr.Deref(job.Status.Ready, 0) == 1 {
-		return api.BackupRunning
-	}
 	for _, cond := range job.Status.Conditions {
 		if cond.Status != corev1.ConditionTrue {
 			continue
@@ -658,6 +655,11 @@ func getPXCBackupStateFromJob(job *batchv1.Job) api.PXCBackupState {
 		case batchv1.JobComplete:
 			return api.BackupSucceeded
 		}
+	}
+	readyCount := ptr.Deref(job.Status.Ready, 0)
+	failedCount := job.Status.Failed
+	if readyCount > 0 || failedCount > 0 {
+		return api.BackupRunning
 	}
 	return api.BackupStarting
 }

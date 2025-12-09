@@ -1,9 +1,0 @@
-apiVersion: cert-manager.io/v1
-kind: Certificate
-metadata:
-  name: tls-minio
-spec:
-  commonName: minio-service
-  secretName: tls-minio
-  issuerRef:
-    name: selfsigning-issuer

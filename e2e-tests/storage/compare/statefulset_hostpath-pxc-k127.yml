@@ -157,8 +157,8 @@ spec:
           name: pxc-init
           resources:
             limits:
-              cpu: 100m
-              memory: 100Mi
+              cpu: 50m
+              memory: 50M
           securityContext:
             privileged: false
           terminationMessagePath: /dev/termination-log

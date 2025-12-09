@@ -4,7 +4,6 @@ import (
 	"context"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
-	xbscapi "github.com/percona/percona-xtradb-cluster-operator/pkg/xtrabackup/api"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -40,30 +39,6 @@ func GetOptionsFromBackup(ctx context.Context, cl client.Client, cluster *api.Pe
 	default:
 		return nil, errors.Errorf("unknown storage type %s", backup.Status.StorageType)
 	}
-}
-
-func GetOptionsFromBackupConfig(cfg *xbscapi.BackupConfig) (Options, error) {
-	switch cfg.Type {
-	case xbscapi.BackupStorageType_S3:
-		return &S3Options{
-			Endpoint:        cfg.S3.EndpointUrl,
-			AccessKeyID:     cfg.S3.AccessKey,
-			SecretAccessKey: cfg.S3.SecretKey,
-			BucketName:      cfg.S3.Bucket,
-			Region:          cfg.S3.Region,
-			VerifyTLS:       cfg.VerifyTls,
-		}, nil
-	case xbscapi.BackupStorageType_AZURE:
-		return &AzureOptions{
-			StorageAccount: cfg.Azure.StorageAccount,
-			AccessKey:      cfg.Azure.AccessKey,
-			Endpoint:       cfg.Azure.EndpointUrl,
-			Container:      cfg.Azure.ContainerName,
-		}, nil
-	default:
-		return nil, errors.Errorf("unknown storage type %s", cfg.Type)
-	}
-
 }
 
 func getAzureOptions(

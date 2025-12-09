@@ -1,7 +1,6 @@
 package backup
 
 import (
-	"context"
 	"path"
 	"strconv"
 
@@ -192,8 +191,8 @@ func appendStorageSecret(job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBacku
 			MountPath: "/etc/mysql/ssl-internal",
 		},
 		corev1.VolumeMount{
-			Name:      statefulset.VaultSecretVolumeName,
-			MountPath: statefulset.VaultSecretMountPath,
+			Name:      "vault-keyring-secret",
+			MountPath: "/etc/mysql/vault-keyring-secret",
 		},
 	)
 	job.Template.Spec.Volumes = append(
@@ -205,7 +204,7 @@ func appendStorageSecret(job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBacku
 	return nil
 }
 
-func SetStoragePVC(ctx context.Context, job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBackup, volName string) error {
+func SetStoragePVC(job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBackup, volName string) error {
 	pvc := corev1.Volume{
 		Name: "xtrabackup",
 	}
@@ -236,7 +235,7 @@ func SetStoragePVC(ctx context.Context, job *batchv1.JobSpec, cr *api.PerconaXtr
 	return nil
 }
 
-func SetStorageAzure(ctx context.Context, job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBackup) error {
+func SetStorageAzure(job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBackup) error {
 	if cr.Status.Azure == nil {
 		return errors.New("azure storage is not specified in backup status")
 	}
@@ -289,7 +288,7 @@ func SetStorageAzure(ctx context.Context, job *batchv1.JobSpec, cr *api.PerconaX
 	return nil
 }
 
-func SetStorageS3(ctx context.Context, job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBackup) error {
+func SetStorageS3(job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBackup) error {
 	if cr.Status.S3 == nil {
 		return errors.New("s3 storage is not specified in backup status")
 	}

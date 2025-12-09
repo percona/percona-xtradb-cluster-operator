@@ -5,5 +5,4 @@ const (
 	DataVolumeName     = "datadir"
 	BinVolumeName      = "bin"
 	BinVolumeMountPath = "/opt/percona"
-	BackupLogDir       = "/var/log/xtrabackup"
 )

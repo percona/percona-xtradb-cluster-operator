@@ -27,8 +27,8 @@ var (
 
 type Restorer interface {
 	Init(ctx context.Context) error
-	Job(context.Context) (*batchv1.Job, error)
-	PITRJob(context.Context) (*batchv1.Job, error)
+	Job() (*batchv1.Job, error)
+	PITRJob() (*batchv1.Job, error)
 	Finalize(ctx context.Context) error
 	Validate(ctx context.Context) error
 	ValidateJob(ctx context.Context, job *batchv1.Job) error
@@ -40,12 +40,12 @@ func (s *s3) Init(context.Context) error { return nil }
 
 func (s *s3) Finalize(context.Context) error { return nil }
 
-func (s *s3) Job(ctx context.Context) (*batchv1.Job, error) {
-	return backup.RestoreJob(ctx, s.cr, s.bcp, s.cluster, s.initImage, s.scheme, s.bcp.Status.Destination, false)
+func (s *s3) Job() (*batchv1.Job, error) {
+	return backup.RestoreJob(s.cr, s.bcp, s.cluster, s.initImage, s.scheme, s.bcp.Status.Destination, false)
 }
 
-func (s *s3) PITRJob(ctx context.Context) (*batchv1.Job, error) {
-	return backup.RestoreJob(ctx, s.cr, s.bcp, s.cluster, s.initImage, s.scheme, s.bcp.Status.Destination, true)
+func (s *s3) PITRJob() (*batchv1.Job, error) {
+	return backup.RestoreJob(s.cr, s.bcp, s.cluster, s.initImage, s.scheme, s.bcp.Status.Destination, true)
 }
 
 func (s *s3) ValidateJob(ctx context.Context, job *batchv1.Job) error {
@@ -118,11 +118,11 @@ func (s *pvc) Validate(ctx context.Context) error {
 	}
 }
 
-func (s *pvc) Job(ctx context.Context) (*batchv1.Job, error) {
-	return backup.RestoreJob(ctx, s.cr, s.bcp, s.cluster, s.initImage, s.scheme, "", false)
+func (s *pvc) Job() (*batchv1.Job, error) {
+	return backup.RestoreJob(s.cr, s.bcp, s.cluster, s.initImage, s.scheme, "", false)
 }
 
-func (s *pvc) PITRJob(ctx context.Context) (*batchv1.Job, error) {
+func (s *pvc) PITRJob() (*batchv1.Job, error) {
 	return nil, errors.New("pitr restore is not supported for pvc")
 }
 
@@ -200,12 +200,12 @@ func (s *azure) Init(context.Context) error { return nil }
 
 func (s *azure) Finalize(context.Context) error { return nil }
 
-func (s *azure) Job(ctx context.Context) (*batchv1.Job, error) {
-	return backup.RestoreJob(ctx, s.cr, s.bcp, s.cluster, s.initImage, s.scheme, s.bcp.Status.Destination, false)
+func (s *azure) Job() (*batchv1.Job, error) {
+	return backup.RestoreJob(s.cr, s.bcp, s.cluster, s.initImage, s.scheme, s.bcp.Status.Destination, false)
 }
 
-func (s *azure) PITRJob(ctx context.Context) (*batchv1.Job, error) {
-	return backup.RestoreJob(ctx, s.cr, s.bcp, s.cluster, s.initImage, s.scheme, s.bcp.Status.Destination, true)
+func (s *azure) PITRJob() (*batchv1.Job, error) {
+	return backup.RestoreJob(s.cr, s.bcp, s.cluster, s.initImage, s.scheme, s.bcp.Status.Destination, true)
 }
 
 func (s *azure) Validate(ctx context.Context) error {

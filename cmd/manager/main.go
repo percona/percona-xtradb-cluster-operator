@@ -30,7 +30,6 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/apis"
 	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/controller"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/features"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/version"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/webhook"
@@ -90,19 +89,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	fg := features.NewGate()
-	if err := fg.Set(os.Getenv("PXCO_FEATURE_GATES")); err != nil {
-		setupLog.Error(err, "failed to set feature gates")
-		os.Exit(1)
-	}
-	fgCtx := features.NewContextWithGate(context.Background(), fg)
-	setupLog.Info("Feature gates",
-		// These are set by the user
-		"PXCO_FEATURE_GATES", features.ShowAssigned(fgCtx),
-		// These are enabled, including features that are on by default
-		"enabled", features.ShowEnabled(fgCtx),
-	)
-
 	options := ctrl.Options{
 		Scheme: scheme,
 		Metrics: metricsServer.Options{
@@ -114,9 +100,6 @@ func main() {
 		WebhookServer: ctrlWebhook.NewServer(ctrlWebhook.Options{
 			Port: 9443,
 		}),
-		BaseContext: func() context.Context {
-			return features.NewContextWithGate(context.Background(), fg)
-		},
 	}
 
 	err = configureGroupKindConcurrency(&options)

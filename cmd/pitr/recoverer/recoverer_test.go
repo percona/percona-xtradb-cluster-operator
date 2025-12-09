@@ -1,13 +1,7 @@
 package recoverer
 
 import (
-	"bytes"
-	"context"
-	"io"
 	"testing"
-
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage/mock"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestGetBucketAndPrefix(t *testing.T) {
@@ -106,74 +100,6 @@ func TestGetExtendGTIDSet(t *testing.T) {
 			if set != c.expectedGTIDSet {
 				t.Errorf("%s: expect '%s', got '%s'", c.gtid, c.expectedGTIDSet, set)
 			}
-		})
-	}
-}
-
-func newStringReader(s string) io.Reader {
-	return io.NopCloser(bytes.NewReader([]byte(s)))
-}
-
-func TestGetStartGTID(t *testing.T) {
-	ctx := context.WithValue(context.Background(), testContextKey{}, true)
-	testCases := []struct {
-		desc     string
-		mockFn   func(*mock.Storage)
-		expected string
-		wantErr  bool
-	}{
-		{
-			desc: "using sst_info",
-			mockFn: func(s *mock.Storage) {
-				s.On("ListObjects", ctx, ".sst_info/sst_info").Return([]string{".sst_info/sst_info"}, nil)
-				s.On("GetObject", ctx, ".sst_info/sst_info").Return(newStringReader("[sst]\ngalera-gtid=abc-xyz:1-10\n"), nil)
-				s.On("ListObjects", ctx, "xtrabackup_info").Return([]string{"xtrabackup_info.00000000000000000000"}, nil)
-				s.On("GetObject", ctx, "xtrabackup_info.00000000000000000000").Return(newStringReader("binlog_pos = filename 'binlog.000111', position '237', GTID of the last change 'abc-xyz:1-10'\n"), nil)
-			},
-			expected: "abc-xyz:1-10",
-		},
-		{
-			desc: "using xtrabackup_binlog_info",
-			mockFn: func(s *mock.Storage) {
-				s.On("ListObjects", ctx, ".sst_info/sst_info").Return([]string{}, nil)
-				s.On("ListObjects", ctx, "xtrabackup_binlog_info").Return([]string{"xtrabackup_binlog_info.00000000000000000000"}, nil)
-				s.On("GetObject", ctx, "xtrabackup_binlog_info.00000000000000000000").Return(newStringReader("binlog.0001\t197\tabc-xyz:1-10\n"), nil)
-				s.On("ListObjects", ctx, "xtrabackup_info").Return([]string{"xtrabackup_info.00000000000000000000"}, nil)
-				s.On("GetObject", ctx, "xtrabackup_info.00000000000000000000").Return(newStringReader("binlog_pos = filename 'binlog.000111', position '237', GTID of the last change 'abc-xyz:1-10'\n"), nil)
-			},
-			expected: "abc-xyz:1-10",
-		},
-		{
-			desc: "no sst_info or xtrabackup_binlog_info objects found",
-			mockFn: func(s *mock.Storage) {
-				s.On("ListObjects", ctx, ".sst_info/sst_info").Return([]string{}, nil)
-				s.On("ListObjects", ctx, "xtrabackup_binlog_info").Return([]string{}, nil)
-			},
-			expected: "",
-			wantErr:  true,
-		},
-		{
-			desc: "no gtid in xtrabackup_binlog_info",
-			mockFn: func(s *mock.Storage) {
-				s.On("ListObjects", ctx, ".sst_info/sst_info").Return([]string{}, nil)
-				s.On("ListObjects", ctx, "xtrabackup_binlog_info").Return([]string{"xtrabackup_binlog_info.00000000000000000000"}, nil)
-				s.On("GetObject", ctx, "xtrabackup_binlog_info.00000000000000000000").Return(newStringReader("binlog.0001\t197\n"), nil)
-			},
-			expected: "",
-			wantErr:  true,
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.desc, func(t *testing.T) {
-			mockStorage := mock.NewStorage(t)
-			tc.mockFn(mockStorage)
-
-			got, err := getStartGTIDSet(ctx, mockStorage)
-			if (err != nil) != tc.wantErr {
-				t.Errorf("getStartGTIDSet() error = %v, wantErr %v", err, tc.wantErr)
-			}
-			assert.Equal(t, tc.expected, got)
 		})
 	}
 }

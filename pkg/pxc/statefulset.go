@@ -13,7 +13,6 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/features"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 )
 
@@ -60,26 +59,9 @@ func StatefulSet(
 		pod.Volumes = sfsVolume.Volumes
 	}
 
-	if features.Enabled(ctx, features.XtrabackupSidecar) {
-		pod.Volumes = append(pod.Volumes, corev1.Volume{
-			Name: "backup-logs",
-			VolumeSource: corev1.VolumeSource{
-				EmptyDir: &corev1.EmptyDirVolumeSource{},
-			},
-		})
-	}
-
 	appC, err := sfs.AppContainer(ctx, cl, podSpec, secrets, cr, pod.Volumes)
 	if err != nil {
 		return nil, errors.Wrap(err, "app container")
-	}
-
-	xbC, err := sfs.XtrabackupContainer(ctx, cr)
-	if err != nil {
-		return nil, errors.Wrap(err, "xtrabackup container")
-	}
-	if xbC != nil {
-		pod.Containers = append(pod.Containers, *xbC)
 	}
 
 	pmmC, err := sfs.PMMContainer(ctx, cl, cr.Spec.PMM, secret, cr)

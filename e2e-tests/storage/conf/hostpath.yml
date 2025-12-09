@@ -3,11 +3,6 @@ kind: PerconaXtraDBCluster
 metadata:
   name: hostpath
 spec:
-  initContainer:
-    resources:
-      limits:
-        cpu: 100m
-        memory: 100Mi
   secretsName: my-cluster-secrets
   sslSecretName: some-name-ssl
   pxc:

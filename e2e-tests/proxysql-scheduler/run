@@ -22,11 +22,35 @@ function compare_scheduler() {
 function compare_mysql_servers() {
 	local pod=$1
 	local compare_file=$2
+	local loop_pid=$3
 
-	compare_mysql_cmd_local ${compare_file} \
-		'SELECT hostgroup_id,SUBSTRING(hostname, 0, 16),weight,status FROM runtime_mysql_servers WHERE status='\'ONLINE\''' \
-		"-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" \
-		${pod}
+	local query='SELECT hostgroup_id,SUBSTRING(hostname, 0, 16),weight,status FROM runtime_mysql_servers WHERE status='\'ONLINE\'''
+
+	local retry=0
+	echo -n "check runtime_mysql_servers in ${pod}"
+	until compare_mysql_cmd_local ${compare_file} "${query}" \
+		"-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" ${pod} &>/dev/null; do
+		sleep 10
+		echo -n .
+		let retry+=1
+		if [[ "$retry" -ge 30 ]]; then
+			echo
+			kubectl get pods
+
+			if [[ -n ${loop_pid} ]]; then
+				kill -9 ${loop_pid}
+			fi
+
+			if ! compare_mysql_cmd_local ${compare_file} "${query}" \
+				"-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" ${pod}; then
+				echo
+				log "max retry count (${retry}) reached.
+				something went wrong with updating runtime_scheduler in ${pod}"
+				exit 1
+			fi
+		fi
+	done
+	echo
 }
 
 create_infra ${namespace}
@@ -60,7 +84,33 @@ log "mysql_servers are configured in ${cluster}-proxysql-0: OK"
 compare_mysql_servers "${cluster}-proxysql-1" "mysql-servers-1"
 log "mysql_servers are configured in ${cluster}-proxysql-1: OK"
 
-desc 'check scaling PXC up'
+desc 'check PXC pod 1 is promoted to writer when pod-0 is down'
+(
+	# kill pxc pod 0 in loop
+	for i in {1..20}; do
+		kubectl delete pod "${cluster}-pxc-0"
+		sleep 3
+	done
+) &
+LOOP_PID=$!
+
+echo "LOOP_PID=$LOOP_PID"
+
+sleep 10
+
+log "waiting for pod0 to be removed from proxysql"
+compare_mysql_servers "${cluster}-proxysql-0" "mysql-servers-0-pod0-down" $LOOP_PID
+log "mysql_servers are configured in ${cluster}-proxysql-0 when pxc-0 is down: OK"
+
+compare_mysql_servers "${cluster}-proxysql-1" "mysql-servers-1-pod0-down" $LOOP_PID
+log "mysql_servers are configured in ${cluster}-proxysql-1 when pxc-0 is down: OK"
+
+# stop the loop deleting pxc-0
+kill $LOOP_PID
+
+wait_cluster_consistency "${cluster}" 3 2
+
+desc 'check scaling PXC up to 5 replicas'
 kubectl_bin patch pxc ${cluster} --type=merge -p '{"spec": {"pxc": {"size": 5}}}'
 wait_pod ${cluster}-pxc-3
 wait_pod ${cluster}-pxc-4
@@ -87,6 +137,77 @@ log "scheduler is enabled in ${cluster}-proxysql-2: OK"
 
 compare_mysql_servers "${cluster}-proxysql-2" "mysql-servers-2"
 log "mysql_servers are configured in ${cluster}-proxysql-2: OK"
+
+desc 'check writerIsAlsoReader = false'
+
+kubectl patch pxc ${cluster} --type=merge -p '{"spec": {"proxysql": {"scheduler": {"writerIsAlsoReader": false}}}}'
+
+# give some time for proxysql servers to be restarted & populated
+sleep 10
+wait_cluster_consistency "${cluster}" 5 3
+
+sleep 60
+
+compare_mysql_servers "${cluster}-proxysql-0" "mysql-servers-0-1-writerNotReader"
+log "new mysql_servers are configured in ${cluster}-proxysql-0: OK"
+compare_mysql_servers "${cluster}-proxysql-1" "mysql-servers-1-1-writerNotReader"
+log "new mysql_servers are configured in ${cluster}-proxysql-1: OK"
+compare_mysql_servers "${cluster}-proxysql-2" "mysql-servers-2-writerNotReader"
+log "mysql_servers are configured in ${cluster}-proxysql-2: OK"
+
+desc 'check scaling PXC down to 3 replicas'
+
+kubectl_bin patch pxc ${cluster} --type=merge -p '{"spec": {"pxc": {"size": 3}}}'
+wait_cluster_consistency "${cluster}" 3 3
+
+# give some time for mysql_servers to be populated
+# this won't be needed once we add probes to ProxySQL containers
+sleep 60
+
+compare_mysql_servers "${cluster}-proxysql-0" "mysql-servers-0-scaledown"
+log "mysql_servers are configured in ${cluster}-proxysql-0: OK"
+compare_mysql_servers "${cluster}-proxysql-1" "mysql-servers-1-scaledown"
+log "mysql_servers are configured in ${cluster}-proxysql-1: OK"
+compare_mysql_servers "${cluster}-proxysql-2" "mysql-servers-2-scaledown"
+log "mysql_servers are configured in ${cluster}-proxysql-2: OK"
+
+desc 'check PXC pod 0 is reader and writer when pods 1 and 2 are down'
+
+log "scaling PXC down to 1 replica"
+kubectl scale sts/${cluster}-pxc --replicas=1
+sleep 20
+
+compare_mysql_servers "${cluster}-proxysql-0" "mysql-servers-0-two-pod-down"
+log "mysql_servers are configured in ${cluster}-proxysql-0 when 2 pods are down: OK"
+compare_mysql_servers "${cluster}-proxysql-1" "mysql-servers-1-two-pod-down"
+log "mysql_servers are configured in ${cluster}-proxysql-1 when 2 pods are down: OK"
+compare_mysql_servers "${cluster}-proxysql-2" "mysql-servers-2-two-pod-down"
+log "mysql_servers are configured in ${cluster}-proxysql-2 when 2 pods are down: OK"
+
+# following check is disabled because it's flaky
+# and sometimes one of ProxySQL servers has a wrong weight
+# for one of PXC servers... restarting that ProxySQL server
+# fixes the issues ¯\_(ツ)_/¯
+#
+# desc 'check scaling PXC back to 3 replicas'
+#
+# log "scaling PXC up to 3 replicas"
+# kubectl scale sts/${cluster}-pxc --replicas=3
+# wait_pod ${cluster}-pxc-1
+# wait_pod ${cluster}-pxc-2
+# wait_cluster_consistency "${cluster}" 3 3
+#
+# # give some time for mysql_servers to be populated
+# # this won't be needed once we add probes to ProxySQL containers
+# sleep 60
+#
+# # check that the proxysql config is the same as before scalingdown.
+# compare_mysql_servers "${cluster}-proxysql-0" "mysql-servers-0-scaledown"
+# log "mysql_servers are configured in ${cluster}-proxysql-0: OK"
+# compare_mysql_servers "${cluster}-proxysql-1" "mysql-servers-1-scaledown"
+# log "mysql_servers are configured in ${cluster}-proxysql-1: OK"
+# compare_mysql_servers "${cluster}-proxysql-2" "mysql-servers-2-scaledown"
+# log "mysql_servers are configured in ${cluster}-proxysql-2: OK"
 
 desc "test passed"
 

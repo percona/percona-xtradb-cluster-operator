@@ -457,12 +457,12 @@ func TestOperatorRestart(t *testing.T) {
 					if err != nil {
 						t.Fatal(err)
 					}
-					job, err := restorer.Job()
+					job, err := restorer.Job(ctx)
 					if err != nil {
 						t.Fatal(err)
 					}
 					if state == api.RestorePITR {
-						job, err = restorer.PITRJob()
+						job, err = restorer.PITRJob(ctx)
 						if err != nil {
 							t.Fatal(err)
 						}

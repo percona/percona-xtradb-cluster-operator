@@ -133,6 +133,16 @@ func Test_getPXCBackupStateFromJob(t *testing.T) {
 			},
 			expected: api.BackupSucceeded,
 		},
+		{
+			name: "Job with Failed > 0 should return BackupRunning",
+			job: &batchv1.Job{
+				Status: batchv1.JobStatus{
+					Ready:  ptr.To[int32](0),
+					Failed: 2,
+				},
+			},
+			expected: api.BackupRunning,
+		},
 	}
 
 	for _, tt := range tests {

@@ -57,7 +57,7 @@ func proxyInitContainers(cr *api.PerconaXtraDBCluster, initImageName string) []c
 	return inits
 }
 
-func (c *Proxy) AppContainer(_ context.Context, _ client.Client, spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster,
+func (c *Proxy) AppContainer(ctx context.Context, _ client.Client, spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster,
 	availableVolumes []corev1.Volume,
 ) (corev1.Container, error) {
 	appc := corev1.Container{
@@ -220,12 +220,15 @@ func (c *Proxy) AppContainer(_ context.Context, _ client.Client, spec *api.PodSp
 				Value: "true",
 			})
 		}
+
+		extraMounts := api.ExtraPVCVolumeMounts(ctx, spec.ExtraPVCs)
+		appc.VolumeMounts = append(appc.VolumeMounts, extraMounts...)
 	}
 
 	return appc, nil
 }
 
-func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster) ([]corev1.Container, error) {
+func (c *Proxy) SidecarContainers(ctx context.Context, cl client.Client, spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster) ([]corev1.Container, error) {
 	pxcMonit := corev1.Container{
 		Name:            "pxc-monit",
 		Image:           spec.Image,

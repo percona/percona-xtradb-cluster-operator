@@ -20,6 +20,7 @@ import (
 const (
 	proxyDataVolumeName   = "proxydata"
 	proxyConfigVolumeName = "config"
+	SchedulerConfigPath   = "/tmp/scheduler-config.toml"
 )
 
 type Proxy struct {
@@ -416,6 +417,10 @@ func schedulerEnvVariables(scheduler api.ProxySQLSchedulerSpec) []corev1.EnvVar 
 		{
 			Name:  "SCHEDULER_MAXCONNECTIONS",
 			Value: strconv.FormatInt(int64(scheduler.MaxConnections), 10),
+		},
+		{
+			Name:  "PERCONA_SCHEDULER_CFG",
+			Value: SchedulerConfigPath,
 		},
 	}
 

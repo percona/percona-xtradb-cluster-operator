@@ -826,6 +826,7 @@ func PrepareJob(
 			Labels:    naming.LabelsRestoreJob(cluster, jobName, bcp.Status.StorageName),
 		},
 		Spec: batchv1.JobSpec{
+			TTLSecondsAfterFinished: cluster.Spec.Backup.TTLSecondsAfterFinished,
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: cluster.Spec.PXC.Annotations,

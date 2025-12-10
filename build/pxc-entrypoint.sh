@@ -452,12 +452,26 @@ if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' ] && [ -z "$wantHelp" ]; then
 		fi
 		set -x
 
-		if [[ $MYSQL_VERSION =~ ^(8\.0|8\.4)$ ]]; then
+		if [[ $MYSQL_VERSION == "8.0" ]]; then
 			"${mysql[@]}" <<-EOSQL
 				CREATE FUNCTION IF NOT EXISTS get_last_record_timestamp_by_binlog RETURNS INTEGER SONAME 'binlog_utils_udf.so';
 				CREATE FUNCTION IF NOT EXISTS get_gtid_set_by_binlog RETURNS STRING SONAME 'binlog_utils_udf.so';
 				CREATE FUNCTION IF NOT EXISTS get_first_record_timestamp_by_binlog RETURNS INTEGER SONAME 'binlog_utils_udf.so';
 			EOSQL
+		fi
+
+		if [[ $MYSQL_VERSION == "8.4" ]]; then
+			binlog_utils_component_select="SELECT component_urn FROM mysql.component WHERE component_urn = 'file://component_binlog_utils_udf"
+
+			binlog_utils_component=$(echo "$binlog_utils_component_select" | "${mysql[@]}" -s 2>/dev/null) || true
+			if [ -z "$binlog_utils_component" ]; then
+				echo "Installing file://component_binlog_utils_udf"
+				"${mysql[@]}" <<-EOSQL
+					INSTALL COMPONENT 'file://component_binlog_utils_udf';
+				EOSQL
+			else
+				echo "file://component_binlog_utils_udf is already installed"
+			fi
 		fi
 
 		echo

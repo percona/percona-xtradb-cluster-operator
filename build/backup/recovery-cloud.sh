@@ -54,6 +54,23 @@ fi
 # shellcheck disable=SC2086
 xbcloud get --parallel="$(grep -c processor /proc/cpuinfo)" ${XBCLOUD_ARGS} "$(destination)" | xbstream -x -C "${tmp}" --parallel="$(grep -c processor /proc/cpuinfo)" $XBSTREAM_EXTRA_ARGS
 
+set +o xtrace
+if [[ -f "${tmp}/sst_info" ]]; then
+	transition_key=$(vault_get "$tmp/sst_info")
+	if [[ -n $transition_key && $transition_key != null ]]; then
+		MYSQL_VERSION=$(parse_ini 'mysql-version' "$tmp/sst_info")
+		if ! check_for_version "$MYSQL_VERSION" '5.7.29' \
+			&& [[ $MYSQL_VERSION != '5.7.28-31-57.2' ]]; then
+
+			# shellcheck disable=SC2016
+			transition_key='$transition_key'
+		fi
+
+		transition_option="--transition-key=$transition_key"
+		echo transition-key exists
+	fi
+fi
+
 PXB_VAULT_PREPARE_ARGS=""
 PXB_VAULT_MOVEBACK_ARGS=""
 VAULT_CONFIG_FILE=/etc/mysql/vault-keyring-secret/keyring_vault.conf
@@ -65,23 +82,18 @@ if [[ -f ${VAULT_CONFIG_FILE} ]]; then
 		PXB_VAULT_PREPARE_ARGS="${PXB_VAULT_MOVEBACK_ARGS}"
 	else
 		PXB_VAULT_MOVEBACK_ARGS="--keyring-vault-config=${VAULT_CONFIG_FILE} --early-plugin-load=keyring_vault.so"
+
+		# If backup-my.cnf does not contain plugin_load, then --prepare will fail if you pass the --keyring-vault-config option.
+		if [[ -n "$(parse_ini 'plugin_load' "${tmp}/backup-my.cnf")" ]] && [[ -z $transition_key ]]; then
+			PXB_VAULT_PREPARE_ARGS="--keyring-vault-config=${VAULT_CONFIG_FILE}"
+		fi
 	fi
 fi
 
-set +o xtrace
-transition_key=$(vault_get "$tmp/sst_info")
-if [[ -n $transition_key && $transition_key != null ]]; then
-	MYSQL_VERSION=$(parse_ini 'mysql-version' "$tmp/sst_info")
-	if ! check_for_version "$MYSQL_VERSION" '5.7.29' \
-		&& [[ $MYSQL_VERSION != '5.7.28-31-57.2' ]]; then
 
-		# shellcheck disable=SC2016
-		transition_key='$transition_key'
-	fi
 
-	transition_option="--transition-key=$transition_key"
+if [ -f "${tmp}/xtrabackup_keys" ]; then
 	master_key_options="--generate-new-master-key"
-	echo transition-key exists
 fi
 
 # Extract --defaults-file from XB_EXTRA_ARGS if present and place it as the first argument
@@ -108,6 +120,13 @@ if ! check_for_version "$XTRABACKUP_VERSION" '8.0.0'; then
 	XB_EXTRA_ARGS="$XB_EXTRA_ARGS --binlog-info=ON"
 fi
 
+DEFAULTS_GROUP="--defaults-group=mysqld"
+if [[ ${XTRABACKUP_ENABLED} == "true" ]]; then
+	# these must not be set for pxb
+	DEFAULTS_GROUP=""
+	DEFAULTS_FILE=""
+fi
+
 echo "+ xtrabackup $DEFAULTS_FILE ${XB_USE_MEMORY+--use-memory=$XB_USE_MEMORY} --prepare \
 	$REMAINING_XB_ARGS --rollback-prepared-trx  --xtrabackup-plugin-dir=/usr/lib64/xtrabackup/plugin \
 	--target-dir=$tmp ${PXB_VAULT_PREPARE_ARGS}"
@@ -122,7 +141,7 @@ echo "+ xtrabackup $DEFAULTS_FILE --defaults-group=mysqld --datadir=/datadir --m
 	${PXB_VAULT_MOVEBACK_ARGS} --xtrabackup-plugin-dir=/usr/lib64/xtrabackup/plugin --target-dir=$tmp"
 
 # shellcheck disable=SC2086
-xtrabackup $DEFAULTS_FILE --defaults-group=mysqld --datadir=/datadir --move-back $REMAINING_XB_ARGS \
+xtrabackup $DEFAULTS_FILE $DEFAULTS_GROUP --datadir=/datadir --move-back $REMAINING_XB_ARGS \
 	--force-non-empty-directories $transition_option $master_key_options \
 	${PXB_VAULT_MOVEBACK_ARGS} --xtrabackup-plugin-dir=/usr/lib64/xtrabackup/plugin --target-dir="$tmp"
 

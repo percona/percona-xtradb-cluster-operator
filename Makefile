@@ -16,7 +16,7 @@ all: build
 help: ## Display this help.
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
-generate: controller-gen  ## Generate CRDs and RBAC files
+generate: controller-gen protoc  ## Generate CRDs and RBAC files
 	go generate ./...
 	$(CONTROLLER_GEN) crd:maxDescLen=0,allowDangerousTypes=true,generateEmbeddedObjectMeta=true rbac:roleName=$(NAME) webhook paths="./..." output:crd:artifacts:config=config/crd/bases  ## Generate WebhookConfiguration, Role and CustomResourceDefinition objects.
 	$(CONTROLLER_GEN) object paths="./..." ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
@@ -107,6 +107,27 @@ envtest: ## Download envtest-setup locally if necessary.
 SWAGGER = $(shell pwd)/bin/swagger
 swagger: ## Download swagger locally if necessary.
 	$(call go-get-tool,$(SWAGGER),github.com/go-swagger/go-swagger/cmd/swagger@latest)
+
+PROTOC_VERSION = 33.1
+PROTOC = $(shell pwd)/bin/protoc
+PROTOC_GEN_GO = $(shell pwd)/bin/protoc-gen-go
+PROTOC_GEN_GO_GRPC = $(shell pwd)/bin/protoc-gen-go-grpc
+protoc: ## Download protoc locally if necessary.
+	os='linux'; \
+	arch='x86_64'; \
+	if [ "$(shell uname)" = "Darwin" ]; then \
+		os='osx'; \
+	fi; \
+	if [ "$(shell uname -m)" = "arm64" ]; then \
+		arch='aarch_64'; \
+	fi; \
+	curl -LO "https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-$${os}-$${arch}.zip"; \
+	unzip -o protoc-${PROTOC_VERSION}-$${os}-$${arch}.zip -d protoc-${PROTOC_VERSION}-$${os}-$${arch}; \
+	rm protoc-${PROTOC_VERSION}-$${os}-$${arch}.zip; \
+	mv -f protoc-${PROTOC_VERSION}-$${os}-$${arch}/bin/protoc $(PROTOC); \
+	rm -rf protoc-${PROTOC_VERSION}-$${os}-$${arch}; \
+	$(call go-get-tool,$(PROTOC_GEN_GO),google.golang.org/protobuf/cmd/protoc-gen-go@latest); \
+	$(call go-get-tool,$(PROTOC_GEN_GO_GRPC),google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest)
 
 # Prepare release
 include e2e-tests/release_versions

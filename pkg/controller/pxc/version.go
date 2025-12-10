@@ -452,7 +452,7 @@ func (r *ReconcilePerconaXtraDBCluster) mysqlVersion(ctx context.Context, cr *ap
 	}
 
 	for _, pod := range list.Items {
-		if !isPodReady(pod) {
+		if !k8s.IsPodReady(pod) {
 			continue
 		}
 

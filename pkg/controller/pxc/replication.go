@@ -16,7 +16,9 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/queries"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
@@ -120,12 +122,12 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(ctx context.Context
 	// connect to failed/pending pods
 	podList := make([]corev1.Pod, 0)
 	for _, pod := range listRaw.Items {
-		if isPodReady(pod) {
+		if k8s.IsPodReady(pod) {
 			podList = append(podList, pod)
 		}
 	}
 
-	primary, err := r.getPrimaryPod(ctx, cr)
+	primary, err := pxc.GetPrimaryPod(ctx, r.client, cr)
 	if err != nil {
 		return errors.Wrap(err, "get primary pxc pod")
 	}
@@ -566,19 +568,6 @@ func NewExposedPXCService(svcName string, cr *api.PerconaXtraDBCluster) *corev1.
 	}
 
 	return svc
-}
-
-// isPodReady returns a boolean reflecting if a pod is in a "ready" state
-func isPodReady(pod corev1.Pod) bool {
-	for _, condition := range pod.Status.Conditions {
-		if condition.Status != corev1.ConditionTrue {
-			continue
-		}
-		if condition.Type == corev1.PodReady {
-			return true
-		}
-	}
-	return false
 }
 
 func currentReplicaConfig(name string, status *api.ReplicationStatus) api.ReplicationChannelConfig {

@@ -13,6 +13,7 @@ MINIO_VER="5.4.0"
 CHAOS_MESH_VER="2.7.1"
 VAULT_VER="0.30.0"
 UPDATE_COMPARE_FILES=${UPDATE_COMPARE_FILES:-0}
+NO_DESTROY=${NO_DESTROY:-0}
 
 export IMAGE=${IMAGE:-"perconalab/percona-xtradb-cluster-operator:${GIT_BRANCH}"}
 export IMAGE_PXC=${IMAGE_PXC:-"perconalab/percona-xtradb-cluster-operator:main-pxc${MYSQL_VERSION}"}
@@ -352,6 +353,7 @@ deploy_operator() {
 			| sed -e "s^failureThreshold: .*^failureThreshold: 10^" \
 			| yq eval '(select(.kind == "Deployment").spec.template.spec.containers[] | select(.name == "percona-xtradb-cluster-operator").env[] | select(.name == "DISABLE_TELEMETRY").value) = "true"' - \
 			| yq eval '(select(.kind == "Deployment").spec.template.spec.containers[] | select(.name == "percona-xtradb-cluster-operator").env[] | select(.name == "LOG_LEVEL").value) = "VERBOSE"' - \
+			| yq eval "(select(.kind == \"Deployment\").spec.template.spec.containers[] | select(.name == \"percona-xtradb-cluster-operator\").env[] | select(.name == \"PXCO_FEATURE_GATES\").value) = \"${PXCO_FEATURE_GATES}\"" - \
 			| kubectl_bin apply -f -
 	else
 		apply_rbac rbac
@@ -360,6 +362,7 @@ deploy_operator() {
 			| sed -e "s^failureThreshold: .*^failureThreshold: 10^" \
 			| yq eval '(select(.kind == "Deployment").spec.template.spec.containers[] | select(.name == "percona-xtradb-cluster-operator").env[] | select(.name == "DISABLE_TELEMETRY").value) = "true"' - \
 			| yq eval '(select(.kind == "Deployment").spec.template.spec.containers[] | select(.name == "percona-xtradb-cluster-operator").env[] | select(.name == "LOG_LEVEL").value) = "VERBOSE"' - \
+			| yq eval "(select(.kind == \"Deployment\").spec.template.spec.containers[] | select(.name == \"percona-xtradb-cluster-operator\").env[] | select(.name == \"PXCO_FEATURE_GATES\").value) = \"${PXCO_FEATURE_GATES}\"" - \
 			| kubectl_bin apply -f -
 	fi
 
@@ -508,6 +511,7 @@ compare_kubectl() {
 			del(.spec.template.spec.containers[].env[] | select(.name == "BACKUP_PATH")) |
 			del(.spec.template.spec.containers[].env[] | select(.name == "S3_BUCKET_URL")) |
 			del(.spec.template.spec.containers[].env[] | select(.name == "AZURE_CONTAINER_NAME")) |
+			del(.spec.template.spec.containers[].env[] | select(.name == "XTRABACKUP_ENABLED")) |
 			del(.metadata.selfLink) |
 			del(.metadata.deletionTimestamp) |
 			del(.metadata.annotations."kubectl.kubernetes.io/last-applied-configuration") |
@@ -775,6 +779,11 @@ destroy() {
 	local namespace="$1"
 	local ignore_logs="${2:-true}"
 
+	if [[ ${NO_DESTROY} == 1 ]]; then
+		echo "NO_DESTROY is set, not touching anything."
+		return
+	fi
+
 	desc 'destroy cluster/operator and all other resources'
 	if [ ${ignore_logs} == "false" -o "${DEBUG_TESTS}" == 1 ]; then
 		kubectl_bin logs ${OPERATOR_NS:+-n $OPERATOR_NS} $(get_operator_pod) \
@@ -914,22 +923,22 @@ EOF
 }
 
 cat_config() {
-  local input_file="$1"
-  local pvc_name="$2"
+	local input_file="$1"
+	local pvc_name="$2"
 
-  cat "$input_file" \
-    | $sed -e "s#apiVersion: pxc.percona.com/v.*\$#apiVersion: $API#" \
-    | $sed -e "s#image:.*-pxc\([0-9]*.[0-9]*\)\{0,1\}\$#image: $IMAGE_PXC#" \
-    | $sed -e "s#image:.*\/percona-xtradb-cluster:.*\$#image: $IMAGE_PXC#" \
-    | $sed -e "s#image:.*-init\$#image: $IMAGE#" \
-    | $sed -e "s#image:.*-pmm\$#image: $IMAGE_PMM_CLIENT#" \
-    | $sed -e "s#image:.*-backup\$#image: $IMAGE_BACKUP#" \
-    | $sed -e "s#image:.*-proxysql\$#image: $IMAGE_PROXY#" \
-    | $sed -e "s#image:.*-haproxy\$#image: $IMAGE_HAPROXY#" \
-    | $sed -e "s#image:.*-logcollector\$#image: $IMAGE_LOGCOLLECTOR#" \
-    | $sed -e "s~minio-service.#namespace~minio-service.$namespace~" \
-    | $sed -e "s#apply:.*#apply: Never#" \
-    | $sed -e "s#claimName:..*-backup-pvc\$#claimName: $pvc_name#"
+	cat "$input_file" \
+		| $sed -e "s#apiVersion: pxc.percona.com/v.*\$#apiVersion: $API#" \
+		| $sed -e "s#image:.*-pxc\([0-9]*.[0-9]*\)\{0,1\}\$#image: $IMAGE_PXC#" \
+		| $sed -e "s#image:.*\/percona-xtradb-cluster:.*\$#image: $IMAGE_PXC#" \
+		| $sed -e "s#image:.*-init\$#image: $IMAGE#" \
+		| $sed -e "s#image:.*-pmm\$#image: $IMAGE_PMM_CLIENT#" \
+		| $sed -e "s#image:.*-backup\$#image: $IMAGE_BACKUP#" \
+		| $sed -e "s#image:.*-proxysql\$#image: $IMAGE_PROXY#" \
+		| $sed -e "s#image:.*-haproxy\$#image: $IMAGE_HAPROXY#" \
+		| $sed -e "s#image:.*-logcollector\$#image: $IMAGE_LOGCOLLECTOR#" \
+		| $sed -e "s~minio-service.#namespace~minio-service.$namespace~" \
+		| $sed -e "s#apply:.*#apply: Never#" \
+		| $sed -e "s#claimName:..*-backup-pvc\$#claimName: $pvc_name#"
 
 }
 
@@ -946,14 +955,14 @@ apply_secrets() {
 }
 
 apply_config() {
-  local config_file="$1"
-  local pvc_name="${2:-}"
+	local config_file="$1"
+	local pvc_name="${2:-}"
 
 	if [ -z "$SKIP_REMOTE_BACKUPS" ]; then
 		cat_config "$config_file" "$pvc_name" \
 			| kubectl_bin apply -f -
 	else
-		cat_config "$config_file" "$pvc_name"\
+		cat_config "$config_file" "$pvc_name" \
 			| yq eval 'del(.spec.backup.schedule.[1])' - \
 			| kubectl_bin apply -f -
 	fi
@@ -991,7 +1000,7 @@ spinup_pxc() {
 	kubectl_bin apply -f $secretsFile
 	apply_config "$pxcClientFile"
 	if [[ $IMAGE_PXC =~ 5\.7 ]] && [[ $cluster == 'demand-backup' || $cluster == 'demand-backup-cloud' ]]; then
-		cat_config "$config"\
+		cat_config "$config" \
 			| $sed '/\[sst\]/,+1d' \
 			| $sed 's|compress=lz4|compress|' \
 			| kubectl_bin apply -f -
@@ -1144,7 +1153,7 @@ retry() {
 }
 
 check_pvc_md5() {
-  local backup_name="$1"
+	local backup_name="$1"
 	desc 'check backup file md5sum'
 	pvc_name=$(get_pvc_name_for_backup "$backup_name") || exit 1
 	apply_config "$test_dir/conf/client.yml" "$pvc_name"
@@ -1180,16 +1189,16 @@ run_recovery_check() {
 	log "run pxc-restore/${backup}"
 
 	YAML_INPUT_FILE="$test_dir/conf/restore-${backup}.yaml"
-	MODIFIED_YAML=$( \
+	MODIFIED_YAML=$(
 		cat "$YAML_INPUT_FILE" \
-		| $sed -e "s~minio-service.#namespace~minio-service.$namespace~" \
-		| $sed -e "s#<destination>#${dest}#g" \
+			| $sed -e "s~minio-service.#namespace~minio-service.$namespace~" \
+			| $sed -e "s#<destination>#${dest}#g"
 	)
 
-	if [[ $IMAGE_PXC =~ 5\.7 ]] && [[ "${backup}" == "on-demand-backup-aws-s3" ]]; then
-		FINAL_YAML=$( \
+	if [[ $IMAGE_PXC =~ 5\.7 ]] && [[ ${backup} == "on-demand-backup-aws-s3" ]]; then
+		FINAL_YAML=$(
 			echo "$MODIFIED_YAML" \
-			| yq e '(.spec.containerOptions.args.xtrabackup[] | select(. == "--innodb-undo-directory=./undo")) = "--parallel=3"' -
+				| yq e '(.spec.containerOptions.args.xtrabackup[] | select(. == "--innodb-undo-directory=./undo")) = "--parallel=3"' -
 		)
 	else
 		FINAL_YAML="$MODIFIED_YAML"
@@ -1409,7 +1418,7 @@ storage \"file\" {
 	if [ $protocol == "https" ]; then
 		sed -e 's/^/    /' ${tmp_dir}/vault.ca >${tmp_dir}/vault.new.ca
 		$sed -i "s/#vault_ca/vault_ca/" "${tmp_dir}/vault-secret.yaml"
-		$sed -i "s/#84_vault_ca/\\/etc\\/mysql\\/vault\\-keyring\\-secret\\/ca\\.cert/" "${tmp_dir}/vault-secret.yaml"
+		$sed -i 's/#84_vault_ca/\/etc\/mysql\/vault\-keyring\-secret\/ca\.cert/' "${tmp_dir}/vault-secret.yaml"
 		$sed -i "/#certVal/r ${tmp_dir}/vault.new.ca" "${tmp_dir}/vault-secret.yaml"
 		$sed -i "/#certVal/d" "${tmp_dir}/vault-secret.yaml"
 	else
@@ -1862,8 +1871,9 @@ function check_backup_existence_gcs() {
 	backup_dest_gcp=$1
 	storage_name="gcp-cs"
 	retry=0
+	key=${2:-'.sst_info/sst_info.00000000000000000000'}
 
-	gcs_path="gs://${backup_dest_gcp}.sst_info/sst_info.00000000000000000000"
+	gcs_path="gs://${backup_dest_gcp}${key}"
 
 	until gsutil ls "$gcs_path" >/dev/null 2>&1; do
 		if [ $retry -ge 30 ]; then
@@ -1926,7 +1936,8 @@ function check_backup_deletion_gcs() {
 	backup_dest_gcp=$1
 	storage_name="gcp-cs"
 	retry=0
-	gcs_path="gs://${backup_dest_gcp}.sst_info/sst_info.00000000000000000000"
+	key=${2:-'.sst_info/sst_info.00000000000000000000'}
+	gcs_path="gs://${backup_dest_gcp}${key}"
 
 	while gsutil ls "$gcs_path" >/dev/null 2>&1; do
 		if [ $retry -ge 15 ]; then
@@ -2067,11 +2078,11 @@ wait_for_pmm_service() {
 	start=$(date +%s)
 
 	until kubectl_bin get svc monitoring-service -o jsonpath='{.status.loadBalancer.ingress[0]}' 2>/dev/null | grep -q .; do
-    if (( $(date +%s) - start >= timeout )); then
-        echo "timeout waiting for service to be available"
-        exit 1
-    fi
-    sleep 2
+		if (($(date +%s) - start >= timeout)); then
+			echo "timeout waiting for service to be available"
+			exit 1
+		fi
+		sleep 2
 	done
 
 	kubectl_bin wait sts/monitoring --for=jsonpath='{.status.readyReplicas}'=1 --timeout=${timeout}s
@@ -2128,15 +2139,14 @@ run_recovery_check_pitr() {
 }
 
 get_pvc_name_for_backup() {
-  local backup_name="$1"
+	local backup_name="$1"
 
-  local destination=$(kubectl_bin get pxc-backup "$backup_name" -o jsonpath='{.status.destination}')
-  if [[ -z "$destination" ]]; then
-    echo "No destination found in backup $backup_name"
-    return 1
-  fi
-  local pvc_name="${destination#pvc/}"
+	local destination=$(kubectl_bin get pxc-backup "$backup_name" -o jsonpath='{.status.destination}')
+	if [[ -z $destination ]]; then
+		echo "No destination found in backup $backup_name"
+		return 1
+	fi
+	local pvc_name="${destination#pvc/}"
 
-  echo "$pvc_name"
+	echo "$pvc_name"
 }
-

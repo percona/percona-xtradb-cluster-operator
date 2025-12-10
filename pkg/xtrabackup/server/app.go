@@ -11,7 +11,6 @@ import (
 	"github.com/pkg/errors"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	log "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
@@ -74,8 +73,4 @@ func (s *appServer) GetCurrentBackupConfig(ctx context.Context, req *api.GetCurr
 func (s *appServer) DeleteBackup(ctx context.Context, req *api.DeleteBackupRequest) (*api.DeleteBackupResponse, error) {
 	// TODO
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteBackup not implemented")
-}
-
-func init() {
-	log.SetLogger(zap.New())
 }

@@ -1,0 +1,83 @@
+apiVersion: pxc.percona.com/v1-6-0
+kind: PerconaXtraDBCluster
+metadata:
+  name: pitr
+  finalizers:
+    - percona.com/delete-pxc-pods-in-order
+  # annotations:
+  #   percona.com/issue-vault-token: "true"
+spec:
+  secretsName: my-cluster-secrets
+  vaultSecretName: some-name-vault
+  pause: false
+  pxc:
+    size: 3
+    image: -pxc
+    configuration: |
+      [sst]
+      xbstream-opts=--decompress
+      [xtrabackup]
+      compress=lz4
+      [mysqld]
+      require_secure_transport=ON
+    resources:
+      requests:
+        memory: 0.1G
+        cpu: 100m
+      limits:
+        memory: "2G"
+        cpu: "1"
+    volumeSpec:
+      persistentVolumeClaim:
+        resources:
+          requests:
+            storage: 2Gi
+    affinity:
+      antiAffinityTopologyKey: "kubernetes.io/hostname"
+  proxysql:
+    enabled: true
+    size: 2
+    image: -proxysql
+    resources:
+      requests:
+        memory: 0.1G
+        cpu: 100m
+      limits:
+        memory: 1G
+        cpu: 700m
+    volumeSpec:
+      persistentVolumeClaim:
+        resources:
+          requests:
+            storage: 2Gi
+    affinity:
+      antiAffinityTopologyKey: "kubernetes.io/hostname"
+  pmm:
+    enabled: false
+    image: perconalab/pmm-client:1.17.1
+    serverHost: monitoring-service
+    serverUser: pmm
+  backup:
+    image: -backup
+    imagePullPolicy: Always
+    pitr:
+      enabled: true
+      storageName: minio-binlogs
+      timeBetweenUploads: 55
+    storages:
+      minio:
+        type: s3
+        verifyTLS: false
+        s3:
+          credentialsSecret: minio-secret
+          region: us-east-1
+          bucket: operator-testing
+          endpointUrl: https://minio-service.#namespace:9000/
+      minio-binlogs:
+        type: s3
+        verifyTLS: false
+        s3:
+          credentialsSecret: minio-secret
+          region: us-east-1
+          bucket: operator-testing/binlogs
+          endpointUrl: https://minio-service.#namespace:9000/

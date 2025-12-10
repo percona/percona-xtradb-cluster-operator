@@ -1,0 +1,179 @@
+#!/bin/bash
+
+set -o errexit
+
+test_dir=$(realpath $(dirname $0))
+. ${test_dir}/../functions
+
+set_debug
+
+PXCO_FEATURE_GATES="XtrabackupSidecar=true"
+
+GTID_PATTERN='[A-F0-9a-f]{8}-[A-F0-9a-f]{4}-[A-F0-9a-f]{4}-[A-F0-9a-f]{4}-[A-F0-9a-f]{12}:[0-9]+'
+
+if [[ $IMAGE_PXC =~ 5\.7 ]]; then
+	echo "Skipping PITR test because 5.7 doesn't support it!"
+	exit 0
+fi
+
+write_test_data() {
+	local cluster=$1
+	local config=$2
+	local size="${3:-3}"
+	local sleep="${4:-10}"
+	local secretsFile="${5:-$conf_dir/secrets.yml}"
+	local pxcClientFile="${6:-$conf_dir/client.yml}"
+
+	local proxy=$(get_proxy "$cluster")
+
+	desc 'write test data'
+	if [[ $IMAGE_PXC =~ 5\.7 ]] && [[ "$(is_keyring_plugin_in_use "$cluster")" ]]; then
+		encrypt='ENCRYPTION=\"Y\"'
+	fi
+	run_mysql \
+		"CREATE DATABASE IF NOT EXISTS test; use test; CREATE TABLE IF NOT EXISTS test (id int PRIMARY KEY) $encrypt;" \
+		"-h $proxy -uroot -proot_password"
+	run_mysql \
+		'INSERT test.test (id) VALUES (100500); INSERT test.test (id) VALUES (100501); INSERT test.test (id) VALUES (100502);' \
+		"-h $proxy -uroot -proot_password"
+	sleep 30
+	for i in $(seq 0 $((size - 1))); do
+		compare_mysql_cmd "select-3" "SELECT * from test.test;" "-h $cluster-pxc-$i.$cluster-pxc -uroot -proot_password"
+	done
+
+	if [ "$(is_keyring_plugin_in_use "$cluster")" ]; then
+		table_must_be_encrypted "$cluster" "test"
+	fi
+}
+
+write_data_for_pitr() {
+	local cluster=$1
+	local proxy=$(get_proxy "$cluster")
+
+	desc "write data for pitr"
+	run_mysql \
+		'INSERT test.test (id) VALUES (100503); INSERT test.test (id) VALUES (100504); INSERT test.test (id) VALUES (100505);' \
+		"-h $proxy -uroot -proot_password"
+}
+
+check_latest_restorable_time() {
+	local backup=$1
+
+	desc 'check latest restorable time'
+	latest_restorable_time=$(kubectl_bin get pxc-backup ${backup} -o jsonpath='{.status.latestRestorableTime}')
+	if [[ ${latest_restorable_time} =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T ]]; then
+		echo "Latest restorable time is ${latest_restorable_time}"
+	else
+		echo "Latest restorable time is not set"
+		exit 1
+	fi
+}
+
+main() {
+	create_infra $namespace
+	deploy_cert_manager
+	kubectl_bin apply -f "$test_dir/conf/issuer.yml"
+	kubectl_bin apply -f "$test_dir/conf/cert.yml"
+	sleep 25
+	# We are using minio with tls enabled to check if `verifyTLS: false` works fine
+	start_minio "tls-minio"
+
+	cluster="pitr"
+	spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml"
+
+	run_backup "$cluster" "on-pitr-minio"
+
+	# Temporarily skipping this check
+	# desc 'check for passwords leak'
+	# check_passwords_leak
+
+	write_test_data "$cluster"
+
+	# test changing xtrabackup password
+	desc "changing xtrabackup password multiple times"
+	patch_secret "my-cluster-secrets" "xtrabackup" "$(echo -n "pass1" | base64)"
+	wait_cluster_consistency ${cluster} 3 2
+	patch_secret "my-cluster-secrets" "xtrabackup" "$(echo -n "pass2" | base64)"
+	wait_cluster_consistency ${cluster} 3 2
+	patch_secret "my-cluster-secrets" "xtrabackup" "$(echo -n "pass3" | base64)"
+	wait_cluster_consistency ${cluster} 3 2
+
+	compare_kubectl secret/${cluster}-mysql-init
+
+	desc 'show binlog events'
+	proxy=$(get_proxy "$cluster")
+	run_mysql "SHOW BINLOG EVENTS IN 'binlog.000005';" "-h ${proxy} -uroot -proot_password"
+	run_mysql "SHOW BINLOG EVENTS IN 'binlog.000006';" "-h ${proxy} -uroot -proot_password"
+
+	time_now=$(run_mysql "SELECT now();" "-h ${proxy} -uroot -proot_password")
+	gtid=$(run_mysql "SELECT @@gtid_executed;" "-h ${proxy} -uroot -proot_password" | $sed 's/\([a-f0-9-]\{36\}\):[0-9]*-\([0-9]*\).*/\1:\2/')
+
+	if [[ ! ${gtid} =~ ${GTID_PATTERN} ]]; then
+		printf "Some garbage --> %s <-- instead of legit GTID. Exiting" ${gtid}
+		exit 1
+	fi
+
+	write_data_for_pitr "$cluster"
+	sleep 120 # need to wait while collector catch new data
+	check_latest_restorable_time "on-pitr-minio"
+
+	timeout=60
+	binlogs_exist=0
+	for i in $(seq 1 5); do
+		echo "Checking if binlogs exist in bucket (attempt $i)..."
+		binlogs_exist=$(
+			kubectl_bin run -n "${NAMESPACE}" -i --rm aws-cli --image=perconalab/awscli --restart=Never -- \
+				/usr/bin/env AWS_ACCESS_KEY_ID=some-access-key AWS_SECRET_ACCESS_KEY=some-secret-key AWS_DEFAULT_REGION=us-east-1 \
+				/usr/bin/aws --endpoint-url https://minio-service:9000 --no-verify-ssl s3 ls operator-testing/binlogs/ | grep -c "binlog" | cat
+			exit "${PIPESTATUS[0]}"
+		)
+		if [ "$binlogs_exist" -gt 0 ]; then
+			echo "${binlogs_exist} binlogs found in bucket"
+			break
+		else
+			d=$((timeout * i))
+			echo "No binlogs found in bucket. Sleeping for ${d} seconds..."
+			sleep ${d}
+		fi
+	done
+
+	if [ "$binlogs_exist" -eq 0 ]; then
+		echo "Binlogs are not found in S3"
+		exit 1
+	fi
+
+	run_recovery_check_pitr "$cluster" "restore-on-pitr-minio-gtid" "on-pitr-minio" "select-2" "" "" "$gtid"
+	desc "done gtid type"
+
+	# Temporarily skipping this check
+	# desc 'check for passwords leak'
+	# check_passwords_leak
+
+	sleep 60
+	if [[ $(kubectl get pxc-backup on-pitr-minio -o jsonpath='{.status.conditions}' | grep -c 'Binlog with GTID set') -eq 1 ]]; then
+		echo "Binlog gap detected"
+		exit 1
+	fi
+
+	run_recovery_check_pitr "$cluster" "restore-on-pitr-minio-time" "on-pitr-minio" "select-3" "$time_now" "" ""
+	desc "done date type"
+	sleep 60
+	if [[ $(kubectl get pxc-backup on-pitr-minio -o jsonpath='{.status.conditions}' | grep -c 'Binlog with GTID set') -eq 1 ]]; then
+		echo "Binlog gap detected"
+		exit 1
+	fi
+
+	dest=$(sed 's,/,\\/,g' <<<$(kubectl get pxc-backup on-pitr-minio -o jsonpath='{.status.destination}'))
+	run_recovery_check_pitr "$cluster" "restore-on-pitr-minio" "on-pitr-minio" "select-4" "" "$dest" ""
+	desc "done latest type"
+	sleep 60
+	if [[ $(kubectl get pxc-backup on-pitr-minio -o jsonpath='{.status.conditions}' | grep -c 'Binlog with GTID set') -eq 1 ]]; then
+		echo "Binlog gap detected"
+		exit 1
+	fi
+
+	destroy $namespace
+	desc "test passed"
+}
+
+main

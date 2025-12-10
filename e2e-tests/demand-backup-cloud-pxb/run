@@ -1,0 +1,252 @@
+#!/bin/bash
+
+set -o errexit
+
+test_dir=$(realpath $(dirname $0))
+. ${test_dir}/../functions
+
+set_debug
+
+PXCO_FEATURE_GATES="XtrabackupSidecar=true"
+
+get_container_options() {
+	backup_name=$1
+	cluster_name=$2
+
+	backup_options=$(kubectl_bin get pxc-backup "$backup_name" -o jsonpath='{.spec.containerOptions}')
+	if [[ -n $backup_options ]]; then
+		echo "$backup_options"
+		return
+	fi
+
+	storage_name=$(kubectl_bin get pxc-backup "$backup_name" -o jsonpath='{.spec.storageName}')
+	storage_options=$(kubectl_bin get pxc "$cluster_name" -o jsonpath="{.spec.backup.storages.$storage_name.containerOptions}")
+	if [[ -n $storage_options ]]; then
+		echo "$storage_options"
+		return
+	fi
+}
+
+run_recovery_from_source() {
+	local storage_type=${1:-s3}
+	local backup_name=${2:-on-demand-backup-aws-s3}
+	local remove_bucket_or_container_name=${3:-""}
+	local remove_prefix_from_destination=${4:-""}
+
+	remove_options=""
+	if [ -n "$remove_bucket_or_container_name" ]; then
+		remove_options=", .$storage_type.bucket, .$storage_type.container"
+	fi
+
+	remove_prefix='test'
+	if [ -n "${remove_prefix_from_destination}" -a -z "${remove_bucket_or_container_name}" ]; then
+		remove_prefix="$storage_type"
+	fi
+
+	desc "$storage_type restore with backup source"
+	restore_name="on-demand-backup-$storage_type"
+
+	restore_json=$(jq ".metadata.name=\"$restore_name\"" "$test_dir/conf/restore-from-source-backup.json")
+
+	container_options=$(get_container_options "$backup_name" "$cluster")
+	if [[ -n $container_options ]]; then
+		restore_json=$(echo "$restore_json" | jq ".spec.containerOptions=$container_options")
+	fi
+
+	backup_source_json=$(kubectl_bin get pxc-backup "$backup_name" -o json \
+		| jq -c '.status | {'"$storage_type"', destination} | del(.'"$storage_type"'.endpointUrl, .'"$storage_type"'.storageClass '"$remove_options"')' \
+		| $sed "s|$remove_prefix://||")
+	echo "$restore_json" \
+		| jq ".spec.backupSource=$backup_source_json" \
+		| kubectl_bin apply -f -
+
+	sleep 30
+	wait_for_running "$cluster-proxysql" 1
+	wait_for_running "$cluster-pxc" 3
+	sleep 30
+	desc 'check data after backup from source'
+	compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
+	compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-1.$cluster-pxc -uroot -proot_password"
+	compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-2.$cluster-pxc -uroot -proot_password"
+}
+
+wait_for_upload_to_start() {
+	local pod_name=$1
+	local max_attempts=100
+
+	attempts=0
+	until kubectl_bin logs ${pod_name} -c xtrabackup | grep -q 'successfully uploaded chunk'; do
+		sleep 1
+		let attempts+=1
+		if [ $attempts -ge $max_attempts ]; then
+			echo "Upload did not start on time"
+			exit 1
+		fi
+	done
+
+	return 0
+}
+
+# If backup upload was started and failed for some reason the cloud storage should be cleaned up during second try
+delete_backup_pod() {
+	local backup_name=$1
+	desc "Delete ${backup_name} pod during backup"
+	
+    local cluster_name=$(kubectl_bin get pxc-backup ${backup_name} -o jsonpath='{.spec.pxcCluster}')
+    if [[ -z $cluster_name ]]; then
+        echo "Cluster name is not set on backup ${backup_name}"
+        exit 1
+    fi
+
+	sleep 2
+	backup_pod=$(kubectl_bin get pods --selector=percona.com/backup-job-name=xb-${backup_name} -o jsonpath='{.items[].metadata.name}')
+	echo "Waiting for pod/${backup_pod} to become Running"
+	kubectl_bin wait --for=jsonpath='{.status.phase}'=Running pod/${backup_pod} --timeout=120s
+
+    local pxc_pod="${cluster_name}-pxc-0"
+
+	echo "Waiting for upload to start"
+	wait_for_upload_to_start ${pxc_pod}
+	kubectl delete pod --force ${backup_pod}
+}
+
+check_cloud_storage_cleanup() {
+	local backup_name=$1
+
+	desc "Check storage cleanup of ${backup_name}"
+	if [[ $(kubectl_bin get events --field-selector involvedObject.kind=Job,involvedObject.name=xb-${backup_name} | grep -c "Created pod") == '1' ]]; then
+		echo "There should be 2+ pods started by job. First backup finished too quick"
+		exit 1
+	fi
+
+    local cluster_name=$(kubectl_bin get pxc-backup ${backup_name} -o jsonpath='{.spec.pxcCluster}')
+    if [[ -z $cluster_name ]]; then
+        echo "Cluster name is not set on backup ${backup_name}"
+        exit 1
+    fi
+
+    local pxc_pod="${cluster_name}-pxc-0"
+    if kubectl_bin logs ${pxc_pod} -c xtrabackup | grep 'Deleting Backup'; then
+        echo "Cleanup was performed."
+    else
+        echo "Something went wrong. Delete was not performed."
+        kubectl_bin logs ${pxc_pod} -c xtrabackup
+        exit 1
+    fi
+}
+
+run_backup_with_delete() {
+	local backup_name=$1
+
+	desc "make backup ${backup_name}"
+	kubectl_bin apply \
+		-f $test_dir/conf/${backup_name}.yml
+	delete_backup_pod ${backup_name}
+	wait_backup "${backup_name}"
+	check_cloud_storage_cleanup "${backup_name}"
+}
+
+main() {
+	if [ -n "$SKIP_REMOTE_BACKUPS" ]; then
+		echo "Skipping test because SKIP_REMOTE_BACKUPS variable is set!"
+		exit 0
+	else
+		if command -v aws >/dev/null 2>&1; then
+			echo "AWS CLI is installed"
+		else
+			echo "AWS CLI is not installed"
+			exit 1
+		fi
+		if command -v gsutil >/dev/null 2>&1; then
+			echo "gutil is installed"
+		else
+			echo "gsutil command is not installed"
+			exit 1
+		fi
+		if command -v az >/dev/null 2>&1; then
+			echo "Azure CLI is installed"
+		else
+			echo "Azure CLI is not installed"
+			exit 1
+		fi
+
+		create_infra $namespace
+
+		cluster="demand-backup-cloud"
+		spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml"
+
+		backup_name_aws="on-demand-backup-aws-s3"
+		backup_name_gcp="on-demand-backup-gcp-cs"
+		backup_name_azure="on-demand-backup-azure-blob"
+
+		desc "Run backup ${backup_name_aws} for $cluster cluster"
+		run_backup_with_delete "${backup_name_aws}"
+
+		desc "Run recovery from s3 for $cluster cluster"
+		run_recovery_check "$cluster" "${backup_name_aws}"
+
+		desc "Check correct order for custom options"
+
+		desc "Run recovery from s3 source with default options"
+		run_recovery_from_source
+
+		desc 'Run recovery from s3 source without s3:// prefix in destination'
+		run_recovery_from_source 's3' "${backup_name_aws}" '' 'remove_prefix_from_destination'
+
+		desc 'Run recovery from s3 source without bucket option'
+		run_recovery_from_source 's3' "${backup_name_aws}" 'remove_bucket_name'
+
+		desc "Run backup ${backup_name_gcp} for $cluster cluster"
+		run_backup_with_delete "${backup_name_gcp}"
+
+		desc "Run recovery from s3 for $cluster cluster"
+		run_recovery_check "$cluster" "${backup_name_gcp}"
+
+		desc "Run backup ${backup_name_azure} for $cluster cluster"
+		run_backup_with_delete "${backup_name_azure}"
+
+		desc "Run recovery from azure for $cluster cluster"
+		run_recovery_check "$cluster" "${backup_name_azure}"
+
+		desc "Run recovery from azure source with default options"
+		run_recovery_from_source 'azure' "${backup_name_azure}"
+
+		desc 'Run recovery from azure source without azure:// prefix in destination'
+		run_recovery_from_source 'azure' "${backup_name_azure}" '' 'remove_prefix_from_destination'
+
+		desc 'Run recovery from azure source without container option'
+		run_recovery_from_source 'azure' "${backup_name_azure}" 'remove_container_name'
+
+		backup_dest_aws=$(kubectl_bin get pxc-backup "$backup_name_aws" -o jsonpath='{.status.destination}' | sed -e 's/.json$//' | cut -c 6-)
+		backup_dest_gcp=$(kubectl_bin get pxc-backup "$backup_name_gcp" -o jsonpath='{.status.destination}' | sed -e 's/.json$//' | cut -c 6-)
+		backup_dest_azure=$(kubectl_bin get pxc-backup "$backup_name_azure" -o jsonpath='{.status.destination}' | sed -e 's/.json$//' | cut -c 9-)
+
+		desc "Check backup existence"
+		setup_aws_credentials
+		check_backup_existence_aws "$backup_dest_aws" "/xtrabackup_binlog_info.00000000000000000000"
+		setup_gcs_credentials
+		check_backup_existence_gcs "${backup_dest_gcp}" "/xtrabackup_binlog_info.00000000000000000000"
+		setup_azure_credentials
+		check_backup_existence_azure "${backup_dest_azure}" "/xtrabackup_binlog_info.00000000000000000000"
+
+		kubectl_bin delete pxc-backup --all
+
+		desc "Check backup deletion"
+		check_backup_deletion_aws "$backup_dest_aws" "/xtrabackup_binlog_info.00000000000000000000"
+		check_backup_deletion_gcs "${backup_dest_gcp}" "/xtrabackup_binlog_info.00000000000000000000"
+		check_backup_deletion_azure "${backup_dest_azure}" "/xtrabackup_binlog_info.00000000000000000000"
+
+		if [ "$EKS" = 1 ]; then
+			backup_name_aws_iam="on-demand-backup-aws-s3-iam"
+			desc "Run backup ${backup_name_aws_iam} for $cluster cluster using IAM"
+			run_backup_with_delete "${backup_name_aws_iam}"
+			desc "Check backup existence for $backup_name_aws_iam"
+			backup_dest_aws_iam=$(kubectl_bin get pxc-backup "$backup_name_aws_iam" -o jsonpath='{.status.destination}' | sed -e 's/.json$//' | cut -c 6-)
+			check_backup_existence_aws "${backup_dest_aws_iam}" ".xtrabackup_binlog_info.00000000000000000000"
+		fi
+
+		destroy $namespace
+		desc "test passed"
+	fi
+}
+main

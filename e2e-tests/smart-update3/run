@@ -105,10 +105,10 @@ function main() {
 	desc 'PMM2 cluster update with the recommended image by version service'
 
 	# Prepare cluster config
-	cp -f "${test_dir}/conf/${CLUSTER}-version-service-pmm2.yml" "${tmp_dir}/${CLUSTER}-version-service-pmm2.yml"
-	yq -i eval ".spec.initContainer.image = \"${IMAGE}\"" "${tmp_dir}/${CLUSTER}-version-service-pmm2.yml"
+	cp -f "${test_dir}/conf/${CLUSTER}-pmm2.yml" "${tmp_dir}/${CLUSTER}-pmm2.yml"
+	yq -i eval ".spec.initContainer.image = \"${IMAGE}\"" "${tmp_dir}/${CLUSTER}-pmm2.yml"
 
-	spinup_pxc "${CLUSTER}" "${tmp_dir}/${CLUSTER}-version-service-pmm2.yml"
+	spinup_pxc "${CLUSTER}" "${tmp_dir}/${CLUSTER}-pmm2.yml"
 
 
 	# Get actual PXC version from running cluster and add to version service
@@ -129,6 +129,12 @@ function main() {
 	pmm2_recommended_image=$(kubectl_bin exec -ti "$(get_operator_pod)" ${OPERATOR_NS:+-n $OPERATOR_NS} -- curl -s "${VS_URL}.${namespace}.svc.cluster.local:${VS_PORT}/versions/v1/pxc-operator/9.9.9" | jq -r '.versions[].matrix.pmm | to_entries[] | select(.value.imagePath) | select(.value.imagePath | contains("pmm-client:2")) | select(.value.status == "recommended") | .value.imagePath')
 	desc "Target PMM2 recommended image: ${pmm2_recommended_image}"
 
+	# Compare images and exit if they are the same
+  if [ "${initial_pmm2_image}" == "${pmm2_recommended_image}" ]; then
+      desc "PMM2 images are the same (${initial_pmm2_image}), skipping upgrade test"
+      exit 1
+  fi
+
 	# Update cluster to use version service with short schedule
 	kubectl_bin patch pxc/"${CLUSTER}" --type=merge -p '{"spec":{"upgradeOptions":{"versionServiceEndpoint":"'${VS_ENDPOINT}'","apply":"recommended","schedule": "* * * * *"}}}'
 
@@ -147,7 +153,7 @@ function main() {
 	done
 	desc "PMM2 successfully updated to ${pmm2_recommended_image}"
 
-	kubectl_bin delete -f "${tmp_dir}/${CLUSTER}-version-service-pmm2.yml"
+	kubectl_bin delete -f "${tmp_dir}/${CLUSTER}-pmm2.yml"
 	kubectl_bin delete pvc --all
 
 	##################################################
@@ -179,6 +185,11 @@ function main() {
 	# Get recommended PMM3 image from version service
 	pmm3_recommended_image=$(kubectl_bin exec -ti "$(get_operator_pod)" ${OPERATOR_NS:+-n $OPERATOR_NS} -- curl -s "${VS_URL}.${namespace}.svc.cluster.local:${VS_PORT}/versions/v1/pxc-operator/9.9.9" | jq -r '.versions[].matrix.pmm | to_entries[] | select(.value.imagePath) | select(.value.imagePath | contains("pmm-client:3")) | select(.value.status == "recommended") | .value.imagePath')
 	desc "Target PMM3 recommended image: ${pmm3_recommended_image}"
+
+	if [ "${initial_pmm3_image}" == "${pmm3_recommended_image}" ]; then
+        desc "PMM3 images are the same (${initial_pmm3_image}), skipping upgrade test"
+        exit 1
+  fi
 
 	# Update cluster to use version service
 	kubectl_bin patch pxc/"${CLUSTER}" --type=merge -p '{"spec":{"upgradeOptions":{"versionServiceEndpoint":"'${VS_ENDPOINT}'","apply":"recommended","schedule": "* * * * *"}}}'

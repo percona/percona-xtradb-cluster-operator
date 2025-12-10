@@ -23,7 +23,6 @@ type appServer struct {
 	backupStatus                backupStatus
 	namespace                   string
 	newStorageFunc              storage.NewClientFunc
-	deleteBackupFunc            func(ctx context.Context, cfg *api.BackupConfig, backupName string) error
 	log                         logr.Logger
 	mysqlVersion                *goversion.Version
 	tableSpaceEncryptionEnabled bool
@@ -49,7 +48,6 @@ func New() (api.XtrabackupServiceServer, error) {
 		namespace:                   namespace,
 		backupStatus:                backupStatus{},
 		newStorageFunc:              storage.NewClient,
-		deleteBackupFunc:            deleteBackup,
 		log:                         logger,
 		tableSpaceEncryptionEnabled: tableSpaceEncryptionEnabled,
 		mysqlVersion:                goversion.Must(goversion.NewVersion(mysqlVer)),

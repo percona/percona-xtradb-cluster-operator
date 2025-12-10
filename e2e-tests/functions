@@ -954,18 +954,44 @@ apply_secrets() {
 	fi
 }
 
+#apply_config() {
+#  local config_file="$1"
+#  local pvc_name="${2:-}"
+#
+#	if [ -z "$SKIP_REMOTE_BACKUPS" ]; then
+#		cat_config "$config_file" "$pvc_name" \
+#			| kubectl_bin apply -f -
+#	else
+#		cat_config "$config_file" "$pvc_name"\
+#			| yq eval 'del(.spec.backup.schedule.[1])' - \
+#			| kubectl_bin apply -f -
+#	fi
+#}
+
 apply_config() {
   local config_file="$1"
   local pvc_name="${2:-}"
 
-	if [ -z "$SKIP_REMOTE_BACKUPS" ]; then
-		cat_config "$config_file" "$pvc_name" \
-			| kubectl_bin apply -f -
-	else
-		cat_config "$config_file" "$pvc_name"\
-			| yq eval 'del(.spec.backup.schedule.[1])' - \
-			| kubectl_bin apply -f -
-	fi
+  if [ -z "$SKIP_REMOTE_BACKUPS" ]; then
+    local final_yaml
+    final_yaml="$(cat_config "$config_file" "$pvc_name")"
+
+    echo "====== FINAL YAML APPLIED ======"
+    echo "$final_yaml"
+    echo "================================"
+
+    echo "$final_yaml" | kubectl_bin apply -f -
+  else
+    local final_yaml
+    final_yaml="$(cat_config "$config_file" "$pvc_name" \
+      | yq eval 'del(.spec.backup.schedule.[1])' -)"
+
+    echo "====== FINAL YAML APPLIED ======"
+    echo "$final_yaml"
+    echo "========================================================"
+
+    echo "$final_yaml" | kubectl_bin apply -f -
+  fi
 }
 
 get_proxy() {

@@ -74,6 +74,8 @@ spec:
               value: "2000"
             - name: SCHEDULER_MAXCONNECTIONS
               value: "1000"
+            - name: PERCONA_SCHEDULER_CFG
+              value: /tmp/scheduler-config.toml
             - name: SCHEDULER_ENABLED
               value: "true"
           envFrom:
@@ -151,6 +153,8 @@ spec:
               value: "2000"
             - name: SCHEDULER_MAXCONNECTIONS
               value: "1000"
+            - name: PERCONA_SCHEDULER_CFG
+              value: /tmp/scheduler-config.toml
             - name: SCHEDULER_ENABLED
               value: "true"
           envFrom:

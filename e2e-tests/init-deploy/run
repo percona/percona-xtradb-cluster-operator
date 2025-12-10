@@ -23,15 +23,11 @@ kubectl_bin get deployment ${OPERATOR_NS:+-n $OPERATOR_NS} percona-xtradb-cluste
 desc 'wait for operator deployment rollout to complete'
 kubectl_bin rollout status ${OPERATOR_NS:+-n $OPERATOR_NS} deployment/percona-xtradb-cluster-operator --timeout=480s
 
-desc 'wait for new operator pod to be ready'
-sleep 10
-operator_pod=$(get_operator_pod)
-echo "Operator pod: ${operator_pod}"
-wait_pod "$operator_pod" "120" "${OPERATOR_NS}"
-sleep 20
+desc 'verify operator deployment has 1 ready replica'
+kubectl_bin wait --for=jsonpath='{.status.readyReplicas}'=1 deployment/percona-xtradb-cluster-operator ${OPERATOR_NS:+-n $OPERATOR_NS} --timeout=120s
 
 desc 'verify MAX_CONCURRENT_RECONCILES is applied correctly'
-operator_logs=$(kubectl_bin logs ${OPERATOR_NS:+-n $OPERATOR_NS} ${operator_pod})
+operator_logs=$(kubectl_bin logs ${OPERATOR_NS:+-n $OPERATOR_NS} $(get_operator_pod))
 
 resources=("PerconaXtraDBCluster" "PerconaXtraDBClusterBackup" "PerconaXtraDBClusterRestore")
 for resource in "${resources[@]}"; do

@@ -20,7 +20,7 @@ require (
 	github.com/google/go-cmp v0.7.0
 	github.com/hashicorp/go-version v1.8.0
 	github.com/minio/minio-go/v7 v7.0.97
-	github.com/onsi/ginkgo/v2 v2.27.2
+	github.com/onsi/ginkgo/v2 v2.27.3
 	github.com/onsi/gomega v1.38.2
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.23.2

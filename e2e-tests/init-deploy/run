@@ -32,7 +32,7 @@ operator_logs=$(kubectl_bin logs ${OPERATOR_NS:+-n $OPERATOR_NS} $(get_operator_
 resources=("PerconaXtraDBCluster" "PerconaXtraDBClusterBackup" "PerconaXtraDBClusterRestore")
 for resource in "${resources[@]}"; do
 	worker_log=$(echo "$operator_logs" | grep "Starting workers.*${resource}\b" | grep -o '"worker count":\s*[0-9]*')
-		if [ -z "$worker_log" ]; then
+	if [ -z "$worker_log" ]; then
 		echo "ERROR: No 'Starting workers' log found for ${resource}"
 		exit 1
 	fi

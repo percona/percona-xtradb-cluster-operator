@@ -17,8 +17,6 @@ import (
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 func (s *appServer) CreateBackup(req *api.CreateBackupRequest, stream api.XtrabackupService_CreateBackupServer) error {
@@ -43,7 +41,7 @@ func (s *appServer) CreateBackup(req *api.CreateBackupRequest, stream api.Xtraba
 	}
 	if exists {
 		logger.Info("Backup already exists, deleting")
-		if err := s.deleteBackupFunc(ctx, req.BackupConfig, req.BackupName); err != nil {
+		if err := s.deleteBackup(ctx, req.BackupConfig, req.BackupName); err != nil {
 			logger.Error(err, "failed to delete backup")
 			return errors.Wrap(err, "delete backup")
 		}
@@ -207,8 +205,8 @@ func (s *appServer) backupExists(ctx context.Context, cfg *api.BackupConfig) (bo
 	return true, nil
 }
 
-func deleteBackup(ctx context.Context, cfg *api.BackupConfig, backupName string) error {
-	log := logf.Log.WithName("deleteBackup")
+func (s *appServer) deleteBackup(ctx context.Context, cfg *api.BackupConfig, backupName string) error {
+	log := s.log.WithName("deleteBackup")
 
 	logWriter := io.Writer(os.Stderr)
 	if backupName != "" {

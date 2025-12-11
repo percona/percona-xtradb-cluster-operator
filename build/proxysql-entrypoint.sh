@@ -24,8 +24,7 @@ PROXY_ADMIN_CFG=/etc/proxysql-admin.cnf
 
 # Percona scheduler
 PERCONA_SCHEDULER_CFG_TMPL=/opt/percona/proxysql_scheduler_config.tmpl
-PERCONA_SCHEDULER_CFG=/tmp/scheduler-config.toml
-if [[ -f ${PERCONA_SCHEDULER_CFG_TMPL} ]]; then
+if [[ -f ${PERCONA_SCHEDULER_CFG_TMPL} && -n ${PERCONA_SCHEDULER_CFG} ]]; then
 	cp ${PERCONA_SCHEDULER_CFG_TMPL} ${PERCONA_SCHEDULER_CFG}
 fi
 

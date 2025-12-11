@@ -966,7 +966,7 @@ func (r *ReconcilePerconaXtraDBCluster) syncPXCUsersWithProxySQL(ctx context.Con
 		command := []string{"proxysql-admin", "--syncusers", "--add-query-rule"}
 		if cr.Spec.ProxySQL.Scheduler.Enabled {
 			command = []string{"percona-scheduler-admin",
-				"--config-file=/opt/percona/scheduler-config.toml",
+				"--config-file=" + statefulset.SchedulerConfigPath,
 				"--syncusers", "--add-query-rule"}
 		}
 

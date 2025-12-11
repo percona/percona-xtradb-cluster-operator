@@ -189,8 +189,8 @@ spec:
           name: pxc-init
           resources:
             limits:
-              cpu: 50m
-              memory: 50M
+              cpu: 100m
+              memory: 100Mi
           securityContext:
             privileged: false
           terminationMessagePath: /dev/termination-log
@@ -204,8 +204,8 @@ spec:
           name: proxysql-init
           resources:
             limits:
-              cpu: 50m
-              memory: 50M
+              cpu: 100m
+              memory: 100Mi
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:

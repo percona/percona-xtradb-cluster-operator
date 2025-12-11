@@ -20,6 +20,7 @@ import (
 const (
 	proxyDataVolumeName   = "proxydata"
 	proxyConfigVolumeName = "config"
+	SchedulerConfigPath   = "/tmp/scheduler-config.toml"
 )
 
 type Proxy struct {
@@ -191,6 +192,10 @@ func (c *Proxy) AppContainer(ctx context.Context, _ client.Client, spec *api.Pod
 	}
 
 	return appc, nil
+}
+
+func (c *Proxy) XtrabackupContainer(ctx context.Context, cr *api.PerconaXtraDBCluster) (*corev1.Container, error) {
+	return nil, nil
 }
 
 func (c *Proxy) SidecarContainers(ctx context.Context, cl client.Client, spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster) ([]corev1.Container, error) {
@@ -416,6 +421,10 @@ func schedulerEnvVariables(scheduler api.ProxySQLSchedulerSpec) []corev1.EnvVar 
 		{
 			Name:  "SCHEDULER_MAXCONNECTIONS",
 			Value: strconv.FormatInt(int64(scheduler.MaxConnections), 10),
+		},
+		{
+			Name:  "PERCONA_SCHEDULER_CFG",
+			Value: SchedulerConfigPath,
 		},
 	}
 

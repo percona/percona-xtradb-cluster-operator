@@ -2,6 +2,7 @@ package pxcbackup
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"reflect"
 	"strconv"
@@ -28,12 +29,15 @@ import (
 
 	"github.com/percona/percona-xtradb-cluster-operator/clientcmd"
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/features"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/binlogcollector"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/version"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/xtrabackup"
 )
 
 // Add creates a new PerconaXtraDBClusterBackup Controller and adds it to the Manager. The Manager will set fields on the Controller
@@ -158,6 +162,27 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 
 	log = log.WithValues("cluster", cluster.Name)
 
+	storage, ok := cluster.Spec.Backup.Storages[cr.Spec.StorageName]
+	if !ok {
+		err := errors.Errorf("storage %s doesn't exist", cr.Spec.StorageName)
+
+		if err := r.setFailedStatus(ctx, cr, err); err != nil {
+			return rr, errors.Wrap(err, "update status")
+		}
+
+		return reconcile.Result{}, err
+	}
+
+	// TODO: implement support
+	if storage.Type == api.BackupStorageFilesystem && features.Enabled(ctx, features.XtrabackupSidecar) {
+		err := fmt.Errorf("pvc backups are not supported when '%s' feature flag is enabled", features.XtrabackupSidecar)
+
+		if err := r.setFailedStatus(ctx, cr, err); err != nil {
+			return rr, errors.Wrap(err, "update status")
+		}
+		return reconcile.Result{}, err
+	}
+
 	err = cluster.CheckNSetDefaults(r.serverVersion, log)
 	if err != nil {
 		err := errors.Wrap(err, "wrong PXC options")
@@ -238,17 +263,6 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 		return rr, nil
 	}
 
-	storage, ok := cluster.Spec.Backup.Storages[cr.Spec.StorageName]
-	if !ok {
-		err := errors.Errorf("storage %s doesn't exist", cr.Spec.StorageName)
-
-		if err := r.setFailedStatus(ctx, cr, err); err != nil {
-			return rr, errors.Wrap(err, "update status")
-		}
-
-		return reconcile.Result{}, err
-	}
-
 	log = log.WithValues("storage", cr.Spec.StorageName)
 
 	log.V(1).Info("Check if parallel backups are allowed", "allowed", cluster.Spec.Backup.GetAllowParallel())
@@ -309,9 +323,22 @@ func (r *ReconcilePerconaXtraDBClusterBackup) createBackupJob(
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get initImage")
 	}
-	job.Spec, err = bcp.JobSpec(cr.Spec, cluster, job, initImage)
+
+	xtrabackupEnabled := features.Enabled(ctx, features.XtrabackupSidecar)
+	getJobSpec := func() (batchv1.JobSpec, error) {
+		if xtrabackupEnabled {
+			srcNode, err := pxc.GetPrimaryPodDNSName(ctx, r.client, cluster)
+			if err != nil {
+				return batchv1.JobSpec{}, errors.Wrap(err, "failed to get primary pod dns name")
+			}
+			return xtrabackup.JobSpec(cr, cluster, job, initImage, srcNode)
+		}
+		return bcp.JobSpec(cr.Spec, cluster, job, initImage)
+	}
+
+	job.Spec, err = getJobSpec()
 	if err != nil {
-		return nil, errors.Wrap(err, "can't create job spec")
+		return nil, fmt.Errorf("failed to get job spec: %w (xtrabackup enabled: %t)", err, xtrabackupEnabled)
 	}
 
 	switch storage.Type {
@@ -333,7 +360,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) createBackupJob(
 			return nil, errors.Wrap(err, "get backup pvc")
 		}
 
-		err := backup.SetStoragePVC(&job.Spec, cr, pvc.Name)
+		err := backup.SetStoragePVC(ctx, &job.Spec, cr, pvc.Name)
 		if err != nil {
 			return nil, errors.Wrap(err, "set storage FS")
 		}
@@ -346,7 +373,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) createBackupJob(
 		}
 		cr.Status.Destination.SetS3Destination(storage.S3.Bucket, cr.Spec.PXCCluster+"-"+cr.CreationTimestamp.Time.Format("2006-01-02-15:04:05")+"-full")
 
-		err := backup.SetStorageS3(&job.Spec, cr)
+		err := backup.SetStorageS3(ctx, &job.Spec, cr)
 		if err != nil {
 			return nil, errors.Wrap(err, "set storage FS")
 		}
@@ -356,10 +383,17 @@ func (r *ReconcilePerconaXtraDBClusterBackup) createBackupJob(
 		}
 		cr.Status.Destination.SetAzureDestination(storage.Azure.ContainerPath, cr.Spec.PXCCluster+"-"+cr.CreationTimestamp.Time.Format("2006-01-02-15:04:05")+"-full")
 
-		err := backup.SetStorageAzure(&job.Spec, cr)
+		err := backup.SetStorageAzure(ctx, &job.Spec, cr)
 		if err != nil {
 			return nil, errors.Wrap(err, "set storage FS for Azure")
 		}
+	}
+
+	if xtrabackupEnabled {
+		job.Spec.Template.Spec.Containers[0].Env = append(job.Spec.Template.Spec.Containers[0].Env, corev1.EnvVar{
+			Name:  "BACKUP_DEST",
+			Value: cr.Status.Destination.PathWithoutBucket(),
+		})
 	}
 
 	// Set PerconaXtraDBClusterBackup instance as the owner and controller

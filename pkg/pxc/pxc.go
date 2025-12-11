@@ -2,7 +2,6 @@ package pxc
 
 import (
 	"context"
-	stdErrors "errors"
 	"fmt"
 	"time"
 
@@ -21,11 +20,7 @@ const appName = "pxc"
 
 var NoProxyDetectedError = errors.New("can't detect enabled proxy, please enable HAProxy or ProxySQL")
 
-func GetPrimaryPodDNSName(ctx context.Context, cl client.Client, cr *api.PerconaXtraDBCluster) (string, error) {
-	primary, err := GetPrimaryPod(ctx, cl, cr)
-	if err != nil {
-		return "", errors.Wrap(err, "get primary pod")
-	}
+func GetPodDNSName(ctx context.Context, cl client.Client, cr *api.PerconaXtraDBCluster, podRef string) (string, error) {
 	pxcSet := statefulset.NewNode(cr)
 	podList := corev1.PodList{}
 	if err := cl.List(ctx, &podList, &client.ListOptions{
@@ -36,12 +31,37 @@ func GetPrimaryPodDNSName(ctx context.Context, cl client.Client, cr *api.Percona
 	}
 	pxcSts := pxcSet.StatefulSet()
 	for _, pod := range podList.Items {
-		if pod.Status.PodIP == primary || pod.Name == primary {
-			primary = fmt.Sprintf("%s.%s.%s", pod.Name, pxcSts.GetName(), pxcSts.GetNamespace())
-			break
+		if pod.Status.PodIP == podRef || pod.Name == podRef {
+			return fmt.Sprintf("%s.%s.%s", pod.Name, pxcSts.GetName(), pxcSts.GetNamespace()), nil
 		}
 	}
-	return primary, nil
+	return podRef, nil
+}
+
+func getFirstReadyPod(ctx context.Context, cl client.Client, cr *api.PerconaXtraDBCluster) (string, error) {
+	sts := statefulset.NewNode(cr)
+
+	podList := new(corev1.PodList)
+	if err := cl.List(ctx, podList, &client.ListOptions{
+		Namespace:     cr.Namespace,
+		LabelSelector: labels.SelectorFromSet(sts.Labels()),
+	}); err != nil {
+		return "", errors.Wrap(err, "get pod list")
+	}
+
+	readyPods := make([]corev1.Pod, 0)
+	for _, pod := range podList.Items {
+		if k8s.IsPodReady(pod) {
+			readyPods = append(readyPods, pod)
+		}
+	}
+	if len(readyPods) == 0 {
+		return "", errors.New("no ready pxc pods")
+	}
+	if len(readyPods) != int(cr.Spec.PXC.Size) {
+		return "", errors.New("waiting for pxc resize")
+	}
+	return readyPods[0].Status.PodIP, nil
 }
 
 // GetPrimaryPod returns the primary pod
@@ -50,41 +70,13 @@ func GetPrimaryPod(
 	cl client.Client,
 	cr *api.PerconaXtraDBCluster) (string, error) {
 	conn, err := GetProxyConnection(cr, cl)
-	if err != nil {
-		if errors.Is(err, NoProxyDetectedError) && cr.Spec.PXC.Size == 1 {
-			firstReadyPod := func() (string, error) {
-				sts := statefulset.NewNode(cr)
-
-				podList := new(corev1.PodList)
-				if err := cl.List(ctx, podList, &client.ListOptions{
-					Namespace:     cr.Namespace,
-					LabelSelector: labels.SelectorFromSet(sts.Labels()),
-				}); err != nil {
-					return "", errors.Wrap(err, "get pod list")
-				}
-
-				readyPods := make([]corev1.Pod, 0)
-				for _, pod := range podList.Items {
-					if k8s.IsPodReady(pod) {
-						readyPods = append(readyPods, pod)
-					}
-				}
-				if len(readyPods) == 0 {
-					return "", errors.New("no ready pxc pods")
-				}
-				if len(readyPods) != int(cr.Spec.PXC.Size) {
-					return "", errors.New("waiting for pxc resize")
-				}
-
-				return readyPods[0].Status.PodIP, nil
-			}
-			host, rerr := firstReadyPod()
-			if rerr == nil {
-				return host, nil
-			}
-
-			err = stdErrors.Join(rerr, err)
+	if errors.Is(err, NoProxyDetectedError) && cr.Spec.PXC.Size == 1 {
+		host, err := getFirstReadyPod(ctx, cl, cr)
+		if err != nil {
+			return "", errors.Wrap(err, "failed to get first ready pod")
 		}
+		return host, nil
+	} else if err != nil {
 		return "", errors.Wrap(err, "failed to get proxy connection")
 	}
 	defer conn.Close()
@@ -97,7 +89,44 @@ func GetPrimaryPod(
 
 		return host, nil
 	}
+	return conn.PrimaryHost()
+}
 
+// GetHostForSidecarBackup returns a pod that can be used for performing backups via xtradb sidecar
+func GetHostForSidecarBackup(
+	ctx context.Context,
+	cl client.Client,
+	cr *api.PerconaXtraDBCluster) (string, error) {
+	conn, err := GetProxyConnection(cr, cl)
+	if errors.Is(err, NoProxyDetectedError) && cr.Spec.PXC.Size == 1 {
+		host, err := getFirstReadyPod(ctx, cl, cr)
+		if err != nil {
+			return "", errors.Wrap(err, "failed to get first ready pod")
+		}
+		return host, nil
+	} else if err != nil {
+		return "", errors.Wrap(err, "failed to get proxy connection")
+	}
+	defer conn.Close()
+
+	if cr.HAProxyEnabled() {
+		host, err := conn.Hostname()
+		if err != nil {
+			return "", err
+		}
+		return host, nil
+	}
+
+	// Try to find a reachable host and return the first one that is reachable
+	hosts, err := conn.NonPrimaryHosts()
+	for _, host := range hosts {
+		if _, qerr := queries.New(
+			cl, cr.Namespace, cr.Spec.SecretsName, users.Operator, host, 3306, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds,
+		); qerr == nil {
+			return host, nil
+		}
+	}
+	// None of the hosts are reachable, use the primary host
 	return conn.PrimaryHost()
 }
 

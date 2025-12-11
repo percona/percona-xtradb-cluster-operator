@@ -22,22 +22,36 @@ is_old_password_discarded() {
 wait_for_password_propagation() {
 	local secret=$1
 	local user=$2
-	local max_retry="${3:-240}"
+	local cluster=$3
+	local max_retry="${4:-240}"
 	local root_pass
-	root_pass=$(getSecretData "${secret}" "root")
+	local retry
+
+	# Error handling for getSecretData
+	if ! root_pass=$(getSecretData "${secret}" "root"); then
+		echo "ERROR: Failed to get root password from secret ${secret}"
+		return 1
+	fi
+
+	# Validate root_pass is not empty
+	if [[ -z "${root_pass}" ]]; then
+		echo "ERROR: Root password is empty"
+		return 1
+	fi
 
 	if [[ $IMAGE_PXC =~ 5\.7 ]]; then
 		echo "Skipping dual password feature doesn't work for 5.7. PXC 5.7 doesn't support it!"
-		return
+		return 0
 	fi
+
 	retry=0
 	until is_password_updated "${user}" "-h ${cluster}-pxc -uroot -p'${root_pass}'"; do
 		echo "waiting for password update"
 		sleep 1
 		((retry++))
 		if [[ $retry -ge $max_retry ]]; then
-			echo max retry count $retry reached. something went wrong with operator or kubernetes cluster
-			exit 1
+			echo "ERROR: max retry count $retry reached. something went wrong with operator or kubernetes cluster"
+			return 1
 		fi
 	done
 
@@ -47,8 +61,8 @@ wait_for_password_propagation() {
 		sleep 1
 		((retry++))
 		if [[ $retry -ge $max_retry ]]; then
-			echo max retry count $retry reached. something went wrong with operator or kubernetes cluster
-			exit 1
+			echo "ERROR: max retry count $retry reached. something went wrong with operator or kubernetes cluster"
+			return 1
 		fi
 	done
 }
@@ -125,7 +139,7 @@ compare_mysql_cmd_local "select-3" "SHOW DATABASES;" "-h 127.0.0.1 -uxtrabackup 
 
 desc 'test monitor'
 patch_secret "my-cluster-secrets" "monitor" "$newpassencrypted"
-wait_for_password_propagation "my-cluster-secrets" "monitor"
+wait_for_password_propagation "my-cluster-secrets" "monitor" "$cluster"
 wait_cluster_consistency "$cluster" 3 2
 sleep 15 # give some time for proxy-admin --syncusers
 compare_mysql_cmd "select-4" "SHOW TABLES;" "-h $cluster-proxysql -umonitor -p'$newpass'"

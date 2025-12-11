@@ -7,10 +7,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/percona/percona-xtradb-cluster-operator/clientcmd"
-	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/version"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -18,6 +14,11 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"github.com/percona/percona-xtradb-cluster-operator/clientcmd"
+	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/version"
 )
 
 var _ = Describe("PerconaXtraDBClusterBackup", Ordered, func() {
@@ -149,6 +150,10 @@ var _ = Describe("Error checking deadlines", Ordered, func() {
 
 		// We will delete the job, this will cause the deadline check to fail
 		job := backup.New(cluster).Job(pxcBackup, cluster)
+		Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(job), job)).To(Succeed())
+		job.Finalizers = []string{}
+		Expect(k8sClient.Update(ctx, job)).To(Succeed())
+
 		err = k8sClient.Delete(ctx, job, client.PropagationPolicy(metav1.DeletePropagationBackground))
 		Expect(err).To(Not(HaveOccurred()))
 

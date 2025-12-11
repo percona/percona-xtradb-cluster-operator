@@ -20,6 +20,10 @@ import (
 
 const (
 	haproxyDataVolumeName = "haproxydata"
+
+	// HA_SERVER_OPTIONS environment variable is used by haproxy_add_pxc_nodes.sh
+	// to configure the "server" lines in the HAProxy backend configuration.
+	haConfigEnvVarName = "HA_SERVER_OPTIONS"
 )
 
 type HAProxy struct {
@@ -46,7 +50,7 @@ func (c *HAProxy) InitContainers(cr *api.PerconaXtraDBCluster, initImageName str
 	return inits
 }
 
-func (c *HAProxy) AppContainer(_ context.Context, _ client.Client, spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster,
+func (c *HAProxy) AppContainer(ctx context.Context, _ client.Client, spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster,
 	_ []corev1.Volume,
 ) (corev1.Container, error) {
 	appc := corev1.Container{
@@ -201,10 +205,19 @@ func (c *HAProxy) AppContainer(_ context.Context, _ client.Client, spec *api.Pod
 		appc.Lifecycle = &cr.Spec.HAProxy.Lifecycle
 	}
 
+	if cr.CompareVersionWith("1.19.0") >= 0 {
+		extraMounts := api.ExtraPVCVolumeMounts(ctx, spec.ExtraPVCs)
+		appc.VolumeMounts = append(appc.VolumeMounts, extraMounts...)
+	}
+
 	return appc, nil
 }
 
-func (c *HAProxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster) ([]corev1.Container, error) {
+func (c *HAProxy) XtrabackupContainer(ctx context.Context, cr *api.PerconaXtraDBCluster) (*corev1.Container, error) {
+	return nil, nil
+}
+
+func (c *HAProxy) SidecarContainers(ctx context.Context, cl client.Client, spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster) ([]corev1.Container, error) {
 	container := corev1.Container{
 		Name:            "pxc-monit",
 		Image:           spec.Image,
@@ -302,7 +315,21 @@ func (c *HAProxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.P
 	// Add health check configuration env vars for v1.19.0+
 	if cr.CompareVersionWith("1.19.0") >= 0 {
 		if cr.Spec.HAProxy != nil {
-			container.Env = append(container.Env, buildHAProxyHealthCheckEnvVars(cr.Spec.HAProxy.HealthCheck)...)
+			// check if the haproxy config is defined in EnvVarsSecretName, if so - it should be prioritized
+			// despite the fact the same env could have been already applied above in the .EnvFrom section from the secret
+			// because .Env takes precedence over .EnvFrom in case of duplicated keys.
+			config, err := haConfigFromEnvSecret(ctx, cl, cr, haConfigEnvVarName)
+			if err != nil {
+				return nil, errors.Wrap(err, "check ha config is overridden by EnvVarsSecret")
+			}
+			// only if the value is not defined in the secret - apply the values from the cr.Spec.HAProxy.HealthCheck
+			if config == "" {
+				config = buildHAProxyHealthCheckEnvValue(cr.Spec.HAProxy.HealthCheck)
+			}
+			container.Env = append(container.Env, corev1.EnvVar{
+				Name:  haConfigEnvVarName,
+				Value: config,
+			})
 		}
 	}
 
@@ -568,7 +595,7 @@ func (c *HAProxy) UpdateStrategy(cr *api.PerconaXtraDBCluster) appsv1.StatefulSe
 	}
 }
 
-// buildHAProxyHealthCheckEnvVars builds environment variables for HAProxy health check configuration
+// buildHAProxyHealthCheckEnvValue builds environment variable for HAProxy health check configuration
 // from the health check spec. These control how quickly HAProxy detects and responds to backend failures.
 //
 // Default values:
@@ -578,10 +605,7 @@ func (c *HAProxy) UpdateStrategy(cr *api.PerconaXtraDBCluster) appsv1.StatefulSe
 //
 // The function always includes "on-marked-down shutdown-sessions" to ensure existing connections
 // are terminated when a backend is marked down.
-//
-// The generated HA_SERVER_OPTIONS environment variable is used by haproxy_add_pxc_nodes.sh
-// to configure the "server" lines in the HAProxy backend configuration.
-func buildHAProxyHealthCheckEnvVars(healthCheck *api.HAProxyHealthCheckSpec) []corev1.EnvVar {
+func buildHAProxyHealthCheckEnvValue(healthCheck *api.HAProxyHealthCheckSpec) string {
 	interval := int32(10000)
 	rise := int32(1)
 	fall := int32(2)
@@ -598,10 +622,23 @@ func buildHAProxyHealthCheckEnvVars(healthCheck *api.HAProxyHealthCheckSpec) []c
 		}
 	}
 
-	return []corev1.EnvVar{
-		{
-			Name:  "HA_SERVER_OPTIONS",
-			Value: fmt.Sprintf("resolvers kubernetes check inter %d rise %d fall %d weight 1 on-marked-down shutdown-sessions", interval, rise, fall),
-		},
+	return fmt.Sprintf("resolvers kubernetes check inter %d rise %d fall %d weight 1 on-marked-down shutdown-sessions", interval, rise, fall)
+}
+
+func haConfigFromEnvSecret(ctx context.Context, cl client.Client, cr *api.PerconaXtraDBCluster, envName string) (string, error) {
+	secretName := cr.Spec.HAProxy.EnvVarsSecretName
+	if secretName == "" {
+		return "", nil
 	}
+
+	var secret corev1.Secret
+	err := cl.Get(ctx, types.NamespacedName{
+		Namespace: cr.Namespace,
+		Name:      secretName,
+	}, &secret)
+	if err != nil {
+		return "", client.IgnoreNotFound(err)
+	}
+
+	return string(secret.Data[envName]), nil
 }

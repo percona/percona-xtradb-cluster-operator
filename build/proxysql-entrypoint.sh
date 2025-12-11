@@ -24,8 +24,7 @@ PROXY_ADMIN_CFG=/etc/proxysql-admin.cnf
 
 # Percona scheduler
 PERCONA_SCHEDULER_CFG_TMPL=/opt/percona/proxysql_scheduler_config.tmpl
-PERCONA_SCHEDULER_CFG=/opt/percona/scheduler-config.toml
-if [[ -f ${PERCONA_SCHEDULER_CFG_TMPL} ]]; then
+if [[ -f ${PERCONA_SCHEDULER_CFG_TMPL} && -n ${PERCONA_SCHEDULER_CFG} ]]; then
 	cp ${PERCONA_SCHEDULER_CFG_TMPL} ${PERCONA_SCHEDULER_CFG}
 fi
 
@@ -56,13 +55,14 @@ set -o xtrace # hide sensitive information
 # Percona scheduler
 if [[ -f ${PERCONA_SCHEDULER_CFG} ]]; then
 	set +o xtrace # hide sensitive information
-	sed_in_place "s/SCHEDULER_PROXYSQLHOST/'$(hostname -f)'/" ${PERCONA_SCHEDULER_CFG}
 	sed_in_place "s/SCHEDULER_PROXYSQLPASSWORD/'${PROXY_ADMIN_PASSWORD_ESCAPED:-admin}'/" ${PERCONA_SCHEDULER_CFG}
 	sed_in_place "s/SCHEDULER_CLUSTERPASSWORD/'${OPERATOR_PASSWORD_ESCAPED:-operator}'/" ${PERCONA_SCHEDULER_CFG}
-	sed_in_place "s/SCHEDULER_CLUSTERPORT/'${CLUSTER_PORT:-3306}'/" ${PERCONA_SCHEDULER_CFG}
 	sed_in_place "s/SCHEDULER_MONITORPASSWORD/'${MONITOR_PASSWORD_ESCAPED:-monitor}'/" ${PERCONA_SCHEDULER_CFG}
 	set -o xtrace # hide sensitive information
 
+	sed_in_place "s/SCHEDULER_PROXYSQLHOST/'$(hostname -f)'/" ${PERCONA_SCHEDULER_CFG}
+	sed_in_place "s/SCHEDULER_CLUSTERHOST/'${PXC_SERVICE}.$(hostname -f | cut -d '.' -f3-)'/" ${PERCONA_SCHEDULER_CFG}
+	sed_in_place "s/SCHEDULER_CLUSTERPORT/'${CLUSTER_PORT:-3306}'/" ${PERCONA_SCHEDULER_CFG}
 	sed_in_place "s/SCHEDULER_MAXCONNECTIONS/${SCHEDULER_MAXCONNECTIONS}/g" ${PERCONA_SCHEDULER_CFG}
 	sed_in_place "s/SCHEDULER_NODECHECKINTERVAL/${SCHEDULER_NODECHECKINTERVAL}/g" ${PERCONA_SCHEDULER_CFG}
 	sed_in_place "s/SCHEDULER_CHECKTIMEOUT/${SCHEDULER_CHECKTIMEOUT}/g" ${PERCONA_SCHEDULER_CFG}
@@ -124,15 +124,16 @@ fi
 
 test -e /opt/percona/hookscript/hook.sh && source /opt/percona/hookscript/hook.sh
 
-# Start zombie reaper to clean up processes spawned by sidecars
-# This is needed because proxysql (PID 1) may not properly reap all child processes
+# Start zombie reaper to clean up processes spawned by commands
+# This is needed because percona-scheduler-admin may not properly reap all child processes
 # The reaper runs as a background process and continuously reaps zombies
 (
-       while true; do
-               sleep 0.5
-               # Reap any zombie processes that are children of PID 1
-               while wait -n 2>/dev/null; do :; done
-       done
+	set +o xtrace
+	while true; do
+	       sleep 0.5
+	       # Reap any zombie processes that are children of PID 1
+	       while wait -n 2>/dev/null; do :; done
+	done
 ) &
 REAPER_PID=$!
 
@@ -143,20 +144,20 @@ cleanup() {
 }
 trap cleanup EXIT TERM INT
 
-# Run proxysql in foreground (not exec) so reaper can continue running
-# This allows the reaper to clean up zombies spawned by sidecar processes
+# Run main process in foreground (not exec) so reaper can continue running
+# This allows the reaper to clean up zombies spawned by child processes
 "$@" &
-PROXYSQL_PID=$!
+MAIN_PID=$!
 
-# Forward signals to proxysql
+# Forward signals to main process
 forward_signal() {
-       kill -"$1" "$PROXYSQL_PID" 2>/dev/null || true
+       kill -"$1" "$MAIN_PID" 2>/dev/null || true
 }
 trap 'forward_signal TERM' TERM
 trap 'forward_signal INT' INT
 
-# Wait for proxysql and forward its exit code
-wait $PROXYSQL_PID
+# Wait for main process and forward its exit code
+wait $MAIN_PID
 EXIT_CODE=$?
 
 # Clean up reaper

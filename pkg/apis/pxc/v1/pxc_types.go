@@ -22,6 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxctls"
@@ -46,7 +47,7 @@ type PerconaXtraDBClusterSpec struct {
 	HAProxy                   *HAProxySpec                         `json:"haproxy,omitempty"`
 	PMM                       *PMMSpec                             `json:"pmm,omitempty"`
 	LogCollector              *LogCollectorSpec                    `json:"logcollector,omitempty"`
-	Backup                    *PXCScheduledBackup                  `json:"backup,omitempty"`
+	Backup                    *BackupSpec                          `json:"backup,omitempty"`
 	UpdateStrategy            appsv1.StatefulSetUpdateStrategyType `json:"updateStrategy,omitempty"`
 	UpgradeOptions            UpgradeOptions                       `json:"upgradeOptions,omitempty"`
 	AllowUnsafeConfig         bool                                 `json:"allowUnsafeConfigurations,omitempty"`
@@ -219,7 +220,7 @@ const (
 	SmartUpdateStatefulSetStrategyType appsv1.StatefulSetUpdateStrategyType = "SmartUpdate"
 )
 
-type PXCScheduledBackup struct {
+type BackupSpec struct {
 	AllowParallel            *bool                         `json:"allowParallel,omitempty"`
 	Image                    string                        `json:"image,omitempty"`
 	ImagePullSecrets         []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
@@ -233,13 +234,14 @@ type PXCScheduledBackup struct {
 	ActiveDeadlineSeconds    *int64                        `json:"activeDeadlineSeconds,omitempty"`
 	StartingDeadlineSeconds  *int64                        `json:"startingDeadlineSeconds,omitempty"`
 	SuspendedDeadlineSeconds *int64                        `json:"suspendedDeadlineSeconds,omitempty"`
+	TTLSecondsAfterFinished  *int32                        `json:"ttlSecondsAfterFinished,omitempty"`
 	// RunningDeadlineSeconds is the number of seconds to wait for the backup to transition to the 'Running' state.
 	// Once this threshold is reached, the backup will be marked as failed. Default is 300 seconds (5m).
 	// +kubebuilder:default:=300
 	RunningDeadlineSeconds *int64 `json:"runningDeadlineSeconds,omitempty"`
 }
 
-func (b *PXCScheduledBackup) GetAllowParallel() bool {
+func (b *BackupSpec) GetAllowParallel() bool {
 	if b.AllowParallel == nil {
 		return true
 	}
@@ -530,6 +532,12 @@ func (cr *PerconaXtraDBCluster) Validate() error {
 		}
 	}
 
+	if c.PXC != nil && len(c.PXC.ExtraPVCs) > 0 {
+		if err := validateExtraPVCs(c.PXC.ExtraPVCs); err != nil {
+			return errors.Wrap(err, "PXC: validate extraPVCs")
+		}
+	}
+
 	return nil
 }
 
@@ -607,6 +615,7 @@ type PodSpec struct {
 	Sidecars                    []corev1.Container                `json:"sidecars,omitempty"`
 	SidecarVolumes              []corev1.Volume                   `json:"sidecarVolumes,omitempty"`
 	SidecarPVCs                 []corev1.PersistentVolumeClaim    `json:"sidecarPVCs,omitempty"`
+	ExtraPVCs                   []ExtraPVC                        `json:"extraPVCs,omitempty"`
 	RuntimeClassName            *string                           `json:"runtimeClassName,omitempty"`
 	HookScript                  string                            `json:"hookScript,omitempty"`
 	Lifecycle                   corev1.Lifecycle                  `json:"lifecycle,omitempty"`
@@ -928,6 +937,32 @@ type VolumeSpec struct {
 	PersistentVolumeClaim *corev1.PersistentVolumeClaimSpec `json:"persistentVolumeClaim,omitempty"`
 }
 
+// ExtraPVC allows mounting an existing PersistentVolumeClaim to the PXC container.
+type ExtraPVC struct {
+	// Name of the volume as it will be referenced in the pod
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+
+	// ClaimName is the name of the existing PersistentVolumeClaim to mount
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	ClaimName string `json:"claimName"`
+
+	// MountPath is the path inside the container where the volume will be mounted
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	MountPath string `json:"mountPath"`
+
+	// SubPath within the volume from which the container's volume should be mounted
+	// +optional
+	SubPath string `json:"subPath,omitempty"`
+
+	// ReadOnly specifies whether the volume should be mounted as read-only
+	// +optional
+	ReadOnly bool `json:"readOnly,omitempty"`
+}
+
 type Volume struct {
 	PVCs    []corev1.PersistentVolumeClaim
 	Volumes []corev1.Volume
@@ -951,9 +986,10 @@ var NoCustomVolumeErr = errors.New("no custom volume found")
 type App interface {
 	InitContainers(cr *PerconaXtraDBCluster, initImageName string) []corev1.Container
 	AppContainer(ctx context.Context, cl client.Client, spec *PodSpec, secrets string, cr *PerconaXtraDBCluster, availableVolumes []corev1.Volume) (corev1.Container, error)
-	SidecarContainers(spec *PodSpec, secrets string, cr *PerconaXtraDBCluster) ([]corev1.Container, error)
+	SidecarContainers(ctx context.Context, cl client.Client, spec *PodSpec, secrets string, cr *PerconaXtraDBCluster) ([]corev1.Container, error)
 	PMMContainer(ctx context.Context, cl client.Client, spec *PMMSpec, secret *corev1.Secret, cr *PerconaXtraDBCluster) (*corev1.Container, error)
 	LogCollectorContainer(spec *LogCollectorSpec, logPsecrets string, logRsecrets string, cr *PerconaXtraDBCluster) ([]corev1.Container, error)
+	XtrabackupContainer(ctx context.Context, cr *PerconaXtraDBCluster) (*corev1.Container, error)
 	Volumes(podSpec *PodSpec, cr *PerconaXtraDBCluster, vg CustomVolumeGetter) (*Volume, error)
 	Labels() map[string]string
 }
@@ -1685,6 +1721,98 @@ func AddSidecarPVCs(log logr.Logger, existing, sidecarPVCs []corev1.PersistentVo
 	}
 
 	return existing
+}
+
+// ExtraPVCVolumes generates Kubernetes volumes from ExtraPVC configurations.
+// Each ExtraPVC references an existing PersistentVolumeClaim by name.
+func ExtraPVCVolumes(ctx context.Context, extraPVCs []ExtraPVC) []corev1.Volume {
+	logger := log.FromContext(ctx)
+
+	if len(extraPVCs) == 0 {
+		return nil
+	}
+
+	volumes := make([]corev1.Volume, 0, len(extraPVCs))
+	names := make(map[string]struct{}, len(extraPVCs))
+
+	for _, epvc := range extraPVCs {
+		if _, ok := names[epvc.Name]; ok {
+			logger.Info("Duplicate extra PVC volume name, skipping", "volumeName", epvc.Name)
+			continue
+		}
+		names[epvc.Name] = struct{}{}
+
+		volumes = append(volumes, corev1.Volume{
+			Name: epvc.Name,
+			VolumeSource: corev1.VolumeSource{
+				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+					ClaimName: epvc.ClaimName,
+					ReadOnly:  epvc.ReadOnly,
+				},
+			},
+		})
+	}
+
+	return volumes
+}
+
+// ExtraPVCVolumeMounts generates volume mounts from ExtraPVC configurations.
+func ExtraPVCVolumeMounts(ctx context.Context, extraPVCs []ExtraPVC) []corev1.VolumeMount {
+	logger := log.FromContext(ctx)
+
+	if len(extraPVCs) == 0 {
+		return nil
+	}
+
+	mounts := make([]corev1.VolumeMount, 0, len(extraPVCs))
+	names := make(map[string]struct{}, len(extraPVCs))
+
+	for _, epvc := range extraPVCs {
+		if _, ok := names[epvc.Name]; ok {
+			logger.Info("Duplicate extra PVC volume mount name, skipping", "volumeName", epvc.Name)
+			continue
+		}
+		names[epvc.Name] = struct{}{}
+
+		mounts = append(mounts, corev1.VolumeMount{
+			Name:      epvc.Name,
+			MountPath: epvc.MountPath,
+			SubPath:   epvc.SubPath,
+			ReadOnly:  epvc.ReadOnly,
+		})
+	}
+
+	return mounts
+}
+
+// validateExtraPVCs validates the extraPVCs configuration.
+func validateExtraPVCs(extraPVCs []ExtraPVC) error {
+	if len(extraPVCs) == 0 {
+		return nil
+	}
+
+	names := make(map[string]struct{}, len(extraPVCs))
+	claimNames := make(map[string]struct{}, len(extraPVCs))
+	mountPaths := make(map[string]struct{}, len(extraPVCs))
+
+	for _, epvc := range extraPVCs {
+		if _, ok := names[epvc.Name]; ok {
+			return errors.Errorf("extraPVC: duplicate volume name %s", epvc.Name)
+		}
+		names[epvc.Name] = struct{}{}
+
+		if _, ok := mountPaths[epvc.MountPath]; ok {
+			return errors.Errorf("extraPVC %s: duplicate mount path %s", epvc.Name, epvc.MountPath)
+		}
+		mountPaths[epvc.MountPath] = struct{}{}
+
+		if _, ok := claimNames[epvc.ClaimName]; ok {
+			return errors.Errorf("extraPVC %s: duplicate claim name %s", epvc.Name, epvc.ClaimName)
+		}
+		claimNames[epvc.ClaimName] = struct{}{}
+	}
+
+	return nil
 }
 
 func (cr *PerconaXtraDBCluster) ProxySQLUnreadyServiceNamespacedName() types.NamespacedName {

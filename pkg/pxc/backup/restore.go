@@ -1,6 +1,7 @@
 package backup
 
 import (
+	"context"
 	"path"
 	"strconv"
 	"strings"
@@ -16,6 +17,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/features"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
@@ -115,8 +117,8 @@ func PVCRestorePod(cr *api.PerconaXtraDBClusterRestore, bcpStorageName, pvcName 
 			MountPath: "/etc/mysql/ssl-internal",
 		},
 		{
-			Name:      "vault-keyring-secret",
-			MountPath: "/etc/mysql/vault-keyring-secret",
+			Name:      statefulset.VaultSecretVolumeName,
+			MountPath: statefulset.VaultSecretMountPath,
 		},
 	}
 
@@ -210,7 +212,14 @@ func appendCABundleSecretVolume(
 	*volumeMounts = append(*volumeMounts, mnt)
 }
 
-func RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, cluster *api.PerconaXtraDBCluster, initImage string, scheme *runtime.Scheme, destination api.PXCBackupDestination, pitr bool) (*batchv1.Job, error) {
+func RestoreJob(
+	ctx context.Context,
+	cr *api.PerconaXtraDBClusterRestore,
+	bcp *api.PerconaXtraDBClusterBackup,
+	cluster *api.PerconaXtraDBCluster,
+	initImage string,
+	scheme *runtime.Scheme,
+	destination api.PXCBackupDestination, pitr bool) (*batchv1.Job, error) {
 	switch bcp.Status.GetStorageType(cluster) {
 	case api.BackupStorageAzure:
 		if bcp.Status.Azure == nil {
@@ -225,15 +234,14 @@ func RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClust
 		return nil, errors.Errorf("no storage type was specified in status, got: %s", bcp.Status.GetStorageType(cluster))
 	}
 
-	jobName := "restore-job-" + cr.Name + "-" + cr.Spec.PXCCluster
 	volumeMounts := []corev1.VolumeMount{
 		{
 			Name:      "datadir",
 			MountPath: "/datadir",
 		},
 		{
-			Name:      "vault-keyring-secret",
-			MountPath: "/etc/mysql/vault-keyring-secret",
+			Name:      statefulset.VaultSecretVolumeName,
+			MountPath: statefulset.VaultSecretMountPath,
 		},
 	}
 	volumes := []corev1.Volume{
@@ -284,7 +292,6 @@ func RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClust
 			if cluster.Spec.Backup == nil && len(cluster.Spec.Backup.Storages) == 0 {
 				return nil, errors.New("no storage section")
 			}
-			jobName = "pitr-job-" + cr.Name + "-" + cr.Spec.PXCCluster
 			volumeMounts = []corev1.VolumeMount{}
 			volumes = []corev1.Volume{}
 			command = []string{"/opt/percona/pitr", "recover"}
@@ -323,7 +330,7 @@ func RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClust
 		}
 	}
 
-	envs, err := restoreJobEnvs(bcp, cr, cluster, destination, pitr)
+	envs, err := restoreJobEnvs(ctx, bcp, cr, cluster, destination, pitr)
 	if err != nil {
 		return nil, errors.Wrap(err, "restore job envs")
 	}
@@ -347,6 +354,7 @@ func RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClust
 		initContainers = []corev1.Container{statefulset.BackupInitContainer(cluster, initImage, cluster.Spec.PXC.ContainerSecurityContext)}
 	}
 
+	jobName := naming.RestoreJobName(cr, pitr)
 	job := &batchv1.Job{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "batch/v1",
@@ -356,8 +364,12 @@ func RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClust
 			Name:      jobName,
 			Namespace: cr.Namespace,
 			Labels:    naming.LabelsRestoreJob(cluster, jobName, bcp.Status.StorageName),
+			Finalizers: []string{
+				naming.FinalizerKeepJob,
+			},
 		},
 		Spec: batchv1.JobSpec{
+			TTLSecondsAfterFinished: cluster.Spec.Backup.TTLSecondsAfterFinished,
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: cluster.Spec.PXC.Annotations,
@@ -398,7 +410,13 @@ func RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClust
 	return job, nil
 }
 
-func restoreJobEnvs(bcp *api.PerconaXtraDBClusterBackup, cr *api.PerconaXtraDBClusterRestore, cluster *api.PerconaXtraDBCluster, destination api.PXCBackupDestination, pitr bool) ([]corev1.EnvVar, error) {
+func restoreJobEnvs(
+	ctx context.Context,
+	bcp *api.PerconaXtraDBClusterBackup,
+	cr *api.PerconaXtraDBClusterRestore,
+	cluster *api.PerconaXtraDBCluster,
+	destination api.PXCBackupDestination,
+	pitr bool) ([]corev1.EnvVar, error) {
 	if bcp.Status.GetStorageType(cluster) == api.BackupStorageFilesystem {
 		return util.MergeEnvLists(
 			[]corev1.EnvVar{
@@ -477,6 +495,13 @@ func restoreJobEnvs(bcp *api.PerconaXtraDBClusterBackup, cr *api.PerconaXtraDBCl
 		Name:  "VERIFY_TLS",
 		Value: strconv.FormatBool(verifyTLS),
 	})
+
+	if features.Enabled(ctx, features.XtrabackupSidecar) {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "XTRABACKUP_ENABLED",
+			Value: "true",
+		})
+	}
 
 	switch bcp.Status.GetStorageType(cluster) {
 	case api.BackupStorageAzure:
@@ -762,8 +787,8 @@ func PrepareJob(
 			MountPath: "/etc/mysql/mysql-users-secret",
 		},
 		{
-			Name:      "vault-keyring-secret",
-			MountPath: "/etc/mysql/vault-keyring-secret",
+			Name:      statefulset.VaultSecretVolumeName,
+			MountPath: statefulset.VaultSecretMountPath,
 		},
 		{
 			Name:      "ssl",
@@ -801,6 +826,7 @@ func PrepareJob(
 			Labels:    naming.LabelsRestoreJob(cluster, jobName, bcp.Status.StorageName),
 		},
 		Spec: batchv1.JobSpec{
+			TTLSecondsAfterFinished: cluster.Spec.Backup.TTLSecondsAfterFinished,
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: cluster.Spec.PXC.Annotations,

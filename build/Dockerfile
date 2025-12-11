@@ -29,6 +29,16 @@ RUN GOOS=$GOOS GOARCH=${TARGETARCH} CGO_ENABLED=$CGO_ENABLED GO_LDFLAGS=$GO_LDFL
        go build -o build/_output/bin/pitr \
                cmd/pitr/main.go \
     && cp -r build/_output/bin/pitr /usr/local/bin/pitr
+    
+RUN GOOS=$GOOS GOARCH=${TARGETARCH} CGO_ENABLED=$CGO_ENABLED GO_LDFLAGS=$GO_LDFLAGS \
+       go build -o build/_output/bin/xtrabackup-server-sidecar \
+               cmd/xtrabackup/server/main.go \
+    && cp -r build/_output/bin/xtrabackup-server-sidecar /usr/local/bin/xtrabackup-server-sidecar
+    
+RUN GOOS=$GOOS GOARCH=${TARGETARCH} CGO_ENABLED=$CGO_ENABLED GO_LDFLAGS=$GO_LDFLAGS \
+       go build -o build/_output/bin/xtrabackup-run-backup \
+               cmd/xtrabackup/run-backup/main.go \
+    && cp -r build/_output/bin/xtrabackup-run-backup /usr/local/bin/xtrabackup-run-backup
 
 RUN GOOS=$GOOS GOARCH=${TARGETARCH} CGO_ENABLED=$CGO_ENABLED GO_LDFLAGS=$GO_LDFLAGS \
        go build -ldflags "-w -s -X main.GitCommit=$GIT_COMMIT -X main.GitBranch=$GIT_BRANCH -X main.BuildTime=$BUILD_TIME" \
@@ -55,6 +65,8 @@ COPY --from=go_builder /usr/local/bin/percona-xtradb-cluster-operator /usr/local
 COPY --from=go_builder /usr/local/bin/peer-list /peer-list
 COPY --from=go_builder /usr/local/bin/pitr /pitr
 COPY --from=go_builder /usr/local/bin/mysql-state-monitor /mysql-state-monitor
+COPY --from=go_builder /usr/local/bin/xtrabackup-server-sidecar /xtrabackup-server-sidecar
+COPY --from=go_builder /usr/local/bin/xtrabackup-run-backup /xtrabackup-run-backup
 COPY build/pxc-entrypoint.sh /pxc-entrypoint.sh
 COPY build/pxc-init-entrypoint.sh /pxc-init-entrypoint.sh
 COPY build/pitr-init-entrypoint.sh /pitr-init-entrypoint.sh

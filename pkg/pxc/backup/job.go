@@ -1,6 +1,7 @@
 package backup
 
 import (
+	"context"
 	"path"
 	"strconv"
 
@@ -19,8 +20,7 @@ import (
 )
 
 func (*Backup) Job(cr *api.PerconaXtraDBClusterBackup, cluster *api.PerconaXtraDBCluster) *batchv1.Job {
-	labelKeyBackupType := naming.GetLabelBackupType(cluster)
-	jobName := naming.BackupJobName(cr.Name, cr.Labels[labelKeyBackupType] == "cron")
+	jobName := naming.BackupJobName(cr.Name)
 
 	return &batchv1.Job{
 		TypeMeta: metav1.TypeMeta{
@@ -32,6 +32,9 @@ func (*Backup) Job(cr *api.PerconaXtraDBClusterBackup, cluster *api.PerconaXtraD
 			Namespace:   cr.Namespace,
 			Labels:      naming.LabelsBackupJob(cr, cluster, jobName),
 			Annotations: cluster.Spec.Backup.Storages[cr.Spec.StorageName].Annotations,
+			Finalizers: []string{
+				naming.FinalizerKeepJob,
+			},
 		},
 	}
 }
@@ -106,9 +109,10 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, cluster *api.PerconaXtraDBClu
 	}
 
 	return batchv1.JobSpec{
-		ActiveDeadlineSeconds: activeDeadlineSeconds,
-		BackoffLimit:          &backoffLimit,
-		ManualSelector:        &manualSelector,
+		ActiveDeadlineSeconds:   activeDeadlineSeconds,
+		BackoffLimit:            &backoffLimit,
+		ManualSelector:          &manualSelector,
+		TTLSecondsAfterFinished: cluster.Spec.Backup.TTLSecondsAfterFinished,
 		Selector: &metav1.LabelSelector{
 			MatchLabels: job.Labels,
 		},
@@ -188,8 +192,8 @@ func appendStorageSecret(job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBacku
 			MountPath: "/etc/mysql/ssl-internal",
 		},
 		corev1.VolumeMount{
-			Name:      "vault-keyring-secret",
-			MountPath: "/etc/mysql/vault-keyring-secret",
+			Name:      statefulset.VaultSecretVolumeName,
+			MountPath: statefulset.VaultSecretMountPath,
 		},
 	)
 	job.Template.Spec.Volumes = append(
@@ -201,7 +205,7 @@ func appendStorageSecret(job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBacku
 	return nil
 }
 
-func SetStoragePVC(job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBackup, volName string) error {
+func SetStoragePVC(ctx context.Context, job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBackup, volName string) error {
 	pvc := corev1.Volume{
 		Name: "xtrabackup",
 	}
@@ -232,7 +236,7 @@ func SetStoragePVC(job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBackup, vol
 	return nil
 }
 
-func SetStorageAzure(job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBackup) error {
+func SetStorageAzure(ctx context.Context, job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBackup) error {
 	if cr.Status.Azure == nil {
 		return errors.New("azure storage is not specified in backup status")
 	}
@@ -285,7 +289,7 @@ func SetStorageAzure(job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBackup) e
 	return nil
 }
 
-func SetStorageS3(job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBackup) error {
+func SetStorageS3(ctx context.Context, job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBackup) error {
 	if cr.Status.S3 == nil {
 		return errors.New("s3 storage is not specified in backup status")
 	}

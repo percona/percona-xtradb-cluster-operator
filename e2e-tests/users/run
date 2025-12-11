@@ -3,7 +3,7 @@
 set -o errexit
 
 test_dir=$(realpath $(dirname $0))
-. ${test_dir}/../functions
+. "${test_dir}"/../functions
 
 set_debug
 
@@ -23,7 +23,8 @@ wait_for_password_propagation() {
 	local secret=$1
 	local user=$2
 	local max_retry="${3:-240}"
-	local root_pass=$(getSecretData "${secret}" "root")
+	local root_pass
+	root_pass=$(getSecretData "${secret}" "root")
 
 	if [[ $IMAGE_PXC =~ 5\.7 ]]; then
 		echo "Skipping dual password feature doesn't work for 5.7. PXC 5.7 doesn't support it!"
@@ -33,7 +34,7 @@ wait_for_password_propagation() {
 	until is_password_updated "${user}" "-h ${cluster}-pxc -uroot -p'${root_pass}'"; do
 		echo "waiting for password update"
 		sleep 1
-		let retry+=1
+		((retry++))
 		if [[ $retry -ge $max_retry ]]; then
 			echo max retry count $retry reached. something went wrong with operator or kubernetes cluster
 			exit 1
@@ -44,7 +45,7 @@ wait_for_password_propagation() {
 	until is_old_password_discarded "${user}" "-h ${cluster}-pxc -uroot -p'${root_pass}'"; do
 		echo "waiting for password propagation"
 		sleep 1
-		let retry+=1
+		((retry++))
 		if [[ $retry -ge $max_retry ]]; then
 			echo max retry count $retry reached. something went wrong with operator or kubernetes cluster
 			exit 1
@@ -52,7 +53,7 @@ wait_for_password_propagation() {
 	done
 }
 
-create_infra $namespace
+create_infra "$namespace"
 
 desc 'create PXC cluster with 1-password secret'
 
@@ -61,6 +62,12 @@ newpassencrypted=$(echo -n "$newpass" | base64)
 
 cluster="some-name"
 spinup_pxc "$cluster" "$conf_dir/$cluster.yml" "" "" "$conf_dir/secrets_one_pass.yml"
+
+PROXYSQL_VER=$(kubectl exec -it $cluster-proxysql-0 -- sh -c 'proxysql --version 2>/dev/null' | awk '{print $3}' | cut -d. -f1)
+tables_cmp_file="select-2-proxysql3"
+if [[ $PROXYSQL_VER == 2 ]]; then
+	tables_cmp_file="select-2"
+fi
 
 desc 'test missing passwords were created and present in internal secrets'
 empty_pwds=()
@@ -72,25 +79,27 @@ for user in root xtrabackup monitor proxyadmin operator replication; do
 	if [[ -z ${secret_pass} ]]; then
 		empty_pwds+=("${user}")
 	fi
-	if [[ "${secret_pass}" != "${int_secret_pass}" ]]; then
+	if [[ ${secret_pass} != "${int_secret_pass}" ]]; then
 		wrong_pwds+=("${user}")
 	fi
-	if [[ ${user} != 'proxyadmin' ]] && ! [[ "${empty_pwds[@]}" =~ ${user} ]] && ! [[ "${wrong_pwds[@]}" =~ ${user} ]]; then
+	if [[ ${user} != 'proxyadmin' ]] && ! [[ ${empty_pwds[*]} =~ ${user} ]] && ! [[ ${wrong_pwds[*]} =~ ${user} ]]; then
 		echo "Running compare for ${user}"
 		compare_mysql_cmd "select-4" "SHOW TABLES;" "-h ${cluster}-proxysql -u${user} -p'${secret_pass}'"
-	elif [[ ${user} == 'proxyadmin' ]] && ! [[ "${empty_pwds[@]}" =~ ${user} ]] && ! [[ "${wrong_pwds[@]}" =~ ${user} ]]; then
+	elif [[ ${user} == 'proxyadmin' ]] && ! [[ ${empty_pwds[*]} =~ ${user} ]] && ! [[ ${wrong_pwds[*]} =~ ${user} ]]; then
 		echo "Running compare for ${user}"
-		compare_mysql_cmd_local "select-2" "SHOW TABLES;" "-h127.0.0.1 -P6032 -u${user} -p'${secret_pass}'" "${cluster}-proxysql-0" "" 'proxysql'
+		compare_mysql_cmd_local "$tables_cmp_file" "SHOW TABLES;" "-h127.0.0.1 -P6032 -u${user} -p'${secret_pass}'" "${cluster}-proxysql-0" "" 'proxysql'
 	fi
 done
-if [[ -n ${empty_pwds} || -n ${wrong_pwds} ]]; then
-	echo "Passwords for the following users were empty: ${empty_pwds[@]:-none}"
-	echo "Passwords for the following users were wrong: ${wrong_pwds[@]:-none}"
+if [[ -n ${empty_pwds[*]} || -n ${wrong_pwds[*]} ]]; then
+	echo "Passwords for the following users were empty: ${empty_pwds[*]:-none}"
+	echo "Passwords for the following users were wrong: ${wrong_pwds[*]:-none}"
 	exit 1
 fi
 
 desc 'test root'
 patch_secret "my-cluster-secrets" "root" "$newpassencrypted"
+sleep 15
+wait_cluster_consistency "$cluster" 3 2
 sleep 15
 compare_mysql_cmd "select-4" "SHOW TABLES;" "-h $cluster-proxysql -uroot -p'$newpass'"
 
@@ -101,34 +110,36 @@ wait_cluster_consistency "$cluster" 3 3
 patch_secret "my-cluster-secrets" "proxyadmin" "$newpassencrypted"
 sleep 15
 wait_cluster_consistency "$cluster" 3 3
-compare_mysql_cmd_local "select-2" "SHOW TABLES;" "-h127.0.0.1 -P6032 -uproxyadmin -p'$newpass'" "$cluster-proxysql-0" "" 'proxysql'
-compare_mysql_cmd_local "select-2" "SHOW TABLES;" "-h127.0.0.1 -P6032 -uproxyadmin -p'$newpass'" "$cluster-proxysql-1" "" 'proxysql'
-compare_mysql_cmd_local "select-2" "SHOW TABLES;" "-h127.0.0.1 -P6032 -uproxyadmin -p'$newpass'" "$cluster-proxysql-2" "" 'proxysql'
+sleep 15
+compare_mysql_cmd_local "$tables_cmp_file" "SHOW TABLES;" "-h127.0.0.1 -P6032 -uproxyadmin -p'$newpass'" "$cluster-proxysql-0" "" 'proxysql'
+compare_mysql_cmd_local "$tables_cmp_file" "SHOW TABLES;" "-h127.0.0.1 -P6032 -uproxyadmin -p'$newpass'" "$cluster-proxysql-1" "" 'proxysql'
+compare_mysql_cmd_local "$tables_cmp_file" "SHOW TABLES;" "-h127.0.0.1 -P6032 -uproxyadmin -p'$newpass'" "$cluster-proxysql-2" "" 'proxysql'
 
 desc 'test xtrabackup'
 kubectl_bin patch pxc some-name --type=merge -p="{\"spec\":{\"proxysql\":{\"size\":2}}}"
 patch_secret "my-cluster-secrets" "xtrabackup" "$newpassencrypted"
 sleep 15
 wait_cluster_consistency "$cluster" 3 2
+sleep 15
 compare_mysql_cmd_local "select-3" "SHOW DATABASES;" "-h 127.0.0.1 -uxtrabackup -p'$newpass'" "$cluster-pxc-0" "" 'pxc'
 
 desc 'test monitor'
 patch_secret "my-cluster-secrets" "monitor" "$newpassencrypted"
 wait_for_password_propagation "my-cluster-secrets" "monitor"
 wait_cluster_consistency "$cluster" 3 2
-sleep 10 # give some time for proxy-admin --syncusers
+sleep 15 # give some time for proxy-admin --syncusers
 compare_mysql_cmd "select-4" "SHOW TABLES;" "-h $cluster-proxysql -umonitor -p'$newpass'"
 
 desc 'test operator'
 patch_secret "my-cluster-secrets" "operator" "$newpassencrypted"
 sleep 15
 wait_cluster_consistency "$cluster" 3 2
-sleep 10 # give some time for proxy-admin --syncusers
+sleep 15 # give some time for proxy-admin --syncusers
 compare_mysql_cmd "select-4" "SHOW TABLES;" "-h $cluster-proxysql -uoperator -p'$newpass'"
 
 desc 'change secret name'
 kubectl_bin patch pxc $cluster --type merge --patch '{"spec": {"secretsName":"my-cluster-secrets-2"}}'
-sleep 30
+sleep 15
 wait_cluster_consistency "$cluster" 3 2
 
 desc 'test new operator'
@@ -147,14 +158,14 @@ desc 'test new users sync'
 run_mysql \
 	"CREATE USER 'testsync'@'%' IDENTIFIED BY '$newpass';" \
 	"-h $cluster-pxc -uroot -p'$newpass'"
-sleep 40
+sleep 80
 compare_mysql_cmd "select-4" "SHOW TABLES;" "-h $cluster-proxysql -utestsync -p'$newpass'"
 
 pass=$(getSecretData "internal-some-name" "operator")
 desc 'check secret without operator'
 kubectl_bin apply \
 	-f "$test_dir/conf/secrets.yml"
-sleep 15
+sleep 60
 compare_mysql_cmd "select-4" "SHOW TABLES;" "-h $cluster-proxysql -uoperator -p'$pass'"
 
 newpass="test-password2"
@@ -170,6 +181,7 @@ fi
 patch_secret "my-cluster-secrets" "monitor" "$newpassencrypted"
 sleep 15
 wait_cluster_consistency "$cluster" 3 3
+sleep 15
 compare_mysql_cmd "select-3" "SHOW DATABASES;" "-h $cluster-haproxy -umonitor -p'$newpass'"
 
 if [[ $IMAGE_PXC =~ 5\.7 ]]; then

@@ -63,6 +63,12 @@ spec:
     size: 3
     image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0
     autoRecovery: true
+#    extraPVCs:
+#      - name: extra-data-volume
+#        claimName: kech-extra-storage
+#        mountPath: /var/lib/mysql-extra
+#        subPath: mysql
+#        readOnly: false
 #    mysqlAllocator: jemalloc
 #    expose:
 #      enabled: true
@@ -323,6 +329,12 @@ spec:
 #          memory: 200M
 #          cpu: 200m
 #    envVarsSecret: my-env-var-secrets
+#    extraPVCs:
+#      - name: haproxy-extra-volume
+#        claimName: haproxy-extra-storage
+#        mountPath: /var/lib/haproxy-extra
+#        subPath: haproxy
+#        readOnly: false
     resources:
       requests:
         memory: 1G
@@ -447,8 +459,6 @@ spec:
 #      pingTimeoutMilliseconds: 1000
 #      nodeCheckIntervalMilliseconds: 2000
 #      maxConnections: 1000
-#    readinessDelaySec: 15
-#    livenessDelaySec: 600
 #    schedulerName: mycustom-scheduler
 #    imagePullSecrets:
 #      - name: private-registry-credentials
@@ -484,6 +494,12 @@ spec:
 #      securityContext:
 #        privileged: false
 #    envVarsSecret: my-env-var-secrets
+#    extraPVCs:
+#      - name: proxysql-extra-volume
+#        claimName: proxysql-extra-storage
+#        mountPath: /var/lib/proxysql-extra
+#        subPath: proxysql
+#        readOnly: false
     resources:
       requests:
         memory: 1G
@@ -618,6 +634,7 @@ spec:
   backup:
 #    allowParallel: true
     image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0-backup
+#    ttlSecondsAfterFinished: 3600
 #    backoffLimit: 6
 #    activeDeadlineSeconds: 3600
 #    startingDeadlineSeconds: 300

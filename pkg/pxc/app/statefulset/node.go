@@ -4,25 +4,31 @@ import (
 	"context"
 	"fmt"
 	"hash/fnv"
+	"path/filepath"
 	"regexp"
 	"strings"
 
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/features"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
-	app "github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/config"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/xtrabackup/server"
 )
 
 const (
 	VaultSecretVolumeName = "vault-keyring-secret"
+	VaultSecretMountPath  = "/etc/mysql/vault-keyring-secret"
+	VaultKeyringConfig    = "keyring_vault.conf"
 )
 
 type Node struct {
@@ -143,7 +149,7 @@ func (c *Node) AppContainer(ctx context.Context, cl client.Client, spec *api.Pod
 			},
 			{
 				Name:      VaultSecretVolumeName,
-				MountPath: "/etc/mysql/vault-keyring-secret",
+				MountPath: VaultSecretMountPath,
 			},
 		},
 		Env: []corev1.EnvVar{
@@ -270,6 +276,9 @@ func (c *Node) AppContainer(ctx context.Context, cl client.Client, spec *api.Pod
 
 	if cr.CompareVersionWith("1.19.0") >= 0 {
 		setLDPreloadEnv(ctx, cl, cr, &appc)
+
+		extraMounts := api.ExtraPVCVolumeMounts(ctx, spec.ExtraPVCs)
+		appc.VolumeMounts = append(appc.VolumeMounts, extraMounts...)
 	}
 
 	return appc, nil
@@ -324,7 +333,7 @@ func setLDPreloadEnv(
 	}
 }
 
-func (c *Node) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster) ([]corev1.Container, error) {
+func (c *Node) SidecarContainers(ctx context.Context, cl client.Client, spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster) ([]corev1.Container, error) {
 	return nil, nil
 }
 
@@ -426,6 +435,74 @@ func (c *Node) LogCollectorContainer(spec *api.LogCollectorSpec, logPsecrets str
 	}
 
 	return []corev1.Container{logProcContainer, logRotContainer}, nil
+}
+
+func (c *Node) XtrabackupContainer(ctx context.Context, cr *api.PerconaXtraDBCluster) (*corev1.Container, error) {
+	if !features.Enabled(ctx, features.XtrabackupSidecar) {
+		return nil, nil
+	}
+	container := &corev1.Container{
+		Name:            "xtrabackup",
+		Image:           cr.Spec.Backup.Image,
+		ImagePullPolicy: cr.Spec.Backup.ImagePullPolicy,
+		Env: []corev1.EnvVar{
+			{
+				Name: "POD_NAMESPACE",
+				ValueFrom: &corev1.EnvVarSource{
+					FieldRef: &corev1.ObjectFieldSelector{
+						FieldPath: "metadata.namespace",
+					},
+				},
+			},
+			{
+				Name: "XTRABACKUP_USER_PASS",
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: app.SecretKeySelector(cr.Spec.SecretsName, users.Xtrabackup),
+				},
+			},
+			{
+				Name:  "VAULT_KEYRING_PATH",
+				Value: filepath.Join(VaultSecretMountPath, VaultKeyringConfig),
+			},
+		},
+		Command: []string{"/var/lib/mysql/xtrabackup-server-sidecar"},
+		Ports: []corev1.ContainerPort{
+			{
+				Name:          "grpc",
+				ContainerPort: server.DefaultPort,
+			},
+		},
+		VolumeMounts: []corev1.VolumeMount{
+			{
+				Name:      app.DataVolumeName,
+				MountPath: "/var/lib/mysql",
+			},
+			{
+				Name:      "backup-logs",
+				MountPath: app.BackupLogDir,
+			},
+			{
+				Name:      "tmp",
+				MountPath: "/tmp",
+			},
+			{
+				Name:      "vault-keyring-secret",
+				MountPath: VaultSecretMountPath,
+			},
+		},
+		// TODO: make this configurable from CR
+		Resources: corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("200m"),
+				corev1.ResourceMemory: resource.MustParse("512Mi"),
+			},
+			Limits: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("200m"),
+				corev1.ResourceMemory: resource.MustParse("512Mi"),
+			},
+		},
+	}
+	return container, nil
 }
 
 func (c *Node) PMMContainer(ctx context.Context, cl client.Client, spec *api.PMMSpec, secret *corev1.Secret, cr *api.PerconaXtraDBCluster) (*corev1.Container, error) {

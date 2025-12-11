@@ -119,6 +119,9 @@ func GetHostForSidecarBackup(
 
 	// Try to find a reachable host and return the first one that is reachable
 	hosts, err := conn.NonPrimaryHosts()
+	if err != nil {
+		return "", fmt.Errorf("failed to get non-primary hosts: %w", err)
+	}
 	for _, host := range hosts {
 		if _, qerr := queries.New(
 			cl, cr.Namespace, cr.Spec.SecretsName, users.Operator, host, 3306, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds,

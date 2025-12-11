@@ -309,14 +309,6 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 	return rr, nil
 }
 
-func (r *ReconcilePerconaXtraDBClusterBackup) getXtrabackupSrcNode(ctx context.Context, cluster *api.PerconaXtraDBCluster) (string, error) {
-	host, err := pxc.GetHostForSidecarBackup(ctx, r.client, cluster)
-	if err != nil {
-		return "", fmt.Errorf("failed to get host for sidecar backup: %w", err)
-	}
-	return pxc.GetPodDNSName(ctx, r.client, cluster, host)
-}
-
 func (r *ReconcilePerconaXtraDBClusterBackup) createBackupJob(
 	ctx context.Context,
 	cr *api.PerconaXtraDBClusterBackup,
@@ -335,7 +327,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) createBackupJob(
 	xtrabackupEnabled := features.Enabled(ctx, features.XtrabackupSidecar)
 	getJobSpec := func() (batchv1.JobSpec, error) {
 		if xtrabackupEnabled {
-			srcNode, err := r.getXtrabackupSrcNode(ctx, cluster)
+			srcNode, err := pxc.GetHostForSidecarBackup(ctx, r.client, cluster)
 			if err != nil {
 				return batchv1.JobSpec{}, errors.Wrap(err, "failed to get primary pod dns name")
 			}

@@ -11,6 +11,7 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/queries"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 	"github.com/pkg/errors"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -20,31 +21,14 @@ const appName = "pxc"
 
 var NoProxyDetectedError = errors.New("can't detect enabled proxy, please enable HAProxy or ProxySQL")
 
-func GetPodDNSName(ctx context.Context, cl client.Client, cr *api.PerconaXtraDBCluster, podRef string) (string, error) {
-	pxcSet := statefulset.NewNode(cr)
-	podList := corev1.PodList{}
-	if err := cl.List(ctx, &podList, &client.ListOptions{
-		Namespace:     cr.Namespace,
-		LabelSelector: labels.SelectorFromSet(pxcSet.Labels()),
-	}); err != nil {
-		return "", errors.Wrap(err, "get pod list")
-	}
-	pxcSts := pxcSet.StatefulSet()
-	for _, pod := range podList.Items {
-		if pod.Status.PodIP == podRef || pod.Name == podRef {
-			return fmt.Sprintf("%s.%s.%s", pod.Name, pxcSts.GetName(), pxcSts.GetNamespace()), nil
-		}
-	}
-	return podRef, nil
-}
-
 func getFirstReadyPod(ctx context.Context, cl client.Client, cr *api.PerconaXtraDBCluster) (string, error) {
-	sts := statefulset.NewNode(cr)
+	node := statefulset.NewNode(cr)
+	sts := node.StatefulSet()
 
 	podList := new(corev1.PodList)
 	if err := cl.List(ctx, podList, &client.ListOptions{
 		Namespace:     cr.Namespace,
-		LabelSelector: labels.SelectorFromSet(sts.Labels()),
+		LabelSelector: labels.SelectorFromSet(node.Labels()),
 	}); err != nil {
 		return "", errors.Wrap(err, "get pod list")
 	}
@@ -61,7 +45,7 @@ func getFirstReadyPod(ctx context.Context, cl client.Client, cr *api.PerconaXtra
 	if len(readyPods) != int(cr.Spec.PXC.Size) {
 		return "", errors.New("waiting for pxc resize")
 	}
-	return readyPods[0].Status.PodIP, nil
+	return podFQDN(readyPods[0].GetName(), sts), nil
 }
 
 // GetPrimaryPod returns the primary pod
@@ -97,28 +81,64 @@ func GetHostForSidecarBackup(
 	ctx context.Context,
 	cl client.Client,
 	cr *api.PerconaXtraDBCluster) (string, error) {
+	switch {
+	case cr.HAProxyEnabled():
+		return getNonPrimaryHAProxy(ctx, cl, cr)
+	case cr.ProxySQLEnabled():
+		return getNonPrimaryProxySQL(cl, cr)
+	}
+	return getFirstReadyPod(ctx, cl, cr)
+}
+
+func podFQDN(pod string, sts *appsv1.StatefulSet) string {
+	return fmt.Sprintf("%s.%s.%s", pod, sts.Name, sts.Namespace)
+}
+
+func getNonPrimaryHAProxy(ctx context.Context, cl client.Client, cr *api.PerconaXtraDBCluster) (string, error) {
 	conn, err := GetProxyConnection(cr, cl)
-	if errors.Is(err, NoProxyDetectedError) && cr.Spec.PXC.Size == 1 {
-		host, err := getFirstReadyPod(ctx, cl, cr)
-		if err != nil {
-			return "", errors.Wrap(err, "failed to get first ready pod")
-		}
-		return host, nil
-	} else if err != nil {
+	if err != nil {
 		return "", errors.Wrap(err, "failed to get proxy connection")
 	}
 	defer conn.Close()
 
-	if cr.HAProxyEnabled() {
-		host, err := conn.Hostname()
-		if err != nil {
-			return "", err
-		}
-		return host, nil
+	node := statefulset.NewNode(cr)
+	sts := node.StatefulSet()
+	primaryPod, err := conn.Hostname() // assumes we get a pod name (not FQDN)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to get primary host")
 	}
 
+	podList := new(corev1.PodList)
+	if err := cl.List(ctx, podList, &client.ListOptions{
+		Namespace:     cr.Namespace,
+		LabelSelector: labels.SelectorFromSet(node.Labels()),
+	}); err != nil {
+		return "", errors.Wrap(err, "get pod list")
+	}
+
+	// Try to find a non-primary pod that is reachable
+	for _, pod := range podList.Items {
+		if pod.GetName() == primaryPod {
+			continue
+		}
+		host := podFQDN(pod.GetName(), sts)
+		if _, qerr := queries.New(cl, cr.Namespace, cr.Spec.SecretsName, users.Operator, host, 3306, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds); qerr == nil {
+			return host, nil
+		}
+	}
+	// None of the non-primary pods are reachable, use the primary host
+	return podFQDN(primaryPod, sts), nil
+}
+
+func getNonPrimaryProxySQL(cl client.Client, cr *api.PerconaXtraDBCluster) (string, error) {
+	conn, err := GetProxyConnection(cr, cl)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to get proxy connection")
+	}
+	defer conn.Close()
+
 	// Try to find a reachable host and return the first one that is reachable
-	hosts, err := conn.NonPrimaryHosts()
+	hosts, err := conn.NonPrimaryHostsProxySQL()
 	if err != nil {
 		return "", fmt.Errorf("failed to get non-primary hosts: %w", err)
 	}

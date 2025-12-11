@@ -82,7 +82,7 @@ func printLogs(ctx context.Context, backupName string, client xbscapi.Xtrabackup
 		} else if err != nil {
 			log.Fatal("Failed to receive log chunk: %w", err)
 		}
-		fmt.Fprint(os.Stdout, chunk.Log)
+		fmt.Fprintln(os.Stdout, chunk.Log)
 	}
 }
 

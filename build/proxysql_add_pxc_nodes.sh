@@ -63,8 +63,6 @@ function wait_for_proxy() {
 	log "ProxySQL is up and running."
 }
 
-PERCONA_SCHEDULER_CFG=/tmp/scheduler-config.toml
-
 function main() {
 	log "Running $0"
 

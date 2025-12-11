@@ -11,7 +11,6 @@ import (
 	"github.com/pkg/errors"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	log "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
@@ -24,7 +23,6 @@ type appServer struct {
 	backupStatus                backupStatus
 	namespace                   string
 	newStorageFunc              storage.NewClientFunc
-	deleteBackupFunc            func(ctx context.Context, cfg *api.BackupConfig, backupName string) error
 	log                         logr.Logger
 	mysqlVersion                *goversion.Version
 	tableSpaceEncryptionEnabled bool
@@ -50,7 +48,6 @@ func New() (api.XtrabackupServiceServer, error) {
 		namespace:                   namespace,
 		backupStatus:                backupStatus{},
 		newStorageFunc:              storage.NewClient,
-		deleteBackupFunc:            deleteBackup,
 		log:                         logger,
 		tableSpaceEncryptionEnabled: tableSpaceEncryptionEnabled,
 		mysqlVersion:                goversion.Must(goversion.NewVersion(mysqlVer)),
@@ -74,8 +71,4 @@ func (s *appServer) GetCurrentBackupConfig(ctx context.Context, req *api.GetCurr
 func (s *appServer) DeleteBackup(ctx context.Context, req *api.DeleteBackupRequest) (*api.DeleteBackupResponse, error) {
 	// TODO
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteBackup not implemented")
-}
-
-func init() {
-	log.SetLogger(zap.New())
 }

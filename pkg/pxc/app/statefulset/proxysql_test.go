@@ -98,6 +98,7 @@ func TestAppContainer_ProxySQL(t *testing.T) {
 					{Name: "SCHEDULER_PINGTIMEOUT", Value: "1000"},
 					{Name: "SCHEDULER_NODECHECKINTERVAL", Value: "2000"},
 					{Name: "SCHEDULER_MAXCONNECTIONS", Value: "1000"},
+					{Name: "PERCONA_SCHEDULER_CFG", Value: "/tmp/scheduler-config.toml"},
 					{Name: "SCHEDULER_ENABLED", Value: "true"},
 				}...)
 				return c
@@ -261,6 +262,7 @@ func TestSidecarContainers_ProxySQL(t *testing.T) {
 					{Name: "SCHEDULER_PINGTIMEOUT", Value: "1000"},
 					{Name: "SCHEDULER_NODECHECKINTERVAL", Value: "2000"},
 					{Name: "SCHEDULER_MAXCONNECTIONS", Value: "1000"},
+					{Name: "PERCONA_SCHEDULER_CFG", Value: "/tmp/scheduler-config.toml"},
 					{Name: "SCHEDULER_ENABLED", Value: "true"},
 				}...)
 				return []corev1.Container{pxcMonit}

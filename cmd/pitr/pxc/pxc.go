@@ -374,7 +374,7 @@ func (p *PXC) InstallBinlogUDFComponent(ctx context.Context) error {
 		return nil
 	}
 
-	_, err := p.db.ExecContext(ctx, "INSTALL COMPONENT 'file://component_binlog_utils_udf'")
+	_, err := p.db.ExecContext(ctx, "SET SESSION wsrep_on = OFF; INSTALL COMPONENT 'file://component_binlog_utils_udf'; SET SESSION wsrep_on = ON;")
 	if err != nil {
 		return errors.Wrap(err, "install component")
 	}
@@ -394,7 +394,7 @@ func (p *PXC) UninstallBinlogUDFComponent(ctx context.Context) error {
 		return nil
 	}
 
-	_, err := p.db.ExecContext(ctx, "UNINSTALL COMPONENT 'file://component_binlog_utils_udf'")
+	_, err := p.db.ExecContext(ctx, "SET SESSION wsrep_on = OFF; UNINSTALL COMPONENT 'file://component_binlog_utils_udf'; SET SESSION wsrep_on = ON;")
 	if err != nil {
 		return errors.Wrap(err, "uninstall component")
 	}

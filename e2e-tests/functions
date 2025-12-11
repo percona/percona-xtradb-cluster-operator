@@ -213,7 +213,9 @@ get_operator_pod() {
 	fi
 	kubectl_bin get pods \
 		--selector=${label_prefix}name=percona-xtradb-cluster-operator \
-		-o 'jsonpath={.items[].metadata.name}' ${OPERATOR_NS:+-n $OPERATOR_NS}
+		--field-selector=status.phase=Running \
+		-o json ${OPERATOR_NS:+-n $OPERATOR_NS} \
+		| jq -r '.items[] | select(.metadata.deletionTimestamp == null) | .metadata.name' | head -1
 }
 
 get_pitr_pod() {
@@ -920,22 +922,22 @@ EOF
 }
 
 cat_config() {
-  local input_file="$1"
-  local pvc_name="$2"
+	local input_file="$1"
+	local pvc_name="$2"
 
-  cat "$input_file" \
-    | $sed -e "s#apiVersion: pxc.percona.com/v.*\$#apiVersion: $API#" \
-    | $sed -e "s#image:.*-pxc\([0-9]*.[0-9]*\)\{0,1\}\$#image: $IMAGE_PXC#" \
-    | $sed -e "s#image:.*\/percona-xtradb-cluster:.*\$#image: $IMAGE_PXC#" \
-    | $sed -e "s#image:.*-init\$#image: $IMAGE#" \
-    | $sed -e "s#image:.*-pmm\$#image: $IMAGE_PMM_CLIENT#" \
-    | $sed -e "s#image:.*-backup\$#image: $IMAGE_BACKUP#" \
-    | $sed -e "s#image:.*-proxysql\$#image: $IMAGE_PROXY#" \
-    | $sed -e "s#image:.*-haproxy\$#image: $IMAGE_HAPROXY#" \
-    | $sed -e "s#image:.*-logcollector\$#image: $IMAGE_LOGCOLLECTOR#" \
-    | $sed -e "s~minio-service.#namespace~minio-service.$namespace~" \
-    | $sed -e "s#apply:.*#apply: Never#" \
-    | $sed -e "s#claimName:..*-backup-pvc\$#claimName: $pvc_name#"
+	cat "$input_file" \
+		| $sed -e "s#apiVersion: pxc.percona.com/v.*\$#apiVersion: $API#" \
+		| $sed -e "s#image:.*-pxc\([0-9]*.[0-9]*\)\{0,1\}\$#image: $IMAGE_PXC#" \
+		| $sed -e "s#image:.*\/percona-xtradb-cluster:.*\$#image: $IMAGE_PXC#" \
+		| $sed -e "s#image:.*-init\$#image: $IMAGE#" \
+		| $sed -e "s#image:.*-pmm\$#image: $IMAGE_PMM_CLIENT#" \
+		| $sed -e "s#image:.*-backup\$#image: $IMAGE_BACKUP#" \
+		| $sed -e "s#image:.*-proxysql\$#image: $IMAGE_PROXY#" \
+		| $sed -e "s#image:.*-haproxy\$#image: $IMAGE_HAPROXY#" \
+		| $sed -e "s#image:.*-logcollector\$#image: $IMAGE_LOGCOLLECTOR#" \
+		| $sed -e "s~minio-service.#namespace~minio-service.$namespace~" \
+		| $sed -e "s#apply:.*#apply: Never#" \
+		| $sed -e "s#claimName:..*-backup-pvc\$#claimName: $pvc_name#"
 
 }
 
@@ -952,14 +954,14 @@ apply_secrets() {
 }
 
 apply_config() {
-  local config_file="$1"
-  local pvc_name="${2:-}"
+	local config_file="$1"
+	local pvc_name="${2:-}"
 
 	if [ -z "$SKIP_REMOTE_BACKUPS" ]; then
 		cat_config "$config_file" "$pvc_name" \
 			| kubectl_bin apply -f -
 	else
-		cat_config "$config_file" "$pvc_name"\
+		cat_config "$config_file" "$pvc_name" \
 			| yq eval 'del(.spec.backup.schedule.[1])' - \
 			| kubectl_bin apply -f -
 	fi
@@ -997,7 +999,7 @@ spinup_pxc() {
 	kubectl_bin apply -f $secretsFile
 	apply_config "$pxcClientFile"
 	if [[ $IMAGE_PXC =~ 5\.7 ]] && [[ $cluster == 'demand-backup' || $cluster == 'demand-backup-cloud' ]]; then
-		cat_config "$config"\
+		cat_config "$config" \
 			| $sed '/\[sst\]/,+1d' \
 			| $sed 's|compress=lz4|compress|' \
 			| kubectl_bin apply -f -
@@ -1150,7 +1152,7 @@ retry() {
 }
 
 check_pvc_md5() {
-  local backup_name="$1"
+	local backup_name="$1"
 	desc 'check backup file md5sum'
 	pvc_name=$(get_pvc_name_for_backup "$backup_name") || exit 1
 	apply_config "$test_dir/conf/client.yml" "$pvc_name"
@@ -1186,16 +1188,16 @@ run_recovery_check() {
 	log "run pxc-restore/${backup}"
 
 	YAML_INPUT_FILE="$test_dir/conf/restore-${backup}.yaml"
-	MODIFIED_YAML=$( \
+	MODIFIED_YAML=$(
 		cat "$YAML_INPUT_FILE" \
-		| $sed -e "s~minio-service.#namespace~minio-service.$namespace~" \
-		| $sed -e "s#<destination>#${dest}#g" \
+			| $sed -e "s~minio-service.#namespace~minio-service.$namespace~" \
+			| $sed -e "s#<destination>#${dest}#g"
 	)
 
-	if [[ $IMAGE_PXC =~ 5\.7 ]] && [[ "${backup}" == "on-demand-backup-aws-s3" ]]; then
-		FINAL_YAML=$( \
+	if [[ $IMAGE_PXC =~ 5\.7 ]] && [[ ${backup} == "on-demand-backup-aws-s3" ]]; then
+		FINAL_YAML=$(
 			echo "$MODIFIED_YAML" \
-			| yq e '(.spec.containerOptions.args.xtrabackup[] | select(. == "--innodb-undo-directory=./undo")) = "--parallel=3"' -
+				| yq e '(.spec.containerOptions.args.xtrabackup[] | select(. == "--innodb-undo-directory=./undo")) = "--parallel=3"' -
 		)
 	else
 		FINAL_YAML="$MODIFIED_YAML"
@@ -1415,7 +1417,7 @@ storage \"file\" {
 	if [ $protocol == "https" ]; then
 		sed -e 's/^/    /' ${tmp_dir}/vault.ca >${tmp_dir}/vault.new.ca
 		$sed -i "s/#vault_ca/vault_ca/" "${tmp_dir}/vault-secret.yaml"
-		$sed -i "s/#84_vault_ca/\\/etc\\/mysql\\/vault\\-keyring\\-secret\\/ca\\.cert/" "${tmp_dir}/vault-secret.yaml"
+		$sed -i 's/#84_vault_ca/\/etc\/mysql\/vault\-keyring\-secret\/ca\.cert/' "${tmp_dir}/vault-secret.yaml"
 		$sed -i "/#certVal/r ${tmp_dir}/vault.new.ca" "${tmp_dir}/vault-secret.yaml"
 		$sed -i "/#certVal/d" "${tmp_dir}/vault-secret.yaml"
 	else
@@ -1708,7 +1710,7 @@ function prepare_cr_yaml() {
 			.spec.proxysql.enabled = true
 		' "${cr_yaml}"
 	fi
-	if  [[ -n ${OPENSHIFT} && $(echo "${OPENSHIFT} >= "4.19"" | bc -l) -eq 1  ]]; then
+	if [[ -n ${OPENSHIFT} && $(echo "${OPENSHIFT} >= "4.19"" | bc -l) -eq 1 ]]; then
 		replace_docker_registry "${cr_yaml}"
 	fi
 }
@@ -1731,116 +1733,116 @@ function kpatch_set_field() {
 }
 
 function setup_aws_credentials() {
-    local secret_name="aws-s3-secret"
-    
-    if [[ -n "$AWS_ACCESS_KEY_ID" ]] && [[ -n "$AWS_SECRET_ACCESS_KEY" ]]; then
-        echo "AWS credentials already set in environment"
-        return 0
-    fi
-    
-    echo "Setting up AWS credentials from secret: $secret_name"
-    
-    # Disable tracing for the entire credential section
-    local trace_was_on=0
-    if [[ $- == *x* ]]; then
-        trace_was_on=1
-        set +x
-    fi
+	local secret_name="aws-s3-secret"
 
-    AWS_ACCESS_KEY_ID=$(kubectl get secret "$secret_name" -o jsonpath='{.data.AWS_ACCESS_KEY_ID}' 2>/dev/null | base64 -d 2>/dev/null)
-    AWS_SECRET_ACCESS_KEY=$(kubectl get secret "$secret_name" -o jsonpath='{.data.AWS_SECRET_ACCESS_KEY}' 2>/dev/null | base64 -d 2>/dev/null)
-    
-    if [[ -z "$AWS_ACCESS_KEY_ID" ]] || [[ -z "$AWS_SECRET_ACCESS_KEY" ]]; then
-        # Re-enable tracing before error message if it was on
-        [[ $trace_was_on -eq 1 ]] && set -x
-        echo "Failed to extract AWS credentials from secret"
-        return 1
-    fi
-    
-    export AWS_ACCESS_KEY_ID
-    export AWS_SECRET_ACCESS_KEY
-    
-    # Re-enable tracing if it was on
-    [[ $trace_was_on -eq 1 ]] && set -x
-    
-    echo "AWS credentials configured successfully"
+	if [[ -n $AWS_ACCESS_KEY_ID ]] && [[ -n $AWS_SECRET_ACCESS_KEY ]]; then
+		echo "AWS credentials already set in environment"
+		return 0
+	fi
+
+	echo "Setting up AWS credentials from secret: $secret_name"
+
+	# Disable tracing for the entire credential section
+	local trace_was_on=0
+	if [[ $- == *x* ]]; then
+		trace_was_on=1
+		set +x
+	fi
+
+	AWS_ACCESS_KEY_ID=$(kubectl get secret "$secret_name" -o jsonpath='{.data.AWS_ACCESS_KEY_ID}' 2>/dev/null | base64 -d 2>/dev/null)
+	AWS_SECRET_ACCESS_KEY=$(kubectl get secret "$secret_name" -o jsonpath='{.data.AWS_SECRET_ACCESS_KEY}' 2>/dev/null | base64 -d 2>/dev/null)
+
+	if [[ -z $AWS_ACCESS_KEY_ID ]] || [[ -z $AWS_SECRET_ACCESS_KEY ]]; then
+		# Re-enable tracing before error message if it was on
+		[[ $trace_was_on -eq 1 ]] && set -x
+		echo "Failed to extract AWS credentials from secret"
+		return 1
+	fi
+
+	export AWS_ACCESS_KEY_ID
+	export AWS_SECRET_ACCESS_KEY
+
+	# Re-enable tracing if it was on
+	[[ $trace_was_on -eq 1 ]] && set -x
+
+	echo "AWS credentials configured successfully"
 }
 
 function setup_gcs_credentials() {
-    local secret_name="gcp-cs-secret"
+	local secret_name="gcp-cs-secret"
 
-    if gsutil ls >/dev/null 2>&1; then
-        echo "GCS credentials already set in environment"
-        return 0
-    fi
+	if gsutil ls >/dev/null 2>&1; then
+		echo "GCS credentials already set in environment"
+		return 0
+	fi
 
-    echo "Setting up GCS credentials from K8s secret: $secret_name"
-    
-    # Disable tracing for the entire credential section
-    local trace_was_on=0
-    if [[ $- == *x* ]]; then
-        trace_was_on=1
-        set +x
-    fi
-    
-    ACCESS_KEY_ID=$(kubectl get secret "$secret_name" -o jsonpath='{.data.AWS_ACCESS_KEY_ID}' 2>/dev/null | base64 -d 2>/dev/null)
-    SECRET_ACCESS_KEY=$(kubectl get secret "$secret_name" -o jsonpath='{.data.AWS_SECRET_ACCESS_KEY}' 2>/dev/null | base64 -d 2>/dev/null)
-    
-    if [[ -z "$ACCESS_KEY_ID" ]] || [[ -z "$SECRET_ACCESS_KEY" ]]; then
-        # Re-enable tracing before error message if it was on
-        [[ $trace_was_on -eq 1 ]] && set -x
-        echo "Failed to extract GCS credentials from secret" >&2
-        return 1
-    fi
-    
-    boto_tmp=$(mktemp /tmp/boto.XXXXXX)
-    chmod 600 "$boto_tmp"
+	echo "Setting up GCS credentials from K8s secret: $secret_name"
 
-    cat <<EOF >"$boto_tmp"
+	# Disable tracing for the entire credential section
+	local trace_was_on=0
+	if [[ $- == *x* ]]; then
+		trace_was_on=1
+		set +x
+	fi
+
+	ACCESS_KEY_ID=$(kubectl get secret "$secret_name" -o jsonpath='{.data.AWS_ACCESS_KEY_ID}' 2>/dev/null | base64 -d 2>/dev/null)
+	SECRET_ACCESS_KEY=$(kubectl get secret "$secret_name" -o jsonpath='{.data.AWS_SECRET_ACCESS_KEY}' 2>/dev/null | base64 -d 2>/dev/null)
+
+	if [[ -z $ACCESS_KEY_ID ]] || [[ -z $SECRET_ACCESS_KEY ]]; then
+		# Re-enable tracing before error message if it was on
+		[[ $trace_was_on -eq 1 ]] && set -x
+		echo "Failed to extract GCS credentials from secret" >&2
+		return 1
+	fi
+
+	boto_tmp=$(mktemp /tmp/boto.XXXXXX)
+	chmod 600 "$boto_tmp"
+
+	cat <<EOF >"$boto_tmp"
 [Credentials]
 gs_access_key_id = ${ACCESS_KEY_ID}
 gs_secret_access_key = ${SECRET_ACCESS_KEY}
 EOF
 
-    export BOTO_CONFIG="$boto_tmp"
+	export BOTO_CONFIG="$boto_tmp"
 
-    unset ACCESS_KEY_ID
-    unset SECRET_ACCESS_KEY
-    
-    [[ $trace_was_on -eq 1 ]] && set -x
-    
-    echo "GCS credentials configured successfully"
+	unset ACCESS_KEY_ID
+	unset SECRET_ACCESS_KEY
+
+	[[ $trace_was_on -eq 1 ]] && set -x
+
+	echo "GCS credentials configured successfully"
 }
 
 function setup_azure_credentials() {
-    local secret_name="azure-secret"
+	local secret_name="azure-secret"
 
-    echo "Setting up Azure credentials from K8s secret: $secret_name"
-    
-    # Disable tracing for the entire credential section
-    local trace_was_on=0
-    if [[ $- == *x* ]]; then
-        trace_was_on=1
-        set +x
-    fi
-    
-    AZURE_STORAGE_ACCOUNT=$(kubectl_bin get secret "$secret_name" -o jsonpath='{.data.AZURE_STORAGE_ACCOUNT_NAME}' 2>/dev/null | base64 -d 2>/dev/null)
-    AZURE_STORAGE_KEY=$(kubectl_bin get secret "$secret_name" -o jsonpath='{.data.AZURE_STORAGE_ACCOUNT_KEY}' 2>/dev/null | base64 -d 2>/dev/null)
+	echo "Setting up Azure credentials from K8s secret: $secret_name"
 
-    if [[ -z "$AZURE_STORAGE_ACCOUNT" ]] || [[ -z "$AZURE_STORAGE_KEY" ]]; then
-        # Re-enable tracing before error message if it was on
-        [[ $trace_was_on -eq 1 ]] && set -x
-        echo "Failed to extract Azure credentials from secret" >&2
-        return 1
-    fi
+	# Disable tracing for the entire credential section
+	local trace_was_on=0
+	if [[ $- == *x* ]]; then
+		trace_was_on=1
+		set +x
+	fi
 
-    export AZURE_STORAGE_ACCOUNT
-    export AZURE_STORAGE_KEY
+	AZURE_STORAGE_ACCOUNT=$(kubectl_bin get secret "$secret_name" -o jsonpath='{.data.AZURE_STORAGE_ACCOUNT_NAME}' 2>/dev/null | base64 -d 2>/dev/null)
+	AZURE_STORAGE_KEY=$(kubectl_bin get secret "$secret_name" -o jsonpath='{.data.AZURE_STORAGE_ACCOUNT_KEY}' 2>/dev/null | base64 -d 2>/dev/null)
 
-    # Re-enable tracing if it was on
-    [[ $trace_was_on -eq 1 ]] && set -x
+	if [[ -z $AZURE_STORAGE_ACCOUNT ]] || [[ -z $AZURE_STORAGE_KEY ]]; then
+		# Re-enable tracing before error message if it was on
+		[[ $trace_was_on -eq 1 ]] && set -x
+		echo "Failed to extract Azure credentials from secret" >&2
+		return 1
+	fi
 
-    echo "Azure credentials configured successfully"
+	export AZURE_STORAGE_ACCOUNT
+	export AZURE_STORAGE_KEY
+
+	# Re-enable tracing if it was on
+	[[ $trace_was_on -eq 1 ]] && set -x
+
+	echo "Azure credentials configured successfully"
 }
 
 function check_backup_existence_aws() {
@@ -1860,7 +1862,7 @@ function check_backup_existence_aws() {
 		sleep 10
 		((retry += 1))
 	done
-	
+
 	echo "Backup ${key_prefix}${key} found in bucket $bucket in $storage_name"
 }
 
@@ -1881,7 +1883,7 @@ function check_backup_existence_gcs() {
 		sleep 10
 		((retry += 1))
 	done
-	
+
 	echo "Backup found in $storage_name: $gcs_path"
 }
 
@@ -1903,7 +1905,7 @@ function check_backup_existence_azure() {
 		sleep 10
 		((retry += 1))
 	done
-	
+
 	echo "Backup ${blob_path} found in container $container in $storage_name"
 }
 
@@ -1924,28 +1926,28 @@ function check_backup_deletion_aws() {
 		sleep 10
 		((retry += 1))
 	done
-	
+
 	echo "Backup ${key_prefix}${key} in bucket $bucket not found in $storage_name"
 }
 
 function check_backup_deletion_gcs() {
-    backup_dest_gcp=$1
-    storage_name="gcp-cs"
-    retry=0
-    gcs_path="gs://${backup_dest_gcp}.sst_info/sst_info.00000000000000000000"
+	backup_dest_gcp=$1
+	storage_name="gcp-cs"
+	retry=0
+	gcs_path="gs://${backup_dest_gcp}.sst_info/sst_info.00000000000000000000"
 
-    while gsutil ls "$gcs_path" >/dev/null 2>&1; do
-        if [ $retry -ge 15 ]; then
-            echo "max retry count $retry reached. something went wrong with operator or kubernetes cluster"
-            echo "Backup $gcs_path still exists in $storage_name (expected it to be deleted)"
-            exit 1
-        fi
-        echo "waiting for backup to be deleted from $storage_name"
-        sleep 10
-        ((retry += 1))
-    done
+	while gsutil ls "$gcs_path" >/dev/null 2>&1; do
+		if [ $retry -ge 15 ]; then
+			echo "max retry count $retry reached. something went wrong with operator or kubernetes cluster"
+			echo "Backup $gcs_path still exists in $storage_name (expected it to be deleted)"
+			exit 1
+		fi
+		echo "waiting for backup to be deleted from $storage_name"
+		sleep 10
+		((retry += 1))
+	done
 
-    echo "Backup $gcs_path not found in $storage_name"
+	echo "Backup $gcs_path not found in $storage_name"
 }
 
 function check_backup_deletion_azure() {
@@ -1966,7 +1968,7 @@ function check_backup_deletion_azure() {
 		sleep 10
 		((retry += 1))
 	done
-	
+
 	echo "Backup ${blob_path} in container $container not found in $storage_name"
 }
 
@@ -2073,11 +2075,11 @@ wait_for_pmm_service() {
 	start=$(date +%s)
 
 	until kubectl_bin get svc monitoring-service -o jsonpath='{.status.loadBalancer.ingress[0]}' 2>/dev/null | grep -q .; do
-    if (( $(date +%s) - start >= timeout )); then
-        echo "timeout waiting for service to be available"
-        exit 1
-    fi
-    sleep 2
+		if (($(date +%s) - start >= timeout)); then
+			echo "timeout waiting for service to be available"
+			exit 1
+		fi
+		sleep 2
 	done
 
 	kubectl_bin wait sts/monitoring --for=jsonpath='{.status.readyReplicas}'=1 --timeout=${timeout}s
@@ -2134,15 +2136,14 @@ run_recovery_check_pitr() {
 }
 
 get_pvc_name_for_backup() {
-  local backup_name="$1"
+	local backup_name="$1"
 
-  local destination=$(kubectl_bin get pxc-backup "$backup_name" -o jsonpath='{.status.destination}')
-  if [[ -z "$destination" ]]; then
-    echo "No destination found in backup $backup_name"
-    return 1
-  fi
-  local pvc_name="${destination#pvc/}"
+	local destination=$(kubectl_bin get pxc-backup "$backup_name" -o jsonpath='{.status.destination}')
+	if [[ -z $destination ]]; then
+		echo "No destination found in backup $backup_name"
+		return 1
+	fi
+	local pvc_name="${destination#pvc/}"
 
-  echo "$pvc_name"
+	echo "$pvc_name"
 }
-

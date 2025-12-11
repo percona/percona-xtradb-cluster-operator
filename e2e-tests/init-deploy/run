@@ -23,26 +23,53 @@ kubectl_bin get deployment ${OPERATOR_NS:+-n $OPERATOR_NS} percona-xtradb-cluste
 desc 'wait for operator deployment rollout to complete'
 kubectl_bin rollout status ${OPERATOR_NS:+-n $OPERATOR_NS} deployment/percona-xtradb-cluster-operator --timeout=480s
 
-desc 'verify operator deployment has 1 ready replica'
-kubectl_bin wait --for=jsonpath='{.status.readyReplicas}'=1 deployment/percona-xtradb-cluster-operator ${OPERATOR_NS:+-n $OPERATOR_NS} --timeout=120s
+desc 'wait for old pods to terminate and only new pod to be available'
+kubectl_bin wait --for=jsonpath='{.status.replicas}'=1 deployment/percona-xtradb-cluster-operator ${OPERATOR_NS:+-n $OPERATOR_NS} --timeout=120s
+kubectl_bin wait --for=jsonpath='{.status.availableReplicas}'=1 deployment/percona-xtradb-cluster-operator ${OPERATOR_NS:+-n $OPERATOR_NS} --timeout=120s
 
 desc 'verify MAX_CONCURRENT_RECONCILES is applied correctly'
-operator_logs=$(kubectl_bin logs ${OPERATOR_NS:+-n $OPERATOR_NS} $(get_operator_pod))
+operator_pod=$(get_operator_pod)
+echo "Using operator pod: ${operator_pod}"
 
 resources=("PerconaXtraDBCluster" "PerconaXtraDBClusterBackup" "PerconaXtraDBClusterRestore")
-for resource in "${resources[@]}"; do
-	worker_log=$(echo "$operator_logs" | grep "Starting workers.*${resource}\b" | grep -o '"worker count":\s*[0-9]*')
-	if [ -z "$worker_log" ]; then
-		echo "ERROR: No 'Starting workers' log found for ${resource}"
-		exit 1
+retry=0
+max_retries=30
+
+while [ $retry -lt $max_retries ]; do
+	operator_logs=$(kubectl_bin logs ${OPERATOR_NS:+-n $OPERATOR_NS} ${operator_pod})
+
+	all_checks_passed=true
+	for resource in "${resources[@]}"; do
+		echo "verifying resource: ${resource}"
+		worker_log=$(echo "$operator_logs" | grep -A 2 "Starting Controller.*${resource}" | grep "Starting workers" | grep -o '"worker count": [0-9]*' | head -1 || echo "")
+		if [ -z "$worker_log" ]; then
+			echo "No logs found for ${resource} yet (attempt $((retry + 1))/$max_retries)"
+			all_checks_passed=false
+			break
+		fi
+		actual_count=$(echo "$worker_log" | grep -o '[0-9]*')
+		if [ "$actual_count" != "$expected_worker_count" ]; then
+			echo "ERROR: Worker count for ${resource} is ${actual_count}, expected ${expected_worker_count}"
+			exit 1
+		fi
+		echo "${resource} controller has correct worker count: ${actual_count}"
+	done
+
+	if [ "$all_checks_passed" = true ]; then
+		echo "All worker count checks passed"
+		break
 	fi
-	actual_count=$(echo "$worker_log" | grep -o '[0-9]*')
-	if [ "$actual_count" != "$expected_worker_count" ]; then
-		echo "ERROR: Worker count for ${resource} is ${actual_count}, expected ${expected_worker_count}"
-		exit 1
-	fi
-	echo "${resource} controller has correct worker count: ${actual_count}"
+
+	sleep 2
+	retry=$((retry + 1))
 done
+
+if [ $retry -eq $max_retries ]; then
+	echo "ERROR: Timeout waiting for all 'Starting workers' logs to appear"
+	echo "Current logs:"
+	echo "$operator_logs"
+	exit 1
+fi
 
 desc 'create first PXC cluster'
 cluster="some-name"

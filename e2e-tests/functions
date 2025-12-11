@@ -213,7 +213,9 @@ get_operator_pod() {
 	fi
 	kubectl_bin get pods \
 		--selector=${label_prefix}name=percona-xtradb-cluster-operator \
-		-o 'jsonpath={.items[].metadata.name}' ${OPERATOR_NS:+-n $OPERATOR_NS}
+		--field-selector=status.phase=Running \
+		-o json ${OPERATOR_NS:+-n $OPERATOR_NS} \
+		| jq -r '.items[] | select(.metadata.deletionTimestamp == null) | .metadata.name' | head -1
 }
 
 get_pitr_pod() {

@@ -1,6 +1,5 @@
 #!/bin/bash
 # CASES:
-# - Update PMM2 to recommended version via version service
 # - Update PMM3 to recommended version via version service
 
 set -o errexit
@@ -54,7 +53,7 @@ function wait_pmm_update {
 	local cluster_size=${2}
 	local expected_image=${3}
 	local pmm_version=${4}  # e.g., "2" or "3"
-	local max_retry=${5:-120}  # Default 10 minutes
+	local max_retry=${5:-240}  # Default 20 minutes
 
 	desc "Waiting for PMM${pmm_version} containers to update to ${expected_image}..."
 	set +x

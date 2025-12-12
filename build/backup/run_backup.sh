@@ -1,7 +1,8 @@
 #!/bin/bash
 
-set -o errexit
 set -o xtrace
+set -o errexit
+set -o pipefail
 set -m
 
 LIB_PATH='/opt/percona/backup/lib/pxc'
@@ -11,6 +12,8 @@ LIB_PATH='/opt/percona/backup/lib/pxc'
 . ${LIB_PATH}/backup.sh
 # shellcheck source=build/backup/lib/pxc/aws.sh
 . ${LIB_PATH}/aws.sh
+# shellcheck source=build/backup/lib/pxc/check-version.sh
+. ${LIB_PATH}/check-version.sh
 
 SOCAT_OPTS="TCP-LISTEN:4444,reuseaddr,retry=30"
 
@@ -87,6 +90,14 @@ backup_volume() {
 	log 'INFO' "Socat(1) returned $?"
 	vault_store "$BACKUP_DIR/${SST_INFO_NAME}"
 
+	MYSQL_VERSION=$(parse_ini 'mysql-version' ${BACKUP_DIR}/${SST_INFO_NAME})
+	# if PXC 5.7
+	if check_for_version "$MYSQL_VERSION" '5.7.0' && ! check_for_version "$MYSQL_VERSION" '8.0.0'; then
+		# ignore SIGTERM from garbd, it has no idea that we still have work to do.
+		trap '' 15
+	fi
+
+
 	if ((SST_FAILED == 0)); then
 		if ! socat -u "$SOCAT_OPTS" stdio >xtrabackup.stream; then
 			log 'ERROR' 'Socat(2) failed'
@@ -96,7 +107,6 @@ backup_volume() {
 		log 'INFO' "Socat(2) returned $?"
 	fi
 
-	trap '' 15
 	stat xtrabackup.stream
 	if (($(stat -c%s xtrabackup.stream) < 5000000)); then
 		log 'ERROR' 'Backup is empty'
@@ -107,8 +117,6 @@ backup_volume() {
 }
 
 backup_s3() {
-	#S3_BUCKET_PATH=${S3_BUCKET_PATH:-$PXC_SERVICE-$(date +%F-%H-%M)-xtrabackup.stream}
-
 	s3_add_bucket_dest
 	local socat_status
 
@@ -126,19 +134,43 @@ backup_s3() {
 	fi
 	vault_store /tmp/${SST_INFO_NAME}
 
+	# this xbcloud command will fail with backup is incomplete
+	# it's expected since we only upload sst_info
+	set +o pipefail
 	# shellcheck disable=SC2086
 	xbstream -C /tmp -c ${SST_INFO_NAME} $XBSTREAM_EXTRA_ARGS \
-		| xbcloud put --storage=s3 --parallel="$(grep -c processor /proc/cpuinfo)" --md5 $XBCLOUD_ARGS --s3-bucket="$S3_BUCKET" "$S3_BUCKET_PATH.$SST_INFO_NAME" 2>&1 \
+		| xbcloud put --storage=s3 \
+			--md5 \
+			--parallel="$(grep -c processor /proc/cpuinfo)" \
+			$XBCLOUD_ARGS \
+			--s3-bucket="$S3_BUCKET" \
+			"$S3_BUCKET_PATH.$SST_INFO_NAME" 2>&1 \
 		| (grep -v "error: http request failed: Couldn't resolve host name" || exit 1)
+	set -o pipefail
+
+	log 'INFO' "${S3_BUCKET_PATH}.${SST_INFO_NAME} is uploaded to s3 successfully."
+
+	MYSQL_VERSION=$(parse_ini 'mysql-version' /tmp/${SST_INFO_NAME})
+	# if PXC 5.7
+	if check_for_version "$MYSQL_VERSION" '5.7.0' && ! check_for_version "$MYSQL_VERSION" '8.0.0'; then
+		# ignore SIGTERM from garbd, it has no idea that we still have work to do.
+		trap '' 15
+	fi
 
 	if ((SST_FAILED == 0)); then
 		# shellcheck disable=SC2086
 		socat -u "$SOCAT_OPTS" stdio \
-			| xbcloud put --storage=s3 --parallel="$(grep -c processor /proc/cpuinfo)" --md5 $XBCLOUD_ARGS --s3-bucket="$S3_BUCKET" "$S3_BUCKET_PATH" 2>&1 \
-			| (grep -v "error: http request failed: Couldn't resolve host name" || exit 1)
+			| xbcloud put --storage=s3 \
+				--md5 \
+				--parallel="$(grep -c processor /proc/cpuinfo)" \
+				$XBCLOUD_ARGS \
+				--s3-bucket="$S3_BUCKET" \
+				"$S3_BUCKET_PATH" 2>&1 \
+			| (grep -v "error: http request failed: Couldn't resolve host name" || exit 1) &
+		wait $!
 	fi
 
-	trap '' 15
+	log 'INFO' "Backup is uploaded to s3 successfully."
 
 	# shellcheck disable=SC2086
 	aws $AWS_S3_NO_VERIFY_SSL s3 ls "s3://$S3_BUCKET/$S3_BUCKET_PATH.md5"
@@ -146,7 +178,7 @@ backup_s3() {
 	md5_size=$(aws $AWS_S3_NO_VERIFY_SSL --output json s3api list-objects --bucket "$S3_BUCKET" --prefix "$S3_BUCKET_PATH.md5" --query 'Contents[0].Size' | sed -e 's/.*"size":\([0-9]*\).*/\1/')
 	if [[ $md5_size =~ "Object does not exist" ]] || ((md5_size < 23000)); then
 		log 'ERROR' 'Backup is empty'
-		log 'ERROR' 'Backup was finished unsuccessfull'
+		log 'ERROR' 'Backup was finished unsuccessfully'
 		exit 1
 	fi
 }
@@ -172,17 +204,39 @@ backup_azure() {
 	fi
 	vault_store /tmp/${SST_INFO_NAME}
 
+	# this xbcloud command will fail with backup is incomplete
+	# it's expected since we only upload sst_info
+	set +o pipefail
 	# shellcheck disable=SC2086
 	xbstream -C /tmp -c ${SST_INFO_NAME} $XBSTREAM_EXTRA_ARGS \
-		| xbcloud put --storage=azure --parallel="$(grep -c processor /proc/cpuinfo)" $XBCLOUD_ARGS "$BACKUP_PATH.$SST_INFO_NAME" 2>&1 \
+		| xbcloud put --storage=azure \
+			--parallel="$(grep -c processor /proc/cpuinfo)" \
+			$XBCLOUD_ARGS \
+			"$BACKUP_PATH.$SST_INFO_NAME" 2>&1 \
 		| (grep -v "error: http request failed: Couldn't resolve host name" || exit 1)
+	set -o pipefail
+
+	log 'INFO' "${BUCKET_PATH}.${SST_INFO_NAME} is uploaded to azure successfully."
+
+	MYSQL_VERSION=$(parse_ini 'mysql-version' /tmp/${SST_INFO_NAME})
+	# if PXC 5.7
+	if check_for_version "$MYSQL_VERSION" '5.7.0' && ! check_for_version "$MYSQL_VERSION" '8.0.0'; then
+		# ignore SIGTERM from garbd, it has no idea that we still have work to do.
+		trap '' 15
+	fi
 
 	if ((SST_FAILED == 0)); then
 		# shellcheck disable=SC2086
 		socat -u "$SOCAT_OPTS" stdio \
-			| xbcloud put --storage=azure --parallel="$(grep -c processor /proc/cpuinfo)" $XBCLOUD_ARGS "$BACKUP_PATH" 2>&1 \
-			| (grep -v "error: http request failed: Couldn't resolve host name" || exit 1)
+			| xbcloud put --storage=azure \
+				--parallel="$(grep -c processor /proc/cpuinfo)" \
+				$XBCLOUD_ARGS \
+				"$BACKUP_PATH" 2>&1 \
+		| (grep -v "error: http request failed: Couldn't resolve host name" || exit 1) &
+		wait $!
 	fi
+
+	log 'INFO' "Backup is uploaded to azure successfully."
 }
 
 check_ssl

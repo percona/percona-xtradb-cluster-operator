@@ -114,7 +114,8 @@ else
 	REMAINING_XB_ARGS="$XB_EXTRA_ARGS"
 fi
 
-if ! check_for_version "$XTRABACKUP_VERSION" '8.0.0'; then
+if ! check_for_version "$XTRABACKUP_VERSION" '8.0.0' \
+	&& ! check_for_version "$XTRABACKUP_VERSION" '8.4.0'; then
 	# shellcheck disable=SC2086
 	innobackupex ${XB_USE_MEMORY+--use-memory=$XB_USE_MEMORY} --parallel="$(grep -c processor /proc/cpuinfo)" $REMAINING_XB_ARGS --decompress "$tmp"
 	XB_EXTRA_ARGS="$XB_EXTRA_ARGS --binlog-info=ON"

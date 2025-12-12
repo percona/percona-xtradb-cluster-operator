@@ -461,17 +461,10 @@ if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' ] && [ -z "$wantHelp" ]; then
 		fi
 
 		if [[ $MYSQL_VERSION == "8.4" ]]; then
-			binlog_utils_component_select="SELECT component_urn FROM mysql.component WHERE component_urn = 'file://component_binlog_utils_udf"
-
-			binlog_utils_component=$(echo "$binlog_utils_component_select" | "${mysql[@]}" -s 2>/dev/null) || true
-			if [ -z "$binlog_utils_component" ]; then
-				echo "Installing file://component_binlog_utils_udf"
-				"${mysql[@]}" <<-EOSQL
-					INSTALL COMPONENT 'file://component_binlog_utils_udf';
-				EOSQL
-			else
-				echo "file://component_binlog_utils_udf is already installed"
-			fi
+			echo "Installing file://component_binlog_utils_udf"
+			"${mysql[@]}" <<-EOSQL
+				INSTALL COMPONENT 'file://component_binlog_utils_udf';
+			EOSQL
 		fi
 
 		echo
@@ -513,7 +506,7 @@ if [ -f "$vault_secret" ]; then
 	fi
 
 	if [[ $MYSQL_VERSION == '8.4' ]]; then
-		echo -n '{ "components": "file://component_keyring_vault" }' > /var/lib/mysql/mysqld.my
+		echo -n '{ "components": "file://component_keyring_vault" }' >/var/lib/mysql/mysqld.my
 		cp ${vault_secret} /var/lib/mysql/component_keyring_vault.cnf
 	fi
 

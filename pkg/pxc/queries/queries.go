@@ -370,7 +370,7 @@ func (p *Database) PrimaryHost() (string, error) {
 }
 
 func (p *Database) NonPrimaryHostsProxySQL() ([]string, error) {
-	rows, err := p.db.Query("SELECT DISTINCT hostname FROM runtime_mysql_servers WHERE hostgroup_id != ? AND status != 'SHUNNED' AND hostname NOT IN (SELECT hostname FROM runtime_mysql_servers WHERE hostgroup_id = ? AND status != 'SHUNNED');", writerID, writerID)
+	rows, err := p.db.Query("SELECT DISTINCT hostname FROM runtime_mysql_servers WHERE hostgroup_id != ? AND status = 'ONLINE' AND hostname NOT IN (SELECT hostname FROM runtime_mysql_servers WHERE hostgroup_id = ? AND status = 'ONLINE');", writerID, writerID)
 	if err != nil {
 		return nil, err
 	}

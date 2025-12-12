@@ -138,15 +138,11 @@ func getNonPrimaryProxySQL(cl client.Client, cr *api.PerconaXtraDBCluster) (stri
 	if err != nil {
 		return "", fmt.Errorf("failed to get non-primary hosts: %w", err)
 	}
-	for _, host := range hosts {
-		if _, qerr := queries.New(
-			cl, cr.Namespace, cr.Spec.SecretsName, users.Operator, host, 3306, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds,
-		); qerr == nil {
-			return host, nil
-		}
+	if len(hosts) == 0 {
+		// No non-primary hosts are reachable, use the primary host
+		return conn.PrimaryHost()
 	}
-	// None of the hosts are reachable, use the primary host
-	return conn.PrimaryHost()
+	return hosts[0], nil
 }
 
 // GetProxyConnection returns a new connection through the proxy (ProxySQL or HAProxy)

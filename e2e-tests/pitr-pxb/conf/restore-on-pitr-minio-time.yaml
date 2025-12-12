@@ -4,7 +4,7 @@ metadata:
   name: restore-on-pitr-minio-time
 spec:
   pxcCluster: pitr
-  backupName: on-pitr-minio
+  backupName: on-pitr-minio-2
   pitr:
     type: date
     date: "<datetime>"

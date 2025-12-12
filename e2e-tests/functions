@@ -111,6 +111,13 @@ log() {
 	echo "[$(date +%Y-%m-%dT%H:%M:%S%z)]" $*
 }
 
+sleep_with_log() {
+	local d=$1
+
+	log "sleeping for ${d} seconds"
+	sleep ${d}
+}
+
 replace_docker_registry() {
 	local file_path=$1
 
@@ -1055,20 +1062,20 @@ function is_keyring_plugin_in_use() {
 	local cluster=$1
 
 	if [[ $IMAGE_PXC =~ 8\.4 ]]; then
-		if ! kubectl_bin exec -it $cluster-pxc-0 -c pxc -- \
-			ls /var/lib/mysql/mysqld.my; then
+		if ! kubectl exec -it $cluster-pxc-0 -c pxc -- \
+			ls /var/lib/mysql/mysqld.my >/dev/null 2>&1; then
 			return 1
 		fi
 		log "/var/lib/mysql/mysqld.my exists: OK"
 
-		if ! kubectl_bin exec -it $cluster-pxc-0 -c pxc -- \
-			ls /var/lib/mysql/component_keyring_vault.cnf; then
+		if ! kubectl exec -it $cluster-pxc-0 -c pxc -- \
+			ls /var/lib/mysql/component_keyring_vault.cnf >/dev/null 2>&1; then
 			return 1
 		fi
 		log "/var/lib/mysql/component_keyring_vault.cnf exists: OK"
 	else
-		if ! kubectl_bin exec -it $cluster-pxc-0 -c pxc -- bash -c "cat /etc/mysql/node.cnf" \
-			| grep -E -o "early-plugin-load=keyring_\w+.so"; then
+		if ! kubectl exec -it $cluster-pxc-0 -c pxc -- bash -c "cat /etc/mysql/node.cnf" \
+			| grep -E -o "early-plugin-load=keyring_\w+.so" >/dev/null 2>&1; then
 			return 1
 		fi
 		log "/etc/mysql/node.cnf has keyring vault plugin: OK"

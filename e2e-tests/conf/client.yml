@@ -12,6 +12,7 @@ spec:
       labels:
         name: pxc-client
     spec:
+      terminationGracePeriodSeconds: 10
       containers:
       - name: pxc-client
         command: ["bash", "-c", "sleep 100500"]
@@ -24,6 +25,10 @@ spec:
         command: ["bash", "-c", "sleep 100500"]
         image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0-backup
         imagePullPolicy: Always
+        command:
+        - sleep
+        args:
+        - infinity
         volumeMounts:
         - mountPath: /etc/mysql/ssl
           name: ssl

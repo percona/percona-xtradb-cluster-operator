@@ -116,15 +116,11 @@ func getNonPrimaryHAProxy(ctx context.Context, cl client.Client, cr *api.Percona
 		return "", errors.Wrap(err, "get pod list")
 	}
 
-	// Try to find a non-primary pod that is reachable
 	for _, pod := range podList.Items {
-		if pod.GetName() == primaryPod {
+		if pod.GetName() == primaryPod || !k8s.IsPodReady(pod) {
 			continue
 		}
-		host := podFQDN(pod.GetName(), sts)
-		if _, qerr := queries.New(cl, cr.Namespace, cr.Spec.SecretsName, users.Operator, host, 3306, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds); qerr == nil {
-			return host, nil
-		}
+		return podFQDN(pod.GetName(), sts), nil
 	}
 	// None of the non-primary pods are reachable, use the primary host
 	return podFQDN(primaryPod, sts), nil

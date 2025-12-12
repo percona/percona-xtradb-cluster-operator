@@ -1,0 +1,58 @@
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBCluster
+metadata:
+  name: some-name
+  finalizers:
+    - percona.com/delete-pxc-pods-in-order
+spec:
+  secretsName: my-cluster-secrets
+  pause: false
+  pxc:
+    size: 3
+    image: -pxc
+    resources:
+      requests:
+        memory: 0.1G
+        cpu: 100m
+      limits:
+        memory: "2G"
+        cpu: "1"
+    volumeSpec:
+      persistentVolumeClaim:
+        resources:
+          requests:
+            storage: 2Gi
+    affinity:
+      antiAffinityTopologyKey: "none"
+  haproxy:
+    enabled: false
+    size: 3
+    image: -haproxy
+    affinity:
+      antiAffinityTopologyKey: "kubernetes.io/hostname"
+    tolerations:
+    - key: "node.alpha.kubernetes.io/unreachable"
+      operator: "Exists"
+      effect: "NoExecute"
+      tolerationSeconds: 6000
+    podDisruptionBudget:
+  proxysql:
+    enabled: true
+    size: 2
+    image: -proxysql
+    affinity:
+      antiAffinityTopologyKey: "none"
+    scheduler:
+      enabled: true
+    resources:
+      requests:
+        memory: 0.1G
+        cpu: 100m
+      limits:
+        memory: 1G
+        cpu: 700m
+    volumeSpec:
+      persistentVolumeClaim:
+        resources:
+          requests:
+            storage: 2Gi

@@ -54,4 +54,5 @@ upgrade-proxysql,5.7
 upgrade-proxysql,8.0
 users,5.7
 users,8.0
+users-scheduler,8.4
 validation-hook,8.0

@@ -534,6 +534,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) runJobFinalizers(ctx context.Cont
 	for _, jobName := range []string{
 		naming.RestoreJobName(cr, false),
 		naming.RestoreJobName(cr, true),
+		naming.PrepareJobName(cr),
 	} {
 		if err := k8sretry.RetryOnConflict(k8sretry.DefaultRetry, func() error {
 			job := new(batchv1.Job)

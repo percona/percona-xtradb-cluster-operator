@@ -219,7 +219,8 @@ func RestoreJob(
 	cluster *api.PerconaXtraDBCluster,
 	initImage string,
 	scheme *runtime.Scheme,
-	destination api.PXCBackupDestination, pitr bool) (*batchv1.Job, error) {
+	destination api.PXCBackupDestination, pitr bool,
+) (*batchv1.Job, error) {
 	switch bcp.Status.GetStorageType(cluster) {
 	case api.BackupStorageAzure:
 		if bcp.Status.Azure == nil {
@@ -416,7 +417,8 @@ func restoreJobEnvs(
 	cr *api.PerconaXtraDBClusterRestore,
 	cluster *api.PerconaXtraDBCluster,
 	destination api.PXCBackupDestination,
-	pitr bool) ([]corev1.EnvVar, error) {
+	pitr bool,
+) ([]corev1.EnvVar, error) {
 	if bcp.Status.GetStorageType(cluster) == api.BackupStorageFilesystem {
 		return util.MergeEnvLists(
 			[]corev1.EnvVar{
@@ -824,6 +826,9 @@ func PrepareJob(
 			Name:      jobName,
 			Namespace: cr.Namespace,
 			Labels:    naming.LabelsRestoreJob(cluster, jobName, bcp.Status.StorageName),
+			Finalizers: []string{
+				naming.FinalizerKeepJob,
+			},
 		},
 		Spec: batchv1.JobSpec{
 			TTLSecondsAfterFinished: cluster.Spec.Backup.TTLSecondsAfterFinished,

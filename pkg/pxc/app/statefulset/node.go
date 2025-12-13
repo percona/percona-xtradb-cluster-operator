@@ -441,6 +441,9 @@ func (c *Node) XtrabackupContainer(ctx context.Context, cr *api.PerconaXtraDBClu
 	if !features.Enabled(ctx, features.XtrabackupSidecar) {
 		return nil, nil
 	}
+	if cr.Spec.Backup == nil {
+		return nil, nil
+	}
 	container := &corev1.Container{
 		Name:            "xtrabackup",
 		Image:           cr.Spec.Backup.Image,

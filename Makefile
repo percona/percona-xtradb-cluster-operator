@@ -113,20 +113,22 @@ PROTOC = $(shell pwd)/bin/protoc
 PROTOC_GEN_GO = $(shell pwd)/bin/protoc-gen-go
 PROTOC_GEN_GO_GRPC = $(shell pwd)/bin/protoc-gen-go-grpc
 protoc: ## Download protoc locally if necessary.
-	os='linux'; \
-	arch='x86_64'; \
-	if [ "$(shell uname)" = "Darwin" ]; then \
-		os='osx'; \
-	fi; \
-	if [ "$(shell uname -m)" = "arm64" ]; then \
-		arch='aarch_64'; \
-	fi; \
-	curl -LO "https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-$${os}-$${arch}.zip"; \
-	unzip -o protoc-${PROTOC_VERSION}-$${os}-$${arch}.zip -d protoc-${PROTOC_VERSION}-$${os}-$${arch}; \
-	rm protoc-${PROTOC_VERSION}-$${os}-$${arch}.zip; \
-	mv -f protoc-${PROTOC_VERSION}-$${os}-$${arch}/bin/protoc $(PROTOC); \
-	rm -rf protoc-${PROTOC_VERSION}-$${os}-$${arch}; \
-	$(call go-get-tool,$(PROTOC_GEN_GO),google.golang.org/protobuf/cmd/protoc-gen-go@latest); \
+	@if [ ! -f $(PROTOC) ]; then \
+		os='linux'; \
+		arch='x86_64'; \
+		if [ "$(shell uname)" = "Darwin" ]; then \
+			os='osx'; \
+		fi; \
+		if [ "$(shell uname -m)" = "arm64" ]; then \
+			arch='aarch_64'; \
+		fi; \
+		curl -LO "https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-$${os}-$${arch}.zip"; \
+		unzip -o protoc-${PROTOC_VERSION}-$${os}-$${arch}.zip -d protoc-${PROTOC_VERSION}-$${os}-$${arch}; \
+		rm protoc-${PROTOC_VERSION}-$${os}-$${arch}.zip; \
+		mv -f protoc-${PROTOC_VERSION}-$${os}-$${arch}/bin/protoc $(PROTOC); \
+		rm -rf protoc-${PROTOC_VERSION}-$${os}-$${arch}; \
+	fi
+	$(call go-get-tool,$(PROTOC_GEN_GO),google.golang.org/protobuf/cmd/protoc-gen-go@latest)
 	$(call go-get-tool,$(PROTOC_GEN_GO_GRPC),google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest)
 
 # Prepare release

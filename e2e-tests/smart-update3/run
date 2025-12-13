@@ -48,35 +48,104 @@ function add_pxc_version_to_vs {
 	sleep 10
 }
 
+#function wait_pmm_update {
+#	local cluster=${1}
+#	local cluster_size=${2}
+#	local expected_image=${3}
+#	local pmm_version=${4}  # e.g., "2" or "3"
+#	local max_retry=${5:-240}  # Default 20 minutes
+#
+#	desc "Waiting for PMM${pmm_version} containers to update to ${expected_image}..."
+#	set +x
+#	local retry=0
+#	echo -n "Waiting for PMM update"
+#
+#	until [[ $retry -ge $max_retry ]]; do
+#		local updated_count=0
+#		for i in $(seq 0 $((cluster_size - 1))); do
+#			local actual_pmm_image=$(kubectl_bin get pod "${cluster}-pxc-${i}" -o jsonpath='{.status.containerStatuses[?(@.name=="pmm-client")].image}' 2>/dev/null || echo "")
+#
+#			# Only check if actual image contains expected image (handles docker.io prefix)
+#			if [[ "${actual_pmm_image}" == *"${expected_image}"* ]]; then
+#				((updated_count += 1))
+#			fi
+#		done
+#
+#		if [[ ${updated_count} -eq ${cluster_size} ]]; then
+#			echo " Done! All ${cluster_size} pods updated."
+#			set -x
+#			return 0
+#		fi
+#
+#		echo -n "."
+#		((retry += 1))
+#		sleep 5
+#	done
+#
+#	# Timeout reached
+#	set -x
+#	echo "ERROR: Timeout waiting for PMM${pmm_version} update after $((max_retry * 5)) seconds"
+#	echo "Expected image: ${expected_image}"
+#	for i in $(seq 0 $((cluster_size - 1))); do
+#		local actual=$(kubectl_bin get pod "${cluster}-pxc-${i}" -o jsonpath='{.status.containerStatuses[?(@.name=="pmm-client")].image}' 2>/dev/null || echo "none")
+#		echo "  ${cluster}-pxc-${i}: ${actual}"
+#	done
+#	return 1
+#}
+
 function wait_pmm_update {
 	local cluster=${1}
 	local cluster_size=${2}
 	local expected_image=${3}
-	local pmm_version=${4}  # e.g., "2" or "3"
-	local max_retry=${5:-240}  # Default 20 minutes
+	local pmm_version=${4}      # e.g., "2" or "3"
+	local max_retry=${5:-240}   # Default 20 minutes
 
 	desc "Waiting for PMM${pmm_version} containers to update to ${expected_image}..."
 	set +x
+
 	local retry=0
-	echo -n "Waiting for PMM update"
+	echo "Waiting for PMM update"
+	echo "Expected image: ${expected_image}"
+	echo "Cluster size: ${cluster_size}"
+	echo
 
 	until [[ $retry -ge $max_retry ]]; do
+		echo "Iteration $((retry + 1)) / ${max_retry}:"
+
 		local updated_count=0
+
 		for i in $(seq 0 $((cluster_size - 1))); do
-			local actual_pmm_image=$(kubectl_bin get pod "${cluster}-pxc-${i}" -o jsonpath='{.status.containerStatuses[?(@.name=="pmm-client")].image}' 2>/dev/null || echo "")
-			# Only check if actual image contains expected image (handles docker.io prefix)
+			local pod="${cluster}-pxc-${i}"
+
+			local actual_pmm_image
+			actual_pmm_image=$(kubectl_bin get pod "${pod}" \
+				-o jsonpath='{.status.containerStatuses[?(@.name=="pmm-client")].image}' \
+				2>/dev/null || echo "")
+
+			if [[ -z "${actual_pmm_image}" ]]; then
+				echo "  ${pod}: pmm-client container NOT FOUND yet"
+				continue
+			fi
+
 			if [[ "${actual_pmm_image}" == *"${expected_image}"* ]]; then
+				echo "  ${pod}: ${actual_pmm_image}"
 				((updated_count += 1))
+			else
+				echo "  ${pod}: ${actual_pmm_image}"
 			fi
 		done
 
 		if [[ ${updated_count} -eq ${cluster_size} ]]; then
-			echo " Done! All ${cluster_size} pods updated."
+			echo
+			echo "Done! All ${cluster_size} pods updated."
 			set -x
 			return 0
 		fi
 
-		echo -n "."
+		echo "Updated: ${updated_count}/${cluster_size}"
+		echo "Waiting..."
+		echo
+
 		((retry += 1))
 		sleep 5
 	done
@@ -85,10 +154,17 @@ function wait_pmm_update {
 	set -x
 	echo "ERROR: Timeout waiting for PMM${pmm_version} update after $((max_retry * 5)) seconds"
 	echo "Expected image: ${expected_image}"
+	echo "Final pod states:"
+
 	for i in $(seq 0 $((cluster_size - 1))); do
-		local actual=$(kubectl_bin get pod "${cluster}-pxc-${i}" -o jsonpath='{.status.containerStatuses[?(@.name=="pmm-client")].image}' 2>/dev/null || echo "none")
-		echo "  ${cluster}-pxc-${i}: ${actual}"
+		local pod="${cluster}-pxc-${i}"
+		local actual
+		actual=$(kubectl_bin get pod "${pod}" \
+			-o jsonpath='{.status.containerStatuses[?(@.name=="pmm-client")].image}' \
+			2>/dev/null || echo "none")
+		echo "  ${pod}: ${actual}"
 	done
+
 	return 1
 }
 

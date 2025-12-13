@@ -63,7 +63,7 @@ spec:
     gracePeriod: 30
   pmm:
     enabled: false
-    image: perconalab/pmm-client:1.17.1
+    image: percona/pmm-client:2.44.0
     serverHost: monitoring-service
     serverUser: pmm
   backup:

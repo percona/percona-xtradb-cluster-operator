@@ -165,6 +165,45 @@ function wait_pmm_update {
 		echo "  ${pod}: ${actual}"
 	done
 
+	# =========================
+  	# Timeout reached — DEBUG
+  	# =========================
+  	set -x
+  	echo "ERROR: Timeout waiting for PMM${pmm_version} update after $((max_retry * 5)) seconds"
+  	echo
+  	echo "Expected image: ${expected_image}"
+  	echo
+  	echo "Final pod states (pmm-client images):"
+
+  	for i in $(seq 0 $((cluster_size - 1))); do
+  		local pod="${cluster}-pxc-${i}"
+  		local actual
+  		actual=$(kubectl_bin get pod "${pod}" \
+  			-o jsonpath='{.status.containerStatuses[?(@.name=="pmm-client")].image}' \
+  			2>/dev/null || echo "none")
+  		echo "  ${pod}: ${actual}"
+  	done
+
+  	echo
+  	echo "============================"
+  	echo "kubectl get pxc -o yaml"
+  	echo "============================"
+  	kubectl_bin get pxc -o yaml || true
+
+  	echo
+  	echo "============================"
+  	echo "Operator logs"
+  	echo "============================"
+  	local operator_pod
+  	operator_pod=$(get_operator_pod)
+
+  	if [[ -n "${operator_pod}" ]]; then
+  		echo "Operator pod: ${operator_pod}"
+  		kubectl_bin logs "${operator_pod}" || true
+  	else
+  		echo "ERROR: operator pod not found"
+  	fi
+
 	return 1
 }
 

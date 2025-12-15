@@ -380,12 +380,12 @@ func (p *Database) NonPrimaryHostsProxySQL() ([]string, error) {
 	for rows.Next() {
 		var host string
 		if err := rows.Scan(&host); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to scan row: %w", err)
 		}
 		hosts = append(hosts, host)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get rows: %w", err)
 	}
 	return hosts, nil
 }

@@ -21,7 +21,8 @@ const appName = "pxc"
 
 var NoProxyDetectedError = errors.New("can't detect enabled proxy, please enable HAProxy or ProxySQL")
 
-func getFirstReadyPodFQDN(ctx context.Context, cl client.Client, cr *api.PerconaXtraDBCluster) (string, error) {
+// waitAndGetFirstReadyPodFQDN waits for all pods to be ready and returns the FQDN of the first ready pod
+func waitAndGetFirstReadyPodFQDN(ctx context.Context, cl client.Client, cr *api.PerconaXtraDBCluster) (string, error) {
 	node := statefulset.NewNode(cr)
 	sts := node.StatefulSet()
 
@@ -55,7 +56,7 @@ func GetPrimaryPod(
 	cr *api.PerconaXtraDBCluster) (string, error) {
 	conn, err := GetProxyConnection(cr, cl)
 	if errors.Is(err, NoProxyDetectedError) && cr.Spec.PXC.Size == 1 {
-		host, err := getFirstReadyPodFQDN(ctx, cl, cr)
+		host, err := waitAndGetFirstReadyPodFQDN(ctx, cl, cr)
 		if err != nil {
 			return "", errors.Wrap(err, "failed to get first ready pod")
 		}
@@ -87,7 +88,7 @@ func GetHostForSidecarBackup(
 	case cr.ProxySQLEnabled():
 		return getNonPrimaryProxySQL(cl, cr)
 	}
-	return getFirstReadyPodFQDN(ctx, cl, cr)
+	return waitAndGetFirstReadyPodFQDN(ctx, cl, cr)
 }
 
 func PodFQDN(pod string, sts *appsv1.StatefulSet) string {

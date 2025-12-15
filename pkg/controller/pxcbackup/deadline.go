@@ -71,7 +71,7 @@ func checkStartingDeadline(ctx context.Context, cluster *api.PerconaXtraDBCluste
 func (r *ReconcilePerconaXtraDBClusterBackup) checkRunningDeadline(ctx context.Context, cluster *api.PerconaXtraDBCluster, cr *api.PerconaXtraDBClusterBackup) error {
 	log := logf.FromContext(ctx)
 
-	// check only if the current state is 'Starting'
+	// check only if the current state is not 'Starting'
 	if cr.Status.State != api.BackupStarting {
 		return nil
 	}

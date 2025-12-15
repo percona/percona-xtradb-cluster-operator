@@ -804,6 +804,10 @@ func (r *ReconcilePerconaXtraDBClusterBackup) suspendJobIfNeeded(
 			return err
 		}
 
+		if suspendedSpec := job.Spec.Suspend; suspendedSpec != nil && *suspendedSpec {
+			return nil
+		}
+
 		for _, cond := range job.Status.Conditions {
 			if cond.Status != corev1.ConditionTrue {
 				continue
@@ -856,6 +860,10 @@ func (r *ReconcilePerconaXtraDBClusterBackup) resumeJobIfNeeded(
 				return nil
 			}
 			return err
+		}
+
+		if suspendedSpec := job.Spec.Suspend; suspendedSpec != nil && !*suspendedSpec {
+			return nil
 		}
 
 		suspended := false

@@ -83,7 +83,7 @@ func CheckPITRErrors(ctx context.Context, cl client.Client, clcmd *clientcmd.Cli
 	}
 
 	missingGTIDSet := stdoutBuf.String()
-	log.Info("Gap detected in binary logs", "collector", collectorPod.Name, "missingGTIDSet", missingGTIDSet)
+	log.Info("Gap detected in binary logs", "collector", collectorPod.Name, "missingGTIDSet", missingGTIDSet, "latestBackup", backup.Name)
 
 	condition := metav1.Condition{
 		Type:               api.BackupConditionPITRReady,

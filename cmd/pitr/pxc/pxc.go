@@ -261,7 +261,7 @@ func GetNodesByServiceName(ctx context.Context, pxcServiceName string) ([]string
 	cmd := exec.CommandContext(ctx, "/opt/percona/peer-list", "-on-start=/opt/percona/get-pxc-state.sh", "-service="+pxcServiceName)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return nil, errors.Wrap(err, "get peer-list output")
+		return nil, errors.Wrapf(err, "run peer-list output: %s", out)
 	}
 	return strings.Split(string(out), "node:"), nil
 }
@@ -274,6 +274,7 @@ func GetPXCFirstHost(ctx context.Context, pxcServiceName string) (string, error)
 	sort.Strings(nodes)
 	lastHost := ""
 	for _, node := range nodes {
+		log.Printf("PXC Node: %s", node)
 		if strings.Contains(node, "wsrep_ready:ON:wsrep_connected:ON:wsrep_local_state_comment:Synced:wsrep_cluster_status:Primary") {
 			nodeArr := strings.Split(node, ":")
 			lastHost = nodeArr[0]
@@ -283,6 +284,8 @@ func GetPXCFirstHost(ctx context.Context, pxcServiceName string) (string, error)
 	if len(lastHost) == 0 {
 		return "", errors.New("can't find host")
 	}
+
+	log.Printf("connecting to %s", lastHost)
 
 	return lastHost, nil
 }

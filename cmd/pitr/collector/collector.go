@@ -84,6 +84,7 @@ type Collector struct {
 	pxcUser         string      // user for connection to PXC
 	pxcPass         string      // password for connection to PXC
 	gtidCacheKey    string      // filename of gtid cache json
+	sourceID        string
 }
 
 type Config struct {
@@ -207,13 +208,44 @@ func (c *Collector) Init(ctx context.Context) error {
 	switch {
 	case strings.HasPrefix(version, "8.0"):
 		log.Println("creating collector functions")
-		if err := db.CreateCollectorFunctions(ctx); err != nil {
+		if err := c.CreateCollectorFunctions(ctx); err != nil {
 			return errors.Wrap(err, "init 8.0: create collector functions")
 		}
 	case strings.HasPrefix(version, "8.4"):
 		log.Println("installing binlog UDF component")
 		if err := db.InstallBinlogUDFComponent(ctx); err != nil {
 			return errors.Wrap(err, "init 8.4: install component")
+		}
+	}
+
+	return nil
+}
+
+func (c *Collector) CreateCollectorFunctions(ctx context.Context) error {
+	nodes, err := pxc.GetNodesByServiceName(ctx, c.pxcServiceName)
+	if err != nil {
+		return errors.Wrap(err, "get nodes by service name")
+	}
+
+	create := func(node string) error {
+		nodeArr := strings.Split(node, ":")
+		host := nodeArr[0]
+		db, err := pxc.NewPXC(host, c.pxcUser, c.pxcPass)
+		if err != nil {
+			return errors.Errorf("creating connection for host %s: %v", host, err)
+		}
+		defer db.Close()
+		if err := db.CreateCollectorFunctions(ctx); err != nil {
+			return errors.Wrap(err, "create collector functions")
+		}
+		return nil
+	}
+
+	for _, node := range nodes {
+		if strings.Contains(node, "wsrep_ready:ON:wsrep_connected:ON:wsrep_local_state_comment:Synced:wsrep_cluster_status:Primary") {
+			if err := create(node); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -231,6 +263,10 @@ func (c *Collector) Run(ctx context.Context) error {
 	// remove last set because we always
 	// read it from aws file
 	c.lastUploadedSet = pxc.NewGTIDSet("")
+	c.sourceID, err = c.db.WsrepClusterStateUUID()
+	if err != nil {
+		return errors.Wrap(err, "get cluster state uuid")
+	}
 
 	err = c.CollectBinLogs(ctx)
 	if err != nil {
@@ -483,13 +519,14 @@ func (c *Collector) CollectBinLogs(ctx context.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "get GTID sets")
 	}
+
 	var lastGTIDSetList []string
-	for i := len(binlogList) - 1; i >= 0 && len(lastGTIDSetList) == 0; i-- {
+	for i := len(binlogList) - 1; i >= 0; i-- {
 		gtidSetList := binlogList[i].GTIDSet.List()
-		if gtidSetList == nil {
-			continue
+		if len(gtidSetList) != 0 {
+			lastGTIDSetList = gtidSetList
+			break
 		}
-		lastGTIDSetList = gtidSetList
 	}
 
 	if len(lastGTIDSetList) == 0 {
@@ -504,12 +541,19 @@ func (c *Collector) CollectBinLogs(ctx context.Context) error {
 		sourceID = strings.ReplaceAll(sourceID, "\n", "")
 		sourceID = strings.ReplaceAll(sourceID, "\r", "")
 
-		c.lastUploadedSet, err = c.lastGTIDSet(ctx, sourceID)
-		if err != nil {
-			return errors.Wrap(err, "get last uploaded gtid set")
-		}
-		if !c.lastUploadedSet.IsEmpty() {
-			break
+		// After a restore, the cluster will generate a new UUID, meaning
+		// lastGTIDSetList can contain GTID sets from both the current and an old source UUID.
+		// In this situation, we must prioritize the GTID set that matches the
+		// current cluster UUID. If no file exists for the current UUID, we must
+		// create a new one to avoid triggering a false binlog gap error.
+		if c.lastUploadedSet.IsEmpty() || c.sourceID == sourceID {
+			c.lastUploadedSet, err = c.lastGTIDSet(ctx, sourceID)
+			if err != nil {
+				return errors.Wrap(err, "get last uploaded gtid set")
+			}
+			if c.sourceID == sourceID {
+				break
+			}
 		}
 	}
 

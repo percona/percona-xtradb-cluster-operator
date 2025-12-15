@@ -10,6 +10,7 @@ import (
 
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -65,8 +66,15 @@ func CheckPITRErrors(ctx context.Context, cl client.Client, clcmd *clientcmd.Cli
 	stdoutBuf := &bytes.Buffer{}
 	stderrBuf := &bytes.Buffer{}
 
+	if collectorPod.Status.Phase != corev1.PodRunning {
+		return nil
+	}
+
 	err = clcmd.Exec(collectorPod, "pitr", []string{"/bin/bash", "-c", "cat " + naming.GapDetected + " || true"}, nil, stdoutBuf, stderrBuf, false)
 	if err != nil {
+		if strings.Contains(err.Error(), "container not found") {
+			return nil
+		}
 		return errors.Wrapf(err, "exec binlog collector pod %s", collectorPod.Name)
 	}
 
@@ -75,7 +83,7 @@ func CheckPITRErrors(ctx context.Context, cl client.Client, clcmd *clientcmd.Cli
 	}
 
 	missingGTIDSet := stdoutBuf.String()
-	log.Info("Gap detected in binary logs", "collector", collectorPod.Name, "missingGTIDSet", missingGTIDSet)
+	log.Info("Gap detected in binary logs", "collector", collectorPod.Name, "missingGTIDSet", missingGTIDSet, "latestBackup", backup.Name)
 
 	condition := metav1.Condition{
 		Type:               api.BackupConditionPITRReady,

@@ -43,7 +43,7 @@ func getFirstReadyPodFQDN(ctx context.Context, cl client.Client, cr *api.Percona
 		return "", errors.New("no ready pxc pods")
 	}
 	if len(readyPods) != int(cr.Spec.PXC.Size) {
-		return "", errors.New("waiting for pxc resize")
+		return "", errors.New("waiting for all pxc pods to be ready")
 	}
 	return podFQDN(readyPods[0].GetName(), sts), nil
 }

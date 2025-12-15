@@ -251,7 +251,7 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(ctx context.Context, sfs api
 	}
 	for _, pod := range list.Items {
 		if pod.Status.PodIP == primary || pod.Name == primary {
-			primary = podFQDN(&pod, currentSet)
+			primary = pxc.PodFQDN(pod.Name, currentSet)
 			break
 		}
 	}
@@ -272,7 +272,7 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(ctx context.Context, sfs api
 	var primaryPod corev1.Pod
 	for _, pod := range list.Items {
 		pod := pod
-		if strings.HasPrefix(primary, podFQDN(&pod, currentSet)) {
+		if strings.HasPrefix(primary, pxc.PodFQDN(pod.Name, currentSet)) {
 			primaryPod = pod
 		} else {
 			log.Info("apply changes to secondary pod", "pod", pod.Name)
@@ -316,7 +316,7 @@ func (r *ReconcilePerconaXtraDBCluster) applyNWait(ctx context.Context, cr *api.
 		return errors.Wrap(err, "failed to wait pod")
 	}
 
-	if err := r.waitPXCSynced(cr, podFQDN(pod, sfs), waitLimit); err != nil {
+	if err := r.waitPXCSynced(cr, pxc.PodFQDN(pod.Name, sfs), waitLimit); err != nil {
 		return errors.Wrap(err, "failed to wait pxc sync")
 	}
 
@@ -333,10 +333,6 @@ func (r *ReconcilePerconaXtraDBCluster) applyNWait(ctx context.Context, cr *api.
 
 func getPodOrderInSts(sts *appsv1.StatefulSet, pod *corev1.Pod) (int, error) {
 	return strconv.Atoi(pod.Name[len(sts.Name)+1:])
-}
-
-func podFQDN(pod *corev1.Pod, sts *appsv1.StatefulSet) string {
-	return fmt.Sprintf("%s.%s.%s", pod.Name, sts.Name, sts.Namespace)
 }
 
 func (r *ReconcilePerconaXtraDBCluster) waitHostgroups(
@@ -357,7 +353,7 @@ func (r *ReconcilePerconaXtraDBCluster) waitHostgroups(
 	}
 	defer database.Close()
 
-	hostname := podFQDN(pod, sfs)
+	hostname := pxc.PodFQDN(pod.Name, sfs)
 	podIdx, err := getPodOrderInSts(sfs, pod)
 	if err != nil {
 		return errors.Wrap(err, "get pod index from name")
@@ -403,7 +399,7 @@ func (r *ReconcilePerconaXtraDBCluster) waitUntilOnline(
 
 	defer database.Close()
 
-	podNamePrefix := podFQDN(pod, sfs)
+	podNamePrefix := pxc.PodFQDN(pod.Name, sfs)
 
 	return retry(time.Second*10, time.Duration(waitLimit)*time.Second,
 		func() (bool, error) {

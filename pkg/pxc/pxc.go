@@ -45,7 +45,7 @@ func getFirstReadyPodFQDN(ctx context.Context, cl client.Client, cr *api.Percona
 	if len(readyPods) != int(cr.Spec.PXC.Size) {
 		return "", errors.New("waiting for all pxc pods to be ready")
 	}
-	return podFQDN(readyPods[0].GetName(), sts), nil
+	return PodFQDN(readyPods[0].GetName(), sts), nil
 }
 
 // GetPrimaryPod returns the primary pod
@@ -90,7 +90,7 @@ func GetHostForSidecarBackup(
 	return getFirstReadyPodFQDN(ctx, cl, cr)
 }
 
-func podFQDN(pod string, sts *appsv1.StatefulSet) string {
+func PodFQDN(pod string, sts *appsv1.StatefulSet) string {
 	return fmt.Sprintf("%s.%s.%s", pod, sts.Name, sts.Namespace)
 }
 
@@ -120,10 +120,10 @@ func getNonPrimaryHAProxy(ctx context.Context, cl client.Client, cr *api.Percona
 		if pod.GetName() == primaryPod || !k8s.IsPodReady(pod) {
 			continue
 		}
-		return podFQDN(pod.GetName(), sts), nil
+		return PodFQDN(pod.GetName(), sts), nil
 	}
 	// None of the non-primary pods are reachable, use the primary host
-	return podFQDN(primaryPod, sts), nil
+	return PodFQDN(primaryPod, sts), nil
 }
 
 func getNonPrimaryProxySQL(cl client.Client, cr *api.PerconaXtraDBCluster) (string, error) {

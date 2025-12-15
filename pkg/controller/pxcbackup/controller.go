@@ -726,7 +726,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) updateJobStatus(
 	// As a workaround, when the computed state is `Starting`, we shall double check if there are any running pods.
 	// See: https://perconadev.atlassian.net/browse/K8SPXC-1772
 	//
-	// Note: As of writing this, the bug has not been reported in Kubernetes, but fixed in 1.34.0
+	// This was fixed in k8s 1.33.6. See: https://github.com/kubernetes/kubernetes/pull/135129
 	if status.State == api.BackupStarting {
 		running, err := r.checkJobPodsRunning(ctx, job)
 		if err != nil {

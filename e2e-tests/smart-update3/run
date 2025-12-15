@@ -22,7 +22,7 @@ else
 fi
 VS_URL="http://version-service"
 VS_PORT="11000"
-VS_ENDPOINT="${VS_URL}:${VS_PORT}"
+VS_ENDPOINT=${VS_URL}.${namespace}.svc.cluster.local:${VS_PORT}
 
 function deploy_version_service {
 	desc 'install version service'
@@ -48,57 +48,12 @@ function add_pxc_version_to_vs {
 	sleep 10
 }
 
-#function wait_pmm_update {
-#	local cluster=${1}
-#	local cluster_size=${2}
-#	local expected_image=${3}
-#	local pmm_version=${4}  # e.g., "2" or "3"
-#	local max_retry=${5:-240}  # Default 20 minutes
-#
-#	desc "Waiting for PMM${pmm_version} containers to update to ${expected_image}..."
-#	set +x
-#	local retry=0
-#	echo -n "Waiting for PMM update"
-#
-#	until [[ $retry -ge $max_retry ]]; do
-#		local updated_count=0
-#		for i in $(seq 0 $((cluster_size - 1))); do
-#			local actual_pmm_image=$(kubectl_bin get pod "${cluster}-pxc-${i}" -o jsonpath='{.status.containerStatuses[?(@.name=="pmm-client")].image}' 2>/dev/null || echo "")
-#
-#			# Only check if actual image contains expected image (handles docker.io prefix)
-#			if [[ "${actual_pmm_image}" == *"${expected_image}"* ]]; then
-#				((updated_count += 1))
-#			fi
-#		done
-#
-#		if [[ ${updated_count} -eq ${cluster_size} ]]; then
-#			echo " Done! All ${cluster_size} pods updated."
-#			set -x
-#			return 0
-#		fi
-#
-#		echo -n "."
-#		((retry += 1))
-#		sleep 5
-#	done
-#
-#	# Timeout reached
-#	set -x
-#	echo "ERROR: Timeout waiting for PMM${pmm_version} update after $((max_retry * 5)) seconds"
-#	echo "Expected image: ${expected_image}"
-#	for i in $(seq 0 $((cluster_size - 1))); do
-#		local actual=$(kubectl_bin get pod "${cluster}-pxc-${i}" -o jsonpath='{.status.containerStatuses[?(@.name=="pmm-client")].image}' 2>/dev/null || echo "none")
-#		echo "  ${cluster}-pxc-${i}: ${actual}"
-#	done
-#	return 1
-#}
-
 function wait_pmm_update {
 	local cluster=${1}
 	local cluster_size=${2}
 	local expected_image=${3}
-	local pmm_version=${4}      # e.g., "2" or "3"
-	local max_retry=${5:-240}   # Default 20 minutes
+	local pmm_version=${4}  # e.g., "2" or "3"
+	local max_retry=${5:-240}  # Default 20 minutes
 
 	desc "Waiting for PMM${pmm_version} containers to update to ${expected_image}..."
 	set +x
@@ -122,30 +77,19 @@ function wait_pmm_update {
 				-o jsonpath='{.status.containerStatuses[?(@.name=="pmm-client")].image}' \
 				2>/dev/null || echo "")
 
-			if [[ -z "${actual_pmm_image}" ]]; then
-				echo "  ${pod}: pmm-client container NOT FOUND yet"
-				continue
-			fi
-
+			# Only check if actual image contains expected image (handles docker.io prefix)
 			if [[ "${actual_pmm_image}" == *"${expected_image}"* ]]; then
-				echo "  ${pod}: ${actual_pmm_image}"
 				((updated_count += 1))
-			else
-				echo "  ${pod}: ${actual_pmm_image}"
 			fi
 		done
 
 		if [[ ${updated_count} -eq ${cluster_size} ]]; then
-			echo
-			echo "Done! All ${cluster_size} pods updated."
+			echo " Done! All ${cluster_size} pods updated."
 			set -x
 			return 0
 		fi
 
-		echo "Updated: ${updated_count}/${cluster_size}"
-		echo "Waiting..."
-		echo
-
+		echo -n "."
 		((retry += 1))
 		sleep 5
 	done
@@ -154,56 +98,10 @@ function wait_pmm_update {
 	set -x
 	echo "ERROR: Timeout waiting for PMM${pmm_version} update after $((max_retry * 5)) seconds"
 	echo "Expected image: ${expected_image}"
-	echo "Final pod states:"
-
 	for i in $(seq 0 $((cluster_size - 1))); do
-		local pod="${cluster}-pxc-${i}"
-		local actual
-		actual=$(kubectl_bin get pod "${pod}" \
-			-o jsonpath='{.status.containerStatuses[?(@.name=="pmm-client")].image}' \
-			2>/dev/null || echo "none")
-		echo "  ${pod}: ${actual}"
+		local actual=$(kubectl_bin get pod "${cluster}-pxc-${i}" -o jsonpath='{.status.containerStatuses[?(@.name=="pmm-client")].image}' 2>/dev/null || echo "none")
+		echo "  ${cluster}-pxc-${i}: ${actual}"
 	done
-
-	# =========================
-  	# Timeout reached — DEBUG
-  	# =========================
-  	set -x
-  	echo "ERROR: Timeout waiting for PMM${pmm_version} update after $((max_retry * 5)) seconds"
-  	echo
-  	echo "Expected image: ${expected_image}"
-  	echo
-  	echo "Final pod states (pmm-client images):"
-
-  	for i in $(seq 0 $((cluster_size - 1))); do
-  		local pod="${cluster}-pxc-${i}"
-  		local actual
-  		actual=$(kubectl_bin get pod "${pod}" \
-  			-o jsonpath='{.status.containerStatuses[?(@.name=="pmm-client")].image}' \
-  			2>/dev/null || echo "none")
-  		echo "  ${pod}: ${actual}"
-  	done
-
-  	echo
-  	echo "============================"
-  	echo "kubectl get pxc -o yaml"
-  	echo "============================"
-  	kubectl_bin get pxc -o yaml || true
-
-  	echo
-  	echo "============================"
-  	echo "Operator logs"
-  	echo "============================"
-  	local operator_pod
-  	operator_pod=$(get_operator_pod)
-
-  	if [[ -n "${operator_pod}" ]]; then
-  		echo "Operator pod: ${operator_pod}"
-  		kubectl_bin logs "${operator_pod}" || true
-  	else
-  		echo "ERROR: operator pod not found"
-  	fi
-
 	return 1
 }
 

@@ -150,6 +150,8 @@ type RecoverType string
 func New(ctx context.Context, c Config) (*Recoverer, error) {
 	c.Verify()
 
+	log.Printf("starting point-in-time-recovery, type: %s", c.RecoverType)
+
 	binlogStorage, storage, err := c.storages(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "new binlog storage manager")
@@ -159,8 +161,11 @@ func New(ctx context.Context, c Config) (*Recoverer, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "get start GTID")
 	}
+	log.Printf("last uploaded GTID set: %s", startGTID)
 
 	if c.RecoverType == string(Transaction) {
+		log.Printf("target GTID: %s", c.GTID)
+
 		gtidSplitted := strings.Split(startGTID, ":")
 		if len(gtidSplitted) != 2 {
 			return nil, errors.New("Invalid start gtidset provided")
@@ -256,8 +261,10 @@ func (r *Recoverer) Run(ctx context.Context) error {
 	switch r.recoverType {
 	case Skip:
 		r.recoverFlag = "--exclude-gtids=" + r.gtid
+		log.Printf("recovery type: %s, gtid: %s", Skip, r.gtid)
 	case Transaction:
 		r.recoverFlag = "--exclude-gtids=" + r.gtidSet
+		log.Printf("recovery type: %s, gtid set: %s", Transaction, r.gtidSet)
 	case Date:
 		r.recoverFlag = `--stop-datetime="` + r.recoverTime + `"`
 
@@ -267,7 +274,10 @@ func (r *Recoverer) Run(ctx context.Context) error {
 			return errors.Wrap(err, "parse date")
 		}
 		r.recoverEndTime = endTime
+
+		log.Printf("recovery type: %s, target time: %s", Date, r.recoverEndTime)
 	case Latest:
+		log.Printf("recovery type: %s", Latest)
 	default:
 		return errors.New("wrong recover type")
 	}
@@ -390,7 +400,7 @@ func getDecompressedContent(ctx context.Context, infoObj io.Reader, filename str
 
 	decContent, err := os.ReadFile(tmpDir + "/" + filename)
 	if err != nil {
-		return nil, errors.Wrap(err, "read xtrabackup_info file")
+		return nil, errors.Wrapf(err, "read %s", filename)
 	}
 
 	return decContent, nil
@@ -623,7 +633,7 @@ func getSetFromXtrabackupInfo(gtid string, xtrabackupInfo []byte) (string, error
 			return valueSplitted[1], nil
 		}
 	}
-	return "", errors.New("can't find current gtid in xtrabackup file")
+	return "", errors.Errorf("can't find current gtid (%s) in xtrabackup file", gtid)
 }
 
 func getGTIDFromXtrabackup(content []byte) (string, error) {

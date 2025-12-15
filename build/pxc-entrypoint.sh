@@ -452,6 +452,21 @@ if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' ] && [ -z "$wantHelp" ]; then
 		fi
 		set -x
 
+		if [[ $MYSQL_VERSION == "8.0" ]]; then
+			"${mysql[@]}" <<-EOSQL
+				CREATE FUNCTION IF NOT EXISTS get_last_record_timestamp_by_binlog RETURNS INTEGER SONAME 'binlog_utils_udf.so';
+				CREATE FUNCTION IF NOT EXISTS get_gtid_set_by_binlog RETURNS STRING SONAME 'binlog_utils_udf.so';
+				CREATE FUNCTION IF NOT EXISTS get_first_record_timestamp_by_binlog RETURNS INTEGER SONAME 'binlog_utils_udf.so';
+			EOSQL
+		fi
+
+		if [[ $MYSQL_VERSION == "8.4" ]]; then
+			echo "Installing file://component_binlog_utils_udf"
+			"${mysql[@]}" <<-EOSQL
+				INSTALL COMPONENT 'file://component_binlog_utils_udf';
+			EOSQL
+		fi
+
 		echo
 		ls /docker-entrypoint-initdb.d/ >/dev/null
 		for f in /docker-entrypoint-initdb.d/*; do
@@ -491,7 +506,7 @@ if [ -f "$vault_secret" ]; then
 	fi
 
 	if [[ $MYSQL_VERSION == '8.4' ]]; then
-		echo -n '{ "components": "file://component_keyring_vault" }' > /var/lib/mysql/mysqld.my
+		echo -n '{ "components": "file://component_keyring_vault" }' >/var/lib/mysql/mysqld.my
 		cp ${vault_secret} /var/lib/mysql/component_keyring_vault.cnf
 	fi
 

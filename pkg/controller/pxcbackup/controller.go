@@ -664,6 +664,23 @@ func getPXCBackupStateFromJob(job *batchv1.Job) api.PXCBackupState {
 	return api.BackupStarting
 }
 
+func (r *ReconcilePerconaXtraDBClusterBackup) checkJobPodsRunning(
+	ctx context.Context,
+	job *batchv1.Job,
+) (bool, error) {
+	pods := corev1.PodList{}
+	err := r.client.List(ctx, &pods, client.InNamespace(job.GetNamespace()), client.MatchingLabels(job.GetLabels()))
+	if err != nil {
+		return false, errors.Wrap(err, "list job pods")
+	}
+	for _, pod := range pods.Items {
+		if pod.Status.Phase == corev1.PodRunning {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 func (r *ReconcilePerconaXtraDBClusterBackup) updateJobStatus(
 	ctx context.Context,
 	bcp *api.PerconaXtraDBClusterBackup,
@@ -700,6 +717,24 @@ func (r *ReconcilePerconaXtraDBClusterBackup) updateJobStatus(
 
 	if status.State == api.BackupSucceeded {
 		status.CompletedAt = job.Status.CompletionTime
+	}
+
+	// There is a bug in k8s 1.33.2 (possibly some earlier versions as well), where a suspended job after being un-suspended
+	// contains stale status. I.e, the job status still reflects the suspended state even though the job pods are running.
+	// As a consequence, the backup state may transition from Starting -> Succeeded without going through the Running state.
+	//
+	// As a workaround, when the computed state is `Starting`, we shall double check if there are any running pods.
+	// See: https://perconadev.atlassian.net/browse/K8SPXC-1772
+	//
+	// This was fixed in k8s 1.33.6. See: https://github.com/kubernetes/kubernetes/pull/135129
+	if status.State == api.BackupStarting {
+		running, err := r.checkJobPodsRunning(ctx, job)
+		if err != nil {
+			return errors.Wrap(err, "check job pods running")
+		}
+		if running {
+			status.State = api.BackupRunning
+		}
 	}
 
 	// don't update the status if there aren't any changes.
@@ -863,7 +898,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) resumeJobIfNeeded(
 		}
 
 		if suspendedSpec := job.Spec.Suspend; suspendedSpec != nil && !*suspendedSpec {
-			return nil
+			return nil // already resumed
 		}
 
 		suspended := false

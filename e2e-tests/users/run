@@ -16,7 +16,13 @@ is_password_updated() {
 is_old_password_discarded() {
 	local username=$1
 	local uri=$2
-	run_mysql "SELECT User_attributes FROM mysql.user WHERE user='${username}'" "${uri}" | grep NULL
+	local result
+	result=$(run_mysql "SELECT User_attributes FROM mysql.user WHERE user='${username}'" "${uri}" 2>/dev/null || echo "")
+	# Check if result is empty, NULL, or doesn't contain additional_password
+	if [[ -z "$result" ]] || [[ "$result" =~ ^[[:space:]]*$ ]] || [[ "$result" =~ NULL ]] || [[ ! "$result" =~ additional_password ]]; then
+		return 0
+	fi
+	return 1
 }
 
 wait_for_password_propagation() {

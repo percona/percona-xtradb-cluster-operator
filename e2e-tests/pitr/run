@@ -161,8 +161,7 @@ main() {
 			-o 'jsonpath={.items[].metadata.name}'
 	)
 	wait_pod "$pitr_pod"
-	function_exists_count=$(kubectl_bin logs -l "app.kubernetes.io/component=pitr" --tail=-1 2>/dev/null | grep -c 'already exists')
-	if [ "$function_exists_count" -eq 0 ]; then
+	if [[ $(kubectl_bin logs -l "app.kubernetes.io/component=pitr" --tail=-1 2>/dev/null | egrep -c 'already exists|is already installed') == '0' ]]; then
 		echo "There are no 'function ... already exists' logs"
 		exit 1
 	fi

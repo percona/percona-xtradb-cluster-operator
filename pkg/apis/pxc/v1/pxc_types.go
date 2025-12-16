@@ -236,8 +236,8 @@ type BackupSpec struct {
 	SuspendedDeadlineSeconds *int64                        `json:"suspendedDeadlineSeconds,omitempty"`
 	TTLSecondsAfterFinished  *int32                        `json:"ttlSecondsAfterFinished,omitempty"`
 	// RunningDeadlineSeconds is the number of seconds to wait for the backup to transition to the 'Running' state.
-	// Once this threshold is reached, the backup will be marked as failed. Default is 300 seconds (5m).
-	// +kubebuilder:default:=300
+	// Once this threshold is reached, the backup will be marked as failed. Default is 300 seconds (20m).
+	// +kubebuilder:default:=1200
 	RunningDeadlineSeconds *int64 `json:"runningDeadlineSeconds,omitempty"`
 }
 

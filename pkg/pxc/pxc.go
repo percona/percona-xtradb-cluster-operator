@@ -2,7 +2,6 @@ package pxc
 
 import (
 	"context"
-	stdErrors "errors"
 	"fmt"
 	"time"
 
@@ -12,6 +11,7 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/queries"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 	"github.com/pkg/errors"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -21,27 +21,32 @@ const appName = "pxc"
 
 var NoProxyDetectedError = errors.New("can't detect enabled proxy, please enable HAProxy or ProxySQL")
 
-func GetPrimaryPodDNSName(ctx context.Context, cl client.Client, cr *api.PerconaXtraDBCluster) (string, error) {
-	primary, err := GetPrimaryPod(ctx, cl, cr)
-	if err != nil {
-		return "", errors.Wrap(err, "get primary pod")
-	}
-	pxcSet := statefulset.NewNode(cr)
-	podList := corev1.PodList{}
-	if err := cl.List(ctx, &podList, &client.ListOptions{
+// waitAndGetFirstReadyPodFQDN waits for all pods to be ready and returns the FQDN of the first ready pod
+func waitAndGetFirstReadyPodFQDN(ctx context.Context, cl client.Client, cr *api.PerconaXtraDBCluster) (string, error) {
+	node := statefulset.NewNode(cr)
+	sts := node.StatefulSet()
+
+	podList := new(corev1.PodList)
+	if err := cl.List(ctx, podList, &client.ListOptions{
 		Namespace:     cr.Namespace,
-		LabelSelector: labels.SelectorFromSet(pxcSet.Labels()),
+		LabelSelector: labels.SelectorFromSet(node.Labels()),
 	}); err != nil {
 		return "", errors.Wrap(err, "get pod list")
 	}
-	pxcSts := pxcSet.StatefulSet()
+
+	readyPods := make([]corev1.Pod, 0)
 	for _, pod := range podList.Items {
-		if pod.Status.PodIP == primary || pod.Name == primary {
-			primary = fmt.Sprintf("%s.%s.%s", pod.Name, pxcSts.GetName(), pxcSts.GetNamespace())
-			break
+		if k8s.IsPodReady(pod) {
+			readyPods = append(readyPods, pod)
 		}
 	}
-	return primary, nil
+	if len(readyPods) == 0 {
+		return "", errors.New("no ready pxc pods")
+	}
+	if len(readyPods) != int(cr.Spec.PXC.Size) {
+		return "", errors.New("waiting for all pxc pods to be ready")
+	}
+	return PodFQDN(readyPods[0].GetName(), sts), nil
 }
 
 // GetPrimaryPod returns the primary pod
@@ -50,41 +55,13 @@ func GetPrimaryPod(
 	cl client.Client,
 	cr *api.PerconaXtraDBCluster) (string, error) {
 	conn, err := GetProxyConnection(cr, cl)
-	if err != nil {
-		if errors.Is(err, NoProxyDetectedError) && cr.Spec.PXC.Size == 1 {
-			firstReadyPod := func() (string, error) {
-				sts := statefulset.NewNode(cr)
-
-				podList := new(corev1.PodList)
-				if err := cl.List(ctx, podList, &client.ListOptions{
-					Namespace:     cr.Namespace,
-					LabelSelector: labels.SelectorFromSet(sts.Labels()),
-				}); err != nil {
-					return "", errors.Wrap(err, "get pod list")
-				}
-
-				readyPods := make([]corev1.Pod, 0)
-				for _, pod := range podList.Items {
-					if k8s.IsPodReady(pod) {
-						readyPods = append(readyPods, pod)
-					}
-				}
-				if len(readyPods) == 0 {
-					return "", errors.New("no ready pxc pods")
-				}
-				if len(readyPods) != int(cr.Spec.PXC.Size) {
-					return "", errors.New("waiting for pxc resize")
-				}
-
-				return readyPods[0].Status.PodIP, nil
-			}
-			host, rerr := firstReadyPod()
-			if rerr == nil {
-				return host, nil
-			}
-
-			err = stdErrors.Join(rerr, err)
+	if errors.Is(err, NoProxyDetectedError) && cr.Spec.PXC.Size == 1 {
+		host, err := waitAndGetFirstReadyPodFQDN(ctx, cl, cr)
+		if err != nil {
+			return "", errors.Wrap(err, "failed to get first ready pod")
 		}
+		return host, nil
+	} else if err != nil {
 		return "", errors.Wrap(err, "failed to get proxy connection")
 	}
 	defer conn.Close()
@@ -97,8 +74,76 @@ func GetPrimaryPod(
 
 		return host, nil
 	}
-
 	return conn.PrimaryHost()
+}
+
+// GetHostForSidecarBackup returns a pod that can be used for performing backups via xtradb sidecar
+func GetHostForSidecarBackup(
+	ctx context.Context,
+	cl client.Client,
+	cr *api.PerconaXtraDBCluster) (string, error) {
+	switch {
+	case cr.HAProxyEnabled():
+		return getNonPrimaryHAProxy(ctx, cl, cr)
+	case cr.ProxySQLEnabled():
+		return getNonPrimaryProxySQL(cl, cr)
+	}
+	return waitAndGetFirstReadyPodFQDN(ctx, cl, cr)
+}
+
+func PodFQDN(pod string, sts *appsv1.StatefulSet) string {
+	return fmt.Sprintf("%s.%s.%s", pod, sts.Name, sts.Namespace)
+}
+
+func getNonPrimaryHAProxy(ctx context.Context, cl client.Client, cr *api.PerconaXtraDBCluster) (string, error) {
+	conn, err := GetProxyConnection(cr, cl)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to get proxy connection")
+	}
+	defer conn.Close()
+
+	node := statefulset.NewNode(cr)
+	sts := node.StatefulSet()
+	primaryPod, err := conn.Hostname() // assumes we get a pod name (not FQDN)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to get primary host")
+	}
+
+	podList := new(corev1.PodList)
+	if err := cl.List(ctx, podList, &client.ListOptions{
+		Namespace:     cr.Namespace,
+		LabelSelector: labels.SelectorFromSet(node.Labels()),
+	}); err != nil {
+		return "", errors.Wrap(err, "get pod list")
+	}
+
+	for _, pod := range podList.Items {
+		if pod.GetName() == primaryPod || !k8s.IsPodReady(pod) {
+			continue
+		}
+		return PodFQDN(pod.GetName(), sts), nil
+	}
+	// None of the non-primary pods are reachable, use the primary host
+	return PodFQDN(primaryPod, sts), nil
+}
+
+func getNonPrimaryProxySQL(cl client.Client, cr *api.PerconaXtraDBCluster) (string, error) {
+	conn, err := GetProxyConnection(cr, cl)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to get proxy connection")
+	}
+	defer conn.Close()
+
+	// Try to find a reachable host and return the first one that is reachable
+	hosts, err := conn.NonPrimaryHostsProxySQL() // assumes we get a list of pod FQDNs
+	if err != nil {
+		return "", fmt.Errorf("failed to get non-primary hosts: %w", err)
+	}
+	if len(hosts) == 0 {
+		// No non-primary hosts are reachable, use the primary host
+		return conn.PrimaryHost()
+	}
+	return hosts[0], nil
 }
 
 // GetProxyConnection returns a new connection through the proxy (ProxySQL or HAProxy)

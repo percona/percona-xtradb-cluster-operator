@@ -327,7 +327,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) createBackupJob(
 	xtrabackupEnabled := features.Enabled(ctx, features.XtrabackupSidecar)
 	getJobSpec := func() (batchv1.JobSpec, error) {
 		if xtrabackupEnabled {
-			srcNode, err := pxc.GetPrimaryPodDNSName(ctx, r.client, cluster)
+			srcNode, err := pxc.GetHostForSidecarBackup(ctx, r.client, cluster)
 			if err != nil {
 				return batchv1.JobSpec{}, errors.Wrap(err, "failed to get primary pod dns name")
 			}

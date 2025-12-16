@@ -368,6 +368,27 @@ func (p *Database) PrimaryHost() (string, error) {
 	return host, nil
 }
 
+func (p *Database) NonPrimaryHostsProxySQL() ([]string, error) {
+	rows, err := p.db.Query("SELECT DISTINCT hostname FROM runtime_mysql_servers WHERE hostgroup_id != ? AND status = 'ONLINE' AND hostname NOT IN (SELECT hostname FROM runtime_mysql_servers WHERE hostgroup_id = ? AND status = 'ONLINE');", writerID, writerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var hosts []string
+	for rows.Next() {
+		var host string
+		if err := rows.Scan(&host); err != nil {
+			return nil, fmt.Errorf("failed to scan row: %w", err)
+		}
+		hosts = append(hosts, host)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("failed to get rows: %w", err)
+	}
+	return hosts, nil
+}
+
 func (p *Database) Hostname() (string, error) {
 	var hostname string
 	err := p.db.QueryRow("SELECT @@hostname hostname").Scan(&hostname)

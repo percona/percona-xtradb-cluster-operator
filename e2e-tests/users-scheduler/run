@@ -18,10 +18,15 @@ is_old_password_discarded() {
 	local uri=$2
 	local result
 	result=$(run_mysql "SELECT User_attributes FROM mysql.user WHERE user='${username}'" "${uri}" 2>/dev/null || echo "")
-	# Check if result is empty, NULL, or doesn't contain additional_password
-	if [[ -z "$result" ]] || [[ "$result" =~ ^[[:space:]]*$ ]] || [[ "$result" =~ NULL ]] || [[ ! "$result" =~ additional_password ]]; then
+	# If result contains additional_password, old password is still present (not discarded)
+	if [[ "$result" =~ additional_password ]]; then
+		return 1
+	fi
+	# If result is empty, NULL, or whitespace only, old password is discarded
+	if [[ -z "$result" ]] || [[ "$result" =~ ^[[:space:]]*$ ]] || [[ "$result" =~ NULL ]]; then
 		return 0
 	fi
+	# Default: if we can't determine, assume not discarded (fail safe)
 	return 1
 }
 

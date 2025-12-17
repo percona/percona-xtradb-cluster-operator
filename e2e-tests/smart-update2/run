@@ -168,8 +168,6 @@ function check_telemetry_transfer() {
 	desc "telemetry was disabled in operator but not in CR"
 	if [[ "${cr_vs_channel}" == "${image_prefix}-recommended" || "${cr_vs_channel}" == "${image_prefix}-latest" ]] && [ "${telemetry_state}" == 'disabled' ]; then
 		desc "cr VS should have telemetry"
-		cat "${test_dir}/compare/${telemetry_cr_log_file}"
-		cat "${tmp_dir}/${telemetry_state}_telemetry.version-service-cr.log.json"
 		diff "${test_dir}/compare/${telemetry_cr_log_file}" <(grep -f "${tmp_dir}/${telemetry_state}_telemetry.version-service-cr.log.json" "${test_dir}/compare/${telemetry_cr_log_file}")
 		desc "operator VS should not have telemetry"
 		[[ -s ${tmp_dir}/disabled_telemetry.version-service.log.json ]] && exit 1

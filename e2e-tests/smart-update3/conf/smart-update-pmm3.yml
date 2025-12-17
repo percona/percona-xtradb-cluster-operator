@@ -9,13 +9,13 @@ spec:
   updateStrategy: SmartUpdate
   upgradeOptions:
     versionServiceEndpoint: https://127.0.0.1/versions
-    apply: recommended
+    apply: never
     schedule: "0 4 * * *"
-  secretsName: my-cluster-secrets
+  secretsName: smart-update
   pause: false
   pxc:
     size: 3
-    image: -pxc
+    image: percona/percona-xtradb-cluster:8.0.20-11.1
     resources:
       requests:
         memory: 2Gi

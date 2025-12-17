@@ -10,16 +10,11 @@ test_dir=$(realpath $(dirname $0))
 set_debug
 
 API='pxc.percona.com/v9-9-9'
-TARGET_IMAGE_PXC=${IMAGE_PXC}
+
 CLUSTER="smart-update"
 CLUSTER_SIZE=3
 PROXY_SIZE=2
 
-if [[ ${TARGET_IMAGE_PXC} == *"percona-xtradb-cluster-operator"* ]]; then
-	PXC_VER=$(echo -n "${TARGET_IMAGE_PXC}" | $sed -r 's/.*([0-9].[0-9])$/\1/')
-else
-	PXC_VER=$(echo -n "${TARGET_IMAGE_PXC}" | $sed -r 's/.*:([0-9]+\.[0-9]+).*$/\1/')
-fi
 VS_URL="http://version-service"
 VS_PORT="11000"
 VS_ENDPOINT=${VS_URL}.${namespace}.svc.cluster.local:${VS_PORT}
@@ -30,21 +25,6 @@ function deploy_version_service {
 		--from-file "${test_dir}/conf/operator.9.9.9.pxc-operator.dep.json" \
 		--from-file "${test_dir}/conf/operator.9.9.9.pxc-operator.json"
 	kubectl_bin apply -f "${test_dir}/conf/vs.yml"
-	sleep 10
-}
-
-function add_pxc_version_to_vs {
-	local pxc_version=${1}
-	local pxc_image=${2}
-
-	desc "Adding PXC version ${pxc_version} to version service"
-	kubectl_bin get configmap versions -o json | \
-		jq --arg ver "${pxc_version}" --arg img "${pxc_image}" \
-		'.data["operator.9.9.9.pxc-operator.json"] |= (fromjson | .versions[0].matrix.pxc += {($ver): {"imagePath": $img, "imageHash": "abc123", "status": "available", "critical": false}} | tojson)' | \
-		kubectl_bin apply -f -
-
-	# Restart version service to reload config
-	kubectl_bin delete pod -l run=version-service
 	sleep 10
 }
 
@@ -120,21 +100,24 @@ function main() {
 	desc 'install PMM3 Server'
 	deploy_pmm3_server
 
+	desc 'add PMM3 token to secret'
+  TOKEN=$(get_pmm_server_token "operator")
+
+  kubectl_bin apply -f "${conf_dir}/client.yml"
+
+  cp -f "${test_dir}/conf/secrets.yml" "${tmp_dir}/secrets.yml"
+  yq -i eval ".stringData.pmmservertoken = \"${TOKEN}\"" "${tmp_dir}/secrets.yml"
+  kubectl_bin apply -f "${tmp_dir}/secrets.yml"
+
 	# Prepare PMM3 cluster config
 	cp -f "${test_dir}/conf/${CLUSTER}-pmm3.yml" "${tmp_dir}/${CLUSTER}-pmm3.yml"
-	yq -i eval ".spec.initContainer.image = \"${IMAGE}\"" "${tmp_dir}/${CLUSTER}-pmm3.yml"
+	yq "${tmp_dir}/${CLUSTER}-pmm3.yml" \
+    | yq eval ".spec.initContainer.image=\"${IMAGE}\"" \
+    | yq eval ".spec.backup.image=\"${IMAGE_BACKUP}\"" \
+    | yq eval ".spec.haproxy.image=\"${IMAGE_HAPROXY}\"" \
+    | kubectl_bin apply -f -
 
-	spinup_pxc "${CLUSTER}" "${tmp_dir}/${CLUSTER}-pmm3.yml" 3 10 "${test_dir}/conf/secrets.yml"
-
-  desc 'add PMM3 token to secret'
-  TOKEN=$(get_pmm_server_token "operator")
-  kubectl_bin patch secret my-cluster-secrets --type merge --patch '{"stringData": {"pmmservertoken": "'"$TOKEN"'"}}'
-
-	# Get actual PXC version from running cluster and add to version service
 	wait_cluster_consistency "${CLUSTER}" "${CLUSTER_SIZE}" "${PROXY_SIZE}"
-	ACTUAL_PXC_VERSION=$(kubectl_bin get pxc "${CLUSTER}" -o jsonpath='{.status.pxc.version}')
-	desc "Detected PXC version for PMM3: ${ACTUAL_PXC_VERSION}"
-	add_pxc_version_to_vs "${ACTUAL_PXC_VERSION}" "${IMAGE_PXC}"
 
 	# Get initial PMM3 image
 	initial_pmm3_image=$(kubectl_bin get pod "${CLUSTER}-pxc-0" -o jsonpath='{.status.containerStatuses[?(@.name=="pmm-client")].image}')
@@ -170,7 +153,7 @@ function main() {
   # Verify PMM3 metrics are being collected
   desc 'verify PMM3 metrics are being collected'
   sleep 60
-  TOKEN=$(getSecretData "my-cluster-secrets" "pmmservertoken")
+
   get_metric_values_pmm3 haproxy_backend_status $namespace-${CLUSTER}-haproxy-0 $TOKEN
   get_metric_values_pmm3 haproxy_backend_active_servers $namespace-${CLUSTER}-haproxy-0 $TOKEN
   desc "PMM3 metrics verified successfully"

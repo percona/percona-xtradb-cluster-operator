@@ -2221,7 +2221,6 @@ wait_for_password_propagation() {
 
 	# Give operator some time to start processing before checking
 	sleep 5
-	
 	retry=0
 	until is_old_password_discarded "${user}" "-h ${cluster}-pxc -uroot -p'${root_pass}'"; do
 		sleep 1

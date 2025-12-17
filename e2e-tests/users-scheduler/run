@@ -125,7 +125,7 @@ compare_mysql_cmd "select-4" "SHOW TABLES;" "-h $cluster-proxysql -uoperator -p'
 desc 'test enable haproxy and disable proxysql '
 newpass="test-password2"
 newpassencrypted=$(echo -n "$newpass" | base64)
-kubectl_bin patch pxc ${cluster}  --type=merge -p '{"spec":{"haproxy":{"enabled":true},"proxysql":{"enabled":false},"secretsName":"my-cluster-secrets"}}'
+kubectl_bin patch pxc ${cluster} --type=merge -p '{"spec":{"haproxy":{"enabled":true},"proxysql":{"enabled":false},"secretsName":"my-cluster-secrets"}}'
 
 sleep 15
 wait_cluster_consistency "$cluster" 3 3

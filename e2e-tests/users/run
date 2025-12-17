@@ -66,15 +66,19 @@ wait_for_password_propagation() {
 		fi
 	done
 
+	# Give operator some time to start processing before checking
+	sleep 5
+	
 	retry=0
 	until is_old_password_discarded "${user}" "-h ${cluster}-pxc -uroot -p'${root_pass}'"; do
-		if [[ $((retry % 30)) -eq 0 ]]; then
-			# Show debug info every 30 seconds
+		if [[ $((retry % 30)) -eq 0 ]] && [[ $retry -gt 0 ]]; then
+			# Show debug info every 30 seconds (but not on first retry)
 			local debug_result
 			debug_result=$(run_mysql "SELECT User_attributes FROM mysql.user WHERE user='${user}'" "-h ${cluster}-pxc -uroot -p'${root_pass}'" 2>/dev/null || echo "ERROR")
 			echo "waiting for password propagation (retry $retry/$max_retry). User_attributes: ${debug_result:0:100}"
-		else
-			echo "waiting for password propagation"
+		fi
+		if [[ $retry -eq 0 ]]; then
+			echo "waiting for old password to be discarded..."
 		fi
 		sleep 1
 		((retry++))
@@ -83,9 +87,11 @@ wait_for_password_propagation() {
 			local final_result
 			final_result=$(run_mysql "SELECT User_attributes FROM mysql.user WHERE user='${user}'" "-h ${cluster}-pxc -uroot -p'${root_pass}'" 2>/dev/null || echo "ERROR")
 			echo "Final User_attributes value: $final_result"
+			echo "This means the operator did not discard the old password within ${max_retry} seconds"
 			return 1
 		fi
 	done
+	echo "Old password successfully discarded after $retry retries"
 }
 
 create_infra "$namespace"

@@ -9,11 +9,10 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/xtrabackup/api"
 	"github.com/pkg/errors"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 func (s *appServer) GetLogs(req *api.GetLogsRequest, stream api.XtrabackupService_GetLogsServer) error {
-	log := logf.Log.WithName("xtrabackup-server").WithName("GetLogs")
+	log := s.log.WithName("xtrabackup-server").WithName("GetLogs")
 
 	log.Info("Getting logs", "backup_name", req.BackupName)
 

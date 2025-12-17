@@ -327,7 +327,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) createBackupJob(
 	xtrabackupEnabled := features.Enabled(ctx, features.XtrabackupSidecar)
 	getJobSpec := func() (batchv1.JobSpec, error) {
 		if xtrabackupEnabled {
-			srcNode, err := pxc.GetPrimaryPodDNSName(ctx, r.client, cluster)
+			srcNode, err := pxc.GetHostForSidecarBackup(ctx, r.client, cluster)
 			if err != nil {
 				return batchv1.JobSpec{}, errors.Wrap(err, "failed to get primary pod dns name")
 			}
@@ -664,6 +664,23 @@ func getPXCBackupStateFromJob(job *batchv1.Job) api.PXCBackupState {
 	return api.BackupStarting
 }
 
+func (r *ReconcilePerconaXtraDBClusterBackup) checkJobPodsRunning(
+	ctx context.Context,
+	job *batchv1.Job,
+) (bool, error) {
+	pods := corev1.PodList{}
+	err := r.client.List(ctx, &pods, client.InNamespace(job.GetNamespace()), client.MatchingLabels(job.GetLabels()))
+	if err != nil {
+		return false, errors.Wrap(err, "list job pods")
+	}
+	for _, pod := range pods.Items {
+		if pod.Status.Phase == corev1.PodRunning {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 func (r *ReconcilePerconaXtraDBClusterBackup) updateJobStatus(
 	ctx context.Context,
 	bcp *api.PerconaXtraDBClusterBackup,
@@ -700,6 +717,24 @@ func (r *ReconcilePerconaXtraDBClusterBackup) updateJobStatus(
 
 	if status.State == api.BackupSucceeded {
 		status.CompletedAt = job.Status.CompletionTime
+	}
+
+	// There is a bug in k8s 1.33.2 (possibly some earlier versions as well), where a suspended job after being un-suspended
+	// contains stale status. I.e, the job status still reflects the suspended state even though the job pods are running.
+	// As a consequence, the backup state may transition from Starting -> Succeeded without going through the Running state.
+	//
+	// As a workaround, when the computed state is `Starting`, we shall double check if there are any running pods.
+	// See: https://perconadev.atlassian.net/browse/K8SPXC-1772
+	//
+	// This was fixed in k8s 1.33.6. See: https://github.com/kubernetes/kubernetes/pull/135129
+	if status.State == api.BackupStarting {
+		running, err := r.checkJobPodsRunning(ctx, job)
+		if err != nil {
+			return errors.Wrap(err, "check job pods running")
+		}
+		if running {
+			status.State = api.BackupRunning
+		}
 	}
 
 	// don't update the status if there aren't any changes.
@@ -804,6 +839,10 @@ func (r *ReconcilePerconaXtraDBClusterBackup) suspendJobIfNeeded(
 			return err
 		}
 
+		if suspendedSpec := job.Spec.Suspend; suspendedSpec != nil && *suspendedSpec {
+			return nil
+		}
+
 		for _, cond := range job.Status.Conditions {
 			if cond.Status != corev1.ConditionTrue {
 				continue
@@ -856,6 +895,10 @@ func (r *ReconcilePerconaXtraDBClusterBackup) resumeJobIfNeeded(
 				return nil
 			}
 			return err
+		}
+
+		if suspendedSpec := job.Spec.Suspend; suspendedSpec != nil && !*suspendedSpec {
+			return nil // already resumed
 		}
 
 		suspended := false

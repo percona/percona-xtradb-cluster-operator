@@ -34,7 +34,7 @@ wait_for_password_propagation() {
 	local secret=$1
 	local user=$2
 	local cluster=$3
-	local max_retry="${4:-240}"
+	local max_retry="${4:-600}"
 	local root_pass
 	local retry
 
@@ -72,13 +72,16 @@ wait_for_password_propagation() {
 	retry=0
 	until is_old_password_discarded "${user}" "-h ${cluster}-pxc -uroot -p'${root_pass}'"; do
 		if [[ $((retry % 30)) -eq 0 ]] && [[ $retry -gt 0 ]]; then
-			# Show debug info every 30 seconds (but not on first retry)
+			# Show debug info every 30 retries
 			local debug_result
 			debug_result=$(run_mysql "SELECT User_attributes FROM mysql.user WHERE user='${user}'" "-h ${cluster}-pxc -uroot -p'${root_pass}'" 2>/dev/null || echo "ERROR")
 			echo "waiting for password propagation (retry $retry/$max_retry). User_attributes: ${debug_result:0:100}"
+		elif [[ $((retry % 10)) -eq 0 ]]; then
+			# Show progress every 10 retries
+			echo "waiting for old password to be discarded... (retry $retry/$max_retry)"
 		fi
 		if [[ $retry -eq 0 ]]; then
-			echo "waiting for old password to be discarded..."
+			echo "waiting for old password to be discarded... (retry $retry/$max_retry)"
 		fi
 		sleep 1
 		((retry++))

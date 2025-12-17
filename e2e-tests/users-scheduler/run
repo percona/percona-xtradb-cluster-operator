@@ -76,8 +76,8 @@ wait_for_password_propagation() {
 			local debug_result
 			debug_result=$(run_mysql "SELECT User_attributes FROM mysql.user WHERE user='${user}'" "-h ${cluster}-pxc -uroot -p'${root_pass}'" 2>/dev/null || echo "ERROR")
 			echo "waiting for password propagation (retry $retry/$max_retry). User_attributes: ${debug_result:0:100}"
-		elif [[ $((retry % 10)) -eq 0 ]]; then
-			# Show progress every 10 retries
+		elif [[ $((retry % 10)) -eq 0 ]] && [[ $retry -gt 0 ]]; then
+			# Show progress every 10 retries (but not on retry 0)
 			echo "waiting for old password to be discarded... (retry $retry/$max_retry)"
 		fi
 		if [[ $retry -eq 0 ]]; then
@@ -85,6 +85,10 @@ wait_for_password_propagation() {
 		fi
 		sleep 1
 		((retry++))
+		# Force output flush every retry to ensure we see progress (helps with buffered output)
+		if [[ $((retry % 5)) -eq 0 ]]; then
+			echo "still waiting... (retry $retry/$max_retry)" >&2
+		fi
 		if [[ $retry -ge $max_retry ]]; then
 			echo "ERROR: max retry count $retry reached. something went wrong with operator or kubernetes cluster"
 			local final_result

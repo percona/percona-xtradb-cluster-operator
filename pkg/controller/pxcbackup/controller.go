@@ -830,37 +830,42 @@ func (r *ReconcilePerconaXtraDBClusterBackup) suspendJobIfNeeded(
 
 	log := logf.FromContext(ctx)
 
-	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+	job, err := r.getBackupJob(ctx, cr)
+	if err != nil {
+		if k8sErrors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+
+	for _, cond := range job.Status.Conditions {
+		if cond.Status != corev1.ConditionTrue {
+			continue
+		}
+
+		switch cond.Type {
+		case batchv1.JobSuspended, batchv1.JobComplete:
+			return nil
+		}
+	}
+
+	if suspendedSpec := job.Spec.Suspend; suspendedSpec != nil && *suspendedSpec {
+		return nil // already suspended
+	}
+
+	log.Info("Suspending backup job",
+		"job", job.Name,
+		"clusterStatus", cluster.Status.Status,
+		"readyPXC", cluster.Status.PXC.Ready)
+
+	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		// Get the latest job to avoid conflicting updates
 		job, err := r.getBackupJob(ctx, cr)
 		if err != nil {
-			if k8sErrors.IsNotFound(err) {
-				return nil
-			}
 			return err
 		}
 
-		if suspendedSpec := job.Spec.Suspend; suspendedSpec != nil && *suspendedSpec {
-			return nil
-		}
-
-		for _, cond := range job.Status.Conditions {
-			if cond.Status != corev1.ConditionTrue {
-				continue
-			}
-
-			switch cond.Type {
-			case batchv1.JobSuspended, batchv1.JobComplete:
-				return nil
-			}
-		}
-
-		log.Info("Suspending backup job",
-			"job", job.Name,
-			"clusterStatus", cluster.Status.Status,
-			"readyPXC", cluster.Status.PXC.Ready)
-
 		job.Spec.Suspend = ptr.To(true)
-
 		err = r.client.Update(ctx, job)
 		if err != nil {
 			return err
@@ -888,37 +893,42 @@ func (r *ReconcilePerconaXtraDBClusterBackup) resumeJobIfNeeded(
 
 	log := logf.FromContext(ctx)
 
-	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+	job, err := r.getBackupJob(ctx, cr)
+	if err != nil {
+		if k8sErrors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+
+	suspended := false
+	for _, cond := range job.Status.Conditions {
+		if cond.Type == batchv1.JobSuspended && cond.Status == corev1.ConditionTrue {
+			suspended = true
+		}
+	}
+
+	if suspendedSpec := job.Spec.Suspend; suspendedSpec != nil && !*suspendedSpec {
+		return nil // already resumed
+	}
+
+	if !suspended {
+		return nil
+	}
+
+	log.Info("Resuming backup job",
+		"job", job.Name,
+		"clusterStatus", cluster.Status.Status,
+		"readyPXC", cluster.Status.PXC.Ready)
+
+	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		// Get the latest job to avoid conflicting updates
 		job, err := r.getBackupJob(ctx, cr)
 		if err != nil {
-			if k8sErrors.IsNotFound(err) {
-				return nil
-			}
 			return err
 		}
 
-		if suspendedSpec := job.Spec.Suspend; suspendedSpec != nil && !*suspendedSpec {
-			return nil // already resumed
-		}
-
-		suspended := false
-		for _, cond := range job.Status.Conditions {
-			if cond.Type == batchv1.JobSuspended && cond.Status == corev1.ConditionTrue {
-				suspended = true
-			}
-		}
-
-		if !suspended {
-			return nil
-		}
-
-		log.Info("Resuming backup job",
-			"job", job.Name,
-			"clusterStatus", cluster.Status.Status,
-			"readyPXC", cluster.Status.PXC.Ready)
-
 		job.Spec.Suspend = ptr.To(false)
-
 		err = r.client.Update(ctx, job)
 		if err != nil {
 			return err

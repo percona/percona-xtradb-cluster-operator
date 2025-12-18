@@ -44,4 +44,5 @@ upgrade-consistency
 upgrade-haproxy
 upgrade-proxysql
 users
+users-scheduler
 validation-hook

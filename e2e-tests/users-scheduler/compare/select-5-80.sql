@@ -1,0 +1,2 @@
+information_schema
+performance_schema

@@ -125,6 +125,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) checkSuspendedDeadline(
 
 	// Some k8s versions contain a bug where an un-suspended Job after suspending contains stale status.
 	// To avoid this, we will check the spec and return early.
+	// See: https://github.com/percona/percona-xtradb-cluster-operator/pull/2314
 	resumed := job.Spec.Suspend == nil || !*job.Spec.Suspend
 	if resumed {
 		return nil

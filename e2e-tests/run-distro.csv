@@ -20,3 +20,4 @@ tls-issue-cert-manager
 upgrade-haproxy
 upgrade-proxysql
 users
+users-scheduler

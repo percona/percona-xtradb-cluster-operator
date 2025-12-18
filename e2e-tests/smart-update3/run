@@ -159,12 +159,13 @@ function main() {
   desc "PMM3 metrics verified successfully"
 
 
-	kubectl_bin delete -f "${tmp_dir}/${CLUSTER}-pmm3.yml"
-	kubectl_bin delete pvc --all
-
 	desc 'cleanup'
+	kubectl_bin delete -f "${tmp_dir}/${CLUSTER}-pmm3.yml"
 	helm uninstall monitoring
+
 	kubectl_bin delete -f "${test_dir}/conf/vs.yml"
+	kubectl_bin delete pvc --all
+	kubectl_bin delete secrets --all
 	destroy "${namespace}"
 	desc "test passed"
 }

@@ -15,7 +15,7 @@ newpass="test-password"
 newpassencrypted=$(echo -n "$newpass" | base64)
 
 cluster="some-name"
-spinup_pxc "$cluster" "$conf_dir/$cluster.yml" "" "" "$conf_dir/secrets_one_pass.yml"
+spinup_pxc "$cluster" "${test_dir}/conf/${cluster}.yml" "" "" "$conf_dir/secrets_one_pass.yml"
 
 PROXYSQL_VER=$(kubectl exec -it $cluster-proxysql-0 -- sh -c 'proxysql --version 2>/dev/null' | awk '{print $3}' | cut -d. -f1)
 tables_cmp_file="select-2-proxysql3"
@@ -122,9 +122,11 @@ kubectl_bin apply \
 sleep 60
 compare_mysql_cmd "select-4" "SHOW TABLES;" "-h $cluster-proxysql -uoperator -p'$pass'"
 
+desc 'test enable haproxy and disable proxysql '
 newpass="test-password2"
 newpassencrypted=$(echo -n "$newpass" | base64)
-apply_config "$test_dir/conf/some-name.yml"
+kubectl_bin patch pxc ${cluster} --type=merge -p '{"spec":{"haproxy":{"enabled":true},"proxysql":{"enabled":false},"secretsName":"my-cluster-secrets"}}'
+
 sleep 15
 wait_cluster_consistency "$cluster" 3 3
 if [[ $IMAGE_PXC =~ 5\.7 ]]; then

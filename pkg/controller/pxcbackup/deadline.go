@@ -106,6 +106,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) checkRunningDeadline(ctx context.C
 	return errRunningDeadlineExceeded
 }
 
+// checkSuspendedDeadline checks that a suspended backup resumes in the deadline specified by suspendedDeadlineSeconds.
 func (r *ReconcilePerconaXtraDBClusterBackup) checkSuspendedDeadline(
 	ctx context.Context,
 	cluster *api.PerconaXtraDBCluster,
@@ -120,6 +121,14 @@ func (r *ReconcilePerconaXtraDBClusterBackup) checkSuspendedDeadline(
 		}
 
 		return fmt.Errorf("failed to get backup job for suspended deadline check: %w", err)
+	}
+
+	// Some k8s versions contain a bug where an un-suspended Job after suspending contains stale status.
+	// To avoid this, we will check the spec and return early.
+	// See: https://github.com/percona/percona-xtradb-cluster-operator/pull/2314
+	resumed := job.Spec.Suspend == nil || !*job.Spec.Suspend
+	if resumed {
+		return nil
 	}
 
 	var deadlineSeconds *int64

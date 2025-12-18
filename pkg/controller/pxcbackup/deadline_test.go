@@ -231,6 +231,7 @@ var _ = Describe("Suspended deadline", func() {
 
 		job.Spec, err = bcp.JobSpec(cr.Spec, cluster, job, "")
 		Expect(err).ToNot(HaveOccurred())
+		job.Spec.Suspend = ptr.To(true)
 
 		job.Status.Conditions = append(job.Status.Conditions, batchv1.JobCondition{
 			Type:               batchv1.JobSuspended,
@@ -259,6 +260,7 @@ var _ = Describe("Suspended deadline", func() {
 
 		job.Spec, err = bcp.JobSpec(cr.Spec, cluster, job, "")
 		Expect(err).ToNot(HaveOccurred())
+		job.Spec.Suspend = ptr.To(true)
 
 		job.Status.Conditions = append(job.Status.Conditions, batchv1.JobCondition{
 			Type:               batchv1.JobSuspended,
@@ -287,6 +289,7 @@ var _ = Describe("Suspended deadline", func() {
 
 		job.Spec, err = bcp.JobSpec(cr.Spec, cluster, job, "")
 		Expect(err).ToNot(HaveOccurred())
+		job.Spec.Suspend = ptr.To(true)
 
 		job.Status.Conditions = append(job.Status.Conditions, batchv1.JobCondition{
 			Type:               batchv1.JobSuspended,
@@ -323,12 +326,87 @@ var _ = Describe("Suspended deadline", func() {
 
 		job.Spec, err = bcp.JobSpec(cr.Spec, cluster, job, "")
 		Expect(err).ToNot(HaveOccurred())
+		job.Spec.Suspend = ptr.To(true)
 
 		job.Status.Conditions = append(job.Status.Conditions, batchv1.JobCondition{
 			Type:               batchv1.JobSuspended,
 			Status:             corev1.ConditionTrue,
 			LastTransitionTime: metav1.NewTime(time.Now().Add(-2 * time.Minute)),
 		})
+
+		r := reconciler(buildFakeClient(job))
+
+		cluster.Spec.Backup.SuspendedDeadlineSeconds = ptr.To(int64(600))
+		cr.Spec.SuspendedDeadlineSeconds = ptr.To(int64(300))
+
+		err = r.checkSuspendedDeadline(context.Background(), cluster, cr)
+		Expect(err).ToNot(HaveOccurred())
+	})
+
+	// This test case verifies that if a Job contains a stale JobSuspended condition, the suspended deadline is not checked when spec.suspended is false.
+	It("should not return an error if job.spec.suspended=false but JobSuspended condition is set", func() {
+		cluster, err := readDefaultCR("cluster1", "test")
+		Expect(err).ToNot(HaveOccurred())
+
+		cr, err := readDefaultBackup("backup1", "test")
+		Expect(err).ToNot(HaveOccurred())
+
+		bcp := backup.New(cluster)
+		job := bcp.Job(cr, cluster)
+
+		job.Spec, err = bcp.JobSpec(cr.Spec, cluster, job, "")
+		Expect(err).ToNot(HaveOccurred())
+
+		job.Status.Conditions = append(job.Status.Conditions, batchv1.JobCondition{
+			Type:               batchv1.JobSuspended,
+			Status:             corev1.ConditionTrue,
+			LastTransitionTime: metav1.NewTime(time.Now().Add(-2 * time.Minute)),
+		})
+		job.Spec.Suspend = ptr.To(false)
+
+		r := reconciler(buildFakeClient(job))
+		cr.Spec.SuspendedDeadlineSeconds = ptr.To(int64(60))
+
+		err = r.checkSuspendedDeadline(context.Background(), cluster, cr)
+		Expect(err).ToNot(HaveOccurred())
+	})
+
+	It("should not return an error if job.spec.suspended=false", func() {
+		cluster, err := readDefaultCR("cluster1", "test")
+		Expect(err).ToNot(HaveOccurred())
+
+		cr, err := readDefaultBackup("backup1", "test")
+		Expect(err).ToNot(HaveOccurred())
+
+		bcp := backup.New(cluster)
+		job := bcp.Job(cr, cluster)
+
+		job.Spec, err = bcp.JobSpec(cr.Spec, cluster, job, "")
+		Expect(err).ToNot(HaveOccurred())
+		job.Spec.Suspend = ptr.To(false)
+
+		r := reconciler(buildFakeClient(job))
+
+		cluster.Spec.Backup.SuspendedDeadlineSeconds = ptr.To(int64(600))
+		cr.Spec.SuspendedDeadlineSeconds = ptr.To(int64(300))
+
+		err = r.checkSuspendedDeadline(context.Background(), cluster, cr)
+		Expect(err).ToNot(HaveOccurred())
+	})
+
+	It("should not return an error if job.spec.suspended is nil", func() {
+		cluster, err := readDefaultCR("cluster1", "test")
+		Expect(err).ToNot(HaveOccurred())
+
+		cr, err := readDefaultBackup("backup1", "test")
+		Expect(err).ToNot(HaveOccurred())
+
+		bcp := backup.New(cluster)
+		job := bcp.Job(cr, cluster)
+
+		job.Spec, err = bcp.JobSpec(cr.Spec, cluster, job, "")
+		Expect(err).ToNot(HaveOccurred())
+		job.Spec.Suspend = nil
 
 		r := reconciler(buildFakeClient(job))
 

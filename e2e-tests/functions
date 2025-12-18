@@ -2159,3 +2159,80 @@ get_pvc_name_for_backup() {
 
 	echo "$pvc_name"
 }
+
+is_password_updated() {
+	local username=$1
+	local uri=$2
+	run_mysql "SELECT User_attributes FROM mysql.user WHERE user='${username}'" "${uri}" | grep additional_password
+}
+
+is_old_password_discarded() {
+	local username=$1
+	local uri=$2
+	local result
+	result=$(run_mysql "SELECT User_attributes FROM mysql.user WHERE user='${username}'" "${uri}" 2>/dev/null || echo "")
+	# If result contains additional_password, old password is still present (not discarded)
+	if [[ "$result" =~ additional_password ]]; then
+		return 1
+	fi
+	# If result is empty, NULL, or whitespace only, old password is discarded
+	if [[ -z "$result" ]] || [[ "$result" =~ ^[[:space:]]*$ ]] || [[ "$result" =~ NULL ]]; then
+		return 0
+	fi
+	# Default: if we can't determine, assume not discarded (fail safe)
+	return 1
+}
+
+wait_for_password_propagation() {
+	local secret=$1
+	local user=$2
+	local cluster=$3
+	local max_retry="${4:-600}"
+	local root_pass
+	local retry
+
+	# Error handling for getSecretData
+	if ! root_pass=$(getSecretData "${secret}" "root"); then
+		echo "ERROR: Failed to get root password from secret ${secret}"
+		return 1
+	fi
+
+	# Validate root_pass is not empty
+	if [[ -z "${root_pass}" ]]; then
+		echo "ERROR: Root password is empty"
+		return 1
+	fi
+
+	if [[ $IMAGE_PXC =~ 5\.7 ]]; then
+		echo "Skipping dual password feature doesn't work for 5.7. PXC 5.7 doesn't support it!"
+		return 0
+	fi
+
+	retry=0
+	until is_password_updated "${user}" "-h ${cluster}-pxc -uroot -p'${root_pass}'"; do
+		echo "waiting for password update"
+		sleep 1
+		retry=$((retry + 1))
+		if [[ $retry -ge $max_retry ]]; then
+			echo "ERROR: max retry count $retry reached. something went wrong with operator or kubernetes cluster"
+			return 1
+		fi
+	done
+
+	# Give operator some time to start processing before checking
+	sleep 5
+	retry=0
+	until is_old_password_discarded "${user}" "-h ${cluster}-pxc -uroot -p'${root_pass}'"; do
+		sleep 1
+		retry=$((retry + 1))
+		if [[ $((retry % 10)) -eq 0 ]] && [[ $retry -gt 0 ]]; then
+			# Show progress every 10 retries
+			echo "waiting for old password to be discarded... (retry $retry/$max_retry)"
+		fi
+		if [[ $retry -ge $max_retry ]]; then
+			echo "ERROR: max retry count $retry reached. something went wrong with operator or kubernetes cluster"
+			return 1
+		fi
+	done
+	echo "Old password successfully discarded after $retry retries"
+}

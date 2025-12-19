@@ -146,7 +146,7 @@ func (c *Proxy) AppContainer(ctx context.Context, _ client.Client, spec *api.Pod
 	if api.ContainsVolume(availableVolumes, proxyConfigVolumeName) {
 		appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
 			Name:      proxyConfigVolumeName,
-			MountPath: "/etc/proxysql/",
+			MountPath: "/etc/proxysql/custom",
 		})
 	}
 

@@ -143,10 +143,14 @@ func (c *Proxy) AppContainer(ctx context.Context, _ client.Client, spec *api.Pod
 		},
 	}
 
+	proxyConfigMountPath := "/etc/proxysql"
+	if cr.CompareVersionWith("1.19.0") >= 0 {
+		proxyConfigMountPath = "/etc/proxysql/custom"
+	}
 	if api.ContainsVolume(availableVolumes, proxyConfigVolumeName) {
 		appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
 			Name:      proxyConfigVolumeName,
-			MountPath: "/etc/proxysql/custom",
+			MountPath: proxyConfigMountPath,
 		})
 	}
 

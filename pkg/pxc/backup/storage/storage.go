@@ -42,7 +42,7 @@ func NewClient(ctx context.Context, opts Options) (Storage, error) {
 		if !ok {
 			return nil, errors.New("invalid options type")
 		}
-		return NewS3(ctx, opts.Endpoint, opts.AccessKeyID, opts.SecretAccessKey, opts.BucketName, opts.Prefix, opts.Region, opts.VerifyTLS, opts.CABundle)
+		return NewS3(ctx, opts.Endpoint, opts.AccessKeyID, opts.SecretAccessKey, opts.SessionToken, opts.BucketName, opts.Prefix, opts.Region, opts.VerifyTLS, opts.CABundle)
 	case api.BackupStorageAzure:
 		opts, ok := opts.(*AzureOptions)
 		if !ok {
@@ -66,6 +66,7 @@ func NewS3(
 	endpoint,
 	accessKeyID,
 	secretAccessKey,
+	sessionToken,
 	bucketName,
 	prefix,
 	region string,
@@ -98,7 +99,7 @@ func NewS3(
 		transport.(*http.Transport).TLSClientConfig.RootCAs = roots
 	}
 	minioClient, err := minio.New(strings.TrimRight(endpoint, "/"), &minio.Options{
-		Creds:     credentials.NewStaticV4(accessKeyID, secretAccessKey, ""),
+		Creds:     credentials.NewStaticV4(accessKeyID, secretAccessKey, sessionToken),
 		Secure:    useSSL,
 		Region:    region,
 		Transport: transport,

@@ -39,6 +39,7 @@ recreate,8.0
 restore-to-encrypted-cluster,8.0
 restore-to-encrypted-cluster,8.4
 restore-to-encrypted-cluster-pxb,8.0
+restore-to-encrypted-cluster-pxb,8.4
 scaling-proxysql,8.0
 scaling,8.0
 scheduled-backup,5.7

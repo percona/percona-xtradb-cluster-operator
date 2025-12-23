@@ -65,7 +65,6 @@ function wait_pmm_update {
 
 		if [[ ${updated_count} -eq ${cluster_size} ]]; then
 			echo " Done! All ${cluster_size} pods updated."
-			set -x
 			return 0
 		fi
 
@@ -75,7 +74,6 @@ function wait_pmm_update {
 	done
 
 	# Timeout reached
-	set -x
 	echo "ERROR: Timeout waiting for PMM${pmm_version} update after $((max_retry * 5)) seconds"
 	echo "Expected image: ${expected_image}"
 	for i in $(seq 0 $((cluster_size - 1))); do

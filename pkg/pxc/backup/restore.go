@@ -650,6 +650,18 @@ func s3Envs(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBa
 				},
 			},
 		},
+		{
+			Name: "S3_SESSION_TOKEN",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: bcp.Status.S3.CredentialsSecret,
+					},
+					Key:      "AWS_SESSION_TOKEN",
+					Optional: ptr.To(true),
+				},
+			},
+		},
 	}
 	if pitr {
 		bucket := ""
@@ -698,6 +710,18 @@ func s3Envs(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBa
 							Name: storageS3.CredentialsSecret,
 						},
 						Key: "AWS_SECRET_ACCESS_KEY",
+					},
+				},
+			},
+			{
+				Name: "BINLOG_SESSION_TOKEN",
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: storageS3.CredentialsSecret,
+						},
+						Key:      "AWS_SESSION_TOKEN",
+						Optional: ptr.To(true),
 					},
 				},
 			},

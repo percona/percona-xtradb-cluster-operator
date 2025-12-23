@@ -102,11 +102,12 @@ type Config struct {
 }
 
 type BackupS3 struct {
-	Endpoint    string `env:"ENDPOINT" envDefault:"s3.amazonaws.com"`
-	AccessKeyID string `env:"ACCESS_KEY_ID,required"`
-	AccessKey   string `env:"SECRET_ACCESS_KEY,required"`
-	BucketURL   string `env:"S3_BUCKET_URL,required"`
-	Region      string `env:"DEFAULT_REGION,required"`
+	Endpoint     string `env:"ENDPOINT" envDefault:"s3.amazonaws.com"`
+	AccessKeyID  string `env:"ACCESS_KEY_ID,required"`
+	AccessKey    string `env:"SECRET_ACCESS_KEY,required"`
+	SessionToken string `env:"S3_SESSION_TOKEN"`
+	BucketURL    string `env:"S3_BUCKET_URL,required"`
+	Region       string `env:"DEFAULT_REGION,required"`
 }
 
 type BackupAzure struct {
@@ -144,7 +145,7 @@ func New(ctx context.Context, c Config) (*Collector, error) {
 			return nil, errors.Wrap(err, "read CA bundle file")
 		}
 
-		s, err = storage.NewS3(ctx, c.BackupStorageS3.Endpoint, c.BackupStorageS3.AccessKeyID, c.BackupStorageS3.AccessKey, bucketArr[0], prefix, c.BackupStorageS3.Region, c.VerifyTLS, caBundle)
+		s, err = storage.NewS3(ctx, c.BackupStorageS3.Endpoint, c.BackupStorageS3.AccessKeyID, c.BackupStorageS3.AccessKey, c.BackupStorageS3.SessionToken, bucketArr[0], prefix, c.BackupStorageS3.Region, c.VerifyTLS, caBundle)
 		if err != nil {
 			return nil, errors.Wrap(err, "new storage manager")
 		}

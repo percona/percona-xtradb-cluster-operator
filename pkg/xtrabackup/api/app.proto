@@ -58,6 +58,7 @@ message S3Config {
     string access_key = 4;
     string secret_key = 5;
     string storage_class = 6;
+    string session_token = 7;
 }
 
 message GCSConfig {

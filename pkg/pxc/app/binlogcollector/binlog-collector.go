@@ -269,6 +269,12 @@ func getStorageEnvs(cr *api.PerconaXtraDBCluster) ([]corev1.EnvVar, error) {
 				},
 			},
 			{
+				Name: "S3_SESSION_TOKEN",
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: app.SecretKeySelectorWithOptional(storage.S3.CredentialsSecret, "AWS_SESSION_TOKEN", true),
+				},
+			},
+			{
 				Name:  "S3_BUCKET_URL",
 				Value: storage.S3.Bucket,
 			},

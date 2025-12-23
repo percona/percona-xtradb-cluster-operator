@@ -404,12 +404,14 @@ spec:
 #
 #      admin_variables =
 #      {
-#        admin_credentials="proxyadmin:admin_password"
+#        admin_credentials="admin:admin"
 #        mysql_ifaces="0.0.0.0:6032"
 #        refresh_interval=2000
+#        restapi_enabled=true
+#        restapi_port=6070
 #
-#        cluster_username="proxyadmin"
-#        cluster_password="admin_password"
+#        cluster_username="admin"
+#        cluster_password="admin"
 #        checksum_admin_variables=false
 #        checksum_ldap_variables=false
 #        checksum_mysql_variables=false
@@ -444,11 +446,12 @@ spec:
 #        ping_timeout_server=200
 #        commands_stats=true
 #        sessions_sort=true
-#        have_ssl=true
-#        ssl_p2s_ca="/etc/proxysql/ssl-internal/ca.crt"
-#        ssl_p2s_cert="/etc/proxysql/ssl-internal/tls.crt"
-#        ssl_p2s_key="/etc/proxysql/ssl-internal/tls.key"
+#        have_ssl=false
+#        ssl_p2s_ca=""
+#        ssl_p2s_cert=""
+#        ssl_p2s_key=""
 #        ssl_p2s_cipher="ECDHE-RSA-AES128-GCM-SHA256"
+#        default_authentication_plugin="caching_sha2_password"
 #      }
 #    scheduler:
 #      enabled: false

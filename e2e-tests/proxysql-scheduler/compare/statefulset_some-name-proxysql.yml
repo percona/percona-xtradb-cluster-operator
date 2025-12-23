@@ -110,6 +110,8 @@ spec:
               name: ssl
             - mountPath: /etc/proxysql/ssl-internal
               name: ssl-internal
+            - mountPath: /etc/proxysql/custom
+              name: config
             - mountPath: /opt/percona
               name: bin
         - args:
@@ -221,6 +223,11 @@ spec:
             defaultMode: 420
             optional: false
             secretName: some-name-ssl
+        - configMap:
+            defaultMode: 420
+            name: some-name-proxysql
+            optional: true
+          name: config
         - emptyDir: {}
           name: bin
   updateStrategy:

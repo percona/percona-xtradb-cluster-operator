@@ -5,8 +5,10 @@ cross-site,8.0
 custom-users,8.0
 demand-backup-cloud,8.0
 demand-backup-cloud-pxb,8.0
+demand-backup-cloud-pxb,5.7
 demand-backup-encrypted-with-tls,8.0
 demand-backup-encrypted-with-tls,8.4
+demand-backup-encrypted-with-tls,5.7
 demand-backup-encrypted-with-tls-pxb,8.0
 demand-backup-encrypted-with-tls-pxb,8.4
 demand-backup,8.0

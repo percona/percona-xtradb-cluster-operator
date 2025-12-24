@@ -31,6 +31,13 @@ VS_URL="http://version-service"
 VS_PORT="11000"
 VS_ENDPOINT="${VS_URL}:${VS_PORT}"
 
+# Determine update strategy based on PXC version
+if [[ "${PXC_VER}" == "8.4" ]]; then
+	VS_UPDATE_STRATEGY="latest"
+else
+	VS_UPDATE_STRATEGY="recommended"
+fi
+
 function get_pod_names_images {
 	local cluster=${1}
 	local type=${2:-pxc}
@@ -156,9 +163,10 @@ function check_telemetry_transfer() {
 	fi
 
 	local image_prefix=${cr_vs_channel%'-recommended'}
+	image_prefix=${image_prefix%'-latest'}
 	local telemetry_cr_log_file="${telemetry_state}_telemetry.version-service-cr-${image_prefix}${OPERATOR_NS:+-cw}.log.json"
 	desc "telemetry was disabled in operator but not in CR"
-	if [ "${cr_vs_channel}" == "${image_prefix}-recommended" -a "${telemetry_state}" == 'disabled' ]; then
+	if [[ "${cr_vs_channel}" == "${image_prefix}-recommended" || "${cr_vs_channel}" == "${image_prefix}-latest" ]] && [ "${telemetry_state}" == 'disabled' ]; then
 		desc "cr VS should have telemetry"
 		diff "${test_dir}/compare/${telemetry_cr_log_file}" <(grep -f "${tmp_dir}/${telemetry_state}_telemetry.version-service-cr.log.json" "${test_dir}/compare/${telemetry_cr_log_file}")
 		desc "operator VS should not have telemetry"
@@ -217,7 +225,7 @@ function main() {
 	sleep 30
 	wait_pod "$(get_operator_pod)" "480" "${OPERATOR_NS}"
 
-	check_telemetry_transfer "http://version-service-cr.${namespace}.svc.cluster.local:11000" "${IMAGE_PREFIX}-recommended" "disabled"
+	check_telemetry_transfer "http://version-service-cr.${namespace}.svc.cluster.local:11000" "${IMAGE_PREFIX}-${VS_UPDATE_STRATEGY}" "disabled"
 	kubectl_bin delete pod -l run=version-service-cr
 	kubectl_bin delete pod -l run=version-service
 	check_telemetry_transfer "http://version-service-cr.${namespace}.svc.cluster.local:11000" "disabled" "disabled"
@@ -237,8 +245,8 @@ function main() {
 	fi
 
 	##################################################
-	desc 'PXC cluster update with recommended image by version service'
-	vs_image="recommended"
+	desc "PXC cluster update with ${VS_UPDATE_STRATEGY} image by version service"
+	vs_image="${VS_UPDATE_STRATEGY}"
 	initial_primary=$(run_mysql 'SELECT @@hostname hostname;' "-h ${CLUSTER}-haproxy -uroot -proot_password")
 
 	kubectl_bin patch pxc/"${CLUSTER}" --type=merge -p '{"spec":{"upgradeOptions":{"versionServiceEndpoint":"'${VS_ENDPOINT}'","apply":"'${vs_image}'","schedule": "* * * * *"}}}'

@@ -19,6 +19,15 @@ function compare_scheduler() {
 		${pod}
 }
 
+function compare_proxysql_cfg() {
+	local pod=$1
+	local compare_file=$2
+
+	local query='SELECT variable_value from global_variables WHERE variable_name='\'mysql-poll_timeout\'''
+	compare_mysql_cmd_local ${compare_file} "${query}" \
+		"-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" ${pod}
+}
+
 function compare_mysql_servers() {
 	local pod=$1
 	local compare_file=$2
@@ -58,6 +67,9 @@ create_infra ${namespace}
 desc "create PXC cluster: ${cluster}"
 spinup_pxc "${cluster}" "${test_dir}/conf/${cluster}.yml"
 wait_cluster_consistency "${cluster}" 3 2
+
+desc 'check proxysql custom config'
+compare_proxysql_cfg "${cluster}-proxysql-0" "proxysql-cfg"
 
 desc 'check if service and statefulset created with expected config'
 compare_kubectl statefulset/${cluster}-pxc

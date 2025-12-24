@@ -14,6 +14,10 @@ function sed_in_place() {
 }
 
 cp /opt/percona/proxysql.cnf /etc/proxysql
+if [[ -f /etc/proxysql/custom/proxysql.cnf ]]; then
+	cp /etc/proxysql/custom/proxysql.cnf /etc/proxysql/proxysql.cnf
+fi
+
 cp /opt/percona/proxysql-admin.cnf /etc
 
 MYSQL_INTERFACES='0.0.0.0:3306;0.0.0.0:33062'

@@ -61,6 +61,12 @@ spec:
                 secretKeyRef:
                   key: AWS_SECRET_ACCESS_KEY
                   name: minio-secret
+            - name: S3_SESSION_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  key: AWS_SESSION_TOKEN
+                  name: minio-secret
+                  optional: true
             - name: XB_EXTRA_ARGS
               value: --parallel=3
             - name: XBCLOUD_EXTRA_ARGS

@@ -230,7 +230,6 @@ main() {
 		check_backup_existence_azure "${backup_dest_azure}" "/xtrabackup_binlog_info.00000000000000000000"
 
 		kubectl_bin delete pxc-backup --all
-		
 		dest_file="/xtrabackup_binlog_info.00000000000000000000"
 		if [[ "$MYSQL_VERSION" == "5.7" ]]; then
 			dest_file="/xtrabackup_info.00000000000000000000"

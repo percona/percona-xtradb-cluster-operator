@@ -107,17 +107,6 @@ func NewS3(
 		return nil, errors.Wrap(err, "new minio client")
 	}
 
-	bucketExists, err := minioClient.BucketExists(ctx, bucketName)
-	if err != nil {
-		if merr, ok := err.(minio.ErrorResponse); ok && merr.Code == "301 Moved Permanently" {
-			return nil, errors.Errorf("%s region: %s bucket: %s", merr.Code, merr.Region, merr.BucketName)
-		}
-		return nil, errors.Wrap(err, "failed to check if bucket exists")
-	}
-	if !bucketExists {
-		return nil, errors.Errorf("bucket %s does not exist", bucketName)
-	}
-
 	return &S3{
 		client:     minioClient,
 		bucketName: bucketName,

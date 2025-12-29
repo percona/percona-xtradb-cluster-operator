@@ -230,11 +230,16 @@ main() {
 		check_backup_existence_azure "${backup_dest_azure}" "/xtrabackup_binlog_info.00000000000000000000"
 
 		kubectl_bin delete pxc-backup --all
+		
+		dest_file="/xtrabackup_binlog_info.00000000000000000000"
+		if [[ "$MYSQL_VERSION" == "5.7" ]]; then
+			dest_file="/xtrabackup_info.00000000000000000000"
+		fi
 
 		desc "Check backup deletion"
-		check_backup_deletion_aws "$backup_dest_aws" "/xtrabackup_binlog_info.00000000000000000000"
-		check_backup_deletion_gcs "${backup_dest_gcp}" "/xtrabackup_binlog_info.00000000000000000000"
-		check_backup_deletion_azure "${backup_dest_azure}" "/xtrabackup_binlog_info.00000000000000000000"
+		check_backup_deletion_aws "$backup_dest_aws" "$dest_file"
+		check_backup_deletion_gcs "${backup_dest_gcp}" "$dest_file"
+		check_backup_deletion_azure "${backup_dest_azure}" "$dest_file"
 
 		if [ "$EKS" = 1 ]; then
 			backup_name_aws_iam="on-demand-backup-aws-s3-iam"
@@ -242,7 +247,7 @@ main() {
 			run_backup_with_delete "${backup_name_aws_iam}"
 			desc "Check backup existence for $backup_name_aws_iam"
 			backup_dest_aws_iam=$(kubectl_bin get pxc-backup "$backup_name_aws_iam" -o jsonpath='{.status.destination}' | sed -e 's/.json$//' | cut -c 6-)
-			check_backup_existence_aws "${backup_dest_aws_iam}" ".xtrabackup_binlog_info.00000000000000000000"
+			check_backup_existence_aws "${backup_dest_aws_iam}" "$dest_file"
 		fi
 
 		destroy $namespace

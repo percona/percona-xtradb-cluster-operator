@@ -32,8 +32,13 @@ is_object_exist() {
 s3_add_bucket_dest() {
 	{ set +x; } 2>/dev/null
 	if [ -n "$ACCESS_KEY_ID" ] && [ -n "$SECRET_ACCESS_KEY" ]; then
+		# Set credentials in AWS credentials file (for AWS CLI)
 		aws configure set aws_access_key_id "$ACCESS_KEY_ID"
 		aws configure set aws_secret_access_key "$SECRET_ACCESS_KEY"
+	fi
+	if [ -n "$S3_SESSION_TOKEN" ]; then
+		# Set session token for AWS CLI (credentials file)
+		aws configure set aws_session_token "$S3_SESSION_TOKEN"
 	fi
 	set -x
 }

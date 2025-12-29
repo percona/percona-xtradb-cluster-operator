@@ -80,6 +80,9 @@ func (cfg *BackupConfig) xbcloudArgs(action XBCloudAction) []string {
 				fmt.Sprintf("--s3-secret-key=%s", cfg.S3.SecretKey),
 			}...,
 		)
+		if len(cfg.S3.SessionToken) > 0 {
+			args = append(args, fmt.Sprintf("--s3-session-token=%s", cfg.S3.SessionToken))
+		}
 		if len(cfg.S3.EndpointUrl) > 0 {
 			args = append(args, fmt.Sprintf("--s3-endpoint=%s", cfg.S3.EndpointUrl))
 		}

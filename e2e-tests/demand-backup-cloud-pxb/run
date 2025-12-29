@@ -231,7 +231,7 @@ main() {
 
 		kubectl_bin delete pxc-backup --all
 		dest_file="/xtrabackup_binlog_info.00000000000000000000"
-		if [[ "$MYSQL_VERSION" == "5.7" ]]; then
+		if [[ $MYSQL_VERSION == "5.7" ]]; then
 			dest_file="/xtrabackup_info.00000000000000000000"
 		fi
 

@@ -23,8 +23,8 @@ export IMAGE_BACKUP=${IMAGE_BACKUP:-"perconalab/percona-xtradb-cluster-operator:
 export IMAGE_LOGCOLLECTOR=${IMAGE_LOGCOLLECTOR:-"perconalab/fluentbit:main-logcollector"}
 export IMAGE_PMM_CLIENT=${IMAGE_PMM_CLIENT:-"perconalab/pmm-client:dev-latest"}
 export IMAGE_PMM_SERVER=${IMAGE_PMM_SERVER:-"perconalab/pmm-server:dev-latest"}
-export IMAGE_PMM3_CLIENT=${IMAGE_PMM3_CLIENT:-"perconalab/pmm-client:3.1.0"}
-export IMAGE_PMM3_SERVER=${IMAGE_PMM3_SERVER:-"perconalab/pmm-server:3.1.0"}
+export IMAGE_PMM3_CLIENT=${IMAGE_PMM3_CLIENT:-"perconalab/pmm-client:3-dev-latest"}
+export IMAGE_PMM3_SERVER=${IMAGE_PMM3_SERVER:-"perconalab/pmm-server:3-dev-latest"}
 
 if oc get projects 2>/dev/null; then
 	OPENSHIFT=$(oc version -o json | jq -r '.openshiftVersion' | grep -oE '^[0-9]+\.[0-9]+')
@@ -892,6 +892,39 @@ get_metric_values() {
 	echo -n "$result" | jq '.values[][1]' \
 		| grep '^"[0-9]'
 
+}
+
+get_metric_values_pmm3() {
+	local metric=$1
+	local instance=$2
+	local token=$3
+	local start=$($date -u "+%s" -d "-1 minute")
+	local end=$($date -u "+%s")
+	local endpoint=$(get_service_endpoint monitoring-service)
+
+	if [ -z "$metric" ]; then
+		echo "Error: metric is required"
+		exit 1
+	fi
+
+	if [ -z "$token" ]; then
+		echo "Error: token is required"
+		exit 1
+	fi
+
+	local wait_count=30
+	local retry=0
+	until [[ $(curl -s -k -H "Authorization: Bearer ${token}" "https://$endpoint/graph/api/datasources/proxy/1/api/v1/query_range?query=min%28$metric%7Bnode_name%3D%7E%22$instance%22%7d%20or%20$metric%7Bnode_name%3D%7E%22$instance%22%7D%29&start=$start&end=$end&step=60" \
+		| jq '.data.result[0].values[][1]' \
+		| grep '^"[0-9]') ]]; do
+		sleep 2
+		local start=$($date -u "+%s" -d "-1 minute")
+		local end=$($date -u "+%s")
+		let retry+=1
+		if [[ $retry -ge $wait_count ]]; then
+			exit 1
+		fi
+	done
 }
 
 get_qan20_values() {
@@ -2082,6 +2115,39 @@ deploy_pmm_server() {
 	wait_for_pmm_service
 }
 
+deploy_pmm3_server() {
+	helm uninstall -n "${NAMESPACE}" monitoring || :
+	helm repo remove percona || :
+	kubectl delete clusterrole monitoring --ignore-not-found
+	kubectl delete clusterrolebinding monitoring --ignore-not-found
+	helm repo add percona https://percona.github.io/percona-helm-charts/
+	helm repo update
+
+	if [ ! -z "$OPENSHIFT" ]; then
+		oc create sa pmm-server
+		oc adm policy add-scc-to-user privileged -z pmm-server
+		if [[ $OPERATOR_NS ]]; then
+			timeout 30 oc delete clusterrolebinding $(kubectl get clusterrolebinding | grep 'pmm-pxc-operator-' | awk '{print $1}') || :
+			oc create clusterrolebinding pmm-pxc-operator-cluster-wide --clusterrole=percona-xtradb-cluster-operator --serviceaccount=$namespace:pmm-server
+			oc patch clusterrole/percona-xtradb-cluster-operator --type json -p='[{"op":"add","path": "/rules/-","value":{"apiGroups":["security.openshift.io"],"resources":["securitycontextconstraints"],"verbs":["use"],"resourceNames":["privileged"]}}]' -n $OPERATOR_NS
+		else
+			oc create rolebinding pmm-pxc-operator-namespace-only --role percona-xtradb-cluster-operator --serviceaccount=$namespace:pmm-server
+			oc patch role/percona-xtradb-cluster-operator --type json -p='[{"op":"add","path": "/rules/-","value":{"apiGroups":["security.openshift.io"],"resources":["securitycontextconstraints"],"verbs":["use"],"resourceNames":["privileged"]}}]'
+		fi
+		local additional_params="--set platform=openshift --set supresshttp2=false --set serviceAccount.create=false --set serviceAccount.name=pmm-server"
+	fi
+
+	retry 10 60 helm install monitoring percona/pmm -n "${NAMESPACE}" \
+		--set fullnameOverride=monitoring \
+		--set image.tag=${IMAGE_PMM3_SERVER#*:} \
+		--set image.repository=${IMAGE_PMM3_SERVER%:*} \
+		--set service.type=LoadBalancer \
+		$additional_params \
+		--force
+
+	wait_for_pmm_service
+}
+
 wait_for_pmm_service() {
 	timeout=420
 	start=$(date +%s)
@@ -2095,6 +2161,69 @@ wait_for_pmm_service() {
 	done
 
 	kubectl_bin wait sts/monitoring --for=jsonpath='{.status.readyReplicas}'=1 --timeout=${timeout}s
+}
+
+get_pmm_server_token() {
+	local key_name=$1
+
+	if [[ -z $key_name ]]; then
+		key_name="operator"
+	fi
+
+	local ADMIN_PASSWORD
+	ADMIN_PASSWORD=$(kubectl get secret pmm-secret -o jsonpath="{.data.PMM_ADMIN_PASSWORD}" | base64 --decode)
+
+	if [[ -z $ADMIN_PASSWORD ]]; then
+		echo "Error: ADMIN_PASSWORD is empty or not found!" >&2
+		return 1
+	fi
+
+	local create_response create_status_code create_json_response
+	local retry=0
+	until [[ $create_status_code == 201 ]]; do
+		create_response=$(curl --insecure -s -X POST -H 'Content-Type: application/json' -H 'Accept: application/json' \
+			-d "{\"name\":\"${key_name}\", \"role\":\"Admin\", \"isDisabled\":false}" \
+			--user "admin:${ADMIN_PASSWORD}" \
+			"https://$(get_service_ip monitoring-service)/graph/api/serviceaccounts" \
+			-w "\n%{http_code}")
+
+		create_status_code=$(echo "$create_response" | tail -n1)
+		create_json_response=$(echo "$create_response" | sed '$ d')
+
+		sleep 5
+		let retry+=1
+		if [ "$retry" -ge 24 ]; then
+			echo "Error: Failed to create PMM service account. HTTP Status: $create_status_code" >&2
+			echo "Response: $create_json_response" >&2
+			return 1
+		fi
+	done
+
+	local service_account_id
+	service_account_id=$(echo "$create_json_response" | jq -r '.id')
+
+	if [[ -z $service_account_id || $service_account_id == "null" ]]; then
+		echo "Error: Failed to extract service account ID!" >&2
+		return 1
+	fi
+
+	local token_response token_status_code token_json_response
+	token_response=$(curl --insecure -s -X POST -H 'Content-Type: application/json' \
+		-d "{\"name\":\"${key_name}\"}" \
+		--user "admin:${ADMIN_PASSWORD}" \
+		"https://$(get_service_ip monitoring-service)/graph/api/serviceaccounts/${service_account_id}/tokens" \
+		-w "\n%{http_code}")
+
+	token_status_code=$(echo "$token_response" | tail -n1)
+	token_json_response=$(echo "$token_response" | sed '$ d')
+
+	if [[ $token_status_code -ne 200 ]]; then
+		echo "Error: Failed to create token. HTTP Status: $token_status_code" >&2
+		echo "Response: $token_json_response" >&2
+		return 1
+	fi
+
+	echo "$token_json_response" | jq -r '.key'
 }
 
 run_recovery_check_pitr() {

@@ -9,7 +9,9 @@ demand-backup
 demand-backup-flow-control
 demand-backup-parallel
 demand-backup-cloud
+demand-backup-cloud-pxb
 demand-backup-encrypted-with-tls
+demand-backup-encrypted-with-tls-pxb
 demand-backup-without-passwords
 extra-pvc
 haproxy
@@ -20,6 +22,7 @@ monitoring-pmm3
 one-pod
 operator-self-healing-chaos
 pitr
+pitr-pxb
 pitr-gap-errors
 proxy-protocol
 proxy-switch
@@ -28,6 +31,7 @@ proxysql-scheduler
 pvc-resize
 recreate
 restore-to-encrypted-cluster
+restore-to-encrypted-cluster-pxb
 scaling
 scaling-proxysql
 scheduled-backup

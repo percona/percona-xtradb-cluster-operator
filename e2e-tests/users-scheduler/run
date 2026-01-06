@@ -68,6 +68,8 @@ sleep 15
 compare_mysql_cmd_local "$tables_cmp_file" "SHOW TABLES;" "-h127.0.0.1 -P6032 -uproxyadmin -p'$newpass'" "$cluster-proxysql-0" "" 'proxysql'
 compare_mysql_cmd_local "$tables_cmp_file" "SHOW TABLES;" "-h127.0.0.1 -P6032 -uproxyadmin -p'$newpass'" "$cluster-proxysql-1" "" 'proxysql'
 compare_mysql_cmd_local "$tables_cmp_file" "SHOW TABLES;" "-h127.0.0.1 -P6032 -uproxyadmin -p'$newpass'" "$cluster-proxysql-2" "" 'proxysql'
+compare_mysql_cmd_local "proxysql-cfg" "SELECT variable_value from global_variables WHERE variable_name='admin-cluster_password';" \
+	"-h127.0.0.1 -P6032 -uproxyadmin -p'$newpass'" "$cluster-proxysql-2" "" 'proxysql'
 
 desc 'test xtrabackup'
 kubectl_bin patch pxc some-name --type=merge -p="{\"spec\":{\"proxysql\":{\"size\":2}}}"
@@ -83,6 +85,8 @@ wait_for_password_propagation "my-cluster-secrets" "monitor" "$cluster"
 wait_cluster_consistency "$cluster" 3 2
 sleep 15 # give some time for proxy-admin --syncusers
 compare_mysql_cmd "select-4" "SHOW TABLES;" "-h $cluster-proxysql -umonitor -p'$newpass'"
+compare_mysql_cmd_local "proxysql-cfg" "SELECT variable_value from global_variables WHERE variable_name='mysql-monitor_password';" \
+	"-h127.0.0.1 -P6032 -uproxyadmin -p'$newpass'" "$cluster-proxysql-1" "" 'proxysql'
 
 desc 'test operator'
 patch_secret "my-cluster-secrets" "operator" "$newpassencrypted"

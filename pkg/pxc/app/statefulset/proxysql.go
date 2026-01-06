@@ -143,10 +143,14 @@ func (c *Proxy) AppContainer(ctx context.Context, _ client.Client, spec *api.Pod
 		},
 	}
 
+	proxyConfigMountPath := "/etc/proxysql"
+	if cr.CompareVersionWith("1.19.0") >= 0 {
+		proxyConfigMountPath = "/etc/proxysql/custom"
+	}
 	if api.ContainsVolume(availableVolumes, proxyConfigVolumeName) {
 		appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
 			Name:      proxyConfigVolumeName,
-			MountPath: "/etc/proxysql/",
+			MountPath: proxyConfigMountPath,
 		})
 	}
 
@@ -179,8 +183,8 @@ func (c *Proxy) AppContainer(ctx context.Context, _ client.Client, spec *api.Pod
 
 	if cr.CompareVersionWith("1.19.0") >= 0 {
 		scheduler := cr.Spec.ProxySQL.Scheduler
+		appc.Env = append(appc.Env, schedulerEnvVariables(scheduler)...)
 		if scheduler.Enabled {
-			appc.Env = append(appc.Env, schedulerEnvVariables(scheduler)...)
 			appc.Env = append(appc.Env, corev1.EnvVar{
 				Name:  "SCHEDULER_ENABLED",
 				Value: "true",
@@ -365,8 +369,8 @@ func (c *Proxy) SidecarContainers(ctx context.Context, cl client.Client, spec *a
 			},
 		}...)
 
+		pxcMonit.Env = append(pxcMonit.Env, schedulerEnvVariables(cr.Spec.ProxySQL.Scheduler)...)
 		if cr.Spec.ProxySQL.Scheduler.Enabled {
-			pxcMonit.Env = append(pxcMonit.Env, schedulerEnvVariables(cr.Spec.ProxySQL.Scheduler)...)
 			pxcMonit.Env = append(pxcMonit.Env, corev1.EnvVar{
 				Name:  "SCHEDULER_ENABLED",
 				Value: "true",

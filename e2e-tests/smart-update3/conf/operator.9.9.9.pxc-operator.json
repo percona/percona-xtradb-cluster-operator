@@ -7,7 +7,7 @@
         "pxc": {
           "8.4.6-6.1": {
             "image_path": "perconalab/percona-xtradb-cluster-operator:main-pxc8.4",
-            "image_hash": "sha256:bee70295d85ade5044ff1adde70c5047fcc88109a9fbe109befe863372a60a1c",
+            "image_hash": "bee70295d85ade5044ff1adde70c5047fcc88109a9fbe109befe863372a60a1c",
             "status": "available",
             "critical": false
           },
@@ -87,7 +87,7 @@
           },
           "3.4.1": {
             "image_path": "percona/pmm-client:3.4.1",
-            "image_hash": "1c59d7188f8404e0294f4bfb3d2c3600107f808a023668a170a6b8036c56619b",
+            "image_hash": "sha256:1c59d7188f8404e0294f4bfb3d2c3600107f808a023668a170a6b8036c56619b",
             "status": "recommended",
             "critical": false
           }

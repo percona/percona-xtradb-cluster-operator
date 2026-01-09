@@ -22,7 +22,7 @@ spec:
 #  sslInternalSecretName: cluster1-ssl-internal
 #  logCollectorSecretName: cluster1-log-collector-secrets
 #  initContainer:
-#    image: perconalab/percona-xtradb-cluster-operator:main
+#    image: percona/percona-xtradb-cluster-operator:1.19.0
 #    containerSecurityContext:
 #      privileged: false
 #      runAsUser: 1001
@@ -61,7 +61,7 @@ spec:
     schedule: "0 4 * * *"
   pxc:
     size: 3
-    image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0
+    image: percona/percona-xtradb-cluster:8.4.6-6.1
     autoRecovery: true
 #    extraPVCs:
 #      - name: extra-data-volume
@@ -215,7 +215,7 @@ spec:
   haproxy:
     enabled: true
     size: 3
-    image: perconalab/percona-xtradb-cluster-operator:main-haproxy
+    image: percona/haproxy:2.8.17
 #    imagePullPolicy: Always
 #    schedulerName: mycustom-scheduler
 #    configuration: |
@@ -397,7 +397,7 @@ spec:
   proxysql:
     enabled: false
     size: 3
-    image: perconalab/percona-xtradb-cluster-operator:main-proxysql
+    image: percona/proxysql2:2.7.3-1.2
 #    imagePullPolicy: Always
 #    configuration: |
 #      datadir="/var/lib/proxysql"
@@ -577,7 +577,7 @@ spec:
 #     - 10.0.0.0/8
   logcollector:
     enabled: true
-    image: perconalab/fluentbit:main-logcollector
+    image: percona/fluentbit:4.0.1
 #    configuration: |
 #      [OUTPUT]
 #           Name  es
@@ -610,7 +610,7 @@ spec:
 
   pmm:
     enabled: false
-    image: perconalab/pmm-client:dev-latest
+    image: percona/pmm-client:3.5.0
     serverHost: monitoring-service
 #    customClusterName: "testClusterName"
 #    serverUser: admin
@@ -636,7 +636,7 @@ spec:
         cpu: 300m
   backup:
 #    allowParallel: true
-    image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0-backup
+    image: percona/percona-xtrabackup:8.4.0-5.1
 #    ttlSecondsAfterFinished: 3600
 #    backoffLimit: 6
 #    activeDeadlineSeconds: 3600

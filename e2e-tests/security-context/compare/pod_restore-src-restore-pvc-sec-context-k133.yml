@@ -3,6 +3,7 @@ kind: Pod
 metadata:
   annotations:
     openshift.io/scc: privileged
+    security.openshift.io/validated-scc-subject-type: serviceaccount
   generation: 1
   labels:
     app.kubernetes.io/instance: sec-context
@@ -85,6 +86,9 @@ spec:
       key: node.kubernetes.io/unreachable
       operator: Exists
       tolerationSeconds: 300
+    - effect: NoSchedule
+      key: node.kubernetes.io/memory-pressure
+      operator: Exists
   volumes:
     - name: backup
       persistentVolumeClaim:
@@ -124,3 +128,8 @@ spec:
                     apiVersion: v1
                     fieldPath: metadata.namespace
                   path: namespace
+          - configMap:
+            name: openshift-service-ca.crt
+            items:
+              - key: service-ca.crt
+                path: service-ca.crt

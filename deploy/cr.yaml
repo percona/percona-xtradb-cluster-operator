@@ -61,7 +61,7 @@ spec:
     schedule: "0 4 * * *"
   pxc:
     size: 3
-    image: percona/percona-xtradb-cluster:8.4.6-6.1
+    image: percona/percona-xtradb-cluster:8.4.7-7.1
     autoRecovery: true
 #    extraPVCs:
 #      - name: extra-data-volume

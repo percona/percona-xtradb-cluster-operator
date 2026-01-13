@@ -1,6 +1,6 @@
 # Images versions
 IMAGE_OPERATOR=percona/percona-xtradb-cluster-operator:1.19.0
-IMAGE_PXC84=percona/percona-xtradb-cluster:8.4.6-6.1
+IMAGE_PXC84=percona/percona-xtradb-cluster:8.4.7-7.1
 IMAGE_BACKUP84=percona/percona-xtrabackup:8.4.0-5.1
 IMAGE_PXC80=percona/percona-xtradb-cluster:8.0.44-35.1
 IMAGE_BACKUP80=percona/percona-xtrabackup:8.0.35-34.1

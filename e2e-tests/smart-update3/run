@@ -1,0 +1,171 @@
+#!/bin/bash
+# CASES:
+# - Update PMM3 to recommended version via version service
+
+set -o errexit
+
+test_dir=$(realpath $(dirname $0))
+. ${test_dir}/../functions
+
+set_debug
+
+API='pxc.percona.com/v9-9-9'
+
+CLUSTER="smart-update"
+CLUSTER_SIZE=3
+PROXY_SIZE=2
+
+VS_URL="http://version-service"
+VS_PORT="11000"
+VS_ENDPOINT=${VS_URL}.${namespace}.svc.cluster.local:${VS_PORT}
+
+function deploy_version_service {
+	desc 'install version service'
+	kubectl_bin create configmap versions \
+		--from-file "${test_dir}/conf/operator.9.9.9.pxc-operator.dep.json" \
+		--from-file "${test_dir}/conf/operator.9.9.9.pxc-operator.json"
+	kubectl_bin apply -f "${test_dir}/conf/vs.yml"
+	sleep 10
+}
+
+function wait_pmm_update {
+	local cluster=${1}
+	local cluster_size=${2}
+	local expected_image=${3}
+	local pmm_version=${4}  # e.g., "2" or "3"
+	local max_retry=${5:-240}  # Default 20 minutes
+
+	desc "Waiting for PMM${pmm_version} containers to update to ${expected_image}..."
+	set +x
+
+	local retry=0
+	echo "Waiting for PMM update"
+	echo "Expected image: ${expected_image}"
+	echo "Cluster size: ${cluster_size}"
+	echo
+
+	until [[ $retry -ge $max_retry ]]; do
+		echo "Iteration $((retry + 1)) / ${max_retry}:"
+
+		local updated_count=0
+
+		for i in $(seq 0 $((cluster_size - 1))); do
+			local pod="${cluster}-pxc-${i}"
+
+			local actual_pmm_image
+			actual_pmm_image=$(kubectl_bin get pod "${pod}" \
+				-o jsonpath='{.status.containerStatuses[?(@.name=="pmm-client")].image}' \
+				2>/dev/null || echo "")
+
+			# Only check if actual image contains expected image (handles docker.io prefix)
+			if [[ "${actual_pmm_image}" == *"${expected_image}"* ]]; then
+				((updated_count += 1))
+			fi
+		done
+
+		if [[ ${updated_count} -eq ${cluster_size} ]]; then
+			echo " Done! All ${cluster_size} pods updated."
+			return 0
+		fi
+
+		echo -n "."
+		((retry += 1))
+		sleep 5
+	done
+
+	# Timeout reached
+	echo "ERROR: Timeout waiting for PMM${pmm_version} update after $((max_retry * 5)) seconds"
+	echo "Expected image: ${expected_image}"
+	for i in $(seq 0 $((cluster_size - 1))); do
+		local actual=$(kubectl_bin get pod "${cluster}-pxc-${i}" -o jsonpath='{.status.containerStatuses[?(@.name=="pmm-client")].image}' 2>/dev/null || echo "none")
+		echo "  ${cluster}-pxc-${i}: ${actual}"
+	done
+	return 1
+}
+
+function main() {
+	create_infra "${namespace}"
+	deploy_version_service
+	deploy_cert_manager
+	deploy_helm "${namespace}"
+
+	kubectl_bin patch crd perconaxtradbclusters.pxc.percona.com --type='json' -p '[{"op":"add","path":"/spec/versions/-", "value":{"name": "v9-9-9","schema": {"openAPIV3Schema": {"properties": {"spec": {"type": "object","x-kubernetes-preserve-unknown-fields": true},"status": {"type": "object", "x-kubernetes-preserve-unknown-fields": true}}, "type": "object" }}, "served": true, "storage": false, "subresources": { "status": {}}}}]'
+	kubectl_bin ${OPERATOR_NS:+-n $OPERATOR_NS} set env deploy/percona-xtradb-cluster-operator "PERCONA_VS_FALLBACK_URI=http://version-service.${namespace}.svc.cluster.local:11000"
+
+	##################################################
+	desc 'PMM3 cluster update with the recommended image by version service'
+
+	desc 'install PMM3 Server'
+	deploy_pmm3_server
+
+	desc 'add PMM3 token to secret'
+  TOKEN=$(get_pmm_server_token "operator")
+
+  kubectl_bin apply -f "${conf_dir}/client.yml"
+
+  cp -f "${test_dir}/conf/secrets.yml" "${tmp_dir}/secrets.yml"
+  yq -i eval ".stringData.pmmservertoken = \"${TOKEN}\"" "${tmp_dir}/secrets.yml"
+  kubectl_bin apply -f "${tmp_dir}/secrets.yml"
+
+	# Prepare PMM3 cluster config
+	cp -f "${test_dir}/conf/${CLUSTER}-pmm3.yml" "${tmp_dir}/${CLUSTER}-pmm3.yml"
+	yq "${tmp_dir}/${CLUSTER}-pmm3.yml" \
+    | yq eval ".spec.initContainer.image=\"${IMAGE}\"" \
+    | yq eval ".spec.backup.image=\"${IMAGE_BACKUP}\"" \
+    | yq eval ".spec.haproxy.image=\"${IMAGE_HAPROXY}\"" \
+    | kubectl_bin apply -f -
+
+	wait_cluster_consistency "${CLUSTER}" "${CLUSTER_SIZE}" "${PROXY_SIZE}"
+
+	# Get initial PMM3 image
+	initial_pmm3_image=$(kubectl_bin get pod "${CLUSTER}-pxc-0" -o jsonpath='{.status.containerStatuses[?(@.name=="pmm-client")].image}')
+	desc "Initial PMM3 image: ${initial_pmm3_image}"
+
+	# Get recommended PMM3 image from version service
+	pmm3_recommended_image=$(kubectl_bin exec -ti "$(get_operator_pod)" ${OPERATOR_NS:+-n $OPERATOR_NS} -- curl -s "${VS_URL}.${namespace}.svc.cluster.local:${VS_PORT}/versions/v1/pxc-operator/9.9.9" | jq -r '.versions[].matrix.pmm | to_entries[] | select(.value.imagePath) | select(.value.imagePath | contains("pmm-client:3")) | select(.value.status == "recommended") | .value.imagePath')
+	desc "Target PMM3 recommended image: ${pmm3_recommended_image}"
+
+	# Compare images and skip if they are the same
+	if [ "${initial_pmm3_image}" == "${pmm3_recommended_image}" ]; then
+		desc "PMM3 images are the same (${initial_pmm3_image}), skipping PMM3 upgrade test"
+		exit 1
+  fi
+  # Update cluster to use version service
+  kubectl_bin patch pxc/"${CLUSTER}" --type=merge -p '{"spec":{"upgradeOptions":{"versionServiceEndpoint":"'${VS_ENDPOINT}'","apply":"recommended","schedule": "* * * * *"}}}'
+
+  # Wait for PMM3 update
+  wait_pmm_update "${CLUSTER}" "${CLUSTER_SIZE}" "${pmm3_recommended_image}" "3" || exit 1
+
+  wait_cluster_consistency "${CLUSTER}" "${CLUSTER_SIZE}" "${PROXY_SIZE}"
+
+  # Verify PMM3 updated
+  for i in $(seq 0 $((CLUSTER_SIZE - 1))); do
+    actual_pmm_image=$(kubectl_bin get pod "${CLUSTER}-pxc-${i}" -o jsonpath='{.status.containerStatuses[?(@.name=="pmm-client")].image}')
+    if [[ "${actual_pmm_image}" != *"${pmm3_recommended_image}"* ]]; then
+      echo "ERROR: PMM3 image not updated on ${CLUSTER}-pxc-${i}. Expected: ${pmm3_recommended_image}, Got: ${actual_pmm_image}"
+      exit 1
+    fi
+  done
+  desc "PMM3 successfully updated to ${pmm3_recommended_image}"
+
+  # Verify PMM3 metrics are being collected
+  desc 'verify PMM3 metrics are being collected'
+  sleep 60
+
+  get_metric_values_pmm3 haproxy_backend_status $namespace-${CLUSTER}-haproxy-0 $TOKEN
+  get_metric_values_pmm3 haproxy_backend_active_servers $namespace-${CLUSTER}-haproxy-0 $TOKEN
+  desc "PMM3 metrics verified successfully"
+
+
+	desc 'cleanup'
+	kubectl_bin delete -f "${tmp_dir}/${CLUSTER}-pmm3.yml"
+	helm uninstall monitoring
+
+	kubectl_bin delete -f "${test_dir}/conf/vs.yml"
+	kubectl_bin delete pvc --all
+	kubectl_bin delete secrets --all
+	destroy "${namespace}"
+	desc "test passed"
+}
+
+main

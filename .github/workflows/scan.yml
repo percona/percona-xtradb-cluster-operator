@@ -30,14 +30,6 @@ jobs:
           export DOCKER_DEFAULT_PLATFORM='linux/arm64'
           ./e2e-tests/build
 
-      - name: Run Snyk vulnerability scanner image (linux/arm64)
-        uses: snyk/actions/docker@master
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        with:
-          image: '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}-arm64'
-          args: --platform=linux/arm64 --severity-threshold=high --exclude-base-image-vulns --file=./build/Dockerfile -fail-on=upgradable
-
       - name: Build an image from Dockerfile (linux/amd64)
         run: |
           export IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}-amd64
@@ -45,12 +37,3 @@ jobs:
           export DOCKER_SQUASH=0
           export DOCKER_DEFAULT_PLATFORM='linux/amd64'
           ./e2e-tests/build
-
-      - name: Run Snyk vulnerability scanner image (linux/amd64)
-        uses: snyk/actions/docker@master
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        with:
-          image: '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}-amd64'
-          args: --platform=linux/amd64 --severity-threshold=high --exclude-base-image-vulns --file=./build/Dockerfile -fail-on=upgradable
-

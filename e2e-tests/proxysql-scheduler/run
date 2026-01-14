@@ -54,7 +54,7 @@ function compare_mysql_servers() {
 				"-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" ${pod}; then
 				echo
 				log "max retry count (${retry}) reached.
-				something went wrong with updating runtime_scheduler in ${pod}"
+				something went wrong with updating mysql_servers in ${pod}"
 				exit 1
 			fi
 		fi
@@ -95,6 +95,26 @@ compare_mysql_servers "${cluster}-proxysql-0" "mysql-servers-0"
 log "mysql_servers are configured in ${cluster}-proxysql-0: OK"
 compare_mysql_servers "${cluster}-proxysql-1" "mysql-servers-1"
 log "mysql_servers are configured in ${cluster}-proxysql-1: OK"
+
+desc 'check disabling scheduler'
+kubectl_bin patch pxc ${cluster} --type=merge -p '{"spec": {"proxysql": {"scheduler": {"enabled": false}}}}'
+sleep_with_log 90
+wait_cluster_consistency "${cluster}" 3 2
+compare_scheduler "${cluster}-proxysql-0" "scheduler-0-disabled"
+log "scheduler is disabled in ${cluster}-proxysql-0: OK"
+compare_scheduler "${cluster}-proxysql-1" "scheduler-1-disabled"
+log "scheduler is disabled in ${cluster}-proxysql-1: OK"
+kubectl get pod
+kubectl get pxc
+
+desc 'check enabling scheduler'
+kubectl_bin patch pxc ${cluster} --type=merge -p '{"spec": {"proxysql": {"scheduler": {"enabled": true}}}}'
+sleep_with_log 90
+wait_cluster_consistency "${cluster}" 3 2
+compare_scheduler "${cluster}-proxysql-0" "scheduler-0"
+log "scheduler is enabled in ${cluster}-proxysql-0: OK"
+compare_scheduler "${cluster}-proxysql-1" "scheduler-1"
+log "scheduler is enabled in ${cluster}-proxysql-1: OK"
 
 desc 'check PXC pod 1 is promoted to writer when pod-0 is down'
 (

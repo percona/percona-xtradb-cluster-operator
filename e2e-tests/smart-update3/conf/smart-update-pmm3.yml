@@ -9,13 +9,13 @@ spec:
   updateStrategy: SmartUpdate
   upgradeOptions:
     versionServiceEndpoint: https://127.0.0.1/versions
-    apply: recommended
+    apply: never
     schedule: "0 4 * * *"
-  secretsName: my-cluster-secrets
+  secretsName: smart-update
   pause: false
   pxc:
     size: 3
-    image: -pxc
+    image: percona/percona-xtradb-cluster:8.0.42-33.1
     resources:
       requests:
         memory: 2Gi
@@ -62,8 +62,8 @@ spec:
       maxUnavailable: 1
     gracePeriod: 30
   pmm:
-    enabled: false
-    image: percona/pmm-client:2.44.0
+    enabled: true
+    image: percona/pmm-client:3.4.0
     serverHost: monitoring-service
     serverUser: pmm
   backup:

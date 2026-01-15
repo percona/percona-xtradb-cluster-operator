@@ -49,6 +49,7 @@ func GetOptionsFromBackupConfig(cfg *xbscapi.BackupConfig) (Options, error) {
 			Endpoint:        cfg.S3.EndpointUrl,
 			AccessKeyID:     cfg.S3.AccessKey,
 			SecretAccessKey: cfg.S3.SecretKey,
+			SessionToken:    cfg.S3.SessionToken,
 			BucketName:      cfg.S3.Bucket,
 			Region:          cfg.S3.Region,
 			VerifyTLS:       cfg.VerifyTls,
@@ -166,6 +167,7 @@ func getS3Options(
 
 	accessKeyID := string(secret.Data["AWS_ACCESS_KEY_ID"])
 	secretAccessKey := string(secret.Data["AWS_SECRET_ACCESS_KEY"])
+	sessionToken := string(secret.Data["AWS_SESSION_TOKEN"])
 
 	bucket, prefix := s3.BucketAndPrefix()
 	if bucket == "" {
@@ -194,6 +196,7 @@ func getS3Options(
 		Endpoint:        s3.EndpointURL,
 		AccessKeyID:     accessKeyID,
 		SecretAccessKey: secretAccessKey,
+		SessionToken:    sessionToken,
 		BucketName:      bucket,
 		Prefix:          prefix,
 		Region:          region,
@@ -213,6 +216,7 @@ func getS3OptionsFromBackup(ctx context.Context, cl client.Client, cluster *api.
 	}
 	accessKeyID := string(secret.Data["AWS_ACCESS_KEY_ID"])
 	secretAccessKey := string(secret.Data["AWS_SECRET_ACCESS_KEY"])
+	sessionToken := string(secret.Data["AWS_SESSION_TOKEN"])
 
 	bucket, prefix := backup.Status.S3.BucketAndPrefix()
 	if bucket == "" {
@@ -251,6 +255,7 @@ func getS3OptionsFromBackup(ctx context.Context, cl client.Client, cluster *api.
 		Endpoint:        backup.Status.S3.EndpointURL,
 		AccessKeyID:     accessKeyID,
 		SecretAccessKey: secretAccessKey,
+		SessionToken:    sessionToken,
 		BucketName:      bucket,
 		Prefix:          prefix,
 		Region:          region,
@@ -265,6 +270,7 @@ type S3Options struct {
 	Endpoint        string
 	AccessKeyID     string
 	SecretAccessKey string
+	SessionToken    string
 	BucketName      string
 	Prefix          string
 	Region          string

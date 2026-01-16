@@ -74,8 +74,17 @@ func (p *PXC) GetGTIDSet(ctx context.Context, binlogName string) (string, error)
 
 	if err := scan(); err != nil {
 		if strings.Contains(err.Error(), "does not exist") {
-			if cerr := p.CreateCollectorFunctions(ctx); cerr != nil {
-				return "", stderrors.Join(err, cerr)
+			version, err := p.GetVersion(ctx)
+
+			switch {
+			case strings.HasPrefix(version, "8.0"):
+				if cerr := p.CreateCollectorFunctions(ctx); err != nil {
+					return "", stderrors.Join(err, cerr)
+				}
+			case strings.HasPrefix(version, "8.4"):
+				if cerr := p.InstallBinlogUDFComponent(ctx); err != nil {
+					return "", stderrors.Join(err, cerr)
+				}
 			}
 
 			return binlogSet, scan()
@@ -211,8 +220,17 @@ func (p *PXC) GetBinLogFirstTimestamp(ctx context.Context, binlog string) (strin
 	}
 	if err := scan(); err != nil {
 		if strings.Contains(err.Error(), "does not exist") {
-			if cerr := p.CreateCollectorFunctions(ctx); cerr != nil {
-				return "", stderrors.Join(err, cerr)
+			version, err := p.GetVersion(ctx)
+
+			switch {
+			case strings.HasPrefix(version, "8.0"):
+				if cerr := p.CreateCollectorFunctions(ctx); err != nil {
+					return "", stderrors.Join(err, cerr)
+				}
+			case strings.HasPrefix(version, "8.4"):
+				if cerr := p.InstallBinlogUDFComponent(ctx); err != nil {
+					return "", stderrors.Join(err, cerr)
+				}
 			}
 
 			return timestamp, scan()
@@ -234,8 +252,17 @@ func (p *PXC) GetBinLogLastTimestamp(ctx context.Context, binlog string) (string
 
 	if err := scan(); err != nil {
 		if strings.Contains(err.Error(), "does not exist") {
-			if cerr := p.CreateCollectorFunctions(ctx); cerr != nil {
-				return "", stderrors.Join(err, cerr)
+			version, err := p.GetVersion(ctx)
+
+			switch {
+			case strings.HasPrefix(version, "8.0"):
+				if cerr := p.CreateCollectorFunctions(ctx); err != nil {
+					return "", stderrors.Join(err, cerr)
+				}
+			case strings.HasPrefix(version, "8.4"):
+				if cerr := p.InstallBinlogUDFComponent(ctx); err != nil {
+					return "", stderrors.Join(err, cerr)
+				}
 			}
 
 			return timestamp, scan()

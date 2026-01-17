@@ -131,6 +131,7 @@ func setS3Config(req *xbscapi.CreateBackupRequest) {
 		EndpointUrl:  os.Getenv("ENDPOINT"),
 		AccessKey:    os.Getenv("ACCESS_KEY_ID"),
 		SecretKey:    os.Getenv("SECRET_ACCESS_KEY"),
+		SessionToken: os.Getenv("S3_SESSION_TOKEN"),
 		StorageClass: os.Getenv("S3_STORAGE_CLASS"),
 	}
 }
@@ -162,6 +163,7 @@ func sanitizeRequest(req *xbscapi.CreateBackupRequest) (string, error) {
 		if reqCopy.BackupConfig.S3 != nil {
 			reqCopy.BackupConfig.S3.SecretKey = "********"
 			reqCopy.BackupConfig.S3.AccessKey = "********"
+			reqCopy.BackupConfig.S3.SessionToken = "********"
 		}
 		if reqCopy.BackupConfig.Azure != nil {
 			reqCopy.BackupConfig.Azure.AccessKey = "********"

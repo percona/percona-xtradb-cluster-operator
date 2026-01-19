@@ -51,7 +51,7 @@ spec:
           value: "1"
         - name: PXCO_FEATURE_GATES
           value: ""
-        image: percona/percona-xtradb-cluster-operator:1.19.0
+        image: perconalab/percona-xtradb-cluster-operator:main
         imagePullPolicy: Always
         livenessProbe:
           failureThreshold: 3

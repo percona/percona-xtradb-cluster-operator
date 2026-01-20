@@ -322,8 +322,14 @@ func SetStorageS3(ctx context.Context, job *batchv1.JobSpec, cr *api.PerconaXtra
 				SecretKeyRef: app.SecretKeySelector(s3.CredentialsSecret, "AWS_SECRET_ACCESS_KEY"),
 			},
 		}
+		sessionToken := corev1.EnvVar{
+			Name: "S3_SESSION_TOKEN",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: app.SecretKeySelectorWithOptional(s3.CredentialsSecret, "AWS_SESSION_TOKEN", true),
+			},
+		}
 
-		job.Template.Spec.Containers[0].Env = append(job.Template.Spec.Containers[0].Env, accessKey, secretKey)
+		job.Template.Spec.Containers[0].Env = append(job.Template.Spec.Containers[0].Env, accessKey, secretKey, sessionToken)
 	}
 
 	job.Template.Spec.Containers[0].Env = append(job.Template.Spec.Containers[0].Env, region, endpoint)

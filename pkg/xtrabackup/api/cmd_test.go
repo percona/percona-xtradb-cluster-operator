@@ -127,6 +127,38 @@ func TestNewXbcloudCmd(t *testing.T) {
 			expectedEnv: []string{},
 		},
 		{
+			name: "S3 storage with session token",
+			backupConfig: &BackupConfig{
+				Destination: "s3://bucket/backup-name",
+				Type:        BackupStorageType_S3,
+				VerifyTls:   true,
+				S3: &S3Config{
+					Bucket:       "test-bucket",
+					Region:       "us-west-2",
+					AccessKey:    "access-key-123",
+					SecretKey:    "secret-key-456",
+					SessionToken: "session-token-789",
+					EndpointUrl:  "",
+				},
+			},
+			action: XBCloudActionPut,
+			expectedArgs: []string{
+				"xbcloud",
+				"put",
+				"--parallel=10",
+				"--curl-retriable-errors=7",
+				"--md5",
+				"--storage=s3",
+				"--s3-bucket=test-bucket",
+				"--s3-region=us-west-2",
+				"--s3-access-key=access-key-123",
+				"--s3-secret-key=secret-key-456",
+				"--s3-session-token=session-token-789",
+				"s3://bucket/backup-name",
+			},
+			expectedEnv: []string{},
+		},
+		{
 			name: "S3 storage with container options and xbcloud args",
 			backupConfig: &BackupConfig{
 				Destination: "s3://bucket/backup-name",

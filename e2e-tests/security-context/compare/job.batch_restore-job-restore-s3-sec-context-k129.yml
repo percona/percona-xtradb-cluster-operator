@@ -63,6 +63,12 @@ spec:
                 secretKeyRef:
                   key: AWS_SECRET_ACCESS_KEY
                   name: minio-secret
+            - name: S3_SESSION_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  key: AWS_SESSION_TOKEN
+                  name: minio-secret
+                  optional: true
             - name: XB_USE_MEMORY
               value: 100MB
           imagePullPolicy: Always

@@ -16,7 +16,7 @@ void createCluster(String CLUSTER_SUFFIX) {
                     --preemptible \
                     --zone ${region} \
                     --machine-type=c2d-standard-4 \
-                    --cluster-version=1.31 \
+                    --cluster-version=1.32 \
                     --num-nodes=3 \
                     --labels delete-cluster-after-hours=6 \
                     --disk-size 30 \

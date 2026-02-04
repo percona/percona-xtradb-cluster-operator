@@ -6,7 +6,6 @@ void createCluster(String CLUSTER_SUFFIX) {
     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
         sh """
             export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_SUFFIX}
-            export CLOUDSDK_CONFIG=/tmp/gcloud-${CLUSTER_SUFFIX}
             gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE
             gcloud config set project $GCP_PROJECT
             ret_num=0
@@ -47,7 +46,6 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
         sh """
             export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_SUFFIX}
-            export CLOUDSDK_CONFIG=/tmp/gcloud-${CLUSTER_SUFFIX}
             gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE
             gcloud config set project $GCP_PROJECT
             for namespace in \$(kubectl get namespaces --no-headers | awk '{print \$1}' | grep -vE "^kube-|^openshift" | sed '/-operator/ s/^/1-/' | sort | sed 's/^1-//'); do
@@ -68,7 +66,6 @@ void deleteOldClusters(String FILTER) {
     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
         sh """
             if gcloud --version > /dev/null 2>&1; then
-                export CLOUDSDK_CONFIG=/tmp/gcloud-cleanup
                 gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE
                 gcloud config set project $GCP_PROJECT
                 for GKE_CLUSTER in \$(gcloud container clusters list --format='csv[no-heading](name)' --filter="$FILTER"); do
@@ -152,7 +149,6 @@ void markPassedTests() {
 void printKubernetesStatus(String LOCATION, String CLUSTER_SUFFIX) {
     sh """
         export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
-        export CLOUDSDK_CONFIG=/tmp/gcloud-$CLUSTER_SUFFIX
         echo "========== KUBERNETES STATUS $LOCATION TEST =========="
         gcloud container clusters list|grep -E "NAME|$CLUSTER_NAME-$CLUSTER_SUFFIX "
         echo

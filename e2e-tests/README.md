@@ -98,12 +98,12 @@ You can use environment variables to re-declare all default docker images used f
 full list of variables is the following one:
 
 * `IMAGE` - the Operator, `perconalab/percona-xtradb-cluster-operator:main` by default,
-* `IMAGE_PXC` - Percona XtraDB Cluster, `perconalab/percona-xtradb-cluster-operator:main-pxc8.0` by default,
-* `IMAGE_PMM_CLIENT` - Percona Monitoring and Management (PMM) client, `perconalab/pmm-client:dev-latest` by default,
+* `IMAGE_PXC` - Percona XtraDB Cluster, `perconalab/percona-xtradb-cluster-operator:main-pxc8.4` by default,
+* `IMAGE_PMM_CLIENT` - Percona Monitoring and Management (PMM) client, `perconalab/pmm-client:3-dev-latest` by default,
 * `IMAGE_PROXY` - ProxySQL, `perconalab/percona-xtradb-cluster-operator:main-proxysql` by default,
 * `IMAGE_HAPROXY` - HA Proxy, `perconalab/percona-xtradb-cluster-operator:main-haproxy` by default,
-* `IMAGE_BACKUP` - backups, `perconalab/percona-xtradb-cluster-operator:main-pxc8.0-backup` by default,
-* `IMAGE_LOGCOLLECTOR` - Log Collector, `perconalab/percona-xtradb-cluster-operator:main-logcollector` by default,
+* `IMAGE_BACKUP` - backups, `perconalab/percona-xtradb-cluster-operator:main-pxc8.4-backup` by default,
+* `IMAGE_LOGCOLLECTOR` - Log Collector, `perconalab/fluentbit:main-logcollector` by default,
 
 ### Running the Operator cluster-wide
 

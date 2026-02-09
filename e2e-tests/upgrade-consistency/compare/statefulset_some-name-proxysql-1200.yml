@@ -1,12 +1,12 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  generation: 1
-  name: no-limits-proxysql
+  generation: 3
+  name: some-name-proxysql
   ownerReferences:
     - controller: true
       kind: PerconaXtraDBCluster
-      name: no-limits
+      name: some-name
 spec:
   persistentVolumeClaimRetentionPolicy:
     whenDeleted: Retain
@@ -17,155 +17,32 @@ spec:
   selector:
     matchLabels:
       app.kubernetes.io/component: proxysql
-      app.kubernetes.io/instance: no-limits
+      app.kubernetes.io/instance: some-name
       app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
       app.kubernetes.io/name: percona-xtradb-cluster
       app.kubernetes.io/part-of: percona-xtradb-cluster
-  serviceName: no-limits-proxysql-unready
+  serviceName: some-name-proxysql-unready
   template:
     metadata:
       labels:
         app.kubernetes.io/component: proxysql
-        app.kubernetes.io/instance: no-limits
+        app.kubernetes.io/instance: some-name
         app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
         app.kubernetes.io/name: percona-xtradb-cluster
         app.kubernetes.io/part-of: percona-xtradb-cluster
     spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app.kubernetes.io/component: proxysql
+                  app.kubernetes.io/instance: some-name
+                  app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+                  app.kubernetes.io/name: percona-xtradb-cluster
+                  app.kubernetes.io/part-of: percona-xtradb-cluster
+              topologyKey: kubernetes.io/hostname
       containers:
-        - env:
-            - name: PMM_SERVER
-              value: monitoring-service
-            - name: PMM_USER
-              value: pmm
-            - name: PMM_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  key: pmmserver
-                  name: internal-no-limits
-            - name: CLIENT_PORT_LISTEN
-              value: "7777"
-            - name: CLIENT_PORT_MIN
-              value: "30100"
-            - name: CLIENT_PORT_MAX
-              value: "30105"
-            - name: POD_NAME
-              valueFrom:
-                fieldRef:
-                  apiVersion: v1
-                  fieldPath: metadata.name
-            - name: POD_NAMESPASE
-              valueFrom:
-                fieldRef:
-                  apiVersion: v1
-                  fieldPath: metadata.namespace
-            - name: PMM_AGENT_SERVER_ADDRESS
-              value: monitoring-service
-            - name: PMM_AGENT_SERVER_USERNAME
-              value: pmm
-            - name: PMM_AGENT_SERVER_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  key: pmmserver
-                  name: internal-no-limits
-            - name: PMM_AGENT_LISTEN_PORT
-              value: "7777"
-            - name: PMM_AGENT_PORTS_MIN
-              value: "30100"
-            - name: PMM_AGENT_PORTS_MAX
-              value: "30105"
-            - name: PMM_AGENT_CONFIG_FILE
-              value: /usr/local/percona/pmm2/config/pmm-agent.yaml
-            - name: PMM_AGENT_SERVER_INSECURE_TLS
-              value: "1"
-            - name: PMM_AGENT_LISTEN_ADDRESS
-              value: 0.0.0.0
-            - name: PMM_AGENT_SETUP_METRICS_MODE
-              value: push
-            - name: PMM_AGENT_SETUP
-              value: "1"
-            - name: PMM_AGENT_SETUP_FORCE
-              value: "1"
-            - name: PMM_AGENT_SETUP_NODE_TYPE
-              value: container
-            - name: PMM_AGENT_SETUP_NODE_NAME
-              value: $(POD_NAMESPASE)-$(POD_NAME)
-            - name: DB_TYPE
-              value: proxysql
-            - name: MONITOR_USER
-              value: monitor
-            - name: MONITOR_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  key: monitor
-                  name: internal-no-limits
-            - name: DB_USER
-              value: monitor
-            - name: DB_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  key: monitor
-                  name: internal-no-limits
-            - name: DB_CLUSTER
-              value: pxc
-            - name: DB_HOST
-              value: localhost
-            - name: DB_PORT
-              value: "6032"
-            - name: CLUSTER_NAME
-              value: no-limits
-            - name: PMM_ADMIN_CUSTOM_PARAMS
-            - name: PMM_AGENT_PRERUN_SCRIPT
-              value: /var/lib/mysql/pmm-prerun.sh
-            - name: PMM_AGENT_SIDECAR
-              value: "true"
-            - name: PMM_AGENT_SIDECAR_SLEEP
-              value: "5"
-            - name: PMM_AGENT_PATHS_TEMPDIR
-              value: /tmp
-          envFrom:
-            - secretRef:
-                name: no-limits-env-vars-proxysql
-                optional: true
-          imagePullPolicy: IfNotPresent
-          lifecycle:
-            preStop:
-              exec:
-                command:
-                  - bash
-                  - -c
-                  - pmm-admin unregister --force
-          livenessProbe:
-            failureThreshold: 3
-            httpGet:
-              path: /local/Status
-              port: 7777
-              scheme: HTTP
-            initialDelaySeconds: 60
-            periodSeconds: 10
-            successThreshold: 1
-            timeoutSeconds: 5
-          name: pmm-client
-          ports:
-            - containerPort: 7777
-              protocol: TCP
-            - containerPort: 30100
-              protocol: TCP
-            - containerPort: 30101
-              protocol: TCP
-            - containerPort: 30102
-              protocol: TCP
-            - containerPort: 30103
-              protocol: TCP
-            - containerPort: 30104
-              protocol: TCP
-            - containerPort: 30105
-              protocol: TCP
-          resources: {}
-          terminationMessagePath: /dev/termination-log
-          terminationMessagePolicy: File
-          volumeMounts:
-            - mountPath: /var/lib/mysql
-              name: bin
         - args:
             - proxysql
             - -f
@@ -176,24 +53,24 @@ spec:
             - /opt/percona/proxysql-entrypoint.sh
           env:
             - name: PXC_SERVICE
-              value: no-limits-pxc
+              value: some-name-pxc
             - name: OPERATOR_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: operator
-                  name: internal-no-limits
+                  name: internal-some-name
             - name: PROXY_ADMIN_USER
               value: proxyadmin
             - name: PROXY_ADMIN_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: proxyadmin
-                  name: internal-no-limits
+                  name: internal-some-name
             - name: MONITOR_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: monitor
-                  name: internal-no-limits
+                  name: internal-some-name
             - name: SCHEDULER_CHECKTIMEOUT
               value: "0"
             - name: SCHEDULER_WRITERALSOREADER
@@ -212,9 +89,9 @@ spec:
               value: /tmp/scheduler-config.toml
           envFrom:
             - secretRef:
-                name: no-limits-env-vars-proxysql
+                name: some-name-env-vars-proxysql
                 optional: true
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           name: proxysql
           ports:
             - containerPort: 3306
@@ -227,9 +104,12 @@ spec:
               name: stats
               protocol: TCP
           resources:
+            limits:
+              cpu: 700m
+              memory: 1G
             requests:
-              cpu: 300m
-              memory: 500M
+              cpu: 100m
+              memory: 100M
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:
@@ -250,24 +130,24 @@ spec:
             - /opt/percona/proxysql-entrypoint.sh
           env:
             - name: PXC_SERVICE
-              value: no-limits-pxc
+              value: some-name-pxc
             - name: OPERATOR_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: operator
-                  name: internal-no-limits
+                  name: internal-some-name
             - name: PROXY_ADMIN_USER
               value: proxyadmin
             - name: PROXY_ADMIN_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: proxyadmin
-                  name: internal-no-limits
+                  name: internal-some-name
             - name: MONITOR_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: monitor
-                  name: internal-no-limits
+                  name: internal-some-name
             - name: SCHEDULER_CHECKTIMEOUT
               value: "0"
             - name: SCHEDULER_WRITERALSOREADER
@@ -286,9 +166,9 @@ spec:
               value: /tmp/scheduler-config.toml
           envFrom:
             - secretRef:
-                name: no-limits-env-vars-proxysql
+                name: some-name-env-vars-proxysql
                 optional: true
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           name: pxc-monit
           resources: {}
           terminationMessagePath: /dev/termination-log
@@ -309,29 +189,29 @@ spec:
             - /opt/percona/proxysql-entrypoint.sh
           env:
             - name: PROXYSQL_SERVICE
-              value: no-limits-proxysql-unready
+              value: some-name-proxysql-unready
             - name: OPERATOR_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: operator
-                  name: internal-no-limits
+                  name: internal-some-name
             - name: PROXY_ADMIN_USER
               value: proxyadmin
             - name: PROXY_ADMIN_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: proxyadmin
-                  name: internal-no-limits
+                  name: internal-some-name
             - name: MONITOR_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: monitor
-                  name: internal-no-limits
+                  name: internal-some-name
           envFrom:
             - secretRef:
-                name: no-limits-env-vars-proxysql
+                name: some-name-env-vars-proxysql
                 optional: true
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           name: proxysql-monit
           resources: {}
           terminationMessagePath: /dev/termination-log
@@ -343,7 +223,7 @@ spec:
       initContainers:
         - command:
             - /pxc-init-entrypoint.sh
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           name: pxc-init
           resources:
             limits:
@@ -356,7 +236,7 @@ spec:
               name: bin
         - command:
             - /proxysql-init-entrypoint.sh
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           name: proxysql-init
           resources:
             limits:
@@ -370,6 +250,7 @@ spec:
       restartPolicy: Always
       schedulerName: default-scheduler
       securityContext:
+        fsGroup: 1001
         supplementalGroups:
           - 1001
       serviceAccount: default
@@ -396,7 +277,7 @@ spec:
     - metadata:
         labels:
           app.kubernetes.io/component: proxysql
-          app.kubernetes.io/instance: no-limits
+          app.kubernetes.io/instance: some-name
           app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
           app.kubernetes.io/name: percona-xtradb-cluster
           app.kubernetes.io/part-of: percona-xtradb-cluster
@@ -406,6 +287,6 @@ spec:
           - ReadWriteOnce
         resources:
           requests:
-            storage: 6Gi
+            storage: 2Gi
       status:
         phase: Pending

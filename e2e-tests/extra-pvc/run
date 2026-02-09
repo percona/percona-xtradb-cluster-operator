@@ -9,7 +9,11 @@ function create_extra_pvcs() {
 	local ns=$1
 
 	log "Creating extra PVCs in namespace ${ns}"
-	kubectl_bin apply -f ${test_dir}/conf/extra-pvc.yml -n ${ns}
+	extra_pvc_file="extra-pvc.yml"
+	if [ "$AKS" = "1" ]; then
+		extra_pvc_file="extra-pvc-aks.yml"
+	fi
+	kubectl_bin apply -f ${test_dir}/conf/${extra_pvc_file} -n ${ns}
 
 	log "Waiting for source PVC to be bound"
 	kubectl_bin wait --for=jsonpath='{.status.phase}'=Bound pvc/extra-storage-source -n ${ns} --timeout=60s

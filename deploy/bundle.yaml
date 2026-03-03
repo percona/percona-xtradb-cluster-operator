@@ -3010,8 +3010,6 @@ spec:
                         items:
                           type: string
                         type: array
-                      trafficPolicy:
-                        type: string
                       type:
                         type: string
                     type: object
@@ -3045,8 +3043,6 @@ spec:
                         type: array
                       onlyReaders:
                         type: boolean
-                      trafficPolicy:
-                        type: string
                       type:
                         type: string
                     type: object
@@ -3054,8 +3050,6 @@ spec:
                     - message: '''loadBalancerClass'' can only be set when service
                         type is ''LoadBalancer'''
                       rule: '!(has(self.loadBalancerClass)) || self.type == ''LoadBalancer'''
-                  externalTrafficPolicy:
-                    type: string
                   extraPVCs:
                     items:
                       properties:
@@ -3324,10 +3318,6 @@ spec:
                         format: int32
                         type: integer
                     type: object
-                  loadBalancerSourceRanges:
-                    items:
-                      type: string
-                    type: array
                   nodeSelector:
                     additionalProperties:
                       type: string
@@ -3510,24 +3500,12 @@ spec:
                         format: int32
                         type: integer
                     type: object
-                  replicasExternalTrafficPolicy:
-                    type: string
                   replicasLoadBalancerSourceRanges:
                     items:
                       type: string
                     type: array
-                  replicasServiceAnnotations:
-                    additionalProperties:
-                      type: string
-                    type: object
                   replicasServiceEnabled:
                     type: boolean
-                  replicasServiceLabels:
-                    additionalProperties:
-                      type: string
-                    type: object
-                  replicasServiceType:
-                    type: string
                   resources:
                     properties:
                       claims:
@@ -3566,16 +3544,6 @@ spec:
                   schedulerName:
                     type: string
                   serviceAccountName:
-                    type: string
-                  serviceAnnotations:
-                    additionalProperties:
-                      type: string
-                    type: object
-                  serviceLabels:
-                    additionalProperties:
-                      type: string
-                    type: object
-                  serviceType:
                     type: string
                   sidecarPVCs:
                     items:
@@ -6636,8 +6604,6 @@ spec:
                         items:
                           type: string
                         type: array
-                      trafficPolicy:
-                        type: string
                       type:
                         type: string
                     type: object
@@ -6645,8 +6611,6 @@ spec:
                     - message: '''loadBalancerClass'' can only be set when service
                         type is ''LoadBalancer'''
                       rule: '!(has(self.loadBalancerClass)) || self.type == ''LoadBalancer'''
-                  externalTrafficPolicy:
-                    type: string
                   extraPVCs:
                     items:
                       properties:
@@ -6900,10 +6864,6 @@ spec:
                         format: int32
                         type: integer
                     type: object
-                  loadBalancerSourceRanges:
-                    items:
-                      type: string
-                    type: array
                   nodeSelector:
                     additionalProperties:
                       type: string
@@ -7086,18 +7046,6 @@ spec:
                         format: int32
                         type: integer
                     type: object
-                  replicasExternalTrafficPolicy:
-                    type: string
-                  replicasServiceAnnotations:
-                    additionalProperties:
-                      type: string
-                    type: object
-                  replicasServiceLabels:
-                    additionalProperties:
-                      type: string
-                    type: object
-                  replicasServiceType:
-                    type: string
                   resources:
                     properties:
                       claims:
@@ -7168,16 +7116,6 @@ spec:
                   schedulerName:
                     type: string
                   serviceAccountName:
-                    type: string
-                  serviceAnnotations:
-                    additionalProperties:
-                      type: string
-                    type: object
-                  serviceLabels:
-                    additionalProperties:
-                      type: string
-                    type: object
-                  serviceType:
                     type: string
                   sidecarPVCs:
                     items:
@@ -9683,8 +9621,6 @@ spec:
                         items:
                           type: string
                         type: array
-                      trafficPolicy:
-                        type: string
                       type:
                         type: string
                     type: object
@@ -9692,8 +9628,6 @@ spec:
                     - message: '''loadBalancerClass'' can only be set when service
                         type is ''LoadBalancer'''
                       rule: '!(has(self.loadBalancerClass)) || self.type == ''LoadBalancer'''
-                  externalTrafficPolicy:
-                    type: string
                   extraPVCs:
                     items:
                       properties:
@@ -9947,10 +9881,6 @@ spec:
                         format: int32
                         type: integer
                     type: object
-                  loadBalancerSourceRanges:
-                    items:
-                      type: string
-                    type: array
                   mysqlAllocator:
                     enum:
                     - jemalloc
@@ -10138,18 +10068,6 @@ spec:
                         format: int32
                         type: integer
                     type: object
-                  replicasExternalTrafficPolicy:
-                    type: string
-                  replicasServiceAnnotations:
-                    additionalProperties:
-                      type: string
-                    type: object
-                  replicasServiceLabels:
-                    additionalProperties:
-                      type: string
-                    type: object
-                  replicasServiceType:
-                    type: string
                   replicationChannels:
                     items:
                       properties:
@@ -10221,16 +10139,6 @@ spec:
                   schedulerName:
                     type: string
                   serviceAccountName:
-                    type: string
-                  serviceAnnotations:
-                    additionalProperties:
-                      type: string
-                    type: object
-                  serviceLabels:
-                    additionalProperties:
-                      type: string
-                    type: object
-                  serviceType:
                     type: string
                   sidecarPVCs:
                     items:

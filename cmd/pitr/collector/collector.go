@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -500,6 +501,84 @@ func (c *Collector) addGTIDSets(ctx context.Context, cache *HostBinlogCache, bin
 	return nil
 }
 
+// gtidEndMarker extracts UUID and the highest sequence number from a GTID entry.
+// Example: "uuid:6093289-6093543" -> ("uuid", 6093543, true)
+//
+//	"uuid:1-5:7-9"        -> ("uuid", 9, true)
+func gtidEndMarker(gtid string) (string, int64, bool) {
+	parts := strings.SplitN(gtid, ":", 2)
+	if len(parts) != 2 {
+		return "", 0, false
+	}
+
+	uuid := strings.TrimSpace(parts[0])
+	if uuid == "" {
+		return "", 0, false
+	}
+
+	maxSeq := int64(-1)
+	for _, interval := range strings.Split(parts[1], ":") {
+		interval = strings.TrimSpace(interval)
+		if interval == "" {
+			continue
+		}
+
+		hi := interval
+		if dash := strings.LastIndex(interval, "-"); dash >= 0 {
+			hi = interval[dash+1:]
+		}
+
+		n, err := strconv.ParseInt(hi, 10, 64)
+		if err != nil {
+			continue
+		}
+		if n > maxSeq {
+			maxSeq = n
+		}
+	}
+
+	if maxSeq < 0 {
+		return "", 0, false
+	}
+	return uuid, maxSeq, true
+}
+
+// gtidContainsSeq checks if GTID entry contains seq for uuid.
+// gtidEntry format: "uuid:1-5:7-9" or "uuid:10-20" etc.
+func gtidContainsSeq(gtidEntry, uuid string, seq int64) bool {
+	parts := strings.SplitN(gtidEntry, ":", 2)
+	if len(parts) != 2 {
+		return false
+	}
+	if strings.TrimSpace(parts[0]) != uuid {
+		return false
+	}
+
+	for _, interval := range strings.Split(parts[1], ":") {
+		interval = strings.TrimSpace(interval)
+		if interval == "" {
+			continue
+		}
+
+		loStr, hiStr := interval, interval
+		if dash := strings.LastIndex(interval, "-"); dash >= 0 {
+			loStr = interval[:dash]
+			hiStr = interval[dash+1:]
+		}
+
+		lo, err1 := strconv.ParseInt(loStr, 10, 64)
+		hi, err2 := strconv.ParseInt(hiStr, 10, 64)
+		if err1 != nil || err2 != nil {
+			continue
+		}
+		if lo <= seq && seq <= hi {
+			return true
+		}
+	}
+
+	return false
+}
+
 func (c *Collector) CollectBinLogs(ctx context.Context) error {
 	cache, err := loadCache(ctx, c.storage, c.gtidCacheKey)
 	if err != nil {
@@ -565,35 +644,24 @@ func (c *Collector) CollectBinLogs(ctx context.Context) error {
 
 		for i := len(binlogList) - 1; i >= 0 && lastUploadedBinlogName == ""; i-- {
 			log.Printf("checking %s (%s) against last uploaded set", binlogList[i].Name, binlogList[i].GTIDSet.Raw())
-			for _, gtidSet := range binlogList[i].GTIDSet.List() {
+
+			// search for the end marker
+			for _, lastUploaded := range c.lastUploadedSet.List() {
+				uuid, endSeq, ok := gtidEndMarker(lastUploaded)
+				if !ok {
+					continue
+				}
+
+				for _, gtidSet := range binlogList[i].GTIDSet.List() {
+					if gtidContainsSeq(gtidSet, uuid, endSeq) {
+						log.Printf("last uploaded end marker %s:%d found in %s (%s)", uuid, endSeq, binlogList[i].Name, gtidSet)
+						lastUploadedBinlogName = binlogList[i].Name
+						break
+					}
+				}
+
 				if lastUploadedBinlogName != "" {
 					break
-				}
-				for _, lastUploaded := range c.lastUploadedSet.List() {
-					if lastUploaded == gtidSet {
-						log.Printf("last uploaded %s is equal to %s in %s", lastUploaded, gtidSet, binlogList[i].Name)
-						lastUploadedBinlogName = binlogList[i].Name
-						break
-					}
-					isSubset, err := c.db.GTIDSubset(ctx, lastUploaded, gtidSet)
-					if err != nil {
-						return errors.Wrap(err, "check if gtid set is subset")
-					}
-					if isSubset {
-						log.Printf("last uploaded %s is subset of %s in %s", lastUploaded, gtidSet, binlogList[i].Name)
-						lastUploadedBinlogName = binlogList[i].Name
-						break
-					}
-					isSubset, err = c.db.GTIDSubset(ctx, gtidSet, lastUploaded)
-					if err != nil {
-						return errors.Wrap(err, "check if gtid set is subset")
-					}
-					if isSubset {
-						log.Printf("%s in %s is subset of last uploaded %s", gtidSet, binlogList[i].Name, lastUploaded)
-						lastUploadedBinlogName = binlogList[i].Name
-						break
-					}
-					log.Printf("last uploaded %s is not subset of %s in %s or vice versa", lastUploaded, gtidSet, binlogList[i].Name)
 				}
 			}
 		}

@@ -5,6 +5,7 @@ package v1
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
 
@@ -875,19 +876,76 @@ type BackupStorageS3Spec struct {
 	Region            string                    `json:"region,omitempty"`
 	EndpointURL       string                    `json:"endpointUrl,omitempty"`
 	CABundle          *corev1.SecretKeySelector `json:"caBundle,omitempty"`
+	ForcePathStyle    bool                      `json:"forcePathStyle,omitempty"`
 }
 
-// BucketAndPrefix returns bucket name and backup prefix from Bucket.
+func (b *BackupStorageS3Spec) endpointAndPath() (string, string, error) {
+	if b.EndpointURL == "" {
+		return "", "", nil
+	}
+
+	if !b.ForcePathStyle {
+		return b.EndpointURL, "", nil
+	}
+
+	if strings.Contains(b.EndpointURL, "://") {
+		u, err := url.Parse(b.EndpointURL)
+		if err != nil {
+			return "", "", errors.Wrap(err, "failed to parse endpointUrl")
+		}
+
+		path := strings.TrimPrefix(u.Path, "/")
+		u.Path = ""
+		u.RawPath = ""
+		u.RawQuery = ""
+		u.Fragment = ""
+
+		return strings.TrimRight(u.String(), "/"), path, nil
+	}
+
+	endpoint, path, _ := strings.Cut(b.EndpointURL, "/")
+	path = strings.TrimPrefix(path, "/")
+
+	return endpoint, path, nil
+}
+
+func (b *BackupStorageS3Spec) Endpoint() (string, error) {
+	endpoint, _, err := b.endpointAndPath()
+	if err != nil {
+		return "", err
+	}
+
+	return endpoint, nil
+}
+
+func (b *BackupStorageS3Spec) BucketURL() (string, error) {
+	_, path, err := b.endpointAndPath()
+	if err != nil {
+		return "", err
+	}
+	if path != "" {
+		return path, nil
+	}
+
+	return b.Bucket, nil
+}
+
+// BucketAndPrefix returns bucket name and backup prefix from Bucket or EndpointURL if ForcePathStyle is set to true.
 // BackupStorageS3Spec.Bucket can contain backup path in format `<bucket-name>/<backup-prefix>`.
-func (b *BackupStorageS3Spec) BucketAndPrefix() (string, string) {
-	bucket, prefix, _ := strings.Cut(b.Bucket, "/")
+func (b *BackupStorageS3Spec) BucketAndPrefix() (string, string, error) {
+	path, err := b.BucketURL()
+	if err != nil {
+		return "", "", errors.Wrap(err, "failed to parse endpointUrl")
+	}
+
+	bucket, prefix, _ := strings.Cut(path, "/")
 
 	if prefix != "" {
 		prefix = strings.TrimSuffix(prefix, "/")
 		prefix += "/"
 	}
 
-	return bucket, prefix
+	return bucket, prefix, nil
 }
 
 type BackupStorageAzureSpec struct {

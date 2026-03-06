@@ -42,7 +42,7 @@ func NewClient(ctx context.Context, opts Options) (Storage, error) {
 		if !ok {
 			return nil, errors.New("invalid options type")
 		}
-		return NewS3(ctx, opts.Endpoint, opts.AccessKeyID, opts.SecretAccessKey, opts.SessionToken, opts.BucketName, opts.Prefix, opts.Region, opts.VerifyTLS, opts.CABundle)
+		return NewS3(ctx, opts.Endpoint, opts.AccessKeyID, opts.SecretAccessKey, opts.SessionToken, opts.BucketName, opts.Prefix, opts.Region, opts.VerifyTLS, opts.CABundle, opts.ForcePathStyle)
 	case api.BackupStorageAzure:
 		opts, ok := opts.(*AzureOptions)
 		if !ok {
@@ -72,6 +72,7 @@ func NewS3(
 	region string,
 	verifyTLS bool,
 	caBundle []byte,
+	forcePathStyle bool,
 ) (Storage, error) {
 	if endpoint == "" {
 		endpoint = "https://s3.amazonaws.com"
@@ -98,11 +99,18 @@ func NewS3(
 		}
 		transport.(*http.Transport).TLSClientConfig.RootCAs = roots
 	}
+
+	bucketLookup := minio.BucketLookupDNS
+	if forcePathStyle {
+		bucketLookup = minio.BucketLookupPath
+	}
+
 	minioClient, err := minio.New(strings.TrimRight(endpoint, "/"), &minio.Options{
-		Creds:     credentials.NewStaticV4(accessKeyID, secretAccessKey, sessionToken),
-		Secure:    useSSL,
-		Region:    region,
-		Transport: transport,
+		Creds:        credentials.NewStaticV4(accessKeyID, secretAccessKey, sessionToken),
+		Secure:       useSSL,
+		Region:       region,
+		Transport:    transport,
+		BucketLookup: bucketLookup,
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "new minio client")

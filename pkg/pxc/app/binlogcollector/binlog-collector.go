@@ -255,6 +255,14 @@ func getStorageEnvs(cr *api.PerconaXtraDBCluster) ([]corev1.EnvVar, error) {
 		if storage.S3 == nil {
 			return nil, errors.New("s3 storage is not specified")
 		}
+		bucketURL, err := storage.S3.BucketURL()
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to get bucket url")
+		}
+		endpoint, err := storage.S3.Endpoint()
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to get endpoint")
+		}
 		envs = []corev1.EnvVar{
 			{
 				Name: "SECRET_ACCESS_KEY",
@@ -276,7 +284,7 @@ func getStorageEnvs(cr *api.PerconaXtraDBCluster) ([]corev1.EnvVar, error) {
 			},
 			{
 				Name:  "S3_BUCKET_URL",
-				Value: storage.S3.Bucket,
+				Value: bucketURL,
 			},
 			{
 				Name:  "DEFAULT_REGION",
@@ -287,10 +295,16 @@ func getStorageEnvs(cr *api.PerconaXtraDBCluster) ([]corev1.EnvVar, error) {
 				Value: "s3",
 			},
 		}
-		if len(storage.S3.EndpointURL) > 0 {
+		if len(endpoint) > 0 {
 			envs = append(envs, corev1.EnvVar{
 				Name:  "ENDPOINT",
-				Value: storage.S3.EndpointURL,
+				Value: endpoint,
+			})
+		}
+		if storage.S3.ForcePathStyle {
+			envs = append(envs, corev1.EnvVar{
+				Name:  "S3_FORCE_PATH",
+				Value: "true",
 			})
 		}
 	case api.BackupStorageAzure:

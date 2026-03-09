@@ -26,15 +26,16 @@ func TestGetS3Options(t *testing.T) {
 	boolPtr := func(b bool) *bool { return &b }
 
 	tests := []struct {
-		name            string
-		destination     string
-		bucket          string
-		accessKeyID     string
-		secretAccessKey string
-		endpoint        string
-		region          string
-		verifyTLS       *bool
-		storage         *api.BackupStorageSpec
+		name              string
+		destination       string
+		bucket            string
+		accessKeyID       string
+		secretAccessKey   string
+		endpoint          string
+		region            string
+		checksumAlgorithm api.S3ChecksumAlgorithmType
+		verifyTLS         *bool
+		storage           *api.BackupStorageSpec
 
 		expected    *S3Options
 		expectedErr string
@@ -81,6 +82,17 @@ func TestGetS3Options(t *testing.T) {
 				Prefix:     "prefix/",
 				VerifyTLS:  true,
 				Region:     "us-east-1",
+			},
+		},
+		{
+			name:              "checksum algorithm",
+			bucket:            "my-bucket",
+			checksumAlgorithm: api.S3ChecksumAlgorithmSHA256,
+			expected: &S3Options{
+				BucketName:        "my-bucket",
+				VerifyTLS:         true,
+				Region:            "us-east-1",
+				ChecksumAlgorithm: api.S3ChecksumAlgorithmSHA256,
 			},
 		},
 		{
@@ -148,6 +160,7 @@ func TestGetS3Options(t *testing.T) {
 				CredentialsSecret: secretName,
 				Region:            tt.region,
 				EndpointURL:       tt.endpoint,
+				ChecksumAlgorithm: tt.checksumAlgorithm,
 			}, nil)
 
 			var cluster *api.PerconaXtraDBCluster

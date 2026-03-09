@@ -187,6 +187,102 @@ func TestGetLoadBalancerClass(t *testing.T) {
 	}
 }
 
+func TestBackupStorageS3SpecBucketAndPrefix(t *testing.T) {
+	tests := map[string]struct {
+		spec           BackupStorageS3Spec
+		expectedBucket string
+		expectedPrefix string
+	}{
+		"bucket only": {
+			spec: BackupStorageS3Spec{
+				Bucket: "backups",
+			},
+			expectedBucket: "backups",
+			expectedPrefix: "",
+		},
+		"bucket path only": {
+			spec: BackupStorageS3Spec{
+				Bucket: "backups/daily/",
+			},
+			expectedBucket: "backups",
+			expectedPrefix: "daily/",
+		},
+		"explicit prefix only": {
+			spec: BackupStorageS3Spec{
+				Bucket: "backups",
+				Prefix: "cluster-a/",
+			},
+			expectedBucket: "backups",
+			expectedPrefix: "cluster-a",
+		},
+		"bucket path and explicit prefix": {
+			spec: BackupStorageS3Spec{
+				Bucket: "backups/daily/",
+				Prefix: "cluster-a/",
+			},
+			expectedBucket: "backups",
+			expectedPrefix: "daily/cluster-a",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			bucket, prefix := tt.spec.BucketAndPrefix()
+
+			assert.Equal(t, tt.expectedBucket, bucket)
+			assert.Equal(t, tt.expectedPrefix, prefix)
+		})
+	}
+}
+
+func TestBackupStorageAzureSpecContainerAndPrefix(t *testing.T) {
+	tests := map[string]struct {
+		spec              BackupStorageAzureSpec
+		expectedContainer string
+		expectedPrefix    string
+	}{
+		"container only": {
+			spec: BackupStorageAzureSpec{
+				ContainerPath: "backups",
+			},
+			expectedContainer: "backups",
+			expectedPrefix:    "",
+		},
+		"container path only": {
+			spec: BackupStorageAzureSpec{
+				ContainerPath: "backups/daily/",
+			},
+			expectedContainer: "backups",
+			expectedPrefix:    "daily/",
+		},
+		"explicit prefix only": {
+			spec: BackupStorageAzureSpec{
+				ContainerPath: "backups",
+				Prefix:        "cluster-a/",
+			},
+			expectedContainer: "backups",
+			expectedPrefix:    "cluster-a",
+		},
+		"container path and explicit prefix": {
+			spec: BackupStorageAzureSpec{
+				ContainerPath: "backups/daily/",
+				Prefix:        "cluster-a/",
+			},
+			expectedContainer: "backups",
+			expectedPrefix:    "daily/cluster-a",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			container, prefix := tt.spec.ContainerAndPrefix()
+
+			assert.Equal(t, tt.expectedContainer, container)
+			assert.Equal(t, tt.expectedPrefix, prefix)
+		})
+	}
+}
+
 func TestCheckNSetDefaults(t *testing.T) {
 	minimalCr := PerconaXtraDBCluster{
 		Spec: PerconaXtraDBClusterSpec{

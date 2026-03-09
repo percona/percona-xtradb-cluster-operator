@@ -629,6 +629,10 @@ func s3Envs(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBa
 			Value: bcp.Status.S3.Region,
 		},
 		{
+			Name:  "S3_CHECKSUM_ALGORITHM",
+			Value: string(bcp.Status.S3.ChecksumAlgorithm),
+		},
+		{
 			Name: "ACCESS_KEY_ID",
 			ValueFrom: &corev1.EnvVarSource{
 				SecretKeyRef: &corev1.SecretKeySelector{
@@ -690,6 +694,10 @@ func s3Envs(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBa
 			{
 				Name:  "BINLOG_S3_REGION",
 				Value: storageS3.Region,
+			},
+			{
+				Name:  "BINLOG_S3_CHECKSUM_ALGORITHM",
+				Value: string(storageS3.ChecksumAlgorithm),
 			},
 			{
 				Name: "BINLOG_ACCESS_KEY_ID",

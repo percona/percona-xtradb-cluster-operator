@@ -51,6 +51,7 @@ spec:
               value: http://minio-service.namespace:9000/
             - name: DEFAULT_REGION
               value: us-east-1
+            - name: S3_CHECKSUM_ALGORITHM
             - name: ACCESS_KEY_ID
               valueFrom:
                 secretKeyRef:

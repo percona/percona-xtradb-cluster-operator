@@ -65,6 +65,7 @@ spec:
                   name: my-cluster-secrets
             - name: VERIFY_TLS
               value: "true"
+            - name: S3_CHECKSUM_ALGORITHM
             - name: ACCESS_KEY_ID
               valueFrom:
                 secretKeyRef:

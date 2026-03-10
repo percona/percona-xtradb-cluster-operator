@@ -66,6 +66,7 @@ spec:
               value: --parallel=2
             - name: XBSTREAM_EXTRA_ARGS
               value: --parallel=2
+            - name: S3_CHECKSUM_ALGORITHM
             - name: ACCESS_KEY_ID
               valueFrom:
                 secretKeyRef:

@@ -54,6 +54,7 @@ func GetOptionsFromBackupConfig(cfg *xbscapi.BackupConfig) (Options, error) {
 			BucketName:      cfg.S3.Bucket,
 			Region:          cfg.S3.Region,
 			VerifyTLS:       cfg.VerifyTls,
+			ForcePathStyle:  cfg.S3.ForcePathStyle,
 		}, nil
 	case xbscapi.BackupStorageType_AZURE:
 		return &AzureOptions{

@@ -23,6 +23,10 @@ admin_variables =
 	cluster_mysql_servers_diffs_before_sync=1
 	cluster_mysql_users_diffs_before_sync=1
 	cluster_proxysql_servers_diffs_before_sync=1
+	stats_credentials="monitor:monitor"
+	ssl_ca=""
+	ssl_cert=""
+	ssl_key=""
 }
 
 mysql_variables=

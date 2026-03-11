@@ -47,6 +47,7 @@ sed_in_place "s/\"admin:admin\"/\"${PROXY_ADMIN_USER:-admin}:${PROXY_ADMIN_PASSW
 sed_in_place "s/cluster_username=\"admin\"/cluster_username=\"${PROXY_ADMIN_USER:-admin}\"/g" ${PROXY_CFG}
 sed_in_place "s/cluster_password=\"admin\"/cluster_password=\"${PROXY_ADMIN_PASSWORD_ESCAPED:-admin}\"/g" ${PROXY_CFG}
 sed_in_place "s/monitor_password=\"monitor\"/monitor_password=\"${MONITOR_PASSWORD_ESCAPED:-monitor}\"/g" ${PROXY_CFG}
+sed_in_place "s/stats_credentials=\"monitor:monitor\"/stats_credentials=\"${MONITOR_USERNAME:-monitor}:${MONITOR_PASSWORD_ESCAPED:-monitor}\"/g" ${PROXY_CFG}
 sed_in_place "s/PROXYSQL_USERNAME='admin'/PROXYSQL_USERNAME='${PROXY_ADMIN_USER:-admin}'/g" ${PROXY_ADMIN_CFG}
 sed_in_place "s/PROXYSQL_PASSWORD='admin'/PROXYSQL_PASSWORD='${PROXY_ADMIN_PASSWORD_ESCAPED:-admin}'/g" ${PROXY_ADMIN_CFG}
 sed_in_place "s/CLUSTER_USERNAME='admin'/CLUSTER_USERNAME='${OPERATOR_USERNAME:-operator}'/g" ${PROXY_ADMIN_CFG}
@@ -109,6 +110,10 @@ if [ -f "$CA" ] && [ -f "$KEY" ] && [ -f "$CERT" ] && [ -n "$PXC_SERVICE" ]; the
 	sed_in_place "s^ssl_p2s_ca=\"\"^ssl_p2s_ca=\"$CA\"^" ${PROXY_CFG}
 	sed_in_place "s^ssl_p2s_key=\"\"^ssl_p2s_key=\"$KEY\"^" ${PROXY_CFG}
 	sed_in_place "s^ssl_p2s_cert=\"\"^ssl_p2s_cert=\"$CERT\"^" ${PROXY_CFG}
+
+	sed_in_place "s^ssl_ca=\"\"^ssl_ca=\"$CA\"^" ${PROXY_CFG}
+	sed_in_place "s^ssl_key=\"\"^ssl_key=\"$KEY\"^" ${PROXY_CFG}
+	sed_in_place "s^ssl_cert=\"\"^ssl_cert=\"$CERT\"^" ${PROXY_CFG}
 
 	# Percona scheduler
 	if [[ -f ${PERCONA_SCHEDULER_CFG} ]]; then

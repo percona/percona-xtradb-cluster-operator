@@ -629,10 +629,6 @@ func s3Envs(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBa
 			Value: bcp.Status.S3.Region,
 		},
 		{
-			Name:  "S3_CHECKSUM_ALGORITHM",
-			Value: string(bcp.Status.S3.ChecksumAlgorithm),
-		},
-		{
 			Name: "ACCESS_KEY_ID",
 			ValueFrom: &corev1.EnvVarSource{
 				SecretKeyRef: &corev1.SecretKeySelector{
@@ -667,6 +663,12 @@ func s3Envs(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBa
 			},
 		},
 	}
+	if bcp.Status.S3.ChecksumAlgorithm != "" {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "S3_CHECKSUM_ALGORITHM",
+			Value: string(bcp.Status.S3.ChecksumAlgorithm),
+		})
+	}
 	if pitr {
 		bucket := ""
 		storageS3 := new(api.BackupStorageS3Spec)
@@ -694,10 +696,6 @@ func s3Envs(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBa
 			{
 				Name:  "BINLOG_S3_REGION",
 				Value: storageS3.Region,
-			},
-			{
-				Name:  "BINLOG_S3_CHECKSUM_ALGORITHM",
-				Value: string(storageS3.ChecksumAlgorithm),
 			},
 			{
 				Name: "BINLOG_ACCESS_KEY_ID",
@@ -742,6 +740,12 @@ func s3Envs(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBa
 				Value: "s3",
 			},
 		}...)
+		if storageS3.ChecksumAlgorithm != "" {
+			envs = append(envs, corev1.EnvVar{
+				Name:  "BINLOG_S3_CHECKSUM_ALGORITHM",
+				Value: string(storageS3.ChecksumAlgorithm),
+			})
+		}
 	}
 	return envs, nil
 }

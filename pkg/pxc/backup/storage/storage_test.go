@@ -11,6 +11,7 @@ import (
 
 func TestMinioPutObjectOptions(t *testing.T) {
 	tests := map[string]struct {
+		size      int64
 		algorithm api.S3ChecksumAlgorithmType
 		expected  minio.PutObjectOptions
 	}{
@@ -41,11 +42,16 @@ func TestMinioPutObjectOptions(t *testing.T) {
 			algorithm: api.S3ChecksumAlgorithmMD5,
 			expected:  minio.PutObjectOptions{SendContentMd5: true},
 		},
+		"streaming upload disables checksum": {
+			size:      -1,
+			algorithm: api.S3ChecksumAlgorithmSHA256,
+			expected:  minio.PutObjectOptions{},
+		},
 	}
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			assert.Equal(t, tt.expected, minioPutObjectOptions(tt.algorithm))
+			assert.Equal(t, tt.expected, minioPutObjectOptions(tt.size, tt.algorithm))
 		})
 	}
 }

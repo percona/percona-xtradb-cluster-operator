@@ -46,10 +46,14 @@ func (c *Node) Name() string {
 }
 
 func (c *Node) InitContainers(cr *api.PerconaXtraDBCluster, initImageName string) []corev1.Container {
-	inits := []corev1.Container{
-		EntrypointInitContainer(cr, initImageName, app.DataVolumeName),
+	initC := EntrypointInitContainer(cr, initImageName, app.DataVolumeName)
+	if cr.CompareVersionWith("1.20.0") >= 0 {
+		initC.VolumeMounts = append(initC.VolumeMounts, corev1.VolumeMount{
+			Name:      app.BinVolumeName,
+			MountPath: app.BinVolumeMountPath,
+		})
 	}
-	return inits
+	return []corev1.Container{initC}
 }
 
 func (c *Node) AppContainer(ctx context.Context, cl client.Client, spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster, _ []corev1.Volume) (corev1.Container, error) {
@@ -420,9 +424,13 @@ func (c *Node) LogCollectorContainer(spec *api.LogCollectorSpec, logPsecrets str
 
 	if cr.Spec.LogCollector != nil {
 		if cr.Spec.LogCollector.Configuration != "" {
+			customPath := "/etc/fluentbit/custom"
+			if cr.CompareVersionWith("1.20.0") >= 0 {
+				customPath = "/opt/percona/logcollector/fluentbit/custom"
+			}
 			logProcContainer.VolumeMounts = append(logProcContainer.VolumeMounts, corev1.VolumeMount{
 				Name:      "logcollector-config",
-				MountPath: "/etc/fluentbit/custom",
+				MountPath: customPath,
 			})
 		}
 
@@ -432,6 +440,21 @@ func (c *Node) LogCollectorContainer(spec *api.LogCollectorSpec, logPsecrets str
 				MountPath: "/opt/percona/hookscript",
 			})
 		}
+	}
+
+	if cr.CompareVersionWith("1.20.0") >= 0 {
+		logProcContainer.Command = []string{"/opt/percona/logcollector/entrypoint.sh"}
+		logProcContainer.Args = []string{"fluent-bit"}
+		logRotContainer.Command = []string{"/opt/percona/logcollector/entrypoint.sh"}
+
+		logProcContainer.VolumeMounts = append(logProcContainer.VolumeMounts, corev1.VolumeMount{
+			Name:      app.BinVolumeName,
+			MountPath: app.BinVolumeMountPath,
+		})
+		logRotContainer.VolumeMounts = append(logRotContainer.VolumeMounts, corev1.VolumeMount{
+			Name:      app.BinVolumeName,
+			MountPath: app.BinVolumeMountPath,
+		})
 	}
 
 	return []corev1.Container{logProcContainer, logRotContainer}, nil
@@ -751,6 +774,15 @@ func (c *Node) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg ap
 		for i := range vol.PVCs {
 			vol.PVCs[i].Labels = c.Labels()
 		}
+	}
+
+	if cr.CompareVersionWith("1.20.0") >= 0 {
+		vol.Volumes = append(vol.Volumes, corev1.Volume{
+			Name: app.BinVolumeName,
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		})
 	}
 
 	return vol, nil

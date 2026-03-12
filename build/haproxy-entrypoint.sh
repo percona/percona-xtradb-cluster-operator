@@ -43,7 +43,7 @@ if ! [[ ${RLIMIT_NOFILE} =~ ^[0-9]+$ ]]; then
 	log "HA_RLIMIT_NOFILE is not a valid integer ('${RLIMIT_NOFILE}'), falling back to ${DEFAULT_RLIMIT_NOFILE}."
 	RLIMIT_NOFILE=${DEFAULT_RLIMIT_NOFILE}
 fi
-if [[ ${RLIMIT_NOFILE} -gt ${hard_limit} ]]; then
+if [[ ${hard_limit} =~ ^[0-9]+$ ]] && [[ ${RLIMIT_NOFILE} -gt ${hard_limit} ]]; then
 	log "Requested open file limit (${RLIMIT_NOFILE}) exceeds hard limit (${hard_limit}), clamping."
 	RLIMIT_NOFILE=${hard_limit}
 fi

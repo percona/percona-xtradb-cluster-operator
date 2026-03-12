@@ -33,7 +33,7 @@ spec:
     size: 3
     image: -haproxy
     exposePrimary:
-      type: ClusterIP
+      type: LoadBalancer
       externalTrafficPolicy: Local
       annotations:
         service.beta.kubernetes.io/aws-load-balancer-type: nlb

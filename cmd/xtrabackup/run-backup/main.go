@@ -97,9 +97,9 @@ func getRequestObject() *xbscapi.CreateBackupRequest {
 	req.BackupConfig.VerifyTls = os.Getenv("VERIFY_TLS") == "true"
 	req.BackupConfig.ContainerOptions = &xbscapi.ContainerOptions{
 		Args: &xbscapi.BackupContainerArgs{
-			Xtrabackup: strings.Split(os.Getenv("XB_EXTRA_ARGS"), " "),
-			Xbcloud:    strings.Split(os.Getenv("XBCLOUD_EXTRA_ARGS"), " "),
-			Xbstream:   strings.Split(os.Getenv("XBSTREAM_EXTRA_ARGS"), " "),
+			Xtrabackup: strings.Fields(os.Getenv("XB_EXTRA_ARGS")),
+			Xbcloud:    strings.Fields(os.Getenv("XBCLOUD_EXTRA_ARGS")),
+			Xbstream:   strings.Fields(os.Getenv("XBSTREAM_EXTRA_ARGS")),
 		},
 	}
 

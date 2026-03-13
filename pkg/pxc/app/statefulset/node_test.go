@@ -69,8 +69,50 @@ func TestAppContainer(t *testing.T) {
 				c := defaultExpectedContainer()
 				c.Env = append(c.Env, corev1.EnvVar{
 					Name:  "LD_PRELOAD",
-					Value: "/usr/lib64/libjemalloc.so.1",
+					Value: "/usr/lib64/libjemalloc.so.2",
 				})
+				return c
+			},
+		},
+		"container construction with jemalloc and PXC 8.4 image": {
+			spec: api.PerconaXtraDBClusterSpec{
+				CRVersion: version.Version(),
+				PXC: &api.PXCSpec{
+					MySQLAllocator: "jemalloc",
+					PodSpec: &api.PodSpec{
+						Image:             "percona/percona-xtradb-cluster:8.4.32",
+						ImagePullPolicy:   corev1.PullIfNotPresent,
+						LivenessProbes:    corev1.Probe{TimeoutSeconds: 5},
+						ReadinessProbes:   corev1.Probe{TimeoutSeconds: 15},
+						EnvVarsSecretName: "test-secret",
+					},
+				},
+			},
+			expectedContainer: func() corev1.Container {
+				c := defaultExpectedContainer()
+				c.Image = "percona/percona-xtradb-cluster:8.4.32"
+				c.Env = append(c.Env, corev1.EnvVar{Name: "LD_PRELOAD", Value: "/usr/lib64/libjemalloc.so.2"})
+				return c
+			},
+		},
+		"container construction with jemalloc and PXC 8.0 image": {
+			spec: api.PerconaXtraDBClusterSpec{
+				CRVersion: version.Version(),
+				PXC: &api.PXCSpec{
+					MySQLAllocator: "jemalloc",
+					PodSpec: &api.PodSpec{
+						Image:             "percona/percona-xtradb-cluster:8.0.35",
+						ImagePullPolicy:   corev1.PullIfNotPresent,
+						LivenessProbes:    corev1.Probe{TimeoutSeconds: 5},
+						ReadinessProbes:   corev1.Probe{TimeoutSeconds: 15},
+						EnvVarsSecretName: "test-secret",
+					},
+				},
+			},
+			expectedContainer: func() corev1.Container {
+				c := defaultExpectedContainer()
+				c.Image = "percona/percona-xtradb-cluster:8.0.35"
+				c.Env = append(c.Env, corev1.EnvVar{Name: "LD_PRELOAD", Value: "/usr/lib64/libjemalloc.so.1"})
 				return c
 			},
 		},
@@ -236,6 +278,30 @@ func TestAppContainer(t *testing.T) {
 			c, err := pxcNode.AppContainer(t.Context(), client, tt.spec.PXC.PodSpec, secretName, cr, nil)
 			assert.Equal(t, tt.expectedContainer(), c)
 			assert.NoError(t, err)
+		})
+	}
+}
+
+func TestJemallocPathForPXCImage(t *testing.T) {
+	tests := []struct {
+		image string
+		want  string
+	}{
+		{"", "/usr/lib64/libjemalloc.so.2"},
+		{"percona/percona-xtradb-cluster", "/usr/lib64/libjemalloc.so.2"},
+		{"percona/percona-xtradb-cluster:8.0.35", "/usr/lib64/libjemalloc.so.1"},
+		{"percona/percona-xtradb-cluster:8.0", "/usr/lib64/libjemalloc.so.1"},
+		{"percona/percona-xtradb-cluster:8.4.32", "/usr/lib64/libjemalloc.so.2"},
+		{"percona/percona-xtradb-cluster:8.4", "/usr/lib64/libjemalloc.so.2"},
+		{"percona/percona-xtradb-cluster:8.4.32-31", "/usr/lib64/libjemalloc.so.2"},
+		{"registry.example.com/pxc:9.0.0", "/usr/lib64/libjemalloc.so.2"},
+		{"perconalab/percona-xtradb-cluster-operator:main-pxc8.4", "/usr/lib64/libjemalloc.so.2"},
+		{"perconalab/percona-xtradb-cluster-operator:main-pxc8.0", "/usr/lib64/libjemalloc.so.1"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.image, func(t *testing.T) {
+			got := jemallocPathForPXCImage(tt.image)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }

@@ -168,6 +168,10 @@ spec:
           volumeMounts:
             - mountPath: /opt/percona
               name: bin
+            - mountPath: /etc/proxysql/ssl
+              name: ssl
+            - mountPath: /etc/proxysql/ssl-internal
+              name: ssl-internal
         - args:
             - /opt/percona/peer-list
             - -on-change=/opt/percona/proxysql_add_proxysql_nodes.sh

@@ -663,6 +663,12 @@ func s3Envs(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBa
 			},
 		},
 	}
+	if bcp.Status.S3.ChecksumAlgorithm != "" {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "S3_CHECKSUM_ALGORITHM",
+			Value: string(bcp.Status.S3.ChecksumAlgorithm),
+		})
+	}
 	if pitr {
 		bucket := ""
 		storageS3 := new(api.BackupStorageS3Spec)
@@ -734,6 +740,12 @@ func s3Envs(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBa
 				Value: "s3",
 			},
 		}...)
+		if storageS3.ChecksumAlgorithm != "" {
+			envs = append(envs, corev1.EnvVar{
+				Name:  "BINLOG_S3_CHECKSUM_ALGORITHM",
+				Value: string(storageS3.ChecksumAlgorithm),
+			})
+		}
 	}
 	return envs, nil
 }

@@ -12,6 +12,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -534,20 +535,22 @@ func NewExposedPXCService(svcName string, cr *api.PerconaXtraDBCluster) *corev1.
 
 	if cr.Spec.PXC.Expose.Type == corev1.ServiceTypeNodePort ||
 		cr.Spec.PXC.Expose.Type == corev1.ServiceTypeLoadBalancer {
-		if cr.CompareVersionWith("1.14.0") >= 0 {
-			switch cr.Spec.PXC.Expose.ExternalTrafficPolicy {
-			case corev1.ServiceExternalTrafficPolicyTypeLocal, corev1.ServiceExternalTrafficPolicyTypeCluster:
-				svc.Spec.ExternalTrafficPolicy = cr.Spec.PXC.Expose.ExternalTrafficPolicy
-			default:
-				svc.Spec.ExternalTrafficPolicy = corev1.ServiceExternalTrafficPolicyTypeCluster
-			}
-		} else {
-			switch cr.Spec.PXC.Expose.TrafficPolicy {
-			case corev1.ServiceExternalTrafficPolicyTypeLocal, corev1.ServiceExternalTrafficPolicyTypeCluster:
-				svc.Spec.ExternalTrafficPolicy = cr.Spec.PXC.Expose.TrafficPolicy
-			default:
-				svc.Spec.ExternalTrafficPolicy = corev1.ServiceExternalTrafficPolicyTypeCluster
-			}
+		switch cr.Spec.PXC.Expose.ExternalTrafficPolicy {
+		case corev1.ServiceExternalTrafficPolicyTypeLocal, corev1.ServiceExternalTrafficPolicyTypeCluster:
+			svc.Spec.ExternalTrafficPolicy = cr.Spec.PXC.Expose.ExternalTrafficPolicy
+		default:
+			svc.Spec.ExternalTrafficPolicy = corev1.ServiceExternalTrafficPolicyTypeCluster
+		}
+	}
+
+	if cr.Spec.PXC.Expose.Type == corev1.ServiceTypeNodePort ||
+		cr.Spec.PXC.Expose.Type == corev1.ServiceTypeLoadBalancer ||
+		cr.Spec.PXC.Expose.Type == corev1.ServiceTypeClusterIP {
+		switch cr.Spec.PXC.Expose.InternalTrafficPolicy {
+		case corev1.ServiceInternalTrafficPolicyCluster, corev1.ServiceInternalTrafficPolicyLocal:
+			svc.Spec.InternalTrafficPolicy = &cr.Spec.PXC.Expose.InternalTrafficPolicy
+		default:
+			svc.Spec.InternalTrafficPolicy = ptr.To(corev1.ServiceInternalTrafficPolicyCluster)
 		}
 	}
 

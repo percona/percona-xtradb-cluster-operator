@@ -91,6 +91,20 @@ make vet                # Run go vet
 
 CI also runs: golangci-lint, shfmt, shellcheck, misspell, and alex (inclusive language).
 
+## Coding Conventions
+
+- Keep reconciler logic idempotent. Re-running reconcile should converge to the same state without duplicating resources or mutating unrelated fields.
+- Keep strong focus on code readibility over performance, unless explicity asked.
+- Prefer explicit, small helper functions over large monolithic reconcile blocks. Keep package boundaries clear (`pkg/controller` for orchestration, `pkg/pxc` for app/resource builders, `pkg/k8s` for Kubernetes helpers).
+- Always pass `context.Context` through API calls and use `client.IgnoreNotFound(err)` when handling not-found reads/deletes.
+- Wrap returned errors with context using `%w` so callers and logs preserve root causes (for example: `fmt.Errorf("reconcile HAProxy service: %w", err)`).
+- Use structured logging with stable keys and include CR identity (`namespace`, `name`) for operator actions that may be debugged in production.
+- Keep CRD/API changes backward compatible: add optional fields, preserve deprecated fields, and gate behavior changes with `cr.CompareVersionWith(...)`.
+- Avoid implicit behavior in defaulting. Set defaults centrally in API/defaulting paths instead of scattering defaults across reconcilers.
+- Minimize StatefulSet/Service spec churn. Unnecessary spec changes can trigger rolling restarts; only change fields when required.
+- Add tests with each behavior change: unit tests for helpers/reconcilers and e2e coverage for user-visible workflows or upgrade compatibility.
+- Before opening a PR, run at least `make fmt`, `make vet`, and relevant unit tests; run `make generate` + `make manifests` for API changes.
+
 ## Adding New APIs or Modifying Existing CRDs
 
 ### Modifying CRD Types
@@ -137,14 +151,52 @@ Documentation for common CEL expressions used in Kubernetes can be found [here](
 
 #### Maintaining backward compatibility
 
-The PerconaXtraDBCluster CRD contains a `.spec.crVersion` field to maintain backward compatibility. Any newly added fields in the CRD that can potentially change the spec of running Pod/StatefulSets post-upgrade *MUST* be backwards compatible. Use the `cr.CompareVersion()` helper to maintain backwards compatible reconciliation. For example:
+The `PerconaXtraDBCluster` CRD includes `.spec.crVersion`, which helps the operator preserve behavior across upgrades.
+
+When introducing new CRD fields that can change running Pods or StatefulSets, keep reconciliation backward compatible for existing clusters. Gate new behavior with `cr.CompareVersionWith()` so older CRs continue using legacy fields while newer/upgraded CRs use the new fields.
+
+Generic pattern:
 ```go
 config := cr.Spec.SomeConfig // for clusters below 1.20.0
-if cluster.CompareVersion("1.20.0") >= 0 {
+if cr.CompareVersionWith("1.20.0") >= 0 {
     config = cr.Spec.SomeNewConfig // for new or upgraded clusters
 }
 applyConfigToPod(config)
 ```
+
+Concrete examples from this repository:
+
+- **Prefer new field, fallback to legacy field** (`pkg/pxc/service.go`, HAProxy service type):
+```go
+if cr.CompareVersionWith("1.14.0") >= 0 && len(cr.Spec.HAProxy.ExposePrimary.Type) > 0 {
+    svcType = cr.Spec.HAProxy.ExposePrimary.Type
+} else if len(cr.Spec.HAProxy.ServiceType) > 0 {
+    svcType = cr.Spec.HAProxy.ServiceType
+}
+```
+
+- **Same fallback rule for related settings** (`pkg/pxc/service.go`, external traffic policy):
+```go
+if cr.CompareVersionWith("1.14.0") >= 0 && len(cr.Spec.HAProxy.ExposePrimary.ExternalTrafficPolicy) > 0 {
+    svcTrafficPolicyType = cr.Spec.HAProxy.ExposePrimary.ExternalTrafficPolicy
+} else if len(cr.Spec.HAProxy.ExternalTrafficPolicy) > 0 {
+    svcTrafficPolicyType = cr.Spec.HAProxy.ExternalTrafficPolicy
+}
+```
+
+- **Version-aware defaults when a new nested field is introduced** (`pkg/apis/pxc/v1/pxc_types.go`):
+```go
+if cr.CompareVersionWith("1.14.0") >= 0 {
+    if c.HAProxy.ExposeReplicas == nil {
+        c.HAProxy.ExposeReplicas = &ReplicasServiceExpose{ServiceExpose: ServiceExpose{Enabled: true}}
+    }
+} else if c.HAProxy.ReplicasServiceEnabled == nil {
+    t := true
+    c.HAProxy.ReplicasServiceEnabled = &t
+}
+```
+
+Do not remove existing fields from `spec` or `status`. If a field is deprecated, keep it for compatibility and log a clear deprecation notice that points users to the replacement field.
 
 ## Safety Guardrails
 

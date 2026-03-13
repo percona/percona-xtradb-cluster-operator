@@ -32,6 +32,7 @@ func TestGetS3Options(t *testing.T) {
 		accessKeyID     string
 		secretAccessKey string
 		endpoint        string
+		forcePathStyle  bool
 		region          string
 		verifyTLS       *bool
 		storage         *api.BackupStorageSpec
@@ -139,6 +140,41 @@ func TestGetS3Options(t *testing.T) {
 				Region:     "us-east-1",
 			},
 		},
+		{
+			name:           "force path style uses endpoint path",
+			bucket:         "ignored-bucket",
+			endpoint:       "https://minio.example.com/my-bucket/prefix",
+			forcePathStyle: true,
+			expected: &S3Options{
+				Endpoint:       "https://minio.example.com",
+				BucketName:     "my-bucket",
+				Prefix:         "prefix/",
+				VerifyTLS:      true,
+				Region:         "us-east-1",
+				ForcePathStyle: true,
+			},
+		},
+		{
+			name:           "force path style uses scheme-less endpoint path",
+			bucket:         "ignored-bucket",
+			endpoint:       "minio.example.com/my-bucket/prefix",
+			forcePathStyle: true,
+			expected: &S3Options{
+				Endpoint:       "minio.example.com",
+				BucketName:     "my-bucket",
+				Prefix:         "prefix/",
+				VerifyTLS:      true,
+				Region:         "us-east-1",
+				ForcePathStyle: true,
+			},
+		},
+		{
+			name:           "invalid force path style endpoint",
+			bucket:         "ignored-bucket",
+			endpoint:       "https://s3.example.com/%invalid",
+			forcePathStyle: true,
+			expectedErr:    `failed to get bucket and prefix: failed to parse endpointUrl: failed to parse endpointUrl: parse "https://s3.example.com/%invalid": invalid URL escape "%in"`,
+		},
 	}
 
 	for _, tt := range tests {
@@ -148,6 +184,7 @@ func TestGetS3Options(t *testing.T) {
 				CredentialsSecret: secretName,
 				Region:            tt.region,
 				EndpointURL:       tt.endpoint,
+				ForcePathStyle:    tt.forcePathStyle,
 			}, nil)
 
 			var cluster *api.PerconaXtraDBCluster

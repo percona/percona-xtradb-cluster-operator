@@ -29,7 +29,11 @@ type PerconaXtraDBClusterRestoreStatus struct {
 	Unsafe        UnsafeFlags  `json:"unsafeFlags,omitempty"`
 }
 
+// +kubebuilder:validation:XValidation:rule="self.type != 'date' || (self.date != ” && self.date.matches('^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01]) ([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$'))",message="Date is required for type 'date' and should be in format YYYY-MM-DD HH:MM:SS with valid ranges (MM: 01-12, DD: 01-31, HH: 00-23, MM/SS: 00-59)"
+// +kubebuilder:validation:XValidation:rule="(self.type != 'transaction' && self.type != 'skip') || self.gtid != ”",message="GTID is required for types 'transaction' and 'skip'"
+// +kubebuilder:validation:XValidation:rule="self.type != 'latest' || (self.date == ” && self.gtid == ”)",message="Date and GTID should not be set when type is 'latest'"
 type PITR struct {
+	// +kubebuilder:validation:Enum=latest;date;transaction;skip
 	BackupSource *PXCBackupStatus `json:"backupSource"`
 	Type         string           `json:"type"`
 	Date         string           `json:"date"`

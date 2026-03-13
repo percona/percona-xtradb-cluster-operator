@@ -97,13 +97,14 @@ CI also runs: golangci-lint, shfmt, shellcheck, misspell, and alex (inclusive la
 - Keep strong focus on code readibility over performance, unless explicity asked.
 - Prefer explicit, small helper functions over large monolithic reconcile blocks. Keep package boundaries clear (`pkg/controller` for orchestration, `pkg/pxc` for app/resource builders, `pkg/k8s` for Kubernetes helpers).
 - Always pass `context.Context` through API calls and use `client.IgnoreNotFound(err)` when handling not-found reads/deletes.
-- Wrap returned errors with context using `%w` so callers and logs preserve root causes (for example: `fmt.Errorf("reconcile HAProxy service: %w", err)`).
+- Wrap returned errors using `errors.Wrap` (from `github.com/pkg/errors`) so callers and logs preserve root causes
 - Use structured logging with stable keys and include CR identity (`namespace`, `name`) for operator actions that may be debugged in production.
 - Keep CRD/API changes backward compatible: add optional fields, preserve deprecated fields, and gate behavior changes with `cr.CompareVersionWith(...)`.
 - Avoid implicit behavior in defaulting. Set defaults centrally in API/defaulting paths instead of scattering defaults across reconcilers.
 - Minimize StatefulSet/Service spec churn. Unnecessary spec changes can trigger rolling restarts; only change fields when required.
 - Add tests with each behavior change: unit tests for helpers/reconcilers and e2e coverage for user-visible workflows or upgrade compatibility.
 - Before opening a PR, run at least `make fmt`, `make vet`, and relevant unit tests; run `make generate` + `make manifests` for API changes.
+- Use `github.com/stretchr/testify/assert` and `github.com/stretchr/testify/require` for unit test assertions.
 
 ## Adding New APIs or Modifying Existing CRDs
 

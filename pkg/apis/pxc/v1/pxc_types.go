@@ -146,14 +146,11 @@ type ServiceExpose struct {
 	LoadBalancerClass        *string  `json:"loadBalancerClass,omitempty"`
 	LoadBalancerSourceRanges []string `json:"loadBalancerSourceRanges,omitempty"`
 	// Deprecated: in Kubernetes v1.24+ and should be removed in 1.21.0 operator version
-	LoadBalancerIP        string                                  `json:"loadBalancerIP,omitempty"`
-	Annotations           map[string]string                       `json:"annotations,omitempty"`
-	Labels                map[string]string                       `json:"labels,omitempty"`
-	ExternalTrafficPolicy corev1.ServiceExternalTrafficPolicyType `json:"externalTrafficPolicy,omitempty"`
-	InternalTrafficPolicy corev1.ServiceInternalTrafficPolicy     `json:"internalTrafficPolicy,omitempty"`
-
-	// Deprecated: Use ExternalTrafficPolicy instead
-	TrafficPolicy corev1.ServiceExternalTrafficPolicyType `json:"trafficPolicy,omitempty"`
+	LoadBalancerIP        string                              `json:"loadBalancerIP,omitempty"`
+	Annotations           map[string]string                   `json:"annotations,omitempty"`
+	Labels                map[string]string                   `json:"labels,omitempty"`
+	ExternalTrafficPolicy corev1.ServiceExternalTrafficPolicy `json:"externalTrafficPolicy,omitempty"`
+	InternalTrafficPolicy corev1.ServiceInternalTrafficPolicy `json:"internalTrafficPolicy,omitempty"`
 }
 
 // GetLoadBalancerClass returns the configured LoadBalancer class.
@@ -581,25 +578,6 @@ type PodSpec struct {
 	SSLInternalSecretName         string                        `json:"sslInternalSecretName,omitempty"`
 	EnvVarsSecretName             string                        `json:"envVarsSecret,omitempty"`
 	TerminationGracePeriodSeconds *int64                        `json:"gracePeriod,omitempty"`
-
-	// Deprecated: Use ServiceExpose.Type instead
-	ServiceType corev1.ServiceType `json:"serviceType,omitempty"`
-	// Deprecated: Use ServiceExpose.Type instead
-	ReplicasServiceType corev1.ServiceType `json:"replicasServiceType,omitempty"`
-	// Deprecated: Use ServiceExpose.ExternalTrafficPolicy instead
-	ExternalTrafficPolicy corev1.ServiceExternalTrafficPolicyType `json:"externalTrafficPolicy,omitempty"`
-	// Deprecated: Use ServiceExpose.ExternalTrafficPolicy instead
-	ReplicasExternalTrafficPolicy corev1.ServiceExternalTrafficPolicyType `json:"replicasExternalTrafficPolicy,omitempty"`
-	// Deprecated: Use ServiceExpose.LoadBalancerSourceRanges instead
-	LoadBalancerSourceRanges []string `json:"loadBalancerSourceRanges,omitempty"`
-	// Deprecated: Use ServiceExpose.Annotations instead
-	ServiceAnnotations map[string]string `json:"serviceAnnotations,omitempty"`
-	// Deprecated: Use ServiceExpose.Labels instead
-	ServiceLabels map[string]string `json:"serviceLabels,omitempty"`
-	// Deprecated: Use ServiceExpose.Annotations instead
-	ReplicasServiceAnnotations map[string]string `json:"replicasServiceAnnotations,omitempty"`
-	// Deprecated: Use ServiceExpose.Labels instead
-	ReplicasServiceLabels map[string]string `json:"replicasServiceLabels,omitempty"`
 
 	SchedulerName string `json:"schedulerName,omitempty"`
 	// Deprecated: Unsupported from version 1.19.0 and will be deleted in 1.22.0. Use ReadinessProbes.initialDelaySeconds instead

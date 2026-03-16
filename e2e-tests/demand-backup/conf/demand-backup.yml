@@ -107,3 +107,12 @@ spec:
             - 'invalidarg'
             xbcloud: 
             - 'invalidarg'
+      minio-force-path:
+        type: s3
+        s3:
+          credentialsSecret: minio-secret
+          region: us-east-1
+          bucket: ignored-bucket
+          endpointUrl: https://minio-service.#namespace:9000/operator-testing/prefix/subfolder
+          forcePathStyle: true
+        verifyTLS: false

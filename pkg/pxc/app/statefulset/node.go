@@ -6,6 +6,7 @@ import (
 	"hash/fnv"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -284,6 +285,45 @@ func (c *Node) AppContainer(ctx context.Context, cl client.Client, spec *api.Pod
 	return appc, nil
 }
 
+func jemallocPathForPXCImage(pxcImage string) string {
+	const (
+		libJemallocSo1 = "/usr/lib64/libjemalloc.so.1"
+		libJemallocSo2 = "/usr/lib64/libjemalloc.so.2"
+	)
+	if pxcImage == "" {
+		return libJemallocSo2
+	}
+	idx := strings.LastIndex(pxcImage, ":")
+	if idx < 0 || idx == len(pxcImage)-1 {
+		return libJemallocSo2
+	}
+	tag := strings.ToLower(pxcImage[idx+1:])
+
+	// Operator-style tags: main-pxc8.0, main-pxc8.4
+	if strings.Contains(tag, "pxc8.0") {
+		return libJemallocSo1
+	}
+	if strings.Contains(tag, "pxc8.4") || strings.Contains(tag, "pxc9") {
+		return libJemallocSo2
+	}
+
+	// Semantic version in tag (e.g. 8.0.35, 8.4.32, 8.4.32-31)
+	parts := strings.SplitN(tag, ".", 3)
+	if len(parts) < 2 {
+		return libJemallocSo2
+	}
+	major, errMajor := strconv.Atoi(parts[0])
+	minor, errMinor := strconv.Atoi(parts[1])
+	if errMajor != nil || errMinor != nil {
+		return libJemallocSo2
+	}
+	// Only 8.0.x uses .so.1; everything else (8.4+, 9.x, unknown) uses .so.2
+	if major == 8 && minor == 0 {
+		return libJemallocSo1
+	}
+	return libJemallocSo2
+}
+
 func setLDPreloadEnv(
 	ctx context.Context,
 	cl client.Client,
@@ -292,7 +332,6 @@ func setLDPreloadEnv(
 ) {
 	const (
 		ldPreloadKey    = "LD_PRELOAD"
-		libJemallocPath = "/usr/lib64/libjemalloc.so.1"
 		libTcmallocPath = "/usr/lib64/libtcmalloc.so"
 	)
 
@@ -301,7 +340,7 @@ func setLDPreloadEnv(
 	// Determine the allocator
 	switch strings.ToLower(cr.Spec.PXC.MySQLAllocator) {
 	case "jemalloc":
-		ldPreloadValue += ":" + libJemallocPath
+		ldPreloadValue += ":" + jemallocPathForPXCImage(cr.Spec.PXC.Image)
 	case "tcmalloc":
 		ldPreloadValue += ":" + libTcmallocPath
 	}

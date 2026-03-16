@@ -187,6 +187,89 @@ func TestGetLoadBalancerClass(t *testing.T) {
 	}
 }
 
+func TestBackupStorageS3SpecForcePath(t *testing.T) {
+	tests := map[string]struct {
+		spec              BackupStorageS3Spec
+		expectedEndpoint  string
+		expectedBucketURL string
+		expectedBucket    string
+		expectedPrefix    string
+	}{
+		"full endpoint url path is used when force path style is enabled": {
+			spec: BackupStorageS3Spec{
+				Bucket:         "ignored-bucket",
+				EndpointURL:    "https://s3.example.com/my-bucket/prefix",
+				ForcePathStyle: true,
+			},
+			expectedEndpoint:  "https://s3.example.com",
+			expectedBucketURL: "my-bucket/prefix",
+			expectedBucket:    "my-bucket",
+			expectedPrefix:    "prefix/",
+		},
+		"endpoint url without path falls back to bucket": {
+			spec: BackupStorageS3Spec{
+				Bucket:         "my-bucket/prefix",
+				EndpointURL:    "https://s3.example.com",
+				ForcePathStyle: true,
+			},
+			expectedEndpoint:  "https://s3.example.com",
+			expectedBucketURL: "my-bucket/prefix",
+			expectedBucket:    "my-bucket",
+			expectedPrefix:    "prefix/",
+		},
+		"root-only endpoint path falls back to bucket": {
+			spec: BackupStorageS3Spec{
+				Bucket:         "my-bucket/prefix",
+				EndpointURL:    "https://s3.example.com/",
+				ForcePathStyle: true,
+			},
+			expectedEndpoint:  "https://s3.example.com",
+			expectedBucketURL: "my-bucket/prefix",
+			expectedBucket:    "my-bucket",
+			expectedPrefix:    "prefix/",
+		},
+		"scheme-less endpoint path is split into endpoint and bucket": {
+			spec: BackupStorageS3Spec{
+				Bucket:         "ignored-bucket",
+				EndpointURL:    "s3.example.com/my-bucket/prefix",
+				ForcePathStyle: true,
+			},
+			expectedEndpoint:  "s3.example.com",
+			expectedBucketURL: "my-bucket/prefix",
+			expectedBucket:    "my-bucket",
+			expectedPrefix:    "prefix/",
+		},
+		"trailing slash is normalized in prefix": {
+			spec: BackupStorageS3Spec{
+				Bucket:         "ignored-bucket",
+				EndpointURL:    "https://s3.example.com/my-bucket/prefix/",
+				ForcePathStyle: true,
+			},
+			expectedEndpoint:  "https://s3.example.com",
+			expectedBucketURL: "my-bucket/prefix/",
+			expectedBucket:    "my-bucket",
+			expectedPrefix:    "prefix/",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			gotEndpoint, err := tt.spec.Endpoint()
+			assert.NoError(t, err)
+			assert.Equal(t, tt.expectedEndpoint, gotEndpoint)
+
+			gotBucketURL, err := tt.spec.BucketURL()
+			assert.NoError(t, err)
+			assert.Equal(t, tt.expectedBucketURL, gotBucketURL)
+
+			gotBucket, gotPrefix, err := tt.spec.BucketAndPrefix()
+			assert.NoError(t, err)
+			assert.Equal(t, tt.expectedBucket, gotBucket)
+			assert.Equal(t, tt.expectedPrefix, gotPrefix)
+		})
+	}
+}
+
 func TestCheckNSetDefaults(t *testing.T) {
 	minimalCr := PerconaXtraDBCluster{
 		Spec: PerconaXtraDBClusterSpec{

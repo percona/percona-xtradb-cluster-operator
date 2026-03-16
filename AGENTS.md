@@ -94,7 +94,7 @@ CI also runs: golangci-lint, shfmt, shellcheck, misspell, and alex (inclusive la
 ## Coding Conventions
 
 - Keep reconciler logic idempotent. Re-running reconcile should converge to the same state without duplicating resources or mutating unrelated fields.
-- Keep strong focus on code readibility over performance, unless explicity asked.
+- Keep strong focus on code readibility over performance, unless explicitly asked.
 - Prefer explicit, small helper functions over large monolithic reconcile blocks. Keep package boundaries clear (`pkg/controller` for orchestration, `pkg/pxc` for app/resource builders, `pkg/k8s` for Kubernetes helpers).
 - Always pass `context.Context` through API calls and use `client.IgnoreNotFound(err)` when handling not-found reads/deletes.
 - Wrap returned errors using `errors.Wrap` (from `github.com/pkg/errors`) so callers and logs preserve root causes

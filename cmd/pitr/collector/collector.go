@@ -110,7 +110,6 @@ type BackupS3 struct {
 	BucketURL         string `env:"S3_BUCKET_URL,required"`
 	Region            string `env:"DEFAULT_REGION,required"`
 	ForcePath         bool   `env:"S3_FORCE_PATH"`
-	Region            string `env:"DEFAULT_REGION,required"`
 	ChecksumAlgorithm string `env:"S3_CHECKSUM_ALGORITHM"`
 }
 

@@ -1169,39 +1169,6 @@ func (in *PodSpec) DeepCopyInto(out *PodSpec) {
 		*out = new(int64)
 		**out = **in
 	}
-	if in.LoadBalancerSourceRanges != nil {
-		in, out := &in.LoadBalancerSourceRanges, &out.LoadBalancerSourceRanges
-		*out = make([]string, len(*in))
-		copy(*out, *in)
-	}
-	if in.ServiceAnnotations != nil {
-		in, out := &in.ServiceAnnotations, &out.ServiceAnnotations
-		*out = make(map[string]string, len(*in))
-		for key, val := range *in {
-			(*out)[key] = val
-		}
-	}
-	if in.ServiceLabels != nil {
-		in, out := &in.ServiceLabels, &out.ServiceLabels
-		*out = make(map[string]string, len(*in))
-		for key, val := range *in {
-			(*out)[key] = val
-		}
-	}
-	if in.ReplicasServiceAnnotations != nil {
-		in, out := &in.ReplicasServiceAnnotations, &out.ReplicasServiceAnnotations
-		*out = make(map[string]string, len(*in))
-		for key, val := range *in {
-			(*out)[key] = val
-		}
-	}
-	if in.ReplicasServiceLabels != nil {
-		in, out := &in.ReplicasServiceLabels, &out.ReplicasServiceLabels
-		*out = make(map[string]string, len(*in))
-		for key, val := range *in {
-			(*out)[key] = val
-		}
-	}
 	if in.ReadinessInitialDelaySeconds != nil {
 		in, out := &in.ReadinessInitialDelaySeconds, &out.ReadinessInitialDelaySeconds
 		*out = new(int32)

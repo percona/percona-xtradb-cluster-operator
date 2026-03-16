@@ -229,6 +229,8 @@ spec:
                         type: string
                       endpointUrl:
                         type: string
+                      forcePathStyle:
+                        type: boolean
                       prefix:
                         type: string
                       region:
@@ -534,6 +536,8 @@ spec:
                             type: string
                           endpointUrl:
                             type: string
+                          forcePathStyle:
+                            type: boolean
                           prefix:
                             type: string
                           region:

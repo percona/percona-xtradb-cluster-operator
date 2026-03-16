@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -227,7 +228,8 @@ func TestBackupStorageS3SpecBucketAndPrefix(t *testing.T) {
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			bucket, prefix := tt.spec.BucketAndPrefix()
+			bucket, prefix, err := tt.spec.BucketAndPrefix()
+			require.NoError(t, err)
 
 			assert.Equal(t, tt.expectedBucket, bucket)
 			assert.Equal(t, tt.expectedPrefix, prefix)
@@ -279,6 +281,89 @@ func TestBackupStorageAzureSpecContainerAndPrefix(t *testing.T) {
 
 			assert.Equal(t, tt.expectedContainer, container)
 			assert.Equal(t, tt.expectedPrefix, prefix)
+		})
+	}
+}
+
+func TestBackupStorageS3SpecForcePath(t *testing.T) {
+	tests := map[string]struct {
+		spec              BackupStorageS3Spec
+		expectedEndpoint  string
+		expectedBucketURL string
+		expectedBucket    string
+		expectedPrefix    string
+	}{
+		"full endpoint url path is used when force path style is enabled": {
+			spec: BackupStorageS3Spec{
+				Bucket:         "ignored-bucket",
+				EndpointURL:    "https://s3.example.com/my-bucket/prefix",
+				ForcePathStyle: true,
+			},
+			expectedEndpoint:  "https://s3.example.com",
+			expectedBucketURL: "my-bucket/prefix",
+			expectedBucket:    "my-bucket",
+			expectedPrefix:    "prefix/",
+		},
+		"endpoint url without path falls back to bucket": {
+			spec: BackupStorageS3Spec{
+				Bucket:         "my-bucket/prefix",
+				EndpointURL:    "https://s3.example.com",
+				ForcePathStyle: true,
+			},
+			expectedEndpoint:  "https://s3.example.com",
+			expectedBucketURL: "my-bucket/prefix",
+			expectedBucket:    "my-bucket",
+			expectedPrefix:    "prefix/",
+		},
+		"root-only endpoint path falls back to bucket": {
+			spec: BackupStorageS3Spec{
+				Bucket:         "my-bucket/prefix",
+				EndpointURL:    "https://s3.example.com/",
+				ForcePathStyle: true,
+			},
+			expectedEndpoint:  "https://s3.example.com",
+			expectedBucketURL: "my-bucket/prefix",
+			expectedBucket:    "my-bucket",
+			expectedPrefix:    "prefix/",
+		},
+		"scheme-less endpoint path is split into endpoint and bucket": {
+			spec: BackupStorageS3Spec{
+				Bucket:         "ignored-bucket",
+				EndpointURL:    "s3.example.com/my-bucket/prefix",
+				ForcePathStyle: true,
+			},
+			expectedEndpoint:  "s3.example.com",
+			expectedBucketURL: "my-bucket/prefix",
+			expectedBucket:    "my-bucket",
+			expectedPrefix:    "prefix/",
+		},
+		"trailing slash is normalized in prefix": {
+			spec: BackupStorageS3Spec{
+				Bucket:         "ignored-bucket",
+				EndpointURL:    "https://s3.example.com/my-bucket/prefix/",
+				ForcePathStyle: true,
+			},
+			expectedEndpoint:  "https://s3.example.com",
+			expectedBucketURL: "my-bucket/prefix/",
+			expectedBucket:    "my-bucket",
+			expectedPrefix:    "prefix/",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			gotEndpoint, err := tt.spec.Endpoint()
+			assert.NoError(t, err)
+			assert.Equal(t, tt.expectedEndpoint, gotEndpoint)
+
+			gotBucketURL, err := tt.spec.BucketURL()
+			assert.NoError(t, err)
+			assert.Equal(t, tt.expectedBucketURL, gotBucketURL)
+
+			gotBucket, gotPrefix, err := tt.spec.BucketAndPrefix()
+			assert.NoError(t, err)
+			assert.Equal(t, tt.expectedBucket, gotBucket)
+			assert.Equal(t, tt.expectedPrefix, gotPrefix)
 		})
 	}
 }

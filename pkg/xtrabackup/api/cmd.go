@@ -86,6 +86,9 @@ func (cfg *BackupConfig) xbcloudArgs(action XBCloudAction) []string {
 		if len(cfg.S3.EndpointUrl) > 0 {
 			args = append(args, fmt.Sprintf("--s3-endpoint=%s", cfg.S3.EndpointUrl))
 		}
+		if cfg.S3.ForcePathStyle {
+			args = append(args, "--s3-bucket-lookup=PATH")
+		}
 	case BackupStorageType_AZURE:
 		args = append(
 			args,

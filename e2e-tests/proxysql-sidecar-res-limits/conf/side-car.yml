@@ -29,7 +29,9 @@ spec:
     enabled: true
     size: 2
     image: -proxysql
-    serviceType: LoadBalancer
+    expose:
+      enabled: false
+      type: LoadBalancer
     resources:
       requests:
         memory: 0.1G

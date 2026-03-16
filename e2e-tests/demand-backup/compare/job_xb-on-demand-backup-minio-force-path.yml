@@ -1,0 +1,144 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  generation: 1
+  labels:
+    app.kubernetes.io/instance: demand-backup
+    app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+    app.kubernetes.io/name: percona-xtradb-cluster
+    app.kubernetes.io/part-of: percona-xtradb-cluster
+    percona.com/backup-job-name: xb-on-demand-backup-minio-force-path
+    percona.com/backup-name: on-demand-backup-minio-force-path
+    percona.com/backup-type: xtrabackup
+    percona.com/cluster: demand-backup
+  name: xb-on-demand-backup-minio-force-path
+  ownerReferences:
+    - controller: true
+      kind: PerconaXtraDBClusterBackup
+      name: on-demand-backup-minio-force-path
+spec:
+  activeDeadlineSeconds: 3600
+  backoffLimit: 3
+  completionMode: NonIndexed
+  completions: 1
+  manualSelector: true
+  parallelism: 1
+  podReplacementPolicy: TerminatingOrFailed
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: demand-backup
+      app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+      app.kubernetes.io/name: percona-xtradb-cluster
+      app.kubernetes.io/part-of: percona-xtradb-cluster
+      percona.com/backup-job-name: xb-on-demand-backup-minio-force-path
+      percona.com/backup-name: on-demand-backup-minio-force-path
+      percona.com/backup-type: xtrabackup
+      percona.com/cluster: demand-backup
+  suspend: false
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/instance: demand-backup
+        app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+        app.kubernetes.io/name: percona-xtradb-cluster
+        app.kubernetes.io/part-of: percona-xtradb-cluster
+        percona.com/backup-job-name: xb-on-demand-backup-minio-force-path
+        percona.com/backup-name: on-demand-backup-minio-force-path
+        percona.com/backup-type: xtrabackup
+        percona.com/cluster: demand-backup
+    spec:
+      containers:
+        - command:
+            - bash
+            - /opt/percona/backup/backup.sh
+          env:
+            - name: BACKUP_DIR
+              value: /backup
+            - name: PXC_SERVICE
+              value: demand-backup-pxc
+            - name: PXC_PASS
+              valueFrom:
+                secretKeyRef:
+                  key: xtrabackup
+                  name: my-cluster-secrets
+            - name: VERIFY_TLS
+              value: "false"
+            - name: ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  key: AWS_ACCESS_KEY_ID
+                  name: minio-secret
+            - name: SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  key: AWS_SECRET_ACCESS_KEY
+                  name: minio-secret
+            - name: S3_SESSION_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  key: AWS_SESSION_TOKEN
+                  name: minio-secret
+                  optional: true
+            - name: DEFAULT_REGION
+              value: us-east-1
+            - name: ENDPOINT
+              value: https://minio-service.namespace:9000
+            - name: S3_FORCE_PATH
+              value: "true"
+            - name: S3_BUCKET
+              value: operator-testing
+          imagePullPolicy: Always
+          name: xtrabackup
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /opt/percona
+              name: bin
+            - mountPath: /etc/mysql/ssl
+              name: ssl
+            - mountPath: /etc/mysql/ssl-internal
+              name: ssl-internal
+            - mountPath: /etc/mysql/vault-keyring-secret
+              name: vault-keyring-secret
+      dnsPolicy: ClusterFirst
+      initContainers:
+        - command:
+            - /backup-init-entrypoint.sh
+          imagePullPolicy: Always
+          name: backup-init
+          resources:
+            limits:
+              cpu: 50m
+              memory: 50M
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /opt/percona
+              name: bin
+      restartPolicy: Never
+      schedulerName: default-scheduler
+      securityContext:
+        fsGroup: 1001
+        supplementalGroups:
+          - 1001
+      terminationGracePeriodSeconds: 30
+      volumes:
+        - emptyDir: {}
+          name: bin
+        - name: ssl
+          secret:
+            defaultMode: 420
+            optional: true
+            secretName: demand-backup-ssl
+        - name: ssl-internal
+          secret:
+            defaultMode: 420
+            optional: true
+            secretName: demand-backup-ssl-internal
+        - name: vault-keyring-secret
+          secret:
+            defaultMode: 420
+            optional: true
+            secretName: some-name-vault
+  ttlSecondsAfterFinished: 3600

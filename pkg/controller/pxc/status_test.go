@@ -245,7 +245,7 @@ func TestAppHostNoLoadBalancer(t *testing.T) {
 
 	r := buildFakeClient([]runtime.Object{cr, pxcSfs, haproxySfs})
 
-	host, err := r.appHost(cr, haproxy, &cr.Spec.HAProxy.PodSpec, &cr.Spec.HAProxy.ExposePrimary)
+	host, err := r.appHost(t.Context(), cr, haproxy, &cr.Spec.HAProxy.PodSpec, &cr.Spec.HAProxy.ExposePrimary)
 	if err != nil {
 		t.Error(err)
 	}
@@ -269,7 +269,7 @@ func TestAppHostLoadBalancerNoSvc(t *testing.T) {
 
 	r := buildFakeClient([]runtime.Object{cr, pxcSfs, haproxySfs})
 
-	_, err := r.appHost(cr, haproxy, &cr.Spec.HAProxy.PodSpec, &cr.Spec.HAProxy.ExposePrimary)
+	_, err := r.appHost(t.Context(), cr, haproxy, &cr.Spec.HAProxy.PodSpec, &cr.Spec.HAProxy.ExposePrimary)
 	if err == nil {
 		t.Error("want err, got nil")
 	}
@@ -300,7 +300,7 @@ func TestAppHostLoadBalancerOnlyIP(t *testing.T) {
 
 	r := buildFakeClient([]runtime.Object{cr, pxcSfs, haproxySfs, haproxySvc})
 
-	host, err := r.appHost(cr, haproxy, &cr.Spec.HAProxy.PodSpec, &cr.Spec.HAProxy.ExposePrimary)
+	host, err := r.appHost(t.Context(), cr, haproxy, &cr.Spec.HAProxy.PodSpec, &cr.Spec.HAProxy.ExposePrimary)
 	if err != nil {
 		t.Error(err)
 	}
@@ -335,7 +335,7 @@ func TestAppHostLoadBalancerWithHostname(t *testing.T) {
 
 	r := buildFakeClient([]runtime.Object{cr, pxcSfs, haproxySfs, haproxySvc})
 
-	gotHost, err := r.appHost(cr, haproxy, &cr.Spec.HAProxy.PodSpec, &cr.Spec.HAProxy.ExposePrimary)
+	gotHost, err := r.appHost(t.Context(), cr, haproxy, &cr.Spec.HAProxy.PodSpec, &cr.Spec.HAProxy.ExposePrimary)
 	if err != nil {
 		t.Error(err)
 	}

@@ -371,10 +371,13 @@ func (r *ReconcilePerconaXtraDBClusterBackup) createBackupJob(
 		if storage.S3 == nil {
 			return nil, errors.New("s3 storage is not specified")
 		}
-		cr.Status.Destination.SetS3Destination(storage.S3.Bucket, cr.Spec.PXCCluster+"-"+cr.CreationTimestamp.Time.Format("2006-01-02-15:04:05")+"-full")
-
-		err := backup.SetStorageS3(ctx, &job.Spec, cr)
+		bucket, err := storage.S3.BucketURL()
 		if err != nil {
+			return nil, errors.Wrap(err, "failed to get bucket")
+		}
+		cr.Status.Destination.SetS3Destination(bucket, cr.Spec.PXCCluster+"-"+cr.CreationTimestamp.Time.Format("2006-01-02-15:04:05")+"-full")
+
+		if err := backup.SetStorageS3(ctx, &job.Spec, cr); err != nil {
 			return nil, errors.Wrap(err, "set storage FS")
 		}
 	case api.BackupStorageAzure:

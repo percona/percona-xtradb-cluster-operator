@@ -733,6 +733,7 @@ spec:
           bucket: S3-BACKUP-BUCKET-NAME-HERE
           credentialsSecret: my-cluster-name-backup-s3
           region: us-west-2
+#          forcePathStyle: true
 #          caBundle:
 #           name: s3-ca-bundle-secret
 #           key: ca.crt

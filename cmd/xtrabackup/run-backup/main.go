@@ -126,13 +126,14 @@ func getRequestObject() *xbscapi.CreateBackupRequest {
 
 func setS3Config(req *xbscapi.CreateBackupRequest) {
 	req.BackupConfig.S3 = &xbscapi.S3Config{
-		Bucket:       os.Getenv("S3_BUCKET"),
-		Region:       os.Getenv("DEFAULT_REGION"),
-		EndpointUrl:  os.Getenv("ENDPOINT"),
-		AccessKey:    os.Getenv("ACCESS_KEY_ID"),
-		SecretKey:    os.Getenv("SECRET_ACCESS_KEY"),
-		SessionToken: os.Getenv("S3_SESSION_TOKEN"),
-		StorageClass: os.Getenv("S3_STORAGE_CLASS"),
+		Bucket:         os.Getenv("S3_BUCKET"),
+		Region:         os.Getenv("DEFAULT_REGION"),
+		EndpointUrl:    os.Getenv("ENDPOINT"),
+		AccessKey:      os.Getenv("ACCESS_KEY_ID"),
+		SecretKey:      os.Getenv("SECRET_ACCESS_KEY"),
+		SessionToken:   os.Getenv("S3_SESSION_TOKEN"),
+		StorageClass:   os.Getenv("S3_STORAGE_CLASS"),
+		ForcePathStyle: os.Getenv("S3_FORCE_PATH") == "true",
 	}
 }
 

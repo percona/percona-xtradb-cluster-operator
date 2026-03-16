@@ -114,7 +114,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(ctx context.Context, cr *ap
 		}
 		*a.status = status
 
-		host, err := r.appHost(cr, a.app, a.spec, a.expose)
+		host, err := r.appHost(ctx, cr, a.app, a.spec, a.expose)
 		if err != nil {
 			return errors.Wrapf(err, "get %s host", a.app.Name())
 		}
@@ -273,7 +273,7 @@ func (r *ReconcilePerconaXtraDBCluster) appStatus(ctx context.Context, app api.S
 	return status, nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) appHost(cr *api.PerconaXtraDBCluster, app api.StatefulApp,
+func (r *ReconcilePerconaXtraDBCluster) appHost(ctx context.Context, cr *api.PerconaXtraDBCluster, app api.StatefulApp,
 	podSpec *api.PodSpec, expose *api.ServiceExpose,
 ) (string, error) {
 	svcName := app.Service()
@@ -281,17 +281,12 @@ func (r *ReconcilePerconaXtraDBCluster) appHost(cr *api.PerconaXtraDBCluster, ap
 		svcName = cr.Name + "-proxysql"
 	}
 
-	svcType := expose.Type
-	if cr.CompareVersionWith("1.14.0") < 0 {
-		svcType = podSpec.ServiceType
-	}
-
-	if svcType != corev1.ServiceTypeLoadBalancer {
+	if expose.Type != corev1.ServiceTypeLoadBalancer {
 		return svcName + "." + cr.Namespace, nil
 	}
 
 	svc := &corev1.Service{}
-	err := r.client.Get(context.TODO(), types.NamespacedName{Namespace: cr.Namespace, Name: svcName}, svc)
+	err := r.client.Get(ctx, types.NamespacedName{Namespace: cr.Namespace, Name: svcName}, svc)
 	if err != nil {
 		return "", errors.Wrapf(err, "get %s service", app.Name())
 	}

@@ -34,10 +34,10 @@ type PerconaXtraDBClusterRestoreStatus struct {
 // +kubebuilder:validation:XValidation:rule="self.type != 'latest' || (self.date == '' && self.gtid == '')",message="Date and GTID should not be set when type is 'latest'"
 type PITR struct {
 	BackupSource *PXCBackupStatus `json:"backupSource"`
-	// +kubebuilder:validation:Enum=latest;date;transaction;skip
-	Type         string           `json:"type"`
-	Date         string           `json:"date"`
-	GTID         string           `json:"gtid"`
+	// +kubebuilder:validation:Enum={latest,date,transaction,skip}
+	Type string `json:"type"`
+	Date string `json:"date"`
+	GTID string `json:"gtid"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

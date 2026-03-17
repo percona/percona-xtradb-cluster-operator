@@ -151,6 +151,8 @@ spec:
           volumeMounts:
             - mountPath: /var/lib/mysql
               name: datadir
+            - mountPath: /opt/percona
+              name: bin
       nodeSelector: {}
       restartPolicy: Always
       schedulerName: default-scheduler
@@ -198,6 +200,8 @@ spec:
             defaultMode: 420
             optional: true
             secretName: proxy-protocol-mysql-init
+        - emptyDir: {}
+          name: bin
   updateStrategy:
     rollingUpdate:
       partition: 0

@@ -63,7 +63,7 @@ run_logrotate() {
 	for additional_conf in "${logrotate_additional_conf_files[@]}"; do
 		logrotate_cmd="$logrotate_cmd \"$additional_conf\""
 	done
-    logrotate_cmd="$logrotate_cmd; /usr/bin/find /var/lib/mysql/ -name GRA_*.log -mtime +7 -delete"
+	logrotate_cmd="$logrotate_cmd; /usr/bin/find /var/lib/mysql/ -name GRA_*.log -mtime +7 -delete"
 
 	set -o xtrace
 	exec go-cron "$LOGROTATE_SCHEDULE" sh -c "$logrotate_cmd"

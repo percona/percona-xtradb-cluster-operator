@@ -86,7 +86,7 @@ run_fluentbit() {
 
 	set -e
 	set -o xtrace
-    test -e /opt/percona/hookscript/hook.sh && source /opt/percona/hookscript/hook.sh
+	test -e /opt/percona/hookscript/hook.sh && source /opt/percona/hookscript/hook.sh
 	exec "$@" "${fluentbit_opt[@]}"
 }
 

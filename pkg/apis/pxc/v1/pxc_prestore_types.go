@@ -2,10 +2,14 @@ package v1
 
 import (
 	"errors"
+	"fmt"
+	"regexp"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+var pitrDateRegexp = regexp.MustCompile(`^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01]) ([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$`)
 
 // PerconaXtraDBClusterRestoreSpec defines the desired state of PerconaXtraDBClusterRestore
 type PerconaXtraDBClusterRestoreSpec struct {
@@ -29,9 +33,9 @@ type PerconaXtraDBClusterRestoreStatus struct {
 	Unsafe        UnsafeFlags  `json:"unsafeFlags,omitempty"`
 }
 
-// +kubebuilder:validation:XValidation:rule="self.type != 'date' || (self.date != '' && self.date.matches('^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01]) ([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$'))",message="Date is required for type 'date' and should be in format YYYY-MM-DD HH:MM:SS with valid ranges (MM: 01-12, DD: 01-31, HH: 00-23, MM/SS: 00-59)"
-// +kubebuilder:validation:XValidation:rule="(self.type != 'transaction' && self.type != 'skip') || self.gtid != ''",message="GTID is required for types 'transaction' and 'skip'"
-// +kubebuilder:validation:XValidation:rule="self.type != 'latest' || (self.date == '' && self.gtid == '')",message="Date and GTID should not be set when type is 'latest'"
+// +kubebuilder:validation:XValidation:rule="self.type != 'date' || (has(self.date) && self.date.matches('^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01]) ([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$'))",message="Date is required for type 'date' and should be in format YYYY-MM-DD HH:MM:SS with valid ranges (MM: 01-12, DD: 01-31, HH: 00-23, MM/SS: 00-59)"
+// +kubebuilder:validation:XValidation:rule="(self.type != 'transaction' && self.type != 'skip') || (has(self.gtid) && size(self.gtid) > 0)",message="GTID is required for types 'transaction' and 'skip'"
+// +kubebuilder:validation:XValidation:rule="self.type != 'latest' || ((!has(self.date) || size(self.date) == 0) && (!has(self.gtid) || size(self.gtid) == 0))",message="Date and GTID should not be set when type is 'latest'"
 type PITR struct {
 	BackupSource *PXCBackupStatus `json:"backupSource"`
 	// +kubebuilder:validation:Enum={latest,date,transaction,skip}
@@ -97,5 +101,33 @@ func (cr *PerconaXtraDBClusterRestore) CheckNsetDefaults() error {
 		return errors.New("backupName and BackupSource can't be specified simultaneously")
 	}
 
+	return nil
+}
+
+// Validate checks PITR fields consistency.
+// The same rules are enforced at CRD level via x-kubernetes-validations (CEL).
+func (p *PITR) Validate() error {
+	switch p.Type {
+	case "latest":
+		if p.Date != "" {
+			return errors.New("date should not be set when type is 'latest'")
+		}
+		if p.GTID != "" {
+			return errors.New("gtid should not be set when type is 'latest'")
+		}
+	case "date":
+		if p.Date == "" {
+			return errors.New("date is required for type 'date'")
+		}
+		if !pitrDateRegexp.MatchString(p.Date) {
+			return errors.New("date should be in format YYYY-MM-DD HH:MM:SS with valid ranges (MM: 01-12, DD: 01-31, HH: 00-23, MM/SS: 00-59)")
+		}
+	case "transaction", "skip":
+		if p.GTID == "" {
+			return fmt.Errorf("gtid is required for type %q", p.Type)
+		}
+	default:
+		return fmt.Errorf("unknown type %q: must be one of latest, date, transaction, skip", p.Type)
+	}
 	return nil
 }

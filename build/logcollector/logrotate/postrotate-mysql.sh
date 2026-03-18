@@ -16,5 +16,5 @@ audit_plugin_loaded=$($MYSQL_CMDLINE -e "SHOW PLUGINS" | grep -c 'audit_log' || 
 if [ $audit_plugin_loaded -gt 0 ]; then
     $MYSQL_CMDLINE -e 'FLUSH NO_WRITE_TO_BINLOG ERROR LOGS;SET GLOBAL audit_log_flush=1;'
 else
-    $MYSQL_CMDLINE -e 'FLUSH NO_WRITE_TO_BINLOG ERROR LOGS;'
+	$MYSQL_CMDLINE -e 'FLUSH NO_WRITE_TO_BINLOG ERROR LOGS;'
 fi

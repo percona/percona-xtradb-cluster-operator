@@ -106,7 +106,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(ctx context.Context
 	sfs := statefulset.NewNode(cr)
 
 	listRaw := corev1.PodList{}
-	err := r.client.List(context.TODO(),
+	err := r.client.List(ctx,
 		&listRaw,
 		&client.ListOptions{
 			Namespace:     cr.Namespace,
@@ -200,7 +200,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(ctx context.Context
 			}
 			log.V(1).Info("Remove replication label from pod", "pod", pod.Name)
 			delete(pod.Labels, replicationPodLabel)
-			err = r.client.Update(context.TODO(), &pod)
+			err = r.client.Update(ctx, &pod)
 			if err != nil {
 				return errors.Wrap(err, "failed to remove primary label from secondary pod")
 			}
@@ -209,7 +209,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(ctx context.Context
 
 	if _, ok := primaryPod.Labels[replicationPodLabel]; !ok {
 		primaryPod.Labels[replicationPodLabel] = "true"
-		err = r.client.Update(context.TODO(), primaryPod)
+		err = r.client.Update(ctx, primaryPod)
 		if err != nil {
 			return errors.Wrap(err, "add label to main replica pod")
 		}
@@ -217,7 +217,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(ctx context.Context
 	}
 
 	sysUsersSecretObj := corev1.Secret{}
-	err = r.client.Get(context.TODO(),
+	err = r.client.Get(ctx,
 		types.NamespacedName{
 			Namespace: cr.Namespace,
 			Name:      internalSecretsPrefix + cr.Name,
@@ -236,7 +236,17 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(ctx context.Context
 	}
 
 	authPluginVar := "default_authentication_plugin"
-	if cr.CompareMySQLVersion("8.4.0") >= 0 {
+	is840 := false
+	if cr.Status.PXC.Version != "" {
+		compare840, err := cr.CompareMySQLVersion("8.4.0")
+		if err != nil {
+			return errors.Wrap(err, "failed to compare mysql version")
+		}
+		is840 = compare840 >= 0
+	} else {
+		is840 = version.Must(version.NewVersion(dbVer)).Compare(version.Must(version.NewVersion("8.4.0"))) >= 0
+	}
+	if is840 {
 		authPluginVar = "authentication_policy"
 	}
 

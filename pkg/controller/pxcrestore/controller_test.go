@@ -22,8 +22,6 @@ import (
 )
 
 func TestValidate(t *testing.T) {
-	ctx := context.Background()
-
 	const clusterName = "test-cluster"
 	const namespace = "namespace"
 	const backupName = clusterName + "-backup"
@@ -108,6 +106,24 @@ func TestValidate(t *testing.T) {
 			},
 		},
 		{
+			name:    "s3 with prefixed destination",
+			cr:      cr.DeepCopy(),
+			cluster: cluster.DeepCopy(),
+			bcp: updateResource(s3Bcp.DeepCopy(), func(bcp *api.PerconaXtraDBClusterBackup) {
+				bcp.Status.Destination.SetS3Destination("some-dest/prefix", "dest")
+			}),
+			objects: []runtime.Object{
+				crSecret,
+				s3Secret,
+			},
+			fakeStorageClientFunc: func(_ context.Context, opts storage.Options) (storage.Storage, error) {
+				return &fakeStorageClient{
+					expectedListObjectsPath: "prefix/dest/",
+					listObjectsResponse:     []string{"some-dest/prefix/dest/xtrabackup.stream"},
+				}, nil
+			},
+		},
+		{
 			name: "s3 without provided bucket",
 			cr: updateResource(cr, func(cr *api.PerconaXtraDBClusterRestore) {
 				cr.Spec.BackupName = ""
@@ -168,6 +184,24 @@ func TestValidate(t *testing.T) {
 			objects: []runtime.Object{
 				crSecret,
 				azureSecret,
+			},
+		},
+		{
+			name: "azure with prefixed destination",
+			bcp: updateResource(azureBcp.DeepCopy(), func(bcp *api.PerconaXtraDBClusterBackup) {
+				bcp.Status.Destination.SetAzureDestination("some-dest/prefix", "dest")
+			}),
+			cr:      cr.DeepCopy(),
+			cluster: cluster.DeepCopy(),
+			objects: []runtime.Object{
+				crSecret,
+				azureSecret,
+			},
+			fakeStorageClientFunc: func(_ context.Context, opts storage.Options) (storage.Storage, error) {
+				return &fakeStorageClient{
+					expectedListObjectsPath: "prefix/dest/",
+					listObjectsResponse:     []string{"some-dest/prefix/dest/xtrabackup.stream"},
+				}, nil
 			},
 		},
 		{
@@ -248,13 +282,14 @@ func TestValidate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			ctx := t.Context()
 			if tt.fakeStorageClientFunc == nil {
 				tt.fakeStorageClientFunc = func(ctx context.Context, opts storage.Options) (storage.Storage, error) {
 					defaultFakeClient, err := fakestorage.NewStorage(ctx, opts)
 					if err != nil {
 						return nil, err
 					}
-					return &fakeStorageClient{defaultFakeClient, false, false}, nil
+					return &fakeStorageClient{Storage: defaultFakeClient}, nil
 				}
 			}
 
@@ -295,16 +330,22 @@ func TestValidate(t *testing.T) {
 
 type fakeStorageClient struct {
 	storage.Storage
-	failListObjects  bool
-	emptyListObjects bool
+	expectedListObjectsPath string
+	listObjectsResponse     []string
+	failListObjects         bool
+	emptyListObjects        bool
 }
 
-func (c *fakeStorageClient) ListObjects(_ context.Context, _ string) ([]string, error) {
+func (c *fakeStorageClient) ListObjects(_ context.Context, key string) ([]string, error) {
 	switch {
+	case c.expectedListObjectsPath != "" && key != c.expectedListObjectsPath:
+		return nil, errors.Errorf("unexpected list path: got %s want %s", key, c.expectedListObjectsPath)
 	case c.emptyListObjects:
 		return nil, nil
 	case c.failListObjects:
 		return nil, errors.New("failListObjects")
+	case len(c.listObjectsResponse) > 0:
+		return c.listObjectsResponse, nil
 	}
 	return []string{"some-dest/backup1", "some-dest/backup2"}, nil
 }
@@ -449,7 +490,7 @@ func TestOperatorRestart(t *testing.T) {
 					if err != nil {
 						return nil, err
 					}
-					return &fakeStorageClient{defaultFakeClient, false, false}, nil
+					return &fakeStorageClient{Storage: defaultFakeClient}, nil
 				}
 
 				if state == api.RestoreRestore || state == api.RestorePITR {

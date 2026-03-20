@@ -2,7 +2,6 @@ package v1
 
 import (
 	"errors"
-	"fmt"
 	"regexp"
 
 	corev1 "k8s.io/api/core/v1"
@@ -101,33 +100,5 @@ func (cr *PerconaXtraDBClusterRestore) CheckNsetDefaults() error {
 		return errors.New("backupName and BackupSource can't be specified simultaneously")
 	}
 
-	return nil
-}
-
-// Validate checks PITR fields consistency.
-// The same rules are enforced at CRD level via x-kubernetes-validations (CEL).
-func (p *PITR) Validate() error {
-	switch p.Type {
-	case "latest":
-		if p.Date != "" {
-			return errors.New("date should not be set when type is 'latest'")
-		}
-		if p.GTID != "" {
-			return errors.New("gtid should not be set when type is 'latest'")
-		}
-	case "date":
-		if p.Date == "" {
-			return errors.New("date is required for type 'date'")
-		}
-		if !pitrDateRegexp.MatchString(p.Date) {
-			return errors.New("date should be in format YYYY-MM-DD HH:MM:SS with valid ranges (MM: 01-12, DD: 01-31, HH: 00-23, MM/SS: 00-59)")
-		}
-	case "transaction", "skip":
-		if p.GTID == "" {
-			return fmt.Errorf("gtid is required for type %q", p.Type)
-		}
-	default:
-		return fmt.Errorf("unknown type %q: must be one of latest, date, transaction, skip", p.Type)
-	}
 	return nil
 }

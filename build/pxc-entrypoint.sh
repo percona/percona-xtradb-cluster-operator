@@ -178,6 +178,10 @@ if [[ $MYSQL_VERSION =~ ^(8\.0|8\.4)$ ]]; then
 	sed -i "/\[mysqld\]/a innodb_buffer_pool_in_core_file=OFF" $CFG
 fi
 
+if [ "$MYSQL_VERSION" == '8.4' ]; then
+	sed -i '/\[mysqld\]/a innodb_numa_interleave=OFF' $CFG
+fi
+
 sed -i "/\[mysqld\]/a wsrep_notify_cmd=/var/lib/mysql/wsrep_cmd_notify_handler.sh" $CFG
 
 # add sst.cpat to exclude pxc-entrypoint, pxc-configure-pxc from SST cleanup

@@ -965,9 +965,11 @@ func (r *ReconcilePerconaXtraDBCluster) syncPXCUsersWithProxySQL(ctx context.Con
 
 		command := []string{"proxysql-admin", "--syncusers", "--add-query-rule"}
 		if cr.Spec.ProxySQL.Scheduler.Enabled {
-			command = []string{"percona-scheduler-admin",
+			command = []string{
+				"percona-scheduler-admin",
 				"--config-file=" + statefulset.SchedulerConfigPath,
-				"--syncusers", "--add-query-rule"}
+				"--syncusers", "--add-query-rule",
+			}
 		}
 
 		err = r.clientcmd.Exec(&pod, "proxysql", command, nil, &outb, &errb, false)
@@ -1164,29 +1166,26 @@ func (r *ReconcilePerconaXtraDBCluster) updateUserPassExpirationPolicy(ctx conte
 		return nil
 	}
 
-	if cr.CompareVersionWith("1.13.0") >= 0 {
-		um, err := getUserManager(cr, internalSecrets)
-		if err != nil {
-			return err
-		}
-
-		if err := um.UpdatePassExpirationPolicy(user); err != nil {
-			return errors.Wrapf(err, "update %s user password expiration policy", user.Name)
-		}
-
-		if internalSecrets.Annotations == nil {
-			internalSecrets.Annotations = make(map[string]string)
-		}
-
-		internalSecrets.Annotations[annotationName] = "done"
-		err = r.client.Update(ctx, internalSecrets)
-		if err != nil {
-			return errors.Wrap(err, "update internal sys users secret annotation")
-		}
-
-		log.Info("Password expiration policy updated", "user", user.Name)
-		return nil
+	um, err := getUserManager(cr, internalSecrets)
+	if err != nil {
+		return err
 	}
+	defer um.Close()
+
+	if err := um.UpdatePassExpirationPolicy(user); err != nil {
+		return errors.Wrapf(err, "update %s user password expiration policy", user.Name)
+	}
+
+	if internalSecrets.Annotations == nil {
+		internalSecrets.Annotations = make(map[string]string)
+	}
+
+	internalSecrets.Annotations[annotationName] = "done"
+	if err = r.client.Update(ctx, internalSecrets); err != nil {
+		return errors.Wrap(err, "update internal sys users secret annotation")
+	}
+
+	log.Info("Password expiration policy updated", "user", user.Name)
 
 	return nil
 }

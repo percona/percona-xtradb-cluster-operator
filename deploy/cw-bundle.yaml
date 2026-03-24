@@ -194,6 +194,8 @@ spec:
                     type: string
                   endpointUrl:
                     type: string
+                  prefix:
+                    type: string
                   storageClass:
                     type: string
                 type: object
@@ -353,12 +355,16 @@ spec:
                     - key
                     type: object
                     x-kubernetes-map-type: atomic
+                  checksumAlgorithm:
+                    type: string
                   credentialsSecret:
                     type: string
                   endpointUrl:
                     type: string
                   forcePathStyle:
                     type: boolean
+                  prefix:
+                    type: string
                   region:
                     type: string
                 type: object
@@ -450,6 +456,8 @@ spec:
                       credentialsSecret:
                         type: string
                       endpointUrl:
+                        type: string
+                      prefix:
                         type: string
                       storageClass:
                         type: string
@@ -610,12 +618,16 @@ spec:
                         - key
                         type: object
                         x-kubernetes-map-type: atomic
+                      checksumAlgorithm:
+                        type: string
                       credentialsSecret:
                         type: string
                       endpointUrl:
                         type: string
                       forcePathStyle:
                         type: boolean
+                      prefix:
+                        type: string
                       region:
                         type: string
                     type: object
@@ -751,6 +763,8 @@ spec:
                           credentialsSecret:
                             type: string
                           endpointUrl:
+                            type: string
+                          prefix:
                             type: string
                           storageClass:
                             type: string
@@ -911,12 +925,16 @@ spec:
                             - key
                             type: object
                             x-kubernetes-map-type: atomic
+                          checksumAlgorithm:
+                            type: string
                           credentialsSecret:
                             type: string
                           endpointUrl:
                             type: string
                           forcePathStyle:
                             type: boolean
+                          prefix:
+                            type: string
                           region:
                             type: string
                         type: object
@@ -1938,6 +1956,8 @@ spec:
                               type: string
                             endpointUrl:
                               type: string
+                            prefix:
+                              type: string
                             storageClass:
                               type: string
                           type: object
@@ -2255,12 +2275,16 @@ spec:
                               - key
                               type: object
                               x-kubernetes-map-type: atomic
+                            checksumAlgorithm:
+                              type: string
                             credentialsSecret:
                               type: string
                             endpointUrl:
                               type: string
                             forcePathStyle:
                               type: boolean
+                            prefix:
+                              type: string
                             region:
                               type: string
                           type: object

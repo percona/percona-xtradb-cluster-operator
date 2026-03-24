@@ -291,6 +291,10 @@ func getStorageEnvs(cr *api.PerconaXtraDBCluster) ([]corev1.EnvVar, error) {
 				Value: storage.S3.Region,
 			},
 			{
+				Name:  "S3_CHECKSUM_ALGORITHM",
+				Value: string(storage.S3.ChecksumAlgorithm),
+			},
+			{
 				Name:  "STORAGE_TYPE",
 				Value: "s3",
 			},

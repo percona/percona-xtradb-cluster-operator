@@ -848,13 +848,26 @@ const (
 	BackupStorageAzure      BackupStorageType = "azure"
 )
 
+type S3ChecksumAlgorithmType string
+
+const (
+	S3ChecksumAlgorithmCRC64NVME S3ChecksumAlgorithmType = "CRC64NVME"
+	S3ChecksumAlgorithmCRC32     S3ChecksumAlgorithmType = "CRC32"
+	S3ChecksumAlgorithmCRC32C    S3ChecksumAlgorithmType = "CRC32C"
+	S3ChecksumAlgorithmSHA1      S3ChecksumAlgorithmType = "SHA1"
+	S3ChecksumAlgorithmSHA256    S3ChecksumAlgorithmType = "SHA256"
+	S3ChecksumAlgorithmMD5       S3ChecksumAlgorithmType = "MD5"
+)
+
 type BackupStorageS3Spec struct {
 	Bucket            string                    `json:"bucket"`
+	Prefix            string                    `json:"prefix"`
 	CredentialsSecret string                    `json:"credentialsSecret"`
 	Region            string                    `json:"region,omitempty"`
 	EndpointURL       string                    `json:"endpointUrl,omitempty"`
 	CABundle          *corev1.SecretKeySelector `json:"caBundle,omitempty"`
 	ForcePathStyle    bool                      `json:"forcePathStyle,omitempty"`
+	ChecksumAlgorithm S3ChecksumAlgorithmType   `json:"checksumAlgorithm,omitempty"`
 }
 
 func (b *BackupStorageS3Spec) endpointAndPath() (string, string, error) {
@@ -923,12 +936,17 @@ func (b *BackupStorageS3Spec) BucketAndPrefix() (string, string, error) {
 		prefix += "/"
 	}
 
+	if b.Prefix != "" {
+		prefix += strings.TrimSuffix(b.Prefix, "/")
+	}
+
 	return bucket, prefix, nil
 }
 
 type BackupStorageAzureSpec struct {
 	CredentialsSecret string `json:"credentialsSecret"`
 	ContainerPath     string `json:"container"`
+	Prefix            string `json:"prefix"`
 	Endpoint          string `json:"endpointUrl"`
 	StorageClass      string `json:"storageClass"`
 	BlockSize         int64  `json:"blockSize"`
@@ -949,6 +967,10 @@ func (b *BackupStorageAzureSpec) ContainerAndPrefix() (string, string) {
 	if prefix != "" {
 		prefix = strings.TrimSuffix(prefix, "/")
 		prefix += "/"
+	}
+
+	if b.Prefix != "" {
+		prefix += strings.TrimSuffix(b.Prefix, "/")
 	}
 
 	return container, prefix

@@ -15,11 +15,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/percona/percona-xtradb-cluster-operator/cmd/pitr/pxc"
+	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage"
-
-	"github.com/pkg/errors"
 )
 
 type Recoverer struct {
@@ -69,7 +70,7 @@ func (c Config) storages(ctx context.Context) (storage.Storage, storage.Storage,
 			return nil, nil, errors.Wrap(err, "read CA bundle file")
 		}
 
-		binlogStorage, err = storage.NewS3(ctx, c.BinlogStorageS3.Endpoint, c.BinlogStorageS3.AccessKeyID, c.BinlogStorageS3.AccessKey, c.BinlogStorageS3.SessionToken, bucket, prefix, c.BinlogStorageS3.Region, c.VerifyTLS, caBundle, c.BinlogStorageS3.ForcePath)
+		binlogStorage, err = storage.NewS3(ctx, c.BinlogStorageS3.Endpoint, c.BinlogStorageS3.AccessKeyID, c.BinlogStorageS3.AccessKey, c.BinlogStorageS3.SessionToken, bucket, prefix, c.BinlogStorageS3.Region, c.VerifyTLS, caBundle, c.BinlogStorageS3.ForcePath, api.S3ChecksumAlgorithmType(c.BinlogStorageS3.ChecksumAlgorithm))
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "new s3 storage")
 		}
@@ -78,7 +79,7 @@ func (c Config) storages(ctx context.Context) (storage.Storage, storage.Storage,
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "get bucket and prefix")
 		}
-		defaultStorage, err = storage.NewS3(ctx, c.BackupStorageS3.Endpoint, c.BackupStorageS3.AccessKeyID, c.BackupStorageS3.AccessKey, c.BackupStorageS3.SessionToken, bucket, prefix, c.BackupStorageS3.Region, c.VerifyTLS, caBundle, c.BackupStorageS3.ForcePath)
+		defaultStorage, err = storage.NewS3(ctx, c.BackupStorageS3.Endpoint, c.BackupStorageS3.AccessKeyID, c.BackupStorageS3.AccessKey, c.BackupStorageS3.SessionToken, bucket, prefix, c.BackupStorageS3.Region, c.VerifyTLS, caBundle, c.BackupStorageS3.ForcePath, api.S3ChecksumAlgorithmType(c.BackupStorageS3.ChecksumAlgorithm))
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "new storage manager")
 		}
@@ -100,13 +101,14 @@ func (c Config) storages(ctx context.Context) (storage.Storage, storage.Storage,
 }
 
 type BackupS3 struct {
-	Endpoint     string `env:"ENDPOINT" envDefault:"s3.amazonaws.com"`
-	AccessKeyID  string `env:"ACCESS_KEY_ID,required"`
-	AccessKey    string `env:"SECRET_ACCESS_KEY,required"`
-	SessionToken string `env:"S3_SESSION_TOKEN"`
-	Region       string `env:"DEFAULT_REGION,required"`
-	BackupDest   string `env:"S3_BUCKET_URL,required"`
-	ForcePath    bool   `env:"S3_FORCE_PATH"`
+	Endpoint          string `env:"ENDPOINT" envDefault:"s3.amazonaws.com"`
+	AccessKeyID       string `env:"ACCESS_KEY_ID,required"`
+	AccessKey         string `env:"SECRET_ACCESS_KEY,required"`
+	SessionToken      string `env:"S3_SESSION_TOKEN"`
+	Region            string `env:"DEFAULT_REGION,required"`
+	BackupDest        string `env:"S3_BUCKET_URL,required"`
+	ForcePath         bool   `env:"S3_FORCE_PATH"`
+	ChecksumAlgorithm string `env:"S3_CHECKSUM_ALGORITHM"`
 }
 
 type BackupAzure struct {
@@ -121,13 +123,14 @@ type BackupAzure struct {
 }
 
 type BinlogS3 struct {
-	Endpoint     string `env:"BINLOG_S3_ENDPOINT" envDefault:"s3.amazonaws.com"`
-	AccessKeyID  string `env:"BINLOG_ACCESS_KEY_ID,required"`
-	AccessKey    string `env:"BINLOG_SECRET_ACCESS_KEY,required"`
-	SessionToken string `env:"BINLOG_SESSION_TOKEN"`
-	Region       string `env:"BINLOG_S3_REGION,required"`
-	BucketURL    string `env:"BINLOG_S3_BUCKET_URL,required"`
-	ForcePath    bool   `env:"BINLOG_S3_FORCE_PATH"`
+	Endpoint          string `env:"BINLOG_S3_ENDPOINT" envDefault:"s3.amazonaws.com"`
+	AccessKeyID       string `env:"BINLOG_ACCESS_KEY_ID,required"`
+	AccessKey         string `env:"BINLOG_SECRET_ACCESS_KEY,required"`
+	SessionToken      string `env:"BINLOG_SESSION_TOKEN"`
+	Region            string `env:"BINLOG_S3_REGION,required"`
+	BucketURL         string `env:"BINLOG_S3_BUCKET_URL,required"`
+	ForcePath         bool   `env:"BINLOG_S3_FORCE_PATH"`
+	ChecksumAlgorithm string `env:"BINLOG_S3_CHECKSUM_ALGORITHM"`
 }
 
 type BinlogAzure struct {
@@ -566,7 +569,8 @@ func getGTID(ctx context.Context, s storage.Storage) (string, error) {
 func getGTIDFromSSTInfo(
 	ctx context.Context,
 	sstInfoFile string,
-	s storage.Storage) (string, error) {
+	s storage.Storage,
+) (string, error) {
 	sstInfoObj, err := s.GetObject(ctx, sstInfoFile)
 	if err != nil {
 		return "", errors.Wrapf(err, "get sst_info object")

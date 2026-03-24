@@ -42,7 +42,7 @@ func NewClient(ctx context.Context, opts Options) (Storage, error) {
 		if !ok {
 			return nil, errors.New("invalid options type")
 		}
-		return NewS3(ctx, opts.Endpoint, opts.AccessKeyID, opts.SecretAccessKey, opts.SessionToken, opts.BucketName, opts.Prefix, opts.Region, opts.VerifyTLS, opts.CABundle, opts.ForcePathStyle)
+		return NewS3(ctx, opts.Endpoint, opts.AccessKeyID, opts.SecretAccessKey, opts.SessionToken, opts.BucketName, opts.Prefix, opts.Region, opts.VerifyTLS, opts.CABundle, opts.ForcePathStyle, opts.ChecksumAlgorithm)
 	case api.BackupStorageAzure:
 		opts, ok := opts.(*AzureOptions)
 		if !ok {
@@ -55,9 +55,10 @@ func NewClient(ctx context.Context, opts Options) (Storage, error) {
 
 // S3 is a type for working with S3 storages
 type S3 struct {
-	client     *minio.Client // minio client for work with storage
-	bucketName string        // S3 bucket name where binlogs will be stored
-	prefix     string        // prefix for S3 requests
+	client            *minio.Client // minio client for work with storage
+	bucketName        string        // S3 bucket name where binlogs will be stored
+	prefix            string        // prefix for S3 requests
+	checksumAlgorithm api.S3ChecksumAlgorithmType
 }
 
 // NewS3 return new Manager, useSSL using ssl for connection with storage
@@ -73,6 +74,7 @@ func NewS3(
 	verifyTLS bool,
 	caBundle []byte,
 	forcePathStyle bool,
+	checksumAlgorithm api.S3ChecksumAlgorithmType,
 ) (Storage, error) {
 	if endpoint == "" {
 		endpoint = "https://s3.amazonaws.com"
@@ -127,9 +129,10 @@ func NewS3(
 	}
 
 	return &S3{
-		client:     minioClient,
-		bucketName: bucketName,
-		prefix:     prefix,
+		client:            minioClient,
+		bucketName:        bucketName,
+		prefix:            prefix,
+		checksumAlgorithm: checksumAlgorithm,
 	}, nil
 }
 
@@ -161,12 +164,36 @@ func (s *S3) GetObject(ctx context.Context, objectName string) (io.ReadCloser, e
 // PutObject puts new object to storage with given name and content
 func (s *S3) PutObject(ctx context.Context, name string, data io.Reader, size int64) error {
 	objPath := path.Join(s.prefix, name)
-	_, err := s.client.PutObject(ctx, s.bucketName, objPath, data, size, minio.PutObjectOptions{})
+	_, err := s.client.PutObject(ctx, s.bucketName, objPath, data, size, minioPutObjectOptions(size, s.checksumAlgorithm))
 	if err != nil {
 		return errors.Wrapf(err, "put object %s", objPath)
 	}
 
 	return nil
+}
+
+func minioPutObjectOptions(size int64, algorithm api.S3ChecksumAlgorithmType) minio.PutObjectOptions {
+	// We should not use checksum for unknown size uploads
+	if size < 0 {
+		return minio.PutObjectOptions{}
+	}
+
+	switch algorithm {
+	case api.S3ChecksumAlgorithmSHA256:
+		return minio.PutObjectOptions{AutoChecksum: minio.ChecksumSHA256}
+	case api.S3ChecksumAlgorithmSHA1:
+		return minio.PutObjectOptions{AutoChecksum: minio.ChecksumSHA1}
+	case api.S3ChecksumAlgorithmCRC32:
+		return minio.PutObjectOptions{AutoChecksum: minio.ChecksumCRC32}
+	case api.S3ChecksumAlgorithmCRC32C:
+		return minio.PutObjectOptions{AutoChecksum: minio.ChecksumCRC32C}
+	case api.S3ChecksumAlgorithmCRC64NVME:
+		return minio.PutObjectOptions{AutoChecksum: minio.ChecksumCRC64NVME}
+	case api.S3ChecksumAlgorithmMD5:
+		return minio.PutObjectOptions{SendContentMd5: true}
+	default:
+		return minio.PutObjectOptions{}
+	}
 }
 
 func (s *S3) ListObjects(ctx context.Context, prefix string) ([]string, error) {

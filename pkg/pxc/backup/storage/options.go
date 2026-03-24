@@ -201,16 +201,17 @@ func getS3Options(
 	}
 
 	return &S3Options{
-		Endpoint:        endpoint,
-		AccessKeyID:     accessKeyID,
-		SecretAccessKey: secretAccessKey,
-		SessionToken:    sessionToken,
-		BucketName:      bucket,
-		Prefix:          prefix,
-		Region:          region,
-		VerifyTLS:       verify,
-		CABundle:        caBundle,
-		ForcePathStyle:  s3.ForcePathStyle,
+		Endpoint:          endpoint,
+		AccessKeyID:       accessKeyID,
+		SecretAccessKey:   secretAccessKey,
+		SessionToken:      sessionToken,
+		BucketName:        bucket,
+		Prefix:            prefix,
+		Region:            region,
+		VerifyTLS:         verify,
+		CABundle:          caBundle,
+		ForcePathStyle:    s3.ForcePathStyle,
+		ChecksumAlgorithm: s3.ChecksumAlgorithm,
 	}, nil
 }
 
@@ -268,32 +269,34 @@ func getS3OptionsFromBackup(ctx context.Context, cl client.Client, cluster *api.
 	}
 
 	return &S3Options{
-		Endpoint:        endpoint,
-		AccessKeyID:     accessKeyID,
-		SecretAccessKey: secretAccessKey,
-		SessionToken:    sessionToken,
-		BucketName:      bucket,
-		Prefix:          prefix,
-		Region:          region,
-		VerifyTLS:       verifyTLS,
-		CABundle:        caBundle,
-		ForcePathStyle:  backup.Status.S3.ForcePathStyle,
+		Endpoint:          endpoint,
+		AccessKeyID:       accessKeyID,
+		SecretAccessKey:   secretAccessKey,
+		SessionToken:      sessionToken,
+		BucketName:        bucket,
+		Prefix:            prefix,
+		Region:            region,
+		VerifyTLS:         verifyTLS,
+		CABundle:          caBundle,
+		ForcePathStyle:    backup.Status.S3.ForcePathStyle,
+		ChecksumAlgorithm: backup.Status.S3.ChecksumAlgorithm,
 	}, nil
 }
 
 var _ = Options(new(S3Options))
 
 type S3Options struct {
-	Endpoint        string
-	AccessKeyID     string
-	SecretAccessKey string
-	SessionToken    string
-	BucketName      string
-	Prefix          string
-	Region          string
-	VerifyTLS       bool
-	CABundle        []byte
-	ForcePathStyle  bool
+	Endpoint          string
+	AccessKeyID       string
+	SecretAccessKey   string
+	SessionToken      string
+	BucketName        string
+	Prefix            string
+	Region            string
+	VerifyTLS         bool
+	CABundle          []byte
+	ForcePathStyle    bool
+	ChecksumAlgorithm api.S3ChecksumAlgorithmType
 }
 
 func (o *S3Options) Type() api.BackupStorageType {

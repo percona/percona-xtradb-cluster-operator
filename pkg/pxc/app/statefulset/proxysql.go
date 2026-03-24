@@ -456,6 +456,12 @@ func (c *Proxy) PMMContainer(ctx context.Context, cl client.Client, spec *api.PM
 		}
 
 		pmm3Container.Env = append(pmm3Container.Env, pmm3ProxySQLEnvVars(spec.ProxysqlParams)...)
+		if cr.TLSEnabled() {
+			pmm3Container.Env = append(pmm3Container.Env, corev1.EnvVar{
+				Name:  "PROXYSQL_ADMIN_TLS",
+				Value: "true",
+			})
+		}
 
 		return &pmm3Container, nil
 	}
@@ -590,6 +596,13 @@ func (c *Proxy) PMMContainer(ctx context.Context, cl client.Client, spec *api.PM
 			},
 		}
 		ct.Env = append(ct.Env, sidecarEnvs...)
+	}
+
+	if cr.TLSEnabled() {
+		ct.Env = append(ct.Env, corev1.EnvVar{
+			Name:  "PROXYSQL_ADMIN_TLS",
+			Value: "true",
+		})
 	}
 
 	return &ct, nil

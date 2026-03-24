@@ -355,6 +355,15 @@ func RestoreJob(
 		initContainers = []corev1.Container{statefulset.BackupInitContainer(cluster, initImage, cluster.Spec.PXC.ContainerSecurityContext)}
 	}
 
+	// Add extraPVCs from cluster spec to restore job
+	if cluster.CompareVersionWith("1.19.0") >= 0 && cluster.Spec.PXC != nil && len(cluster.Spec.PXC.ExtraPVCs) > 0 {
+		extraVolumes := api.ExtraPVCVolumes(ctx, cluster.Spec.PXC.ExtraPVCs)
+		volumes = append(volumes, extraVolumes...)
+
+		extraMounts := api.ExtraPVCVolumeMounts(ctx, cluster.Spec.PXC.ExtraPVCs)
+		volumeMounts = append(volumeMounts, extraMounts...)
+	}
+
 	jobName := naming.RestoreJobName(cr, pitr)
 	job := &batchv1.Job{
 		TypeMeta: metav1.TypeMeta{
@@ -868,6 +877,15 @@ func PrepareJob(
 		app.GetSecretVolumes("vault-keyring-secret", cluster.Spec.PXC.VaultSecretName, true),
 		app.GetSecretVolumes("ssl", cluster.Spec.PXC.SSLSecretName, !cluster.TLSEnabled()),
 		app.GetSecretVolumes("ssl-internal", cluster.Spec.PXC.SSLInternalSecretName, !cluster.TLSEnabled()),
+	}
+
+	// Add extraPVCs from cluster spec to prepare job
+	if cluster.CompareVersionWith("1.19.0") >= 0 && cluster.Spec.PXC != nil && len(cluster.Spec.PXC.ExtraPVCs) > 0 {
+		extraVolumes := api.ExtraPVCVolumes(context.Background(), cluster.Spec.PXC.ExtraPVCs)
+		volumes = append(volumes, extraVolumes...)
+
+		extraMounts := api.ExtraPVCVolumeMounts(context.Background(), cluster.Spec.PXC.ExtraPVCs)
+		volumeMounts = append(volumeMounts, extraMounts...)
 	}
 
 	job := &batchv1.Job{

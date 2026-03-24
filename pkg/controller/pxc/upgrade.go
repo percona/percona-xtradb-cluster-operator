@@ -25,6 +25,7 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/config"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/queries"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/util"
@@ -632,7 +633,57 @@ func getCustomConfigHashHex(strData map[string]string, binData map[string][]byte
 	return hashHex, nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) getConfigHash(ctx context.Context, cr *api.PerconaXtraDBCluster, sfs api.StatefulApp) (string, error) {
+func (r *ReconcilePerconaXtraDBCluster) getConfigHash(
+	ctx context.Context, cr *api.PerconaXtraDBCluster, sfs api.StatefulApp) (string, error) {
+	var b strings.Builder
+
+	if res, err := r.getComponentConfigHash(ctx, cr, sfs); err != nil {
+		return "", errors.Wrap(err, "failed to get component config hash")
+	} else {
+		b.WriteString(res)
+	}
+
+	component := sfs.Labels()[naming.LabelAppKubernetesComponent]
+
+	if component == naming.ComponentPXC &&
+		cr.CompareVersionWith("1.20.0") >= 0 &&
+		cr.Spec.LogCollector != nil &&
+		cr.Spec.LogCollector.Configuration != "" {
+		if res, err := r.getConfigMapHash(ctx, cr, config.CustomConfigMapName(cr.Name, "logcollector"), false); err != nil {
+			return "", errors.Wrap(err, "failed to get logrotate config hash")
+		} else {
+			b.WriteString(res)
+		}
+	}
+
+	if component == naming.ComponentPXC &&
+		cr.CompareVersionWith("1.20.0") >= 0 &&
+		cr.Spec.LogCollector != nil &&
+		cr.Spec.LogCollector.LogRotate != nil &&
+		cr.Spec.LogCollector.LogRotate.Configuration != "" {
+		if res, err := r.getConfigMapHash(ctx, cr, config.CustomConfigMapName(cr.Name, "logrotate"), false); err != nil {
+			return "", errors.Wrap(err, "failed to get logrotate config hash")
+		} else {
+			b.WriteString(res)
+		}
+	}
+
+	if component == naming.ComponentPXC &&
+		cr.CompareVersionWith("1.20.0") >= 0 &&
+		cr.Spec.LogCollector != nil &&
+		cr.Spec.LogCollector.LogRotate != nil &&
+		cr.Spec.LogCollector.LogRotate.ExtraConfig.Name != "" {
+		if res, err := r.getConfigMapHash(ctx, cr, cr.Spec.LogCollector.LogRotate.ExtraConfig.Name, false); err != nil {
+			return "", errors.Wrap(err, "failed to get logrotate config hash")
+		} else {
+			b.WriteString(res)
+		}
+	}
+
+	return b.String(), nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) getComponentConfigHash(ctx context.Context, cr *api.PerconaXtraDBCluster, sfs api.StatefulApp) (string, error) {
 	ls := sfs.Labels()
 
 	name := types.NamespacedName{
@@ -688,5 +739,27 @@ func (r *ReconcilePerconaXtraDBCluster) getSecretHash(cr *api.PerconaXtraDBClust
 	secretString := fmt.Sprintln(secretObj.Data)
 	hash := fmt.Sprintf("%x", md5.Sum([]byte(secretString)))
 
+	return hash, nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) getConfigMapHash(ctx context.Context, cr *api.PerconaXtraDBCluster, name string, allowNonExisting bool) (string, error) {
+	if allowNonExisting && name == "" {
+		return "", nil
+	}
+	cm := corev1.ConfigMap{}
+	if err := r.client.Get(ctx,
+		types.NamespacedName{
+			Namespace: cr.Namespace,
+			Name:      name,
+		},
+		&cm,
+	); err != nil && k8serrors.IsNotFound(err) && allowNonExisting {
+		return "", nil
+	} else if err != nil {
+		return "", err
+	}
+
+	secretString := fmt.Sprintln(cm.Data)
+	hash := fmt.Sprintf("%x", md5.Sum([]byte(secretString)))
 	return hash, nil
 }

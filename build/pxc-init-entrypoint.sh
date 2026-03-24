@@ -14,3 +14,9 @@ install -o "$(id -u)" -g "$(id -g)" -m 0755 -D /pmm-prerun.sh /var/lib/mysql/pmm
 install -o "$(id -u)" -g "$(id -g)" -m 0755 -D /mysql-state-monitor /var/lib/mysql/mysql-state-monitor
 install -o "$(id -u)" -g "$(id -g)" -m 0755 -D /wsrep_cmd_notify_handler.sh /var/lib/mysql/wsrep_cmd_notify_handler.sh
 install -o "$(id -u)" -g "$(id -g)" -m 0755 -D /prepare_restored_cluster.sh /var/lib/mysql/prepare_restored_cluster.sh
+
+if [ -d /opt/percona ]; then
+	cp -a /logcollector /opt/percona/
+	chown -R "$(id -u)":"$(id -g)" /opt/percona/logcollector
+	chmod -R 0755 /opt/percona/logcollector
+fi

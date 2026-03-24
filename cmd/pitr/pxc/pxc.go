@@ -317,7 +317,7 @@ func GetPXCFirstHost(ctx context.Context, pxcServiceName string) (string, error)
 	return lastHost, nil
 }
 
-func GetPXCOldestBinlogHost(ctx context.Context, pxcServiceName, user, pass string) (string, error) {
+func GetPXCOldestBinlogHost(ctx context.Context, pxcServiceName, user, pass, prevHost string) (string, error) {
 	nodes, err := GetNodesByServiceName(ctx, pxcServiceName)
 	if err != nil {
 		return "", errors.Wrap(err, "get nodes by service name")
@@ -325,9 +325,13 @@ func GetPXCOldestBinlogHost(ctx context.Context, pxcServiceName, user, pass stri
 
 	var oldestHost string
 	var oldestTS int64
+	var prevNode string
 	for _, node := range nodes {
+		nodeArr := strings.Split(node, ":")
+		if prevHost != "" && nodeArr[0] == prevHost {
+			prevNode = node
+		}
 		if strings.Contains(node, "wsrep_ready:ON:wsrep_connected:ON:wsrep_local_state_comment:Synced:wsrep_cluster_status:Primary") {
-			nodeArr := strings.Split(node, ":")
 			binlogTime, err := getBinlogTime(ctx, nodeArr[0], user, pass)
 			if err != nil {
 				log.Printf("ERROR: get binlog time: %v", err)
@@ -337,7 +341,6 @@ func GetPXCOldestBinlogHost(ctx context.Context, pxcServiceName, user, pass stri
 				oldestHost = nodeArr[0]
 				oldestTS = binlogTime
 			}
-
 		}
 	}
 
@@ -345,6 +348,13 @@ func GetPXCOldestBinlogHost(ctx context.Context, pxcServiceName, user, pass stri
 		return "", errors.New("can't find host")
 	}
 
+	if prevHost != "" && prevHost != oldestHost {
+		if !strings.Contains(prevNode, "wsrep_ready:ON:wsrep_connected:ON:wsrep_local_state_comment:Synced:wsrep_cluster_status:Primary") {
+			log.Printf("switching PITR binlog source from %s to %s because current source host %s is not healthy (not Synced/Primary)", prevHost, oldestHost, prevHost)
+		} else {
+			log.Printf("switching PITR binlog source from %s to %s because host %s has the oldest available binlog", prevHost, oldestHost, oldestHost)
+		}
+	}
 	return oldestHost, nil
 }
 

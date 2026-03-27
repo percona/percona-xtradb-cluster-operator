@@ -237,7 +237,11 @@ func (r *ReconcilePerconaXtraDBCluster) reconcilePersistentVolumes(ctx context.C
 		if err := r.revertVolumeTemplate(ctx, cr, configured); err != nil {
 			return errors.Wrapf(err, "revert volume template in pxc/%s", cr.Name)
 		}
-		return errors.Errorf("requested storage (%s) is less than actual storage (%s)", requested.String(), actual.String())
+		err := errors.Errorf("requested storage (%s) is less than actual storage (%s)", requested.String(), actual.String())
+		if cr.Spec.VolumeExpansionEnabled {
+			return err
+		}
+		log.Info(err.Error())
 	}
 
 	if requested.Cmp(actual) == 0 {

@@ -12538,11 +12538,11 @@ spec:
         - name: PXCO_LEADER_ELECTION_LEASE_NAME
           value: ""
         - name: PXCO_LEADER_ELECTION_LEASE_DURATION
-          value: "60s"
+          value: "15s"
         - name: PXCO_LEADER_ELECTION_RENEW_DEADLINE
-          value: "40s"
-        - name: PXCO_LEADER_ELECTION_RETRY_PERIOD
           value: "10s"
+        - name: PXCO_LEADER_ELECTION_RETRY_PERIOD
+          value: "2s"
         image: perconalab/percona-xtradb-cluster-operator:main
         imagePullPolicy: Always
         livenessProbe:

@@ -12,6 +12,8 @@ DEPLOYDIR = ./deploy
 ENVTEST_K8S_VERSION = 1.34.1
 ENVTEST_VERSION ?= release-0.23
 
+ENVTEST_VERSION ?= release-0.23
+
 all: build
 
 help: ## Display this help.

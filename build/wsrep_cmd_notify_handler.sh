@@ -32,6 +32,12 @@ done
 CLUSTER_NAME=$(hostname -f | cut -d'-' -f1)
 CLUSTER_FQDN=$(hostname -f | cut -d'.' -f3-)
 
+case "$STATUS" in
+joined|synced)
+	rm -f /var/lib/mysql/sst_retry_count /var/lib/mysql/sst_retry_limit_reached
+	;;
+esac
+
 if [[ "$STATUS" == "joiner" ]]; then
 	PITR_HOST="${CLUSTER_NAME}-pitr.${CLUSTER_FQDN}"
 	if getent hosts "${PITR_HOST}" >/dev/null 2>&1; then

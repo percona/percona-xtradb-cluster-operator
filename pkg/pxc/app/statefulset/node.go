@@ -235,6 +235,12 @@ func (c *Node) AppContainer(ctx context.Context, cl client.Client, spec *api.Pod
 			Value: fmt.Sprint(spec.ReadinessProbes.TimeoutSeconds),
 		},
 	}...)
+	if cr.Spec.PXC.SSTRetryCount != nil {
+		appc.Env = append(appc.Env, corev1.EnvVar{
+			Name:  "PXC_SST_RETRY_COUNT",
+			Value: fmt.Sprint(*cr.Spec.PXC.SSTRetryCount),
+		})
+	}
 
 	plugin := "caching_sha2_password"
 	if cr.CompareVersionWith("1.19.0") < 0 {

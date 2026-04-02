@@ -29,9 +29,9 @@ func TestConfigureLeaderElection(t *testing.T) {
 
 		assert.True(t, options.LeaderElection)
 		assert.Equal(t, defaultElectionID, options.LeaderElectionID)
-		assert.Equal(t, 60*time.Second, *options.LeaseDuration)
-		assert.Equal(t, 40*time.Second, *options.RenewDeadline)
-		assert.Equal(t, 10*time.Second, *options.RetryPeriod)
+		assert.Equal(t, 15*time.Second, *options.LeaseDuration)
+		assert.Equal(t, 10*time.Second, *options.RenewDeadline)
+		assert.Equal(t, 2*time.Second, *options.RetryPeriod)
 		assert.Empty(t, options.LeaderElectionNamespace)
 	})
 

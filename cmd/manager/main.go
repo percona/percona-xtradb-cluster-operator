@@ -266,9 +266,9 @@ const defaultElectionID = "08db1feb.percona.com"
 type envConfig struct {
 	LeaderElection   bool          `default:"true" envconfig:"PXCO_LEADER_ELECTION_ENABLED"`
 	LeaderElectionID string        `envconfig:"PXCO_LEADER_ELECTION_LEASE_NAME"`
-	LeaseDuration    time.Duration `default:"60s" envconfig:"PXCO_LEADER_ELECTION_LEASE_DURATION"`
-	RenewDeadline    time.Duration `default:"40s" envconfig:"PXCO_LEADER_ELECTION_RENEW_DEADLINE"`
-	RetryPeriod      time.Duration `default:"10s" envconfig:"PXCO_LEADER_ELECTION_RETRY_PERIOD"`
+	LeaseDuration    time.Duration `default:"15s" envconfig:"PXCO_LEADER_ELECTION_LEASE_DURATION"`
+	RenewDeadline    time.Duration `default:"10s" envconfig:"PXCO_LEADER_ELECTION_RENEW_DEADLINE"`
+	RetryPeriod      time.Duration `default:"2s" envconfig:"PXCO_LEADER_ELECTION_RETRY_PERIOD"`
 
 	FeatureGates string `envconfig:"PXCO_FEATURE_GATES"`
 

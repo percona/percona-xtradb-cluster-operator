@@ -159,8 +159,12 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(ctx context.Context
 	if err != nil {
 		return errors.Wrap(err, "failed to get current db version")
 	}
+	parsedDBVer, err := version.NewVersion(dbVer)
+	if err != nil {
+		return errors.Wrapf(err, "failed to parse version: %s", dbVer)
+	}
 
-	if version.Must(version.NewVersion(dbVer)).Compare(minReplicationVersion) < 0 {
+	if parsedDBVer.Compare(minReplicationVersion) < 0 {
 		return nil
 	}
 
@@ -244,7 +248,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(ctx context.Context
 		}
 		is840 = compare840 >= 0
 	} else {
-		is840 = version.Must(version.NewVersion(dbVer)).Compare(version.Must(version.NewVersion("8.4.0"))) >= 0
+		is840 = parsedDBVer.Compare(version.Must(version.NewVersion("8.4.0"))) >= 0
 	}
 	if is840 {
 		authPluginVar = "authentication_policy"

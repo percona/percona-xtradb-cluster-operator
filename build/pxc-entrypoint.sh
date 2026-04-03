@@ -181,19 +181,19 @@ handle_sst_retry_limit() {
 		return
 	fi
 
-	if [[ -d "${datadir}/mysql" && ( -s "${grastate_loc}" || -f "${datadir}/gvwstate.dat" ) ]]; then
+	if [[ -d "${datadir}/mysql" && (-s ${grastate_loc} || -f "${datadir}/gvwstate.dat") ]]; then
 		clear_sst_retry_state
 		return
 	fi
 
-	if [[ -f "${SST_RETRY_LIMIT_REACHED_FILE}" ]]; then
-		if [[ -f "${SST_RETRY_COUNTER_FILE}" ]]; then
+	if [[ -f ${SST_RETRY_LIMIT_REACHED_FILE} ]]; then
+		if [[ -f ${SST_RETRY_COUNTER_FILE} ]]; then
 			attempts=$(cat "${SST_RETRY_COUNTER_FILE}" 2>/dev/null || echo 0)
 		fi
 		pause_after_sst_retry_limit "${limit}" "${attempts}"
 	fi
 
-	if [[ -f "${SST_RETRY_COUNTER_FILE}" ]]; then
+	if [[ -f ${SST_RETRY_COUNTER_FILE} ]]; then
 		attempts=$(cat "${SST_RETRY_COUNTER_FILE}" 2>/dev/null || echo 0)
 	fi
 

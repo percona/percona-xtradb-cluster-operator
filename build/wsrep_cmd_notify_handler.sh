@@ -4,26 +4,26 @@ set -o errexit
 
 while [ $# -gt 0 ]; do
 	case $1 in
-	--status)
-	STATUS=$2
-	shift
-	;;
-	--uuid)
-	CLUSTER_UUID=$2
-	shift
-	;;
-	--primary)
-	[ "$2" = "yes" ] && PRIMARY="1" || PRIMARY="0"
-	shift
-	;;
-	--index)
-	INDEX=$2
-	shift
-	;;
-	--members)
-	MEMBERS=$2
-	shift
-	;;
+		--status)
+			STATUS=$2
+			shift
+			;;
+		--uuid)
+			CLUSTER_UUID=$2
+			shift
+			;;
+		--primary)
+			[ "$2" = "yes" ] && PRIMARY="1" || PRIMARY="0"
+			shift
+			;;
+		--index)
+			INDEX=$2
+			shift
+			;;
+		--members)
+			MEMBERS=$2
+			shift
+			;;
 	esac
 
 	shift
@@ -33,12 +33,12 @@ CLUSTER_NAME=$(hostname -f | cut -d'-' -f1)
 CLUSTER_FQDN=$(hostname -f | cut -d'.' -f3-)
 
 case "$STATUS" in
-joined|synced)
-	rm -f /var/lib/mysql/sst_retry_count /var/lib/mysql/sst_retry_limit_reached
-	;;
+	joined | synced)
+		rm -f /var/lib/mysql/sst_retry_count /var/lib/mysql/sst_retry_limit_reached
+		;;
 esac
 
-if [[ "$STATUS" == "joiner" ]]; then
+if [[ $STATUS == "joiner" ]]; then
 	PITR_HOST="${CLUSTER_NAME}-pitr.${CLUSTER_FQDN}"
 	if getent hosts "${PITR_HOST}" >/dev/null 2>&1; then
 		curl -d "hostname=$(hostname -f)" "http://${PITR_HOST}:8080/invalidate-cache/"

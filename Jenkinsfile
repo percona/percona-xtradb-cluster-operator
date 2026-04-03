@@ -1,6 +1,7 @@
 region = "us-central1-a"
 testUrlPrefix = "https://percona-jenkins-artifactory-public.s3.amazonaws.com/cloud-pxc-operator"
 tests = []
+clusterNames = (1..9).collect { "cluster${it}" }
 
 void createCluster(String CLUSTER_SUFFIX) {
     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
@@ -124,6 +125,25 @@ void initTests() {
     }
 
     markPassedTests()
+    assignTestsToClusters()
+}
+
+void assignTestsToClusters() {
+    echo "Assigning tests to clusters!"
+
+    def nextCluster = 0
+    for (int i=0; i<tests.size(); i++) {
+        if (tests[i]["result"] == "passed") {
+            tests[i]["cluster"] = "passed"
+            continue
+        }
+
+        def cluster = clusterNames[nextCluster % clusterNames.size()]
+        tests[i]["cluster"] = cluster
+        nextCluster++
+    }
+
+    echo "Cluster assignments\n" + tests.toString().replace("], ","]\n").replace("]]","]").replaceFirst("\\[","")
 }
 
 void markPassedTests() {
@@ -222,9 +242,7 @@ void clusterRunner(String cluster) {
         def clusterCreated=0
 
         for (int i=0; i<tests.size(); i++) {
-            if (tests[i]["result"] == "skipped" && currentBuild.nextBuild == null) {
-                tests[i]["result"] = "failure"
-                tests[i]["cluster"] = cluster
+            if (tests[i]["cluster"] == cluster && tests[i]["result"] != "passed" && currentBuild.nextBuild == null) {
                 if (clusterCreated == 0) {
                     createCluster(cluster)
                     clusterCreated++

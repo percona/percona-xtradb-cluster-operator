@@ -1,7 +1,6 @@
 region = "us-central1-a"
 testUrlPrefix = "https://percona-jenkins-artifactory-public.s3.amazonaws.com/cloud-pxc-operator"
 tests = []
-clusterNames = (1..9).collect { "cluster${it}" }
 
 void createCluster(String CLUSTER_SUFFIX) {
     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
@@ -125,25 +124,6 @@ void initTests() {
     }
 
     markPassedTests()
-    assignTestsToClusters()
-}
-
-void assignTestsToClusters() {
-    echo "Assigning tests to clusters!"
-
-    def nextCluster = 0
-    for (int i=0; i<tests.size(); i++) {
-        if (tests[i]["result"] == "passed") {
-            tests[i]["cluster"] = "passed"
-            continue
-        }
-
-        def cluster = clusterNames[nextCluster % clusterNames.size()]
-        tests[i]["cluster"] = cluster
-        nextCluster++
-    }
-
-    echo "Cluster assignments\n" + tests.toString().replace("], ","]\n").replace("]]","]").replaceFirst("\\[","")
 }
 
 void markPassedTests() {
@@ -241,20 +221,42 @@ void clusterRunner(String cluster) {
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         def clusterCreated=0
 
-        for (int i=0; i<tests.size(); i++) {
-            if (tests[i]["cluster"] == cluster && tests[i]["result"] != "passed" && currentBuild.nextBuild == null) {
-                if (clusterCreated == 0) {
-                    createCluster(cluster)
-                    clusterCreated++
-                }
-                runTest(i)
+        while (currentBuild.nextBuild == null) {
+            def testId = claimNextTest(cluster)
+            if (testId == -1) {
+                break
             }
+
+            if (clusterCreated == 0) {
+                createCluster(cluster)
+                clusterCreated++
+            }
+
+            runTest(testId)
         }
 
         if (clusterCreated >= 1) {
             shutdownCluster(cluster)
         }
     }
+}
+
+Integer claimNextTest(String cluster) {
+    def claimedTestId = -1
+
+    lock(resource: "${env.JOB_NAME}-${env.GIT_SHORT_COMMIT}-e2e-test-queue", inversePrecedence: true) {
+        for (int i=0; i<tests.size(); i++) {
+            if (tests[i]["result"] == "skipped") {
+                tests[i]["result"] = "claimed"
+                tests[i]["cluster"] = cluster
+                claimedTestId = i
+                echo "Claimed ${tests[i]['name']}-${tests[i]['mysql_ver']} for ${cluster}"
+                break
+            }
+        }
+    }
+
+    return claimedTestId
 }
 
 void runTest(Integer TEST_ID) {

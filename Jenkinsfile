@@ -1,6 +1,8 @@
 region = "us-central1-a"
 testUrlPrefix = "https://percona-jenkins-artifactory-public.s3.amazonaws.com/cloud-pxc-operator"
 tests = []
+testQueueFile = ".e2e-test-queue"
+testQueueLockDir = ".e2e-test-queue.lock"
 
 void createCluster(String CLUSTER_SUFFIX) {
     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
@@ -124,6 +126,19 @@ void initTests() {
     }
 
     markPassedTests()
+    initTestQueue()
+}
+
+void initTestQueue() {
+    def pendingIndexes = []
+
+    for (int i=0; i<tests.size(); i++) {
+        if (tests[i]["result"] == "skipped") {
+            pendingIndexes.add(i.toString())
+        }
+    }
+
+    writeFile file: testQueueFile, text: pendingIndexes.join('\n') + (pendingIndexes ? '\n' : '')
 }
 
 void markPassedTests() {
@@ -242,18 +257,29 @@ void clusterRunner(String cluster) {
 }
 
 Integer claimNextTest(String cluster) {
-    def claimedTestId = -1
+    def claimedTestId = sh(
+        script: """
+            while ! mkdir ${testQueueLockDir} 2>/dev/null; do
+                sleep 1
+            done
 
-    lock(resource: "${env.JOB_NAME}-${env.GIT_SHORT_COMMIT}-e2e-test-queue", inversePrecedence: true) {
-        for (int i=0; i<tests.size(); i++) {
-            if (tests[i]["result"] == "skipped") {
-                tests[i]["result"] = "claimed"
-                tests[i]["cluster"] = cluster
-                claimedTestId = i
-                echo "Claimed ${tests[i]['name']}-${tests[i]['mysql_ver']} for ${cluster}"
-                break
-            }
-        }
+            test_id=-1
+            if [ -s ${testQueueFile} ]; then
+                test_id=\$(head -n 1 ${testQueueFile})
+                tail -n +2 ${testQueueFile} > ${testQueueFile}.tmp || true
+                mv ${testQueueFile}.tmp ${testQueueFile}
+            fi
+
+            rmdir ${testQueueLockDir}
+            echo "\$test_id"
+        """,
+        returnStdout: true,
+    ).trim() as Integer
+
+    if (claimedTestId != -1) {
+        tests[claimedTestId]["result"] = "claimed"
+        tests[claimedTestId]["cluster"] = cluster
+        echo "Claimed ${tests[claimedTestId]['name']}-${tests[claimedTestId]['mysql_ver']} for ${cluster}"
     }
 
     return claimedTestId

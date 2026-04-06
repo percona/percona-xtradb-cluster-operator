@@ -667,6 +667,11 @@ pipeline {
                         clusterRunner('cluster9')
                     }
                 }
+                stage('cluster10') {
+                    steps {
+                        clusterRunner('cluster10')
+                    }
+                }
             }
         }
     }

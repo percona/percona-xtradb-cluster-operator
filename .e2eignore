@@ -9,4 +9,4 @@ LICENSE
 operator.png
 kubernetes.svg
 .e2eignore
-release_versions
+e2e-tests/release_versions

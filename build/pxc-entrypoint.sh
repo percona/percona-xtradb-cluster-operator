@@ -160,8 +160,9 @@ pause_after_sst_retry_limit() {
 		The pod will stay running but unready until ${SST_RETRY_LIMIT_REACHED_FILE} is removed.
 	EOM
 
-	while :; do
-		sleep 60
+	while [[ -f ${SST_RETRY_LIMIT_REACHED_FILE} ]]; do
+		sleep 60 &
+		wait $! || exit 0
 	done
 }
 

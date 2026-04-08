@@ -77,14 +77,15 @@ func init() {
 }
 
 type Collector struct {
-	db              *pxc.PXC
-	storage         storage.Storage
-	lastUploadedSet pxc.GTIDSet // last uploaded binary logs set
-	pxcServiceName  string      // k8s service name for PXC, its for get correct host for connection
-	pxcUser         string      // user for connection to PXC
-	pxcPass         string      // password for connection to PXC
-	gtidCacheKey    string      // filename of gtid cache json
-	sourceID        string
+	db               *pxc.PXC
+	storage          storage.Storage
+	lastUploadedSet  pxc.GTIDSet // last uploaded binary logs set
+	pxcServiceName   string      // k8s service name for PXC, its for get correct host for connection
+	pxcUser          string      // user for connection to PXC
+	pxcPass          string      // password for connection to PXC
+	gtidCacheKey     string      // filename of gtid cache json
+	sourceID         string
+	isReplicaCluster bool // true when collecting from an async replica cluster
 }
 
 type Config struct {
@@ -99,6 +100,7 @@ type Config struct {
 	VerifyTLS          bool    `env:"VERIFY_TLS" envDefault:"true"`
 	TimeoutSeconds     float64 `env:"TIMEOUT_SECONDS" envDefault:"60"`
 	GTIDCacheKey       string  `env:"GTID_CACHE_KEY,required"`
+	IsReplicaCluster   bool    `env:"IS_REPLICA_CLUSTER"`
 }
 
 type BackupS3 struct {
@@ -174,11 +176,12 @@ func New(ctx context.Context, c Config) (*Collector, error) {
 	}
 
 	return &Collector{
-		storage:        s,
-		pxcUser:        c.PXCUser,
-		pxcPass:        string(pxcPass),
-		pxcServiceName: c.PXCServiceName,
-		gtidCacheKey:   c.GTIDCacheKey,
+		storage:          s,
+		pxcUser:          c.PXCUser,
+		pxcPass:          string(pxcPass),
+		pxcServiceName:   c.PXCServiceName,
+		gtidCacheKey:     c.GTIDCacheKey,
+		isReplicaCluster: c.IsReplicaCluster,
 	}, nil
 }
 
@@ -191,7 +194,7 @@ func (c *Collector) GetGTIDCacheKey() string {
 }
 
 func (c *Collector) Init(ctx context.Context) error {
-	host, err := pxc.GetPXCFirstHost(ctx, c.pxcServiceName)
+	host, err := pxc.GetPXCFirstHost(ctx, c.pxcServiceName, !c.isReplicaCluster)
 	if err != nil {
 		return errors.Wrap(err, "get first PXC host")
 	}
@@ -244,7 +247,7 @@ func (c *Collector) CreateCollectorFunctions(ctx context.Context) error {
 	}
 
 	for _, node := range nodes {
-		if strings.Contains(node, "wsrep_ready:ON:wsrep_connected:ON:wsrep_local_state_comment:Synced:wsrep_cluster_status:Primary") {
+		if pxc.SyncedNodeFilter(node, !c.isReplicaCluster) {
 			if err := create(node); err != nil {
 				return err
 			}
@@ -297,7 +300,7 @@ func (c *Collector) lastGTIDSet(ctx context.Context, suffix string) (pxc.GTIDSet
 }
 
 func (c *Collector) newDB(ctx context.Context) error {
-	host, err := pxc.GetPXCOldestBinlogHost(ctx, c.pxcServiceName, c.pxcUser, c.pxcPass)
+	host, err := pxc.GetPXCOldestBinlogHost(ctx, c.pxcServiceName, c.pxcUser, c.pxcPass, !c.isReplicaCluster)
 	if err != nil {
 		return errors.Wrap(err, "get host")
 	}

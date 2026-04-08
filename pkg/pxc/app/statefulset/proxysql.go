@@ -381,6 +381,13 @@ func (c *Proxy) SidecarContainers(ctx context.Context, cl client.Client, spec *a
 		proxysqlMonit.Command = []string{"/opt/percona/proxysql-entrypoint.sh"}
 	}
 
+	if cr.IsReplicaCluster() {
+		pxcMonit.Env = append(pxcMonit.Env, corev1.EnvVar{
+			Name:  "IS_REPLICA_CLUSTER",
+			Value: "true",
+		})
+	}
+
 	containers := []corev1.Container{pxcMonit}
 	// we are disabling ProxySQL cluster mode in case scheduler is enabled
 	// therefore we don't need proxysqlMonit container

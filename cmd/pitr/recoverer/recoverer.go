@@ -248,7 +248,7 @@ const (
 )
 
 func (r *Recoverer) Run(ctx context.Context) error {
-	host, err := pxc.GetPXCFirstHost(ctx, r.pxcServiceName)
+	host, err := pxc.GetPXCFirstHost(ctx, r.pxcServiceName, true)
 	if err != nil {
 		return errors.Wrap(err, "get host")
 	}

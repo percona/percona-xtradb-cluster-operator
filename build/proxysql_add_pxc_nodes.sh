@@ -101,7 +101,11 @@ function main() {
 				;;
 		esac
 
-		update_weights="${update_weights} UPDATE mysql_servers SET weight=${read_weight} WHERE hostgroup_id IN (10, 8010) AND hostname LIKE \"${pod_name}%\"; UPDATE mysql_servers SET weight=${write_weight} WHERE hostgroup_id IN (11, 8011) AND hostname LIKE \"${pod_name}%\";"
+		if [[ "${IS_REPLICA_CLUSTER}" == "true" ]]; then
+			update_weights="${update_weights} UPDATE mysql_servers SET weight=${read_weight} WHERE hostgroup_id IN (10, 8010) AND hostname LIKE \"${pod_name}%\";"
+		else
+			update_weights="${update_weights} UPDATE mysql_servers SET weight=${read_weight} WHERE hostgroup_id IN (10, 8010) AND hostname LIKE \"${pod_name}%\"; UPDATE mysql_servers SET weight=${write_weight} WHERE hostgroup_id IN (11, 8011) AND hostname LIKE \"${pod_name}%\";"
+		fi
 	done
 
 	wait_for_proxy

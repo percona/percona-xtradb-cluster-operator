@@ -113,6 +113,13 @@ func GetDeployment(cr *api.PerconaXtraDBCluster, initImage string, existingMatch
 		})
 	}
 
+	if cr.IsReplicaCluster() {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "IS_REPLICA_CLUSTER",
+			Value: "true",
+		})
+	}
+
 	container := corev1.Container{
 		Name:            "pitr",
 		Image:           cr.Spec.Backup.Image,

@@ -284,6 +284,13 @@ func (p *PXC) SubtractGTIDSet(ctx context.Context, set, subSet string) (string, 
 	return result, nil
 }
 
+func SyncedNodeFilter(node string, requirePrimary bool) bool {
+	if requirePrimary {
+		return strings.Contains(node, "wsrep_ready:ON:wsrep_connected:ON:wsrep_local_state_comment:Synced:wsrep_cluster_status:Primary")
+	}
+	return strings.Contains(node, "wsrep_ready:ON:wsrep_connected:ON:wsrep_local_state_comment:Synced")
+}
+
 func GetNodesByServiceName(ctx context.Context, pxcServiceName string) ([]string, error) {
 	cmd := exec.CommandContext(ctx, "/opt/percona/peer-list", "-on-start=/opt/percona/get-pxc-state.sh", "-service="+pxcServiceName)
 	out, err := cmd.CombinedOutput()
@@ -293,7 +300,7 @@ func GetNodesByServiceName(ctx context.Context, pxcServiceName string) ([]string
 	return strings.Split(string(out), "node:"), nil
 }
 
-func GetPXCFirstHost(ctx context.Context, pxcServiceName string) (string, error) {
+func GetPXCFirstHost(ctx context.Context, pxcServiceName string, requirePrimary bool) (string, error) {
 	nodes, err := GetNodesByServiceName(ctx, pxcServiceName)
 	if err != nil {
 		return "", errors.Wrap(err, "get nodes by service name")
@@ -302,7 +309,7 @@ func GetPXCFirstHost(ctx context.Context, pxcServiceName string) (string, error)
 	lastHost := ""
 	for _, node := range nodes {
 		log.Printf("PXC Node: %s", node)
-		if strings.Contains(node, "wsrep_ready:ON:wsrep_connected:ON:wsrep_local_state_comment:Synced:wsrep_cluster_status:Primary") {
+		if SyncedNodeFilter(node, requirePrimary) {
 			nodeArr := strings.Split(node, ":")
 			lastHost = nodeArr[0]
 			break
@@ -317,7 +324,7 @@ func GetPXCFirstHost(ctx context.Context, pxcServiceName string) (string, error)
 	return lastHost, nil
 }
 
-func GetPXCOldestBinlogHost(ctx context.Context, pxcServiceName, user, pass string) (string, error) {
+func GetPXCOldestBinlogHost(ctx context.Context, pxcServiceName, user, pass string, requirePrimary bool) (string, error) {
 	nodes, err := GetNodesByServiceName(ctx, pxcServiceName)
 	if err != nil {
 		return "", errors.Wrap(err, "get nodes by service name")
@@ -326,7 +333,7 @@ func GetPXCOldestBinlogHost(ctx context.Context, pxcServiceName, user, pass stri
 	var oldestHost string
 	var oldestTS int64
 	for _, node := range nodes {
-		if strings.Contains(node, "wsrep_ready:ON:wsrep_connected:ON:wsrep_local_state_comment:Synced:wsrep_cluster_status:Primary") {
+		if SyncedNodeFilter(node, requirePrimary) {
 			nodeArr := strings.Split(node, ":")
 			binlogTime, err := getBinlogTime(ctx, nodeArr[0], user, pass)
 			if err != nil {

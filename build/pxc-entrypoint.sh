@@ -161,8 +161,7 @@ pause_after_sst_retry_limit() {
 	EOM
 
 	while [[ -f ${SST_RETRY_LIMIT_REACHED_FILE} ]]; do
-		sleep 60 &
-		wait $! || exit 0
+		sleep 60 || exit 0
 	done
 }
 

@@ -386,22 +386,6 @@ func (p *Database) ReaderHost() (string, error) {
 	return host, nil
 }
 
-// UpdateDefaultHostgroupForReplica rewrites ProxySQL mysql_users default_hostgroup
-// from the writer hostgroup (11) to the reader hostgroup (10). This is needed for
-// replica clusters where all PXC nodes are read-only and only present in the reader hostgroup.
-func (p *Database) UpdateDefaultHostgroupForReplica() error {
-	if _, err := p.db.Exec("UPDATE mysql_users SET default_hostgroup=? WHERE default_hostgroup=?", readerID, writerID); err != nil {
-		return errors.Wrap(err, "update mysql_users default_hostgroup")
-	}
-	if _, err := p.db.Exec("LOAD MYSQL USERS TO RUNTIME"); err != nil {
-		return errors.Wrap(err, "load mysql users to runtime")
-	}
-	if _, err := p.db.Exec("SAVE MYSQL USERS TO DISK"); err != nil {
-		return errors.Wrap(err, "save mysql users to disk")
-	}
-	return nil
-}
-
 func (p *Database) NonPrimaryHostsProxySQL() ([]string, error) {
 	rows, err := p.db.Query("SELECT DISTINCT hostname FROM runtime_mysql_servers WHERE hostgroup_id != ? AND status = 'ONLINE' AND hostname NOT IN (SELECT hostname FROM runtime_mysql_servers WHERE hostgroup_id = ? AND status = 'ONLINE');", writerID, writerID)
 	if err != nil {

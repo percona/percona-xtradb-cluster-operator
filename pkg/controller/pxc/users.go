@@ -22,7 +22,6 @@ import (
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/queries"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 )
 
@@ -979,28 +978,6 @@ func (r *ReconcilePerconaXtraDBCluster) syncPXCUsersWithProxySQL(ctx context.Con
 		if len(errb.Bytes()) > 0 {
 			return errors.New("syncusers: " + errb.String())
 		}
-	}
-
-	// For replica clusters, rewrite ProxySQL user default_hostgroup from
-	// writer (11) to reader (10), since all PXC nodes are read-only and
-	// only present in the reader hostgroup.
-	if cr.IsReplicaCluster() {
-		for i := 0; i < int(cr.Spec.ProxySQL.Size); i++ {
-			proxyHost := fmt.Sprintf("%s-proxysql-%d.%s-proxysql-unready.%s",
-				cr.Name, i, cr.Name, cr.Namespace)
-			proxyDB, err := queries.New(r.client, cr.Namespace,
-				internalSecretsPrefix+cr.Name, users.ProxyAdmin,
-				proxyHost, 6032, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
-			if err != nil {
-				return errors.Wrapf(err, "connect to proxysql pod %d for hostgroup rewrite", i)
-			}
-			defer proxyDB.Close()
-
-			if err := proxyDB.UpdateDefaultHostgroupForReplica(); err != nil {
-				return errors.Wrapf(err, "update default hostgroup for replica on proxysql pod %d", i)
-			}
-		}
-		log.V(1).Info("ProxySQL default hostgroup updated for replica cluster")
 	}
 
 	log.V(1).Info("PXC users synced with ProxySQL")

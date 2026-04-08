@@ -26,9 +26,12 @@ const (
 	ReaderHostgroup = "reader_hostgroup"
 )
 
-// value of writer group is hardcoded in ProxySQL config inside docker image
+// Hostgroup IDs are hardcoded in ProxySQL config inside docker image
 // https://github.com/percona/percona-docker/blob/pxc-operator-1.3.0/proxysql/dockerdir/etc/proxysql-admin.cnf#L23
-const writerID = 11
+const (
+	writerID = 11
+	readerID = 10
+)
 
 type Database struct {
 	db *sql.DB
@@ -366,6 +369,37 @@ func (p *Database) PrimaryHost() (string, error) {
 	}
 
 	return host, nil
+}
+
+// ReaderHost returns any online host from the reader hostgroup (10).
+// This is useful for replica clusters where no writer hostgroup exists.
+func (p *Database) ReaderHost() (string, error) {
+	var host string
+	err := p.db.QueryRow("SELECT hostname FROM runtime_mysql_servers WHERE hostgroup_id = ? AND status = 'ONLINE' LIMIT 1", readerID).Scan(&host)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", ErrNotFound
+		}
+		return "", err
+	}
+
+	return host, nil
+}
+
+// UpdateDefaultHostgroupForReplica rewrites ProxySQL mysql_users default_hostgroup
+// from the writer hostgroup (11) to the reader hostgroup (10). This is needed for
+// replica clusters where all PXC nodes are read-only and only present in the reader hostgroup.
+func (p *Database) UpdateDefaultHostgroupForReplica() error {
+	if _, err := p.db.Exec("UPDATE mysql_users SET default_hostgroup=? WHERE default_hostgroup=?", readerID, writerID); err != nil {
+		return errors.Wrap(err, "update mysql_users default_hostgroup")
+	}
+	if _, err := p.db.Exec("LOAD MYSQL USERS TO RUNTIME"); err != nil {
+		return errors.Wrap(err, "load mysql users to runtime")
+	}
+	if _, err := p.db.Exec("SAVE MYSQL USERS TO DISK"); err != nil {
+		return errors.Wrap(err, "save mysql users to disk")
+	}
+	return nil
 }
 
 func (p *Database) NonPrimaryHostsProxySQL() ([]string, error) {

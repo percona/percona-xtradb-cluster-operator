@@ -126,6 +126,30 @@ var _ = Describe("Running deadline", func() {
 		}
 	})
 
+	It("should check deadline in 'Running' state", func() {
+		cluster, err := readDefaultCR("cluster1", "test")
+		Expect(err).ToNot(HaveOccurred())
+
+		cr, err := readDefaultBackup("backup1", "test")
+		Expect(err).ToNot(HaveOccurred())
+		cr.Status.State = pxcv1.BackupRunning
+
+		bcp := backup.New(cluster)
+		job := bcp.Job(cr, cluster)
+
+		job.Spec, err = bcp.JobSpec(cr.Spec, cluster, job, "")
+		Expect(err).ToNot(HaveOccurred())
+		job.CreationTimestamp = metav1.NewTime(time.Now().Add(-2 * time.Minute))
+
+		r := reconciler(buildFakeClient(job))
+
+		cluster.Spec.Backup.RunningDeadlineSeconds = ptr.To(int64(60))
+
+		err = r.checkRunningDeadline(context.Background(), cluster, cr)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("running deadline seconds exceeded"))
+	})
+
 	It("should use universal value if defined", func() {
 		cluster, err := readDefaultCR("cluster1", "test")
 		Expect(err).ToNot(HaveOccurred())

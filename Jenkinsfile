@@ -327,7 +327,11 @@ void runTest(Integer TEST_ID) {
         finally {
             def timeStop = new Date().getTime()
             def durationSec = (timeStop - timeStart) / 1000
-            tests[TEST_ID]["time"] = durationSec
+            def accumulatedTime = tests[TEST_ID]["time"]
+            if (!(accumulatedTime instanceof Number)) {
+                accumulatedTime = accumulatedTime as Double
+            }
+            tests[TEST_ID]["time"] = accumulatedTime + durationSec
             pushLogFile("$testNameWithMysqlVersion")
             echo "The $testName-$mysqlVer test was finished!"
         }

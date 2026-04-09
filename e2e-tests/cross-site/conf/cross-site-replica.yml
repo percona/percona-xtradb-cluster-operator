@@ -38,11 +38,19 @@ spec:
             storage: 2Gi
     affinity:
       antiAffinityTopologyKey: none
-  haproxy:
+  proxysql:
     enabled: true
-    size: 2
-    image: -haproxy
+    scheduler:
+      enabled: true
+    volumeSpec:
+      persistentVolumeClaim:
+        resources:
+          requests:
+            storage: 2G
+    size: 3
+    image: -proxysql
     resources:
+      requests:
       requests:
         memory: 0.1G
         cpu: 100m

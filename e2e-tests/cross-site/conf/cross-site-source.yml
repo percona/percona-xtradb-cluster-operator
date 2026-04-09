@@ -38,10 +38,17 @@ spec:
             storage: 6Gi
     affinity:
       antiAffinityTopologyKey: "kubernetes.io/hostname"
-  haproxy:
+  proxysql:
     enabled: true
-    size: 2
-    image: -haproxy
+    scheduler:
+      enabled: true
+    volumeSpec:
+      persistentVolumeClaim:
+        resources:
+          requests:
+            storage: 2G
+    size: 3
+    image: -proxysql
     resources:
       requests:
         memory: 0.1G

@@ -128,7 +128,6 @@ backup_s3() {
 	# it's expected since we only upload sst_info
 	set +o pipefail
 	# shellcheck disable=SC2086
-	sleep 60
 	xbstream -C /tmp -c ${SST_INFO_NAME} $XBSTREAM_EXTRA_ARGS \
 		| xbcloud put --storage=s3 \
 			--md5 \

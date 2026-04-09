@@ -17,8 +17,7 @@ LIB_PATH='/opt/percona/backup/lib/pxc'
 
 SOCAT_OPTS="TCP-LISTEN:4444,reuseaddr,retry=30"
 
-FIRST_RECEIVED=0
-SST_FAILED=0
+IGNORE_SIGTERM=0
 
 check_ssl() {
 	CA=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
@@ -48,17 +47,13 @@ check_ssl() {
 
 # shellcheck disable=SC2317
 handle_sigterm() {
-	if ((FIRST_RECEIVED == 0)); then
-		pid_s=$(ps -C socat -o pid= || true)
-		if [ -n "${pid_s}" ]; then
-			log 'ERROR' 'SST request failed'
-			SST_FAILED=1
-			kill "$pid_s"
-			exit 1
-		else
-			log 'INFO' 'SST request was finished'
-		fi
+	if ((IGNORE_SIGTERM == 1)); then
+		log 'INFO' 'Ignoring SIGTERM for MySQL 5.7'
+		return
 	fi
+
+	log 'ERROR' 'SST request failed'
+	exit 1
 }
 
 backup_volume() {
@@ -81,7 +76,6 @@ backup_volume() {
 
 	log 'INFO' 'Socat was started'
 
-	FIRST_RECEIVED=1
 	if [[ ${socat_status} -ne 0 ]]; then
 		log 'ERROR' 'Socat(1) failed'
 		log 'ERROR' 'Backup was finished unsuccessfully'
@@ -94,18 +88,15 @@ backup_volume() {
 	# if PXC 5.7
 	if check_for_version "$MYSQL_VERSION" '5.7.0' && ! check_for_version "$MYSQL_VERSION" '8.0.0'; then
 		# ignore SIGTERM from garbd, it has no idea that we still have work to do.
-		trap '' 15
+		IGNORE_SIGTERM=1
 	fi
 
-
-	if ((SST_FAILED == 0)); then
-		if ! socat -u "$SOCAT_OPTS" stdio >xtrabackup.stream; then
-			log 'ERROR' 'Socat(2) failed'
-			log 'ERROR' 'Backup was finished unsuccessfully'
-			exit 1
-		fi
-		log 'INFO' "Socat(2) returned $?"
+	if ! socat -u "$SOCAT_OPTS" stdio >xtrabackup.stream; then
+		log 'ERROR' 'Socat(2) failed'
+		log 'ERROR' 'Backup was finished unsuccessfully'
+		exit 1
 	fi
+	log 'INFO' "Socat(2) returned $?"
 
 	stat xtrabackup.stream
 	if (($(stat -c%s xtrabackup.stream) < 5000000)); then
@@ -126,7 +117,6 @@ backup_s3() {
 	socat_status=$?
 	log 'INFO' 'Socat was started'
 
-	FIRST_RECEIVED=1
 	if [[ ${socat_status} -ne 0 ]]; then
 		log 'ERROR' 'Socat(1) failed'
 		log 'ERROR' 'Backup was finished unsuccessfully'
@@ -138,6 +128,7 @@ backup_s3() {
 	# it's expected since we only upload sst_info
 	set +o pipefail
 	# shellcheck disable=SC2086
+	sleep 60
 	xbstream -C /tmp -c ${SST_INFO_NAME} $XBSTREAM_EXTRA_ARGS \
 		| xbcloud put --storage=s3 \
 			--md5 \
@@ -154,21 +145,19 @@ backup_s3() {
 	# if PXC 5.7
 	if check_for_version "$MYSQL_VERSION" '5.7.0' && ! check_for_version "$MYSQL_VERSION" '8.0.0'; then
 		# ignore SIGTERM from garbd, it has no idea that we still have work to do.
-		trap '' 15
+		IGNORE_SIGTERM=1
 	fi
 
-	if ((SST_FAILED == 0)); then
-		# shellcheck disable=SC2086
-		socat -u "$SOCAT_OPTS" stdio \
-			| xbcloud put --storage=s3 \
-				--md5 \
-				--parallel="$(grep -c processor /proc/cpuinfo)" \
-				$XBCLOUD_ARGS \
-				--s3-bucket="$S3_BUCKET" \
-				"$S3_BUCKET_PATH" 2>&1 \
-			| (grep -v "error: http request failed: Couldn't resolve host name" || exit 1) &
-		wait $!
-	fi
+	# shellcheck disable=SC2086
+	socat -u "$SOCAT_OPTS" stdio \
+		| xbcloud put --storage=s3 \
+			--md5 \
+			--parallel="$(grep -c processor /proc/cpuinfo)" \
+			$XBCLOUD_ARGS \
+			--s3-bucket="$S3_BUCKET" \
+			"$S3_BUCKET_PATH" 2>&1 \
+		| (grep -v "error: http request failed: Couldn't resolve host name" || exit 1) &
+	wait $!
 
 	log 'INFO' "Backup is uploaded to s3 successfully."
 
@@ -196,7 +185,6 @@ backup_azure() {
 	socat_status=$?
 	log 'INFO' 'Socat was started'
 
-	FIRST_RECEIVED=1
 	if [[ ${socat_status} -ne 0 ]]; then
 		log 'ERROR' 'Socat(1) failed'
 		log 'ERROR' 'Backup was finished unsuccessfully'
@@ -222,19 +210,17 @@ backup_azure() {
 	# if PXC 5.7
 	if check_for_version "$MYSQL_VERSION" '5.7.0' && ! check_for_version "$MYSQL_VERSION" '8.0.0'; then
 		# ignore SIGTERM from garbd, it has no idea that we still have work to do.
-		trap '' 15
+		IGNORE_SIGTERM=1
 	fi
 
-	if ((SST_FAILED == 0)); then
-		# shellcheck disable=SC2086
-		socat -u "$SOCAT_OPTS" stdio \
-			| xbcloud put --storage=azure \
-				--parallel="$(grep -c processor /proc/cpuinfo)" \
-				$XBCLOUD_ARGS \
-				"$BACKUP_PATH" 2>&1 \
+	# shellcheck disable=SC2086
+	socat -u "$SOCAT_OPTS" stdio \
+		| xbcloud put --storage=azure \
+			--parallel="$(grep -c processor /proc/cpuinfo)" \
+			$XBCLOUD_ARGS \
+			"$BACKUP_PATH" 2>&1 \
 		| (grep -v "error: http request failed: Couldn't resolve host name" || exit 1) &
-		wait $!
-	fi
+	wait $!
 
 	log 'INFO' "Backup is uploaded to azure successfully."
 }
@@ -251,10 +237,8 @@ else
 	backup_volume
 fi
 
-if ((SST_FAILED == 0)); then
-	touch /tmp/backup-is-completed
-fi
+touch /tmp/backup-is-completed
 
 log 'INFO' 'Backup finished'
 
-exit $SST_FAILED
+exit 0

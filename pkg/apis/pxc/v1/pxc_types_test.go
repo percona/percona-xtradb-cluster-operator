@@ -458,6 +458,68 @@ func TestExtraPVCVolumeMounts(t *testing.T) {
 	}
 }
 
+func TestIsReadOnly(t *testing.T) {
+	tests := map[string]struct {
+		channels []ReplicationChannel
+		expected bool
+	}{
+		"no replication channels": {
+			channels: nil,
+			expected: false,
+		},
+		"empty replication channels": {
+			channels: []ReplicationChannel{},
+			expected: false,
+		},
+		"single source channel": {
+			channels: []ReplicationChannel{
+				{Name: "source-channel", IsSource: true},
+			},
+			expected: false,
+		},
+		"single replica channel": {
+			channels: []ReplicationChannel{
+				{Name: "replica-channel", IsSource: false},
+			},
+			expected: true,
+		},
+		"all channels are source": {
+			channels: []ReplicationChannel{
+				{Name: "channel-1", IsSource: true},
+				{Name: "channel-2", IsSource: true},
+			},
+			expected: false,
+		},
+		"mixed channels - first source, second replica": {
+			channels: []ReplicationChannel{
+				{Name: "channel-1", IsSource: true},
+				{Name: "channel-2", IsSource: false},
+			},
+			expected: true,
+		},
+		"mixed channels - first replica, second source": {
+			channels: []ReplicationChannel{
+				{Name: "channel-1", IsSource: false},
+				{Name: "channel-2", IsSource: true},
+			},
+			expected: true,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			cr := &PerconaXtraDBCluster{
+				Spec: PerconaXtraDBClusterSpec{
+					PXC: &PXCSpec{
+						ReplicationChannels: tt.channels,
+					},
+				},
+			}
+			assert.Equal(t, tt.expected, cr.IsReadOnly())
+		})
+	}
+}
+
 func TestValidateExtraPVCs(t *testing.T) {
 	tests := map[string]struct {
 		extraPVCs []ExtraPVC

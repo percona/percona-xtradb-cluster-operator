@@ -100,6 +100,7 @@ func TestAppContainer_ProxySQL(t *testing.T) {
 					{Name: "SCHEDULER_MAXCONNECTIONS", Value: "1000"},
 					{Name: "PERCONA_SCHEDULER_CFG", Value: "/tmp/scheduler-config.toml"},
 					{Name: "SCHEDULER_ENABLED", Value: "true"},
+					{Name: "PXC_READ_ONLY", Value: "false"},
 				}...)
 				return c
 			},
@@ -207,6 +208,7 @@ func defaultExpectedProxySQLContainer() corev1.Container {
 			{Name: "SCHEDULER_NODECHECKINTERVAL", Value: "0"},
 			{Name: "SCHEDULER_MAXCONNECTIONS", Value: "0"},
 			{Name: "PERCONA_SCHEDULER_CFG", Value: "/tmp/scheduler-config.toml"},
+			{Name: "PXC_READ_ONLY", Value: "false"},
 		},
 		EnvFrom: []corev1.EnvFromSource{
 			{
@@ -272,6 +274,7 @@ func TestSidecarContainers_ProxySQL(t *testing.T) {
 					{Name: "SCHEDULER_MAXCONNECTIONS", Value: "1000"},
 					{Name: "PERCONA_SCHEDULER_CFG", Value: "/tmp/scheduler-config.toml"},
 					{Name: "SCHEDULER_ENABLED", Value: "true"},
+					{Name: "PXC_READ_ONLY", Value: "false"},
 				}...)
 				return []corev1.Container{pxcMonit}
 			},
@@ -346,6 +349,7 @@ func defaultExpectedProxySQLSidecarContainers() []corev1.Container {
 				{Name: "SCHEDULER_NODECHECKINTERVAL", Value: "0"},
 				{Name: "SCHEDULER_MAXCONNECTIONS", Value: "0"},
 				{Name: "PERCONA_SCHEDULER_CFG", Value: "/tmp/scheduler-config.toml"},
+				{Name: "PXC_READ_ONLY", Value: "false"},
 			},
 			EnvFrom: []corev1.EnvFromSource{
 				{

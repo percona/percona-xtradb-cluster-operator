@@ -1,15 +1,11 @@
 package statefulset
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes/scheme"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
@@ -224,42 +220,57 @@ func defaultExpectedProxySQLContainer() corev1.Container {
 }
 
 func TestSidecarContainers_ProxySQL(t *testing.T) {
+	secretName := "monitor-secret"
+
 	tests := map[string]struct {
-		spec               api.PodSpec
-		secrets            string
-		crVersion          string
-		scheduler          api.ProxySQLSchedulerSpec
+		spec               api.PerconaXtraDBClusterSpec
 		expectedContainers func() []corev1.Container
 	}{
 		"success - default container construction": {
-			spec: api.PodSpec{
-				Image:             "test-image",
-				ImagePullPolicy:   corev1.PullIfNotPresent,
-				EnvVarsSecretName: "test-secret",
+			spec: api.PerconaXtraDBClusterSpec{
+				CRVersion: version.Version(),
+				ProxySQL: &api.ProxySQLSpec{
+					PodSpec: api.PodSpec{
+						Image:             "test-image",
+						ImagePullPolicy:   corev1.PullIfNotPresent,
+						EnvVarsSecretName: "test-secret",
+					},
+				},
+				PXC: &api.PXCSpec{
+					PodSpec: &api.PodSpec{
+						Configuration: "config",
+					},
+				},
 			},
-			secrets:   "monitor-secret",
-			crVersion: version.Version(),
 			expectedContainers: func() []corev1.Container {
 				return defaultExpectedProxySQLSidecarContainers()
 			},
 		},
 		"scheduler enabled - only pxc-monit container": {
-			spec: api.PodSpec{
-				Image:             "test-image",
-				ImagePullPolicy:   corev1.PullIfNotPresent,
-				EnvVarsSecretName: "test-secret",
-			},
-			secrets:   "monitor-secret",
-			crVersion: version.Version(),
-			scheduler: api.ProxySQLSchedulerSpec{
-				Enabled:                       true,
-				WriterIsAlsoReader:            true,
-				SuccessThreshold:              1,
-				FailureThreshold:              3,
-				MaxConnections:                1000,
-				PingTimeoutMilliseconds:       1000,
-				CheckTimeoutMilliseconds:      2000,
-				NodeCheckIntervalMilliseconds: 2000,
+			spec: api.PerconaXtraDBClusterSpec{
+				CRVersion: version.Version(),
+				ProxySQL: &api.ProxySQLSpec{
+					PodSpec: api.PodSpec{
+						Image:             "test-image",
+						ImagePullPolicy:   corev1.PullIfNotPresent,
+						EnvVarsSecretName: "test-secret",
+					},
+					Scheduler: api.ProxySQLSchedulerSpec{
+						Enabled:                       true,
+						WriterIsAlsoReader:            true,
+						SuccessThreshold:              1,
+						FailureThreshold:              3,
+						MaxConnections:                1000,
+						PingTimeoutMilliseconds:       1000,
+						CheckTimeoutMilliseconds:      2000,
+						NodeCheckIntervalMilliseconds: 2000,
+					},
+				},
+				PXC: &api.PXCSpec{
+					PodSpec: &api.PodSpec{
+						Configuration: "config",
+					},
+				},
 			},
 			expectedContainers: func() []corev1.Container {
 				c := defaultExpectedProxySQLSidecarContainers()
@@ -280,31 +291,20 @@ func TestSidecarContainers_ProxySQL(t *testing.T) {
 			},
 		},
 	}
-	ctx := context.Background()
+
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			cr := &api.PerconaXtraDBCluster{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test-cluster",
 				},
-				Spec: api.PerconaXtraDBClusterSpec{
-					CRVersion: tt.crVersion,
-					ProxySQL: &api.ProxySQLSpec{
-						PodSpec:   tt.spec,
-						Scheduler: tt.scheduler,
-					},
-					PXC: &api.PXCSpec{
-						PodSpec: &api.PodSpec{
-							Configuration: "config",
-						},
-					},
-				},
+				Spec: tt.spec,
 			}
 
+			client := test.BuildFakeClient()
 			proxySQL := &Proxy{cr: cr}
-			cl := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
 
-			containers, err := proxySQL.SidecarContainers(ctx, cl, &tt.spec, tt.secrets, cr)
+			containers, err := proxySQL.SidecarContainers(t.Context(), client, &tt.spec.ProxySQL.PodSpec, secretName, cr)
 			assert.NoError(t, err)
 
 			expected := tt.expectedContainers()

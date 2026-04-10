@@ -3,14 +3,14 @@ package statefulset
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/test"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/version"
+	"github.com/stretchr/testify/assert"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestAppContainer_ProxySQL(t *testing.T) {
@@ -97,6 +97,53 @@ func TestAppContainer_ProxySQL(t *testing.T) {
 					{Name: "PERCONA_SCHEDULER_CFG", Value: "/tmp/scheduler-config.toml"},
 					{Name: "SCHEDULER_ENABLED", Value: "true"},
 					{Name: "PXC_READ_ONLY", Value: "false"},
+				}...)
+				return c
+			},
+		},
+		"latest cr container construction - scheduler enabled, read only cluster": {
+			spec: api.PerconaXtraDBClusterSpec{
+				CRVersion: version.Version(),
+				ProxySQL: &api.ProxySQLSpec{
+					PodSpec: api.PodSpec{
+						Image:             "test-image",
+						ImagePullPolicy:   corev1.PullIfNotPresent,
+						EnvVarsSecretName: "test-secret",
+					},
+					Scheduler: api.ProxySQLSchedulerSpec{
+						Enabled:                       true,
+						WriterIsAlsoReader:            true,
+						SuccessThreshold:              1,
+						FailureThreshold:              3,
+						MaxConnections:                1000,
+						PingTimeoutMilliseconds:       1000,
+						CheckTimeoutMilliseconds:      2000,
+						NodeCheckIntervalMilliseconds: 2000,
+					},
+				},
+				PXC: &api.PXCSpec{
+					PodSpec: &api.PodSpec{},
+					ReplicationChannels: []api.ReplicationChannel{
+						{
+							Name:     "replica-channel",
+							IsSource: false,
+						},
+					},
+				},
+			},
+			expectedContainer: func() corev1.Container {
+				c := defaultExpectedProxySQLContainer()
+				c.Env = append(c.Env[:5], []corev1.EnvVar{
+					{Name: "SCHEDULER_CHECKTIMEOUT", Value: "2000"},
+					{Name: "SCHEDULER_WRITERALSOREADER", Value: "1"},
+					{Name: "SCHEDULER_RETRYUP", Value: "1"},
+					{Name: "SCHEDULER_RETRYDOWN", Value: "3"},
+					{Name: "SCHEDULER_PINGTIMEOUT", Value: "1000"},
+					{Name: "SCHEDULER_NODECHECKINTERVAL", Value: "2000"},
+					{Name: "SCHEDULER_MAXCONNECTIONS", Value: "1000"},
+					{Name: "PERCONA_SCHEDULER_CFG", Value: "/tmp/scheduler-config.toml"},
+					{Name: "SCHEDULER_ENABLED", Value: "true"},
+					{Name: "PXC_READ_ONLY", Value: "true"},
 				}...)
 				return c
 			},
@@ -286,6 +333,56 @@ func TestSidecarContainers_ProxySQL(t *testing.T) {
 					{Name: "PERCONA_SCHEDULER_CFG", Value: "/tmp/scheduler-config.toml"},
 					{Name: "SCHEDULER_ENABLED", Value: "true"},
 					{Name: "PXC_READ_ONLY", Value: "false"},
+				}...)
+				return []corev1.Container{pxcMonit}
+			},
+		},
+		"scheduler enabled - read only cluster": {
+			spec: api.PerconaXtraDBClusterSpec{
+				CRVersion: version.Version(),
+				ProxySQL: &api.ProxySQLSpec{
+					PodSpec: api.PodSpec{
+						Image:             "test-image",
+						ImagePullPolicy:   corev1.PullIfNotPresent,
+						EnvVarsSecretName: "test-secret",
+					},
+					Scheduler: api.ProxySQLSchedulerSpec{
+						Enabled:                       true,
+						WriterIsAlsoReader:            true,
+						SuccessThreshold:              1,
+						FailureThreshold:              3,
+						MaxConnections:                1000,
+						PingTimeoutMilliseconds:       1000,
+						CheckTimeoutMilliseconds:      2000,
+						NodeCheckIntervalMilliseconds: 2000,
+					},
+				},
+				PXC: &api.PXCSpec{
+					PodSpec: &api.PodSpec{
+						Configuration: "config",
+					},
+					ReplicationChannels: []api.ReplicationChannel{
+						{
+							Name:     "replica-channel",
+							IsSource: false,
+						},
+					},
+				},
+			},
+			expectedContainers: func() []corev1.Container {
+				c := defaultExpectedProxySQLSidecarContainers()
+				pxcMonit := c[0]
+				pxcMonit.Env = append(pxcMonit.Env[:5], []corev1.EnvVar{
+					{Name: "SCHEDULER_CHECKTIMEOUT", Value: "2000"},
+					{Name: "SCHEDULER_WRITERALSOREADER", Value: "1"},
+					{Name: "SCHEDULER_RETRYUP", Value: "1"},
+					{Name: "SCHEDULER_RETRYDOWN", Value: "3"},
+					{Name: "SCHEDULER_PINGTIMEOUT", Value: "1000"},
+					{Name: "SCHEDULER_NODECHECKINTERVAL", Value: "2000"},
+					{Name: "SCHEDULER_MAXCONNECTIONS", Value: "1000"},
+					{Name: "PERCONA_SCHEDULER_CFG", Value: "/tmp/scheduler-config.toml"},
+					{Name: "SCHEDULER_ENABLED", Value: "true"},
+					{Name: "PXC_READ_ONLY", Value: "true"},
 				}...)
 				return []corev1.Container{pxcMonit}
 			},

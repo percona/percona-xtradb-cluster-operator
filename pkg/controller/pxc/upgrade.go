@@ -360,7 +360,7 @@ func (r *ReconcilePerconaXtraDBCluster) waitHostgroups(
 	}
 
 	hostgroup := "10" // reader
-	if podIdx == 0 && !cr.IsReplicaCluster() {
+	if podIdx == 0 && !cr.IsReadOnly() {
 		hostgroup = "11" // writer
 	}
 

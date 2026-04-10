@@ -1895,12 +1895,6 @@ func (cr *PerconaXtraDBCluster) ProxySQLEnabled() bool {
 	return cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled
 }
 
-// IsReplicaCluster returns true if the cluster is configured as a replication
-// replica (has replication channels with IsSource=false).
-func (cr *PerconaXtraDBCluster) IsReplicaCluster() bool {
-	return len(cr.Spec.PXC.ReplicationChannels) > 0 && !cr.Spec.PXC.ReplicationChannels[0].IsSource
-}
-
 func (s *PerconaXtraDBClusterStatus) ClusterStatus(inProgress, deleted bool) AppState {
 	switch {
 	case deleted || s.PXC.Status == AppStateStopping || s.ProxySQL.Status == AppStateStopping || s.HAProxy.Status == AppStateStopping:
@@ -1983,6 +1977,8 @@ func (cr *PerconaXtraDBCluster) PVCResizeInProgress() bool {
 	return ok
 }
 
+// IsReadOnly returns true if the cluster is configured as a replication
+// replica (has replication channels with IsSource=false).
 func (cr *PerconaXtraDBCluster) IsReadOnly() bool {
 	channels := cr.Spec.PXC.ReplicationChannels
 	if len(channels) < 1 {

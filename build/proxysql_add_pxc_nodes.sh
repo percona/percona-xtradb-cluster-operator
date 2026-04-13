@@ -143,6 +143,17 @@ function main() {
 			proxysql_admin_exec "127.0.0.1" "${update_weights}; LOAD MYSQL SERVERS TO RUNTIME;"
 		fi
 
+	  # if PXC_READ_ONLY=false and there is no writer, we need to update the cluster
+	  if [[ ${PXC_READ_ONLY} == "false" && "$(proxysql_admin_exec 127.0.0.1 'SELECT COUNT(DISTINCT(hostname)) FROM mysql_servers WHERE hostgroup_id=11;')" == 0 ]]; then
+			percona-scheduler-admin \
+				--config-file=${PERCONA_SCHEDULER_CFG} \
+				--write-node="${pod_zero}.${service}:3306" \
+				--update-cluster \
+				--remove-all-servers \
+				--force
+			proxysql_admin_exec "127.0.0.1" "${update_weights}; LOAD MYSQL SERVERS TO RUNTIME;"
+  	fi
+
 		# update weights if ProxySQL is restarted
 		if [[ "$(proxysql_admin_exec 127.0.0.1 'SELECT COUNT(DISTINCT(hostname)) FROM mysql_servers WHERE weight=1000;')" > 0 ]]; then
 			proxysql_admin_exec "127.0.0.1" "${update_weights}; LOAD MYSQL SERVERS TO RUNTIME;"

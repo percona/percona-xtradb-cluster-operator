@@ -1,8 +1,23 @@
 region = "us-central1-a"
 testUrlPrefix = "https://percona-jenkins-artifactory-public.s3.amazonaws.com/cloud-pxc-operator"
 tests = []
-testQueueFile = ".e2e-test-queue"
-testQueueLockDir = ".e2e-test-queue.lock"
+testQueueFile = ""
+testQueueLockDir = ""
+
+String sanitizePathComponent(String value) {
+    return value.replaceAll(/[^A-Za-z0-9_.-]/, "_")
+}
+
+void initTestQueuePaths() {
+    def queueName = [
+        sanitizePathComponent(env.JOB_NAME),
+        sanitizePathComponent(env.BUILD_NUMBER),
+        sanitizePathComponent(env.GIT_SHORT_COMMIT),
+    ].join("-")
+
+    testQueueFile = "/tmp/${queueName}.e2e-test-queue"
+    testQueueLockDir = "/tmp/${queueName}.e2e-test-queue.lock"
+}
 
 void createCluster(String CLUSTER_SUFFIX) {
     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
@@ -130,6 +145,8 @@ void initTests() {
 }
 
 void initTestQueue() {
+    initTestQueuePaths()
+
     def pendingIndexes = []
 
     for (int i=0; i<tests.size(); i++) {
@@ -257,6 +274,8 @@ void clusterRunner(String cluster) {
 }
 
 Integer claimNextTest(String cluster) {
+    initTestQueuePaths()
+
     def claimedTestId = sh(
         script: """
             while ! mkdir ${testQueueLockDir} 2>/dev/null; do

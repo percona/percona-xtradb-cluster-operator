@@ -425,6 +425,11 @@ wait_for_running() {
 	done
 }
 
+switch_namespace() {
+	local ns="$1"
+	kubectl_bin config set-context "$(kubectl_bin config current-context)" --namespace="$ns"
+}
+
 wait_for_generation() {
 	local resource="$1"
 	local target_generation="$2"
@@ -696,6 +701,30 @@ get_proxy_primary() {
 	done
 
 	echo $ip | cut -d'.' -f1
+}
+
+check_proxysql_hostgroup() {
+	local cluster="$1"
+	local size="$2"
+	local hostgroup_id="$3"
+	local expected="$4" # "empty" or "populated"
+	local admin_uri="-h127.0.0.1 -P6032 -uproxyadmin -padmin_password"
+	local last_pod=$((size - 1))
+
+	for i in $(seq 0 $last_pod); do
+		local count
+		count=$(run_mysql_local \
+			"SELECT COUNT(*) FROM runtime_mysql_servers WHERE hostgroup_id=${hostgroup_id} AND status='ONLINE';" \
+			"$admin_uri" \
+			"${cluster}-proxysql-${i}" 'proxysql')
+		if [[ "$expected" == "empty" && "$count" -ne 0 ]]; then
+			echo "ERROR: ProxySQL pod ${cluster}-proxysql-${i} has ${count} server(s) in hostgroup ${hostgroup_id}, expected 0"
+			exit 1
+		elif [[ "$expected" == "populated" && "$count" -eq 0 ]]; then
+			echo "ERROR: ProxySQL pod ${cluster}-proxysql-${i} has no ONLINE servers in hostgroup ${hostgroup_id}"
+			exit 1
+		fi
+	done
 }
 
 get_pod_name() {

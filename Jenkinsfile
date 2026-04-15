@@ -296,7 +296,6 @@ Integer claimNextTest(String cluster) {
     ).trim() as Integer
 
     if (claimedTestId != -1) {
-        tests[claimedTestId]["result"] = "claimed"
         tests[claimedTestId]["cluster"] = cluster
         echo "Claimed ${tests[claimedTestId]['name']}-${tests[claimedTestId]['mysql_ver']} for ${cluster}"
     }

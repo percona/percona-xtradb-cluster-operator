@@ -78,6 +78,8 @@ spec:
               value: /tmp/scheduler-config.toml
             - name: SCHEDULER_ENABLED
               value: "true"
+            - name: PXC_READ_ONLY
+              value: "false"
           envFrom:
             - secretRef:
                 name: some-name-env-vars-proxysql
@@ -159,6 +161,8 @@ spec:
               value: /tmp/scheduler-config.toml
             - name: SCHEDULER_ENABLED
               value: "true"
+            - name: PXC_READ_ONLY
+              value: "false"
           envFrom:
             - secretRef:
                 name: some-name-env-vars-proxysql

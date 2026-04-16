@@ -3,6 +3,7 @@ allocator
 backup-storage-tls
 big-data
 cross-site
+cross-site-proxysql
 custom-users
 default-cr
 demand-backup

@@ -101,7 +101,10 @@ function main() {
 				;;
 		esac
 
-		update_weights="${update_weights} UPDATE mysql_servers SET weight=${read_weight} WHERE hostgroup_id IN (10, 8010) AND hostname LIKE \"${pod_name}%\"; UPDATE mysql_servers SET weight=${write_weight} WHERE hostgroup_id IN (11, 8011) AND hostname LIKE \"${pod_name}%\";"
+		update_weights="${update_weights} UPDATE mysql_servers SET weight=${read_weight} WHERE hostgroup_id IN (10, 8010) AND hostname LIKE \"${pod_name}%\";"
+		if [[ -z ${PXC_READ_ONLY} || ${PXC_READ_ONLY} == "false" ]]; then
+			update_weights="${update_weights} UPDATE mysql_servers SET weight=${write_weight} WHERE hostgroup_id IN (11, 8011) AND hostname LIKE \"${pod_name}%\";"
+		fi
 	done
 
 	wait_for_proxy
@@ -139,6 +142,17 @@ function main() {
 				--force
 			proxysql_admin_exec "127.0.0.1" "${update_weights}; LOAD MYSQL SERVERS TO RUNTIME;"
 		fi
+
+	  # if PXC_READ_ONLY=false and there is no writer, we need to update the cluster
+	  if [[ ${PXC_READ_ONLY} == "false" && "$(proxysql_admin_exec 127.0.0.1 'SELECT COUNT(DISTINCT(hostname)) FROM mysql_servers WHERE hostgroup_id=11;')" == 0 ]]; then
+			percona-scheduler-admin \
+				--config-file=${PERCONA_SCHEDULER_CFG} \
+				--write-node="${pod_zero}.${service}:3306" \
+				--update-cluster \
+				--remove-all-servers \
+				--force
+			proxysql_admin_exec "127.0.0.1" "${update_weights}; LOAD MYSQL SERVERS TO RUNTIME;"
+  	fi
 
 		# update weights if ProxySQL is restarted
 		if [[ "$(proxysql_admin_exec 127.0.0.1 'SELECT COUNT(DISTINCT(hostname)) FROM mysql_servers WHERE weight=1000;')" > 0 ]]; then

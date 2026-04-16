@@ -359,9 +359,9 @@ func (r *ReconcilePerconaXtraDBCluster) waitHostgroups(
 		return errors.Wrap(err, "get pod index from name")
 	}
 
-	hostgroup := "10" // reader
-	if podIdx == 0 {
-		hostgroup = "11" // writer
+	hostgroup := queries.ReaderHostgroupID
+	if podIdx == 0 && !cr.IsReadOnly() {
+		hostgroup = queries.WriterHostgroupID
 	}
 
 	return retry(time.Second*10, time.Duration(waitLimit)*time.Second, func() (bool, error) {

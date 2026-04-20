@@ -1976,3 +1976,20 @@ func (cr *PerconaXtraDBCluster) PVCResizeInProgress() bool {
 	_, ok := cr.Annotations[AnnotationPVCResizeInProgress]
 	return ok
 }
+
+// IsReadOnly returns true if the cluster is configured as a replication
+// replica (has replication channels with IsSource=false).
+func (cr *PerconaXtraDBCluster) IsReadOnly() bool {
+	channels := cr.Spec.PXC.ReplicationChannels
+	if len(channels) < 1 {
+		return false
+	}
+
+	for _, channel := range channels {
+		if !channel.IsSource {
+			return true
+		}
+	}
+
+	return false
+}

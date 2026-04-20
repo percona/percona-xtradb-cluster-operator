@@ -26,9 +26,12 @@ const (
 	ReaderHostgroup = "reader_hostgroup"
 )
 
-// value of writer group is hardcoded in ProxySQL config inside docker image
+// Hostgroup IDs are hardcoded in ProxySQL config inside docker image
 // https://github.com/percona/percona-docker/blob/pxc-operator-1.3.0/proxysql/dockerdir/etc/proxysql-admin.cnf#L23
-const writerID = 11
+const (
+	WriterHostgroupID = 11
+	ReaderHostgroupID = 10
+)
 
 type Database struct {
 	db *sql.DB
@@ -339,7 +342,7 @@ func (p *Database) ProxySQLInstanceStatus(host string) ([]string, error) {
 	return statuses, nil
 }
 
-func (p *Database) PresentInHostgroup(host string, hostgroup string) (bool, error) {
+func (p *Database) PresentInHostgroup(host string, hostgroup int) (bool, error) {
 	query := "SELECT COUNT(*) FROM runtime_mysql_servers WHERE hostgroup_id=? AND hostname LIKE ?"
 	var count int
 	err := p.db.QueryRow(query, hostgroup, host+"%").Scan(&count)
@@ -357,7 +360,22 @@ func (p *Database) PresentInHostgroup(host string, hostgroup string) (bool, erro
 
 func (p *Database) PrimaryHost() (string, error) {
 	var host string
-	err := p.db.QueryRow("SELECT hostname FROM runtime_mysql_servers WHERE hostgroup_id = ?", writerID).Scan(&host)
+	err := p.db.QueryRow("SELECT hostname FROM runtime_mysql_servers WHERE hostgroup_id = ?", WriterHostgroupID).Scan(&host)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", ErrNotFound
+		}
+		return "", err
+	}
+
+	return host, nil
+}
+
+// ReaderHost returns any online host from the reader hostgroup (10).
+// This is useful for replica clusters where no writer hostgroup exists.
+func (p *Database) ReaderHost() (string, error) {
+	var host string
+	err := p.db.QueryRow("SELECT hostname FROM runtime_mysql_servers WHERE hostgroup_id = ? AND status = 'ONLINE' LIMIT 1", ReaderHostgroupID).Scan(&host)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return "", ErrNotFound
@@ -369,7 +387,7 @@ func (p *Database) PrimaryHost() (string, error) {
 }
 
 func (p *Database) NonPrimaryHostsProxySQL() ([]string, error) {
-	rows, err := p.db.Query("SELECT DISTINCT hostname FROM runtime_mysql_servers WHERE hostgroup_id != ? AND status = 'ONLINE' AND hostname NOT IN (SELECT hostname FROM runtime_mysql_servers WHERE hostgroup_id = ? AND status = 'ONLINE');", writerID, writerID)
+	rows, err := p.db.Query("SELECT DISTINCT hostname FROM runtime_mysql_servers WHERE hostgroup_id != ? AND status = 'ONLINE' AND hostname NOT IN (SELECT hostname FROM runtime_mysql_servers WHERE hostgroup_id = ? AND status = 'ONLINE');", WriterHostgroupID, WriterHostgroupID)
 	if err != nil {
 		return nil, err
 	}

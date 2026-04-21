@@ -650,7 +650,7 @@ func (r *ReconcilePerconaXtraDBCluster) getConfigHash(
 		cr.Spec.LogCollector != nil &&
 		cr.Spec.LogCollector.Configuration != "" {
 		if res, err := r.getConfigMapHash(ctx, cr, config.CustomConfigMapName(cr.Name, "logcollector"), false); err != nil {
-			return "", errors.Wrap(err, "failed to get logrotate config hash")
+			return "", errors.Wrap(err, "failed to get logcollector config hash")
 		} else {
 			b.WriteString(res)
 		}

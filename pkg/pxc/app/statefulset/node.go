@@ -514,7 +514,7 @@ func (c *Node) LogCollectorContainer(spec *api.LogCollectorSpec, logPsecrets str
 	if cr.CompareVersionWith("1.20.0") >= 0 {
 		logProcContainer.Command = []string{"/opt/percona/logcollector/entrypoint.sh"}
 		logProcContainer.Args = []string{"fluent-bit"}
-		logRotContainer.Env = append(logProcContainer.Env, corev1.EnvVar{
+		logRotContainer.Env = append(logRotContainer.Env, corev1.EnvVar{
 			Name:  "LOGROTATE_STATUS_FILE",
 			Value: "/var/lib/mysql/logrotate.status",
 		})

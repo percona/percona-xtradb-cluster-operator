@@ -341,13 +341,11 @@ func TestLogCollectorContainer(t *testing.T) {
 	tests := map[string]struct {
 		crVersion      string
 		logCollector   *api.LogCollectorSpec
-		spec           *api.LogCollectorSpec
 		expectedResult func() []corev1.Container
 	}{
 		"pre-1.20 basic": {
-			crVersion:    "1.19.0",
-			logCollector: nil,
-			spec: &api.LogCollectorSpec{
+			crVersion: "1.19.0",
+			logCollector: &api.LogCollectorSpec{
 				Image:           "test-log-image",
 				ImagePullPolicy: corev1.PullAlways,
 			},
@@ -373,9 +371,8 @@ func TestLogCollectorContainer(t *testing.T) {
 			},
 		},
 		"1.20+ basic": {
-			crVersion:    version.Version(),
-			logCollector: nil,
-			spec: &api.LogCollectorSpec{
+			crVersion: version.Version(),
+			logCollector: &api.LogCollectorSpec{
 				Image:           "test-log-image",
 				ImagePullPolicy: corev1.PullAlways,
 			},
@@ -395,7 +392,7 @@ func TestLogCollectorContainer(t *testing.T) {
 						Name:            "logrotate",
 						Image:           "test-log-image",
 						ImagePullPolicy: corev1.PullAlways,
-						Env: append(baseLogProcEnvs(true), corev1.EnvVar{
+						Env: append(baseLogRotEnvs(), corev1.EnvVar{
 							Name: "LOGROTATE_STATUS_FILE", Value: "/var/lib/mysql/logrotate.status",
 						}),
 						Args:         []string{"logrotate"},
@@ -408,9 +405,7 @@ func TestLogCollectorContainer(t *testing.T) {
 		"pre-1.20 with configuration": {
 			crVersion: "1.19.0",
 			logCollector: &api.LogCollectorSpec{
-				Configuration: "some-fluentbit-config",
-			},
-			spec: &api.LogCollectorSpec{
+				Configuration:   "some-fluentbit-config",
 				Image:           "test-log-image",
 				ImagePullPolicy: corev1.PullIfNotPresent,
 			},
@@ -441,9 +436,7 @@ func TestLogCollectorContainer(t *testing.T) {
 		"1.20+ with configuration": {
 			crVersion: version.Version(),
 			logCollector: &api.LogCollectorSpec{
-				Configuration: "some-fluentbit-config",
-			},
-			spec: &api.LogCollectorSpec{
+				Configuration:   "some-fluentbit-config",
 				Image:           "test-log-image",
 				ImagePullPolicy: corev1.PullAlways,
 			},
@@ -467,7 +460,7 @@ func TestLogCollectorContainer(t *testing.T) {
 						Name:            "logrotate",
 						Image:           "test-log-image",
 						ImagePullPolicy: corev1.PullAlways,
-						Env: append(baseLogProcEnvs(true), corev1.EnvVar{
+						Env: append(baseLogRotEnvs(), corev1.EnvVar{
 							Name: "LOGROTATE_STATUS_FILE", Value: "/var/lib/mysql/logrotate.status",
 						}),
 						Args:         []string{"logrotate"},
@@ -480,9 +473,7 @@ func TestLogCollectorContainer(t *testing.T) {
 		"1.20+ with hookscript": {
 			crVersion: version.Version(),
 			logCollector: &api.LogCollectorSpec{
-				HookScript: "some-hook-script",
-			},
-			spec: &api.LogCollectorSpec{
+				HookScript:      "some-hook-script",
 				Image:           "test-log-image",
 				ImagePullPolicy: corev1.PullAlways,
 			},
@@ -506,7 +497,7 @@ func TestLogCollectorContainer(t *testing.T) {
 						Name:            "logrotate",
 						Image:           "test-log-image",
 						ImagePullPolicy: corev1.PullAlways,
-						Env: append(baseLogProcEnvs(true), corev1.EnvVar{
+						Env: append(baseLogRotEnvs(), corev1.EnvVar{
 							Name: "LOGROTATE_STATUS_FILE", Value: "/var/lib/mysql/logrotate.status",
 						}),
 						Args:         []string{"logrotate"},
@@ -519,13 +510,11 @@ func TestLogCollectorContainer(t *testing.T) {
 		"1.20+ with logrotate configuration": {
 			crVersion: version.Version(),
 			logCollector: &api.LogCollectorSpec{
+				Image:           "test-log-image",
+				ImagePullPolicy: corev1.PullAlways,
 				LogRotate: &api.LogRotateSpec{
 					Configuration: "custom-logrotate-config",
 				},
-			},
-			spec: &api.LogCollectorSpec{
-				Image:           "test-log-image",
-				ImagePullPolicy: corev1.PullAlways,
 			},
 			expectedResult: func() []corev1.Container {
 				return []corev1.Container{
@@ -543,7 +532,7 @@ func TestLogCollectorContainer(t *testing.T) {
 						Name:            "logrotate",
 						Image:           "test-log-image",
 						ImagePullPolicy: corev1.PullAlways,
-						Env: append(baseLogProcEnvs(true), corev1.EnvVar{
+						Env: append(baseLogRotEnvs(), corev1.EnvVar{
 							Name: "LOGROTATE_STATUS_FILE", Value: "/var/lib/mysql/logrotate.status",
 						}),
 						Args:    []string{"logrotate"},
@@ -560,13 +549,11 @@ func TestLogCollectorContainer(t *testing.T) {
 		"1.20+ with logrotate extraconfig": {
 			crVersion: version.Version(),
 			logCollector: &api.LogCollectorSpec{
+				Image:           "test-log-image",
+				ImagePullPolicy: corev1.PullAlways,
 				LogRotate: &api.LogRotateSpec{
 					ExtraConfig: corev1.LocalObjectReference{Name: "extra-logrotate-cm"},
 				},
-			},
-			spec: &api.LogCollectorSpec{
-				Image:           "test-log-image",
-				ImagePullPolicy: corev1.PullAlways,
 			},
 			expectedResult: func() []corev1.Container {
 				return []corev1.Container{
@@ -584,7 +571,7 @@ func TestLogCollectorContainer(t *testing.T) {
 						Name:            "logrotate",
 						Image:           "test-log-image",
 						ImagePullPolicy: corev1.PullAlways,
-						Env: append(baseLogProcEnvs(true), corev1.EnvVar{
+						Env: append(baseLogRotEnvs(), corev1.EnvVar{
 							Name: "LOGROTATE_STATUS_FILE", Value: "/var/lib/mysql/logrotate.status",
 						}),
 						Args:    []string{"logrotate"},
@@ -601,13 +588,11 @@ func TestLogCollectorContainer(t *testing.T) {
 		"pre-1.20 with logrotate schedule": {
 			crVersion: "1.19.0",
 			logCollector: &api.LogCollectorSpec{
+				Image:           "test-log-image",
+				ImagePullPolicy: corev1.PullAlways,
 				LogRotate: &api.LogRotateSpec{
 					Schedule: "*/5 * * * *",
 				},
-			},
-			spec: &api.LogCollectorSpec{
-				Image:           "test-log-image",
-				ImagePullPolicy: corev1.PullAlways,
 			},
 			expectedResult: func() []corev1.Container {
 				return []corev1.Container{
@@ -635,16 +620,14 @@ func TestLogCollectorContainer(t *testing.T) {
 		"1.20+ with all options": {
 			crVersion: version.Version(),
 			logCollector: &api.LogCollectorSpec{
-				Configuration: "custom-fluentbit-config",
-				HookScript:    "custom-hook-script",
+				Configuration:   "custom-fluentbit-config",
+				HookScript:      "custom-hook-script",
+				Image:           "test-log-image",
+				ImagePullPolicy: corev1.PullAlways,
 				LogRotate: &api.LogRotateSpec{
 					Configuration: "custom-logrotate-config",
 					Schedule:      "0 */6 * * *",
 				},
-			},
-			spec: &api.LogCollectorSpec{
-				Image:           "test-log-image",
-				ImagePullPolicy: corev1.PullAlways,
 			},
 			expectedResult: func() []corev1.Container {
 				return []corev1.Container{
@@ -667,9 +650,10 @@ func TestLogCollectorContainer(t *testing.T) {
 						Name:            "logrotate",
 						Image:           "test-log-image",
 						ImagePullPolicy: corev1.PullAlways,
-						Env: append(baseLogProcEnvs(true), corev1.EnvVar{
-							Name: "LOGROTATE_STATUS_FILE", Value: "/var/lib/mysql/logrotate.status",
-						}),
+						Env: append(baseLogRotEnvs(),
+							corev1.EnvVar{Name: "LOGROTATE_SCHEDULE", Value: "0 */6 * * *"},
+							corev1.EnvVar{Name: "LOGROTATE_STATUS_FILE", Value: "/var/lib/mysql/logrotate.status"},
+						),
 						Args:    []string{"logrotate"},
 						Command: []string{"/opt/percona/logcollector/entrypoint.sh"},
 						VolumeMounts: []corev1.VolumeMount{
@@ -698,7 +682,7 @@ func TestLogCollectorContainer(t *testing.T) {
 
 			pxcNode := Node{cr: cr}
 
-			containers, err := pxcNode.LogCollectorContainer(tt.spec, logPsecrets, logRsecrets, cr)
+			containers, err := pxcNode.LogCollectorContainer(cr, logPsecrets, logRsecrets)
 			assert.NoError(t, err)
 			assert.Equal(t, tt.expectedResult(), containers)
 		})

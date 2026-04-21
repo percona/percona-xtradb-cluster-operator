@@ -383,7 +383,8 @@ func (c *Node) SidecarContainers(ctx context.Context, cl client.Client, spec *ap
 	return nil, nil
 }
 
-func (c *Node) LogCollectorContainer(spec *api.LogCollectorSpec, logPsecrets string, logRsecrets string, cr *api.PerconaXtraDBCluster) ([]corev1.Container, error) {
+func (c *Node) LogCollectorContainer(cr *api.PerconaXtraDBCluster, logPsecrets string, logRsecrets string) ([]corev1.Container, error) {
+	spec := cr.Spec.LogCollector
 	logProcEnvs := []corev1.EnvVar{
 		{
 			Name:  "LOG_DATA_DIR",

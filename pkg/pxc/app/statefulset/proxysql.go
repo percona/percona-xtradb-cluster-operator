@@ -448,7 +448,7 @@ func schedulerEnvVariables(scheduler api.ProxySQLSchedulerSpec) []corev1.EnvVar 
 
 }
 
-func (c *Proxy) LogCollectorContainer(_ *api.LogCollectorSpec, _ string, _ string, _ *api.PerconaXtraDBCluster) ([]corev1.Container, error) {
+func (c *Proxy) LogCollectorContainer(_ *api.PerconaXtraDBCluster, _ string, _ string) ([]corev1.Container, error) {
 	return nil, nil
 }
 

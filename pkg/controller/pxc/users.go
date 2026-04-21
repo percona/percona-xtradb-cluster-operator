@@ -1121,7 +1121,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateProxyUser(ctx context.Context, cr 
 		return nil
 	}
 
-	for i := 0; i < int(cr.Spec.ProxySQL.Size); i++ {
+	update := func(i int) error {
 		um, err := users.NewManager(cr.Name+"-proxysql-"+strconv.Itoa(i)+"."+cr.Name+"-proxysql-unready."+cr.Namespace+":6032", users.ProxyAdmin, string(internalSecrets.Data[users.ProxyAdmin]), cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
 		if err != nil {
 			return errors.Wrap(err, "new users manager")
@@ -1131,9 +1131,15 @@ func (r *ReconcilePerconaXtraDBCluster) updateProxyUser(ctx context.Context, cr 
 				logf.FromContext(ctx).Error(derr, "failed to close user manager")
 			}
 		}()
-		err = um.UpdateProxyUser(user)
-		if err != nil {
+		if err = um.UpdateProxyUser(user); err != nil {
 			return errors.Wrap(err, "update proxy users")
+		}
+		return nil
+	}
+
+	for i := 0; i < int(cr.Spec.ProxySQL.Size); i++ {
+		if err := update(i); err != nil {
+			return err
 		}
 	}
 	return nil

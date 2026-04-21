@@ -74,7 +74,13 @@ func GetPrimaryPod(
 
 		return host, nil
 	}
-	return conn.PrimaryHost()
+	host, err := conn.PrimaryHost()
+	if err != nil && errors.Is(err, queries.ErrNotFound) && cr.IsReadOnly() {
+		// Replica clusters have all nodes in the reader hostgroup (10).
+		// There is no writer, so fall back to any online reader host.
+		return conn.ReaderHost()
+	}
+	return host, err
 }
 
 // GetHostForSidecarBackup returns a pod that can be used for performing backups via xtradb sidecar

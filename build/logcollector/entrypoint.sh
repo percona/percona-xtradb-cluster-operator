@@ -74,7 +74,7 @@ run_fluentbit() {
 	mkdir -p /tmp/fluentbit/custom
 	set +e
 	local fluentbit_conf_dir="/opt/percona/logcollector/fluentbit/custom"
-	for conf_file in $fluentbit_conf_dir/*.conf; do
+	for conf_file in "$fluentbit_conf_dir"/*.conf; do
 		[ -f "$conf_file" ] || continue
 		if ! fluent-bit --dry-run -c "$conf_file" >/dev/null 2>&1; then
 			echo "ERROR: Fluentbit configuration file $conf_file is invalid, it will be ignored"
@@ -86,6 +86,7 @@ run_fluentbit() {
 
 	set -e
 	set -o xtrace
+	# shellcheck disable=SC1091
 	test -e /opt/percona/hookscript/hook.sh && source /opt/percona/hookscript/hook.sh
 	exec "$@" "${fluentbit_opt[@]}"
 }

@@ -87,6 +87,8 @@ spec:
               value: "0"
             - name: PERCONA_SCHEDULER_CFG
               value: /tmp/scheduler-config.toml
+            - name: PXC_READ_ONLY
+              value: "false"
           envFrom:
             - secretRef:
                 name: hostpath-env-vars-proxysql
@@ -158,6 +160,8 @@ spec:
               value: "0"
             - name: PERCONA_SCHEDULER_CFG
               value: /tmp/scheduler-config.toml
+            - name: PXC_READ_ONLY
+              value: "false"
           envFrom:
             - secretRef:
                 name: hostpath-env-vars-proxysql

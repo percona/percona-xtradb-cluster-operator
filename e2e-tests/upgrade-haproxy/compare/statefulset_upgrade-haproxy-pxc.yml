@@ -87,23 +87,13 @@ spec:
           command:
             - /opt/percona/logcollector/entrypoint.sh
           env:
-            - name: LOG_DATA_DIR
-              value: /var/lib/mysql
-            - name: POD_NAMESPASE
+            - name: SERVICE_TYPE
+              value: mysql
+            - name: MONITOR_PASSWORD
               valueFrom:
-                fieldRef:
-                  apiVersion: v1
-                  fieldPath: metadata.namespace
-            - name: POD_NAME
-              valueFrom:
-                fieldRef:
-                  apiVersion: v1
-                  fieldPath: metadata.name
-            - name: POD_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  apiVersion: v1
-                  fieldPath: metadata.namespace
+                secretKeyRef:
+                  key: monitor
+                  name: internal-upgrade-haproxy
             - name: LOGROTATE_STATUS_FILE
               value: /var/lib/mysql/logrotate.status
           imagePullPolicy: Always

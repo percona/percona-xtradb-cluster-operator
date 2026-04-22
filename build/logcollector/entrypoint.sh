@@ -33,7 +33,7 @@ run_logrotate() {
 		logrotate_conf_file="$conf_d_dir/logrotate-$SERVICE_TYPE.conf"
 		if is_logrotate_config_invalid "$logrotate_conf_file"; then
 			echo "ERROR: Logrotate configuration is invalid, fallback to default configuration"
-			logrotate_conf_file="/opt/percona/logcollector/logrotate/logrotate.conf"
+			logrotate_conf_file="/opt/percona/logcollector/logrotate/logrotate-$SERVICE_TYPE.conf"
 		fi
 	fi
 

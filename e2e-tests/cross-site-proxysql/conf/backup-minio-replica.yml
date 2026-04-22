@@ -1,0 +1,14 @@
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBClusterBackup
+metadata:
+  name: backup-minio-replica
+spec:
+  pxcCluster: cross-site-replica
+  storageName: minio
+  containerOptions:
+    args:
+      xbstream:
+      - '--parallel=2'
+      xbcloud:
+      - '--parallel=2'
+      - '--curl-retriable-errors=8'

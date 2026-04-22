@@ -8,19 +8,20 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/xtrabackup/api"
-	xbscapi "github.com/percona/percona-xtradb-cluster-operator/pkg/xtrabackup/api"
-	xbscserver "github.com/percona/percona-xtradb-cluster-operator/pkg/xtrabackup/server"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
+
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/xtrabackup/api"
+	xbscapi "github.com/percona/percona-xtradb-cluster-operator/pkg/xtrabackup/api"
+	xbscserver "github.com/percona/percona-xtradb-cluster-operator/pkg/xtrabackup/server"
 )
 
 func main() {
-
 	req := getRequestObject()
 	if req == nil {
 		log.Fatal("Failed to get request object")
@@ -91,18 +92,16 @@ func getRequestObject() *xbscapi.CreateBackupRequest {
 		BackupConfig: &api.BackupConfig{},
 	}
 
-	containerOptions := &xbscapi.ContainerOptions{}
-	if opts := os.Getenv("CONTAINER_OPTIONS"); opts != "" {
-		err := json.Unmarshal([]byte(opts), containerOptions)
-		if err != nil {
-			log.Fatalf("Failed to unmarshal container options: %v", err)
-		}
-	}
-
 	req.BackupName = os.Getenv("BACKUP_NAME")
 	req.BackupConfig.Destination = os.Getenv("BACKUP_DEST")
 	req.BackupConfig.VerifyTls = os.Getenv("VERIFY_TLS") == "true"
-	req.BackupConfig.ContainerOptions = containerOptions
+	req.BackupConfig.ContainerOptions = &xbscapi.ContainerOptions{
+		Args: &xbscapi.BackupContainerArgs{
+			Xtrabackup: strings.Fields(os.Getenv("XB_EXTRA_ARGS")),
+			Xbcloud:    strings.Fields(os.Getenv("XBCLOUD_EXTRA_ARGS")),
+			Xbstream:   strings.Fields(os.Getenv("XBSTREAM_EXTRA_ARGS")),
+		},
+	}
 
 	storageType := os.Getenv("STORAGE_TYPE")
 	switch storageType {

@@ -679,6 +679,11 @@ func (in *PXCSpec) DeepCopyInto(out *PXCSpec) {
 		}
 	}
 	in.Expose.DeepCopyInto(&out.Expose)
+	if in.SSTRetryCount != nil {
+		in, out := &in.SSTRetryCount, &out.SSTRetryCount
+		*out = new(int32)
+		**out = **in
+	}
 	if in.PodSpec != nil {
 		in, out := &in.PodSpec, &out.PodSpec
 		*out = new(PodSpec)

@@ -239,10 +239,6 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(ctx context.Context
 		}
 	}
 
-	if cr.Status.PXC.Version == "" {
-		return errors.New("PXC version is not known, will retry")
-	}
-
 	authPluginVar := "default_authentication_plugin"
 	is840 := false
 	if cr.Status.PXC.Version != "" {

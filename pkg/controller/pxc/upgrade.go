@@ -759,7 +759,5 @@ func (r *ReconcilePerconaXtraDBCluster) getConfigMapHash(ctx context.Context, cr
 		return "", err
 	}
 
-	secretString := fmt.Sprintln(cm.Data)
-	hash := fmt.Sprintf("%x", md5.Sum([]byte(secretString)))
-	return hash, nil
+	return getCustomConfigHashHex(cm.Data, cm.BinaryData)
 }

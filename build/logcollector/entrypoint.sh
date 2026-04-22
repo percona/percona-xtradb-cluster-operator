@@ -5,7 +5,7 @@ set -o xtrace
 
 export PATH=$PATH:/opt/fluent-bit/bin
 
-LOGROTATE_SCHEDULE="${LOGROTATE_SCHEDULE:-0 0 0 * *}"
+LOGROTATE_SCHEDULE="${LOGROTATE_SCHEDULE:-0 0 * * *}"
 
 is_logrotate_config_invalid() {
 	local config_file="$1"

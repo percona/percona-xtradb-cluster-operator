@@ -253,6 +253,33 @@ func TestAppContainer(t *testing.T) {
 				return c
 			},
 		},
+		"container construction with sst retry count": {
+			spec: api.PerconaXtraDBClusterSpec{
+				CRVersion: version.Version(),
+				PXC: &api.PXCSpec{
+					SSTRetryCount: func() *int32 {
+						v := int32(3)
+						return &v
+					}(),
+					PodSpec: &api.PodSpec{
+						Image:             "test-image",
+						ImagePullPolicy:   corev1.PullIfNotPresent,
+						LivenessProbes:    corev1.Probe{TimeoutSeconds: 5},
+						ReadinessProbes:   corev1.Probe{TimeoutSeconds: 15},
+						EnvVarsSecretName: "test-secret",
+					},
+				},
+			},
+			expectedContainer: func() corev1.Container {
+				c := defaultExpectedContainer()
+				idx := len(c.Env) - 3
+				c.Env = append(c.Env[:idx], append([]corev1.EnvVar{{
+					Name:  "PXC_SST_RETRY_COUNT",
+					Value: "3",
+				}}, c.Env[idx:]...)...)
+				return c
+			},
+		},
 	}
 
 	for name, tt := range tests {

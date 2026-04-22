@@ -9,6 +9,10 @@ if [ -f /tmp/recovery-case ] || [ -f '/var/lib/mysql/sleep-forever' ]; then
 	exit 0
 fi
 
+if [ -f /var/lib/mysql/sst_retry_limit_reached ]; then
+	exit 1
+fi
+
 { set +x; } 2>/dev/null
 MYSQL_USERNAME="${MYSQL_USERNAME:-monitor}"
 mysql_pass=$(cat /etc/mysql/mysql-users-secret/monitor || :)

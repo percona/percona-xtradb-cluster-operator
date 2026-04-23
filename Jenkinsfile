@@ -313,7 +313,8 @@ EOF
 
         sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
         sudo percona-release enable pxb-84-lts
-        sudo yum install -y percona-xtrabackup-84 | true
+        sudo yum install -y percona-xtrabackup-84 || true
+        sudo yum install -y cfssl || true
     """
     installAzureCLI()
     azureAuth()

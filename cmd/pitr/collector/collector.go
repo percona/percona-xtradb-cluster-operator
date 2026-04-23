@@ -297,7 +297,12 @@ func (c *Collector) lastGTIDSet(ctx context.Context, suffix string) (pxc.GTIDSet
 }
 
 func (c *Collector) newDB(ctx context.Context) error {
-	host, err := pxc.GetPXCOldestBinlogHost(ctx, c.pxcServiceName, c.pxcUser, c.pxcPass)
+	prevHost := ""
+	if c.db != nil {
+		prevHost = c.db.GetHost()
+	}
+
+	host, err := pxc.GetPXCOldestBinlogHost(ctx, c.pxcServiceName, c.pxcUser, c.pxcPass, prevHost)
 	if err != nil {
 		return errors.Wrap(err, "get host")
 	}
@@ -316,7 +321,7 @@ func (c *Collector) close() error {
 	return c.db.Close()
 }
 
-func (c *Collector) removeEmptyBinlogs(ctx context.Context, logs []pxc.Binlog) ([]pxc.Binlog, error) {
+func (c *Collector) removeEmptyBinlogs(logs []pxc.Binlog) ([]pxc.Binlog, error) {
 	result := make([]pxc.Binlog, 0)
 	for _, v := range logs {
 		if !v.GTIDSet.IsEmpty() {
@@ -328,7 +333,7 @@ func (c *Collector) removeEmptyBinlogs(ctx context.Context, logs []pxc.Binlog) (
 
 func (c *Collector) filterBinLogs(ctx context.Context, logs []pxc.Binlog, lastBinlogName string) ([]pxc.Binlog, error) {
 	if lastBinlogName == "" {
-		return c.removeEmptyBinlogs(ctx, logs)
+		return c.removeEmptyBinlogs(logs)
 	}
 
 	logsLen := len(logs)
@@ -353,7 +358,7 @@ func (c *Collector) filterBinLogs(ctx context.Context, logs []pxc.Binlog, lastBi
 		startIndex++
 	}
 
-	return c.removeEmptyBinlogs(ctx, logs[startIndex:])
+	return c.removeEmptyBinlogs(logs[startIndex:])
 }
 
 func createGapFile(gtidSet pxc.GTIDSet) error {

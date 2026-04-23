@@ -11931,6 +11931,10 @@ spec:
                     type: string
                   sslSecretName:
                     type: string
+                  sstRetryCount:
+                    format: int32
+                    minimum: 1
+                    type: integer
                   tolerations:
                     items:
                       properties:

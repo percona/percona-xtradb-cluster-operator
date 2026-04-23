@@ -128,6 +128,8 @@ type PXCSpec struct {
 	AutoRecovery        *bool                `json:"autoRecovery,omitempty"`
 	ReplicationChannels []ReplicationChannel `json:"replicationChannels,omitempty"`
 	Expose              ServiceExpose        `json:"expose,omitempty"`
+	// +kubebuilder:validation:Minimum=1
+	SSTRetryCount *int32 `json:"sstRetryCount,omitempty"`
 
 	// +kubebuilder:validation:Enum={jemalloc,tcmalloc}
 	MySQLAllocator string `json:"mysqlAllocator,omitempty"`
@@ -417,6 +419,9 @@ func (cr *PerconaXtraDBCluster) Validate() error {
 
 	if c.PXC.Image == "" {
 		return errors.New("pxc.Image can't be empty")
+	}
+	if c.PXC.SSTRetryCount != nil && *c.PXC.SSTRetryCount < 1 {
+		return errors.New("pxc.sstRetryCount should be greater than or equal to 1")
 	}
 
 	if len(c.PXC.ReplicationChannels) > 0 {
@@ -1975,4 +1980,21 @@ const AnnotationPVCResizeInProgress = "percona.com/pvc-resize-in-progress"
 func (cr *PerconaXtraDBCluster) PVCResizeInProgress() bool {
 	_, ok := cr.Annotations[AnnotationPVCResizeInProgress]
 	return ok
+}
+
+// IsReadOnly returns true if the cluster is configured as a replication
+// replica (has replication channels with IsSource=false).
+func (cr *PerconaXtraDBCluster) IsReadOnly() bool {
+	channels := cr.Spec.PXC.ReplicationChannels
+	if len(channels) < 1 {
+		return false
+	}
+
+	for _, channel := range channels {
+		if !channel.IsSource {
+			return true
+		}
+	}
+
+	return false
 }

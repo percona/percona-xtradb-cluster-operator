@@ -5,6 +5,9 @@ set -o xtrace
 
 trap "exit" SIGTERM
 
+SST_RETRY_COUNTER_FILE=/var/lib/mysql/sst_retry_count
+SST_RETRY_LIMIT_REACHED_FILE=/var/lib/mysql/sst_retry_limit_reached
+
 # if command starts with an option, prepend mysqld
 if [ "${1:0:1}" = '-' ]; then
 	set -- mysqld "$@"
@@ -142,6 +145,66 @@ _get_tmpdir() {
 	echo "$tmpdir_path"
 }
 
+clear_sst_retry_state() {
+	rm -f "${SST_RETRY_COUNTER_FILE}" "${SST_RETRY_LIMIT_REACHED_FILE}"
+}
+
+pause_after_sst_retry_limit() {
+	local limit=$1
+	local attempts=$2
+
+	touch "${SST_RETRY_LIMIT_REACHED_FILE}"
+	cat >&2 <<-EOM
+		SST retry limit reached.
+		The node attempted SST ${attempts} times and the configured limit is ${limit}.
+		The pod will stay running but unready until ${SST_RETRY_LIMIT_REACHED_FILE} is removed.
+	EOM
+
+	while [[ -f ${SST_RETRY_LIMIT_REACHED_FILE} ]]; do
+		sleep 60 || exit 0
+	done
+}
+
+handle_sst_retry_limit() {
+	local datadir=$1
+	local limit=${PXC_SST_RETRY_COUNT:-}
+	local attempts=0
+	local grastate_loc="${datadir}/grastate.dat"
+
+	if [[ -z ${limit} ]]; then
+		clear_sst_retry_state
+		return
+	fi
+
+	if [[ -z ${CLUSTER_JOIN} ]]; then
+		clear_sst_retry_state
+		return
+	fi
+
+	if [[ -d "${datadir}/mysql" && (-s ${grastate_loc} || -f "${datadir}/gvwstate.dat") ]]; then
+		clear_sst_retry_state
+		return
+	fi
+
+	if [[ -f ${SST_RETRY_LIMIT_REACHED_FILE} ]]; then
+		if [[ -f ${SST_RETRY_COUNTER_FILE} ]]; then
+			attempts=$(cat "${SST_RETRY_COUNTER_FILE}" 2>/dev/null || echo 0)
+		fi
+		pause_after_sst_retry_limit "${limit}" "${attempts}"
+	fi
+
+	if [[ -f ${SST_RETRY_COUNTER_FILE} ]]; then
+		attempts=$(cat "${SST_RETRY_COUNTER_FILE}" 2>/dev/null || echo 0)
+	fi
+
+	if ((attempts >= limit)); then
+		pause_after_sst_retry_limit "${limit}" "${attempts}"
+	fi
+
+	attempts=$((attempts + 1))
+	echo "${attempts}" >"${SST_RETRY_COUNTER_FILE}"
+}
+
 function join {
 	local IFS="$1"
 	shift
@@ -178,12 +241,16 @@ if [[ $MYSQL_VERSION =~ ^(8\.0|8\.4)$ ]]; then
 	sed -i "/\[mysqld\]/a innodb_buffer_pool_in_core_file=OFF" $CFG
 fi
 
+if [ "$MYSQL_VERSION" == '8.4' ]; then
+	sed -i '/\[mysqld\]/a innodb_numa_interleave=OFF' $CFG
+fi
+
 sed -i "/\[mysqld\]/a wsrep_notify_cmd=/var/lib/mysql/wsrep_cmd_notify_handler.sh" $CFG
 
 # add sst.cpat to exclude pxc-entrypoint, pxc-configure-pxc from SST cleanup
 grep -q "^progress=" $CFG && sed -i "s|^progress=.*|progress=1|" $CFG
 grep -q "^\[sst\]" "$CFG" || printf '[sst]\n' >>"$CFG"
-grep -q "^cpat=" "$CFG" || sed '/^\[sst\]/a cpat=.*\\.pem$\\|.*init\\.ok$\\|.*galera\\.cache$\\|.*wsrep_recovery_verbose\\.log$\\|.*readiness-check\\.sh$\\|.*liveness-check\\.sh$\\|.*get-pxc-state$\\|.*sst_in_progress$\\|.*sleep-forever$\\|.*pmm-prerun\\.sh$\\|.*sst-xb-tmpdir$\\|.*\\.sst$\\|.*gvwstate\\.dat$\\|.*grastate\\.dat$\\|.*\\.err$\\|.*\\.log$\\|.*RPM_UPGRADE_MARKER$\\|.*RPM_UPGRADE_HISTORY$\\|.*pxc-entrypoint\\.sh$\\|.*unsafe-bootstrap\\.sh$\\|.*pxc-configure-pxc\\.sh\\|.*peer-list$\\|.*auth_plugin$\\|.*version_info$\\|.*mysql-state-monitor$\\|.*mysql-state-monitor\\.log$\\|.*notify\\.sock$\\|.*mysql\\.state$\\|.*wsrep_cmd_notify_handler\\.sh$\\|.*core\\..*\\|.*mysqld\\.my$\\|.*component_keyring_vault\\.cnf$\\|.*vault\\.cnf$' "$CFG" 1<>"$CFG"
+grep -q "^cpat=" "$CFG" || sed '/^\[sst\]/a cpat=.*\\.pem$\\|.*init\\.ok$\\|.*galera\\.cache$\\|.*wsrep_recovery_verbose\\.log$\\|.*readiness-check\\.sh$\\|.*liveness-check\\.sh$\\|.*get-pxc-state$\\|.*sst_in_progress$\\|.*sleep-forever$\\|.*sst_retry_count$\\|.*sst_retry_limit_reached$\\|.*pmm-prerun\\.sh$\\|.*sst-xb-tmpdir$\\|.*\\.sst$\\|.*gvwstate\\.dat$\\|.*grastate\\.dat$\\|.*\\.err$\\|.*\\.log$\\|.*RPM_UPGRADE_MARKER$\\|.*RPM_UPGRADE_HISTORY$\\|.*pxc-entrypoint\\.sh$\\|.*unsafe-bootstrap\\.sh$\\|.*pxc-configure-pxc\\.sh\\|.*peer-list$\\|.*auth_plugin$\\|.*version_info$\\|.*mysql-state-monitor$\\|.*mysql-state-monitor\\.log$\\|.*notify\\.sock$\\|.*mysql\\.state$\\|.*wsrep_cmd_notify_handler\\.sh$\\|.*core\\..*\\|.*mysqld\\.my$\\|.*component_keyring_vault\\.cnf$\\|.*vault\\.cnf$' "$CFG" 1<>"$CFG"
 
 if [[ $MYSQL_VERSION == '8.0' && $MYSQL_PATCH_VERSION -ge 26 ]] || [[ $MYSQL_VERSION == '8.4' ]]; then
 	grep -q "^skip_replica_start=ON" "$CFG" || sed -i "/\[mysqld\]/a skip_replica_start=ON" $CFG
@@ -546,6 +613,7 @@ if [ "$1" = 'mysqld' ] && [ -z "$wantHelp" ]; then
 	SST_DIR=$(_get_cnf_config sst tmpdir "${DATADIR}/sst-xb-tmpdir")
 	SST_P_FILE=$(_get_cnf_config sst progress "${DATADIR}/sst_in_progress")
 	rm -rvf "${SST_DIR}" "${SST_P_FILE}"
+	handle_sst_retry_limit "${DATADIR}"
 
 	"$@" --version | sed 's/-ps//' | awk '{print $3}' | tee /tmp/version_info
 

@@ -235,6 +235,10 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(ctx context.Context
 		}
 	}
 
+	if cr.Status.PXC.Version == "" {
+		return errors.New("PXC version is not known, will retry")
+	}
+
 	authPluginVar := "default_authentication_plugin"
 	if cr.CompareMySQLVersion("8.4.0") >= 0 {
 		authPluginVar = "authentication_policy"

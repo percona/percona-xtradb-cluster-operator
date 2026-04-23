@@ -128,6 +128,8 @@ type PXCSpec struct {
 	AutoRecovery        *bool                `json:"autoRecovery,omitempty"`
 	ReplicationChannels []ReplicationChannel `json:"replicationChannels,omitempty"`
 	Expose              ServiceExpose        `json:"expose,omitempty"`
+	// +kubebuilder:validation:Minimum=1
+	SSTRetryCount *int32 `json:"sstRetryCount,omitempty"`
 
 	// +kubebuilder:validation:Enum={jemalloc,tcmalloc}
 	MySQLAllocator string `json:"mysqlAllocator,omitempty"`
@@ -417,6 +419,9 @@ func (cr *PerconaXtraDBCluster) Validate() error {
 
 	if c.PXC.Image == "" {
 		return errors.New("pxc.Image can't be empty")
+	}
+	if c.PXC.SSTRetryCount != nil && *c.PXC.SSTRetryCount < 1 {
+		return errors.New("pxc.sstRetryCount should be greater than or equal to 1")
 	}
 
 	if len(c.PXC.ReplicationChannels) > 0 {

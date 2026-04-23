@@ -195,7 +195,7 @@ func (c *Proxy) AppContainer(ctx context.Context, _ client.Client, spec *api.Pod
 		appc.VolumeMounts = append(appc.VolumeMounts, extraMounts...)
 	}
 
-	if cr.CompareVersionWith("1.20.0") >= 0 {
+	if cr.CompareVersionWith("1.19.1") >= 0 {
 		appc.Env = append(appc.Env, corev1.EnvVar{
 			Name:  "PXC_READ_ONLY",
 			Value: strconv.FormatBool(cr.IsReadOnly()),
@@ -388,7 +388,7 @@ func (c *Proxy) SidecarContainers(ctx context.Context, cl client.Client, spec *a
 		proxysqlMonit.Command = []string{"/opt/percona/proxysql-entrypoint.sh"}
 	}
 
-	if cr.CompareVersionWith("1.20.0") >= 0 {
+	if cr.CompareVersionWith("1.19.1") >= 0 {
 		pxcMonit.Env = append(pxcMonit.Env, corev1.EnvVar{
 			Name:  "PXC_READ_ONLY",
 			Value: strconv.FormatBool(cr.IsReadOnly()),

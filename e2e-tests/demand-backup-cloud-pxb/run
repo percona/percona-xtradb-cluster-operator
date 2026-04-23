@@ -27,6 +27,22 @@ get_container_options() {
 	fi
 }
 
+check_backup_container_options() {
+	local backup_name=$1
+	local cluster_name=$2
+
+	local pxc_pod="${cluster_name}-pxc-0"
+	if ! kubectl_bin logs "${pxc_pod}" -c xtrabackup | grep -E 'xbcloud put .*--parallel=2'; then
+		echo "xbcloud container options were not applied for backup ${backup_name}"
+		exit 1
+	fi
+
+	if ! kubectl_bin logs "${pxc_pod}" -c xtrabackup | grep -E 'xbstream .*--parallel=2'; then
+		echo "xbstream container options were not applied for backup ${backup_name}"
+		exit 1
+	fi
+}
+
 run_recovery_from_source() {
 	local storage_type=${1:-s3}
 	local backup_name=${2:-on-demand-backup-aws-s3}
@@ -91,19 +107,19 @@ wait_for_upload_to_start() {
 delete_backup_pod() {
 	local backup_name=$1
 	desc "Delete ${backup_name} pod during backup"
-	
-    local cluster_name=$(kubectl_bin get pxc-backup ${backup_name} -o jsonpath='{.spec.pxcCluster}')
-    if [[ -z $cluster_name ]]; then
-        echo "Cluster name is not set on backup ${backup_name}"
-        exit 1
-    fi
+
+	local cluster_name=$(kubectl_bin get pxc-backup ${backup_name} -o jsonpath='{.spec.pxcCluster}')
+	if [[ -z $cluster_name ]]; then
+		echo "Cluster name is not set on backup ${backup_name}"
+		exit 1
+	fi
 
 	sleep 2
 	backup_pod=$(kubectl_bin get pods --selector=percona.com/backup-job-name=xb-${backup_name} -o jsonpath='{.items[].metadata.name}')
 	echo "Waiting for pod/${backup_pod} to become Running"
 	kubectl_bin wait --for=jsonpath='{.status.phase}'=Running pod/${backup_pod} --timeout=120s
 
-    local pxc_pod="${cluster_name}-pxc-0"
+	local pxc_pod="${cluster_name}-pxc-0"
 
 	echo "Waiting for upload to start"
 	wait_for_upload_to_start ${pxc_pod}
@@ -119,20 +135,20 @@ check_cloud_storage_cleanup() {
 		exit 1
 	fi
 
-    local cluster_name=$(kubectl_bin get pxc-backup ${backup_name} -o jsonpath='{.spec.pxcCluster}')
-    if [[ -z $cluster_name ]]; then
-        echo "Cluster name is not set on backup ${backup_name}"
-        exit 1
-    fi
+	local cluster_name=$(kubectl_bin get pxc-backup ${backup_name} -o jsonpath='{.spec.pxcCluster}')
+	if [[ -z $cluster_name ]]; then
+		echo "Cluster name is not set on backup ${backup_name}"
+		exit 1
+	fi
 
-    local pxc_pod="${cluster_name}-pxc-0"
-    if kubectl_bin logs ${pxc_pod} -c xtrabackup | grep 'Deleting Backup'; then
-        echo "Cleanup was performed."
-    else
-        echo "Something went wrong. Delete was not performed."
-        kubectl_bin logs ${pxc_pod} -c xtrabackup
-        exit 1
-    fi
+	local pxc_pod="${cluster_name}-pxc-0"
+	if kubectl_bin logs ${pxc_pod} -c xtrabackup | grep 'Deleting Backup'; then
+		echo "Cleanup was performed."
+	else
+		echo "Something went wrong. Delete was not performed."
+		kubectl_bin logs ${pxc_pod} -c xtrabackup
+		exit 1
+	fi
 }
 
 run_backup_with_delete() {
@@ -181,6 +197,7 @@ main() {
 
 		desc "Run backup ${backup_name_aws} for $cluster cluster"
 		run_backup_with_delete "${backup_name_aws}"
+		check_backup_container_options "${backup_name_aws}" "$cluster"
 
 		desc "Run recovery from s3 for $cluster cluster"
 		run_recovery_check "$cluster" "${backup_name_aws}"

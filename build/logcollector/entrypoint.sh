@@ -7,6 +7,18 @@ export PATH=$PATH:/opt/fluent-bit/bin
 
 LOGROTATE_SCHEDULE="${LOGROTATE_SCHEDULE:-0 0 * * *}"
 
+run_cron() {
+	local schedule="$1"
+	local cmd="$2"
+
+	if [ -f /usr/bin/supercronic ]; then
+        printf '%s %s\n' "$schedule" "$cmd" > /tmp/crontab
+        exec supercronic /tmp/crontab
+    else
+        exec go-cron "$schedule" sh -c "$cmd"
+    fi
+}
+
 is_logrotate_config_invalid() {
 	local config_file="$1"
 	if [ -z "$config_file" ] || [ ! -f "$config_file" ]; then
@@ -66,7 +78,7 @@ run_logrotate() {
 	logrotate_cmd="$logrotate_cmd; /usr/bin/find /var/lib/mysql/ -name GRA_*.log -mtime +7 -delete"
 
 	set -o xtrace
-	exec go-cron "$LOGROTATE_SCHEDULE" sh -c "$logrotate_cmd"
+	run_cron "$LOGROTATE_SCHEDULE" "$logrotate_cmd"
 }
 
 run_fluentbit() {

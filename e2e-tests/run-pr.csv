@@ -46,6 +46,8 @@ proxysql-sidecar-res-limits,8.0
 proxysql-scheduler,8.0
 pvc-resize,5.7
 pvc-resize,8.0
+pvc-auto-resize,5.7
+pvc-auto-resize,8.0
 recreate,8.0
 restore-to-encrypted-cluster,8.0
 restore-to-encrypted-cluster,8.4

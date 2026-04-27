@@ -128,7 +128,7 @@ func PVCRestorePod(cr *api.PerconaXtraDBClusterRestore, bcpStorageName, pvcName 
 	if cluster.CompareVersionWith("1.18.0") >= 0 {
 		volumes = append(volumes,
 			corev1.Volume{
-				Name: app.BinVolumeName,
+				Name: naming.BinVolumeName,
 				VolumeSource: corev1.VolumeSource{
 					EmptyDir: &corev1.EmptyDirVolumeSource{},
 				},
@@ -137,8 +137,8 @@ func PVCRestorePod(cr *api.PerconaXtraDBClusterRestore, bcpStorageName, pvcName 
 
 		volumeMounts = append(volumeMounts,
 			corev1.VolumeMount{
-				Name:      app.BinVolumeName,
-				MountPath: app.BinVolumeMountPath,
+				Name:      naming.BinVolumeName,
+				MountPath: naming.BinVolumeMountPath,
 			},
 		)
 		initContainers = []corev1.Container{statefulset.BackupInitContainer(cluster, initImage, cluster.Spec.PXC.ContainerSecurityContext)}
@@ -250,7 +250,7 @@ func RestoreJob(
 			Name: "datadir",
 			VolumeSource: corev1.VolumeSource{
 				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-					ClaimName: "datadir-" + cr.Spec.PXCCluster + "-pxc-0",
+					ClaimName: "datadir-" + cr.Spec.PXCCluster + "-" + naming.ComponentPXC + "-0",
 				},
 			},
 		},
@@ -315,7 +315,7 @@ func RestoreJob(
 			initContainers = []corev1.Container{statefulset.PitrInitContainer(cluster, initImage)}
 			volumes = append(volumes,
 				corev1.Volume{
-					Name: app.BinVolumeName,
+					Name: naming.BinVolumeName,
 					VolumeSource: corev1.VolumeSource{
 						EmptyDir: &corev1.EmptyDirVolumeSource{},
 					},
@@ -324,8 +324,8 @@ func RestoreJob(
 
 			volumeMounts = append(volumeMounts,
 				corev1.VolumeMount{
-					Name:      app.BinVolumeName,
-					MountPath: app.BinVolumeMountPath,
+					Name:      naming.BinVolumeName,
+					MountPath: naming.BinVolumeMountPath,
 				},
 			)
 		}
@@ -339,7 +339,7 @@ func RestoreJob(
 	if cluster.CompareVersionWith("1.18.0") >= 0 && !pitr {
 		volumes = append(volumes,
 			corev1.Volume{
-				Name: app.BinVolumeName,
+				Name: naming.BinVolumeName,
 				VolumeSource: corev1.VolumeSource{
 					EmptyDir: &corev1.EmptyDirVolumeSource{},
 				},
@@ -348,8 +348,8 @@ func RestoreJob(
 
 		volumeMounts = append(volumeMounts,
 			corev1.VolumeMount{
-				Name:      app.BinVolumeName,
-				MountPath: app.BinVolumeMountPath,
+				Name:      naming.BinVolumeName,
+				MountPath: naming.BinVolumeMountPath,
 			},
 		)
 		initContainers = []corev1.Container{statefulset.BackupInitContainer(cluster, initImage, cluster.Spec.PXC.ContainerSecurityContext)}
@@ -452,7 +452,7 @@ func restoreJobEnvs(
 	envs := []corev1.EnvVar{
 		{
 			Name:  "PXC_SERVICE",
-			Value: cr.Spec.PXCCluster + "-pxc",
+			Value: cr.Spec.PXCCluster + "-" + naming.ComponentPXC,
 		},
 		{
 			Name:  "PXC_USER",
@@ -859,11 +859,11 @@ func PrepareJob(
 			Name: "datadir",
 			VolumeSource: corev1.VolumeSource{
 				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-					ClaimName: "datadir-" + cr.Spec.PXCCluster + "-pxc-0",
+					ClaimName: "datadir-" + cr.Spec.PXCCluster + "-" + naming.ComponentPXC + "-0",
 				},
 			},
 		},
-		app.GetConfigVolumes("config", config.CustomConfigMapName(cluster.Name, "pxc")),
+		app.GetConfigVolumes("config", config.CustomConfigMapName(cluster.Name, naming.ComponentPXC)),
 		app.GetSecretVolumes("mysql-users-secret-file", "internal-"+cluster.Name, false),
 		app.GetSecretVolumes("vault-keyring-secret", cluster.Spec.PXC.VaultSecretName, true),
 		app.GetSecretVolumes("ssl", cluster.Spec.PXC.SSLSecretName, !cluster.TLSEnabled()),
@@ -894,7 +894,7 @@ func PrepareJob(
 					ImagePullSecrets: cluster.Spec.PXC.ImagePullSecrets,
 					SecurityContext:  cluster.Spec.PXC.PodSecurityContext,
 					InitContainers: []corev1.Container{
-						statefulset.EntrypointInitContainer(cluster, initImage, app.DataVolumeName),
+						statefulset.EntrypointInitContainer(cluster, initImage, naming.DataVolumeName),
 					},
 					Containers: []corev1.Container{
 						{

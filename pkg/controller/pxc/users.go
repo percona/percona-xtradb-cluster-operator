@@ -21,6 +21,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 )
@@ -965,9 +966,11 @@ func (r *ReconcilePerconaXtraDBCluster) syncPXCUsersWithProxySQL(ctx context.Con
 
 		command := []string{"proxysql-admin", "--syncusers", "--add-query-rule"}
 		if cr.Spec.ProxySQL.Scheduler.Enabled {
-			command = []string{"percona-scheduler-admin",
+			command = []string{
+				"percona-scheduler-admin",
 				"--config-file=" + statefulset.SchedulerConfigPath,
-				"--syncusers", "--add-query-rule"}
+				"--syncusers", "--add-query-rule",
+			}
 		}
 
 		err = r.clientcmd.Exec(&pod, "proxysql", command, nil, &outb, &errb, false)
@@ -1031,7 +1034,7 @@ func (r *ReconcilePerconaXtraDBCluster) isOldPasswordDiscarded(cr *api.PerconaXt
 
 func (r *ReconcilePerconaXtraDBCluster) isPassPropagated(cr *api.PerconaXtraDBCluster, user *users.SysUser) (bool, error) {
 	components := map[string]int32{
-		"pxc": cr.Spec.PXC.Size,
+		naming.ComponentPXC: cr.Spec.PXC.Size,
 	}
 
 	if cr.HAProxyEnabled() {

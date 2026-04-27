@@ -3,14 +3,15 @@ package xtrabackup
 import (
 	"testing"
 
-	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 	"github.com/stretchr/testify/assert"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
+
+	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 )
 
 func TestJobSpec(t *testing.T) {
@@ -179,7 +180,7 @@ func TestJobSpec(t *testing.T) {
 
 	// Assert Volumes
 	assert.Len(t, podSpec.Volumes, 1)
-	assert.Equal(t, app.BinVolumeName, podSpec.Volumes[0].Name)
+	assert.Equal(t, naming.BinVolumeName, podSpec.Volumes[0].Name)
 	assert.NotNil(t, podSpec.Volumes[0].EmptyDir)
 
 	// Assert InitContainers
@@ -191,8 +192,8 @@ func TestJobSpec(t *testing.T) {
 	assert.Equal(t, []string{"/backup-init-entrypoint.sh"}, initContainer.Command)
 	assert.Equal(t, cluster.Spec.Backup.Storages[storageName].ContainerSecurityContext, initContainer.SecurityContext)
 	assert.Len(t, initContainer.VolumeMounts, 1)
-	assert.Equal(t, app.BinVolumeName, initContainer.VolumeMounts[0].Name)
-	assert.Equal(t, app.BinVolumeMountPath, initContainer.VolumeMounts[0].MountPath)
+	assert.Equal(t, naming.BinVolumeName, initContainer.VolumeMounts[0].Name)
+	assert.Equal(t, naming.BinVolumeMountPath, initContainer.VolumeMounts[0].MountPath)
 
 	// Assert Containers
 	assert.Len(t, podSpec.Containers, 1)
@@ -204,8 +205,8 @@ func TestJobSpec(t *testing.T) {
 	assert.Equal(t, cluster.Spec.Backup.Storages[storageName].Resources, container.Resources)
 	assert.Equal(t, cluster.Spec.Backup.Storages[storageName].ContainerSecurityContext, container.SecurityContext)
 	assert.Len(t, container.VolumeMounts, 1)
-	assert.Equal(t, app.BinVolumeName, container.VolumeMounts[0].Name)
-	assert.Equal(t, app.BinVolumeMountPath, container.VolumeMounts[0].MountPath)
+	assert.Equal(t, naming.BinVolumeName, container.VolumeMounts[0].Name)
+	assert.Equal(t, naming.BinVolumeMountPath, container.VolumeMounts[0].MountPath)
 
 	// Assert Environment Variables
 	assert.Len(t, container.Env, 4)

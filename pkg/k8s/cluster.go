@@ -11,7 +11,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 )
 
@@ -121,7 +121,7 @@ func PauseClusterWithWait(ctx context.Context, cl client.Client, cr *api.Percona
 		return errors.Wrap(err, "get pvc list")
 	}
 	pxcNode := statefulset.NewNode(cr)
-	pvcNameTemplate := app.DataVolumeName + "-" + pxcNode.StatefulSet().Name
+	pvcNameTemplate := naming.DataVolumeName + "-" + pxcNode.StatefulSet().Name
 	for _, pvc := range pvcs.Items {
 		// check prefix just in case, to be sure we're not going to delete a wrong pvc
 		if pvc.Name == pvcNameTemplate+"-0" || !strings.HasPrefix(pvc.Name, pvcNameTemplate) {

@@ -54,6 +54,7 @@ type PerconaXtraDBClusterSpec struct {
 	AllowUnsafeConfig         bool                                 `json:"allowUnsafeConfigurations,omitempty"`
 	Unsafe                    UnsafeFlags                          `json:"unsafeFlags,omitempty"`
 	VolumeExpansionEnabled    bool                                 `json:"enableVolumeExpansion,omitempty"`
+	StorageScaling            *StorageScalingSpec                  `json:"storageScaling,omitempty"`
 
 	// Deprecated, should be removed in the future. Use InitContainer.Image instead
 	InitImage string `json:"initImage,omitempty"`
@@ -64,6 +65,97 @@ type PerconaXtraDBClusterSpec struct {
 	IgnoreLabels              []string          `json:"ignoreLabels,omitempty"`
 
 	Users []User `json:"users,omitempty"`
+}
+
+func (spec *PerconaXtraDBClusterSpec) StorageAutoscaling() *AutoscalingSpec {
+	if spec.StorageScaling == nil {
+		return nil
+	}
+	return spec.StorageScaling.Autoscaling
+}
+
+// IsVolumeExpansionEnabled returns whether volume expansion is enabled.
+func (spec *PerconaXtraDBClusterSpec) IsVolumeExpansionEnabled() bool {
+	if spec.StorageScaling != nil {
+		return spec.StorageScaling.EnableVolumeScaling
+	}
+	return spec.VolumeExpansionEnabled
+}
+
+// validateStorageAutoscaling validates the storage autoscaling configuration
+func (cr *PerconaXtraDBCluster) validateStorageAutoscaling() error {
+	spec := cr.Spec.StorageAutoscaling()
+	if spec == nil || !spec.Enabled {
+		return nil
+	}
+
+	if !spec.MaxSize.IsZero() {
+		minSize := resource.MustParse("1Gi")
+		if spec.MaxSize.Cmp(minSize) < 0 {
+			return errors.Errorf("maxSize must be at least 1Gi")
+		}
+	}
+
+	return nil
+}
+
+// setStorageAutoscalingDefaults sets default values for storage autoscaling configuration
+func (cr *PerconaXtraDBCluster) setStorageAutoscalingDefaults() {
+	spec := cr.Spec.StorageAutoscaling()
+	if spec == nil {
+		return
+	}
+
+	if spec.TriggerThresholdPercent == 0 {
+		spec.TriggerThresholdPercent = 80
+	}
+
+	if spec.TriggerThresholdPercent == 0 {
+		spec.TriggerThresholdPercent = 80
+	}
+
+	if spec.GrowthStep.IsZero() {
+		spec.GrowthStep = resource.MustParse("2Gi")
+	}
+}
+
+// StorageScalingSpec defines the configuration for storage scaling behavior
+// +kubebuilder:validation:XValidation:rule="!has(self.autoscaling) || !has(self.autoscaling.enabled) || !self.autoscaling.enabled || self.enableVolumeScaling",message="autoscaling cannot be enabled when enableVolumeScaling is disabled"
+type StorageScalingSpec struct {
+	// EnableVolumeScaling allows volume expansion/resizing operations
+	// When disabled, PVC sizes will not be modified even if storage changes in the spec
+	EnableVolumeScaling bool `json:"enableVolumeScaling,omitempty"`
+
+	// Autoscaling configures automatic storage expansion based on disk usage
+	Autoscaling *AutoscalingSpec `json:"autoscaling,omitempty"`
+}
+
+// AutoscalingSpec defines the configuration for automatic storage expansion
+type AutoscalingSpec struct {
+	// Enabled enables storage autoscaling for all replica sets
+	Enabled bool `json:"enabled,omitempty"`
+
+	// TriggerThresholdPercent is the percentage of disk usage that triggers automatic storage expansion
+	// +kubebuilder:validation:Minimum=50
+	// +kubebuilder:validation:Maximum=95
+	// +kubebuilder:default=80
+	TriggerThresholdPercent int `json:"triggerThresholdPercent,omitempty"`
+
+	// GrowthStep is the amount to add to storage when the threshold is exceeded (e.g., "2Gi")
+	// +kubebuilder:default="2Gi"
+	GrowthStep resource.Quantity `json:"growthStep,omitempty"`
+
+	// MaxSize is the maximum size for PVCs (e.g., "100Gi")
+	// If set, autoscaling will not increase storage beyond this limit
+	MaxSize resource.Quantity `json:"maxSize,omitempty"`
+}
+
+// StorageAutoscalingStatus tracks the autoscaling state for a specific PVC
+type StorageAutoscalingStatus struct {
+	CurrentSize    string      `json:"currentSize,omitempty"`
+	LastResizeTime metav1.Time `json:"lastResizeTime,omitempty"`
+	ResizeCount    int32       `json:"resizeCount,omitempty"`
+	LastError      string      `json:"lastError,omitempty"`
 }
 
 // +kubebuilder:validation:XValidation:rule="self.maxLength >= self.minLength"
@@ -318,20 +410,21 @@ const (
 
 // PerconaXtraDBClusterStatus defines the observed state of PerconaXtraDBCluster
 type PerconaXtraDBClusterStatus struct {
-	PXC                AppStatus          `json:"pxc,omitempty"`
-	PXCReplication     *ReplicationStatus `json:"pxcReplication,omitempty"`
-	ProxySQL           AppStatus          `json:"proxysql,omitempty"`
-	HAProxy            AppStatus          `json:"haproxy,omitempty"`
-	Backup             ComponentStatus    `json:"backup,omitempty"`
-	PMM                ComponentStatus    `json:"pmm,omitempty"`
-	LogCollector       ComponentStatus    `json:"logcollector,omitempty"`
-	Host               string             `json:"host,omitempty"`
-	Messages           []string           `json:"message,omitempty"`
-	Status             AppState           `json:"state,omitempty"`
-	Conditions         []ClusterCondition `json:"conditions,omitempty"`
-	ObservedGeneration int64              `json:"observedGeneration,omitempty"`
-	Size               int32              `json:"size"`
-	Ready              int32              `json:"ready"`
+	PXC                AppStatus                           `json:"pxc,omitempty"`
+	PXCReplication     *ReplicationStatus                  `json:"pxcReplication,omitempty"`
+	ProxySQL           AppStatus                           `json:"proxysql,omitempty"`
+	HAProxy            AppStatus                           `json:"haproxy,omitempty"`
+	Backup             ComponentStatus                     `json:"backup,omitempty"`
+	PMM                ComponentStatus                     `json:"pmm,omitempty"`
+	LogCollector       ComponentStatus                     `json:"logcollector,omitempty"`
+	Host               string                              `json:"host,omitempty"`
+	Messages           []string                            `json:"message,omitempty"`
+	Status             AppState                            `json:"state,omitempty"`
+	Conditions         []ClusterCondition                  `json:"conditions,omitempty"`
+	ObservedGeneration int64                               `json:"observedGeneration,omitempty"`
+	Size               int32                               `json:"size"`
+	Ready              int32                               `json:"ready"`
+	StorageAutoscaling map[string]StorageAutoscalingStatus `json:"storageAutoscaling,omitempty"`
 }
 
 // TODO: add replication status(error,active and etc)
@@ -1213,6 +1306,10 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 		}
 	}
 
+	if err := cr.validateStorageAutoscaling(); err != nil {
+		return errors.Wrap(err, "validate storage autoscaling")
+	}
+	cr.setStorageAutoscalingDefaults()
 	if c.PMM != nil && c.PMM.Enabled {
 		if len(c.PMM.ImagePullPolicy) == 0 {
 			c.PMM.ImagePullPolicy = corev1.PullAlways

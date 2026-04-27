@@ -354,6 +354,10 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 			log.Info("failed to ensure version, running with default", "error", err)
 		}
 	}
+	err = r.reconcileStorageAutoscaling(ctx, o)
+	if err != nil {
+		return reconcile.Result{}, errors.Wrap(err, "reconcile storage autoscaling")
+	}
 	err = r.reconcilePersistentVolumes(ctx, o)
 	if err != nil {
 		return reconcile.Result{}, errors.Wrap(err, "reconcile persistent volumes")

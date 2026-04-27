@@ -80,7 +80,7 @@ func GetDeployment(cr *api.PerconaXtraDBCluster, initImage string, existingMatch
 	envs = append(envs, []corev1.EnvVar{
 		{
 			Name:  "PXC_SERVICE",
-			Value: cr.Name + "-pxc",
+			Value: cr.Name + "-" + naming.ComponentPXC,
 		},
 		{
 			Name:  "PXC_USER",
@@ -149,7 +149,7 @@ func GetDeployment(cr *api.PerconaXtraDBCluster, initImage string, existingMatch
 	initContainers = []corev1.Container{statefulset.PitrInitContainer(cr, initImage)}
 	volumes = append(volumes,
 		corev1.Volume{
-			Name: app.BinVolumeName,
+			Name: naming.BinVolumeName,
 			VolumeSource: corev1.VolumeSource{
 				EmptyDir: &corev1.EmptyDirVolumeSource{},
 			},
@@ -158,8 +158,8 @@ func GetDeployment(cr *api.PerconaXtraDBCluster, initImage string, existingMatch
 
 	container.VolumeMounts = append(container.VolumeMounts,
 		corev1.VolumeMount{
-			Name:      app.BinVolumeName,
-			MountPath: app.BinVolumeMountPath,
+			Name:      naming.BinVolumeName,
+			MountPath: naming.BinVolumeMountPath,
 		},
 	)
 

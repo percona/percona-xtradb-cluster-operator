@@ -30,6 +30,7 @@ proxy-switch
 proxysql-sidecar-res-limits
 proxysql-scheduler
 pvc-resize
+pvc-auto-resize
 recreate
 restore-to-encrypted-cluster
 restore-to-encrypted-cluster-pxb

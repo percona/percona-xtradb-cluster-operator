@@ -43,7 +43,11 @@ spec:
                   app.kubernetes.io/part-of: percona-xtradb-cluster
               topologyKey: kubernetes.io/hostname
       containers:
-        - env:
+        - args:
+            - fluent-bit
+          command:
+            - /opt/percona/logcollector/entrypoint.sh
+          env:
             - name: LOG_DATA_DIR
               value: /var/lib/mysql
             - name: POD_NAMESPASE
@@ -56,6 +60,11 @@ spec:
                 fieldRef:
                   apiVersion: v1
                   fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.namespace
           envFrom:
             - secretRef:
                 name: some-name-log-collector
@@ -68,8 +77,12 @@ spec:
           volumeMounts:
             - mountPath: /var/lib/mysql
               name: datadir
+            - mountPath: /opt/percona
+              name: bin
         - args:
             - logrotate
+          command:
+            - /opt/percona/logcollector/entrypoint.sh
           env:
             - name: SERVICE_TYPE
               value: mysql
@@ -78,6 +91,8 @@ spec:
                 secretKeyRef:
                   key: monitor
                   name: internal-some-name
+            - name: LOGROTATE_STATUS_FILE
+              value: /var/lib/mysql/logrotate.status
           imagePullPolicy: Always
           name: logrotate
           resources: {}
@@ -86,6 +101,8 @@ spec:
           volumeMounts:
             - mountPath: /var/lib/mysql
               name: datadir
+            - mountPath: /opt/percona
+              name: bin
         - args:
             - mysqld
           command:
@@ -215,6 +232,8 @@ spec:
           volumeMounts:
             - mountPath: /var/lib/mysql
               name: datadir
+            - mountPath: /opt/percona
+              name: bin
       restartPolicy: Always
       schedulerName: default-scheduler
       securityContext:
@@ -262,6 +281,8 @@ spec:
             defaultMode: 420
             optional: true
             secretName: some-name-mysql-init
+        - emptyDir: {}
+          name: bin
   updateStrategy:
     rollingUpdate:
       partition: 0

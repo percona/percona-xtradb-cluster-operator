@@ -220,6 +220,8 @@ type PXCSpec struct {
 	AutoRecovery        *bool                `json:"autoRecovery,omitempty"`
 	ReplicationChannels []ReplicationChannel `json:"replicationChannels,omitempty"`
 	Expose              ServiceExpose        `json:"expose,omitempty"`
+	// +kubebuilder:validation:Minimum=1
+	SSTRetryCount *int32 `json:"sstRetryCount,omitempty"`
 
 	// +kubebuilder:validation:Enum={jemalloc,tcmalloc}
 	MySQLAllocator string `json:"mysqlAllocator,omitempty"`
@@ -510,6 +512,9 @@ func (cr *PerconaXtraDBCluster) Validate() error {
 
 	if c.PXC.Image == "" {
 		return errors.New("pxc.Image can't be empty")
+	}
+	if c.PXC.SSTRetryCount != nil && *c.PXC.SSTRetryCount < 1 {
+		return errors.New("pxc.sstRetryCount should be greater than or equal to 1")
 	}
 
 	if len(c.PXC.ReplicationChannels) > 0 {
@@ -1685,8 +1690,15 @@ func (cr *PerconaXtraDBCluster) CompareVersionWith(ver string) int {
 
 // CompareMySQLVersion compares given version to current MySQL version.
 // Returns -1, 0, or 1 if given version is smaller, equal, or larger than the current version, respectively.
-func (cr *PerconaXtraDBCluster) CompareMySQLVersion(ver string) int {
-	return v.Must(v.NewVersion(cr.Status.PXC.Version)).Compare(v.Must(v.NewVersion(ver)))
+func (cr *PerconaXtraDBCluster) CompareMySQLVersion(ver string) (int, error) {
+	if cr.Status.PXC.Version == "" {
+		return -1, errors.New("pxc version is empty")
+	}
+	statusVer, err := v.NewVersion(cr.Status.PXC.Version)
+	if err != nil {
+		return -1, errors.Wrap(err, "failed to parse pxc version")
+	}
+	return statusVer.Compare(v.Must(v.NewVersion(ver))), nil
 }
 
 // ConfigHasKey check if cr.Spec.PXC.Configuration has given key in given section

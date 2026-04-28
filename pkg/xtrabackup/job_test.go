@@ -12,6 +12,7 @@ import (
 
 	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/version"
 )
 
 func TestJobSpec(t *testing.T) {
@@ -29,10 +30,24 @@ func TestJobSpec(t *testing.T) {
 	spec := &pxcv1.PXCBackupSpec{
 		StorageName:           storageName,
 		ActiveDeadlineSeconds: &activeDeadlineSeconds,
+		ContainerOptions: &pxcv1.BackupContainerOptions{
+			Env: []corev1.EnvVar{
+				{
+					Name:  "CUSTOM_ENV",
+					Value: "custom-value",
+				},
+			},
+			Args: pxcv1.BackupContainerArgs{
+				Xtrabackup: []string{"--parallel=10"},
+				Xbcloud:    []string{"--parallel=10"},
+				Xbstream:   []string{"--parallel=10"},
+			},
+		},
 	}
 
 	cluster := &pxcv1.PerconaXtraDBCluster{
 		Spec: pxcv1.PerconaXtraDBClusterSpec{
+			CRVersion: version.Version(),
 			Backup: &pxcv1.BackupSpec{
 				Image:           backupImage,
 				ImagePullPolicy: corev1.PullIfNotPresent,
@@ -209,7 +224,7 @@ func TestJobSpec(t *testing.T) {
 	assert.Equal(t, naming.BinVolumeMountPath, container.VolumeMounts[0].MountPath)
 
 	// Assert Environment Variables
-	assert.Len(t, container.Env, 4)
+	assert.Len(t, container.Env, 8)
 	envMap := make(map[string]string)
 	for _, env := range container.Env {
 		envMap[env.Name] = env.Value
@@ -217,4 +232,8 @@ func TestJobSpec(t *testing.T) {
 	assert.Equal(t, primaryPodHost, envMap["HOST"])
 	assert.Equal(t, string(pxcv1.BackupStorageS3), envMap["STORAGE_TYPE"])
 	assert.Equal(t, "true", envMap["VERIFY_TLS"])
+	assert.Equal(t, "--parallel=10", envMap["XB_EXTRA_ARGS"])
+	assert.Equal(t, "--parallel=10", envMap["XBCLOUD_EXTRA_ARGS"])
+	assert.Equal(t, "--parallel=10", envMap["XBSTREAM_EXTRA_ARGS"])
+	assert.Equal(t, "custom-value", envMap["CUSTOM_ENV"])
 }

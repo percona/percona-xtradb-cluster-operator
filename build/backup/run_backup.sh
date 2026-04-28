@@ -51,6 +51,10 @@ handle_sigterm() {
 		log 'INFO' 'Ignoring SIGTERM for MySQL 5.7'
 		return
 	fi
+	pid_s=$(ps -C socat -o pid= || true)
+	if [ -n "${pid_s}" ]; then
+		kill "$pid_s"
+	fi
 
 	log 'ERROR' 'SST request failed'
 	exit 1

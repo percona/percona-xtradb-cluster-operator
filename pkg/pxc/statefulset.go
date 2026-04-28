@@ -87,7 +87,7 @@ func StatefulSet(
 	}
 
 	if cr.Spec.LogCollector != nil && cr.Spec.LogCollector.Enabled && cr.CompareVersionWith("1.7.0") >= 0 {
-		logCollectorC, err := sfs.LogCollectorContainer(cr.Spec.LogCollector, cr.Spec.LogCollectorSecretName, secrets, cr)
+		logCollectorC, err := sfs.LogCollectorContainer(cr, cr.Spec.LogCollectorSecretName, secrets)
 		if err != nil {
 			return nil, fmt.Errorf("logcollector container error: %v", err)
 		}

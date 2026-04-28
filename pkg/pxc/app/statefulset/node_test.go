@@ -309,6 +309,413 @@ func TestAppContainer(t *testing.T) {
 	}
 }
 
+func TestLogCollectorContainer(t *testing.T) {
+	logPsecrets := "log-p-secret"
+	logRsecrets := "log-r-secret"
+
+	baseLogProcEnvs := func(includeNamespace bool) []corev1.EnvVar {
+		envs := []corev1.EnvVar{
+			{Name: "LOG_DATA_DIR", Value: "/var/lib/mysql"},
+			{
+				Name: "POD_NAMESPASE",
+				ValueFrom: &corev1.EnvVarSource{
+					FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.namespace"},
+				},
+			},
+			{
+				Name: "POD_NAME",
+				ValueFrom: &corev1.EnvVarSource{
+					FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
+				},
+			},
+		}
+		if includeNamespace {
+			envs = append(envs, corev1.EnvVar{
+				Name: "POD_NAMESPACE",
+				ValueFrom: &corev1.EnvVarSource{
+					FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.namespace"},
+				},
+			})
+		}
+		return envs
+	}
+
+	baseLogRotEnvs := func() []corev1.EnvVar {
+		return []corev1.EnvVar{
+			{Name: "SERVICE_TYPE", Value: "mysql"},
+			{
+				Name: "MONITOR_PASSWORD",
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: app.SecretKeySelector(logRsecrets, users.Monitor),
+				},
+			},
+		}
+	}
+
+	fvar := true
+	baseEnvFrom := []corev1.EnvFromSource{
+		{
+			SecretRef: &corev1.SecretEnvSource{
+				LocalObjectReference: corev1.LocalObjectReference{Name: logPsecrets},
+				Optional:             &fvar,
+			},
+		},
+	}
+
+	datadirMount := corev1.VolumeMount{Name: app.DataVolumeName, MountPath: "/var/lib/mysql"}
+	binMount := corev1.VolumeMount{Name: app.BinVolumeName, MountPath: app.BinVolumeMountPath}
+
+	tests := map[string]struct {
+		crVersion      string
+		logCollector   *api.LogCollectorSpec
+		expectedResult func() []corev1.Container
+	}{
+		"pre-1.20 basic": {
+			crVersion: "1.19.0",
+			logCollector: &api.LogCollectorSpec{
+				Image:           "test-log-image",
+				ImagePullPolicy: corev1.PullAlways,
+			},
+			expectedResult: func() []corev1.Container {
+				return []corev1.Container{
+					{
+						Name:            "logs",
+						Image:           "test-log-image",
+						ImagePullPolicy: corev1.PullAlways,
+						Env:             baseLogProcEnvs(false),
+						EnvFrom:         baseEnvFrom,
+						VolumeMounts:    []corev1.VolumeMount{datadirMount},
+					},
+					{
+						Name:            "logrotate",
+						Image:           "test-log-image",
+						ImagePullPolicy: corev1.PullAlways,
+						Env:             baseLogRotEnvs(),
+						Args:            []string{"logrotate"},
+						VolumeMounts:    []corev1.VolumeMount{datadirMount},
+					},
+				}
+			},
+		},
+		"1.20+ basic": {
+			crVersion: version.Version(),
+			logCollector: &api.LogCollectorSpec{
+				Image:           "test-log-image",
+				ImagePullPolicy: corev1.PullAlways,
+			},
+			expectedResult: func() []corev1.Container {
+				return []corev1.Container{
+					{
+						Name:            "logs",
+						Image:           "test-log-image",
+						ImagePullPolicy: corev1.PullAlways,
+						Env:             baseLogProcEnvs(true),
+						EnvFrom:         baseEnvFrom,
+						Command:         []string{"/opt/percona/logcollector/entrypoint.sh"},
+						Args:            []string{"fluent-bit"},
+						VolumeMounts:    []corev1.VolumeMount{datadirMount, binMount},
+					},
+					{
+						Name:            "logrotate",
+						Image:           "test-log-image",
+						ImagePullPolicy: corev1.PullAlways,
+						Env: append(baseLogRotEnvs(), corev1.EnvVar{
+							Name: "LOGROTATE_STATUS_FILE", Value: "/var/lib/mysql/logrotate.status",
+						}),
+						Args:         []string{"logrotate"},
+						Command:      []string{"/opt/percona/logcollector/entrypoint.sh"},
+						VolumeMounts: []corev1.VolumeMount{datadirMount, binMount},
+					},
+				}
+			},
+		},
+		"pre-1.20 with configuration": {
+			crVersion: "1.19.0",
+			logCollector: &api.LogCollectorSpec{
+				Configuration:   "some-fluentbit-config",
+				Image:           "test-log-image",
+				ImagePullPolicy: corev1.PullIfNotPresent,
+			},
+			expectedResult: func() []corev1.Container {
+				return []corev1.Container{
+					{
+						Name:            "logs",
+						Image:           "test-log-image",
+						ImagePullPolicy: corev1.PullIfNotPresent,
+						Env:             baseLogProcEnvs(false),
+						EnvFrom:         baseEnvFrom,
+						VolumeMounts: []corev1.VolumeMount{
+							datadirMount,
+							{Name: "logcollector-config", MountPath: "/etc/fluentbit/custom"},
+						},
+					},
+					{
+						Name:            "logrotate",
+						Image:           "test-log-image",
+						ImagePullPolicy: corev1.PullIfNotPresent,
+						Env:             baseLogRotEnvs(),
+						Args:            []string{"logrotate"},
+						VolumeMounts:    []corev1.VolumeMount{datadirMount},
+					},
+				}
+			},
+		},
+		"1.20+ with configuration": {
+			crVersion: version.Version(),
+			logCollector: &api.LogCollectorSpec{
+				Configuration:   "some-fluentbit-config",
+				Image:           "test-log-image",
+				ImagePullPolicy: corev1.PullAlways,
+			},
+			expectedResult: func() []corev1.Container {
+				return []corev1.Container{
+					{
+						Name:            "logs",
+						Image:           "test-log-image",
+						ImagePullPolicy: corev1.PullAlways,
+						Env:             baseLogProcEnvs(true),
+						EnvFrom:         baseEnvFrom,
+						Command:         []string{"/opt/percona/logcollector/entrypoint.sh"},
+						Args:            []string{"fluent-bit"},
+						VolumeMounts: []corev1.VolumeMount{
+							datadirMount,
+							{Name: "logcollector-config", MountPath: "/opt/percona/logcollector/fluentbit/custom"},
+							binMount,
+						},
+					},
+					{
+						Name:            "logrotate",
+						Image:           "test-log-image",
+						ImagePullPolicy: corev1.PullAlways,
+						Env: append(baseLogRotEnvs(), corev1.EnvVar{
+							Name: "LOGROTATE_STATUS_FILE", Value: "/var/lib/mysql/logrotate.status",
+						}),
+						Args:         []string{"logrotate"},
+						Command:      []string{"/opt/percona/logcollector/entrypoint.sh"},
+						VolumeMounts: []corev1.VolumeMount{datadirMount, binMount},
+					},
+				}
+			},
+		},
+		"1.20+ with hookscript": {
+			crVersion: version.Version(),
+			logCollector: &api.LogCollectorSpec{
+				HookScript:      "some-hook-script",
+				Image:           "test-log-image",
+				ImagePullPolicy: corev1.PullAlways,
+			},
+			expectedResult: func() []corev1.Container {
+				return []corev1.Container{
+					{
+						Name:            "logs",
+						Image:           "test-log-image",
+						ImagePullPolicy: corev1.PullAlways,
+						Env:             baseLogProcEnvs(true),
+						EnvFrom:         baseEnvFrom,
+						Command:         []string{"/opt/percona/logcollector/entrypoint.sh"},
+						Args:            []string{"fluent-bit"},
+						VolumeMounts: []corev1.VolumeMount{
+							datadirMount,
+							{Name: "hookscript", MountPath: "/opt/percona/hookscript"},
+							binMount,
+						},
+					},
+					{
+						Name:            "logrotate",
+						Image:           "test-log-image",
+						ImagePullPolicy: corev1.PullAlways,
+						Env: append(baseLogRotEnvs(), corev1.EnvVar{
+							Name: "LOGROTATE_STATUS_FILE", Value: "/var/lib/mysql/logrotate.status",
+						}),
+						Args:         []string{"logrotate"},
+						Command:      []string{"/opt/percona/logcollector/entrypoint.sh"},
+						VolumeMounts: []corev1.VolumeMount{datadirMount, binMount},
+					},
+				}
+			},
+		},
+		"1.20+ with logrotate configuration": {
+			crVersion: version.Version(),
+			logCollector: &api.LogCollectorSpec{
+				Image:           "test-log-image",
+				ImagePullPolicy: corev1.PullAlways,
+				LogRotate: &api.LogRotateSpec{
+					Configuration: "custom-logrotate-config",
+				},
+			},
+			expectedResult: func() []corev1.Container {
+				return []corev1.Container{
+					{
+						Name:            "logs",
+						Image:           "test-log-image",
+						ImagePullPolicy: corev1.PullAlways,
+						Env:             baseLogProcEnvs(true),
+						EnvFrom:         baseEnvFrom,
+						Command:         []string{"/opt/percona/logcollector/entrypoint.sh"},
+						Args:            []string{"fluent-bit"},
+						VolumeMounts:    []corev1.VolumeMount{datadirMount, binMount},
+					},
+					{
+						Name:            "logrotate",
+						Image:           "test-log-image",
+						ImagePullPolicy: corev1.PullAlways,
+						Env: append(baseLogRotEnvs(), corev1.EnvVar{
+							Name: "LOGROTATE_STATUS_FILE", Value: "/var/lib/mysql/logrotate.status",
+						}),
+						Args:    []string{"logrotate"},
+						Command: []string{"/opt/percona/logcollector/entrypoint.sh"},
+						VolumeMounts: []corev1.VolumeMount{
+							datadirMount,
+							{Name: LogRotateConfigVolumeName, MountPath: LogRotateConfigDir},
+							binMount,
+						},
+					},
+				}
+			},
+		},
+		"1.20+ with logrotate extraconfig": {
+			crVersion: version.Version(),
+			logCollector: &api.LogCollectorSpec{
+				Image:           "test-log-image",
+				ImagePullPolicy: corev1.PullAlways,
+				LogRotate: &api.LogRotateSpec{
+					ExtraConfig: corev1.LocalObjectReference{Name: "extra-logrotate-cm"},
+				},
+			},
+			expectedResult: func() []corev1.Container {
+				return []corev1.Container{
+					{
+						Name:            "logs",
+						Image:           "test-log-image",
+						ImagePullPolicy: corev1.PullAlways,
+						Env:             baseLogProcEnvs(true),
+						EnvFrom:         baseEnvFrom,
+						Command:         []string{"/opt/percona/logcollector/entrypoint.sh"},
+						Args:            []string{"fluent-bit"},
+						VolumeMounts:    []corev1.VolumeMount{datadirMount, binMount},
+					},
+					{
+						Name:            "logrotate",
+						Image:           "test-log-image",
+						ImagePullPolicy: corev1.PullAlways,
+						Env: append(baseLogRotEnvs(), corev1.EnvVar{
+							Name: "LOGROTATE_STATUS_FILE", Value: "/var/lib/mysql/logrotate.status",
+						}),
+						Args:    []string{"logrotate"},
+						Command: []string{"/opt/percona/logcollector/entrypoint.sh"},
+						VolumeMounts: []corev1.VolumeMount{
+							datadirMount,
+							{Name: LogRotateConfigVolumeName, MountPath: LogRotateConfigDir},
+							binMount,
+						},
+					},
+				}
+			},
+		},
+		"pre-1.20 with logrotate schedule": {
+			crVersion: "1.19.0",
+			logCollector: &api.LogCollectorSpec{
+				Image:           "test-log-image",
+				ImagePullPolicy: corev1.PullAlways,
+				LogRotate: &api.LogRotateSpec{
+					Schedule: "*/5 * * * *",
+				},
+			},
+			expectedResult: func() []corev1.Container {
+				return []corev1.Container{
+					{
+						Name:            "logs",
+						Image:           "test-log-image",
+						ImagePullPolicy: corev1.PullAlways,
+						Env:             baseLogProcEnvs(false),
+						EnvFrom:         baseEnvFrom,
+						VolumeMounts:    []corev1.VolumeMount{datadirMount},
+					},
+					{
+						Name:            "logrotate",
+						Image:           "test-log-image",
+						ImagePullPolicy: corev1.PullAlways,
+						Env: append(baseLogRotEnvs(), corev1.EnvVar{
+							Name: "LOGROTATE_SCHEDULE", Value: "*/5 * * * *",
+						}),
+						Args:         []string{"logrotate"},
+						VolumeMounts: []corev1.VolumeMount{datadirMount},
+					},
+				}
+			},
+		},
+		"1.20+ with all options": {
+			crVersion: version.Version(),
+			logCollector: &api.LogCollectorSpec{
+				Configuration:   "custom-fluentbit-config",
+				HookScript:      "custom-hook-script",
+				Image:           "test-log-image",
+				ImagePullPolicy: corev1.PullAlways,
+				LogRotate: &api.LogRotateSpec{
+					Configuration: "custom-logrotate-config",
+					Schedule:      "0 */6 * * *",
+				},
+			},
+			expectedResult: func() []corev1.Container {
+				return []corev1.Container{
+					{
+						Name:            "logs",
+						Image:           "test-log-image",
+						ImagePullPolicy: corev1.PullAlways,
+						Env:             baseLogProcEnvs(true),
+						EnvFrom:         baseEnvFrom,
+						Command:         []string{"/opt/percona/logcollector/entrypoint.sh"},
+						Args:            []string{"fluent-bit"},
+						VolumeMounts: []corev1.VolumeMount{
+							datadirMount,
+							{Name: "logcollector-config", MountPath: "/opt/percona/logcollector/fluentbit/custom"},
+							{Name: "hookscript", MountPath: "/opt/percona/hookscript"},
+							binMount,
+						},
+					},
+					{
+						Name:            "logrotate",
+						Image:           "test-log-image",
+						ImagePullPolicy: corev1.PullAlways,
+						Env: append(baseLogRotEnvs(),
+							corev1.EnvVar{Name: "LOGROTATE_SCHEDULE", Value: "0 */6 * * *"},
+							corev1.EnvVar{Name: "LOGROTATE_STATUS_FILE", Value: "/var/lib/mysql/logrotate.status"},
+						),
+						Args:    []string{"logrotate"},
+						Command: []string{"/opt/percona/logcollector/entrypoint.sh"},
+						VolumeMounts: []corev1.VolumeMount{
+							datadirMount,
+							{Name: LogRotateConfigVolumeName, MountPath: LogRotateConfigDir},
+							binMount,
+						},
+					},
+				}
+			},
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			cr := &api.PerconaXtraDBCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-cluster",
+					Namespace: "test-ns",
+				},
+				Spec: api.PerconaXtraDBClusterSpec{
+					CRVersion:    tt.crVersion,
+					LogCollector: tt.logCollector,
+				},
+			}
+
+			pxcNode := Node{cr: cr}
+
+			containers, err := pxcNode.LogCollectorContainer(cr, logPsecrets, logRsecrets)
+			assert.NoError(t, err)
+			assert.Equal(t, tt.expectedResult(), containers)
+		})
+	}
+}
+
 func TestJemallocPathForPXCImage(t *testing.T) {
 	tests := []struct {
 		image string

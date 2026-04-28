@@ -1593,8 +1593,15 @@ func (cr *PerconaXtraDBCluster) CompareVersionWith(ver string) int {
 
 // CompareMySQLVersion compares given version to current MySQL version.
 // Returns -1, 0, or 1 if given version is smaller, equal, or larger than the current version, respectively.
-func (cr *PerconaXtraDBCluster) CompareMySQLVersion(ver string) int {
-	return v.Must(v.NewVersion(cr.Status.PXC.Version)).Compare(v.Must(v.NewVersion(ver)))
+func (cr *PerconaXtraDBCluster) CompareMySQLVersion(ver string) (int, error) {
+	if cr.Status.PXC.Version == "" {
+		return -1, errors.New("pxc version is empty")
+	}
+	statusVer, err := v.NewVersion(cr.Status.PXC.Version)
+	if err != nil {
+		return -1, errors.Wrap(err, "failed to parse pxc version")
+	}
+	return statusVer.Compare(v.Must(v.NewVersion(ver))), nil
 }
 
 // ConfigHasKey check if cr.Spec.PXC.Configuration has given key in given section

@@ -152,6 +152,12 @@ var _ = Describe("Finalizer delete-ssl", Ordered, func() {
 				return err == nil
 			}, time.Second*30, time.Millisecond*250).Should(BeTrue())
 			Expect(certs.Items).ShouldNot(BeEmpty())
+
+			for _, cert := range certs.Items {
+				Expect(cert.Spec.PrivateKey).NotTo(BeNil(), "certificate %s should have privateKey set", cert.Name)
+				Expect(cert.Spec.PrivateKey.RotationPolicy).To(Equal(cm.RotationPolicyNever),
+					"certificate %s should have rotationPolicy set to Never", cert.Name)
+			}
 		})
 
 		When("PXC cluster is deleted with delete-ssl finalizer certs should be removed", func() {

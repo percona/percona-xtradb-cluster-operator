@@ -336,8 +336,8 @@ func validatePITRTarget(
 	switch restore.Spec.PITR.Type {
 	case api.PITRTypeDate:
 		return validatePITRDatetime(backup, restore.Spec.PITR.Date)
-
-		// TODO: validate GTID
+	case api.PITRTypeTransaction:
+		// TODO
 	}
 	return nil
 }
@@ -351,7 +351,11 @@ func validatePITRDatetime(
 		return errors.Wrap(err, "parse datetime")
 	}
 
-	if backup.Status.LatestRestorableTime != nil && backup.Status.LatestRestorableTime.Time.Before(targetTime) {
+	if backup.Status.LatestRestorableTime.IsZero() {
+		return errors.New("latest restorable time is not known")
+	}
+
+	if backup.Status.LatestRestorableTime.Time.Before(targetTime) {
 		return errors.New("target datetime is after the latest restorable time")
 	}
 	return nil

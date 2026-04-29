@@ -30,7 +30,8 @@ type PerconaXtraDBClusterRestoreStatus struct {
 }
 
 const (
-	PITRTypeDate = "date"
+	PITRTypeDate        = "date"
+	PITRTypeTransaction = "transaction"
 )
 
 // +kubebuilder:validation:XValidation:rule="self.type != 'date' || (has(self.date) && self.date.matches('^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01]) ([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$'))",message="Date is required for type 'date' and should be in format YYYY-MM-DD HH:MM:SS with valid ranges (MM: 01-12, DD: 01-31, HH: 00-23, MM/SS: 00-59)"

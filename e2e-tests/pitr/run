@@ -246,6 +246,50 @@ main() {
 
 	desc "[CASE 3] PiTR with latest using backupSource: OK"
 
+	desc "[CASE 4] PiTR from source on new cluster"
+	log "[CASE 4]: using backup destination from on-pitr-minio-3 (escaped for restore): ${dest}"
+
+	desc "[CASE 4] delete PXC cluster ${cluster} and wait for PVCs"
+	kubectl_bin delete pxc ${cluster}
+	desc "[CASE 4] wait for PVCs (app.kubernetes.io/instance=${cluster}) to be deleted"
+	if ! kubectl_bin wait pvc \
+		-l "app.kubernetes.io/instance=${cluster}" \
+		--for=delete \
+		--timeout=360s; then
+		if kubectl_bin get pvc -l "app.kubernetes.io/instance=${cluster}" --no-headers 2>/dev/null | grep -q .; then
+			log "PVCs still exist after kubectl wait"
+			kubectl_bin get pvc -l "app.kubernetes.io/instance=${cluster}"
+			exit 1
+		fi
+	fi
+
+	desc "[CASE 4] recreate empty PXC cluster ${cluster}"
+	kubectl_bin apply -f ${conf_dir}/secrets.yml
+	apply_config "${conf_dir}/client.yml"
+	apply_config "$test_dir/conf/$cluster.yml"
+
+	proxy=$(get_proxy "$cluster")
+	wait_for_running "$proxy" 2
+	wait_for_running "$cluster-pxc" 3
+	sleep 10
+
+	pitr_pod=$(
+		kubectl_bin get pods \
+			--selector="app.kubernetes.io/component=pitr" \
+			-o 'jsonpath={.items[].metadata.name}'
+	)
+	wait_pod "$pitr_pod"
+
+	wait_cluster_consistency ${cluster} 3 2
+
+	desc "[CASE 4] PiTR with latest using backupSource on new cluster"
+	run_recovery_check_pitr "$cluster" "restore-on-pitr-minio" "on-pitr-minio" "select-4" "" "$dest" ""
+
+	gtid=$(get_gtid_executed ${mysql_host})
+	log "[CASE 4]: gtid_executed (after restore): ${gtid}"
+
+	desc "[CASE 4] PiTR from source on new cluster: OK"
+
 	destroy $namespace
 	desc "test passed"
 }

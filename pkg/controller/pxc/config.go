@@ -60,6 +60,14 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMaps(ctx context.Context,
 		result = res
 	}
 
+	res, err = r.reconcileLogrotateConfigMap(ctx, cr)
+	if err != nil {
+		return result, errors.Wrap(err, "reconcile logrotate config map")
+	}
+	if result == controllerutil.OperationResultNone {
+		result = res
+	}
+
 	_, err = r.reconcileHookScriptConfigMaps(ctx, cr)
 	if err != nil {
 		return result, errors.Wrap(err, "reconcile hookscript config maps")
@@ -226,6 +234,28 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileLogcollectorConfigMap(ctx conte
 
 	configMap := config.NewConfigMap(cr, logCollectorConfigName, "fluentbit_custom.conf", cr.Spec.LogCollector.Configuration)
 
+	err := k8s.SetControllerReference(cr, configMap, r.scheme)
+	if err != nil {
+		return controllerutil.OperationResultNone, errors.Wrap(err, "set controller ref")
+	}
+
+	res, err := createOrUpdateConfigmap(ctx, r.client, configMap)
+	if err != nil {
+		return res, errors.Wrap(err, "create or update config map")
+	}
+
+	return res, nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) reconcileLogrotateConfigMap(ctx context.Context, cr *api.PerconaXtraDBCluster) (controllerutil.OperationResult, error) {
+	logrotateConfigName := config.CustomConfigMapName(cr.Name, "logrotate")
+
+	if cr.Spec.LogCollector == nil || cr.Spec.LogCollector.LogRotate == nil || cr.Spec.LogCollector.LogRotate.Configuration == "" {
+		err := deleteConfigMapIfExists(ctx, r.client, cr, logrotateConfigName)
+		return controllerutil.OperationResultNone, errors.Wrap(err, "delete config map")
+	}
+
+	configMap := config.NewConfigMap(cr, logrotateConfigName, "logrotate-mysql.conf", cr.Spec.LogCollector.LogRotate.Configuration)
 	err := k8s.SetControllerReference(cr, configMap, r.scheme)
 	if err != nil {
 		return controllerutil.OperationResultNone, errors.Wrap(err, "set controller ref")

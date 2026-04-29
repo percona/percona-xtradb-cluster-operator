@@ -5,6 +5,7 @@ package v1
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
 
@@ -127,6 +128,8 @@ type PXCSpec struct {
 	AutoRecovery        *bool                `json:"autoRecovery,omitempty"`
 	ReplicationChannels []ReplicationChannel `json:"replicationChannels,omitempty"`
 	Expose              ServiceExpose        `json:"expose,omitempty"`
+	// +kubebuilder:validation:Minimum=1
+	SSTRetryCount *int32 `json:"sstRetryCount,omitempty"`
 
 	// +kubebuilder:validation:Enum={jemalloc,tcmalloc}
 	MySQLAllocator string `json:"mysqlAllocator,omitempty"`
@@ -146,14 +149,11 @@ type ServiceExpose struct {
 	LoadBalancerClass        *string  `json:"loadBalancerClass,omitempty"`
 	LoadBalancerSourceRanges []string `json:"loadBalancerSourceRanges,omitempty"`
 	// Deprecated: in Kubernetes v1.24+ and should be removed in 1.21.0 operator version
-	LoadBalancerIP        string                                  `json:"loadBalancerIP,omitempty"`
-	Annotations           map[string]string                       `json:"annotations,omitempty"`
-	Labels                map[string]string                       `json:"labels,omitempty"`
-	ExternalTrafficPolicy corev1.ServiceExternalTrafficPolicyType `json:"externalTrafficPolicy,omitempty"`
-	InternalTrafficPolicy corev1.ServiceInternalTrafficPolicy     `json:"internalTrafficPolicy,omitempty"`
-
-	// Deprecated: Use ExternalTrafficPolicy instead
-	TrafficPolicy corev1.ServiceExternalTrafficPolicyType `json:"trafficPolicy,omitempty"`
+	LoadBalancerIP        string                              `json:"loadBalancerIP,omitempty"`
+	Annotations           map[string]string                   `json:"annotations,omitempty"`
+	Labels                map[string]string                   `json:"labels,omitempty"`
+	ExternalTrafficPolicy corev1.ServiceExternalTrafficPolicy `json:"externalTrafficPolicy,omitempty"`
+	InternalTrafficPolicy corev1.ServiceInternalTrafficPolicy `json:"internalTrafficPolicy,omitempty"`
 }
 
 // GetLoadBalancerClass returns the configured LoadBalancer class.
@@ -420,6 +420,9 @@ func (cr *PerconaXtraDBCluster) Validate() error {
 	if c.PXC.Image == "" {
 		return errors.New("pxc.Image can't be empty")
 	}
+	if c.PXC.SSTRetryCount != nil && *c.PXC.SSTRetryCount < 1 {
+		return errors.New("pxc.sstRetryCount should be greater than or equal to 1")
+	}
 
 	if len(c.PXC.ReplicationChannels) > 0 {
 		// since we do not allow multimaster
@@ -582,25 +585,6 @@ type PodSpec struct {
 	EnvVarsSecretName             string                        `json:"envVarsSecret,omitempty"`
 	TerminationGracePeriodSeconds *int64                        `json:"gracePeriod,omitempty"`
 
-	// Deprecated: Use ServiceExpose.Type instead
-	ServiceType corev1.ServiceType `json:"serviceType,omitempty"`
-	// Deprecated: Use ServiceExpose.Type instead
-	ReplicasServiceType corev1.ServiceType `json:"replicasServiceType,omitempty"`
-	// Deprecated: Use ServiceExpose.ExternalTrafficPolicy instead
-	ExternalTrafficPolicy corev1.ServiceExternalTrafficPolicyType `json:"externalTrafficPolicy,omitempty"`
-	// Deprecated: Use ServiceExpose.ExternalTrafficPolicy instead
-	ReplicasExternalTrafficPolicy corev1.ServiceExternalTrafficPolicyType `json:"replicasExternalTrafficPolicy,omitempty"`
-	// Deprecated: Use ServiceExpose.LoadBalancerSourceRanges instead
-	LoadBalancerSourceRanges []string `json:"loadBalancerSourceRanges,omitempty"`
-	// Deprecated: Use ServiceExpose.Annotations instead
-	ServiceAnnotations map[string]string `json:"serviceAnnotations,omitempty"`
-	// Deprecated: Use ServiceExpose.Labels instead
-	ServiceLabels map[string]string `json:"serviceLabels,omitempty"`
-	// Deprecated: Use ServiceExpose.Annotations instead
-	ReplicasServiceAnnotations map[string]string `json:"replicasServiceAnnotations,omitempty"`
-	// Deprecated: Use ServiceExpose.Labels instead
-	ReplicasServiceLabels map[string]string `json:"replicasServiceLabels,omitempty"`
-
 	SchedulerName string `json:"schedulerName,omitempty"`
 	// Deprecated: Unsupported from version 1.19.0 and will be deleted in 1.22.0. Use ReadinessProbes.initialDelaySeconds instead
 	ReadinessInitialDelaySeconds *int32       `json:"readinessDelaySec,omitempty"`
@@ -743,6 +727,21 @@ type LogCollectorSpec struct {
 	ImagePullPolicy          corev1.PullPolicy           `json:"imagePullPolicy,omitempty"`
 	RuntimeClassName         *string                     `json:"runtimeClassName,omitempty"`
 	HookScript               string                      `json:"hookScript,omitempty"`
+	LogRotate                *LogRotateSpec              `json:"logRotate,omitempty"`
+}
+
+// LogRotateSpec defines the configuration for the logrotate container.
+type LogRotateSpec struct {
+	// Configuration allows overriding the default logrotate configuration.
+	Configuration string `json:"configuration,omitempty"`
+	// ExtraConfig allows specifying logrotate configuration file in addition to the main configuration file.
+	// This should be a reference to a ConfigMap in the same namespace.
+	// Key must contain the .conf extension to be processed correctly.
+	ExtraConfig corev1.LocalObjectReference `json:"extraConfig,omitempty"`
+	// Schedule allows specifying the schedule for logrotate.
+	// This should be a valid cron expression.
+	//+kubebuilder:default:="0 0 * * *"
+	Schedule string `json:"schedule,omitempty"`
 }
 
 type PMMSpec struct {
@@ -875,19 +874,76 @@ type BackupStorageS3Spec struct {
 	Region            string                    `json:"region,omitempty"`
 	EndpointURL       string                    `json:"endpointUrl,omitempty"`
 	CABundle          *corev1.SecretKeySelector `json:"caBundle,omitempty"`
+	ForcePathStyle    bool                      `json:"forcePathStyle,omitempty"`
 }
 
-// BucketAndPrefix returns bucket name and backup prefix from Bucket.
+func (b *BackupStorageS3Spec) endpointAndPath() (string, string, error) {
+	if b.EndpointURL == "" {
+		return "", "", nil
+	}
+
+	if !b.ForcePathStyle {
+		return b.EndpointURL, "", nil
+	}
+
+	if strings.Contains(b.EndpointURL, "://") {
+		u, err := url.Parse(b.EndpointURL)
+		if err != nil {
+			return "", "", errors.Wrap(err, "failed to parse endpointUrl")
+		}
+
+		path := strings.TrimPrefix(u.Path, "/")
+		u.Path = ""
+		u.RawPath = ""
+		u.RawQuery = ""
+		u.Fragment = ""
+
+		return strings.TrimRight(u.String(), "/"), path, nil
+	}
+
+	endpoint, path, _ := strings.Cut(b.EndpointURL, "/")
+	path = strings.TrimPrefix(path, "/")
+
+	return endpoint, path, nil
+}
+
+func (b *BackupStorageS3Spec) Endpoint() (string, error) {
+	endpoint, _, err := b.endpointAndPath()
+	if err != nil {
+		return "", err
+	}
+
+	return endpoint, nil
+}
+
+func (b *BackupStorageS3Spec) BucketURL() (string, error) {
+	_, path, err := b.endpointAndPath()
+	if err != nil {
+		return "", err
+	}
+	if path != "" {
+		return path, nil
+	}
+
+	return b.Bucket, nil
+}
+
+// BucketAndPrefix returns bucket name and backup prefix from Bucket or EndpointURL if ForcePathStyle is set to true.
 // BackupStorageS3Spec.Bucket can contain backup path in format `<bucket-name>/<backup-prefix>`.
-func (b *BackupStorageS3Spec) BucketAndPrefix() (string, string) {
-	bucket, prefix, _ := strings.Cut(b.Bucket, "/")
+func (b *BackupStorageS3Spec) BucketAndPrefix() (string, string, error) {
+	path, err := b.BucketURL()
+	if err != nil {
+		return "", "", errors.Wrap(err, "failed to parse endpointUrl")
+	}
+
+	bucket, prefix, _ := strings.Cut(path, "/")
 
 	if prefix != "" {
 		prefix = strings.TrimSuffix(prefix, "/")
 		prefix += "/"
 	}
 
-	return bucket, prefix
+	return bucket, prefix, nil
 }
 
 type BackupStorageAzureSpec struct {
@@ -988,7 +1044,7 @@ type App interface {
 	AppContainer(ctx context.Context, cl client.Client, spec *PodSpec, secrets string, cr *PerconaXtraDBCluster, availableVolumes []corev1.Volume) (corev1.Container, error)
 	SidecarContainers(ctx context.Context, cl client.Client, spec *PodSpec, secrets string, cr *PerconaXtraDBCluster) ([]corev1.Container, error)
 	PMMContainer(ctx context.Context, cl client.Client, spec *PMMSpec, secret *corev1.Secret, cr *PerconaXtraDBCluster) (*corev1.Container, error)
-	LogCollectorContainer(spec *LogCollectorSpec, logPsecrets string, logRsecrets string, cr *PerconaXtraDBCluster) ([]corev1.Container, error)
+	LogCollectorContainer(cr *PerconaXtraDBCluster, logPsecrets string, logRsecrets string) ([]corev1.Container, error)
 	XtrabackupContainer(ctx context.Context, cr *PerconaXtraDBCluster) (*corev1.Container, error)
 	Volumes(podSpec *PodSpec, cr *PerconaXtraDBCluster, vg CustomVolumeGetter) (*Volume, error)
 	Labels() map[string]string
@@ -1552,8 +1608,15 @@ func (cr *PerconaXtraDBCluster) CompareVersionWith(ver string) int {
 
 // CompareMySQLVersion compares given version to current MySQL version.
 // Returns -1, 0, or 1 if given version is smaller, equal, or larger than the current version, respectively.
-func (cr *PerconaXtraDBCluster) CompareMySQLVersion(ver string) int {
-	return v.Must(v.NewVersion(cr.Status.PXC.Version)).Compare(v.Must(v.NewVersion(ver)))
+func (cr *PerconaXtraDBCluster) CompareMySQLVersion(ver string) (int, error) {
+	if cr.Status.PXC.Version == "" {
+		return -1, errors.New("pxc version is empty")
+	}
+	statusVer, err := v.NewVersion(cr.Status.PXC.Version)
+	if err != nil {
+		return -1, errors.Wrap(err, "failed to parse pxc version")
+	}
+	return statusVer.Compare(v.Must(v.NewVersion(ver))), nil
 }
 
 // ConfigHasKey check if cr.Spec.PXC.Configuration has given key in given section
@@ -1939,4 +2002,21 @@ const AnnotationPVCResizeInProgress = "percona.com/pvc-resize-in-progress"
 func (cr *PerconaXtraDBCluster) PVCResizeInProgress() bool {
 	_, ok := cr.Annotations[AnnotationPVCResizeInProgress]
 	return ok
+}
+
+// IsReadOnly returns true if the cluster is configured as a replication
+// replica (has replication channels with IsSource=false).
+func (cr *PerconaXtraDBCluster) IsReadOnly() bool {
+	channels := cr.Spec.PXC.ReplicationChannels
+	if len(channels) < 1 {
+		return false
+	}
+
+	for _, channel := range channels {
+		if !channel.IsSource {
+			return true
+		}
+	}
+
+	return false
 }

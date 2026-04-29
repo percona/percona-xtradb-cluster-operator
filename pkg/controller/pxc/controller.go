@@ -412,16 +412,9 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 		}
 		svc := pxc.NewServiceProxySQL(o)
 
-		if o.CompareVersionWith("1.14.0") >= 0 {
-			err = r.createOrUpdateService(ctx, o, svc, len(o.Spec.ProxySQL.Expose.Labels) == 0 && len(o.Spec.ProxySQL.Expose.Annotations) == 0)
-			if err != nil {
-				return reconcile.Result{}, errors.Wrapf(err, "%s upgrade error", svc.Name)
-			}
-		} else {
-			err = r.createOrUpdateService(ctx, o, svc, len(o.Spec.ProxySQL.ServiceLabels) == 0 && len(o.Spec.ProxySQL.ServiceAnnotations) == 0)
-			if err != nil {
-				return reconcile.Result{}, errors.Wrapf(err, "%s upgrade error", svc.Name)
-			}
+		err = r.createOrUpdateService(ctx, o, svc, len(o.Spec.ProxySQL.Expose.Labels) == 0 && len(o.Spec.ProxySQL.Expose.Annotations) == 0)
+		if err != nil {
+			return reconcile.Result{}, errors.Wrapf(err, "%s upgrade error", svc.Name)
 		}
 
 		svc = pxc.NewServiceProxySQLUnready(o)
@@ -520,37 +513,21 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileHAProxy(ctx context.Context, cr
 		return errors.Wrap(err, "HAProxy upgrade error")
 	}
 	svc := pxc.NewServiceHAProxy(cr)
-	podSpec := cr.Spec.HAProxy.PodSpec
 	expose := cr.Spec.HAProxy.ExposePrimary
 
-	if cr.CompareVersionWith("1.14.0") >= 0 {
-		err := r.createOrUpdateService(ctx, cr, svc, len(expose.Labels) == 0 && len(expose.Annotations) == 0)
-		if err != nil {
-			return errors.Wrapf(err, "%s upgrade error", svc.Name)
-		}
-	} else {
-		err := r.createOrUpdateService(ctx, cr, svc, len(podSpec.ServiceLabels) == 0 && len(podSpec.ServiceAnnotations) == 0)
-		if err != nil {
-			return errors.Wrapf(err, "%s upgrade error", svc.Name)
-		}
+	err := r.createOrUpdateService(ctx, cr, svc, len(expose.Labels) == 0 && len(expose.Annotations) == 0)
+	if err != nil {
+		return errors.Wrapf(err, "%s upgrade error", svc.Name)
 	}
 
 	if cr.HAProxyReplicasServiceEnabled() {
 		svc := pxc.NewServiceHAProxyReplicas(cr)
 
-		if cr.CompareVersionWith("1.14.0") >= 0 {
-			e := cr.Spec.HAProxy.ExposeReplicas
-			err := r.createOrUpdateService(ctx, cr, svc, len(e.ServiceExpose.Labels) == 0 && len(e.ServiceExpose.Annotations) == 0)
-			if err != nil {
-				return errors.Wrapf(err, "%s upgrade error", svc.Name)
-			}
-		} else {
-			err := r.createOrUpdateService(ctx, cr, svc, len(podSpec.ReplicasServiceLabels) == 0 && len(podSpec.ReplicasServiceAnnotations) == 0)
-			if err != nil {
-				return errors.Wrapf(err, "%s upgrade error", svc.Name)
-			}
+		e := cr.Spec.HAProxy.ExposeReplicas
+		err := r.createOrUpdateService(ctx, cr, svc, len(e.ServiceExpose.Labels) == 0 && len(e.ServiceExpose.Annotations) == 0)
+		if err != nil {
+			return errors.Wrapf(err, "%s upgrade error", svc.Name)
 		}
-
 	} else {
 		if err := r.deleteServices(pxc.NewServiceHAProxyReplicas(cr)); err != nil {
 			return errors.Wrap(err, "delete HAProxy replica service")

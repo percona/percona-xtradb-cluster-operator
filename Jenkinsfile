@@ -391,13 +391,16 @@ void checkE2EIgnoreFiles() {
     echo "Excluded files: $excludedFiles"
     echo "Changed files: $changedFiles"
 
-    def excludedFilesRegex = excludedFiles.collect{it.replace("**", ".*").replace("*", "[^/]*")}
+    // Use placeholder so the * in ".*" (from **) is not replaced by [^/]*
+    def excludedFilesRegex = excludedFiles.collect{
+        it.replace("**", ".__STARSTAR__").replace("*", "[^/]*").replace(".__STARSTAR__", ".*")
+    }
     needToRunTests = !changedFiles.every{changed -> excludedFilesRegex.any{regex -> changed ==~ regex}}
 
     if (needToRunTests) {
         echo "Some changed files are outside of the e2eignore list. Proceeding with execution."
     } else {
-        if (currentBuild.previousBuild?.result != 'SUCCESS') {
+        if (currentBuild.previousBuild?.result != 'SUCCESS' && currentBuild.number != 1) {
             echo "All changed files are e2eignore files, and previous build was unsuccessful. Propagating previous state."
             currentBuild.result = currentBuild.previousBuild?.result
             error "Skipping execution as non-significant changes detected and previous build was unsuccessful."
@@ -616,6 +619,21 @@ pipeline {
                 stage('cluster9') {
                     steps {
                         clusterRunner('cluster9')
+                    }
+                }
+                stage('cluster10') {
+                    steps {
+                        clusterRunner('cluster10')
+                    }
+                }
+                stage('cluster11') {
+                    steps {
+                        clusterRunner('cluster11')
+                    }
+                }
+                stage('cluster12') {
+                    steps {
+                        clusterRunner('cluster12')
                     }
                 }
             }

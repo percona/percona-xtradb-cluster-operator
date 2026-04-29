@@ -195,6 +195,13 @@ func (c *Proxy) AppContainer(ctx context.Context, _ client.Client, spec *api.Pod
 		appc.VolumeMounts = append(appc.VolumeMounts, extraMounts...)
 	}
 
+	if cr.CompareVersionWith("1.19.1") >= 0 {
+		appc.Env = append(appc.Env, corev1.EnvVar{
+			Name:  "PXC_READ_ONLY",
+			Value: strconv.FormatBool(cr.IsReadOnly()),
+		})
+	}
+
 	return appc, nil
 }
 
@@ -381,6 +388,13 @@ func (c *Proxy) SidecarContainers(ctx context.Context, cl client.Client, spec *a
 		proxysqlMonit.Command = []string{"/opt/percona/proxysql-entrypoint.sh"}
 	}
 
+	if cr.CompareVersionWith("1.19.1") >= 0 {
+		pxcMonit.Env = append(pxcMonit.Env, corev1.EnvVar{
+			Name:  "PXC_READ_ONLY",
+			Value: strconv.FormatBool(cr.IsReadOnly()),
+		})
+	}
+
 	containers := []corev1.Container{pxcMonit}
 	// we are disabling ProxySQL cluster mode in case scheduler is enabled
 	// therefore we don't need proxysqlMonit container
@@ -434,7 +448,7 @@ func schedulerEnvVariables(scheduler api.ProxySQLSchedulerSpec) []corev1.EnvVar 
 
 }
 
-func (c *Proxy) LogCollectorContainer(_ *api.LogCollectorSpec, _ string, _ string, _ *api.PerconaXtraDBCluster) ([]corev1.Container, error) {
+func (c *Proxy) LogCollectorContainer(_ *api.PerconaXtraDBCluster, _ string, _ string) ([]corev1.Container, error) {
 	return nil, nil
 }
 

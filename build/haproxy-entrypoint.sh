@@ -36,5 +36,20 @@ fi
 log 'test -e /opt/percona/hookscript/hook.sh && source /opt/percona/hookscript/hook.sh'
 test -e /opt/percona/hookscript/hook.sh && source /opt/percona/hookscript/hook.sh
 
+DEFAULT_RLIMIT_NOFILE=1048576
+RLIMIT_NOFILE=${HA_RLIMIT_NOFILE:-${DEFAULT_RLIMIT_NOFILE}}
+hard_limit=$(ulimit -Hn)
+if ! [[ ${RLIMIT_NOFILE} =~ ^[0-9]+$ ]]; then
+	log "HA_RLIMIT_NOFILE is not a valid integer ('${RLIMIT_NOFILE}'), falling back to ${DEFAULT_RLIMIT_NOFILE}."
+	RLIMIT_NOFILE=${DEFAULT_RLIMIT_NOFILE}
+fi
+if [[ ${hard_limit} =~ ^[0-9]+$ ]] && [[ ${RLIMIT_NOFILE} -gt ${hard_limit} ]]; then
+	log "Requested open file limit (${RLIMIT_NOFILE}) exceeds hard limit (${hard_limit}), clamping."
+	RLIMIT_NOFILE=${hard_limit}
+fi
+if ! ulimit -n "${RLIMIT_NOFILE}"; then
+	log "Failed to set open file limit to ${RLIMIT_NOFILE}, continuing with $(ulimit -n)."
+fi
+
 log "$@ $haproxy_opt"
 exec "$@" $haproxy_opt

@@ -57,11 +57,11 @@ func LabelsCluster(cr *api.PerconaXtraDBCluster) map[string]string {
 
 const (
 	componentPITR            = "pitr"
-	componentPXC             = "pxc"
 	componentExternalService = "external-service"
 
 	ComponentProxySQL = "proxysql"
 	ComponentHAProxy  = "haproxy"
+	ComponentPXC      = "pxc"
 )
 
 func componentLabels(cr *api.PerconaXtraDBCluster, component string) map[string]string {
@@ -83,7 +83,7 @@ func LabelsHAProxy(cr *api.PerconaXtraDBCluster) map[string]string {
 }
 
 func LabelsPXC(cr *api.PerconaXtraDBCluster) map[string]string {
-	return componentLabels(cr, componentPXC)
+	return componentLabels(cr, ComponentPXC)
 }
 
 func LabelsRestorePVCPod(cr *api.PerconaXtraDBCluster, storageName string, restoreSvcName string) map[string]string {
@@ -197,7 +197,7 @@ func selector(cr *api.PerconaXtraDBCluster, component string) map[string]string 
 }
 
 func SelectorPXC(cr *api.PerconaXtraDBCluster) map[string]string {
-	return selector(cr, componentPXC)
+	return selector(cr, ComponentPXC)
 }
 
 func SelectorHAProxy(cr *api.PerconaXtraDBCluster) map[string]string {

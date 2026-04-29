@@ -10,7 +10,7 @@ metadata:
 #  annotations:
 #    percona.com/issue-vault-token: "true"
 spec:
-  crVersion: 1.19.0
+  crVersion: 1.20.0
 #  enableVolumeExpansion: false
 #  ignoreAnnotations:
 #    - iam.amazonaws.com/role
@@ -61,7 +61,7 @@ spec:
     schedule: "0 4 * * *"
   pxc:
     size: 3
-    image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0
+    image: perconalab/percona-xtradb-cluster-operator:main-pxc8.4
     autoRecovery: true
 #    extraPVCs:
 #      - name: extra-data-volume
@@ -129,6 +129,7 @@ spec:
 #      periodSeconds: 10
 #      successThreshold: 1
 #      failureThreshold: 3
+#    sstRetryCount: 3
 #    containerSecurityContext:
 #      privileged: false
 #    podSecurityContext:
@@ -590,6 +591,23 @@ spec:
       requests:
         memory: 100M
         cpu: 200m
+#    logRotate:
+#      schedule: "*/5 * * * *"
+#      configuration: |
+#        /var/lib/mysql/GRA_*.log {
+#          daily
+#          rotate 7
+#          missingok
+#          notifempty
+#          compress
+#          delaycompress
+#          sharedscripts
+#          postrotate
+#            /usr/bin/find /var/lib/mysql/ -name GRA_*.log -mtime +7 -delete
+#          endscript
+#        }
+#      extraConfig:
+#        name: my-logrotate-config
 
 #  users:
 #  - name: my-user
@@ -610,7 +628,7 @@ spec:
 
   pmm:
     enabled: false
-    image: perconalab/pmm-client:dev-latest
+    image: perconalab/pmm-client:3-dev-latest
     serverHost: monitoring-service
 #    customClusterName: "testClusterName"
 #    serverUser: admin
@@ -636,7 +654,7 @@ spec:
         cpu: 300m
   backup:
 #    allowParallel: true
-    image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0-backup
+    image: perconalab/percona-xtradb-cluster-operator:main-pxc8.4-backup
 #    ttlSecondsAfterFinished: 3600
 #    backoffLimit: 6
 #    activeDeadlineSeconds: 3600
@@ -716,6 +734,7 @@ spec:
           bucket: S3-BACKUP-BUCKET-NAME-HERE
           credentialsSecret: my-cluster-name-backup-s3
           region: us-west-2
+#          forcePathStyle: true
 #          caBundle:
 #           name: s3-ca-bundle-secret
 #           key: ca.crt

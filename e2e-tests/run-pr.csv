@@ -3,6 +3,8 @@ allocator,8.0
 allocator,8.4
 backup-storage-tls,8.0
 cross-site,8.0
+cross-site-proxysql,8.0
+cross-site-proxysql,8.4
 custom-users,8.0
 demand-backup-cloud,8.0
 demand-backup-cloud,8.4
@@ -60,6 +62,8 @@ smart-update1,8.4
 smart-update2,8.0
 smart-update2,8.4
 smart-update3,8.0
+sst-retry-limit,8.0
+sst-retry-limit,8.4
 storage,8.0
 tls-issue-cert-manager-ref,8.0
 tls-issue-cert-manager,8.0

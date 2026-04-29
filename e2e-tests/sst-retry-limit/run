@@ -1,0 +1,238 @@
+#!/bin/bash
+
+set -o errexit
+
+test_dir=$(realpath $(dirname $0))
+. ${test_dir}/../functions
+
+set_debug
+
+get_pxc_restart_count() {
+	local pod=$1
+
+	kubectl_bin get pod "$pod" -o json \
+		| jq -r '.status.containerStatuses[] | select(.name == "pxc") | .restartCount'
+}
+
+wait_for_pxc_restart_count() {
+	local pod=$1
+	local expected=$2
+	local max_retry="${3:-900}"
+	local retry=0
+
+	echo -n "waiting for pod/$pod restartCount to reach $expected"
+	until [[ "$(get_pxc_restart_count "$pod" 2>/dev/null || echo 0)" -ge $expected ]]; do
+		sleep 1
+		echo -n .
+		retry=$((retry + 1))
+		if [[ $retry -ge $max_retry ]]; then
+			echo
+			echo "ERROR: pod/$pod restartCount did not reach $expected"
+			kubectl_bin describe pod "$pod" || :
+			kubectl_bin logs "$pod" -c pxc || :
+			exit 1
+		fi
+	done
+	echo
+}
+
+detect_active_donor() {
+	local root_pass=$1
+	shift
+	local max_retry="${1:-240}"
+	shift
+	local retry=0
+	local donor_pod
+	local donor_rejects_queries
+	local local_state
+
+	echo -n "waiting to detect active donor" >&2
+	while :; do
+		for donor_pod in "$@"; do
+			donor_rejects_queries=$(run_mysql_local "SHOW GLOBAL VARIABLES LIKE 'wsrep_sst_donor_rejects_queries';" "-h127.0.0.1 -P3306 -uroot -p'${root_pass}'" "$donor_pod" \
+				| awk '$1 == "wsrep_sst_donor_rejects_queries" {print $2}')
+			local_state=$(run_mysql_local "SHOW GLOBAL STATUS LIKE 'wsrep_local_state_comment';" "-h127.0.0.1 -P3306 -uroot -p'${root_pass}'" "$donor_pod" \
+				| awk '$1 == "wsrep_local_state_comment" {print $2}')
+
+			if [[ $donor_rejects_queries == "ON" || $local_state == "Donor/Desynced" ]]; then
+				#echo >&2
+				echo "$donor_pod"
+				return 0
+			fi
+		done
+
+		sleep 1
+		echo -n . >&2
+		retry=$((retry + 1))
+		if [[ $retry -ge $max_retry ]]; then
+			echo >&2
+			echo "ERROR: active donor was not detected"
+			for donor_pod in "$@"; do
+				kubectl_bin describe pod "$donor_pod" || :
+				kubectl_bin logs "$donor_pod" -c pxc || :
+			done
+			exit 1
+		fi
+	done
+}
+
+interrupt_donor_during_sst() {
+	local root_pass=$1
+	local joiner_pod=$2
+	local current_restart_count=$3
+	local target_restart_count=$((current_restart_count + 1))
+	local donor_pod
+	local donor_candidates=("${@:4}")
+	local retry=0
+	local observed_restart_count
+
+	echo -n "waiting for pod/$joiner_pod restartCount=$current_restart_count SST attempt"
+	while :; do
+		observed_restart_count="$(get_pxc_restart_count "$joiner_pod" 2>/dev/null || echo 0)"
+
+		if [[ $observed_restart_count == "$current_restart_count" ]]; then
+			if kubectl_bin exec "$joiner_pod" -c pxc -- test -f /var/lib/mysql/sst_in_progress >/dev/null 2>&1; then
+				echo
+				break
+			fi
+
+			if kubectl_bin logs "$joiner_pod" -c pxc 2>/dev/null | grep -q 'Waiting for SST streaming to complete!'; then
+				echo
+				break
+			fi
+		elif [[ $observed_restart_count -gt $current_restart_count ]]; then
+			if kubectl_bin logs "$joiner_pod" -c pxc 2>/dev/null | grep -q 'SST retry limit reached.'; then
+				echo
+				echo "pod/$joiner_pod reached the SST retry limit before donor interruption on attempt $target_restart_count"
+				return
+			fi
+		fi
+
+		sleep 1
+		echo -n .
+		retry=$((retry + 1))
+		if [[ $retry -ge 600 ]]; then
+			echo
+			echo "ERROR: pod/$joiner_pod restartCount=$current_restart_count did not enter SST"
+			kubectl_bin describe pod "$joiner_pod" || :
+			kubectl_bin logs "$joiner_pod" -c pxc || :
+			kubectl_bin logs "$joiner_pod" -c pxc --previous || :
+			exit 1
+		fi
+	done
+
+	donor_pod=$(detect_active_donor "$root_pass" 120 "${donor_candidates[@]}")
+	echo "interrupting donor pod/$donor_pod during SST attempt $((current_restart_count + 1))"
+	kubectl_bin delete pod "$donor_pod" --wait=false --grace-period=0 --force
+
+	wait_for_pxc_restart_count "$joiner_pod" "$target_restart_count" 600
+	wait_pod "$donor_pod"
+}
+
+main() {
+	local cluster="some-name"
+	local joiner_pod="${cluster}-pxc-3"
+	local donor_candidates=("${cluster}-pxc-1" "${cluster}-pxc-2")
+
+	create_infra "$namespace"
+
+	desc 'start 3-node cluster with SST retry limit'
+	spinup_pxc \
+		"$cluster" \
+		"$test_dir/conf/$cluster.yml" \
+		3 \
+		10 \
+		"$src_dir/e2e-tests/conf/secrets.yml" \
+		"$src_dir/e2e-tests/conf/client.yml"
+
+	secret_name=$(kubectl_bin get pxc "$cluster" -o jsonpath='{.spec.secretsName}')
+	root_pass=$(getSecretData "$secret_name" "root")
+
+	desc 'scale to 4 nodes to trigger SST'
+	kubectl_bin patch pxc "$cluster" --type=merge -p '{"spec":{"pxc":{"size":4}}}'
+
+	desc 'verify the joiner pod has SST retry support wired in'
+	local retry
+	retry=0
+	echo -n "waiting for pod/$joiner_pod container/pxc to start"
+
+	local joiner_container_started
+	until joiner_container_started="$(kubectl_bin get pod "$joiner_pod" -o json | jq -r '.status.containerStatuses[]? | select(.name == "pxc") | .started // false')" \
+		&& [[ $joiner_container_started == "true" ]]; do
+		sleep 1
+		echo -n .
+		retry=$((retry + 1))
+		if [[ $retry -ge 240 ]]; then
+			echo
+			echo "ERROR: pod/$joiner_pod container/pxc did not start"
+			kubectl_bin describe pod "$joiner_pod" || :
+			exit 1
+		fi
+	done
+	echo
+
+	desc 'interrupt SST twice so the joiner exhausts allowed retries'
+	interrupt_donor_during_sst "$root_pass" "$joiner_pod" 0 "${donor_candidates[@]}"
+	interrupt_donor_during_sst "$root_pass" "$joiner_pod" 1 "${donor_candidates[@]}"
+
+	desc 'verify the joiner stops restarting after the retry limit is reached'
+	retry=0
+	echo -n "waiting for pod/$joiner_pod logs to contain 'SST retry limit reached.'"
+	until kubectl_bin logs "$joiner_pod" -c pxc 2>/dev/null | grep -q 'SST retry limit reached.'; do
+		sleep 1
+		echo -n .
+		retry=$((retry + 1))
+		if [[ $retry -ge 240 ]]; then
+			echo
+			echo "ERROR: pod/$joiner_pod logs do not contain 'SST retry limit reached.'"
+			kubectl_bin logs "$joiner_pod" -c pxc || :
+			exit 1
+		fi
+	done
+	echo
+
+	desc 'verify retries stop after the limit'
+	local joiner_phase
+	joiner_phase=$(kubectl_bin get pod "$joiner_pod" -o jsonpath='{.status.phase}')
+	local joiner_ready
+	joiner_ready=$(kubectl_bin get pod "$joiner_pod" -o json \
+		| jq -r '.status.conditions[] | select(.type == "Ready") | .status')
+	if [[ $joiner_phase != "Running" ]]; then
+		echo "ERROR: pod/$joiner_pod phase is $joiner_phase, expected Running"
+		kubectl_bin describe pod "$joiner_pod" || :
+		exit 1
+	fi
+	if [[ $joiner_ready != "False" ]]; then
+		echo "ERROR: pod/$joiner_pod Ready condition is $joiner_ready, expected False"
+		kubectl_bin describe pod "$joiner_pod" || :
+		exit 1
+	fi
+
+	local restart_count_before
+	restart_count_before=$(get_pxc_restart_count "$joiner_pod")
+	sleep_with_log 120
+	local restart_count_after
+	restart_count_after=$(get_pxc_restart_count "$joiner_pod")
+	if [[ $restart_count_before != "$restart_count_after" ]]; then
+		echo "ERROR: pod/$joiner_pod restartCount changed from $restart_count_before to $restart_count_after"
+		kubectl_bin describe pod "$joiner_pod" || :
+		kubectl_bin logs "$joiner_pod" -c pxc || :
+		exit 1
+	fi
+
+	desc 'verify donor candidates remain healthy'
+	local donor_result
+	local donor_pod
+	for donor_pod in "${donor_candidates[@]}"; do
+		donor_result=$(run_mysql_local 'SELECT COUNT(*) FROM myApp.myApp;' "-h127.0.0.1 -P3306 -uroot -p'${root_pass}'" "$donor_pod")
+		if [[ $donor_result != "1" ]]; then
+			echo "ERROR: donor data check failed for pod/$donor_pod, expected row count 1, got '$donor_result'"
+			exit 1
+		fi
+	done
+
+	destroy "$namespace"
+	desc "test passed"
+}
+
+main

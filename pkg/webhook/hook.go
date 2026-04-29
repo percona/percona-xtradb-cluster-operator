@@ -222,7 +222,7 @@ func setupCertificates(ctx context.Context, cl client.Reader, namespace string) 
 	var ca, crt, key []byte
 
 	if k8serrors.IsNotFound(err) {
-		ca, crt, key, err = pxctls.Issue([]string{"percona-xtradb-cluster-operator." + namespace + ".svc"}, true)
+		ca, crt, key, err = pxctls.Issue([]string{"percona-xtradb-cluster-operator." + namespace + ".svc"}, true, true)
 		if err != nil {
 			return nil, errors.Wrap(err, "issue tls certificates")
 		}

@@ -615,6 +615,10 @@ func azureEnvs(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBCluste
 }
 
 func s3Envs(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, cluster *api.PerconaXtraDBCluster, destination api.PXCBackupDestination, pitr bool) ([]corev1.EnvVar, error) {
+	endpoint, err := bcp.Status.S3.Endpoint()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get endpoint")
+	}
 	envs := []corev1.EnvVar{
 		{
 			Name:  "S3_BUCKET_URL",
@@ -622,7 +626,7 @@ func s3Envs(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBa
 		},
 		{
 			Name:  "ENDPOINT",
-			Value: bcp.Status.S3.EndpointURL,
+			Value: endpoint,
 		},
 		{
 			Name:  "DEFAULT_REGION",
@@ -663,29 +667,46 @@ func s3Envs(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBa
 			},
 		},
 	}
+	if bcp.Status.S3.ForcePathStyle {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "S3_FORCE_PATH",
+			Value: "true",
+		})
+	}
 	if pitr {
 		bucket := ""
 		storageS3 := new(api.BackupStorageS3Spec)
 		if bs := cr.Spec.PITR.BackupSource; bs != nil {
+			var err error
 			if bs.StorageName != "" {
 				storage, ok := cluster.Spec.Backup.Storages[bs.StorageName]
 				if ok {
 					storageS3 = storage.S3
-					bucket = storage.S3.Bucket
+					bucket, err = storage.S3.BucketURL()
+					if err != nil {
+						return nil, errors.Wrap(err, "failed to get bucket url")
+					}
 				}
 			}
 			if bs.S3 != nil {
 				storageS3 = bs.S3
-				bucket = storageS3.Bucket
+				bucket, err = storageS3.BucketURL()
+				if err != nil {
+					return nil, errors.Wrap(err, "failed to get bucket url")
+				}
 			}
 		}
 		if len(bucket) == 0 {
 			return nil, errors.New("no bucket in storage")
 		}
+		binlogEndpoint, err := storageS3.Endpoint()
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to get bucket endpoint")
+		}
 		envs = append(envs, []corev1.EnvVar{
 			{
 				Name:  "BINLOG_S3_ENDPOINT",
-				Value: storageS3.EndpointURL,
+				Value: binlogEndpoint,
 			},
 			{
 				Name:  "BINLOG_S3_REGION",
@@ -734,6 +755,14 @@ func s3Envs(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBa
 				Value: "s3",
 			},
 		}...)
+		if storageS3.ForcePathStyle {
+			envs = append(envs,
+				corev1.EnvVar{
+					Name:  "BINLOG_S3_FORCE_PATH",
+					Value: "true",
+				},
+			)
+		}
 	}
 	return envs, nil
 }

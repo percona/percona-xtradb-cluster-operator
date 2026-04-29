@@ -353,6 +353,8 @@ spec:
                     type: string
                   endpointUrl:
                     type: string
+                  forcePathStyle:
+                    type: boolean
                   region:
                     type: string
                 type: object

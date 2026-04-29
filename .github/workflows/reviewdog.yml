@@ -87,12 +87,52 @@ jobs:
         with:
           go-version: '1.25'
       - name: check on release branch
-        if: ${{ contains(github.head_ref, 'release-') || contains(github.base_ref, 'release-') }}
+        if: ${{ contains(github.base_ref, 'release-') }}
         run: |
           make generate manifests VERSION="$(cat pkg/version/version.txt)" IMAGE_TAG_BASE="percona/percona-xtradb-cluster-operator"
           git diff --exit-code
       - name: check on non release branches
-        if: ${{ ! (contains(github.head_ref, 'release-') || contains(github.base_ref, 'release-')) }}
+        if: ${{ ! contains(github.base_ref, 'release-') }}
         run: |
           make generate manifests VERSION=main
           git diff --exit-code
+
+  e2e-release-versions-images:
+    name: e2e-tests release_versions image availability
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Check if e2e-tests/release_versions changed
+        id: changed
+        run: |
+          git fetch origin ${{ github.base_ref }}
+          if git diff --name-only origin/${{ github.base_ref }}...HEAD -- e2e-tests/release_versions | grep -q .; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Verify release_versions images exist (docker manifest inspect)
+        if: steps.changed.outputs.changed == 'true'
+        run: |
+          set -e
+          # All IMAGE_*=value lines, exclude operator image (percona/percona-xtradb-cluster-operator)
+          images=$(grep -E '^IMAGE_[^=]+=' e2e-tests/release_versions | cut -d= -f2 | grep -v '^$' | grep -v 'percona/percona-xtradb-cluster-operator' | sort -u)
+          if [ -z "$images" ]; then
+            echo "No non-operator images found in e2e-tests/release_versions"
+            exit 0
+          fi
+          failed=""
+          for img in $images; do
+            echo "Checking image $img"
+            if ! docker manifest inspect "$img"; then
+              echo "::error::Image not found or inaccessible: $img"
+              failed="${failed} ${img}"
+            fi
+          done
+          if [ -n "$failed" ]; then
+            echo "::error::The following images failed docker manifest inspect:$failed"
+            exit 1
+          fi
+          echo "All images are available."

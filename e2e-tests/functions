@@ -5,10 +5,10 @@ BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 GIT_BRANCH=${VERSION:-$(git rev-parse --abbrev-ref HEAD | sed -e 's^/^-^g; s^[.]^-^g;' | tr '[:upper:]' '[:lower:]')}
 API="pxc.percona.com/v1"
 OPERATOR_VERSION="$(grep 'crVersion' $(realpath $(dirname ${BASH_SOURCE[0]})/../deploy/cr.yaml) | awk '{print $2}')"
-MYSQL_VERSION=${MYSQL_VERSION:-"8.0"}
+MYSQL_VERSION=${MYSQL_VERSION:-"8.4"}
 SKIP_REMOTE_BACKUPS=${SKIP_REMOTE_BACKUPS:-1}
 PMM_SERVER_VER=${PMM_SERVER_VER:-"9.9.9"}
-CERT_MANAGER_VER="1.18.2"
+CERT_MANAGER_VER="1.19.2"
 MINIO_VER="5.4.0"
 CHAOS_MESH_VER="2.7.1"
 VAULT_VER="0.30.0"
@@ -425,6 +425,11 @@ wait_for_running() {
 	done
 }
 
+switch_namespace() {
+	local ns="$1"
+	kubectl_bin config set-context "$(kubectl_bin config current-context)" --namespace="$ns"
+}
+
 wait_for_generation() {
 	local resource="$1"
 	local target_generation="$2"
@@ -619,7 +624,7 @@ run_mysql_local() {
 	local container_name="$4"
 	set +o xtrace
 	kubectl_bin exec $pod ${container_name:+-c $container_name} -- \
-		bash -c "printf \"$command\n\" | mysql -sN $uri" 2>&1 \
+		bash -c "printf '%s\n' \"$command\" | mysql -sN $uri" 2>&1 \
 		| sed -e 's/mysql: //' \
 		| grep -v 'Defaulted container "pxc-client" out of:' \
 		| (grep -E -v 'Using a password on the command line interface can be insecure.|Defaulted container|Defaulting container name|see all of the containers in this pod' || :)
@@ -696,6 +701,30 @@ get_proxy_primary() {
 	done
 
 	echo $ip | cut -d'.' -f1
+}
+
+check_proxysql_hostgroup() {
+	local cluster="$1"
+	local size="$2"
+	local hostgroup_id="$3"
+	local expected="$4" # "empty" or "populated"
+	local admin_uri="-h127.0.0.1 -P6032 -uproxyadmin -padmin_password"
+	local last_pod=$((size - 1))
+
+	for i in $(seq 0 $last_pod); do
+		local count
+		count=$(run_mysql_local \
+			"SELECT COUNT(*) FROM runtime_mysql_servers WHERE hostgroup_id=${hostgroup_id} AND status='ONLINE';" \
+			"$admin_uri" \
+			"${cluster}-proxysql-${i}" 'proxysql')
+		if [[ "$expected" == "empty" && "$count" -ne 0 ]]; then
+			echo "ERROR: ProxySQL pod ${cluster}-proxysql-${i} has ${count} server(s) in hostgroup ${hostgroup_id}, expected 0"
+			exit 1
+		elif [[ "$expected" == "populated" && "$count" -eq 0 ]]; then
+			echo "ERROR: ProxySQL pod ${cluster}-proxysql-${i} has no ONLINE servers in hostgroup ${hostgroup_id}"
+			exit 1
+		fi
+	done
 }
 
 get_pod_name() {
@@ -1095,19 +1124,19 @@ function is_keyring_plugin_in_use() {
 	local cluster=$1
 
 	if [[ $IMAGE_PXC =~ 8\.4 ]]; then
-		if ! kubectl exec -it $cluster-pxc-0 -c pxc -- \
+		if ! kubectl exec $cluster-pxc-0 -c pxc -- \
 			ls /var/lib/mysql/mysqld.my >/dev/null 2>&1; then
 			return 1
 		fi
 		log "/var/lib/mysql/mysqld.my exists: OK"
 
-		if ! kubectl exec -it $cluster-pxc-0 -c pxc -- \
+		if ! kubectl exec $cluster-pxc-0 -c pxc -- \
 			ls /var/lib/mysql/component_keyring_vault.cnf >/dev/null 2>&1; then
 			return 1
 		fi
 		log "/var/lib/mysql/component_keyring_vault.cnf exists: OK"
 	else
-		if ! kubectl exec -it $cluster-pxc-0 -c pxc -- bash -c "cat /etc/mysql/node.cnf" \
+		if ! kubectl exec $cluster-pxc-0 -c pxc -- bash -c "cat /etc/mysql/node.cnf" \
 			| grep -E -o "early-plugin-load=keyring_\w+.so" >/dev/null 2>&1; then
 			return 1
 		fi
@@ -1692,7 +1721,7 @@ function deploy_operator_gh() {
 		| yq eval '(select(.kind == "Deployment").spec.template.spec.containers[] | select(.name == "percona-xtradb-cluster-operator").env[] | select(.name == "LOG_LEVEL").value) = "DEBUG"' \
 		| kubectl_bin apply ${OPERATOR_NS:+-n $OPERATOR_NS} -f -
 
-	sleep 2
+	sleep 10
 	wait_pod "$(get_operator_pod)"
 }
 
@@ -2301,11 +2330,11 @@ is_old_password_discarded() {
 	local result
 	result=$(run_mysql "SELECT User_attributes FROM mysql.user WHERE user='${username}'" "${uri}" 2>/dev/null || echo "")
 	# If result contains additional_password, old password is still present (not discarded)
-	if [[ "$result" =~ additional_password ]]; then
+	if [[ $result =~ additional_password ]]; then
 		return 1
 	fi
 	# If result is empty, NULL, or whitespace only, old password is discarded
-	if [[ -z "$result" ]] || [[ "$result" =~ ^[[:space:]]*$ ]] || [[ "$result" =~ NULL ]]; then
+	if [[ -z $result ]] || [[ $result =~ ^[[:space:]]*$ ]] || [[ $result =~ NULL ]]; then
 		return 0
 	fi
 	# Default: if we can't determine, assume not discarded (fail safe)
@@ -2327,7 +2356,7 @@ wait_for_password_propagation() {
 	fi
 
 	# Validate root_pass is not empty
-	if [[ -z "${root_pass}" ]]; then
+	if [[ -z ${root_pass} ]]; then
 		echo "ERROR: Root password is empty"
 		return 1
 	fi

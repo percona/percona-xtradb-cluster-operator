@@ -210,6 +210,8 @@ spec:
               value: "0"
             - name: PERCONA_SCHEDULER_CFG
               value: /tmp/scheduler-config.toml
+            - name: PXC_READ_ONLY
+              value: "false"
           envFrom:
             - secretRef:
                 name: no-limits-env-vars-proxysql
@@ -284,6 +286,8 @@ spec:
               value: "0"
             - name: PERCONA_SCHEDULER_CFG
               value: /tmp/scheduler-config.toml
+            - name: PXC_READ_ONLY
+              value: "false"
           envFrom:
             - secretRef:
                 name: no-limits-env-vars-proxysql
@@ -296,6 +300,10 @@ spec:
           volumeMounts:
             - mountPath: /opt/percona
               name: bin
+            - mountPath: /etc/proxysql/ssl
+              name: ssl
+            - mountPath: /etc/proxysql/ssl-internal
+              name: ssl-internal
         - args:
             - /opt/percona/peer-list
             - -on-change=/opt/percona/proxysql_add_proxysql_nodes.sh

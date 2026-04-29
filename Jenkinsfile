@@ -11,7 +11,7 @@ void createCluster(String CLUSTER_SUFFIX) {
             ret_num=0
             while [ \${ret_num} -lt 15 ]; do
                 ret_val=0
-                gcloud container clusters list --filter $CLUSTER_NAME-${CLUSTER_SUFFIX} --zone ${region} --format='csv[no-heading](name)' | xargs gcloud container clusters delete --zone ${region} --quiet || true
+                gcloud container clusters list --filter $CLUSTER_NAME-${CLUSTER_SUFFIX} --zone ${region} --format='csv[no-heading](name)' | xargs -r gcloud container clusters delete --zone ${region} --quiet || true
                 gcloud container clusters create $CLUSTER_NAME-${CLUSTER_SUFFIX} \
                     --preemptible \
                     --zone ${region} \
@@ -35,7 +35,7 @@ void createCluster(String CLUSTER_SUFFIX) {
                 ret_num=\$((ret_num + 1))
             done
             if [ \${ret_num} -eq 15 ]; then
-                gcloud container clusters list --filter $CLUSTER_NAME-${CLUSTER_SUFFIX} --zone ${region} --format='csv[no-heading](name)' | xargs gcloud container clusters delete --zone ${region} --quiet || true
+                gcloud container clusters list --filter $CLUSTER_NAME-${CLUSTER_SUFFIX} --zone ${region} --format='csv[no-heading](name)' | xargs -r gcloud container clusters delete --zone ${region} --quiet || true
                 exit 1
             fi
         """
@@ -293,7 +293,7 @@ void prepareNode() {
         sudo curl -sLo /usr/local/bin/kubectl https://dl.k8s.io/release/\$(curl -Ls https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl && sudo chmod +x /usr/local/bin/kubectl
         kubectl version --client --output=yaml
 
-        curl -fsSL https://get.helm.sh/helm-v3.19.0-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
+        curl -fsSL https://get.helm.sh/helm-v3.20.0-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
 
         sudo curl -fsSL https://github.com/mikefarah/yq/releases/download/v4.44.1/yq_linux_amd64 -o /usr/local/bin/yq && sudo chmod +x /usr/local/bin/yq
         sudo curl -fsSL https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux64 -o /usr/local/bin/jq && sudo chmod +x /usr/local/bin/jq
@@ -312,8 +312,8 @@ EOF
         curl -sL https://github.com/mitchellh/golicense/releases/latest/download/golicense_0.2.0_linux_x86_64.tar.gz | sudo tar -C /usr/local/bin -xzf - golicense
 
         sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
-        sudo percona-release enable-only tools
-        sudo yum install -y percona-xtrabackup-80 | true
+        sudo percona-release enable pxb-84-lts
+        sudo yum install -y percona-xtrabackup-84 | true
     """
     installAzureCLI()
     azureAuth()
@@ -391,13 +391,16 @@ void checkE2EIgnoreFiles() {
     echo "Excluded files: $excludedFiles"
     echo "Changed files: $changedFiles"
 
-    def excludedFilesRegex = excludedFiles.collect{it.replace("**", ".*").replace("*", "[^/]*")}
+    // Use placeholder so the * in ".*" (from **) is not replaced by [^/]*
+    def excludedFilesRegex = excludedFiles.collect{
+        it.replace("**", ".__STARSTAR__").replace("*", "[^/]*").replace(".__STARSTAR__", ".*")
+    }
     needToRunTests = !changedFiles.every{changed -> excludedFilesRegex.any{regex -> changed ==~ regex}}
 
     if (needToRunTests) {
         echo "Some changed files are outside of the e2eignore list. Proceeding with execution."
     } else {
-        if (currentBuild.previousBuild?.result != 'SUCCESS') {
+        if (currentBuild.previousBuild?.result != 'SUCCESS' && currentBuild.number != 1) {
             echo "All changed files are e2eignore files, and previous build was unsuccessful. Propagating previous state."
             currentBuild.result = currentBuild.previousBuild?.result
             error "Skipping execution as non-significant changes detected and previous build was unsuccessful."
@@ -616,6 +619,21 @@ pipeline {
                 stage('cluster9') {
                     steps {
                         clusterRunner('cluster9')
+                    }
+                }
+                stage('cluster10') {
+                    steps {
+                        clusterRunner('cluster10')
+                    }
+                }
+                stage('cluster11') {
+                    steps {
+                        clusterRunner('cluster11')
+                    }
+                }
+                stage('cluster12') {
+                    steps {
+                        clusterRunner('cluster12')
                     }
                 }
             }

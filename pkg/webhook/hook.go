@@ -25,6 +25,7 @@ import (
 
 	v1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxctls"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/webhook/json"
 )
@@ -213,7 +214,7 @@ func setupCertificates(ctx context.Context, cl client.Client, namespace string) 
 	certSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
-			Name:      "pxc-webhook-ssl",
+			Name:      naming.OperatorWebhookTLSSecretName,
 		},
 	}
 	err := cl.Get(ctx, client.ObjectKeyFromObject(certSecret), certSecret)
@@ -221,11 +222,13 @@ func setupCertificates(ctx context.Context, cl client.Client, namespace string) 
 		return nil, err
 	}
 
+	// Create new TLS Secret if not found,
+	// otherwise use existing one
 	var ca, crt, key []byte
-	if err == nil {
+	switch {
+	case err == nil:
 		ca, crt, key = certSecret.Data["ca.crt"], certSecret.Data["tls.crt"], certSecret.Data["tls.key"]
-	} else if k8serrors.IsNotFound(err) {
-		// TLS Secret is not found, create it with new certificates
+	case k8serrors.IsNotFound(err):
 		ca, crt, key, err = pxctls.Issue([]string{"percona-xtradb-cluster-operator." + namespace + ".svc"}, true, true)
 		if err != nil {
 			return nil, errors.Wrap(err, "issue tls certificates")
@@ -240,7 +243,8 @@ func setupCertificates(ctx context.Context, cl client.Client, namespace string) 
 		if err != nil {
 			return nil, errors.Wrap(err, "create cert secret")
 		}
-
+	default:
+		return nil, errors.Wrap(err, "get cert secret")
 	}
 
 	return ca, writeCerts(crt, key)

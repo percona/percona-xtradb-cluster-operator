@@ -200,7 +200,7 @@ func (s *S3) ListObjects(ctx context.Context, prefix string) ([]string, error) {
 	opts := minio.ListObjectsOptions{
 		UseV1:     true,
 		Recursive: true,
-		Prefix:    s.prefix + prefix,
+		Prefix:    joinObjectPrefix(s.prefix, prefix),
 	}
 	list := []string{}
 
@@ -231,6 +231,14 @@ func (s *S3) SetPrefix(prefix string) {
 
 func (s *S3) GetPrefix() string {
 	return s.prefix
+}
+
+func joinObjectPrefix(base, prefix string) string {
+	listPrefix := path.Join(base, prefix)
+	if strings.HasSuffix(prefix, "/") && !strings.HasSuffix(listPrefix, "/") {
+		listPrefix += "/"
+	}
+	return listPrefix
 }
 
 func (s *S3) DeleteObject(ctx context.Context, objectName string) error {

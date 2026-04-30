@@ -69,7 +69,7 @@ func (s *s3) Validate(ctx context.Context) error {
 		return errors.Wrap(err, "failed to create s3 client")
 	}
 
-	backupName := s.bcp.Status.Destination.PathWithoutBucket() + "/"
+	backupName := s.bcp.Status.Destination.BackupName() + "/"
 	objs, err := s3cli.ListObjects(ctx, backupName)
 	if err != nil {
 		return errors.Wrap(err, "failed to list objects")
@@ -218,7 +218,7 @@ func (s *azure) Validate(ctx context.Context) error {
 		return errors.Wrap(err, "failed to create s3 client")
 	}
 
-	backupName := s.bcp.Status.Destination.PathWithoutBucket() + "/"
+	backupName := s.bcp.Status.Destination.BackupName() + "/"
 	blobs, err := azurecli.ListObjects(ctx, backupName)
 	if err != nil {
 		return errors.Wrap(err, "list blobs")

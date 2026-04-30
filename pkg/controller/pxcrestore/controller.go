@@ -167,6 +167,8 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(ctx context.Context, re
 
 	restorer, err := r.getRestorer(ctx, cr, bcp, cluster)
 	if err != nil {
+		cr.Status.State = api.RestoreFailed
+		cr.Status.Comments = err.Error()
 		return reconcile.Result{}, errors.Wrap(err, "failed to get restorer")
 	}
 

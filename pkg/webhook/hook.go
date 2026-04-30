@@ -181,7 +181,7 @@ func SetupWebhook(ctx context.Context, mgr manager.Manager) error {
 		return errors.Wrap(err, "get operator namespace")
 	}
 
-	ca, err := setupCertificates(ctx, mgr.GetAPIReader(), namespace)
+	ca, err := setupCertificates(ctx, mgr.GetClient(), namespace)
 	if err != nil {
 		return errors.Wrap(err, "prepare hook tls certs")
 	}
@@ -209,25 +209,38 @@ func SetupWebhook(ctx context.Context, mgr manager.Manager) error {
 	return nil
 }
 
-func setupCertificates(ctx context.Context, cl client.Reader, namespace string) ([]byte, error) {
-	certSecret := &corev1.Secret{}
-	err := cl.Get(ctx, types.NamespacedName{
-		Namespace: namespace,
-		Name:      "pxc-webhook-ssl",
-	}, certSecret)
+func setupCertificates(ctx context.Context, cl client.Client, namespace string) ([]byte, error) {
+	certSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      "pxc-webhook-ssl",
+		},
+	}
+	err := cl.Get(ctx, client.ObjectKeyFromObject(certSecret), certSecret)
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return nil, err
 	}
 
 	var ca, crt, key []byte
-
-	if k8serrors.IsNotFound(err) {
+	if err == nil {
+		ca, crt, key = certSecret.Data["ca.crt"], certSecret.Data["tls.crt"], certSecret.Data["tls.key"]
+	} else if k8serrors.IsNotFound(err) {
+		// TLS Secret is not found, create it with new certificates
 		ca, crt, key, err = pxctls.Issue([]string{"percona-xtradb-cluster-operator." + namespace + ".svc"}, true, true)
 		if err != nil {
 			return nil, errors.Wrap(err, "issue tls certificates")
 		}
-	} else {
-		ca, crt, key = certSecret.Data["ca.crt"], certSecret.Data["tls.crt"], certSecret.Data["tls.key"]
+
+		certSecret.Data = map[string][]byte{
+			"ca.crt":  ca,
+			"tls.crt": crt,
+			"tls.key": key,
+		}
+		err = cl.Create(ctx, certSecret)
+		if err != nil {
+			return nil, errors.Wrap(err, "create cert secret")
+		}
+
 	}
 
 	return ca, writeCerts(crt, key)

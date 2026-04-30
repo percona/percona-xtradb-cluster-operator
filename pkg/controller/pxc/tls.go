@@ -1,8 +1,10 @@
 package pxc
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"reflect"
 	"time"
 
 	cm "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
@@ -13,10 +15,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxctls"
 )
 
@@ -401,4 +405,167 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileTLSToggle(ctx context.Context, 
 	condition.Status = api.ConditionStatus(naming.GetConditionTLSState(cr))
 	condition.LastTransitionTime = metav1.NewTime(time.Now().Truncate(time.Second))
 	return nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) rotateSSLCertificates(
+	ctx context.Context,
+	cr *api.PerconaXtraDBCluster,
+) error {
+	if !cr.TLSEnabled() {
+		return nil
+	}
+
+	if inProgress, err := r.rotateSSLCertificate(ctx, cr, cr.Spec.PXC.SSLSecretName); err != nil {
+		return errors.Wrap(err, "failed to rotate ssl certificate")
+	} else if inProgress {
+		return nil
+	}
+
+	if inProgress, err := r.rotateSSLCertificate(ctx, cr, cr.Spec.PXC.SSLInternalSecretName); err != nil {
+		return errors.Wrap(err, "failed to rotate internal ssl certificate")
+	} else if inProgress {
+		return nil
+	}
+
+	return nil
+}
+
+// rotateSSLCertificate applies new TLS certificates without downtime.
+// The user places the desired new certificates in a Secret named "<secretName>-new"
+// (see keys ca.crt, tls.crt, tls.key), then the reconciler:
+//  1. Replaces only ca.crt with a combined CA certificate (new and old)
+//  2. Replaces tls.crt and tls.key with the new cert and key, leaving the combined ca.crt;
+//  3. Replaces ca.crt with the new CA only.
+//
+// It returns (true, nil) while a rolling restart is expected before the next step;
+// (false, nil) when the rotation is finished and the -new secret is removed.
+// TODO: we should show this in the status somewhere, preferably in conditions. However, it needs refactor first.
+func (r *ReconcilePerconaXtraDBCluster) rotateSSLCertificate(
+	ctx context.Context,
+	cr *api.PerconaXtraDBCluster,
+	secretName string,
+) (bool, error) {
+	// newSecret contains the new TLS certificates
+	newSecretName := secretName + "-new"
+	newSecretObj := corev1.Secret{}
+	if err := r.client.Get(ctx,
+		types.NamespacedName{
+			Namespace: cr.GetNamespace(),
+			Name:      newSecretName,
+		},
+		&newSecretObj,
+	); k8serr.IsNotFound(err) {
+		return false, nil // nothing to do
+	} else if err != nil {
+		return false, errors.Wrap(err, "failed to get new secret")
+	}
+
+	// secretObj contains the current TLS certificates
+	secretObj := corev1.Secret{}
+	if err := r.client.Get(ctx,
+		types.NamespacedName{
+			Namespace: cr.GetNamespace(),
+			Name:      secretName,
+		},
+		&secretObj,
+	); err != nil {
+		return false, errors.Wrap(err, "failed to get secret")
+	}
+
+	// Validate that our secrets contain the required keys.
+	for _, key := range []string{"ca.crt", "tls.crt", "tls.key"} {
+		if _, ok := secretObj.Data[key]; !ok {
+			return false, errors.Errorf("secret %s does not contain required key '%s'", secretName, key)
+		}
+		if _, ok := newSecretObj.Data[key]; !ok {
+			return false, errors.Errorf("secret %s does not contain required key '%s'", newSecretName, key)
+		}
+	}
+
+	log := logf.FromContext(ctx).WithValues("secretName", secretName)
+
+	// Wait for current set of TLS certificates to be applied onto the PXC nodes.
+	if ok, err := r.isSSLReconciled(ctx, cr, secretName); err != nil {
+		return false, errors.Wrap(err, "failed to check if ssl is reconciled")
+	} else if !ok {
+		log.Info("Waiting for SSL to be reconciled")
+		return true, nil // check again later
+	}
+
+	// If the new secret and existing secret are the same, we are done with the rotation.
+	// Delete the new secret and return.
+	if reflect.DeepEqual(secretObj.Data, newSecretObj.Data) {
+		if err := r.client.Delete(ctx, &newSecretObj); err != nil {
+			return false, errors.Wrap(err, "failed to delete new secret")
+		}
+		log.Info("SSL certificate rotation completed")
+		return false, nil
+	}
+
+	// Step 1: combine new and current CA certificates
+	currentCA := secretObj.Data["ca.crt"]
+	newCA := newSecretObj.Data["ca.crt"]
+	if len(newCA) > 0 && !bytes.Contains(currentCA, newCA) {
+		log.Info("Combining new CA certificate and applying")
+
+		combined := append([]byte{}, newCA...)
+		if len(combined) > 0 && combined[len(combined)-1] != '\n' {
+			// Ensure newline
+			combined = append(combined, '\n')
+		}
+		combined = append(combined, currentCA...)
+
+		updatedSecret := secretObj.DeepCopy()
+		updatedSecret.Data["ca.crt"] = combined
+		return true, r.client.Update(ctx, updatedSecret)
+	}
+
+	// Step 2: new server cert and key with the combined trust bundle in ca.crt unchanged.
+	currentTLSCert := secretObj.Data["tls.crt"]
+	newTLSCert := newSecretObj.Data["tls.crt"]
+	currentTLSKey := secretObj.Data["tls.key"]
+	newTLSKey := newSecretObj.Data["tls.key"]
+	if !bytes.Equal(currentTLSKey, newTLSKey) || !bytes.Equal(currentTLSCert, newTLSCert) {
+		log.Info("Applying new TLS certificates")
+		updatedSecret := secretObj.DeepCopy()
+		updatedSecret.Data["tls.crt"] = newTLSCert
+		updatedSecret.Data["tls.key"] = newTLSKey
+		return true, r.client.Update(ctx, updatedSecret)
+	}
+
+	// Step 3: only the new CA in ca.crt; tls.crt/tls.key already match the new material.
+	if !bytes.Equal(currentCA, newCA) {
+		log.Info("Applying new CA certificate")
+		updatedSecret := secretObj.DeepCopy()
+		updatedSecret.Data["ca.crt"] = newCA
+		return true, r.client.Update(ctx, updatedSecret)
+	}
+
+	return false, nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) isSSLReconciled(ctx context.Context, cr *api.PerconaXtraDBCluster, secretName string) (bool, error) {
+	calculatedHash, err := r.getSecretHash(cr, secretName, false)
+	if err != nil {
+		return false, errors.Wrap(err, "failed to get secret hash")
+	}
+
+	sfs := statefulset.NewNode(cr).StatefulSet()
+	if err := r.client.Get(ctx, client.ObjectKeyFromObject(sfs), sfs); err != nil {
+		return false, errors.Wrap(err, "failed to get statefulset")
+	}
+
+	var annotation string
+	switch secretName {
+	case cr.Spec.PXC.SSLSecretName:
+		annotation = sslHashAnnotation
+	case cr.Spec.PXC.SSLInternalSecretName:
+		annotation = sslInternalHashAnnotation
+	default:
+		return false, errors.Errorf("unknown secret name for SSL certificate rotation: %s", secretName)
+	}
+	currentAnnotations := sfs.Spec.Template.Annotations
+	observedHash := currentAnnotations[annotation]
+
+	return calculatedHash == observedHash && cr.Status.Status == api.AppStateReady, nil
 }

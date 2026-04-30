@@ -182,7 +182,9 @@ func SetupWebhook(ctx context.Context, mgr manager.Manager) error {
 		return errors.Wrap(err, "get operator namespace")
 	}
 
-	ca, err := setupCertificates(ctx, mgr.GetClient(), namespace)
+	// mgr.GetClient() reads go through the informer cache, which starts only inside
+	// mgr.Start(). SetupWebhook runs earlier, so use the API reader for Secret Get.
+	ca, err := setupCertificates(ctx, mgr.GetAPIReader(), mgr.GetClient(), namespace)
 	if err != nil {
 		return errors.Wrap(err, "prepare hook tls certs")
 	}
@@ -210,14 +212,21 @@ func SetupWebhook(ctx context.Context, mgr manager.Manager) error {
 	return nil
 }
 
-func setupCertificates(ctx context.Context, cl client.Client, namespace string) ([]byte, error) {
+func setupCertificates(
+	ctx context.Context,
+	reader client.Reader,
+	cl client.Client,
+	namespace string,
+) ([]byte, error) {
 	certSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
 			Name:      naming.OperatorWebhookTLSSecretName,
 		},
 	}
-	err := cl.Get(ctx, client.ObjectKeyFromObject(certSecret), certSecret)
+
+	// Use API reader because the client has not started yet
+	err := reader.Get(ctx, client.ObjectKeyFromObject(certSecret), certSecret)
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return nil, err
 	}

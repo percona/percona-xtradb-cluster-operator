@@ -8,14 +8,17 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"time"
 
 	_ "github.com/Percona-Lab/percona-version-service/api"
 	certmgrscheme "github.com/cert-manager/cert-manager/pkg/client/clientset/versioned/scheme"
 	"github.com/go-logr/logr"
+	"github.com/kelseyhightower/envconfig"
 	uzap "go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	eventsv1 "k8s.io/api/events/v1"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/validation"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"k8s.io/klog/v2"
@@ -46,14 +49,10 @@ var (
 
 func main() {
 	var metricsAddr string
-	var enableLeaderElection bool
 	var probeAddr string
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
-	flag.BoolVar(&enableLeaderElection, "leader-elect", true,
-		"Enable leader election for controller manager. "+
-			"Enabling this will ensure there is only one active controller manager.")
 
 	opts := zap.Options{
 		Encoder: getLogEncoder(setupLog),
@@ -90,8 +89,14 @@ func main() {
 		os.Exit(1)
 	}
 
+	envs := new(envConfig)
+	if err := envconfig.Process("", envs); err != nil {
+		setupLog.Error(err, "failed to parse env vars")
+		os.Exit(1)
+	}
+
 	fg := features.NewGate()
-	if err := fg.Set(os.Getenv("PXCO_FEATURE_GATES")); err != nil {
+	if err := fg.Set(envs.FeatureGates); err != nil {
 		setupLog.Error(err, "failed to set feature gates")
 		os.Exit(1)
 	}
@@ -109,8 +114,6 @@ func main() {
 			BindAddress: metricsAddr,
 		},
 		HealthProbeBindAddress: probeAddr,
-		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "08db1feb.percona.com",
 		WebhookServer: ctrlWebhook.NewServer(ctrlWebhook.Options{
 			Port: 9443,
 		}),
@@ -119,7 +122,13 @@ func main() {
 		},
 	}
 
-	err = configureGroupKindConcurrency(&options)
+	err = configureLeaderElection(&options, envs, operatorNamespace)
+	if err != nil {
+		setupLog.Error(err, "failed to configure leader election")
+		os.Exit(1)
+	}
+
+	err = configureGroupKindConcurrency(&options, envs)
 	if err != nil {
 		setupLog.Error(err, "failed to configure group kind concurrency")
 		os.Exit(1)
@@ -252,7 +261,42 @@ func getLogLevel(log logr.Logger) zapcore.LevelEnabler {
 	}
 }
 
-func configureGroupKindConcurrency(options *ctrl.Options) error {
+const defaultElectionID = "08db1feb.percona.com"
+
+type envConfig struct {
+	LeaderElection   bool          `default:"true" envconfig:"PXCO_LEADER_ELECTION_ENABLED"`
+	LeaderElectionID string        `envconfig:"PXCO_LEADER_ELECTION_LEASE_NAME"`
+	LeaseDuration    time.Duration `default:"15s" envconfig:"PXCO_LEADER_ELECTION_LEASE_DURATION"`
+	RenewDeadline    time.Duration `default:"10s" envconfig:"PXCO_LEADER_ELECTION_RENEW_DEADLINE"`
+	RetryPeriod      time.Duration `default:"2s" envconfig:"PXCO_LEADER_ELECTION_RETRY_PERIOD"`
+
+	FeatureGates string `envconfig:"PXCO_FEATURE_GATES"`
+
+	Workers *int `envconfig:"MAX_CONCURRENT_RECONCILES"`
+}
+
+func configureLeaderElection(options *ctrl.Options, envs *envConfig, operatorNamespace string) error {
+	options.LeaderElection = envs.LeaderElection
+	if envs.LeaderElection {
+		options.LeaderElectionID = defaultElectionID
+	}
+
+	options.LeaseDuration = &envs.LeaseDuration
+	options.RenewDeadline = &envs.RenewDeadline
+	options.RetryPeriod = &envs.RetryPeriod
+
+	if lease := envs.LeaderElectionID; envs.LeaderElection && len(lease) > 0 {
+		if errs := validation.IsDNS1123Subdomain(lease); len(errs) > 0 {
+			return fmt.Errorf("value for PXCO_LEADER_ELECTION_LEASE_NAME is invalid: %v", errs)
+		}
+		options.LeaderElectionID = lease
+		options.LeaderElectionNamespace = operatorNamespace
+	}
+
+	return nil
+}
+
+func configureGroupKindConcurrency(options *ctrl.Options, envs *envConfig) error {
 	groupKinds := []string{
 		"PerconaXtraDBCluster." + pxcv1.SchemeGroupVersion.Group,
 		"PerconaXtraDBClusterBackup." + pxcv1.SchemeGroupVersion.Group,
@@ -265,16 +309,12 @@ func configureGroupKindConcurrency(options *ctrl.Options) error {
 		options.Controller.GroupKindConcurrency[gk] = defaultConcurrency
 	}
 
-	if s := os.Getenv("MAX_CONCURRENT_RECONCILES"); s != "" {
-		i, err := strconv.Atoi(s)
-		if err != nil {
-			return fmt.Errorf("MAX_CONCURRENT_RECONCILES must be a valid integer: %s", s)
-		}
-		if i <= 0 {
-			return fmt.Errorf("MAX_CONCURRENT_RECONCILES must be a positive number: %d", i)
+	if envs.Workers != nil {
+		if *envs.Workers <= 0 {
+			return fmt.Errorf("MAX_CONCURRENT_RECONCILES must be a positive number: %d", *envs.Workers)
 		}
 		for _, gk := range groupKinds {
-			options.Controller.GroupKindConcurrency[gk] = i
+			options.Controller.GroupKindConcurrency[gk] = *envs.Workers
 		}
 	}
 	return nil

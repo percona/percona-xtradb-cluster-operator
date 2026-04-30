@@ -330,6 +330,7 @@ func TestValidate(t *testing.T) {
 
 type fakeStorageClient struct {
 	storage.Storage
+	prefix                  string
 	expectedListObjectsPath string
 	listObjectsResponse     []string
 	failListObjects         bool
@@ -348,6 +349,10 @@ func (c *fakeStorageClient) ListObjects(_ context.Context, key string) ([]string
 		return c.listObjectsResponse, nil
 	}
 	return []string{"some-dest/backup1", "some-dest/backup2"}, nil
+}
+
+func (c *fakeStorageClient) GetPrefix() string {
+	return c.prefix
 }
 
 // TestOperatorRestart checks that the operator can catch up with the restore process after a restart.

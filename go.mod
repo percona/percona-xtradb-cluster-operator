@@ -18,9 +18,9 @@ require (
 	github.com/go-openapi/validate v0.25.2
 	github.com/go-sql-driver/mysql v1.9.3
 	github.com/google/go-cmp v0.7.0
-	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/hashicorp/go-version v1.9.0
-	github.com/minio/minio-go/v7 v7.0.98
+	github.com/kelseyhightower/envconfig v1.4.0
+	github.com/minio/minio-go/v7 v7.1.0
 	github.com/onsi/ginkgo/v2 v2.28.1
 	github.com/onsi/gomega v1.39.1
 	github.com/pkg/errors v0.9.1
@@ -123,6 +123,7 @@ require (
 	github.com/tinylib/msgp v1.6.1 // indirect
 	github.com/vektra/mockery/v2 v2.53.5 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
+	github.com/zeebo/xxh3 v1.1.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/otel v1.43.0 // indirect
 	go.opentelemetry.io/otel/metric v1.43.0 // indirect

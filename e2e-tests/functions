@@ -575,6 +575,7 @@ compare_kubectl() {
 			del(.. | select(has("preemptionPolicy")).preemptionPolicy) |
 			del(.spec.ipFamilies) |
 			del(.spec.ipFamilyPolicy) |
+			del(.spec.updateStrategy.rollingUpdate.maxUnavailable) |
 			(.. | select(. == "policy/v1beta1")) = "policy/v1" |
 			del(.. | select(has("kubernetes.io/hostname"))."kubernetes.io/hostname") |
 			(.. | select(tag == "!!str")) |= sub("'$namespace'", "namespace") |

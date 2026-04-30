@@ -133,7 +133,7 @@ check_binlog_gap() {
 get_gtid_executed() {
 	local host=$1
 
-	local gtid=$(run_mysql "SELECT @@gtid_executed;" "-h ${host} -uroot -proot_password" | $sed 's/\([a-f0-9-]\{36\}\):[0-9]*-\([0-9]*\).*/\1:\2/')
+	local gtid=$(run_mysql "SELECT @@gtid_executed;" "-h ${host} -uroot -p${mysql_root_pass}" | $sed 's/\([a-f0-9-]\{36\}\):[0-9]*-\([0-9]*\).*/\1:\2/')
 
 	if [[ ! ${gtid} =~ ${GTID_PATTERN} ]]; then
 		printf "Some garbage --> %s <-- instead of legit GTID. Exiting" ${gtid}
@@ -141,6 +141,34 @@ get_gtid_executed() {
 	fi
 
 	echo ${gtid}
+}
+
+
+create_random_pass() {
+	local cluster="$1"
+	local root xtrabackup_pw monitor_pw proxyadmin_pw pmmserver_pw operator_pw replication_pw
+
+	root=$(openssl rand -hex 16)
+	xtrabackup_pw=$(openssl rand -hex 16)
+	monitor_pw=$(openssl rand -hex 16)
+	proxyadmin_pw=$(openssl rand -hex 16)
+	pmmserver_pw=$(openssl rand -hex 16)
+	operator_pw=$(openssl rand -hex 16)
+	replication_pw=$(openssl rand -hex 16)
+
+	kubectl_bin delete secret my-cluster-secrets --ignore-not-found
+	kubectl_bin delete secret "internal-${cluster}" --ignore-not-found
+
+	kubectl_bin create secret generic my-cluster-secrets \
+		--from-literal=root="$root" \
+		--from-literal=xtrabackup="$xtrabackup_pw" \
+		--from-literal=monitor="$monitor_pw" \
+		--from-literal=proxyadmin="$proxyadmin_pw" \
+		--from-literal=pmmserver="$pmmserver_pw" \
+		--from-literal=operator="$operator_pw" \
+		--from-literal=replication="$replication_pw"
+
+	mysql_root_pass="$root"
 }
 
 main() {
@@ -153,6 +181,7 @@ main() {
 	start_minio "tls-minio"
 
 	cluster="pitr"
+	mysql_root_pass=root_password
 	spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml"
 
 	pitr_pod=$(
@@ -263,8 +292,9 @@ main() {
 		fi
 	fi
 
-	desc "[CASE 4] recreate empty PXC cluster ${cluster}"
+	desc "[CASE 4] recreate empty PXC cluster ${cluster} with random system user passwords"
 	kubectl_bin apply -f ${conf_dir}/secrets.yml
+	create_random_pass "$cluster"
 	apply_config "${conf_dir}/client.yml"
 	apply_config "$test_dir/conf/$cluster.yml"
 
@@ -283,7 +313,7 @@ main() {
 	wait_cluster_consistency ${cluster} 3 2
 
 	desc "[CASE 4] PiTR with latest using backupSource on new cluster"
-	run_recovery_check_pitr "$cluster" "restore-on-pitr-minio" "on-pitr-minio" "select-4" "" "$dest" ""
+	run_recovery_check_pitr "$cluster" "restore-on-pitr-minio" "on-pitr-minio" "select-4" "" "$dest" "" "$mysql_root_pass"
 
 	gtid=$(get_gtid_executed ${mysql_host})
 	log "[CASE 4]: gtid_executed (after restore): ${gtid}"

@@ -364,6 +364,11 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 		return reconcile.Result{}, errors.Wrapf(err, "failed to reconcile SSL. Please create your TLS secret %s and %s manually or setup cert-manager correctly", o.Spec.PXC.SSLSecretName, o.Spec.PXC.SSLInternalSecretName)
 	}
 
+	err = r.rotateSSLCertificates(ctx, o)
+	if err != nil {
+		return reconcile.Result{}, errors.Wrap(err, "failed to rotate ssl certificates")
+	}
+
 	err = r.deploy(ctx, o)
 	if err != nil {
 		return reconcile.Result{}, err

@@ -20,6 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/util/cert"
+	k8sretry "k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
@@ -184,7 +185,7 @@ func SetupWebhook(ctx context.Context, mgr manager.Manager) error {
 
 	// mgr.GetClient() reads go through the informer cache, which starts only inside
 	// mgr.Start(). SetupWebhook runs earlier, so use the API reader for Secret Get.
-	ca, err := setupCertificates(ctx, mgr.GetAPIReader(), mgr.GetClient(), namespace)
+	ca, err := ensureCertificates(ctx, mgr.GetAPIReader(), mgr.GetClient(), namespace)
 	if err != nil {
 		return errors.Wrap(err, "prepare hook tls certs")
 	}
@@ -210,6 +211,30 @@ func SetupWebhook(ctx context.Context, mgr manager.Manager) error {
 	}
 
 	return nil
+}
+
+func ensureCertificates(
+	ctx context.Context,
+	reader client.Reader,
+	cl client.Client,
+	namespace string,
+) ([]byte, error) {
+	var ca []byte
+
+	// Retry on AlreadyExists error.
+	// This typically happens when multiple replicas start at once and race to create the same secret.
+	// The ones that fail will re-attempt and use the already existing secret.
+	if err := k8sretry.OnError(k8sretry.DefaultBackoff, func(err error) bool {
+		return k8serrors.IsAlreadyExists(err)
+	}, func() error {
+		var setupErr error
+		ca, setupErr = setupCertificates(ctx, reader, cl, namespace)
+		return setupErr
+	}); err != nil {
+		return nil, errors.Wrap(err, "ensure certificates")
+	}
+
+	return ca, nil
 }
 
 func setupCertificates(

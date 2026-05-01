@@ -252,18 +252,9 @@ func setupCertificates(
 
 	// Use API reader because the client has not started yet
 	err := reader.Get(ctx, client.ObjectKeyFromObject(certSecret), certSecret)
-	if err != nil && !k8serrors.IsNotFound(err) {
-		return nil, err
-	}
-
-	// Create new TLS Secret if not found,
-	// otherwise use existing one
-	var ca, crt, key []byte
-	switch {
-	case err == nil:
-		ca, crt, key = certSecret.Data["ca.crt"], certSecret.Data["tls.crt"], certSecret.Data["tls.key"]
-	case k8serrors.IsNotFound(err):
-		ca, crt, key, err = pxctls.Issue([]string{"percona-xtradb-cluster-operator." + namespace + ".svc"}, true, true)
+	if k8serrors.IsNotFound(err) {
+		// Secret does not exist, issue new certificates and create the secret
+		ca, crt, key, err := pxctls.Issue([]string{"percona-xtradb-cluster-operator." + namespace + ".svc"}, true, true)
 		if err != nil {
 			return nil, errors.Wrap(err, "issue tls certificates")
 		}
@@ -277,8 +268,23 @@ func setupCertificates(
 		if err != nil {
 			return nil, errors.Wrap(err, "create cert secret")
 		}
-	default:
+		return ca, writeCerts(crt, key)
+	} else if err != nil {
 		return nil, errors.Wrap(err, "get cert secret")
+	}
+
+	// Secret exists, use the existing certificates
+	ca, ok := certSecret.Data["ca.crt"]
+	if !ok {
+		return nil, errors.New("ca.crt not found in cert secret")
+	}
+	crt, ok := certSecret.Data["tls.crt"]
+	if !ok {
+		return nil, errors.New("tls.crt not found in cert secret")
+	}
+	key, ok := certSecret.Data["tls.key"]
+	if !ok {
+		return nil, errors.New("tls.key not found in cert secret")
 	}
 
 	return ca, writeCerts(crt, key)

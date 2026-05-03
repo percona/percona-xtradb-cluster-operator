@@ -16,7 +16,7 @@ require (
 	github.com/go-openapi/strfmt v0.26.2
 	github.com/go-openapi/swag v0.26.0
 	github.com/go-openapi/validate v0.25.2
-	github.com/go-sql-driver/mysql v1.9.3
+	github.com/go-sql-driver/mysql v1.10.0
 	github.com/google/go-cmp v0.7.0
 	github.com/hashicorp/go-version v1.9.0
 	github.com/kelseyhightower/envconfig v1.4.0
@@ -45,7 +45,7 @@ require (
 )
 
 require (
-	filippo.io/edwards25519 v1.1.1 // indirect
+	filippo.io/edwards25519 v1.2.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.21.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.11.2 // indirect
 	github.com/Masterminds/semver/v3 v3.4.0 // indirect

@@ -364,6 +364,11 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 		return reconcile.Result{}, errors.Wrapf(err, "failed to reconcile SSL. Please create your TLS secret %s and %s manually or setup cert-manager correctly", o.Spec.PXC.SSLSecretName, o.Spec.PXC.SSLInternalSecretName)
 	}
 
+	err = r.rotateSSLCertificates(ctx, o)
+	if err != nil {
+		return reconcile.Result{}, errors.Wrap(err, "failed to rotate ssl certificates")
+	}
+
 	err = r.deploy(ctx, o)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -754,8 +759,8 @@ func (r *ReconcilePerconaXtraDBCluster) deleteSecrets(cr *api.PerconaXtraDBClust
 
 func (r *ReconcilePerconaXtraDBCluster) deleteCerts(ctx context.Context, cr *api.PerconaXtraDBCluster) error {
 	issuers := []string{
-		cr.Name + "-pxc-ca-issuer",
-		cr.Name + "-pxc-issuer",
+		naming.CAIssuerName(cr),
+		naming.IssuerName(cr),
 	}
 	for _, issuerName := range issuers {
 		issuer := &cm.Issuer{}
@@ -771,9 +776,9 @@ func (r *ReconcilePerconaXtraDBCluster) deleteCerts(ctx context.Context, cr *api
 	}
 
 	certs := []string{
-		cr.Name + "-ssl",
-		cr.Name + "-ssl-internal",
-		cr.Name + "-ca-cert",
+		naming.SSLCertificateName(cr),
+		naming.SSLInternalCertificateName(cr),
+		naming.CACertificateName(cr),
 	}
 	for _, certName := range certs {
 		cert := &cm.Certificate{}
@@ -789,19 +794,19 @@ func (r *ReconcilePerconaXtraDBCluster) deleteCerts(ctx context.Context, cr *api
 	}
 
 	secrets := []string{
-		cr.Name + "-ca-cert",
+		naming.CACertificateName(cr),
 	}
 
 	if len(cr.Spec.SSLSecretName) > 0 {
 		secrets = append(secrets, cr.Spec.SSLSecretName)
 	} else {
-		secrets = append(secrets, cr.Name+"-ssl")
+		secrets = append(secrets, naming.SSLCertificateName(cr))
 	}
 
 	if len(cr.Spec.SSLInternalSecretName) > 0 {
 		secrets = append(secrets, cr.Spec.SSLInternalSecretName)
 	} else {
-		secrets = append(secrets, cr.Name+"-ssl-internal")
+		secrets = append(secrets, naming.SSLInternalCertificateName(cr))
 	}
 
 	for _, secretName := range secrets {

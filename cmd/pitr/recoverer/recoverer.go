@@ -586,16 +586,16 @@ func getGTIDFromSSTInfo(
 
 func parseGTIDFromSSTInfoContent(content []byte) (string, error) {
 	sep := []byte("galera-gtid=")
-	startIndex := bytes.Index(content, sep)
-	if startIndex == -1 {
+	_, after, ok := bytes.Cut(content, sep)
+	if !ok {
 		return "", errors.New("no gtid data in backup")
 	}
-	newOut := content[startIndex+len(sep):]
-	e := bytes.Index(newOut, []byte("\n"))
-	if e == -1 {
+	newOut := after
+	before, _, ok := bytes.Cut(newOut, []byte("\n"))
+	if !ok {
 		return "", errors.New("can't find gtid data in backup")
 	}
-	return string(newOut[:e]), nil
+	return string(before), nil
 }
 
 func getGTIDFromXtrabackupBinlogInfo(ctx context.Context, xbBinlogInfoFile string, s storage.Storage) (string, error) {
@@ -631,7 +631,7 @@ func getSetFromXtrabackupInfo(gtid string, xtrabackupInfo []byte) (string, error
 	if err != nil {
 		return "", errors.Wrap(err, "get gtid from xtrabackup info")
 	}
-	for _, v := range strings.Split(gtids, ",") {
+	for v := range strings.SplitSeq(gtids, ",") {
 		valueSplitted := strings.Split(v, ":")
 		if valueSplitted[0] == gtid {
 			return valueSplitted[1], nil
@@ -642,11 +642,11 @@ func getSetFromXtrabackupInfo(gtid string, xtrabackupInfo []byte) (string, error
 
 func getGTIDFromXtrabackup(content []byte) (string, error) {
 	sep := []byte("GTID of the last")
-	startIndex := bytes.Index(content, sep)
-	if startIndex == -1 {
+	_, after, ok := bytes.Cut(content, sep)
+	if !ok {
 		return "", errors.New("no gtid data in backup")
 	}
-	newOut := content[startIndex+len(sep):]
+	newOut := after
 	e := bytes.Index(newOut, []byte("'\n"))
 	if e == -1 {
 		return "", errors.New("can't find gtid data in backup")

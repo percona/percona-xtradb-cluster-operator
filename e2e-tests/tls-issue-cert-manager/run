@@ -17,14 +17,108 @@ check_verify_identity() {
 		bash -c "printf '%s\n' \"${command}\" | mysql -sN $args"
 }
 
+trigger_ca_rotation() {
+	desc 'set rotationPolicy=Always on CA certificate'
+	kubectl_bin patch certificate "$cluster-ca-cert" --type=merge \
+		-p '{"spec":{"privateKey":{"rotationPolicy":"Always"}}}'
+
+	desc 'capture current CA fingerprint'
+	local old_ca_md5
+	old_ca_md5=$(kubectl_bin get secret "$cluster-ca-cert" -o jsonpath='{.data.tls\.crt}' \
+		| base64 -d | openssl x509 -noout -fingerprint -sha256 2>/dev/null)
+	echo "old CA: $old_ca_md5"
+
+	desc 'trigger CA renewal via status condition patch'
+	local now
+	now=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+	kubectl_bin get certificate "$cluster-ca-cert" -o json \
+		| jq --arg now "$now" '.status.conditions = [{"type":"Issuing","status":"True","reason":"ManuallyTriggered","message":"Certificate renewal triggered","lastTransitionTime":$now}]' \
+		| kubectl_bin replace --subresource=status -f -
+
+	desc 'wait for cert-manager to issue new CA'
+	local retries=30
+	local new_ca_md5=""
+	for _ in $(seq 1 $retries); do
+		new_ca_md5=$(kubectl_bin get secret "$cluster-ca-cert" -o jsonpath='{.data.tls\.crt}' \
+			| base64 -d | openssl x509 -noout -fingerprint -sha256 2>/dev/null)
+		if [ "$new_ca_md5" != "$old_ca_md5" ]; then
+			echo "new CA: $new_ca_md5"
+			break
+		fi
+		sleep 5
+	done
+
+	if [ "$new_ca_md5" == "$old_ca_md5" ]; then
+		echo "CA was not rotated after ${retries} retries"
+		exit 1
+	fi
+
+	desc 'trigger operator reconcile to detect CA mismatch'
+	kubectl_bin annotate pxc "$cluster" percona.com/ca-rotated-at="$(date -u +%Y-%m-%dT%H:%M:%SZ)" --overwrite
+
+	desc 'wait for operator to re-issue leaf certs with new CA'
+	local leaf_retries=60
+	local leaf_ca_md5=""
+	local leaf_internal_ca_md5=""
+	for _ in $(seq 1 $leaf_retries); do
+		leaf_ca_md5=$(kubectl_bin get secret "$cluster-ssl" -o jsonpath='{.data.ca\.crt}' 2>/dev/null \
+			| base64 -d 2>/dev/null | openssl x509 -noout -fingerprint -sha256 2>/dev/null) || true
+		leaf_internal_ca_md5=$(kubectl_bin get secret "$cluster-ssl-internal" -o jsonpath='{.data.ca\.crt}' 2>/dev/null \
+			| base64 -d 2>/dev/null | openssl x509 -noout -fingerprint -sha256 2>/dev/null) || true
+		if [ "$leaf_ca_md5" == "$new_ca_md5" ] && [ "$leaf_internal_ca_md5" == "$new_ca_md5" ]; then
+			break
+		fi
+		sleep 5
+	done
+
+	desc 'verify leaf secrets have new CA'
+	if [ "$leaf_ca_md5" != "$new_ca_md5" ]; then
+		echo "FAIL: leaf ssl ca.crt ($leaf_ca_md5) does not match new CA ($new_ca_md5)"
+		exit 1
+	fi
+	if [ "$leaf_internal_ca_md5" != "$new_ca_md5" ]; then
+		echo "FAIL: leaf ssl-internal ca.crt ($leaf_internal_ca_md5) does not match new CA ($new_ca_md5)"
+		exit 1
+	fi
+
+	echo "leaf certs re-issued with new CA"
+}
+
 main() {
 	create_infra $namespace
 	cluster="some-name-tls-issue"
 
 	deploy_cert_manager
 
+	desc 'wait for cert-manager to be ready'
+	kubectl_bin -n cert-manager wait --for=condition=Available deployment/cert-manager --timeout=180s
+	kubectl_bin -n cert-manager wait --for=condition=Available deployment/cert-manager-cainjector --timeout=180s
+	kubectl_bin -n cert-manager wait --for=condition=Available deployment/cert-manager-webhook --timeout=180s
+	# Wait for webhook to be fully registered and serving
+	local cm_ready=0
+	for cm_try in $(seq 1 30); do
+		if echo '{"apiVersion":"cert-manager.io/v1","kind":"Issuer","metadata":{"name":"cert-manager-readiness-check"},"spec":{"selfSigned":{}}}' \
+			| kubectl_bin apply -f - 2>/dev/null; then
+			kubectl_bin delete issuer cert-manager-readiness-check --ignore-not-found
+			cm_ready=1
+			break
+		fi
+		echo "Waiting for cert-manager webhook to be ready..."
+		sleep 5
+	done
+	if [ "$cm_ready" -ne 1 ]; then
+		echo "cert-manager webhook did not become ready in time"
+		exit 1
+	fi
+
 	desc 'create pxc cluster'
-	spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml" 3 10 "$conf_dir/secrets_without_tls.yml" "$test_dir/conf/client.yml"
+	kubectl_bin apply -f "$conf_dir/secrets_without_tls.yml"
+	apply_config "$test_dir/conf/client.yml"
+	apply_config "$test_dir/conf/$cluster.yml"
+
+	desc 'wait for cluster to be ready'
+	wait_for_running "$cluster-haproxy" 1
+	wait_for_running "$cluster-pxc" 3
 	wait_cluster_consistency "$cluster" 3 2
 
 	desc 'check if certificates issued with certmanager'
@@ -39,13 +133,29 @@ main() {
 	desc 'check if certificate issued'
 	compare_kubectl certificate/$cluster-ssl
 
-	apply_config "$test_dir/conf/$cluster-haproxy.yml"
-	wait_for_running "$cluster-haproxy" 1
-	wait_cluster_consistency "$cluster" 3 2
-
 	desc 'check ssl-internal certificate using PXC'
 	check_verify_identity "$cluster-pxc"
 	desc 'check ssl-internal certificate using HAProxy'
+	check_verify_identity "$cluster-haproxy"
+
+	desc 'trigger CA rotation and verify leaf cert re-issuance'
+	trigger_ca_rotation
+
+	desc 'restart all PXC and HAProxy pods to pick up new certs simultaneously'
+	# A rolling restart cannot work for CA rotation because pods with new CA
+	# certs cannot do SSL handshakes with pods still running old CA certs.
+	# Delete all pods at once so they all restart with the new certs.
+	sleep 30 # wait for kubelet to sync new cert files into volume mounts
+	kubectl_bin delete pods -l app.kubernetes.io/instance=$cluster,app.kubernetes.io/managed-by=percona-xtradb-cluster-operator --force --grace-period=0
+
+	desc 'wait for cluster to recover after full restart'
+	wait_for_running "$cluster-haproxy" 1
+	wait_for_running "$cluster-pxc" 3
+	wait_cluster_consistency "$cluster" 3 2
+
+	desc 'check ssl-internal certificate using PXC after CA rotation'
+	check_verify_identity "$cluster-pxc"
+	desc 'check ssl-internal certificate using HAProxy after CA rotation'
 	check_verify_identity "$cluster-haproxy"
 
 	destroy $namespace

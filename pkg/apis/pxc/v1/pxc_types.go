@@ -128,6 +128,8 @@ type PXCSpec struct {
 	AutoRecovery        *bool                `json:"autoRecovery,omitempty"`
 	ReplicationChannels []ReplicationChannel `json:"replicationChannels,omitempty"`
 	Expose              ServiceExpose        `json:"expose,omitempty"`
+	// +kubebuilder:validation:Minimum=1
+	SSTRetryCount *int32 `json:"sstRetryCount,omitempty"`
 
 	// +kubebuilder:validation:Enum={jemalloc,tcmalloc}
 	MySQLAllocator string `json:"mysqlAllocator,omitempty"`
@@ -417,6 +419,9 @@ func (cr *PerconaXtraDBCluster) Validate() error {
 
 	if c.PXC.Image == "" {
 		return errors.New("pxc.Image can't be empty")
+	}
+	if c.PXC.SSTRetryCount != nil && *c.PXC.SSTRetryCount < 1 {
+		return errors.New("pxc.sstRetryCount should be greater than or equal to 1")
 	}
 
 	if len(c.PXC.ReplicationChannels) > 0 {
@@ -722,6 +727,21 @@ type LogCollectorSpec struct {
 	ImagePullPolicy          corev1.PullPolicy           `json:"imagePullPolicy,omitempty"`
 	RuntimeClassName         *string                     `json:"runtimeClassName,omitempty"`
 	HookScript               string                      `json:"hookScript,omitempty"`
+	LogRotate                *LogRotateSpec              `json:"logRotate,omitempty"`
+}
+
+// LogRotateSpec defines the configuration for the logrotate container.
+type LogRotateSpec struct {
+	// Configuration allows overriding the default logrotate configuration.
+	Configuration string `json:"configuration,omitempty"`
+	// ExtraConfig allows specifying logrotate configuration file in addition to the main configuration file.
+	// This should be a reference to a ConfigMap in the same namespace.
+	// Key must contain the .conf extension to be processed correctly.
+	ExtraConfig corev1.LocalObjectReference `json:"extraConfig,omitempty"`
+	// Schedule allows specifying the schedule for logrotate.
+	// This should be a valid cron expression.
+	//+kubebuilder:default:="0 0 * * *"
+	Schedule string `json:"schedule,omitempty"`
 }
 
 type PMMSpec struct {
@@ -1024,7 +1044,7 @@ type App interface {
 	AppContainer(ctx context.Context, cl client.Client, spec *PodSpec, secrets string, cr *PerconaXtraDBCluster, availableVolumes []corev1.Volume) (corev1.Container, error)
 	SidecarContainers(ctx context.Context, cl client.Client, spec *PodSpec, secrets string, cr *PerconaXtraDBCluster) ([]corev1.Container, error)
 	PMMContainer(ctx context.Context, cl client.Client, spec *PMMSpec, secret *corev1.Secret, cr *PerconaXtraDBCluster) (*corev1.Container, error)
-	LogCollectorContainer(spec *LogCollectorSpec, logPsecrets string, logRsecrets string, cr *PerconaXtraDBCluster) ([]corev1.Container, error)
+	LogCollectorContainer(cr *PerconaXtraDBCluster, logPsecrets string, logRsecrets string) ([]corev1.Container, error)
 	XtrabackupContainer(ctx context.Context, cr *PerconaXtraDBCluster) (*corev1.Container, error)
 	Volumes(podSpec *PodSpec, cr *PerconaXtraDBCluster, vg CustomVolumeGetter) (*Volume, error)
 	Labels() map[string]string
@@ -1588,8 +1608,15 @@ func (cr *PerconaXtraDBCluster) CompareVersionWith(ver string) int {
 
 // CompareMySQLVersion compares given version to current MySQL version.
 // Returns -1, 0, or 1 if given version is smaller, equal, or larger than the current version, respectively.
-func (cr *PerconaXtraDBCluster) CompareMySQLVersion(ver string) int {
-	return v.Must(v.NewVersion(cr.Status.PXC.Version)).Compare(v.Must(v.NewVersion(ver)))
+func (cr *PerconaXtraDBCluster) CompareMySQLVersion(ver string) (int, error) {
+	if cr.Status.PXC.Version == "" {
+		return -1, errors.New("pxc version is empty")
+	}
+	statusVer, err := v.NewVersion(cr.Status.PXC.Version)
+	if err != nil {
+		return -1, errors.Wrap(err, "failed to parse pxc version")
+	}
+	return statusVer.Compare(v.Must(v.NewVersion(ver))), nil
 }
 
 // ConfigHasKey check if cr.Spec.PXC.Configuration has given key in given section

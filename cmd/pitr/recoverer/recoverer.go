@@ -519,6 +519,7 @@ func getStartGTIDSet(ctx context.Context, s storage.Storage) (string, error) {
 	if err != nil {
 		return "", errors.Wrapf(err, "get set from xtrabackup info")
 	}
+
 	return fmt.Sprintf("%s:%s", currGTID, set), nil
 }
 
@@ -543,7 +544,11 @@ func getXtrabackupInfo(ctx context.Context, s storage.Storage) ([]byte, error) {
 }
 
 func getGTID(ctx context.Context, s storage.Storage) (string, error) {
-	sstInfo, err := s.ListObjects(ctx, ".sst_info/sst_info")
+	currPrefix := s.GetPrefix()
+	defer s.SetPrefix(currPrefix)
+
+	s.SetPrefix(strings.TrimSuffix(currPrefix, "/") + ".sst_info/")
+	sstInfo, err := s.ListObjects(ctx, "sst_info")
 	if err != nil {
 		return "", errors.Wrapf(err, "list sst_info objects objects")
 	}
@@ -552,6 +557,7 @@ func getGTID(ctx context.Context, s storage.Storage) (string, error) {
 		return getGTIDFromSSTInfo(ctx, sstInfo[0], s)
 	}
 
+	s.SetPrefix(currPrefix)
 	xbBinlogInfo, err := s.ListObjects(ctx, "xtrabackup_binlog_info")
 	if err != nil {
 		return "", errors.Wrapf(err, "list xtrabackup_binlog_info objects")

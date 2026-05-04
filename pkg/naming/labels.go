@@ -57,11 +57,11 @@ func LabelsCluster(cr *api.PerconaXtraDBCluster) map[string]string {
 
 const (
 	componentPITR            = "pitr"
-	ComponentPXC             = "pxc"
 	componentExternalService = "external-service"
 
 	ComponentProxySQL = "proxysql"
 	ComponentHAProxy  = "haproxy"
+	ComponentPXC      = "pxc"
 )
 
 func componentLabels(cr *api.PerconaXtraDBCluster, component string) map[string]string {

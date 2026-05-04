@@ -4396,6 +4396,21 @@ spec:
                     type: string
                   imagePullPolicy:
                     type: string
+                  logRotate:
+                    properties:
+                      configuration:
+                        type: string
+                      extraConfig:
+                        properties:
+                          name:
+                            default: ""
+                            type: string
+                        type: object
+                        x-kubernetes-map-type: atomic
+                      schedule:
+                        default: 0 0 * * *
+                        type: string
+                    type: object
                   resources:
                     properties:
                       claims:

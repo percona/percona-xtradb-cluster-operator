@@ -341,7 +341,7 @@ func (c *HAProxy) SidecarContainers(ctx context.Context, cl client.Client, spec 
 	return []corev1.Container{container}, nil
 }
 
-func (c *HAProxy) LogCollectorContainer(_ *api.LogCollectorSpec, _ string, _ string, _ *api.PerconaXtraDBCluster) ([]corev1.Container, error) {
+func (c *HAProxy) LogCollectorContainer(cr *api.PerconaXtraDBCluster, _ string, _ string) ([]corev1.Container, error) {
 	return nil, nil
 }
 

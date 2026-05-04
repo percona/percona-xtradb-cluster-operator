@@ -234,6 +234,10 @@ main() {
 	write_data_for_pitr "$cluster" 100503 3
 	sleep_with_log 65 # wait for one binlog collection cycle
 
+	desc "patching xtrabackup password"
+	patch_secret "my-cluster-secrets" "xtrabackup" "$(echo -n "pass3" | base64)"
+	wait_cluster_consistency ${cluster} 3 2
+
 	gtid=$(get_gtid_executed ${mysql_host})
 	log "[CASE 3]: gtid_executed: ${gtid}"
 

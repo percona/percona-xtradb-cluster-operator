@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"time"
 
+	cmapiutil "github.com/cert-manager/cert-manager/pkg/api/util"
 	cm "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	cmmeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
 	"github.com/pkg/errors"
@@ -50,6 +51,9 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileSSL(ctx context.Context, cr *ap
 		&secretInternalObj,
 	)
 	if errSecret == nil && errInternalSecret == nil {
+		if err := r.reconcileCARotation(ctx, cr, &secretObj, &secretInternalObj); err != nil {
+			return errors.Wrap(err, "reconcile CA rotation")
+		}
 		return nil
 	} else if errSecret != nil && !k8serr.IsNotFound(errSecret) {
 		return fmt.Errorf("get secret: %v", errSecret)
@@ -74,8 +78,8 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileSSL(ctx context.Context, cr *ap
 }
 
 func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(ctx context.Context, cr *api.PerconaXtraDBCluster) error {
-	issuerName := cr.Name + "-pxc-issuer"
-	caIssuerName := cr.Name + "-pxc-ca-issuer"
+	issuerName := naming.IssuerName(cr)
+	caIssuerName := naming.CAIssuerName(cr)
 	issuerKind := "Issuer"
 	issuerGroup := ""
 	caDuration := &metav1.Duration{Duration: pxctls.DefaultCAValidity}
@@ -94,11 +98,11 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(ctx context.Conte
 
 		caCert := &cm.Certificate{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      cr.Name + "-ca-cert",
+				Name:      naming.CACertificateName(cr),
 				Namespace: cr.Namespace,
 			},
 			Spec: cm.CertificateSpec{
-				SecretName: cr.Name + "-ca-cert",
+				SecretName: naming.CACertificateName(cr),
 				CommonName: cr.Name + "-ca",
 				IsCA:       true,
 				IssuerRef: cmmeta.ObjectReference{
@@ -135,7 +139,7 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(ctx context.Conte
 
 	kubeCert := &cm.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-ssl",
+			Name:      naming.SSLCertificateName(cr),
 			Namespace: cr.Namespace,
 		},
 		Spec: cm.CertificateSpec{
@@ -175,7 +179,7 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(ctx context.Conte
 
 	kubeCert = &cm.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-ssl-internal",
+			Name:      naming.SSLInternalCertificateName(cr),
 			Namespace: cr.Namespace,
 		},
 		Spec: cm.CertificateSpec{
@@ -351,6 +355,116 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLManualy(ctx context.Context, cr
 	if err != nil && !k8serr.IsAlreadyExists(err) {
 		return fmt.Errorf("create TLS internal secret: %v", err)
 	}
+	return nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) reconcileCARotation(
+	ctx context.Context,
+	cr *api.PerconaXtraDBCluster,
+	sslSecret *corev1.Secret,
+	sslInternalSecret *corev1.Secret,
+) error {
+	log := logf.FromContext(ctx)
+
+	// Only applies when the operator manages its own CA via cert-manager.
+	if cr.Spec.TLS != nil && cr.Spec.TLS.IssuerConf != nil {
+		return nil
+	}
+
+	// Skip manually created secrets.
+	if sslSecret.Annotations["cert-manager.io/issuer-kind"] == "" {
+		return nil
+	}
+
+	caSecretName := naming.CACertificateName(cr)
+	caSecret := corev1.Secret{}
+	if err := r.client.Get(ctx, types.NamespacedName{
+		Namespace: cr.Namespace,
+		Name:      caSecretName,
+	}, &caSecret); err != nil {
+		if k8serr.IsNotFound(err) {
+			return nil
+		}
+		return fmt.Errorf("get CA secret %s: %w", caSecretName, err)
+	}
+
+	currentCA := caSecret.Data["tls.crt"]
+	if len(currentCA) == 0 {
+		return nil
+	}
+
+	sslMismatch := !bytes.Equal(currentCA, sslSecret.Data["ca.crt"])
+	sslInternalMismatch := !bytes.Equal(currentCA, sslInternalSecret.Data["ca.crt"])
+
+	if !sslMismatch && !sslInternalMismatch {
+		return nil
+	}
+
+	log.Info("CA certificate rotation detected, re-issuing leaf TLS certificates",
+		"cluster", cr.Name,
+		"sslMismatch", sslMismatch,
+		"sslInternalMismatch", sslInternalMismatch,
+	)
+	r.recorder.Event(cr, corev1.EventTypeNormal, "CARotation",
+		"CA certificate rotated, re-issuing leaf TLS certificates")
+
+	// Trigger cert-manager to re-issue leaf certificates by setting the
+	// Issuing condition to True on the Certificate CRs. This is the same
+	// mechanism used by `cmctl renew`. cert-manager will re-issue the leaf
+	// cert using the current CA from the Issuer and update the Secret
+	// in-place, which is safer than deleting the Secret.
+	var certNames []string
+	if sslMismatch {
+		certNames = append(certNames, naming.SSLCertificateName(cr))
+	}
+	// Only request re-issuance for the internal certificate if it is a
+	// distinct cert-manager Certificate. When SSLSecretName equals
+	// SSLInternalSecretName the operator manages a single leaf Certificate
+	// that backs both secret references, so the SSLCertificateName entry
+	// above already covers it.
+	if sslInternalMismatch && cr.Spec.PXC.SSLSecretName != cr.Spec.PXC.SSLInternalSecretName {
+		certNames = append(certNames, naming.SSLInternalCertificateName(cr))
+	}
+
+	for _, name := range certNames {
+		cert := &cm.Certificate{}
+		if err := r.client.Get(ctx, types.NamespacedName{
+			Namespace: cr.Namespace,
+			Name:      name,
+		}, cert); err != nil {
+			if k8serr.IsNotFound(err) {
+				continue
+			}
+			return fmt.Errorf("get certificate %s: %w", name, err)
+		}
+
+		// Check if already issuing to avoid redundant status updates.
+		if cmapiutil.CertificateHasCondition(cert, cm.CertificateCondition{
+			Type:   cm.CertificateConditionIssuing,
+			Status: cmmeta.ConditionTrue,
+		}) {
+			log.Info("Certificate already issuing, skipping", "certificate", name)
+			continue
+		}
+
+		log.Info("Triggering leaf certificate re-issuance", "certificate", name)
+
+		// Set the Issuing condition to True to trigger cert-manager
+		// re-issuance, mirroring the behaviour of `cmctl renew`.
+		cmapiutil.SetCertificateCondition(
+			cert,
+			cert.Generation,
+			cm.CertificateConditionIssuing,
+			cmmeta.ConditionTrue,
+			"ManuallyTriggered",
+			"Re-issuing due to CA rotation",
+		)
+
+		if err := r.client.Status().Update(ctx, cert); err != nil {
+			return fmt.Errorf("update certificate status %s: %w", name, err)
+		}
+	}
+
 	return nil
 }
 

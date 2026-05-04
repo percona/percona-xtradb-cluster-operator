@@ -100,7 +100,6 @@ backup_volume() {
 		log 'ERROR' 'Backup was finished unsuccessfully'
 		exit 1
 	fi
-	log 'INFO' "Socat(2) returned $?"
 
 	stat xtrabackup.stream
 	if (($(stat -c%s xtrabackup.stream) < 5000000)); then

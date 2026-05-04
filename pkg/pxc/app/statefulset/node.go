@@ -30,6 +30,9 @@ const (
 	VaultSecretVolumeName = "vault-keyring-secret"
 	VaultSecretMountPath  = "/etc/mysql/vault-keyring-secret"
 	VaultKeyringConfig    = "keyring_vault.conf"
+
+	LogRotateConfigVolumeName = "logrotate-config"
+	LogRotateConfigDir        = "/opt/percona/logcollector/logrotate/conf.d"
 )
 
 type Node struct {
@@ -47,10 +50,14 @@ func (c *Node) Name() string {
 }
 
 func (c *Node) InitContainers(cr *api.PerconaXtraDBCluster, initImageName string) []corev1.Container {
-	inits := []corev1.Container{
-		EntrypointInitContainer(cr, initImageName, app.DataVolumeName),
+	initC := EntrypointInitContainer(cr, initImageName, app.DataVolumeName)
+	if cr.CompareVersionWith("1.20.0") >= 0 {
+		initC.VolumeMounts = append(initC.VolumeMounts, corev1.VolumeMount{
+			Name:      app.BinVolumeName,
+			MountPath: app.BinVolumeMountPath,
+		})
 	}
-	return inits
+	return []corev1.Container{initC}
 }
 
 func (c *Node) AppContainer(ctx context.Context, cl client.Client, spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster, _ []corev1.Volume) (corev1.Container, error) {
@@ -382,12 +389,14 @@ func (c *Node) SidecarContainers(ctx context.Context, cl client.Client, spec *ap
 	return nil, nil
 }
 
-func (c *Node) LogCollectorContainer(spec *api.LogCollectorSpec, logPsecrets string, logRsecrets string, cr *api.PerconaXtraDBCluster) ([]corev1.Container, error) {
+func (c *Node) LogCollectorContainer(cr *api.PerconaXtraDBCluster, logPsecrets string, logRsecrets string) ([]corev1.Container, error) {
+	spec := cr.Spec.LogCollector
 	logProcEnvs := []corev1.EnvVar{
 		{
 			Name:  "LOG_DATA_DIR",
 			Value: "/var/lib/mysql",
 		},
+		// Typo preserved for backwards compatibility
 		{
 			Name: "POD_NAMESPASE",
 			ValueFrom: &corev1.EnvVarSource{
@@ -404,6 +413,17 @@ func (c *Node) LogCollectorContainer(spec *api.LogCollectorSpec, logPsecrets str
 				},
 			},
 		},
+	}
+
+	if cr.CompareVersionWith("1.20.0") >= 0 {
+		logProcEnvs = append(logProcEnvs, corev1.EnvVar{
+			Name: "POD_NAMESPACE",
+			ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{
+					FieldPath: "metadata.namespace",
+				},
+			},
+		})
 	}
 
 	logRotEnvs := []corev1.EnvVar{
@@ -465,9 +485,13 @@ func (c *Node) LogCollectorContainer(spec *api.LogCollectorSpec, logPsecrets str
 
 	if cr.Spec.LogCollector != nil {
 		if cr.Spec.LogCollector.Configuration != "" {
+			customPath := "/etc/fluentbit/custom"
+			if cr.CompareVersionWith("1.20.0") >= 0 {
+				customPath = "/opt/percona/logcollector/fluentbit/custom"
+			}
 			logProcContainer.VolumeMounts = append(logProcContainer.VolumeMounts, corev1.VolumeMount{
 				Name:      "logcollector-config",
-				MountPath: "/etc/fluentbit/custom",
+				MountPath: customPath,
 			})
 		}
 
@@ -477,6 +501,40 @@ func (c *Node) LogCollectorContainer(spec *api.LogCollectorSpec, logPsecrets str
 				MountPath: "/opt/percona/hookscript",
 			})
 		}
+
+		if cfg := cr.Spec.LogCollector.LogRotate; cfg != nil {
+			if cfg.Configuration != "" || cfg.ExtraConfig.Name != "" {
+				logRotContainer.VolumeMounts = append(logRotContainer.VolumeMounts, corev1.VolumeMount{
+					Name:      LogRotateConfigVolumeName,
+					MountPath: LogRotateConfigDir,
+				})
+			}
+			if cfg.Schedule != "" {
+				logRotContainer.Env = append(logRotContainer.Env, corev1.EnvVar{
+					Name:  "LOGROTATE_SCHEDULE",
+					Value: cfg.Schedule,
+				})
+			}
+		}
+	}
+
+	if cr.CompareVersionWith("1.20.0") >= 0 {
+		logProcContainer.Command = []string{"/opt/percona/logcollector/entrypoint.sh"}
+		logProcContainer.Args = []string{"fluent-bit"}
+		logRotContainer.Env = append(logRotContainer.Env, corev1.EnvVar{
+			Name:  "LOGROTATE_STATUS_FILE",
+			Value: "/var/lib/mysql/logrotate.status",
+		})
+		logRotContainer.Command = []string{"/opt/percona/logcollector/entrypoint.sh"}
+
+		logProcContainer.VolumeMounts = append(logProcContainer.VolumeMounts, corev1.VolumeMount{
+			Name:      app.BinVolumeName,
+			MountPath: app.BinVolumeMountPath,
+		})
+		logRotContainer.VolumeMounts = append(logRotContainer.VolumeMounts, corev1.VolumeMount{
+			Name:      app.BinVolumeName,
+			MountPath: app.BinVolumeMountPath,
+		})
 	}
 
 	return []corev1.Container{logProcContainer, logRotContainer}, nil
@@ -795,6 +853,50 @@ func (c *Node) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg ap
 	if cr.CompareVersionWith("1.16.0") >= 0 {
 		for i := range vol.PVCs {
 			vol.PVCs[i].Labels = c.Labels()
+		}
+	}
+
+	if cr.CompareVersionWith("1.20.0") >= 0 {
+		vol.Volumes = append(vol.Volumes, corev1.Volume{
+			Name: app.BinVolumeName,
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		})
+
+		if cr.Spec.LogCollector != nil && cr.Spec.LogCollector.LogRotate != nil {
+			volProjections := []corev1.VolumeProjection{}
+
+			if cr.Spec.LogCollector.LogRotate.Configuration != "" {
+				volProjections = append(volProjections, corev1.VolumeProjection{
+					ConfigMap: &corev1.ConfigMapProjection{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: config.CustomConfigMapName(cr.Name, "logrotate"),
+						},
+					},
+				})
+			}
+
+			if cr.Spec.LogCollector.LogRotate.ExtraConfig.Name != "" {
+				volProjections = append(volProjections, corev1.VolumeProjection{
+					ConfigMap: &corev1.ConfigMapProjection{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: cr.Spec.LogCollector.LogRotate.ExtraConfig.Name,
+						},
+					},
+				})
+			}
+
+			if len(volProjections) > 0 {
+				vol.Volumes = append(vol.Volumes, corev1.Volume{
+					Name: LogRotateConfigVolumeName,
+					VolumeSource: corev1.VolumeSource{
+						Projected: &corev1.ProjectedVolumeSource{
+							Sources: volProjections,
+						},
+					},
+				})
+			}
 		}
 	}
 

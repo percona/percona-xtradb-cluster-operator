@@ -152,6 +152,12 @@ var _ = Describe("Finalizer delete-ssl", Ordered, func() {
 				return err == nil
 			}, time.Second*30, time.Millisecond*250).Should(BeTrue())
 			Expect(certs.Items).ShouldNot(BeEmpty())
+
+			for _, cert := range certs.Items {
+				Expect(cert.Spec.PrivateKey).NotTo(BeNil(), "certificate %s should have privateKey set", cert.Name)
+				Expect(cert.Spec.PrivateKey.RotationPolicy).To(Equal(cm.RotationPolicyNever),
+					"certificate %s should have rotationPolicy set to Never", cert.Name)
+			}
 		})
 
 		When("PXC cluster is deleted with delete-ssl finalizer certs should be removed", func() {
@@ -269,6 +275,63 @@ var _ = Describe("Finalizer delete-ssl", Ordered, func() {
 			certs := &cm.CertificateList{}
 			Expect(k8sClient.List(ctx, certs, &client.ListOptions{Namespace: cr.Namespace})).Should(Succeed())
 			Expect(certs.Items).ShouldNot(BeEmpty())
+		})
+	})
+
+	Context("crVersion below 1.20.0 should not set privateKey rotationPolicy", Ordered, func() {
+		const oldCRName = "del-ssl-fnlz-old"
+		const oldNs = "del-ssl-fnlz-old"
+
+		oldNamespace := &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      oldNs,
+				Namespace: oldNs,
+			},
+		}
+
+		BeforeAll(func() {
+			By("Creating the Namespace for old crVersion test")
+			err := k8sClient.Create(ctx, oldNamespace)
+			Expect(err).To(Not(HaveOccurred()))
+		})
+
+		AfterAll(func() {
+			_ = k8sClient.Delete(ctx, oldNamespace)
+		})
+
+		cr, err := readDefaultCR(oldCRName, oldNs)
+
+		It("should read default cr.yaml", func() {
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		cr.Finalizers = append(cr.Finalizers, naming.FinalizerDeleteSSL)
+		cr.Spec.SSLSecretName = "cluster1-ssl"
+		cr.Spec.SSLInternalSecretName = "cluster1-ssl-internal"
+		cr.Spec.CRVersion = "1.19.0"
+
+		It("Should create PerconaXtraDBCluster with old crVersion", func() {
+			Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
+		})
+
+		It("should reconcile once to create user secret", func() {
+			_, err := reconciler().Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Name: oldCRName, Namespace: oldNs}})
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("certificates should not have privateKey rotationPolicy set", func() {
+			certs := &cm.CertificateList{}
+			Eventually(func() bool {
+				opts := &client.ListOptions{Namespace: oldNs}
+				err := k8sClient.List(ctx, certs, opts)
+				return err == nil && len(certs.Items) > 0
+			}, time.Second*30, time.Millisecond*250).Should(BeTrue())
+			Expect(certs.Items).ShouldNot(BeEmpty())
+
+			for _, cert := range certs.Items {
+				Expect(cert.Spec.PrivateKey).To(BeNil(),
+					"certificate %s should not have privateKey set for crVersion < 1.20.0", cert.Name)
+			}
 		})
 	})
 })

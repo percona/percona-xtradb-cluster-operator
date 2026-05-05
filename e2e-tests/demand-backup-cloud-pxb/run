@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -o errexit
 
@@ -30,15 +30,48 @@ get_container_options() {
 check_backup_container_options() {
 	local backup_name=$1
 	local cluster_name=$2
+	local backup_job="xb-${backup_name}"
 
-	local pxc_pod="${cluster_name}-pxc-0"
-	if ! kubectl_bin logs "${pxc_pod}" -c xtrabackup | grep -E 'xbcloud put .*--parallel=2'; then
+	local xbcloud_args=$(kubectl_bin get job "${backup_job}" -o json \
+		| jq -r '.spec.template.spec.containers[]
+			| select(.name == "xtrabackup")
+			| .env[]?
+			| select(.name == "XBCLOUD_EXTRA_ARGS")
+			| .value')
+	if ! echo "${xbcloud_args}" | grep -E -- '--parallel=2'; then
 		echo "xbcloud container options were not applied for backup ${backup_name}"
 		exit 1
 	fi
 
-	if ! kubectl_bin logs "${pxc_pod}" -c xtrabackup | grep -E 'xbstream .*--parallel=2'; then
+	local xtrabackup_args=$(kubectl_bin get job "${backup_job}" -o json \
+		| jq -r '.spec.template.spec.containers[]
+			| select(.name == "xtrabackup")
+			| .env[]?
+			| select(.name == "XB_EXTRA_ARGS")
+			| .value')
+	if ! echo "${xtrabackup_args}" | grep -E -- '--parallel=4'; then
+		echo "xtrabackup container options were not applied for backup ${backup_name}"
+		exit 1
+	fi
+
+	local xbstream_args=$(kubectl_bin get job "${backup_job}" -o json \
+		| jq -r '.spec.template.spec.containers[]
+			| select(.name == "xtrabackup")
+			| .env[]?
+			| select(.name == "XBSTREAM_EXTRA_ARGS")
+			| .value')
+	if ! echo "${xbstream_args}" | grep -E -- '--parallel=3'; then
 		echo "xbstream container options were not applied for backup ${backup_name}"
+		exit 1
+	fi
+
+	local pxc_pod="${cluster_name}-pxc-0"
+	if ! kubectl_bin logs "${pxc_pod}" -c xtrabackup | grep -E 'xtrabackupCmd.*--parallel=4'; then
+		echo "xtrabackup container options were not reflected in ${pxc_pod} logs for backup ${backup_name}"
+		exit 1
+	fi
+	if ! kubectl_bin logs "${pxc_pod}" -c xtrabackup | grep -E 'xbcloudCmd.*--parallel=2'; then
+		echo "xbcloud container options were not reflected in ${pxc_pod} logs for backup ${backup_name}"
 		exit 1
 	fi
 }

@@ -79,8 +79,10 @@ spec:
           credentialsSecret: aws-s3-secret
         containerOptions:
           args:
+            xtrabackup:
+            - '--parallel=4'
             xbstream:
-            - '--parallel=2'
+            - '--parallel=3'
             xbcloud: 
             - '--parallel=2'
       aws-s3-iam:
@@ -90,8 +92,10 @@ spec:
           bucket: operator-testing
         containerOptions:
           args:
+            xtrabackup:
+            - '--parallel=4'
             xbstream:
-            - '--parallel=2'
+            - '--parallel=3'
             xbcloud: 
             - '--parallel=2'
       minio:

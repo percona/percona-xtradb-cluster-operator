@@ -45,7 +45,7 @@ check_ssl() {
 	fi
 }
 
-# shellcheck disable=SC2317
+# shellcheck disable=SC2329
 handle_sigterm() {
 	if ((IGNORE_SIGTERM == 1)); then
 		log 'INFO' 'Ignoring SIGTERM for MySQL 5.7'
@@ -88,7 +88,7 @@ backup_volume() {
 	log 'INFO' "Socat(1) returned $?"
 	vault_store "$BACKUP_DIR/${SST_INFO_NAME}"
 
-	MYSQL_VERSION=$(parse_ini 'mysql-version' ${BACKUP_DIR}/${SST_INFO_NAME})
+	MYSQL_VERSION=$(parse_ini 'mysql-version' "${BACKUP_DIR}/${SST_INFO_NAME}")
 	# if PXC 5.7
 	if check_for_version "$MYSQL_VERSION" '5.7.0' && ! check_for_version "$MYSQL_VERSION" '8.0.0'; then
 		# ignore SIGTERM from garbd, it has no idea that we still have work to do.

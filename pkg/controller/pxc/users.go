@@ -25,7 +25,10 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 )
 
-var mysql80 = version.Must(version.NewVersion("8.0.0"))
+var (
+	mysql80 = version.Must(version.NewVersion("8.0.0"))
+	mysql84 = version.Must(version.NewVersion("8.4.0"))
+)
 
 // https://dev.mysql.com/doc/refman/8.0/en/privileges-provided.html#priv_system-user
 var privSystemUserAddedIn = version.Must(version.NewVersion("8.0.16"))
@@ -442,6 +445,12 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(ctx context.Context, c
 				if !ver.LessThan(privSystemUserAddedIn) {
 					if err := r.grantMonitorUserPrivilege(ctx, cr, internalSecrets, um); err != nil {
 						return errors.Wrap(err, "monitor user grant system privilege")
+					}
+				}
+
+				if !ver.LessThan(mysql84) {
+					if err := r.grantMonitorUserAuditAdminPrivilege(ctx, cr, internalSecrets, um); err != nil {
+						return errors.Wrap(err, "monitor user grant audit admin privilege")
 					}
 				}
 			}
@@ -1168,6 +1177,32 @@ func (r *ReconcilePerconaXtraDBCluster) grantMonitorUserPrivilege(ctx context.Co
 	}
 
 	log.Info("monitor user privileges granted")
+	return nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) grantMonitorUserAuditAdminPrivilege(ctx context.Context, cr *api.PerconaXtraDBCluster, internalSysSecretObj *corev1.Secret, um *users.Manager) error {
+	log := logf.FromContext(ctx)
+
+	annotationName := "grant-for-1.20.0-audit-admin"
+	if internalSysSecretObj.Annotations[annotationName] == "done" {
+		return nil
+	}
+
+	if err := um.Update1200MonitorUserPrivilege(ctx); err != nil {
+		return errors.Wrap(err, "grant audit admin privilege")
+	}
+
+	if internalSysSecretObj.Annotations == nil {
+		internalSysSecretObj.Annotations = make(map[string]string)
+	}
+
+	internalSysSecretObj.Annotations[annotationName] = "done"
+	err := r.client.Update(ctx, internalSysSecretObj)
+	if err != nil {
+		return errors.Wrap(err, "update internal sys users secret annotation")
+	}
+
+	log.Info("monitor user audit admin privilege granted")
 	return nil
 }
 

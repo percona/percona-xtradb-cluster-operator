@@ -463,6 +463,12 @@ if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' ] && [ -z "$wantHelp" ]; then
 			EOSQL
 		fi
 
+		if [[ $MYSQL_VERSION == "8.4" ]]; then
+			read -r -d '' monitorAuditAdminGrant <<-EOSQL || true
+				GRANT AUDIT_ADMIN ON *.* TO 'monitor'@'${MONITOR_HOST}';
+			EOSQL
+		fi
+
 		# SYSTEM_USER since 8.0.16
 		# https://dev.mysql.com/doc/refman/8.0/en/privileges-provided.html#priv_system-user
 		if [[ $MYSQL_VERSION == "8.0" ]] && ((MYSQL_PATCH_VERSION >= 16)) || [[ $MYSQL_VERSION == "8.4" ]]; then
@@ -492,6 +498,7 @@ if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' ] && [ -z "$wantHelp" ]; then
 			GRANT SELECT, PROCESS, SUPER, REPLICATION CLIENT, RELOAD ON *.* TO 'monitor'@'${MONITOR_HOST}';
 			GRANT SELECT ON performance_schema.* TO 'monitor'@'${MONITOR_HOST}';
 			${monitorConnectGrant}
+			${monitorAuditAdminGrant}
 
 			${systemUserGrant}
 
@@ -540,6 +547,9 @@ if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' ] && [ -z "$wantHelp" ]; then
 			"${mysql[@]}" <<-EOSQL
 				INSTALL COMPONENT 'file://component_binlog_utils_udf';
 			EOSQL
+
+			echo "Installing file://component_audit_log_filter"
+			"${mysql[@]}" mysql </usr/share/percona-xtradb-cluster/audit_log_filter_linux_install.sql
 		fi
 
 		echo

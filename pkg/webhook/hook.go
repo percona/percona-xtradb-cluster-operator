@@ -20,11 +20,13 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/util/cert"
+	k8sretry "k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	v1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxctls"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/webhook/json"
 )
@@ -181,7 +183,9 @@ func SetupWebhook(ctx context.Context, mgr manager.Manager) error {
 		return errors.Wrap(err, "get operator namespace")
 	}
 
-	ca, err := setupCertificates(ctx, mgr.GetAPIReader(), namespace)
+	// mgr.GetClient() reads go through the informer cache, which starts only inside
+	// mgr.Start(). SetupWebhook runs earlier, so use the API reader for Secret Get.
+	ca, err := ensureCertificates(ctx, mgr.GetAPIReader(), mgr.GetClient(), namespace)
 	if err != nil {
 		return errors.Wrap(err, "prepare hook tls certs")
 	}
@@ -209,25 +213,78 @@ func SetupWebhook(ctx context.Context, mgr manager.Manager) error {
 	return nil
 }
 
-func setupCertificates(ctx context.Context, cl client.Reader, namespace string) ([]byte, error) {
-	certSecret := &corev1.Secret{}
-	err := cl.Get(ctx, types.NamespacedName{
-		Namespace: namespace,
-		Name:      "pxc-webhook-ssl",
-	}, certSecret)
-	if err != nil && !k8serrors.IsNotFound(err) {
-		return nil, err
+func ensureCertificates(
+	ctx context.Context,
+	reader client.Reader,
+	cl client.Client,
+	namespace string,
+) ([]byte, error) {
+	var ca []byte
+
+	// Retry on AlreadyExists error.
+	// This typically happens when multiple replicas start at once and race to create the same secret.
+	// The ones that fail will re-attempt and use the already existing secret.
+	if err := k8sretry.OnError(k8sretry.DefaultBackoff, func(err error) bool {
+		return k8serrors.IsAlreadyExists(err)
+	}, func() error {
+		var setupErr error
+		ca, setupErr = setupCertificates(ctx, reader, cl, namespace)
+		return setupErr
+	}); err != nil {
+		return nil, errors.Wrap(err, "ensure certificates")
 	}
 
-	var ca, crt, key []byte
+	return ca, nil
+}
 
+func setupCertificates(
+	ctx context.Context,
+	reader client.Reader,
+	cl client.Client,
+	namespace string,
+) ([]byte, error) {
+	certSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      naming.OperatorWebhookTLSSecretName,
+		},
+	}
+
+	// Use API reader because the client has not started yet
+	err := reader.Get(ctx, client.ObjectKeyFromObject(certSecret), certSecret)
 	if k8serrors.IsNotFound(err) {
-		ca, crt, key, err = pxctls.Issue([]string{"percona-xtradb-cluster-operator." + namespace + ".svc"}, true, true)
+		// Secret does not exist, issue new certificates and create the secret
+		ca, crt, key, err := pxctls.Issue([]string{"percona-xtradb-cluster-operator." + namespace + ".svc"}, true, true)
 		if err != nil {
 			return nil, errors.Wrap(err, "issue tls certificates")
 		}
-	} else {
-		ca, crt, key = certSecret.Data["ca.crt"], certSecret.Data["tls.crt"], certSecret.Data["tls.key"]
+
+		certSecret.Data = map[string][]byte{
+			"ca.crt":  ca,
+			"tls.crt": crt,
+			"tls.key": key,
+		}
+		err = cl.Create(ctx, certSecret)
+		if err != nil {
+			return nil, errors.Wrap(err, "create cert secret")
+		}
+		return ca, writeCerts(crt, key)
+	} else if err != nil {
+		return nil, errors.Wrap(err, "get cert secret")
+	}
+
+	// Secret exists, use the existing certificates
+	ca, ok := certSecret.Data["ca.crt"]
+	if !ok {
+		return nil, errors.New("ca.crt not found in cert secret")
+	}
+	crt, ok := certSecret.Data["tls.crt"]
+	if !ok {
+		return nil, errors.New("tls.crt not found in cert secret")
+	}
+	key, ok := certSecret.Data["tls.key"]
+	if !ok {
+		return nil, errors.New("tls.key not found in cert secret")
 	}
 
 	return ca, writeCerts(crt, key)

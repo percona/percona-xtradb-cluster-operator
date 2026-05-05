@@ -2263,6 +2263,7 @@ run_recovery_check_pitr() {
 	local time_now=$5
 	local dest=$6
 	local gtid=$7
+	local mysql_root_pass="${8:-root_password}"
 	desc 'recover backup' $restore
 	cat "$test_dir/conf/${restore}.yaml" \
 		| $sed -e "s/<datetime>/${time_now}/g" \
@@ -2277,6 +2278,10 @@ run_recovery_check_pitr() {
 	wait_for_delete pod/${cluster}-pxc-2
 	wait_for_delete pod/${cluster}-pxc-1
 	wait_for_delete pod/${cluster}-pxc-0
+
+	wait_backup_restore ${restore} "Restoring"
+
+	wait_backup_restore ${restore} "Preparing Cluster"
 
 	wait_backup_restore ${restore} "Point-in-time recovering"
 	wait_for_delete pod/${cluster}-proxysql-0
@@ -2299,9 +2304,9 @@ run_recovery_check_pitr() {
 	wait_for_running "$cluster-pxc" 3
 	wait_cluster_consistency "$cluster" 3 2
 	desc 'check data after backup' $restore
-	compare_mysql_cmd $compare "SELECT * from test.test;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
-	compare_mysql_cmd $compare "SELECT * from test.test;" "-h $cluster-pxc-1.$cluster-pxc -uroot -proot_password"
-	compare_mysql_cmd $compare "SELECT * from test.test;" "-h $cluster-pxc-2.$cluster-pxc -uroot -proot_password"
+	compare_mysql_cmd $compare "SELECT * from test.test;" "-h $cluster-pxc-0.$cluster-pxc -uroot -p${mysql_root_pass}"
+	compare_mysql_cmd $compare "SELECT * from test.test;" "-h $cluster-pxc-1.$cluster-pxc -uroot -p${mysql_root_pass}"
+	compare_mysql_cmd $compare "SELECT * from test.test;" "-h $cluster-pxc-2.$cluster-pxc -uroot -p${mysql_root_pass}"
 	kubectl_bin delete -f "$test_dir/conf/${restore}.yaml"
 }
 

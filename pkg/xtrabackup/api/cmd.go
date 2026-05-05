@@ -114,6 +114,7 @@ func (cfg *BackupConfig) xtrabackupArgs(user, pass string, mysqlVersion *goversi
 		"--backup",
 		"--stream=xbstream",
 		"--safe-slave-backup",
+		"--galera-info",
 		"--slave-info",
 		"--target-dir=/backup/",
 		"--socket=/tmp/mysql.sock",

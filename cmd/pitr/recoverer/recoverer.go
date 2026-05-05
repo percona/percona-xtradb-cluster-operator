@@ -3,7 +3,6 @@ package recoverer
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"io"
 	"log"
 	"net/url"
@@ -32,7 +31,8 @@ type Recoverer struct {
 	pxcServiceName string
 	binlogs        []string
 	gtidSet        string
-	startGTID      string
+	startGTID      string // contains the gtid_executed of the restored full backup
+	timelineUUID   string // contains the galera UUID of cluster at the time of backup
 	recoverFlag    string
 	recoverEndTime time.Time
 	gtid           string
@@ -167,29 +167,15 @@ func New(ctx context.Context, c Config) (*Recoverer, error) {
 	}
 	log.Printf("last uploaded GTID set: %s", startGTID)
 
-	if c.RecoverType == string(Transaction) {
-		log.Printf("target GTID: %s", c.GTID)
+	timelineUUID, err := getBackupTimelineUUID(ctx, storage)
+	if err != nil {
+		return nil, errors.Wrap(err, "get backup timeline UUID")
+	}
+	log.Printf("backup timeline UUID: %s", timelineUUID)
 
-		gtidSplitted := strings.Split(startGTID, ":")
-		if len(gtidSplitted) != 2 {
-			return nil, errors.New("Invalid start gtidset provided")
-		}
-		lastSetIdx := 1
-		setSplitted := strings.Split(gtidSplitted[1], "-")
-		if len(setSplitted) == 1 {
-			lastSetIdx = 0
-		}
-		lastSet := setSplitted[lastSetIdx]
-		lastSetInt, err := strconv.ParseInt(lastSet, 10, 64)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to cast last set value to in")
-		}
-		transactionNum, err := strconv.ParseInt(strings.Split(c.GTID, ":")[1], 10, 64)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to parse transaction num to restore")
-		}
-		if transactionNum < lastSetInt {
-			return nil, errors.New("Can't restore to transaction before backup")
+	if c.RecoverType == string(Transaction) {
+		if err := validateTransactionGTID(ctx, c.GTID, startGTID); err != nil {
+			return nil, errors.Wrap(err, "validate transaction GTID")
 		}
 	}
 
@@ -201,9 +187,49 @@ func New(ctx context.Context, c Config) (*Recoverer, error) {
 		pxcServiceName: c.PXCServiceName,
 		recoverType:    RecoverType(c.RecoverType),
 		startGTID:      startGTID,
+		timelineUUID:   timelineUUID,
 		gtid:           c.GTID,
 		verifyTLS:      c.VerifyTLS,
 	}, nil
+}
+
+func validateTransactionGTID(ctx context.Context, targetGTID, startGTID string) error {
+	targetParts := strings.SplitN(targetGTID, ":", 2)
+	if len(targetParts) != 2 {
+		return errors.Errorf("invalid target GTID %q", targetGTID)
+	}
+	targetUUID := targetParts[0]
+	targetSeq, err := strconv.ParseInt(targetParts[1], 10, 64)
+	if err != nil {
+		return errors.Wrap(err, "parse target GTID seqno")
+	}
+
+	for _, seg := range strings.Split(startGTID, ",") {
+		seg = strings.TrimSpace(seg)
+		segParts := strings.SplitN(seg, ":", 2)
+		if len(segParts) != 2 || segParts[0] != targetUUID {
+			continue
+		}
+
+		// pick last range end (segments can be "lo-hi" or just "n", or "lo1-hi1:lo2-hi2" rarely)
+		rangeStr := segParts[1]
+		rangeStr = rangeStr[strings.LastIndex(rangeStr, ":")+1:]
+		hi := rangeStr
+		if i := strings.Index(rangeStr, "-"); i >= 0 {
+			hi = rangeStr[i+1:]
+		}
+		hiInt, err := strconv.ParseInt(hi, 10, 64)
+		if err != nil {
+			return errors.Wrap(err, "parse high end of backup range")
+		}
+		if targetSeq <= hiInt {
+			return errors.Errorf(
+				"target GTID %s is already inside the backup (segment %s); can't recover to a transaction before backup",
+				targetGTID, seg)
+		}
+	}
+
+	return nil
 }
 
 func getContainerAndPrefix(s string) (string, string) {
@@ -435,6 +461,11 @@ func (r *Recoverer) setBinlogs(ctx context.Context) error {
 		binlogGTIDSet := string(content)
 		log.Println("checking current file", " name ", binlog, " gtid ", binlogGTIDSet)
 
+		if !strings.HasPrefix(binlogGTIDSet, r.timelineUUID) {
+			log.Println("skipping binlog", binlog, "because it's not from the same timeline as the backup")
+			continue
+		}
+
 		if len(r.gtid) > 0 && r.recoverType == Transaction {
 			subResult, err := r.db.SubtractGTIDSet(ctx, binlogGTIDSet, r.gtid)
 			if err != nil {
@@ -505,22 +536,101 @@ func reverse(list []string) {
 }
 
 func getStartGTIDSet(ctx context.Context, s storage.Storage) (string, error) {
-	currGTID, err := getGTID(ctx, s)
+	// Prefer xtrabackup_binlog_info
+	list, err := s.ListObjects(ctx, "xtrabackup_binlog_info")
 	if err != nil {
-		return "", errors.Wrapf(err, "get gtid")
+		return "", errors.Wrapf(err, "list xtrabackup_binlog_info objects")
+	}
+	if len(list) > 0 {
+		sort.Strings(list)
+		obj, err := s.GetObject(ctx, list[0])
+		if err != nil {
+			return "", errors.Wrapf(err, "get xtrabackup_binlog_info object")
+		}
+		content, err := getDecompressedContent(ctx, obj, "xtrabackup_binlog_info")
+		if err != nil {
+			return "", errors.Wrapf(err, "get decompressed content for xtrabackup_binlog_info")
+		}
+		tokens := strings.Split(strings.TrimSpace(string(content)), "\t")
+		if len(tokens) != 3 {
+			return "", errors.Errorf("malformed xtrabackup_binlog_info: %d tokens", len(tokens))
+		}
+		return tokens[2], nil
 	}
 
-	xbInfoContent, err := getXtrabackupInfo(ctx, s)
-	if err != nil {
-		return "", errors.Wrapf(err, "get xtrabackup info")
+	// TODO: fallback to xtrabackup_info?
+	return "", errors.New("no xtrabackup_binlog_info objects found")
+}
+
+func getBackupTimelineUUID(ctx context.Context, s storage.Storage) (string, error) {
+	if uuid, err := readSSTInfoUUID(ctx, s); err == nil {
+		return uuid, nil
+	} else if !errors.Is(err, storage.ErrObjectNotFound) {
+		return "", errors.Wrap(err, "read sst_info")
 	}
 
-	set, err := getSetFromXtrabackupInfo(currGTID, xbInfoContent)
-	if err != nil {
-		return "", errors.Wrapf(err, "get set from xtrabackup info")
+	if uuid, err := readGaleraInfoUUID(ctx, s); err == nil {
+		return uuid, nil
+	} else if !errors.Is(err, storage.ErrObjectNotFound) {
+		return "", errors.Wrap(err, "read xtrabackup_galera_info")
 	}
 
-	return fmt.Sprintf("%s:%s", currGTID, set), nil
+	return "", errors.New(
+		"no Galera state info in backup (neither sst_info nor xtrabackup_galera_info); " +
+			"PITR cannot determine timeline identity — backup may have been produced by an " +
+			"older sidecar without --galera-info")
+}
+
+func readSSTInfoUUID(ctx context.Context, s storage.Storage) (string, error) {
+	prev := s.GetPrefix()
+	defer s.SetPrefix(prev)
+
+	s.SetPrefix(strings.TrimSuffix(prev, "/") + ".sst_info/")
+
+	list, err := s.ListObjects(ctx, "sst_info")
+	if err != nil {
+		return "", err
+	}
+	if len(list) == 0 {
+		return "", storage.ErrObjectNotFound
+	}
+	sort.Strings(list)
+	obj, err := s.GetObject(ctx, list[0])
+	if err != nil {
+		return "", err
+	}
+	content, err := getDecompressedContent(ctx, obj, "sst_info")
+	if err != nil {
+		return "", err
+	}
+
+	galeraGtid, err := parseGTIDFromSSTInfoContent(content)
+	if err != nil {
+		return "", errors.Wrapf(err, "parse gtid from sst_info content")
+	}
+	return strings.Split(galeraGtid, ":")[0], nil
+}
+
+func readGaleraInfoUUID(ctx context.Context, s storage.Storage) (string, error) {
+	list, err := s.ListObjects(ctx, "xtrabackup_galera_info")
+	if err != nil {
+		return "", err
+	}
+	if len(list) == 0 {
+		return "", storage.ErrObjectNotFound
+	}
+	sort.Strings(list)
+	obj, err := s.GetObject(ctx, list[0])
+	if err != nil {
+		return "", err
+	}
+	content, err := getDecompressedContent(ctx, obj, "xtrabackup_galera_info")
+	if err != nil {
+		return "", err
+	}
+	// '<uuid>:<seq>'
+	split := strings.TrimSpace(string(content))
+	return strings.SplitN(split, ":", 2)[0], nil
 }
 
 func getXtrabackupInfo(ctx context.Context, s storage.Storage) ([]byte, error) {

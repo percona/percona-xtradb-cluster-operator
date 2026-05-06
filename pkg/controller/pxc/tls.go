@@ -117,6 +117,11 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(ctx context.Conte
 		if cr.CompareVersionWith("1.16.0") >= 0 {
 			caCert.Labels = naming.LabelsCluster(cr)
 		}
+		if cr.CompareVersionWith("1.20.0") >= 0 {
+			caCert.Spec.PrivateKey = &cm.CertificatePrivateKey{
+				RotationPolicy: cm.RotationPolicyNever,
+			}
+		}
 
 		err := r.client.Create(ctx, caCert)
 		if err != nil && !k8serr.IsAlreadyExists(err) {
@@ -167,6 +172,11 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(ctx context.Conte
 	if cr.CompareVersionWith("1.19.0") >= 0 {
 		kubeCert.Spec.Duration = duration
 	}
+	if cr.CompareVersionWith("1.20.0") >= 0 {
+		kubeCert.Spec.PrivateKey = &cm.CertificatePrivateKey{
+			RotationPolicy: cm.RotationPolicyNever,
+		}
+	}
 
 	err := r.client.Create(ctx, kubeCert)
 	if err != nil && !k8serr.IsAlreadyExists(err) {
@@ -210,6 +220,11 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(ctx context.Conte
 	}
 	if cr.CompareVersionWith("1.19.0") >= 0 {
 		kubeCert.Spec.Duration = duration
+	}
+	if cr.CompareVersionWith("1.20.0") >= 0 {
+		kubeCert.Spec.PrivateKey = &cm.CertificatePrivateKey{
+			RotationPolicy: cm.RotationPolicyNever,
+		}
 	}
 	err = r.client.Create(ctx, kubeCert)
 	if err != nil && !k8serr.IsAlreadyExists(err) {

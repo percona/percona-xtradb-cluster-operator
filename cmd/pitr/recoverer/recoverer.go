@@ -213,7 +213,6 @@ func validateTransactionGTID(ctx context.Context, targetGTID, startGTID string) 
 			continue
 		}
 
-		// pick last range end (segments can be "lo-hi" or just "n", or "lo1-hi1:lo2-hi2" rarely)
 		rangeStr := segParts[1]
 		rangeStr = rangeStr[strings.LastIndex(rangeStr, ":")+1:]
 		hi := rangeStr
@@ -224,7 +223,7 @@ func validateTransactionGTID(ctx context.Context, targetGTID, startGTID string) 
 		if err != nil {
 			return errors.Wrap(err, "parse high end of backup range")
 		}
-		if targetSeq <= hiInt {
+		if targetSeq < hiInt {
 			return errors.Errorf(
 				"target GTID %s is already inside the backup (segment %s); can't recover to a transaction before backup",
 				targetGTID, seg)
@@ -456,14 +455,17 @@ func (r *Recoverer) setBinlogs(ctx context.Context) error {
 			log.Println("Can't get binlog object with gtid set. Name:", binlog, "error", err)
 			continue
 		}
+
 		content, err := io.ReadAll(infoObj)
 		if err != nil {
 			return errors.Wrapf(err, "read %s gtid-set object", binlog)
 		}
+		infoObj.Close() //nolint:errcheck
+
 		binlogGTIDSet := string(content)
 		log.Println("checking current file", " name ", binlog, " gtid ", binlogGTIDSet)
 
-		if !strings.HasPrefix(binlogGTIDSet, r.timelineUUID) {
+		if !gtidSetContainsUUID(binlogGTIDSet, r.timelineUUID) {
 			log.Println("skipping binlog", binlog, "because it's not from the same timeline as the backup")
 			continue
 		}
@@ -502,6 +504,16 @@ func (r *Recoverer) setBinlogs(ctx context.Context) error {
 	r.binlogs = binlogs
 
 	return nil
+}
+
+func gtidSetContainsUUID(gtidSet, uuid string) bool {
+	for _, segment := range strings.Split(gtidSet, ",") {
+		segment = strings.TrimSpace(segment)
+		if strings.HasPrefix(segment, uuid+":") {
+			return true
+		}
+	}
+	return false
 }
 
 func getExtendGTIDSet(gtidSet, gtid string) (string, error) {
@@ -548,6 +560,8 @@ func getStartGTIDSet(ctx context.Context, s storage.Storage) (string, error) {
 		if err != nil {
 			return "", errors.Wrapf(err, "get xtrabackup_binlog_info object")
 		}
+		defer obj.Close() //nolint:errcheck
+
 		content, err := getDecompressedContent(ctx, obj, "xtrabackup_binlog_info")
 		if err != nil {
 			return "", errors.Wrapf(err, "get decompressed content for xtrabackup_binlog_info")
@@ -603,6 +617,8 @@ func readUUIDFromSSTInfo(ctx context.Context, s storage.Storage) (string, error)
 	if err != nil {
 		return "", err
 	}
+	defer obj.Close() //nolint:errcheck
+
 	content, err := getDecompressedContent(ctx, obj, "sst_info")
 	if err != nil {
 		return "", err

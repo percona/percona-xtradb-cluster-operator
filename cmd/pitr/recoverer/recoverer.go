@@ -167,7 +167,7 @@ func New(ctx context.Context, c Config) (*Recoverer, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "get start GTID")
 	}
-	log.Printf("last uploaded GTID set: %s", startGTID)
+	log.Printf("restored backup GTID executed", startGTID)
 
 	timelineUUID, err := getBackupTimelineUUID(ctx, storage)
 	if err != nil {

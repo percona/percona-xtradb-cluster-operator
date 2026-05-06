@@ -3,6 +3,7 @@ package recoverer
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"io"
 	"log"
 	"net/url"
@@ -17,6 +18,7 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/cmd/pitr/pxc"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage"
+	xbserver "github.com/percona/percona-xtradb-cluster-operator/pkg/xtrabackup/server"
 
 	"github.com/pkg/errors"
 )
@@ -536,7 +538,6 @@ func reverse(list []string) {
 }
 
 func getStartGTIDSet(ctx context.Context, s storage.Storage) (string, error) {
-	// Prefer xtrabackup_binlog_info
 	list, err := s.ListObjects(ctx, "xtrabackup_binlog_info")
 	if err != nil {
 		return "", errors.Wrapf(err, "list xtrabackup_binlog_info objects")
@@ -563,25 +564,28 @@ func getStartGTIDSet(ctx context.Context, s storage.Storage) (string, error) {
 }
 
 func getBackupTimelineUUID(ctx context.Context, s storage.Storage) (string, error) {
-	if uuid, err := readSSTInfoUUID(ctx, s); err == nil {
+	// Try reading galera-gtid from sst_info
+	if uuid, err := readUUIDFromSSTInfo(ctx, s); err == nil {
 		return uuid, nil
 	} else if !errors.Is(err, storage.ErrObjectNotFound) {
 		return "", errors.Wrap(err, "read sst_info")
 	}
 
-	if uuid, err := readGaleraInfoUUID(ctx, s); err == nil {
-		return uuid, nil
+	// sst_info not found, try reading from .meta.json created
+	// by xtrabackup sidecar
+	if meta, err := readBackupMeta(ctx, s); err == nil {
+		return meta.ClusterUUID, nil
 	} else if !errors.Is(err, storage.ErrObjectNotFound) {
-		return "", errors.Wrap(err, "read xtrabackup_galera_info")
+		return "", errors.Wrap(err, "read backup meta")
 	}
 
 	return "", errors.New(
-		"no Galera state info in backup (neither sst_info nor xtrabackup_galera_info); " +
+		"no Galera state info in backup (none of sst_info, .meta.json); " +
 			"PITR cannot determine timeline identity — backup may have been produced by an " +
-			"older sidecar without --galera-info")
+			"older sidecar that did not capture wsrep_cluster_state_uuid")
 }
 
-func readSSTInfoUUID(ctx context.Context, s storage.Storage) (string, error) {
+func readUUIDFromSSTInfo(ctx context.Context, s storage.Storage) (string, error) {
 	prev := s.GetPrefix()
 	defer s.SetPrefix(prev)
 
@@ -611,93 +615,30 @@ func readSSTInfoUUID(ctx context.Context, s storage.Storage) (string, error) {
 	return strings.Split(galeraGtid, ":")[0], nil
 }
 
-func readGaleraInfoUUID(ctx context.Context, s storage.Storage) (string, error) {
-	list, err := s.ListObjects(ctx, "xtrabackup_galera_info")
-	if err != nil {
-		return "", err
-	}
-	if len(list) == 0 {
-		return "", storage.ErrObjectNotFound
-	}
-	sort.Strings(list)
-	obj, err := s.GetObject(ctx, list[0])
-	if err != nil {
-		return "", err
-	}
-	content, err := getDecompressedContent(ctx, obj, "xtrabackup_galera_info")
-	if err != nil {
-		return "", err
-	}
-	// '<uuid>:<seq>'
-	split := strings.TrimSpace(string(content))
-	return strings.SplitN(split, ":", 2)[0], nil
-}
+// readBackupMeta reads the backup .meta.json file created by the operator.
+func readBackupMeta(ctx context.Context, s storage.Storage) (*xbserver.BackupMeta, error) {
+	prev := s.GetPrefix()
+	defer s.SetPrefix(prev)
 
-func getXtrabackupInfo(ctx context.Context, s storage.Storage) ([]byte, error) {
-	xbInfo, err := s.ListObjects(ctx, "xtrabackup_info")
-	if err != nil {
-		return nil, errors.Wrapf(err, "list xtrabackup_info objects")
-	}
-	if len(xbInfo) == 0 {
-		return nil, errors.New("no xtrabackup_info objects found")
-	}
-	sort.Strings(xbInfo)
-	xbInfoObj, err := s.GetObject(ctx, xbInfo[0])
-	if err != nil {
-		return nil, errors.Wrapf(err, "get xtrabackup_info object")
-	}
-	xbInfoContent, err := getDecompressedContent(ctx, xbInfoObj, "xtrabackup_info")
-	if err != nil {
-		return nil, errors.Wrapf(err, "get decompressed content for xtrabackup_info")
-	}
-	return xbInfoContent, nil
-}
+	metaObject := strings.TrimSuffix(prev, "/") + ".meta.json"
+	s.SetPrefix("")
 
-func getGTID(ctx context.Context, s storage.Storage) (string, error) {
-	currPrefix := s.GetPrefix()
-	defer s.SetPrefix(currPrefix)
-
-	s.SetPrefix(strings.TrimSuffix(currPrefix, "/") + ".sst_info/")
-	sstInfo, err := s.ListObjects(ctx, "sst_info")
+	obj, err := s.GetObject(ctx, metaObject)
 	if err != nil {
-		return "", errors.Wrapf(err, "list sst_info objects objects")
+		return nil, err
 	}
-	if len(sstInfo) > 0 {
-		sort.Strings(sstInfo)
-		return getGTIDFromSSTInfo(ctx, sstInfo[0], s)
+	defer obj.Close() //nolint:errcheck
+
+	content, err := io.ReadAll(obj)
+	if err != nil {
+		return nil, err
 	}
 
-	s.SetPrefix(currPrefix)
-	xbBinlogInfo, err := s.ListObjects(ctx, "xtrabackup_binlog_info")
-	if err != nil {
-		return "", errors.Wrapf(err, "list xtrabackup_binlog_info objects")
+	meta := &xbserver.BackupMeta{}
+	if err := json.Unmarshal(content, &meta); err != nil {
+		return nil, errors.Wrapf(err, "unmarshal meta.json")
 	}
-	if len(xbBinlogInfo) > 0 {
-		sort.Strings(xbBinlogInfo)
-		return getGTIDFromXtrabackupBinlogInfo(ctx, xbBinlogInfo[0], s)
-	}
-	return "", errors.New("no sst_info or xtrabackup_binlog_info objects found")
-}
-
-func getGTIDFromSSTInfo(
-	ctx context.Context,
-	sstInfoFile string,
-	s storage.Storage) (string, error) {
-	sstInfoObj, err := s.GetObject(ctx, sstInfoFile)
-	if err != nil {
-		return "", errors.Wrapf(err, "get sst_info object")
-	}
-	sstContent, err := getDecompressedContent(ctx, sstInfoObj, "sst_info")
-	if err != nil {
-		return "", errors.Wrapf(err, "get decompressed content for sst_info")
-	}
-
-	gtidSet, err := parseGTIDFromSSTInfoContent(sstContent)
-	if err != nil {
-		return "", errors.Wrapf(err, "parse gtid from sst_info content")
-	}
-
-	return strings.Split(gtidSet, ":")[0], nil
+	return meta, nil
 }
 
 func parseGTIDFromSSTInfoContent(content []byte) (string, error) {
@@ -712,64 +653,4 @@ func parseGTIDFromSSTInfoContent(content []byte) (string, error) {
 		return "", errors.New("can't find gtid data in backup")
 	}
 	return string(newOut[:e]), nil
-}
-
-func getGTIDFromXtrabackupBinlogInfo(ctx context.Context, xbBinlogInfoFile string, s storage.Storage) (string, error) {
-	xbBinlogInfoObj, err := s.GetObject(ctx, xbBinlogInfoFile)
-	if err != nil {
-		return "", errors.Wrapf(err, "get xtrabackup_binlog_info object")
-	}
-
-	xbBinlogInfoContent, err := getDecompressedContent(ctx, xbBinlogInfoObj, "xtrabackup_binlog_info")
-	if err != nil {
-		return "", errors.Wrapf(err, "get decompressed content for xtrabackup_binlog_info")
-	}
-
-	gtidSet, err := parseGTIDFromXtrabackupBinlogInfoContent(xbBinlogInfoContent)
-	if err != nil {
-		return "", errors.Wrapf(err, "parse gtid from xtrabackup_binlog_info content")
-	}
-
-	return strings.Split(gtidSet, ":")[0], nil
-}
-
-func parseGTIDFromXtrabackupBinlogInfoContent(content []byte) (string, error) {
-	contentStr := string(content)
-	tokens := strings.Split(contentStr, "\t")
-	if len(tokens) != 3 {
-		return "", errors.New("incorrect number of tokens in xtrabackup_binlog_info content")
-	}
-	return tokens[2], nil
-}
-
-func getSetFromXtrabackupInfo(gtid string, xtrabackupInfo []byte) (string, error) {
-	gtids, err := getGTIDFromXtrabackup(xtrabackupInfo)
-	if err != nil {
-		return "", errors.Wrap(err, "get gtid from xtrabackup info")
-	}
-	for _, v := range strings.Split(gtids, ",") {
-		valueSplitted := strings.Split(v, ":")
-		if valueSplitted[0] == gtid {
-			return valueSplitted[1], nil
-		}
-	}
-	return "", errors.Errorf("can't find current gtid (%s) in xtrabackup file", gtid)
-}
-
-func getGTIDFromXtrabackup(content []byte) (string, error) {
-	sep := []byte("GTID of the last")
-	startIndex := bytes.Index(content, sep)
-	if startIndex == -1 {
-		return "", errors.New("no gtid data in backup")
-	}
-	newOut := content[startIndex+len(sep):]
-	e := bytes.Index(newOut, []byte("'\n"))
-	if e == -1 {
-		return "", errors.New("can't find gtid data in backup")
-	}
-
-	se := bytes.Index(newOut, []byte("'"))
-	set := newOut[se+1 : e]
-
-	return string(set), nil
 }

@@ -136,6 +136,10 @@ func (s *appServer) CreateBackup(req *api.CreateBackupRequest, stream api.Xtraba
 		logger.Error(err, "backup failed")
 		return errors.Wrap(err, "backup failed")
 	}
+	if err := s.writeBackupMetaFile(ctx, req.BackupConfig, backupPass); err != nil {
+		logger.Error(err, "write backup meta file")
+		return errors.Wrap(err, "write backup meta file")
+	}
 	if err := s.checkBackupMD5Size(ctx, req.BackupConfig); err != nil {
 		logger.Error(err, "check backup md5 file size")
 		return errors.Wrap(err, "check backup md5 file size")

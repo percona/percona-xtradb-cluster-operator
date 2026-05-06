@@ -66,19 +66,6 @@ func TestGetBucketAndPrefix(t *testing.T) {
 	}
 }
 
-func TestGetGTIDFromContent(t *testing.T) {
-	c := []byte(`sometext GTID of the last set 'test_set:1-10'
-	`)
-
-	set, err := getGTIDFromXtrabackup(c)
-	if err != nil {
-		t.Error("get last gtid set", err.Error())
-	}
-	if set != "test_set:1-10" {
-		t.Error("set not test_set:1-10 but", set)
-	}
-}
-
 func TestGetExtendGTIDSet(t *testing.T) {
 	type testCase struct {
 		gtidSet         string

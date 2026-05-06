@@ -6,6 +6,7 @@ import (
 	"io"
 	"testing"
 
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage/mock"
 	"github.com/stretchr/testify/assert"
 )
@@ -217,6 +218,74 @@ func TestGetStartGTID(t *testing.T) {
 			got, err := getStartGTIDSet(ctx, mockStorage)
 			if (err != nil) != tc.wantErr {
 				t.Errorf("getStartGTIDSet() error = %v, wantErr %v", err, tc.wantErr)
+			}
+			assert.Equal(t, tc.expected, got)
+		})
+	}
+}
+
+func TestGetBackupTimelineUUID(t *testing.T) {
+	ctx := context.WithValue(context.Background(), testContextKey{}, true)
+	testCases := []struct {
+		desc        string
+		mockFn      func(*mock.Storage)
+		expected    string
+		errContains string
+	}{
+		{
+			desc: "using sst_info galera gtid",
+			mockFn: func(s *mock.Storage) {
+				s.On("GetPrefix").Return("backup/").Once()
+				s.On("SetPrefix", "backup.sst_info/").Once()
+				s.On("ListObjects", ctx, "sst_info").Return([]string{"sst_info.00000000000000000000"}, nil).Once()
+				s.On("GetObject", ctx, "sst_info.00000000000000000000").Return(newStringReader("galera-gtid=sst-uuid:1\n"), nil).Once()
+				s.On("SetPrefix", "backup/").Once()
+			},
+			expected: "sst-uuid",
+		},
+		{
+			desc: "using backup meta when sst_info is missing",
+			mockFn: func(s *mock.Storage) {
+				s.On("GetPrefix").Return("backup/").Once()
+				s.On("SetPrefix", "backup.sst_info/").Once()
+				s.On("ListObjects", ctx, "sst_info").Return([]string{}, nil).Once()
+				s.On("SetPrefix", "backup/").Once()
+
+				s.On("GetPrefix").Return("backup/").Once()
+				s.On("SetPrefix", "").Once()
+				s.On("GetObject", ctx, "backup.meta.json").Return(newStringReader(`{"cluster_uuid":"meta-uuid"}`), nil).Once()
+				s.On("SetPrefix", "backup/").Once()
+			},
+			expected: "meta-uuid",
+		},
+		{
+			desc: "missing sst_info and backup meta",
+			mockFn: func(s *mock.Storage) {
+				s.On("GetPrefix").Return("backup/").Once()
+				s.On("SetPrefix", "backup.sst_info/").Once()
+				s.On("ListObjects", ctx, "sst_info").Return([]string{}, nil).Once()
+				s.On("SetPrefix", "backup/").Once()
+
+				s.On("GetPrefix").Return("backup/").Once()
+				s.On("SetPrefix", "").Once()
+				s.On("GetObject", ctx, "backup.meta.json").Return(nil, storage.ErrObjectNotFound).Once()
+				s.On("SetPrefix", "backup/").Once()
+			},
+			errContains: "no Galera state info in backup",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			mockStorage := mock.NewStorage(t)
+			tc.mockFn(mockStorage)
+
+			got, err := getBackupTimelineUUID(ctx, mockStorage)
+			if tc.errContains == "" {
+				assert.NoError(t, err)
+			} else {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), tc.errContains)
 			}
 			assert.Equal(t, tc.expected, got)
 		})

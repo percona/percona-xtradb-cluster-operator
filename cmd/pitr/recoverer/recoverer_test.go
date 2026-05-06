@@ -100,7 +100,6 @@ func TestGetExtendGTIDSet(t *testing.T) {
 }
 
 func TestValidateTransactionGTID(t *testing.T) {
-	ctx := context.Background()
 	testCases := []struct {
 		desc        string
 		targetGTID  string
@@ -150,7 +149,7 @@ func TestValidateTransactionGTID(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			err := validateTransactionGTID(ctx, tc.targetGTID, tc.startGTID)
+			err := validateTransactionGTID(tc.targetGTID, tc.startGTID)
 			if tc.errContains == "" {
 				assert.NoError(t, err)
 				return

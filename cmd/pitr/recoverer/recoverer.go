@@ -180,7 +180,7 @@ func New(ctx context.Context, c Config) (*Recoverer, error) {
 	log.Printf("backup timeline UUID: %s", timelineUUID)
 
 	if c.RecoverType == string(Transaction) {
-		if err := validateTransactionGTID(ctx, c.GTID, startGTID); err != nil {
+		if err := validateTransactionGTID(c.GTID, startGTID); err != nil {
 			return nil, errors.Wrap(err, "validate transaction GTID")
 		}
 	}
@@ -199,7 +199,7 @@ func New(ctx context.Context, c Config) (*Recoverer, error) {
 	}, nil
 }
 
-func validateTransactionGTID(ctx context.Context, targetGTID, startGTID string) error {
+func validateTransactionGTID(targetGTID, startGTID string) error {
 	targetParts := strings.SplitN(targetGTID, ":", 2)
 	if len(targetParts) != 2 {
 		return errors.Errorf("invalid target GTID %q", targetGTID)

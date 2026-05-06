@@ -110,30 +110,27 @@ func TestGetStartGTID(t *testing.T) {
 		wantErr  bool
 	}{
 		{
-			desc: "using sst_info",
-			mockFn: func(s *mock.Storage) {
-				s.On("ListObjects", ctx, ".sst_info/sst_info").Return([]string{".sst_info/sst_info"}, nil)
-				s.On("GetObject", ctx, ".sst_info/sst_info").Return(newStringReader("[sst]\ngalera-gtid=abc-xyz:1-10\n"), nil)
-				s.On("ListObjects", ctx, "xtrabackup_info").Return([]string{"xtrabackup_info.00000000000000000000"}, nil)
-				s.On("GetObject", ctx, "xtrabackup_info.00000000000000000000").Return(newStringReader("binlog_pos = filename 'binlog.000111', position '237', GTID of the last change 'abc-xyz:1-10'\n"), nil)
-			},
-			expected: "abc-xyz:1-10",
-		},
-		{
 			desc: "using xtrabackup_binlog_info",
 			mockFn: func(s *mock.Storage) {
-				s.On("ListObjects", ctx, ".sst_info/sst_info").Return([]string{}, nil)
 				s.On("ListObjects", ctx, "xtrabackup_binlog_info").Return([]string{"xtrabackup_binlog_info.00000000000000000000"}, nil)
 				s.On("GetObject", ctx, "xtrabackup_binlog_info.00000000000000000000").Return(newStringReader("binlog.0001\t197\tabc-xyz:1-10\n"), nil)
-				s.On("ListObjects", ctx, "xtrabackup_info").Return([]string{"xtrabackup_info.00000000000000000000"}, nil)
-				s.On("GetObject", ctx, "xtrabackup_info.00000000000000000000").Return(newStringReader("binlog_pos = filename 'binlog.000111', position '237', GTID of the last change 'abc-xyz:1-10'\n"), nil)
 			},
 			expected: "abc-xyz:1-10",
 		},
 		{
-			desc: "no sst_info or xtrabackup_binlog_info objects found",
+			desc: "using first xtrabackup_binlog_info object",
 			mockFn: func(s *mock.Storage) {
-				s.On("ListObjects", ctx, ".sst_info/sst_info").Return([]string{}, nil)
+				s.On("ListObjects", ctx, "xtrabackup_binlog_info").Return([]string{
+					"xtrabackup_binlog_info.00000000000000000001",
+					"xtrabackup_binlog_info.00000000000000000000",
+				}, nil)
+				s.On("GetObject", ctx, "xtrabackup_binlog_info.00000000000000000000").Return(newStringReader("binlog.0001\t197\tabc-xyz:1-10\n"), nil)
+			},
+			expected: "abc-xyz:1-10",
+		},
+		{
+			desc: "no xtrabackup_binlog_info objects found",
+			mockFn: func(s *mock.Storage) {
 				s.On("ListObjects", ctx, "xtrabackup_binlog_info").Return([]string{}, nil)
 			},
 			expected: "",
@@ -142,7 +139,6 @@ func TestGetStartGTID(t *testing.T) {
 		{
 			desc: "no gtid in xtrabackup_binlog_info",
 			mockFn: func(s *mock.Storage) {
-				s.On("ListObjects", ctx, ".sst_info/sst_info").Return([]string{}, nil)
 				s.On("ListObjects", ctx, "xtrabackup_binlog_info").Return([]string{"xtrabackup_binlog_info.00000000000000000000"}, nil)
 				s.On("GetObject", ctx, "xtrabackup_binlog_info.00000000000000000000").Return(newStringReader("binlog.0001\t197\n"), nil)
 			},

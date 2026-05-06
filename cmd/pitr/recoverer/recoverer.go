@@ -577,7 +577,6 @@ func getStartGTIDSet(ctx context.Context, s storage.Storage) (string, error) {
 		return tokens[2], nil
 	}
 
-	// TODO: fallback to xtrabackup_info?
 	return "", errors.New("no xtrabackup_binlog_info objects found")
 }
 

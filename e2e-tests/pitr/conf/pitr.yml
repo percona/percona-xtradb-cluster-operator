@@ -4,6 +4,8 @@ metadata:
   name: pitr
   finalizers:
     - percona.com/delete-pxc-pods-in-order
+    - percona.com/delete-proxysql-pvc
+    - percona.com/delete-pxc-pvc
   # annotations:
   #   percona.com/issue-vault-token: "true"
 spec:

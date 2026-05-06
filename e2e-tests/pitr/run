@@ -133,7 +133,7 @@ check_binlog_gap() {
 get_gtid_executed() {
 	local host=$1
 
-	local gtid=$(run_mysql "SELECT @@gtid_executed;" "-h ${host} -uroot -proot_password" | $sed 's/\([a-f0-9-]\{36\}\):[0-9]*-\([0-9]*\).*/\1:\2/')
+	local gtid=$(run_mysql "SELECT @@gtid_executed;" "-h ${host} -uroot -p${mysql_root_pass}" | $sed 's/\([a-f0-9-]\{36\}\):[0-9]*-\([0-9]*\).*/\1:\2/')
 
 	if [[ ! ${gtid} =~ ${GTID_PATTERN} ]]; then
 		printf "Some garbage --> %s <-- instead of legit GTID. Exiting" ${gtid}
@@ -141,6 +141,34 @@ get_gtid_executed() {
 	fi
 
 	echo ${gtid}
+}
+
+
+create_random_pass() {
+	local cluster="$1"
+	local root xtrabackup_pw monitor_pw proxyadmin_pw pmmserver_pw operator_pw replication_pw
+
+	root=$(openssl rand -hex 16)
+	xtrabackup_pw=$(openssl rand -hex 16)
+	monitor_pw=$(openssl rand -hex 16)
+	proxyadmin_pw=$(openssl rand -hex 16)
+	pmmserver_pw=$(openssl rand -hex 16)
+	operator_pw=$(openssl rand -hex 16)
+	replication_pw=$(openssl rand -hex 16)
+
+	kubectl_bin delete secret my-cluster-secrets --ignore-not-found
+	kubectl_bin delete secret "internal-${cluster}" --ignore-not-found
+
+	kubectl_bin create secret generic my-cluster-secrets \
+		--from-literal=root="$root" \
+		--from-literal=xtrabackup="$xtrabackup_pw" \
+		--from-literal=monitor="$monitor_pw" \
+		--from-literal=proxyadmin="$proxyadmin_pw" \
+		--from-literal=pmmserver="$pmmserver_pw" \
+		--from-literal=operator="$operator_pw" \
+		--from-literal=replication="$replication_pw"
+
+	mysql_root_pass="$root"
 }
 
 main() {
@@ -153,6 +181,7 @@ main() {
 	start_minio "tls-minio"
 
 	cluster="pitr"
+	mysql_root_pass=root_password
 	spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml"
 
 	pitr_pod=$(
@@ -245,6 +274,51 @@ main() {
 	log "[CASE 3]: gtid_executed (after restore): ${gtid}"
 
 	desc "[CASE 3] PiTR with latest using backupSource: OK"
+
+	desc "[CASE 4] PiTR from source on new cluster"
+	log "[CASE 4]: using backup destination from on-pitr-minio-3 (escaped for restore): ${dest}"
+
+	desc "[CASE 4] delete PXC cluster ${cluster} and wait for PVCs"
+	kubectl_bin delete pxc ${cluster}
+	desc "[CASE 4] wait for PVCs (app.kubernetes.io/instance=${cluster}) to be deleted"
+	if ! kubectl_bin wait pvc \
+		-l "app.kubernetes.io/instance=${cluster}" \
+		--for=delete \
+		--timeout=360s; then
+		if kubectl_bin get pvc -l "app.kubernetes.io/instance=${cluster}" --no-headers 2>/dev/null | grep -q .; then
+			log "PVCs still exist after kubectl wait"
+			kubectl_bin get pvc -l "app.kubernetes.io/instance=${cluster}"
+			exit 1
+		fi
+	fi
+
+	desc "[CASE 4] recreate empty PXC cluster ${cluster} with random system user passwords"
+	kubectl_bin apply -f ${conf_dir}/secrets.yml
+	create_random_pass "$cluster"
+	apply_config "${conf_dir}/client.yml"
+	apply_config "$test_dir/conf/$cluster.yml"
+
+	proxy=$(get_proxy "$cluster")
+	wait_for_running "$proxy" 2
+	wait_for_running "$cluster-pxc" 3
+	sleep 10
+
+	pitr_pod=$(
+		kubectl_bin get pods \
+			--selector="app.kubernetes.io/component=pitr" \
+			-o 'jsonpath={.items[].metadata.name}'
+	)
+	wait_pod "$pitr_pod"
+
+	wait_cluster_consistency ${cluster} 3 2
+
+	desc "[CASE 4] PiTR with latest using backupSource on new cluster"
+	run_recovery_check_pitr "$cluster" "restore-on-pitr-minio" "on-pitr-minio" "select-4" "" "$dest" "" "$mysql_root_pass"
+
+	gtid=$(get_gtid_executed ${mysql_host})
+	log "[CASE 4]: gtid_executed (after restore): ${gtid}"
+
+	desc "[CASE 4] PiTR from source on new cluster: OK"
 
 	destroy $namespace
 	desc "test passed"

@@ -9,6 +9,7 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage/mock"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestGetBucketAndPrefix(t *testing.T) {
@@ -192,9 +193,19 @@ func TestGetStartGTID(t *testing.T) {
 			expected: "abc-xyz:1-10",
 		},
 		{
-			desc: "no xtrabackup_binlog_info objects found",
+			desc: "fallback to xtrabackup_info",
 			mockFn: func(s *mock.Storage) {
 				s.On("ListObjects", ctx, "xtrabackup_binlog_info").Return([]string{}, nil)
+				s.On("ListObjects", ctx, "xtrabackup_info").Return([]string{"xtrabackup_info.00000000000000000000"}, nil)
+				s.On("GetObject", ctx, "xtrabackup_info.00000000000000000000").Return(newStringReader("binlog_pos = filename 'binlog.000001', position '197', GTID of the last change 'abc-xyz:1-10'\n"), nil)
+			},
+			expected: "abc-xyz:1-10",
+		},
+		{
+			desc: "no xtrabackup metadata objects found",
+			mockFn: func(s *mock.Storage) {
+				s.On("ListObjects", ctx, "xtrabackup_binlog_info").Return([]string{}, nil)
+				s.On("ListObjects", ctx, "xtrabackup_info").Return([]string{}, nil)
 			},
 			expected: "",
 			wantErr:  true,
@@ -220,6 +231,55 @@ func TestGetStartGTID(t *testing.T) {
 				t.Errorf("getStartGTIDSet() error = %v, wantErr %v", err, tc.wantErr)
 			}
 			assert.Equal(t, tc.expected, got)
+		})
+	}
+}
+
+func TestGetGTIDFromXtrabackup(t *testing.T) {
+	testCases := []struct {
+		desc        string
+		content     string
+		expected    string
+		errContains string
+	}{
+		{
+			desc: "extracts GTID from xtrabackup_info binlog position",
+			content: `uuid = backup-uuid
+name =
+tool_name = xtrabackup
+binlog_pos = filename 'binlog.000001', position '197', GTID of the last change 'test-set:1-10'
+server_version = 5.7.44-48-57-log
+`,
+			expected: "test-set:1-10",
+		},
+		{
+			desc: "extracts multi-source GTID set",
+			content: `binlog_pos = filename 'binlog.000001', position '197', GTID of the last change 'source-1:1-10,source-2:1-20'
+`,
+			expected: "source-1:1-10,source-2:1-20",
+		},
+		{
+			desc:        "returns error when GTID marker is missing",
+			content:     "binlog_pos = filename 'binlog.000001', position '197'\n",
+			errContains: "no gtid data in backup",
+		},
+		{
+			desc:        "returns error when GTID value is not closed",
+			content:     "binlog_pos = filename 'binlog.000001', position '197', GTID of the last change 'test-set:1-10",
+			errContains: "can't find gtid data in backup",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			set, err := getGTIDFromXtrabackup([]byte(tc.content))
+			if tc.errContains == "" {
+				require.NoError(t, err)
+				assert.Equal(t, tc.expected, set)
+				return
+			}
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tc.errContains)
 		})
 	}
 }

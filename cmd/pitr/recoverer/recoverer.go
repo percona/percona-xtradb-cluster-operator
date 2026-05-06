@@ -554,6 +554,7 @@ func reverse(list []string) {
 }
 
 func getStartGTIDSet(ctx context.Context, s storage.Storage) (string, error) {
+	// Prefer reading from xtrabackup_binlog_info if it exists
 	list, err := s.ListObjects(ctx, "xtrabackup_binlog_info")
 	if err != nil {
 		return "", errors.Wrapf(err, "list xtrabackup_binlog_info objects")
@@ -577,7 +578,52 @@ func getStartGTIDSet(ctx context.Context, s storage.Storage) (string, error) {
 		return tokens[2], nil
 	}
 
-	return "", errors.New("no xtrabackup_binlog_info objects found")
+	log.Println("no xtrabackup_binlog_info objects found, falling back to xtrabackup_info")
+
+	// Fallback to xtrabackup_info if xtrabackup_binlog_info is not found
+	list, err = s.ListObjects(ctx, "xtrabackup_info")
+	if err != nil {
+		return "", errors.Wrapf(err, "list xtrabackup_info objects")
+	}
+	if len(list) == 0 {
+		return "", errors.New("neither xtrabackup_binlog_info nor xtrabackup_info objects found")
+	}
+
+	sort.Strings(list)
+	obj, err := s.GetObject(ctx, list[0])
+	if err != nil {
+		return "", errors.Wrapf(err, "get xtrabackup_info object")
+	}
+	defer obj.Close() //nolint:errcheck
+
+	content, err := getDecompressedContent(ctx, obj, "xtrabackup_info")
+	if err != nil {
+		return "", errors.Wrapf(err, "get decompressed content for xtrabackup_info")
+	}
+
+	gtid, err := getGTIDFromXtrabackup(content)
+	if err != nil {
+		return "", errors.Wrapf(err, "get gtid from xtrabackup_info")
+	}
+	return gtid, nil
+}
+
+func getGTIDFromXtrabackup(content []byte) (string, error) {
+	sep := []byte("GTID of the last")
+	startIndex := bytes.Index(content, sep)
+	if startIndex == -1 {
+		return "", errors.New("no gtid data in backup")
+	}
+	newOut := content[startIndex+len(sep):]
+	e := bytes.Index(newOut, []byte("'\n"))
+	if e == -1 {
+		return "", errors.New("can't find gtid data in backup")
+	}
+
+	se := bytes.Index(newOut, []byte("'"))
+	set := newOut[se+1 : e]
+
+	return string(set), nil
 }
 
 func getBackupTimelineUUID(ctx context.Context, s storage.Storage) (string, error) {

@@ -173,6 +173,10 @@ func New(ctx context.Context, c Config) (*Recoverer, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "get backup timeline UUID")
 	}
+	if timelineUUID == "" {
+		return nil, errors.New("backup timeline UUID is empty")
+	}
+
 	log.Printf("backup timeline UUID: %s", timelineUUID)
 
 	if c.RecoverType == string(Transaction) {
@@ -457,10 +461,10 @@ func (r *Recoverer) setBinlogs(ctx context.Context) error {
 		}
 
 		content, err := io.ReadAll(infoObj)
+		infoObj.Close() //nolint:errcheck
 		if err != nil {
 			return errors.Wrapf(err, "read %s gtid-set object", binlog)
 		}
-		infoObj.Close() //nolint:errcheck
 
 		binlogGTIDSet := string(content)
 		log.Println("checking current file", " name ", binlog, " gtid ", binlogGTIDSet)
@@ -651,7 +655,7 @@ func readBackupMeta(ctx context.Context, s storage.Storage) (*xbserver.BackupMet
 	}
 
 	meta := &xbserver.BackupMeta{}
-	if err := json.Unmarshal(content, &meta); err != nil {
+	if err := json.Unmarshal(content, meta); err != nil {
 		return nil, errors.Wrapf(err, "unmarshal meta.json")
 	}
 	return meta, nil

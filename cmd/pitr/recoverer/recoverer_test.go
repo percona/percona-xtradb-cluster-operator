@@ -97,6 +97,68 @@ func TestGetExtendGTIDSet(t *testing.T) {
 	}
 }
 
+func TestValidateTransactionGTID(t *testing.T) {
+	ctx := context.Background()
+	testCases := []struct {
+		desc        string
+		targetGTID  string
+		startGTID   string
+		errContains string
+	}{
+		{
+			desc:       "target after backup range",
+			targetGTID: "source-id:41",
+			startGTID:  "source-id:1-40",
+		},
+		{
+			desc:       "target matches backup range high end",
+			targetGTID: "source-id:40",
+			startGTID:  "source-id:1-40",
+		},
+		{
+			desc:       "target after matching range in multi-source GTID set",
+			targetGTID: "source-id:41",
+			startGTID:  "other-source-id:1-10, source-id:1-40",
+		},
+		{
+			desc:        "target before backup range high end",
+			targetGTID:  "source-id:15",
+			startGTID:   "source-id:1-40",
+			errContains: "already inside the backup",
+		},
+		{
+			desc:        "invalid target GTID format",
+			targetGTID:  "source-id",
+			startGTID:   "source-id:1-40",
+			errContains: "invalid target GTID",
+		},
+		{
+			desc:        "invalid target GTID sequence",
+			targetGTID:  "source-id:abc",
+			startGTID:   "source-id:1-40",
+			errContains: "parse target GTID seqno",
+		},
+		{
+			desc:        "invalid backup range high end",
+			targetGTID:  "source-id:41",
+			startGTID:   "source-id:1-abc",
+			errContains: "parse high end of backup range",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			err := validateTransactionGTID(ctx, tc.targetGTID, tc.startGTID)
+			if tc.errContains == "" {
+				assert.NoError(t, err)
+				return
+			}
+			assert.Error(t, err)
+			assert.Contains(t, err.Error(), tc.errContains)
+		})
+	}
+}
+
 func newStringReader(s string) io.Reader {
 	return io.NopCloser(bytes.NewReader([]byte(s)))
 }

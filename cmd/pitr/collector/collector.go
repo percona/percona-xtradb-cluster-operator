@@ -587,9 +587,12 @@ func gtidContainsSeq(gtidEntry, uuid string, seq int64) bool {
 }
 
 // findBinlogWithEndMarker walks binlogs from most recent to oldest and returns the
-// name of the first binlog whose GTID set contains the end (highest) sequence of any
-// GTID entry in lastUploadedSet. Returns "" when no binlog matches, indicating a gap.
-func findBinlogWithEndMarker(binlogs []pxc.Binlog, lastUploadedSet pxc.GTIDSet) string {
+// name of the first binlog whose GTID set contains the end (highest) sequence of
+// the sourceID entry in lastUploadedSet. Returns "" when no binlog matches,
+// indicating a gap. Entries for other UUIDs are ignored: post-restore the old
+// UUID's range is frozen across every subsequent binlog, so matching on it would
+// anchor on a newer binlog and skip the current UUID's resume point.
+func findBinlogWithEndMarker(binlogs []pxc.Binlog, lastUploadedSet pxc.GTIDSet, sourceID string) string {
 	for i := len(binlogs) - 1; i >= 0; i-- {
 		log.Printf("checking %s (%s) against last uploaded set", binlogs[i].Name, binlogs[i].GTIDSet.Raw())
 
@@ -597,6 +600,9 @@ func findBinlogWithEndMarker(binlogs []pxc.Binlog, lastUploadedSet pxc.GTIDSet) 
 			uuid, endSeq, err := gtidEndMarker(lastUploaded)
 			if err != nil {
 				log.Printf("failed to get end marker of last uploaded gtid: %v", err)
+				continue
+			}
+			if uuid != sourceID {
 				continue
 			}
 
@@ -674,7 +680,7 @@ func (c *Collector) CollectBinLogs(ctx context.Context) error {
 	if !c.lastUploadedSet.IsEmpty() {
 		log.Printf("last uploaded GTID set: %s", c.lastUploadedSet.Raw())
 
-		lastUploadedBinlogName = findBinlogWithEndMarker(binlogList, c.lastUploadedSet)
+		lastUploadedBinlogName = findBinlogWithEndMarker(binlogList, c.lastUploadedSet, c.sourceID)
 
 		if lastUploadedBinlogName == "" {
 			log.Println("ERROR: Couldn't find the binlog that contains GTID set:", c.lastUploadedSet.Raw())

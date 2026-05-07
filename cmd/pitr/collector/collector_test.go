@@ -296,6 +296,7 @@ func TestFindBinlogWithEndMarker(t *testing.T) {
 		name         string
 		binlogs      []pxc.Binlog
 		lastUploaded string
+		sourceID     string
 		want         string
 	}{
 		{
@@ -309,6 +310,7 @@ func TestFindBinlogWithEndMarker(t *testing.T) {
 				binlog("binlog.000003", uuidA+":101-150"),
 			},
 			lastUploaded: uuidA + ":1-100",
+			sourceID:     uuidA,
 			want:         "binlog.000002",
 		},
 		{
@@ -318,6 +320,7 @@ func TestFindBinlogWithEndMarker(t *testing.T) {
 				binlog("binlog.000002", uuidA+":51-100"),
 			},
 			lastUploaded: uuidA + ":1-50",
+			sourceID:     uuidA,
 			want:         "binlog.000001",
 		},
 		{
@@ -328,6 +331,7 @@ func TestFindBinlogWithEndMarker(t *testing.T) {
 				binlog("binlog.000003", uuidA+":101-150"),
 			},
 			lastUploaded: uuidA + ":1-100",
+			sourceID:     uuidA,
 			want:         "",
 		},
 		{
@@ -337,19 +341,23 @@ func TestFindBinlogWithEndMarker(t *testing.T) {
 				binlog("binlog.000002", uuidA+":101-150"),
 			},
 			lastUploaded: uuidA + ":1-100",
+			sourceID:     uuidA,
 			want:         "binlog.000001",
 		},
 		{
-			// After a restore the cluster gets a new UUID, so the last uploaded
-			// set may carry both old and new UUID ranges. The match should be
-			// found via whichever UUID's end marker exists in a binlog.
-			name: "matches via second uuid in lastUploadedSet",
+			// After a restore the cluster gets a new UUID. The last uploaded
+			// set may still carry the old UUID's range, but matching must be
+			// anchored on the current source UUID only — otherwise the old
+			// UUID's frozen end marker could anchor on a newer binlog and
+			// skip the resume point.
+			name: "ignores entries from non-current source UUIDs",
 			binlogs: []pxc.Binlog{
-				binlog("binlog.000001", uuidA+":1-50"),
-				binlog("binlog.000002", uuidB+":1-25"),
+				binlog("binlog.000001", uuidA+":1-200,"+uuidB+":1-25"),
+				binlog("binlog.000002", uuidA+":1-200,"+uuidB+":26-50"),
 			},
 			lastUploaded: uuidA + ":1-200," + uuidB + ":1-25",
-			want:         "binlog.000002",
+			sourceID:     uuidB,
+			want:         "binlog.000001",
 		},
 		{
 			name: "binlog carrying multiple uuids matches on the relevant one",
@@ -358,6 +366,7 @@ func TestFindBinlogWithEndMarker(t *testing.T) {
 				binlog("binlog.000002", uuidB+":11-30"),
 			},
 			lastUploaded: uuidB + ":1-10",
+			sourceID:     uuidB,
 			want:         "binlog.000001",
 		},
 		{
@@ -369,12 +378,14 @@ func TestFindBinlogWithEndMarker(t *testing.T) {
 				binlog("binlog.000002", uuidA+":50-150"),
 			},
 			lastUploaded: uuidA + ":1-100",
+			sourceID:     uuidA,
 			want:         "binlog.000002",
 		},
 		{
 			name:         "empty binlog list returns empty",
 			binlogs:      nil,
 			lastUploaded: uuidA + ":1-100",
+			sourceID:     uuidA,
 			want:         "",
 		},
 		{
@@ -383,6 +394,7 @@ func TestFindBinlogWithEndMarker(t *testing.T) {
 				binlog("binlog.000001", uuidA+":1-50"),
 			},
 			lastUploaded: "not-a-gtid," + uuidA + ":1-50",
+			sourceID:     uuidA,
 			want:         "binlog.000001",
 		},
 	}
@@ -391,7 +403,7 @@ func TestFindBinlogWithEndMarker(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got := findBinlogWithEndMarker(tt.binlogs, pxc.NewGTIDSet(tt.lastUploaded))
+			got := findBinlogWithEndMarker(tt.binlogs, pxc.NewGTIDSet(tt.lastUploaded), tt.sourceID)
 			assert.Equal(t, tt.want, got)
 		})
 	}

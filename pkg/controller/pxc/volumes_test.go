@@ -24,35 +24,64 @@ import (
 func TestReconcilePersistentVolumes(t *testing.T) {
 	tests := []struct {
 		name                string
-		clusterName         string
 		requested           string
 		configured          string
 		actual              string
 		resizeInProgress    bool
+		expectSTSDeleted    bool
 		expectResizeCleared bool
+		expectErrContains   string
+		expectCRStorage     string
 	}{
 		{
 			name:                "finishes resize when pvc exceeds requested size",
-			clusterName:         "resize-complete",
 			requested:           "1200Mi",
 			configured:          "1200Mi",
 			actual:              "6G",
 			resizeInProgress:    true,
+			expectSTSDeleted:    true,
 			expectResizeCleared: true,
 		},
 		{
-			name:        "deletes statefulset when requested matches actual but template differs",
-			clusterName: "template-drift-equal",
-			requested:   "1200Mi",
-			configured:  "6G",
-			actual:      "1200Mi",
+			name:             "deletes statefulset when requested matches actual but template differs",
+			requested:        "1200Mi",
+			configured:       "6G",
+			actual:           "1200Mi",
+			expectSTSDeleted: true,
 		},
 		{
-			name:        "deletes statefulset when actual exceeds requested and template is lower",
-			clusterName: "template-drift-lower",
-			requested:   "1200Mi",
-			configured:  "1Gi",
-			actual:      "6G",
+			name:             "deletes statefulset when actual exceeds requested and template is lower",
+			requested:        "1200Mi",
+			configured:       "1Gi",
+			actual:           "6G",
+			expectSTSDeleted: true,
+		},
+		{
+			name:       "does nothing when requested configured and actual sizes are aligned",
+			requested:  "1200Mi",
+			configured: "1200Mi",
+			actual:     "1200Mi",
+		},
+		{
+			name:       "does nothing when requested and configured sizes are aligned",
+			requested:  "1200Mi",
+			configured: "1200Mi",
+			actual:     "6G",
+		},
+		{
+			name:              "rejects shrink when configured is higher than requested and actual is higher than requested",
+			requested:         "1200Mi",
+			configured:        "2Gi",
+			actual:            "6G",
+			expectErrContains: "requested storage (1200Mi) is less than actual storage (6G)",
+			expectCRStorage:   "2Gi",
+		},
+		{
+			name:             "deletes statefulset when pvc already matches increased request but template is stale",
+			requested:        "2Gi",
+			configured:       "1200Mi",
+			actual:           "2Gi",
+			expectSTSDeleted: true,
 		},
 	}
 
@@ -62,7 +91,7 @@ func TestReconcilePersistentVolumes(t *testing.T) {
 			configured := resource.MustParse(tt.configured)
 			actual := resource.MustParse(tt.actual)
 
-			cr, err := readDefaultCR(tt.clusterName, "ns")
+			cr, err := readDefaultCR("some-cluster", "ns")
 			require.NoError(t, err)
 
 			cr.Spec.PXC.Size = 1
@@ -128,18 +157,31 @@ func TestReconcilePersistentVolumes(t *testing.T) {
 			}
 
 			err = r.reconcilePersistentVolumes(t.Context(), cr)
-			require.NoError(t, err)
+			if tt.expectErrContains != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.expectErrContains)
+			} else {
+				require.NoError(t, err)
+			}
 
 			fetchedSTS := &appsv1.StatefulSet{}
 			err = r.client.Get(t.Context(), client.ObjectKeyFromObject(sts), fetchedSTS)
-			assert.Error(t, err)
-			assert.True(t, client.IgnoreNotFound(err) == nil)
+			if tt.expectSTSDeleted {
+				assert.Error(t, err)
+				assert.True(t, client.IgnoreNotFound(err) == nil)
+			} else {
+				assert.NoError(t, err)
+			}
 
 			fetchedCR := &pxcv1.PerconaXtraDBCluster{}
 			err = r.client.Get(t.Context(), client.ObjectKeyFromObject(cr), fetchedCR)
 			require.NoError(t, err)
 			if tt.expectResizeCleared {
 				assert.NotContains(t, fetchedCR.GetAnnotations(), pxcv1.AnnotationPVCResizeInProgress)
+			}
+			if tt.expectCRStorage != "" {
+				expected := resource.MustParse(tt.expectCRStorage)
+				assert.Equal(t, expected, fetchedCR.Spec.PXC.VolumeSpec.PersistentVolumeClaim.Resources.Requests[corev1.ResourceStorage])
 			}
 		})
 	}

@@ -187,6 +187,89 @@ func TestGetLoadBalancerClass(t *testing.T) {
 	}
 }
 
+func TestBackupStorageS3SpecForcePath(t *testing.T) {
+	tests := map[string]struct {
+		spec              BackupStorageS3Spec
+		expectedEndpoint  string
+		expectedBucketURL string
+		expectedBucket    string
+		expectedPrefix    string
+	}{
+		"full endpoint url path is used when force path style is enabled": {
+			spec: BackupStorageS3Spec{
+				Bucket:         "ignored-bucket",
+				EndpointURL:    "https://s3.example.com/my-bucket/prefix",
+				ForcePathStyle: true,
+			},
+			expectedEndpoint:  "https://s3.example.com",
+			expectedBucketURL: "my-bucket/prefix",
+			expectedBucket:    "my-bucket",
+			expectedPrefix:    "prefix/",
+		},
+		"endpoint url without path falls back to bucket": {
+			spec: BackupStorageS3Spec{
+				Bucket:         "my-bucket/prefix",
+				EndpointURL:    "https://s3.example.com",
+				ForcePathStyle: true,
+			},
+			expectedEndpoint:  "https://s3.example.com",
+			expectedBucketURL: "my-bucket/prefix",
+			expectedBucket:    "my-bucket",
+			expectedPrefix:    "prefix/",
+		},
+		"root-only endpoint path falls back to bucket": {
+			spec: BackupStorageS3Spec{
+				Bucket:         "my-bucket/prefix",
+				EndpointURL:    "https://s3.example.com/",
+				ForcePathStyle: true,
+			},
+			expectedEndpoint:  "https://s3.example.com",
+			expectedBucketURL: "my-bucket/prefix",
+			expectedBucket:    "my-bucket",
+			expectedPrefix:    "prefix/",
+		},
+		"scheme-less endpoint path is split into endpoint and bucket": {
+			spec: BackupStorageS3Spec{
+				Bucket:         "ignored-bucket",
+				EndpointURL:    "s3.example.com/my-bucket/prefix",
+				ForcePathStyle: true,
+			},
+			expectedEndpoint:  "s3.example.com",
+			expectedBucketURL: "my-bucket/prefix",
+			expectedBucket:    "my-bucket",
+			expectedPrefix:    "prefix/",
+		},
+		"trailing slash is normalized in prefix": {
+			spec: BackupStorageS3Spec{
+				Bucket:         "ignored-bucket",
+				EndpointURL:    "https://s3.example.com/my-bucket/prefix/",
+				ForcePathStyle: true,
+			},
+			expectedEndpoint:  "https://s3.example.com",
+			expectedBucketURL: "my-bucket/prefix/",
+			expectedBucket:    "my-bucket",
+			expectedPrefix:    "prefix/",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			gotEndpoint, err := tt.spec.Endpoint()
+			assert.NoError(t, err)
+			assert.Equal(t, tt.expectedEndpoint, gotEndpoint)
+
+			gotBucketURL, err := tt.spec.BucketURL()
+			assert.NoError(t, err)
+			assert.Equal(t, tt.expectedBucketURL, gotBucketURL)
+
+			gotBucket, gotPrefix, err := tt.spec.BucketAndPrefix()
+			assert.NoError(t, err)
+			assert.Equal(t, tt.expectedBucket, gotBucket)
+			assert.Equal(t, tt.expectedPrefix, gotPrefix)
+		})
+	}
+}
+
 func TestCheckNSetDefaults(t *testing.T) {
 	minimalCr := PerconaXtraDBCluster{
 		Spec: PerconaXtraDBClusterSpec{
@@ -371,6 +454,68 @@ func TestExtraPVCVolumeMounts(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			actual := ExtraPVCVolumeMounts(ctx, tc.extraPVCs)
 			assert.Equal(t, tc.expected, actual)
+		})
+	}
+}
+
+func TestIsReadOnly(t *testing.T) {
+	tests := map[string]struct {
+		channels []ReplicationChannel
+		expected bool
+	}{
+		"no replication channels": {
+			channels: nil,
+			expected: false,
+		},
+		"empty replication channels": {
+			channels: []ReplicationChannel{},
+			expected: false,
+		},
+		"single source channel": {
+			channels: []ReplicationChannel{
+				{Name: "source-channel", IsSource: true},
+			},
+			expected: false,
+		},
+		"single replica channel": {
+			channels: []ReplicationChannel{
+				{Name: "replica-channel", IsSource: false},
+			},
+			expected: true,
+		},
+		"all channels are source": {
+			channels: []ReplicationChannel{
+				{Name: "channel-1", IsSource: true},
+				{Name: "channel-2", IsSource: true},
+			},
+			expected: false,
+		},
+		"mixed channels - first source, second replica": {
+			channels: []ReplicationChannel{
+				{Name: "channel-1", IsSource: true},
+				{Name: "channel-2", IsSource: false},
+			},
+			expected: true,
+		},
+		"mixed channels - first replica, second source": {
+			channels: []ReplicationChannel{
+				{Name: "channel-1", IsSource: false},
+				{Name: "channel-2", IsSource: true},
+			},
+			expected: true,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			cr := &PerconaXtraDBCluster{
+				Spec: PerconaXtraDBClusterSpec{
+					PXC: &PXCSpec{
+						ReplicationChannels: tt.channels,
+					},
+				},
+			}
+			assert.Equal(t, tt.expected, cr.IsReadOnly())
 		})
 	}
 }

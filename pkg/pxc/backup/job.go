@@ -304,9 +304,13 @@ func SetStorageS3(ctx context.Context, job *batchv1.JobSpec, cr *api.PerconaXtra
 		Name:  "DEFAULT_REGION",
 		Value: s3.Region,
 	}
+	endpointURL, err := s3.Endpoint()
+	if err != nil {
+		return errors.Wrap(err, "get endpoint")
+	}
 	endpoint := corev1.EnvVar{
 		Name:  "ENDPOINT",
-		Value: s3.EndpointURL,
+		Value: endpointURL,
 	}
 
 	if s3.CredentialsSecret != "" {
@@ -333,8 +337,17 @@ func SetStorageS3(ctx context.Context, job *batchv1.JobSpec, cr *api.PerconaXtra
 	}
 
 	job.Template.Spec.Containers[0].Env = append(job.Template.Spec.Containers[0].Env, region, endpoint)
+	if s3.ForcePathStyle {
+		job.Template.Spec.Containers[0].Env = append(job.Template.Spec.Containers[0].Env, corev1.EnvVar{
+			Name:  "S3_FORCE_PATH",
+			Value: "true",
+		})
+	}
 
-	bucket, prefix := s3.BucketAndPrefix()
+	bucket, prefix, err := s3.BucketAndPrefix()
+	if err != nil {
+		return errors.Wrap(err, "get bucket and prefix")
+	}
 	if bucket == "" {
 		bucket, prefix = cr.Status.Destination.BucketAndPrefix()
 	}
@@ -351,8 +364,7 @@ func SetStorageS3(ctx context.Context, job *batchv1.JobSpec, cr *api.PerconaXtra
 	job.Template.Spec.Containers[0].Env = append(job.Template.Spec.Containers[0].Env, bucketEnv, bucketPathEnv)
 
 	// add SSL volumes
-	err := appendStorageSecret(job, cr)
-	if err != nil {
+	if err := appendStorageSecret(job, cr); err != nil {
 		return errors.Wrap(err, "failed to append storage secrets")
 	}
 

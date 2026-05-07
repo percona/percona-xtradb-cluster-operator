@@ -12,6 +12,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -105,7 +106,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(ctx context.Context
 	sfs := statefulset.NewNode(cr)
 
 	listRaw := corev1.PodList{}
-	err := r.client.List(context.TODO(),
+	err := r.client.List(ctx,
 		&listRaw,
 		&client.ListOptions{
 			Namespace:     cr.Namespace,
@@ -158,8 +159,12 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(ctx context.Context
 	if err != nil {
 		return errors.Wrap(err, "failed to get current db version")
 	}
+	parsedDBVer, err := version.NewVersion(dbVer)
+	if err != nil {
+		return errors.Wrapf(err, "failed to parse version: %s", dbVer)
+	}
 
-	if version.Must(version.NewVersion(dbVer)).Compare(minReplicationVersion) < 0 {
+	if parsedDBVer.Compare(minReplicationVersion) < 0 {
 		return nil
 	}
 
@@ -199,7 +204,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(ctx context.Context
 			}
 			log.V(1).Info("Remove replication label from pod", "pod", pod.Name)
 			delete(pod.Labels, replicationPodLabel)
-			err = r.client.Update(context.TODO(), &pod)
+			err = r.client.Update(ctx, &pod)
 			if err != nil {
 				return errors.Wrap(err, "failed to remove primary label from secondary pod")
 			}
@@ -208,7 +213,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(ctx context.Context
 
 	if _, ok := primaryPod.Labels[replicationPodLabel]; !ok {
 		primaryPod.Labels[replicationPodLabel] = "true"
-		err = r.client.Update(context.TODO(), primaryPod)
+		err = r.client.Update(ctx, primaryPod)
 		if err != nil {
 			return errors.Wrap(err, "add label to main replica pod")
 		}
@@ -216,7 +221,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(ctx context.Context
 	}
 
 	sysUsersSecretObj := corev1.Secret{}
-	err = r.client.Get(context.TODO(),
+	err = r.client.Get(ctx,
 		types.NamespacedName{
 			Namespace: cr.Namespace,
 			Name:      internalSecretsPrefix + cr.Name,
@@ -235,7 +240,17 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(ctx context.Context
 	}
 
 	authPluginVar := "default_authentication_plugin"
-	if cr.CompareMySQLVersion("8.4.0") >= 0 {
+	is840 := false
+	if cr.Status.PXC.Version != "" {
+		compare840, err := cr.CompareMySQLVersion("8.4.0")
+		if err != nil {
+			return errors.Wrap(err, "failed to compare mysql version")
+		}
+		is840 = compare840 >= 0
+	} else {
+		is840 = parsedDBVer.Compare(version.Must(version.NewVersion("8.4.0"))) >= 0
+	}
+	if is840 {
 		authPluginVar = "authentication_policy"
 	}
 
@@ -534,20 +549,22 @@ func NewExposedPXCService(svcName string, cr *api.PerconaXtraDBCluster) *corev1.
 
 	if cr.Spec.PXC.Expose.Type == corev1.ServiceTypeNodePort ||
 		cr.Spec.PXC.Expose.Type == corev1.ServiceTypeLoadBalancer {
-		if cr.CompareVersionWith("1.14.0") >= 0 {
-			switch cr.Spec.PXC.Expose.ExternalTrafficPolicy {
-			case corev1.ServiceExternalTrafficPolicyTypeLocal, corev1.ServiceExternalTrafficPolicyTypeCluster:
-				svc.Spec.ExternalTrafficPolicy = cr.Spec.PXC.Expose.ExternalTrafficPolicy
-			default:
-				svc.Spec.ExternalTrafficPolicy = corev1.ServiceExternalTrafficPolicyTypeCluster
-			}
-		} else {
-			switch cr.Spec.PXC.Expose.TrafficPolicy {
-			case corev1.ServiceExternalTrafficPolicyTypeLocal, corev1.ServiceExternalTrafficPolicyTypeCluster:
-				svc.Spec.ExternalTrafficPolicy = cr.Spec.PXC.Expose.TrafficPolicy
-			default:
-				svc.Spec.ExternalTrafficPolicy = corev1.ServiceExternalTrafficPolicyTypeCluster
-			}
+		switch cr.Spec.PXC.Expose.ExternalTrafficPolicy {
+		case corev1.ServiceExternalTrafficPolicyTypeLocal, corev1.ServiceExternalTrafficPolicyTypeCluster:
+			svc.Spec.ExternalTrafficPolicy = cr.Spec.PXC.Expose.ExternalTrafficPolicy
+		default:
+			svc.Spec.ExternalTrafficPolicy = corev1.ServiceExternalTrafficPolicyTypeCluster
+		}
+	}
+
+	if cr.Spec.PXC.Expose.Type == corev1.ServiceTypeNodePort ||
+		cr.Spec.PXC.Expose.Type == corev1.ServiceTypeLoadBalancer ||
+		cr.Spec.PXC.Expose.Type == corev1.ServiceTypeClusterIP {
+		switch cr.Spec.PXC.Expose.InternalTrafficPolicy {
+		case corev1.ServiceInternalTrafficPolicyCluster, corev1.ServiceInternalTrafficPolicyLocal:
+			svc.Spec.InternalTrafficPolicy = &cr.Spec.PXC.Expose.InternalTrafficPolicy
+		default:
+			svc.Spec.InternalTrafficPolicy = ptr.To(corev1.ServiceInternalTrafficPolicyCluster)
 		}
 	}
 

@@ -32,11 +32,11 @@ spec:
     enabled: true
     size: 3
     image: -haproxy
-    serviceType: LoadBalancer
     exposePrimary:
+      type: LoadBalancer
+      externalTrafficPolicy: Local
       annotations:
         service.beta.kubernetes.io/aws-load-balancer-type: nlb
-    externalTrafficPolicy: Local
     resources:
       requests:
         memory: 0.5G

@@ -1,11 +1,15 @@
 package pxc
 
 import (
-	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"reflect"
-	"testing"
+
+	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/version"
 )
 
 func TestNewExposedPXCService(t *testing.T) {
@@ -18,8 +22,8 @@ func TestNewExposedPXCService(t *testing.T) {
 	tests := map[string]struct {
 		crVersion                  string
 		serviceType                corev1.ServiceType
-		externalTrafficPolicy      corev1.ServiceExternalTrafficPolicyType
-		expectedExternalPolicy     corev1.ServiceExternalTrafficPolicyType
+		externalTrafficPolicy      corev1.ServiceExternalTrafficPolicy
+		expectedExternalPolicy     corev1.ServiceExternalTrafficPolicy
 		expectedServiceType        corev1.ServiceType
 		expectLoadBalancerClassSet bool
 	}{
@@ -63,29 +67,64 @@ func TestNewExposedPXCService(t *testing.T) {
 
 			svc := NewExposedPXCService("pxc-0", cr)
 
-			if svc.Spec.Type != tt.expectedServiceType {
-				t.Errorf("expected Service Type %v, got %v", tt.expectedServiceType, svc.Spec.Type)
+			assert.Equal(t, tt.expectedServiceType, svc.Spec.Type)
+			assert.Equal(t, tt.expectedExternalPolicy, svc.Spec.ExternalTrafficPolicy)
+			assert.Equal(t, customAnnotations, svc.Annotations)
+			assert.Equal(t, sourceRanges, svc.Spec.LoadBalancerSourceRanges)
+
+			if tt.expectLoadBalancerClassSet {
+				require.NotNil(t, svc.Spec.LoadBalancerClass)
+			} else {
+				assert.Nil(t, svc.Spec.LoadBalancerClass)
+			}
+		})
+	}
+}
+
+func TestNewExposedPXCServiceInternalTrafficPolicy(t *testing.T) {
+	tests := map[string]struct {
+		serviceType    corev1.ServiceType
+		internalPolicy corev1.ServiceInternalTrafficPolicy
+		expectedPolicy corev1.ServiceInternalTrafficPolicy
+	}{
+		"ClusterIP defaults to Cluster": {
+			serviceType:    corev1.ServiceTypeClusterIP,
+			expectedPolicy: corev1.ServiceInternalTrafficPolicyCluster,
+		},
+		"NodePort uses Local when configured": {
+			serviceType:    corev1.ServiceTypeNodePort,
+			internalPolicy: corev1.ServiceInternalTrafficPolicyLocal,
+			expectedPolicy: corev1.ServiceInternalTrafficPolicyLocal,
+		},
+		"LoadBalancer falls back to Cluster for invalid value": {
+			serviceType:    corev1.ServiceTypeLoadBalancer,
+			internalPolicy: corev1.ServiceInternalTrafficPolicy("invalid"),
+			expectedPolicy: corev1.ServiceInternalTrafficPolicyCluster,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			cr := &api.PerconaXtraDBCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-cluster",
+					Namespace: "my-namespace",
+				},
+				Spec: api.PerconaXtraDBClusterSpec{
+					CRVersion: version.Version(),
+					PXC: &api.PXCSpec{
+						Expose: api.ServiceExpose{
+							Type:                  tt.serviceType,
+							InternalTrafficPolicy: tt.internalPolicy,
+						},
+					},
+				},
 			}
 
-			if svc.Spec.ExternalTrafficPolicy != tt.expectedExternalPolicy {
-				t.Errorf("expected ExternalTrafficPolicy %v, got %v", tt.expectedExternalPolicy, svc.Spec.ExternalTrafficPolicy)
-			}
+			svc := NewExposedPXCService("pxc-0", cr)
 
-			if !reflect.DeepEqual(svc.Annotations, customAnnotations) {
-				t.Errorf("expected Annotations %v, got %v", customAnnotations, svc.Annotations)
-			}
-
-			if !reflect.DeepEqual(svc.Spec.LoadBalancerSourceRanges, sourceRanges) {
-				t.Errorf("expected LoadBalancerSourceRanges %v, got %v", sourceRanges, svc.Spec.LoadBalancerSourceRanges)
-			}
-
-			if tt.expectLoadBalancerClassSet && svc.Spec.LoadBalancerClass == nil {
-				t.Errorf("expected LoadBalancerClass to be set")
-			}
-
-			if !tt.expectLoadBalancerClassSet && svc.Spec.LoadBalancerClass != nil {
-				t.Errorf("expected LoadBalancerClass to be nil, got %v", *svc.Spec.LoadBalancerClass)
-			}
+			require.NotNil(t, svc.Spec.InternalTrafficPolicy)
+			assert.Equal(t, tt.expectedPolicy, *svc.Spec.InternalTrafficPolicy)
 		})
 	}
 }

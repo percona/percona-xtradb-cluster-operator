@@ -7,6 +7,48 @@ test_dir=$(realpath $(dirname $0))
 
 set_debug
 
+# Generates internal TLS with cfssl and creates the given secret name in the target namespace.
+create_tls_secret() {
+	local cluster_name=$1
+	local ns=$2
+	local secret_name=$3
+	local rot_dir="${tmp_dir}/tls-rot-ssl-internal-new"
+	mkdir -p "$rot_dir"
+	(
+		cd "$rot_dir"
+		cat <<'EOF' | cfssl gencert -initca - | cfssljson -bare ca
+{
+  "CN": "Root CA",
+  "key": {
+    "algo": "rsa",
+    "size": 2048
+  }
+}
+EOF
+		cat <<EOF | cfssl gencert -ca=ca.pem -ca-key=ca-key.pem - | cfssljson -bare server
+{
+  "hosts": [
+    "${cluster_name}-pxc",
+    "${cluster_name}-proxysql",
+    "*.${cluster_name}-proxysql-unready",
+    "*.${cluster_name}-pxc"
+  ],
+  "CN": "${cluster_name}-pxc",
+  "key": {
+    "algo": "rsa",
+    "size": 2048
+  }
+}
+EOF
+	)
+	kubectl_bin delete secret "$secret_name" -n "$ns" --ignore-not-found=true
+	kubectl_bin create secret generic "$secret_name" -n "$ns" \
+		--from-file=tls.crt="${rot_dir}/server.pem" \
+		--from-file=tls.key="${rot_dir}/server-key.pem" \
+		--from-file=ca.crt="${rot_dir}/ca.pem" \
+		--type=Opaque
+}
+
 main() {
 	create_infra $namespace
 	kubectl_bin delete -f https://github.com/jetstack/cert-manager/releases/download/v${CERT_MANAGER_VER}/cert-manager.yaml 2>/dev/null || :
@@ -57,6 +99,27 @@ main() {
 		echo "error: secret $cluster-ssl-internal doesn't exist"
 		exit 1
 	fi
+
+	desc 'check tls rotation (internal secret via -new)'
+
+	local internal_tls_new_secret="${cluster}-ssl-internal-new"
+	create_tls_secret "$cluster" "$namespace" "$internal_tls_new_secret"
+
+	desc 'wait for internal TLS rotation'
+	rotate_deadline=$(($(date +%s) + 900)) # 15 minutes
+	while kubectl_bin get secret "$internal_tls_new_secret" -n "$namespace" &>/dev/null; do
+		if [ "$(date +%s)" -ge "$rotate_deadline" ]; then
+			echo "timeout: ${internal_tls_new_secret} was not removed after internal TLS rotation (waited 5m)"
+			exit 1
+		fi
+		probe=$(run_mysql "SELECT 1;" "-h ${cluster}-proxysql -uroot -proot_password")
+		if [ "$probe" != "1" ]; then
+			echo "error: downtime during certificate rotation"
+			exit 1
+		fi
+		sleep 5
+	done
+	wait_cluster_consistency "$cluster" 3 2
 
 	destroy "$namespace"
 	desc "test passed"

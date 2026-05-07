@@ -74,6 +74,14 @@ if [[ -f ${PERCONA_SCHEDULER_CFG} ]]; then
 	sed_in_place "s/SCHEDULER_RETRYDOWN/${SCHEDULER_RETRYDOWN}/g" ${PERCONA_SCHEDULER_CFG}
 	sed_in_place "s/SCHEDULER_RETRYUP/${SCHEDULER_RETRYUP}/g" ${PERCONA_SCHEDULER_CFG}
 	sed_in_place "s/SCHEDULER_WRITERALSOREADER/${SCHEDULER_WRITERALSOREADER}/g" ${PERCONA_SCHEDULER_CFG}
+
+	if [[ ${PXC_READ_ONLY} == "true" ]]; then
+		sed_in_place "s/failBack = true/failBack = false/g" ${PERCONA_SCHEDULER_CFG}
+		# yes 101, https://github.com/percona/proxysql-admin-tool/blob/v3.0.1/percona-scheduler-admin#L2310
+		sed_in_place "s/maxNumWriters = 1/maxNumWriters = 101/g" ${PERCONA_SCHEDULER_CFG}
+		sed_in_place "s/singlePrimary = true/singlePrimary = false/g" ${PERCONA_SCHEDULER_CFG}
+		sed_in_place "s/activeFailover = 1/activeFailover = 0/g" ${PERCONA_SCHEDULER_CFG}
+	fi
 fi
 
 ## SSL/TLS support

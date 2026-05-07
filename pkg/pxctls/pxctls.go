@@ -18,13 +18,26 @@ const (
 	DefaultRenewBefore  = 730 * time.Hour
 )
 
-var (
-	caValidityNotAfter   = time.Now().Add(DefaultCAValidity)
-	certValidityNotAfter = time.Now().Add(DefaultCertValidity)
-)
+var operatorStartTime = time.Now()
+
+func caValidityNotAfter(is1200 bool, notBefore time.Time) time.Time {
+	t := notBefore
+	if !is1200 {
+		t = operatorStartTime
+	}
+	return t.Add(DefaultCAValidity)
+}
+
+func certValidityNotAfter(is1200 bool, notBefore time.Time) time.Time {
+	t := notBefore
+	if !is1200 {
+		t = operatorStartTime
+	}
+	return t.Add(DefaultCertValidity)
+}
 
 // Issue returns CA certificate, TLS certificate and TLS private key
-func Issue(hosts []string, is1190 bool) (caCert []byte, tlsCert []byte, tlsKey []byte, err error) {
+func Issue(hosts []string, is1190 bool, is1120 bool) (caCert []byte, tlsCert []byte, tlsKey []byte, err error) {
 	rsaBits := 2048
 	priv, err := rsa.GenerateKey(rand.Reader, rsaBits)
 	if err != nil {
@@ -41,11 +54,12 @@ func Issue(hosts []string, is1190 bool) (caCert []byte, tlsCert []byte, tlsKey [
 	issuer := pkix.Name{
 		Organization: []string{"Root CA"},
 	}
+	now := time.Now()
 	caTemplate := x509.Certificate{
 		SerialNumber:          serialNumber,
 		Subject:               subject,
-		NotBefore:             time.Now(),
-		NotAfter:              caValidityNotAfter,
+		NotBefore:             now,
+		NotAfter:              caValidityNotAfter(is1120, now),
 		KeyUsage:              x509.KeyUsageCertSign,
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
 		BasicConstraintsValid: true,
@@ -74,8 +88,8 @@ func Issue(hosts []string, is1190 bool) (caCert []byte, tlsCert []byte, tlsKey [
 		SerialNumber:          serialNumber,
 		Subject:               subject,
 		Issuer:                issuer,
-		NotBefore:             time.Now(),
-		NotAfter:              caValidityNotAfter,
+		NotBefore:             now,
+		NotAfter:              caValidityNotAfter(is1120, now),
 		DNSNames:              hosts,
 		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
@@ -83,7 +97,7 @@ func Issue(hosts []string, is1190 bool) (caCert []byte, tlsCert []byte, tlsKey [
 		IsCA:                  false,
 	}
 	if is1190 {
-		tlsTemplate.NotAfter = certValidityNotAfter
+		tlsTemplate.NotAfter = certValidityNotAfter(is1120, now)
 	}
 	clientKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {

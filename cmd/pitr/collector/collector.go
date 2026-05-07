@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -108,6 +109,7 @@ type BackupS3 struct {
 	SessionToken string `env:"S3_SESSION_TOKEN"`
 	BucketURL    string `env:"S3_BUCKET_URL,required"`
 	Region       string `env:"DEFAULT_REGION,required"`
+	ForcePath    bool   `env:"S3_FORCE_PATH"`
 }
 
 type BackupAzure struct {
@@ -145,7 +147,7 @@ func New(ctx context.Context, c Config) (*Collector, error) {
 			return nil, errors.Wrap(err, "read CA bundle file")
 		}
 
-		s, err = storage.NewS3(ctx, c.BackupStorageS3.Endpoint, c.BackupStorageS3.AccessKeyID, c.BackupStorageS3.AccessKey, c.BackupStorageS3.SessionToken, bucketArr[0], prefix, c.BackupStorageS3.Region, c.VerifyTLS, caBundle)
+		s, err = storage.NewS3(ctx, c.BackupStorageS3.Endpoint, c.BackupStorageS3.AccessKeyID, c.BackupStorageS3.AccessKey, c.BackupStorageS3.SessionToken, bucketArr[0], prefix, c.BackupStorageS3.Region, c.VerifyTLS, caBundle, c.BackupStorageS3.ForcePath)
 		if err != nil {
 			return nil, errors.Wrap(err, "new storage manager")
 		}
@@ -296,7 +298,12 @@ func (c *Collector) lastGTIDSet(ctx context.Context, suffix string) (pxc.GTIDSet
 }
 
 func (c *Collector) newDB(ctx context.Context) error {
-	host, err := pxc.GetPXCOldestBinlogHost(ctx, c.pxcServiceName, c.pxcUser, c.pxcPass)
+	prevHost := ""
+	if c.db != nil {
+		prevHost = c.db.GetHost()
+	}
+
+	host, err := pxc.GetPXCOldestBinlogHost(ctx, c.pxcServiceName, c.pxcUser, c.pxcPass, prevHost)
 	if err != nil {
 		return errors.Wrap(err, "get host")
 	}
@@ -315,7 +322,7 @@ func (c *Collector) close() error {
 	return c.db.Close()
 }
 
-func (c *Collector) removeEmptyBinlogs(ctx context.Context, logs []pxc.Binlog) ([]pxc.Binlog, error) {
+func (c *Collector) removeEmptyBinlogs(logs []pxc.Binlog) ([]pxc.Binlog, error) {
 	result := make([]pxc.Binlog, 0)
 	for _, v := range logs {
 		if !v.GTIDSet.IsEmpty() {
@@ -327,7 +334,7 @@ func (c *Collector) removeEmptyBinlogs(ctx context.Context, logs []pxc.Binlog) (
 
 func (c *Collector) filterBinLogs(ctx context.Context, logs []pxc.Binlog, lastBinlogName string) ([]pxc.Binlog, error) {
 	if lastBinlogName == "" {
-		return c.removeEmptyBinlogs(ctx, logs)
+		return c.removeEmptyBinlogs(logs)
 	}
 
 	logsLen := len(logs)
@@ -352,7 +359,7 @@ func (c *Collector) filterBinLogs(ctx context.Context, logs []pxc.Binlog, lastBi
 		startIndex++
 	}
 
-	return c.removeEmptyBinlogs(ctx, logs[startIndex:])
+	return c.removeEmptyBinlogs(logs[startIndex:])
 }
 
 func createGapFile(gtidSet pxc.GTIDSet) error {
@@ -500,6 +507,110 @@ func (c *Collector) addGTIDSets(ctx context.Context, cache *HostBinlogCache, bin
 	return nil
 }
 
+// gtidEndMarker extracts UUID and the highest sequence number from a GTID entry.
+// Examples:
+//
+//	"uuid:6093289-6093543" -> ("uuid", 6093543, nil)
+//	"uuid:1-5:7-9"         -> ("uuid", 9, nil)
+func gtidEndMarker(gtid string) (string, int64, error) {
+	parts := strings.SplitN(gtid, ":", 2)
+	if len(parts) != 2 {
+		return "", 0, errors.Errorf("invalid gtid: %s", gtid)
+	}
+
+	uuid := strings.TrimSpace(parts[0])
+	if uuid == "" {
+		return "", 0, errors.New("uuid is empty")
+	}
+
+	maxSeq := int64(-1)
+	for _, interval := range strings.Split(parts[1], ":") {
+		interval = strings.TrimSpace(interval)
+		if interval == "" {
+			continue
+		}
+
+		hi := interval
+		if dash := strings.LastIndex(interval, "-"); dash >= 0 {
+			hi = interval[dash+1:]
+		}
+
+		n, err := strconv.ParseInt(hi, 10, 64)
+		if err != nil {
+			continue
+		}
+		if n > maxSeq {
+			maxSeq = n
+		}
+	}
+
+	if maxSeq < 0 {
+		return "", 0, errors.New("couldn't find maxSeq")
+	}
+	return uuid, maxSeq, nil
+}
+
+// gtidContainsSeq checks if GTID entry contains seq for uuid.
+// gtidEntry format: "uuid:1-5:7-9" or "uuid:10-20" etc.
+func gtidContainsSeq(gtidEntry, uuid string, seq int64) bool {
+	parts := strings.SplitN(gtidEntry, ":", 2)
+	if len(parts) != 2 {
+		return false
+	}
+	if strings.TrimSpace(parts[0]) != uuid {
+		return false
+	}
+
+	for _, interval := range strings.Split(parts[1], ":") {
+		interval = strings.TrimSpace(interval)
+		if interval == "" {
+			continue
+		}
+
+		loStr, hiStr := interval, interval
+		if dash := strings.LastIndex(interval, "-"); dash >= 0 {
+			loStr = interval[:dash]
+			hiStr = interval[dash+1:]
+		}
+
+		lo, err1 := strconv.ParseInt(loStr, 10, 64)
+		hi, err2 := strconv.ParseInt(hiStr, 10, 64)
+		if err1 != nil || err2 != nil {
+			continue
+		}
+		if lo <= seq && seq <= hi {
+			return true
+		}
+	}
+
+	return false
+}
+
+// findBinlogWithEndMarker walks binlogs from most recent to oldest and returns the
+// name of the first binlog whose GTID set contains the end (highest) sequence of any
+// GTID entry in lastUploadedSet. Returns "" when no binlog matches, indicating a gap.
+func findBinlogWithEndMarker(binlogs []pxc.Binlog, lastUploadedSet pxc.GTIDSet) string {
+	for i := len(binlogs) - 1; i >= 0; i-- {
+		log.Printf("checking %s (%s) against last uploaded set", binlogs[i].Name, binlogs[i].GTIDSet.Raw())
+
+		for _, lastUploaded := range lastUploadedSet.List() {
+			uuid, endSeq, err := gtidEndMarker(lastUploaded)
+			if err != nil {
+				log.Printf("failed to get end marker of last uploaded gtid: %v", err)
+				continue
+			}
+
+			for _, gtidSet := range binlogs[i].GTIDSet.List() {
+				if gtidContainsSeq(gtidSet, uuid, endSeq) {
+					log.Printf("last uploaded end marker %s:%d found in %s (%s)", uuid, endSeq, binlogs[i].Name, gtidSet)
+					return binlogs[i].Name
+				}
+			}
+		}
+	}
+	return ""
+}
+
 func (c *Collector) CollectBinLogs(ctx context.Context) error {
 	cache, err := loadCache(ctx, c.storage, c.gtidCacheKey)
 	if err != nil {
@@ -563,40 +674,7 @@ func (c *Collector) CollectBinLogs(ctx context.Context) error {
 	if !c.lastUploadedSet.IsEmpty() {
 		log.Printf("last uploaded GTID set: %s", c.lastUploadedSet.Raw())
 
-		for i := len(binlogList) - 1; i >= 0 && lastUploadedBinlogName == ""; i-- {
-			log.Printf("checking %s (%s) against last uploaded set", binlogList[i].Name, binlogList[i].GTIDSet.Raw())
-			for _, gtidSet := range binlogList[i].GTIDSet.List() {
-				if lastUploadedBinlogName != "" {
-					break
-				}
-				for _, lastUploaded := range c.lastUploadedSet.List() {
-					if lastUploaded == gtidSet {
-						log.Printf("last uploaded %s is equal to %s in %s", lastUploaded, gtidSet, binlogList[i].Name)
-						lastUploadedBinlogName = binlogList[i].Name
-						break
-					}
-					isSubset, err := c.db.GTIDSubset(ctx, lastUploaded, gtidSet)
-					if err != nil {
-						return errors.Wrap(err, "check if gtid set is subset")
-					}
-					if isSubset {
-						log.Printf("last uploaded %s is subset of %s in %s", lastUploaded, gtidSet, binlogList[i].Name)
-						lastUploadedBinlogName = binlogList[i].Name
-						break
-					}
-					isSubset, err = c.db.GTIDSubset(ctx, gtidSet, lastUploaded)
-					if err != nil {
-						return errors.Wrap(err, "check if gtid set is subset")
-					}
-					if isSubset {
-						log.Printf("%s in %s is subset of last uploaded %s", gtidSet, binlogList[i].Name, lastUploaded)
-						lastUploadedBinlogName = binlogList[i].Name
-						break
-					}
-					log.Printf("last uploaded %s is not subset of %s in %s or vice versa", lastUploaded, gtidSet, binlogList[i].Name)
-				}
-			}
-		}
+		lastUploadedBinlogName = findBinlogWithEndMarker(binlogList, c.lastUploadedSet)
 
 		if lastUploadedBinlogName == "" {
 			log.Println("ERROR: Couldn't find the binlog that contains GTID set:", c.lastUploadedSet.Raw())

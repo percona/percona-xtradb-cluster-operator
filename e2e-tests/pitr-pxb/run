@@ -190,13 +190,13 @@ main() {
 	write_test_data "$cluster"
 
 	# test changing xtrabackup password
-	# desc "patching xtrabackup password"
-	# patch_secret "my-cluster-secrets" "xtrabackup" "$(echo -n "pass1" | base64)"
-	# wait_cluster_consistency ${cluster} 3 2
+	desc "patching xtrabackup password"
+	patch_secret "my-cluster-secrets" "xtrabackup" "$(echo -n "pass1" | base64)"
+	wait_cluster_consistency ${cluster} 3 2
 
-	# desc "patching xtrabackup password"
-	# patch_secret "my-cluster-secrets" "xtrabackup" "$(echo -n "pass2" | base64)"
-	# wait_cluster_consistency ${cluster} 3 2
+	desc "patching xtrabackup password"
+	patch_secret "my-cluster-secrets" "xtrabackup" "$(echo -n "pass2" | base64)"
+	wait_cluster_consistency ${cluster} 3 2
 
 	desc "patching xtrabackup password"
 	patch_secret "my-cluster-secrets" "xtrabackup" "$(echo -n "pass3" | base64)"

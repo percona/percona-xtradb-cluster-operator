@@ -111,4 +111,3 @@ func readDefaultCR(name, namespace string) (*api.PerconaXtraDBCluster, error) {
 	cr.Spec.TLS.Enabled = &b
 	return cr, nil
 }
-

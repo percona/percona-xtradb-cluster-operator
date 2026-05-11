@@ -53,6 +53,10 @@ var _ = Describe("Secrets generation", Ordered, func() {
 	})
 
 	Context("Create cluster with default password generation behavior", func() {
+		It("Should create SSL secrets", func() {
+			createSSLSecrets(ctx, crName, ns)
+		})
+
 		It("Should create PerconaXtraDBCluster", func() {
 			Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
 		})

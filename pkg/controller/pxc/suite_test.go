@@ -1,6 +1,7 @@
 package pxc
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -8,6 +9,8 @@ import (
 	cmscheme "github.com/cert-manager/cert-manager/pkg/client/clientset/versioned/scheme"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -108,4 +111,23 @@ func readDefaultCR(name, namespace string) (*api.PerconaXtraDBCluster, error) {
 	b := false
 	cr.Spec.PXC.AutoRecovery = &b
 	return cr, nil
+}
+
+func createSSLSecrets(ctx context.Context, crName, namespace string) {
+	dummyData := map[string][]byte{
+		"ca.crt":  []byte("dummy-ca"),
+		"tls.crt": []byte("dummy-cert"),
+		"tls.key": []byte("dummy-key"),
+	}
+	for _, name := range []string{crName + "-ssl", crName + "-ssl-internal"} {
+		secret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: namespace,
+			},
+			Data: dummyData,
+			Type: corev1.SecretTypeTLS,
+		}
+		_ = k8sClient.Create(ctx, secret)
+	}
 }

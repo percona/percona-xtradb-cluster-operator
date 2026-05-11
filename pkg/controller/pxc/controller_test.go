@@ -391,7 +391,6 @@ var _ = Describe("Finalizer delete-proxysql-pvc", Ordered, func() {
 			Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
 		})
 
-
 		It("should reconcile once to create user secret and pvc", func() {
 			_, err := reconciler().Reconcile(ctx, ctrl.Request{NamespacedName: crNamespacedName})
 			Expect(err).NotTo(HaveOccurred())
@@ -546,7 +545,6 @@ var _ = Describe("Finalizer delete-pxc-pvc", Ordered, func() {
 			Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
 		})
 
-
 		It("should reconcile once to create user secret", func() {
 			_, err := reconciler().Reconcile(ctx, ctrl.Request{NamespacedName: crNamespacedName})
 			Expect(err).NotTo(HaveOccurred())
@@ -693,7 +691,6 @@ var _ = Describe("Authentication policy", Ordered, func() {
 			Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
 		})
 
-
 		It("should reconcile", func() {
 			_, err := reconciler().Reconcile(ctx, ctrl.Request{NamespacedName: crNamespacedName})
 			Expect(err).NotTo(HaveOccurred())
@@ -735,7 +732,6 @@ var _ = Describe("Authentication policy", Ordered, func() {
 
 			Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
 		})
-
 
 		It("should reconcile", func() {
 			_, err := reconciler().Reconcile(ctx, ctrl.Request{NamespacedName: crNamespacedName})
@@ -828,7 +824,6 @@ var _ = Describe("Ignore labels and annotations", Ordered, func() {
 
 			Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
 		})
-
 
 		It("should reconcile", func() {
 			_, err := reconciler().Reconcile(ctx, ctrl.Request{NamespacedName: crNamespacedName})
@@ -1115,7 +1110,6 @@ var _ = Describe("Ignore labels and annotations", Ordered, func() {
 		It("should read default cr.yaml", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
-
 
 		It("should create PerconaXtraDBCluster", func() {
 			cr.Spec.HAProxy.Enabled = false
@@ -1456,7 +1450,6 @@ var _ = Describe("PostStart/PreStop lifecycle hooks", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-
 		It("should create PerconaXtraDBCluster with PXC and ProxySQL container lifecycle hooks", func() {
 			cr.Spec.HAProxy.Enabled = false
 			cr.Spec.ProxySQL.Enabled = true
@@ -1512,7 +1505,6 @@ var _ = Describe("PostStart/PreStop lifecycle hooks", Ordered, func() {
 		It("should read default cr.yaml", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
-
 
 		It("should create PerconaXtraDBCluster with HAProxy container lifecycle hooks", func() {
 			cr.Spec.HAProxy.Enabled = true
@@ -1850,7 +1842,6 @@ var _ = Describe("Backup reconciliation", Ordered, func() {
 		It("should read default cr.yaml", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
-
 
 		It("should create PerconaXtraDBCluster with backup configuration", func() {
 			cr.Spec.Backup = &api.BackupSpec{

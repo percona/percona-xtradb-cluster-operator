@@ -65,10 +65,6 @@ var _ = Describe("PerconaXtraDB Cluster", Ordered, func() {
 		})
 	})
 
-	It("Should create SSL secrets", func() {
-		createSSLSecrets(ctx, crName, ns)
-	})
-
 	It("Should reconcile PerconaXtraDBCluster", func() {
 		_, err := reconciler().Reconcile(ctx, reconcile.Request{
 			NamespacedName: crNamespacedName,
@@ -117,13 +113,11 @@ var _ = Describe("Finalizer delete-ssl", Ordered, func() {
 		cr.Finalizers = append(cr.Finalizers, naming.FinalizerDeleteSSL)
 		cr.Spec.SSLSecretName = "cluster1-ssl"
 		cr.Spec.SSLInternalSecretName = "cluster1-ssl-internal"
+		cr.Spec.Unsafe.TLS = false
+		cr.Spec.TLS.Enabled = ptr.To(true)
 
 		It("Should create PerconaXtraDBCluster", func() {
 			Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
-		})
-
-		It("should create CA cert secret", func() {
-			createSSLSecrets(ctx, crName, ns)
 		})
 
 		It("should reconcile once to create user secret", func() {
@@ -231,13 +225,11 @@ var _ = Describe("Finalizer delete-ssl", Ordered, func() {
 
 		cr.Spec.SSLSecretName = "cluster1-ssl"
 		cr.Spec.SSLInternalSecretName = "cluster1-ssl-internal"
+		cr.Spec.Unsafe.TLS = false
+		cr.Spec.TLS.Enabled = ptr.To(true)
 
 		It("Should create PerconaXtraDBCluster", func() {
 			Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
-		})
-
-		It("should create CA cert secret", func() {
-			createSSLSecrets(ctx, cr.Name, ns)
 		})
 
 		It("should reconcile once to create user secret", func() {
@@ -321,13 +313,11 @@ var _ = Describe("Finalizer delete-ssl", Ordered, func() {
 		cr.Spec.SSLSecretName = "cluster1-ssl"
 		cr.Spec.SSLInternalSecretName = "cluster1-ssl-internal"
 		cr.Spec.CRVersion = "1.19.0"
+		cr.Spec.Unsafe.TLS = false
+		cr.Spec.TLS.Enabled = ptr.To(true)
 
 		It("Should create PerconaXtraDBCluster with old crVersion", func() {
 			Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
-		})
-
-		It("should create CA cert secret", func() {
-			createSSLSecrets(ctx, oldCRName, oldNs)
 		})
 
 		It("should reconcile once to create user secret", func() {
@@ -401,9 +391,6 @@ var _ = Describe("Finalizer delete-proxysql-pvc", Ordered, func() {
 			Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
 		})
 
-		It("should create SSL secrets", func() {
-			createSSLSecrets(ctx, crName, ns)
-		})
 
 		It("should reconcile once to create user secret and pvc", func() {
 			_, err := reconciler().Reconcile(ctx, ctrl.Request{NamespacedName: crNamespacedName})
@@ -559,9 +546,6 @@ var _ = Describe("Finalizer delete-pxc-pvc", Ordered, func() {
 			Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
 		})
 
-		It("should create SSL secrets", func() {
-			createSSLSecrets(ctx, crName, ns)
-		})
 
 		It("should reconcile once to create user secret", func() {
 			_, err := reconciler().Reconcile(ctx, ctrl.Request{NamespacedName: crNamespacedName})
@@ -709,9 +693,6 @@ var _ = Describe("Authentication policy", Ordered, func() {
 			Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
 		})
 
-		It("should create SSL secrets", func() {
-			createSSLSecrets(ctx, crName, ns)
-		})
 
 		It("should reconcile", func() {
 			_, err := reconciler().Reconcile(ctx, ctrl.Request{NamespacedName: crNamespacedName})
@@ -755,9 +736,6 @@ var _ = Describe("Authentication policy", Ordered, func() {
 			Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
 		})
 
-		It("should create SSL secrets", func() {
-			createSSLSecrets(ctx, crName, ns)
-		})
 
 		It("should reconcile", func() {
 			_, err := reconciler().Reconcile(ctx, ctrl.Request{NamespacedName: crNamespacedName})
@@ -851,9 +829,6 @@ var _ = Describe("Ignore labels and annotations", Ordered, func() {
 			Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
 		})
 
-		It("should create SSL secrets", func() {
-			createSSLSecrets(ctx, crName, ns)
-		})
 
 		It("should reconcile", func() {
 			_, err := reconciler().Reconcile(ctx, ctrl.Request{NamespacedName: crNamespacedName})
@@ -1141,9 +1116,6 @@ var _ = Describe("Ignore labels and annotations", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("should create SSL secrets", func() {
-			createSSLSecrets(ctx, crName, ns)
-		})
 
 		It("should create PerconaXtraDBCluster", func() {
 			cr.Spec.HAProxy.Enabled = false
@@ -1484,9 +1456,6 @@ var _ = Describe("PostStart/PreStop lifecycle hooks", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("should create SSL secrets", func() {
-			createSSLSecrets(ctx, crName, ns)
-		})
 
 		It("should create PerconaXtraDBCluster with PXC and ProxySQL container lifecycle hooks", func() {
 			cr.Spec.HAProxy.Enabled = false
@@ -1544,9 +1513,6 @@ var _ = Describe("PostStart/PreStop lifecycle hooks", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("should create SSL secrets", func() {
-			createSSLSecrets(ctx, crName, ns)
-		})
 
 		It("should create PerconaXtraDBCluster with HAProxy container lifecycle hooks", func() {
 			cr.Spec.HAProxy.Enabled = true
@@ -1644,7 +1610,6 @@ var _ = Describe("Liveness/Readiness Probes", Ordered, func() {
 			cr.Spec.PXC.ReadinessProbes = readiness
 			cr.Spec.PXC.LivenessProbes = liveness
 
-			createSSLSecrets(ctx, crName, ns)
 			Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
 
 			_, err = reconciler().Reconcile(ctx, ctrl.Request{NamespacedName: crNamespacedName})
@@ -1772,7 +1737,6 @@ var _ = Describe("Liveness/Readiness Probes", Ordered, func() {
 			cr.Spec.HAProxy.ReadinessProbes = readiness
 			cr.Spec.HAProxy.LivenessProbes = liveness
 
-			createSSLSecrets(ctx, crName, ns)
 			Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
 
 			_, err = reconciler().Reconcile(ctx, ctrl.Request{NamespacedName: crNamespacedName})
@@ -1887,9 +1851,6 @@ var _ = Describe("Backup reconciliation", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("should create SSL secrets", func() {
-			createSSLSecrets(ctx, crName, ns)
-		})
 
 		It("should create PerconaXtraDBCluster with backup configuration", func() {
 			cr.Spec.Backup = &api.BackupSpec{
@@ -2200,10 +2161,6 @@ var _ = Describe("Affinity", Ordered, func() {
 
 	componentAffinityTest := func(cr *api.PerconaXtraDBCluster, componentFunc func(cr *api.PerconaXtraDBCluster) api.StatefulApp, podSpecFunc func(cr *api.PerconaXtraDBCluster) *api.PodSpec) {
 		Describe("start", func() {
-			It("should create SSL secrets", func() {
-				createSSLSecrets(ctx, cr.Name, cr.Namespace)
-			})
-
 			It("should create PerconaXtraDBCluster", func() {
 				Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
 			})

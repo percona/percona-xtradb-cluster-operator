@@ -45,10 +45,6 @@ var _ = Describe("Service labels and annotations", Ordered, func() {
 	})
 
 	Context("Create Percona XtraDB cluster", func() {
-		It("Should create SSL secrets", func() {
-			createSSLSecrets(ctx, crName, ns)
-		})
-
 		It("Should create PerconaXtraDBCluster", func() {
 			Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
 		})

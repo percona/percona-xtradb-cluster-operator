@@ -202,7 +202,7 @@ main() {
 	patch_secret "my-cluster-secrets" "xtrabackup" "$(echo -n "pass3" | base64)"
 	wait_cluster_consistency ${cluster} 3 2
 
-	# compare_kubectl secret/${cluster}-mysql-init
+	compare_kubectl secret/${cluster}-mysql-init
 
 	mysql_host="${cluster}-pxc-0.${cluster}-pxc.${namespace}"
 

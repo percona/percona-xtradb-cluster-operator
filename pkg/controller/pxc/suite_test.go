@@ -119,7 +119,7 @@ func createSSLSecrets(ctx context.Context, crName, namespace string) {
 		"tls.crt": []byte("dummy-cert"),
 		"tls.key": []byte("dummy-key"),
 	}
-	for _, name := range []string{crName + "-ssl", crName + "-ssl-internal"} {
+	for _, name := range []string{crName + "-ssl", crName + "-ssl-internal", crName + "-ca-cert"} {
 		secret := &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,

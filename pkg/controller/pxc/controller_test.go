@@ -122,6 +122,10 @@ var _ = Describe("Finalizer delete-ssl", Ordered, func() {
 			Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
 		})
 
+		It("should create CA cert secret", func() {
+			createSSLSecrets(ctx, crName, ns)
+		})
+
 		It("should reconcile once to create user secret", func() {
 			_, err := reconciler().Reconcile(ctx, ctrl.Request{NamespacedName: crNamespacedName})
 			Expect(err).NotTo(HaveOccurred())
@@ -232,6 +236,10 @@ var _ = Describe("Finalizer delete-ssl", Ordered, func() {
 			Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
 		})
 
+		It("should create CA cert secret", func() {
+			createSSLSecrets(ctx, cr.Name, ns)
+		})
+
 		It("should reconcile once to create user secret", func() {
 			_, err := reconciler().Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}})
 			Expect(err).NotTo(HaveOccurred())
@@ -316,6 +324,10 @@ var _ = Describe("Finalizer delete-ssl", Ordered, func() {
 
 		It("Should create PerconaXtraDBCluster with old crVersion", func() {
 			Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
+		})
+
+		It("should create CA cert secret", func() {
+			createSSLSecrets(ctx, oldCRName, oldNs)
 		})
 
 		It("should reconcile once to create user secret", func() {

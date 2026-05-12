@@ -187,42 +187,37 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUserWithoutDP(ctx context.C
 			}
 		}()
 
-		if cr.CompareVersionWith("1.6.0") >= 0 {
-			err := r.updateMonitorUserGrant(ctx, cr, internalSecrets, um)
+		if err := r.updateMonitorUserGrant(ctx, cr, internalSecrets, um); err != nil {
+			return errors.Wrap(err, "update monitor user grant")
+		}
+
+		mysqlVersion := cr.Status.PXC.Version
+		if mysqlVersion == "" {
+			var err error
+			mysqlVersion, err = r.mysqlVersion(ctx, cr, statefulset.NewNode(cr))
 			if err != nil {
-				return errors.Wrap(err, "update monitor user grant")
+				if errors.Is(err, versionNotReadyErr) {
+					return nil
+				}
+				return errors.Wrap(err, "retrieving pxc version")
 			}
 		}
 
-		if cr.CompareVersionWith("1.10.0") >= 0 {
-			mysqlVersion := cr.Status.PXC.Version
-			if mysqlVersion == "" {
-				var err error
-				mysqlVersion, err = r.mysqlVersion(ctx, cr, statefulset.NewNode(cr))
-				if err != nil {
-					if errors.Is(err, versionNotReadyErr) {
-						return nil
-					}
-					return errors.Wrap(err, "retrieving pxc version")
+		if mysqlVersion != "" {
+			ver, err := version.NewVersion(mysqlVersion)
+			if err != nil {
+				return errors.Wrap(err, "invalid pxc version")
+			}
+
+			if !ver.LessThan(privSystemUserAddedIn) {
+				if err := r.grantMonitorUserPrivilege(ctx, cr, internalSecrets, um); err != nil {
+					return errors.Wrap(err, "monitor user grant system privilege")
 				}
 			}
 
-			if mysqlVersion != "" {
-				ver, err := version.NewVersion(mysqlVersion)
-				if err != nil {
-					return errors.Wrap(err, "invalid pxc version")
-				}
-
-				if !ver.LessThan(privSystemUserAddedIn) {
-					if err := r.grantMonitorUserPrivilege(ctx, cr, internalSecrets, um); err != nil {
-						return errors.Wrap(err, "monitor user grant system privilege")
-					}
-				}
-
-				if !ver.LessThan(mysql84) {
-					if err := r.grantMonitorUserAuditAdminPrivilege(ctx, internalSecrets, um); err != nil {
-						return errors.Wrap(err, "monitor user grant audit admin privilege")
-					}
+			if !ver.LessThan(mysql84) {
+				if err := r.grantMonitorUserAuditAdminPrivilege(ctx, internalSecrets, um); err != nil {
+					return errors.Wrap(err, "monitor user grant audit admin privilege")
 				}
 			}
 		}

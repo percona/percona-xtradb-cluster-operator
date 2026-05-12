@@ -6,8 +6,10 @@ import (
 	"io"
 	"testing"
 
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage/mock"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestGetBucketAndPrefix(t *testing.T) {
@@ -66,19 +68,6 @@ func TestGetBucketAndPrefix(t *testing.T) {
 	}
 }
 
-func TestGetGTIDFromContent(t *testing.T) {
-	c := []byte(`sometext GTID of the last set 'test_set:1-10'
-	`)
-
-	set, err := getGTIDFromXtrabackup(c)
-	if err != nil {
-		t.Error("get last gtid set", err.Error())
-	}
-	if set != "test_set:1-10" {
-		t.Error("set not test_set:1-10 but", set)
-	}
-}
-
 func TestGetExtendGTIDSet(t *testing.T) {
 	type testCase struct {
 		gtidSet         string
@@ -110,6 +99,67 @@ func TestGetExtendGTIDSet(t *testing.T) {
 	}
 }
 
+func TestValidateTransactionGTID(t *testing.T) {
+	testCases := []struct {
+		desc        string
+		targetGTID  string
+		startGTID   string
+		errContains string
+	}{
+		{
+			desc:       "target after backup range",
+			targetGTID: "source-id:41",
+			startGTID:  "source-id:1-40",
+		},
+		{
+			desc:       "target matches backup range high end",
+			targetGTID: "source-id:40",
+			startGTID:  "source-id:1-40",
+		},
+		{
+			desc:       "target after matching range in multi-source GTID set",
+			targetGTID: "source-id:41",
+			startGTID:  "other-source-id:1-10, source-id:1-40",
+		},
+		{
+			desc:        "target before backup range high end",
+			targetGTID:  "source-id:15",
+			startGTID:   "source-id:1-40",
+			errContains: "already inside the backup",
+		},
+		{
+			desc:        "invalid target GTID format",
+			targetGTID:  "source-id",
+			startGTID:   "source-id:1-40",
+			errContains: "invalid target GTID",
+		},
+		{
+			desc:        "invalid target GTID sequence",
+			targetGTID:  "source-id:abc",
+			startGTID:   "source-id:1-40",
+			errContains: "parse target GTID seqno",
+		},
+		{
+			desc:        "invalid backup range high end",
+			targetGTID:  "source-id:41",
+			startGTID:   "source-id:1-abc",
+			errContains: "parse high end of backup range",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			err := validateTransactionGTID(tc.targetGTID, tc.startGTID)
+			if tc.errContains == "" {
+				assert.NoError(t, err)
+				return
+			}
+			assert.Error(t, err)
+			assert.Contains(t, err.Error(), tc.errContains)
+		})
+	}
+}
+
 func newStringReader(s string) io.Reader {
 	return io.NopCloser(bytes.NewReader([]byte(s)))
 }
@@ -123,31 +173,38 @@ func TestGetStartGTID(t *testing.T) {
 		wantErr  bool
 	}{
 		{
-			desc: "using sst_info",
-			mockFn: func(s *mock.Storage) {
-				s.On("ListObjects", ctx, ".sst_info/sst_info").Return([]string{".sst_info/sst_info"}, nil)
-				s.On("GetObject", ctx, ".sst_info/sst_info").Return(newStringReader("[sst]\ngalera-gtid=abc-xyz:1-10\n"), nil)
-				s.On("ListObjects", ctx, "xtrabackup_info").Return([]string{"xtrabackup_info.00000000000000000000"}, nil)
-				s.On("GetObject", ctx, "xtrabackup_info.00000000000000000000").Return(newStringReader("binlog_pos = filename 'binlog.000111', position '237', GTID of the last change 'abc-xyz:1-10'\n"), nil)
-			},
-			expected: "abc-xyz:1-10",
-		},
-		{
 			desc: "using xtrabackup_binlog_info",
 			mockFn: func(s *mock.Storage) {
-				s.On("ListObjects", ctx, ".sst_info/sst_info").Return([]string{}, nil)
 				s.On("ListObjects", ctx, "xtrabackup_binlog_info").Return([]string{"xtrabackup_binlog_info.00000000000000000000"}, nil)
 				s.On("GetObject", ctx, "xtrabackup_binlog_info.00000000000000000000").Return(newStringReader("binlog.0001\t197\tabc-xyz:1-10\n"), nil)
-				s.On("ListObjects", ctx, "xtrabackup_info").Return([]string{"xtrabackup_info.00000000000000000000"}, nil)
-				s.On("GetObject", ctx, "xtrabackup_info.00000000000000000000").Return(newStringReader("binlog_pos = filename 'binlog.000111', position '237', GTID of the last change 'abc-xyz:1-10'\n"), nil)
 			},
 			expected: "abc-xyz:1-10",
 		},
 		{
-			desc: "no sst_info or xtrabackup_binlog_info objects found",
+			desc: "using first xtrabackup_binlog_info object",
 			mockFn: func(s *mock.Storage) {
-				s.On("ListObjects", ctx, ".sst_info/sst_info").Return([]string{}, nil)
+				s.On("ListObjects", ctx, "xtrabackup_binlog_info").Return([]string{
+					"xtrabackup_binlog_info.00000000000000000001",
+					"xtrabackup_binlog_info.00000000000000000000",
+				}, nil)
+				s.On("GetObject", ctx, "xtrabackup_binlog_info.00000000000000000000").Return(newStringReader("binlog.0001\t197\tabc-xyz:1-10\n"), nil)
+			},
+			expected: "abc-xyz:1-10",
+		},
+		{
+			desc: "fallback to xtrabackup_info",
+			mockFn: func(s *mock.Storage) {
 				s.On("ListObjects", ctx, "xtrabackup_binlog_info").Return([]string{}, nil)
+				s.On("ListObjects", ctx, "xtrabackup_info").Return([]string{"xtrabackup_info.00000000000000000000"}, nil)
+				s.On("GetObject", ctx, "xtrabackup_info.00000000000000000000").Return(newStringReader("binlog_pos = filename 'binlog.000001', position '197', GTID of the last change 'abc-xyz:1-10'\n"), nil)
+			},
+			expected: "abc-xyz:1-10",
+		},
+		{
+			desc: "no xtrabackup metadata objects found",
+			mockFn: func(s *mock.Storage) {
+				s.On("ListObjects", ctx, "xtrabackup_binlog_info").Return([]string{}, nil)
+				s.On("ListObjects", ctx, "xtrabackup_info").Return([]string{}, nil)
 			},
 			expected: "",
 			wantErr:  true,
@@ -155,7 +212,6 @@ func TestGetStartGTID(t *testing.T) {
 		{
 			desc: "no gtid in xtrabackup_binlog_info",
 			mockFn: func(s *mock.Storage) {
-				s.On("ListObjects", ctx, ".sst_info/sst_info").Return([]string{}, nil)
 				s.On("ListObjects", ctx, "xtrabackup_binlog_info").Return([]string{"xtrabackup_binlog_info.00000000000000000000"}, nil)
 				s.On("GetObject", ctx, "xtrabackup_binlog_info.00000000000000000000").Return(newStringReader("binlog.0001\t197\n"), nil)
 			},
@@ -172,6 +228,123 @@ func TestGetStartGTID(t *testing.T) {
 			got, err := getStartGTIDSet(ctx, mockStorage)
 			if (err != nil) != tc.wantErr {
 				t.Errorf("getStartGTIDSet() error = %v, wantErr %v", err, tc.wantErr)
+			}
+			assert.Equal(t, tc.expected, got)
+		})
+	}
+}
+
+func TestGetGTIDFromXtrabackup(t *testing.T) {
+	testCases := []struct {
+		desc        string
+		content     string
+		expected    string
+		errContains string
+	}{
+		{
+			desc: "extracts GTID from xtrabackup_info binlog position",
+			content: `uuid = backup-uuid
+name =
+tool_name = xtrabackup
+binlog_pos = filename 'binlog.000001', position '197', GTID of the last change 'test-set:1-10'
+server_version = 5.7.44-48-57-log
+`,
+			expected: "test-set:1-10",
+		},
+		{
+			desc: "extracts multi-source GTID set",
+			content: `binlog_pos = filename 'binlog.000001', position '197', GTID of the last change 'source-1:1-10,source-2:1-20'
+`,
+			expected: "source-1:1-10,source-2:1-20",
+		},
+		{
+			desc:        "returns error when GTID marker is missing",
+			content:     "binlog_pos = filename 'binlog.000001', position '197'\n",
+			errContains: "no gtid data in backup",
+		},
+		{
+			desc:        "returns error when GTID value is not closed",
+			content:     "binlog_pos = filename 'binlog.000001', position '197', GTID of the last change 'test-set:1-10",
+			errContains: "can't find gtid data in backup",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			set, err := getGTIDFromXtrabackup([]byte(tc.content))
+			if tc.errContains == "" {
+				require.NoError(t, err)
+				assert.Equal(t, tc.expected, set)
+				return
+			}
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tc.errContains)
+		})
+	}
+}
+
+func TestGetBackupTimelineUUID(t *testing.T) {
+	ctx := context.WithValue(context.Background(), testContextKey{}, true)
+	testCases := []struct {
+		desc        string
+		mockFn      func(*mock.Storage)
+		expected    string
+		errContains string
+	}{
+		{
+			desc: "using sst_info galera gtid",
+			mockFn: func(s *mock.Storage) {
+				s.On("GetPrefix").Return("backup/").Once()
+				s.On("SetPrefix", "backup.sst_info/").Once()
+				s.On("ListObjects", ctx, "sst_info").Return([]string{"sst_info.00000000000000000000"}, nil).Once()
+				s.On("GetObject", ctx, "sst_info.00000000000000000000").Return(newStringReader("galera-gtid=sst-uuid:1\n"), nil).Once()
+				s.On("SetPrefix", "backup/").Once()
+			},
+			expected: "sst-uuid",
+		},
+		{
+			desc: "using backup meta when sst_info is missing",
+			mockFn: func(s *mock.Storage) {
+				s.On("GetPrefix").Return("backup/").Once()
+				s.On("SetPrefix", "backup.sst_info/").Once()
+				s.On("ListObjects", ctx, "sst_info").Return([]string{}, nil).Once()
+				s.On("SetPrefix", "backup/").Once()
+
+				s.On("GetPrefix").Return("backup/").Once()
+				s.On("SetPrefix", "").Once()
+				s.On("GetObject", ctx, "backup.meta.json").Return(newStringReader(`{"cluster_uuid":"meta-uuid"}`), nil).Once()
+				s.On("SetPrefix", "backup/").Once()
+			},
+			expected: "meta-uuid",
+		},
+		{
+			desc: "missing sst_info and backup meta",
+			mockFn: func(s *mock.Storage) {
+				s.On("GetPrefix").Return("backup/").Once()
+				s.On("SetPrefix", "backup.sst_info/").Once()
+				s.On("ListObjects", ctx, "sst_info").Return([]string{}, nil).Once()
+				s.On("SetPrefix", "backup/").Once()
+
+				s.On("GetPrefix").Return("backup/").Once()
+				s.On("SetPrefix", "").Once()
+				s.On("GetObject", ctx, "backup.meta.json").Return(nil, storage.ErrObjectNotFound).Once()
+				s.On("SetPrefix", "backup/").Once()
+			},
+			errContains: "no Galera state info in backup",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			mockStorage := mock.NewStorage(t)
+			tc.mockFn(mockStorage)
+
+			got, err := getBackupTimelineUUID(ctx, mockStorage)
+			if tc.errContains == "" {
+				assert.NoError(t, err)
+			} else {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), tc.errContains)
 			}
 			assert.Equal(t, tc.expected, got)
 		})

@@ -167,6 +167,8 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(ctx context.Context, re
 
 	restorer, err := r.getRestorer(ctx, cr, bcp, cluster)
 	if err != nil {
+		cr.Status.State = api.RestoreFailed
+		cr.Status.Comments = err.Error()
 		return reconcile.Result{}, errors.Wrap(err, "failed to get restorer")
 	}
 
@@ -180,7 +182,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(ctx context.Context, re
 	case api.RestorePITR:
 		return r.reconcileStatePITR(ctx, restorer, cr)
 	case api.RestorePrepareCluster:
-		return r.reconcileStatePrepareCluster(ctx, cr, bcp, cluster)
+		return r.reconcileStatePrepareCluster(ctx, restorer, cr, bcp, cluster)
 	case api.RestoreStartCluster:
 		return r.reconcileStateStartCluster(ctx, restorer, cr, cluster)
 	}
@@ -346,51 +348,6 @@ func (r *ReconcilePerconaXtraDBClusterRestore) reconcileStateRestore(ctx context
 		}
 	}
 
-	if cr.Spec.PITR != nil {
-		if cluster.Spec.Pause {
-			err = k8sretry.RetryOnConflict(k8sretry.DefaultRetry, func() error {
-				current := new(api.PerconaXtraDBCluster)
-				err := r.client.Get(ctx, types.NamespacedName{Name: cluster.Name, Namespace: cluster.Namespace}, current)
-				if err != nil {
-					return errors.Wrap(err, "get cluster")
-				}
-				current.Spec.Pause = false
-				current.Spec.PXC.Size = 1
-				current.Spec.Unsafe.PXCSize = true
-				current.Spec.Unsafe.ProxySize = true
-
-				if current.Spec.ProxySQL != nil {
-					current.Spec.ProxySQL.Size = 0
-				}
-
-				if current.Spec.HAProxy != nil {
-					current.Spec.HAProxy.Size = 0
-				}
-
-				return r.client.Update(ctx, current)
-			})
-			if err != nil {
-				return rr, errors.Wrap(err, "update cluster")
-			}
-			return rr, nil
-		} else {
-			if cluster.Status.ObservedGeneration != cluster.Generation || cluster.Status.PXC.Status != api.AppStateReady || cluster.Status.ProxySQL.Size != 0 || cluster.Status.HAProxy.Size != 0 {
-				log.Info("Waiting for cluster to start", "cluster", cluster.Name)
-				return rr, nil
-			}
-		}
-
-		log.Info("point-in-time recovering", "cluster", cr.Spec.PXCCluster)
-		if err := createRestoreJob(ctx, r.client, restorer, true); err != nil {
-			if errors.Is(err, errWaitInit) {
-				return rr, nil
-			}
-			return rr, errors.Wrap(err, "run pitr")
-		}
-		cr.Status.State = api.RestorePITR
-		return rr, nil
-	}
-
 	if cluster.CompareVersionWith("1.18.0") >= 0 {
 		log.Info("preparing cluster", "cluster", cr.Spec.PXCCluster)
 		cr.Status.State = api.RestorePrepareCluster
@@ -488,6 +445,7 @@ func createRestoreJob(ctx context.Context, cl client.Client, restorer Restorer, 
 
 func (r *ReconcilePerconaXtraDBClusterRestore) reconcileStatePrepareCluster(
 	ctx context.Context,
+	restorer Restorer,
 	cr *api.PerconaXtraDBClusterRestore,
 	bcp *api.PerconaXtraDBClusterBackup,
 	cluster *api.PerconaXtraDBCluster,
@@ -523,6 +481,51 @@ func (r *ReconcilePerconaXtraDBClusterRestore) reconcileStatePrepareCluster(
 	if !finished {
 		log.Info("Waiting for prepare job to finish", "job", job.Name)
 		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
+	}
+
+	if cr.Spec.PITR != nil {
+		if cluster.Spec.Pause {
+			err = k8sretry.RetryOnConflict(k8sretry.DefaultRetry, func() error {
+				current := new(api.PerconaXtraDBCluster)
+				err := r.client.Get(ctx, types.NamespacedName{Name: cluster.Name, Namespace: cluster.Namespace}, current)
+				if err != nil {
+					return errors.Wrap(err, "get cluster")
+				}
+				current.Spec.Pause = false
+				current.Spec.PXC.Size = 1
+				current.Spec.Unsafe.PXCSize = true
+				current.Spec.Unsafe.ProxySize = true
+
+				if current.Spec.ProxySQL != nil {
+					current.Spec.ProxySQL.Size = 0
+				}
+
+				if current.Spec.HAProxy != nil {
+					current.Spec.HAProxy.Size = 0
+				}
+
+				return r.client.Update(ctx, current)
+			})
+			if err != nil {
+				return reconcile.Result{}, errors.Wrap(err, "update cluster")
+			}
+			return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
+		} else {
+			if cluster.Status.ObservedGeneration != cluster.Generation || cluster.Status.PXC.Status != api.AppStateReady || cluster.Status.ProxySQL.Size != 0 || cluster.Status.HAProxy.Size != 0 {
+				log.Info("Waiting for cluster to start", "cluster", cluster.Name)
+				return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
+			}
+		}
+
+		log.Info("point-in-time recovering", "cluster", cr.Spec.PXCCluster)
+		if err := createRestoreJob(ctx, r.client, restorer, true); err != nil {
+			if errors.Is(err, errWaitInit) {
+				return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
+			}
+			return reconcile.Result{}, errors.Wrap(err, "run pitr")
+		}
+		cr.Status.State = api.RestorePITR
+		return reconcile.Result{}, nil
 	}
 
 	log.Info("starting cluster", "cluster", cr.Spec.PXCCluster)

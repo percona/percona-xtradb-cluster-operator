@@ -3,7 +3,6 @@ package pxc
 import (
 	"context"
 	stderrors "errors"
-	"math"
 	"slices"
 	"strings"
 	"time"
@@ -24,10 +23,6 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
-)
-
-const (
-	GiB = int64(1024 * 1024 * 1024)
 )
 
 func validatePVCName(pvc corev1.PersistentVolumeClaim, sts *appsv1.StatefulSet) bool {
@@ -124,12 +119,6 @@ func (r *ReconcilePerconaXtraDBCluster) reconcilePersistentVolumes(ctx context.C
 
 	configured := volumeTemplate.Spec.Resources.Requests[corev1.ResourceStorage]
 	requested := cr.Spec.PXC.VolumeSpec.PersistentVolumeClaim.Resources.Requests[corev1.ResourceStorage]
-	gib, err := RoundUpGiB(requested.Value())
-	if err != nil {
-		return errors.Wrap(err, "round GiB value")
-	}
-
-	requested = *resource.NewQuantity(gib*GiB, resource.BinarySI)
 
 	if cr.PVCResizeInProgress() {
 		resizeStartedAt, err := time.Parse(time.RFC3339, cr.GetAnnotations()[pxcv1.AnnotationPVCResizeInProgress])
@@ -145,7 +134,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcilePersistentVolumes(ctx context.C
 				continue
 			}
 
-			if pvc.Status.Capacity.Storage().Cmp(requested) == 0 {
+			if pvc.Status.Capacity.Storage().Cmp(requested) >= 0 {
 				updatedPVCs++
 				log.Info("PVC resize finished", "name", pvc.Name, "size", pvc.Status.Capacity.Storage())
 				continue
@@ -212,20 +201,16 @@ func (r *ReconcilePerconaXtraDBCluster) reconcilePersistentVolumes(ctx context.C
 
 		resizeSucceeded := updatedPVCs == len(pvcsToUpdate)
 		if resizeSucceeded {
-			log.Info("Deleting statefulset")
-
-			if err := r.client.Delete(ctx, sts, client.PropagationPolicy("Orphan")); err != nil {
-				if k8serrors.IsNotFound(err) {
-					return nil
-				}
-				return errors.Wrapf(err, "delete statefulset/%s", sts.Name)
-			}
-
 			if err := k8s.DeannotateObject(ctx, r.client, cr, pxcv1.AnnotationPVCResizeInProgress); err != nil {
 				return errors.Wrap(err, "deannotate pxc")
 			}
 
 			log.Info("PVC resize completed")
+			if err := r.client.Delete(ctx, sts, client.PropagationPolicy("Orphan")); err != nil {
+				if !k8serrors.IsNotFound(err) {
+					return errors.Wrapf(err, "delete statefulset/%s", sts.Name)
+				}
+			}
 
 			return nil
 		}
@@ -234,6 +219,20 @@ func (r *ReconcilePerconaXtraDBCluster) reconcilePersistentVolumes(ctx context.C
 	}
 
 	if requested.Cmp(actual) < 0 {
+		if configured.Cmp(requested) <= 0 {
+			if configured.Cmp(requested) == 0 {
+				return nil
+			}
+
+			log.Info("Deleting statefulset to reconcile volume claim template", "configured", configured.String(), "requested", requested.String(), "actual", actual.String())
+			if err := r.client.Delete(ctx, sts, client.PropagationPolicy("Orphan")); err != nil {
+				if !k8serrors.IsNotFound(err) {
+					return errors.Wrapf(err, "delete statefulset/%s", sts.Name)
+				}
+			}
+			return nil
+		}
+
 		if err := r.revertVolumeTemplate(ctx, cr, configured); err != nil {
 			return errors.Wrapf(err, "revert volume template in pxc/%s", cr.Name)
 		}
@@ -241,6 +240,16 @@ func (r *ReconcilePerconaXtraDBCluster) reconcilePersistentVolumes(ctx context.C
 	}
 
 	if requested.Cmp(actual) == 0 {
+		if configured.Cmp(requested) != 0 {
+			log.Info("Deleting statefulset to reconcile volume claim template", "configured", configured.String(), "requested", requested.String())
+			if err := r.client.Delete(ctx, sts, client.PropagationPolicy("Orphan")); err != nil {
+				if !k8serrors.IsNotFound(err) {
+					return errors.Wrapf(err, "delete statefulset/%s", sts.Name)
+				}
+			}
+			return nil
+		}
+
 		return nil
 	}
 
@@ -264,7 +273,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcilePersistentVolumes(ctx context.C
 			continue
 		}
 
-		if pvc.Status.Capacity.Storage().Cmp(requested) == 0 {
+		if pvc.Status.Capacity.Storage().Cmp(requested) >= 0 {
 			log.Info("PVC already resized", "name", pvc.Name, "actual", pvc.Status.Capacity.Storage(), "requested", requested)
 			continue
 		}
@@ -318,21 +327,4 @@ func (r *ReconcilePerconaXtraDBCluster) revertVolumeTemplate(ctx context.Context
 	}
 
 	return nil
-}
-
-func roundUpSize(volumeSizeBytes int64, allocationUnitBytes int64) int64 {
-	if allocationUnitBytes == 0 {
-		return 0 // Avoid division by zero
-	}
-	return (volumeSizeBytes + allocationUnitBytes - 1) / allocationUnitBytes
-}
-
-// RoundUpGiB rounds up the volume size in bytes upto multiplications of GiB
-// in the unit of GiB
-func RoundUpGiB(volumeSizeBytes int64) (int64, error) {
-	result := roundUpSize(volumeSizeBytes, GiB)
-	if result > int64(math.MaxInt64) {
-		return 0, errors.Errorf("rounded up size exceeds maximum value of int64: %d", result)
-	}
-	return result, nil
 }

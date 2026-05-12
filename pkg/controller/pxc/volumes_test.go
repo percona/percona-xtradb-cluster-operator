@@ -28,6 +28,7 @@ func TestReconcilePersistentVolumes(t *testing.T) {
 		configured          string
 		actual              string
 		resizeInProgress    bool
+		volumeExpansion     bool
 		expectSTSDeleted    bool
 		expectResizeCleared bool
 		expectErrContains   string
@@ -73,6 +74,7 @@ func TestReconcilePersistentVolumes(t *testing.T) {
 			requested:         "1200Mi",
 			configured:        "2Gi",
 			actual:            "6G",
+			volumeExpansion:   true,
 			expectErrContains: "requested storage (1200Mi) is less than actual storage (6G)",
 			expectCRStorage:   "2Gi",
 		},
@@ -98,6 +100,7 @@ func TestReconcilePersistentVolumes(t *testing.T) {
 			cr.Spec.PXC.VolumeSpec.PersistentVolumeClaim.Resources.Requests = corev1.ResourceList{
 				corev1.ResourceStorage: requested,
 			}
+			cr.Spec.VolumeExpansionEnabled = tt.volumeExpansion
 			if tt.resizeInProgress {
 				cr.Annotations = map[string]string{
 					pxcv1.AnnotationPVCResizeInProgress: time.Now().Add(-time.Minute).Format(time.RFC3339),

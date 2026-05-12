@@ -338,7 +338,6 @@ func TestReconcilePersistentVolumesVolumeExternalAutoscaling(t *testing.T) {
 			r := &ReconcilePerconaXtraDBCluster{
 				client:  cl,
 				scheme:  scheme,
-				crons:   NewCronRegistry(),
 				lockers: newLockStore(),
 			}
 

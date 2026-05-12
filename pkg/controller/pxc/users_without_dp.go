@@ -220,7 +220,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUserWithoutDP(ctx context.C
 				}
 
 				if !ver.LessThan(mysql84) {
-					if err := r.grantMonitorUserAuditAdminPrivilege(ctx, cr, internalSecrets, um); err != nil {
+					if err := r.grantMonitorUserAuditAdminPrivilege(ctx, internalSecrets, um); err != nil {
 						return errors.Wrap(err, "monitor user grant audit admin privilege")
 					}
 				}

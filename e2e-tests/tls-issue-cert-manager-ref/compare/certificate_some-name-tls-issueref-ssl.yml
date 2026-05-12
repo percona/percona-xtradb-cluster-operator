@@ -20,4 +20,6 @@ spec:
   issuerRef:
     kind: ClusterIssuer
     name: special-selfsigned-issuer
+  privateKey:
+    rotationPolicy: Never
   secretName: some-name-tls-issueref-ssl

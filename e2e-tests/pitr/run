@@ -246,6 +246,7 @@ main() {
 	log "[CASE 2]: gtid_executed: ${gtid}"
 
 	write_data_for_pitr "$cluster" 100503 3
+	sleep_with_log 65 # wait for one binlog collection cycle
 
 	desc "[CASE 2] PiTR with datetime: ${time_now}"
 	run_recovery_check_pitr "$cluster" "restore-on-pitr-minio-time" "on-pitr-minio" "select-3" "$time_now" "" ""

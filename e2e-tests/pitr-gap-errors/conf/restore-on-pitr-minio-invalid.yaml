@@ -6,7 +6,7 @@ metadata:
   name: restore-on-pitr-minio-invalid
 spec:
   pxcCluster: pitr-gap-errors
-  backupName: on-pitr-minio 
+  backupName: on-pitr-minio1
   pitr:
     type: transaction
     gtid: <gtid>

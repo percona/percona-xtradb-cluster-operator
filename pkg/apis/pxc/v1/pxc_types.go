@@ -385,7 +385,7 @@ type RecoveryStatus struct {
 	// ClusterUUID is the Galera cluster UUID reported by the pod the operator
 	// recovered from. The all-zeros UUID means the pod's grastate.dat had no
 	// recoverable UUID (uninitialized or reset). An empty value means the log
-	// line did not include a UUID (PXC entrypoing <1.20.0).
+	// line did not include a UUID (PXC entrypoint <1.20.0).
 	ClusterUUID string `json:"clusterUUID,omitempty"`
 	// LastRecoveryTime is when the operator triggered the most recent
 	// full-cluster-crash recovery.

@@ -231,7 +231,9 @@ func (r *ReconcilePerconaXtraDBCluster) doFullCrashRecovery(ctx context.Context,
 	r.recorder.Event(cr, corev1.EventTypeNormal, "RecoveryStarted", fmt.Sprintf("Recovery started in %s, position %s", pod.Name, recoveryInfo))
 
 	if err := updateRecoveryStatus(ctx, r.client, cr, recoveryInfo, recoveryPod); err != nil {
-		return errors.Wrap(err, "update recovery status")
+		log.Error(err, "update recovery status")
+		// we already signalled the pod
+		// not returning here so we can sleep
 	}
 
 	// sleep here a little to start recovery

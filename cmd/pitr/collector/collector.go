@@ -149,7 +149,20 @@ func New(ctx context.Context, c Config) (*Collector, error) {
 			return nil, errors.Wrap(err, "read CA bundle file")
 		}
 
-		s, err = storage.NewS3(ctx, c.BackupStorageS3.Endpoint, c.BackupStorageS3.AccessKeyID, c.BackupStorageS3.AccessKey, c.BackupStorageS3.SessionToken, bucketArr[0], prefix, c.BackupStorageS3.Region, c.VerifyTLS, caBundle, c.BackupStorageS3.ForcePath, api.S3ChecksumAlgorithmType(c.BackupStorageS3.ChecksumAlgorithm))
+		opts := storage.S3Options{
+			Endpoint:          c.BackupStorageS3.Endpoint,
+			AccessKeyID:       c.BackupStorageS3.AccessKeyID,
+			SecretAccessKey:   c.BackupStorageS3.AccessKey,
+			SessionToken:      c.BackupStorageS3.SessionToken,
+			BucketName:        bucketArr[0],
+			Prefix:            prefix,
+			Region:            c.BackupStorageS3.Region,
+			VerifyTLS:         c.VerifyTLS,
+			CABundle:          caBundle,
+			ForcePathStyle:    c.BackupStorageS3.ForcePath,
+			ChecksumAlgorithm: api.S3ChecksumAlgorithmType(c.BackupStorageS3.ChecksumAlgorithm),
+		}
+		s, err = storage.NewS3(ctx, opts)
 		if err != nil {
 			return nil, errors.Wrap(err, "new storage manager")
 		}

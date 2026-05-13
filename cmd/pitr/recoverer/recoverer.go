@@ -72,7 +72,20 @@ func (c Config) storages(ctx context.Context) (storage.Storage, storage.Storage,
 			return nil, nil, errors.Wrap(err, "read CA bundle file")
 		}
 
-		binlogStorage, err = storage.NewS3(ctx, c.BinlogStorageS3.Endpoint, c.BinlogStorageS3.AccessKeyID, c.BinlogStorageS3.AccessKey, c.BinlogStorageS3.SessionToken, bucket, prefix, c.BinlogStorageS3.Region, c.VerifyTLS, caBundle, c.BinlogStorageS3.ForcePath, api.S3ChecksumAlgorithmType(c.BinlogStorageS3.ChecksumAlgorithm))
+		binlogOpts := storage.S3Options{
+			Endpoint:          c.BinlogStorageS3.Endpoint,
+			AccessKeyID:       c.BinlogStorageS3.AccessKeyID,
+			SecretAccessKey:   c.BinlogStorageS3.AccessKey,
+			SessionToken:      c.BinlogStorageS3.SessionToken,
+			BucketName:        bucket,
+			Prefix:            prefix,
+			Region:            c.BinlogStorageS3.Region,
+			VerifyTLS:         c.VerifyTLS,
+			CABundle:          caBundle,
+			ForcePathStyle:    c.BinlogStorageS3.ForcePath,
+			ChecksumAlgorithm: api.S3ChecksumAlgorithmType(c.BinlogStorageS3.ChecksumAlgorithm),
+		}
+		binlogStorage, err = storage.NewS3(ctx, binlogOpts)
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "new s3 storage")
 		}
@@ -81,7 +94,20 @@ func (c Config) storages(ctx context.Context) (storage.Storage, storage.Storage,
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "get bucket and prefix")
 		}
-		defaultStorage, err = storage.NewS3(ctx, c.BackupStorageS3.Endpoint, c.BackupStorageS3.AccessKeyID, c.BackupStorageS3.AccessKey, c.BackupStorageS3.SessionToken, bucket, prefix, c.BackupStorageS3.Region, c.VerifyTLS, caBundle, c.BackupStorageS3.ForcePath, api.S3ChecksumAlgorithmType(c.BackupStorageS3.ChecksumAlgorithm))
+		defaultStorageOpts := storage.S3Options{
+			Endpoint:          c.BackupStorageS3.Endpoint,
+			AccessKeyID:       c.BackupStorageS3.AccessKeyID,
+			SecretAccessKey:   c.BackupStorageS3.AccessKey,
+			SessionToken:      c.BackupStorageS3.SessionToken,
+			BucketName:        bucket,
+			Prefix:            prefix,
+			Region:            c.BackupStorageS3.Region,
+			VerifyTLS:         c.VerifyTLS,
+			CABundle:          caBundle,
+			ForcePathStyle:    c.BackupStorageS3.ForcePath,
+			ChecksumAlgorithm: api.S3ChecksumAlgorithmType(c.BackupStorageS3.ChecksumAlgorithm),
+		}
+		defaultStorage, err = storage.NewS3(ctx, defaultStorageOpts)
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "new storage manager")
 		}

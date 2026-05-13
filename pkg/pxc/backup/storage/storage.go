@@ -42,7 +42,7 @@ func NewClient(ctx context.Context, opts Options) (Storage, error) {
 		if !ok {
 			return nil, errors.New("invalid options type")
 		}
-		return NewS3(ctx, opts.Endpoint, opts.AccessKeyID, opts.SecretAccessKey, opts.SessionToken, opts.BucketName, opts.Prefix, opts.Region, opts.VerifyTLS, opts.CABundle, opts.ForcePathStyle, opts.ChecksumAlgorithm)
+		return NewS3(ctx, *opts)
 	case api.BackupStorageAzure:
 		opts, ok := opts.(*AzureOptions)
 		if !ok {
@@ -64,60 +64,50 @@ type S3 struct {
 // NewS3 return new Manager, useSSL using ssl for connection with storage
 func NewS3(
 	ctx context.Context,
-	endpoint,
-	accessKeyID,
-	secretAccessKey,
-	sessionToken,
-	bucketName,
-	prefix,
-	region string,
-	verifyTLS bool,
-	caBundle []byte,
-	forcePathStyle bool,
-	checksumAlgorithm api.S3ChecksumAlgorithmType,
+	opts S3Options,
 ) (Storage, error) {
-	if endpoint == "" {
-		endpoint = "https://s3.amazonaws.com"
+	if opts.Endpoint == "" {
+		opts.Endpoint = "https://s3.amazonaws.com"
 		// We can't use default endpoint if region is not us-east-1
 		// More info: https://docs.aws.amazon.com/general/latest/gr/s3.html
-		if region != "" && region != "us-east-1" {
-			endpoint = fmt.Sprintf("https://s3.%s.amazonaws.com", region)
+		if opts.Region != "" && opts.Region != "us-east-1" {
+			opts.Endpoint = fmt.Sprintf("https://s3.%s.amazonaws.com", opts.Region)
 		}
 	}
-	useSSL := strings.Contains(endpoint, "https")
-	endpoint = strings.TrimPrefix(strings.TrimPrefix(endpoint, "https://"), "http://")
+	useSSL := strings.Contains(opts.Endpoint, "https")
+	opts.Endpoint = strings.TrimPrefix(strings.TrimPrefix(opts.Endpoint, "https://"), "http://")
 	transport := http.DefaultTransport
 	transport.(*http.Transport).TLSClientConfig = &tls.Config{
-		InsecureSkipVerify: !verifyTLS,
+		InsecureSkipVerify: !opts.VerifyTLS,
 	}
 	// if caBundle is provided, we use it for the TLS client config
-	if len(caBundle) > 0 {
+	if len(opts.CABundle) > 0 {
 		roots, err := x509.SystemCertPool()
 		if err != nil {
 			return nil, errors.Wrap(err, "get system cert pool")
 		}
-		if ok := roots.AppendCertsFromPEM(caBundle); !ok {
+		if ok := roots.AppendCertsFromPEM(opts.CABundle); !ok {
 			return nil, errors.New("failed to append certs from PEM")
 		}
 		transport.(*http.Transport).TLSClientConfig.RootCAs = roots
 	}
 
-	opts := &minio.Options{
-		Creds:     credentials.NewStaticV4(accessKeyID, secretAccessKey, sessionToken),
+	minioOpts := &minio.Options{
+		Creds:     credentials.NewStaticV4(opts.AccessKeyID, opts.SecretAccessKey, opts.SessionToken),
 		Secure:    useSSL,
-		Region:    region,
+		Region:    opts.Region,
 		Transport: transport,
 	}
-	if forcePathStyle {
-		opts.BucketLookup = minio.BucketLookupPath
+	if opts.ForcePathStyle {
+		minioOpts.BucketLookup = minio.BucketLookupPath
 	}
 
-	minioClient, err := minio.New(strings.TrimRight(endpoint, "/"), opts)
+	minioClient, err := minio.New(strings.TrimRight(opts.Endpoint, "/"), minioOpts)
 	if err != nil {
 		return nil, errors.Wrap(err, "new minio client")
 	}
 
-	bucketExists, err := minioClient.BucketExists(ctx, bucketName)
+	bucketExists, err := minioClient.BucketExists(ctx, opts.BucketName)
 	if err != nil {
 		if merr, ok := err.(minio.ErrorResponse); ok && merr.Code == "301 Moved Permanently" {
 			return nil, errors.Errorf("%s region: %s bucket: %s", merr.Code, merr.Region, merr.BucketName)
@@ -125,14 +115,14 @@ func NewS3(
 		return nil, errors.Wrap(err, "failed to check if bucket exists")
 	}
 	if !bucketExists {
-		return nil, errors.Errorf("bucket %s does not exist", bucketName)
+		return nil, errors.Errorf("bucket %s does not exist", opts.BucketName)
 	}
 
 	return &S3{
 		client:            minioClient,
-		bucketName:        bucketName,
-		prefix:            prefix,
-		checksumAlgorithm: checksumAlgorithm,
+		bucketName:        opts.BucketName,
+		prefix:            opts.Prefix,
+		checksumAlgorithm: opts.ChecksumAlgorithm,
 	}, nil
 }
 

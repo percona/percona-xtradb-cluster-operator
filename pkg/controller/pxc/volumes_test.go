@@ -28,6 +28,7 @@ func TestReconcilePersistentVolumes(t *testing.T) {
 		configured          string
 		actual              string
 		resizeInProgress    bool
+		volumeExpansion     bool
 		expectSTSDeleted    bool
 		expectResizeCleared bool
 		expectErrContains   string
@@ -73,6 +74,7 @@ func TestReconcilePersistentVolumes(t *testing.T) {
 			requested:         "1200Mi",
 			configured:        "2Gi",
 			actual:            "6G",
+			volumeExpansion:   true,
 			expectErrContains: "requested storage (1200Mi) is less than actual storage (6G)",
 			expectCRStorage:   "2Gi",
 		},
@@ -98,6 +100,7 @@ func TestReconcilePersistentVolumes(t *testing.T) {
 			cr.Spec.PXC.VolumeSpec.PersistentVolumeClaim.Resources.Requests = corev1.ResourceList{
 				corev1.ResourceStorage: requested,
 			}
+			cr.Spec.VolumeExpansionEnabled = tt.volumeExpansion
 			if tt.resizeInProgress {
 				cr.Annotations = map[string]string{
 					pxcv1.AnnotationPVCResizeInProgress: time.Now().Add(-time.Minute).Format(time.RFC3339),
@@ -183,6 +186,181 @@ func TestReconcilePersistentVolumes(t *testing.T) {
 				expected := resource.MustParse(tt.expectCRStorage)
 				assert.Equal(t, expected, fetchedCR.Spec.PXC.VolumeSpec.PersistentVolumeClaim.Resources.Requests[corev1.ResourceStorage])
 			}
+		})
+	}
+}
+
+func TestReconcilePersistentVolumesVolumeExternalAutoscaling(t *testing.T) {
+	const (
+		namespace      = "test-ns"
+		clusterName    = "test-cluster"
+		configuredSize = "1Gi"
+		requestedSize  = "2Gi"
+	)
+
+	scheme := runtime.NewScheme()
+	require.NoError(t, clientgoscheme.AddToScheme(scheme))
+	require.NoError(t, apis.AddToScheme(scheme))
+
+	labels := naming.LabelsPXC(&pxcv1.PerconaXtraDBCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      clusterName,
+			Namespace: namespace,
+		},
+	})
+
+	sts := &appsv1.StatefulSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      clusterName + "-pxc",
+			Namespace: namespace,
+		},
+		Spec: appsv1.StatefulSetSpec{
+			VolumeClaimTemplates: []corev1.PersistentVolumeClaim{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "datadir",
+					},
+					Spec: corev1.PersistentVolumeClaimSpec{
+						Resources: corev1.VolumeResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceStorage: resource.MustParse(configuredSize),
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-cluster-pxc-0",
+			Namespace: namespace,
+			Labels:    labels,
+		},
+	}
+
+	cr := &pxcv1.PerconaXtraDBCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      clusterName,
+			Namespace: namespace,
+		},
+		Spec: pxcv1.PerconaXtraDBClusterSpec{
+			PXC: &pxcv1.PXCSpec{
+				PodSpec: &pxcv1.PodSpec{
+					Size: 1,
+					VolumeSpec: &pxcv1.VolumeSpec{
+						PersistentVolumeClaim: &corev1.PersistentVolumeClaimSpec{
+							Resources: corev1.VolumeResourceRequirements{
+								Requests: corev1.ResourceList{
+									corev1.ResourceStorage: resource.MustParse(requestedSize),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	pvc := &corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "datadir-test-cluster-pxc-0",
+			Namespace: namespace,
+			Labels:    labels,
+		},
+		Spec: corev1.PersistentVolumeClaimSpec{
+			Resources: corev1.VolumeResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceStorage: resource.MustParse(configuredSize),
+				},
+			},
+		},
+		Status: corev1.PersistentVolumeClaimStatus{
+			Capacity: corev1.ResourceList{
+				corev1.ResourceStorage: resource.MustParse(configuredSize),
+			},
+		},
+	}
+
+	tests := map[string]struct {
+		volumeExternalAutoscaling bool
+		volumeExpansionEnabled    bool
+		expectRequestedSize       string
+		expectPVCSize             string
+		expectResizeAnnotation    bool
+	}{
+		"external autoscaling enabled, volume expansion enabled": {
+			volumeExternalAutoscaling: true,
+			volumeExpansionEnabled:    true,
+			expectRequestedSize:       requestedSize,
+			expectPVCSize:             configuredSize,
+			expectResizeAnnotation:    false,
+		},
+		"external autoscaling enabled, volume expansion disabled": {
+			volumeExternalAutoscaling: true,
+			volumeExpansionEnabled:    false,
+			expectRequestedSize:       requestedSize,
+			expectPVCSize:             configuredSize,
+			expectResizeAnnotation:    false,
+		},
+		"external autoscaling disabled, volume expansion enabled": {
+			volumeExternalAutoscaling: false,
+			volumeExpansionEnabled:    true,
+			expectRequestedSize:       requestedSize,
+			expectPVCSize:             requestedSize,
+			expectResizeAnnotation:    true,
+		},
+		"external autoscaling disabled, volume expansion disabled": {
+			volumeExternalAutoscaling: false,
+			volumeExpansionEnabled:    false,
+			expectRequestedSize:       configuredSize,
+			expectPVCSize:             configuredSize,
+			expectResizeAnnotation:    false,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			ctx := t.Context()
+
+			cr := cr.DeepCopy()
+			pvc := pvc.DeepCopy()
+
+			cr.Spec.VolumeExternalAutoscaling = tt.volumeExternalAutoscaling
+			cr.Spec.VolumeExpansionEnabled = tt.volumeExpansionEnabled
+
+			cl := fake.NewClientBuilder().
+				WithScheme(scheme).
+				WithObjects(cr, sts, pvc, pod).
+				Build()
+
+			r := &ReconcilePerconaXtraDBCluster{
+				client:  cl,
+				scheme:  scheme,
+				lockers: newLockStore(),
+			}
+
+			err := r.reconcilePersistentVolumes(ctx, cr)
+			require.NoError(t, err)
+
+			gotCR := new(pxcv1.PerconaXtraDBCluster)
+			require.NoError(t, cl.Get(ctx, client.ObjectKeyFromObject(cr), gotCR))
+			assert.Equal(t, tt.expectResizeAnnotation, gotCR.PVCResizeInProgress())
+
+			requestedSize := cr.Spec.PXC.VolumeSpec.PersistentVolumeClaim.Resources.Requests[corev1.ResourceStorage]
+			assert.Zero(
+				t,
+				requestedSize.Cmp(resource.MustParse(tt.expectRequestedSize)),
+			)
+
+			gotPVC := new(corev1.PersistentVolumeClaim)
+			require.NoError(t, cl.Get(ctx, client.ObjectKeyFromObject(pvc), gotPVC))
+			pvcSize := gotPVC.Spec.Resources.Requests[corev1.ResourceStorage]
+			assert.Zero(
+				t,
+				pvcSize.Cmp(resource.MustParse(tt.expectPVCSize)),
+			)
 		})
 	}
 }

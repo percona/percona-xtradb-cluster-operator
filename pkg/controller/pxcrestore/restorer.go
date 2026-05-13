@@ -336,8 +336,6 @@ func validatePITRTarget(
 	switch restore.Spec.PITR.Type {
 	case api.PITRTypeDate:
 		return validatePITRDatetime(backup, restore.Spec.PITR.Date)
-	case api.PITRTypeTransaction:
-		// TODO
 	}
 	return nil
 }

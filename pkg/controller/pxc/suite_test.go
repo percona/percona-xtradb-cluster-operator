@@ -107,5 +107,7 @@ func readDefaultCR(name, namespace string) (*api.PerconaXtraDBCluster, error) {
 	cr.Spec.InitImage = "perconalab/percona-xtradb-cluster-operator:main"
 	b := false
 	cr.Spec.PXC.AutoRecovery = &b
+	cr.Spec.Unsafe.TLS = true
+	cr.Spec.TLS.Enabled = &b
 	return cr, nil
 }

@@ -36,7 +36,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcilePersistentVolumes(ctx context.C
 	ls := naming.LabelsPXC(cr)
 	log := logf.FromContext(ctx).WithName("PVCResize").WithValues("sts", sts.Name)
 
-	if cr.Spec.VolumeExternalAutoscaling {
+	if cr.Spec.StorageScaling != nil && cr.Spec.StorageScaling.VolumeExternalAutoscaling {
 		log.V(1).Info("skipping volume autoscaling: external autoscaling is enabled")
 		return nil
 	}

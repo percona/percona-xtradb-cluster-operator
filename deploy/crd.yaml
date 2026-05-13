@@ -2481,8 +2481,6 @@ spec:
                 type: string
               enableCRValidationWebhook:
                 type: boolean
-              enableExternalAutoscaling:
-                type: boolean
               enableVolumeExpansion:
                 type: boolean
               haproxy:
@@ -12167,6 +12165,8 @@ spec:
                         minimum: 50
                         type: integer
                     type: object
+                  enableExternalAutoscaling:
+                    type: boolean
                   enableVolumeScaling:
                     type: boolean
                 type: object

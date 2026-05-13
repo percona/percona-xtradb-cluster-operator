@@ -32,6 +32,11 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileStorageAutoscaling(
 		return nil
 	}
 
+	if cr.Spec.StorageScaling != nil && cr.Spec.StorageScaling.VolumeExternalAutoscaling {
+		log.V(1).Info("skipping storage autoscaling: external autoscaling is enabled")
+		return nil
+	}
+
 	if !cr.Spec.IsVolumeExpansionEnabled() {
 		log.V(1).Info("skipping storage autoscaling: volume expansion is disabled")
 		return nil

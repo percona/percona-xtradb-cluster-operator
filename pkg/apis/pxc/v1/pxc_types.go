@@ -55,7 +55,6 @@ type PerconaXtraDBClusterSpec struct {
 	Unsafe                    UnsafeFlags                          `json:"unsafeFlags,omitempty"`
 	VolumeExpansionEnabled    bool                                 `json:"enableVolumeExpansion,omitempty"`
 	StorageScaling            *StorageScalingSpec                  `json:"storageScaling,omitempty"`
-	VolumeExternalAutoscaling bool                                 `json:"enableExternalAutoscaling,omitempty"`
 
 	// Deprecated, should be removed in the future. Use InitContainer.Image instead
 	InitImage string `json:"initImage,omitempty"`
@@ -129,6 +128,8 @@ type StorageScalingSpec struct {
 
 	// Autoscaling configures automatic storage expansion based on disk usage
 	Autoscaling *AutoscalingSpec `json:"autoscaling,omitempty"`
+
+	VolumeExternalAutoscaling bool `json:"enableExternalAutoscaling,omitempty"`
 }
 
 // AutoscalingSpec defines the configuration for automatic storage expansion

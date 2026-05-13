@@ -13,12 +13,12 @@ spec:
   crVersion: 1.20.0
 #  storageScaling:
 #    enableVolumeScaling: false
+#    enableExternalAutoscaling: false
 #    autoscaling:
 #      enabled: false
 #      triggerThresholdPercent: 80
 #      growthStep: 2Gi
 #      maxSize: 10Gi
-#  enableExternalAutoscaling: false
 #  ignoreAnnotations:
 #    - iam.amazonaws.com/role
 #  ignoreLabels:

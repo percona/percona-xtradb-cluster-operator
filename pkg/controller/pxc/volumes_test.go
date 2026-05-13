@@ -327,7 +327,9 @@ func TestReconcilePersistentVolumesVolumeExternalAutoscaling(t *testing.T) {
 			cr := cr.DeepCopy()
 			pvc := pvc.DeepCopy()
 
-			cr.Spec.VolumeExternalAutoscaling = tt.volumeExternalAutoscaling
+			cr.Spec.StorageScaling = &pxcv1.StorageScalingSpec{
+				VolumeExternalAutoscaling: tt.volumeExternalAutoscaling,
+			}
 			cr.Spec.VolumeExpansionEnabled = tt.volumeExpansionEnabled
 
 			cl := fake.NewClientBuilder().

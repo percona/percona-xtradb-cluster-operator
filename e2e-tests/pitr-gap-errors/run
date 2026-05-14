@@ -261,6 +261,9 @@ invalid_binlog_test() {
 	wait_for_running "$cluster-pxc" 3
 	wait_cluster_consistency "$cluster" 3 2
 
+	# create new full backup after restore
+	run_backup "$cluster" "on-pitr-minio1"
+
 	run_mysql \
 		"CREATE DATABASE IF NOT EXISTS test; use test; " \
 		"-h $proxy -uroot -proot_password"
@@ -328,7 +331,7 @@ invalid_binlog_test() {
 		exit 1
 	fi
 
-	run_recovery_check_pitr "$cluster" "restore-on-pitr-minio-invalid" "on-pitr-minio" "select-6" "" "" "$gtid"
+	run_recovery_check_pitr "$cluster" "restore-on-pitr-minio-invalid" "on-pitr-minio1" "select-6" "" "" "$gtid"
 
 	# invalid table should not exist
 	compare_mysql_cmd "select-invalid" "SELECT * from test.invalid;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"

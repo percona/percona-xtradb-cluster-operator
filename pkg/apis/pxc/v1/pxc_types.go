@@ -53,8 +53,10 @@ type PerconaXtraDBClusterSpec struct {
 	UpgradeOptions            UpgradeOptions                       `json:"upgradeOptions,omitempty"`
 	AllowUnsafeConfig         bool                                 `json:"allowUnsafeConfigurations,omitempty"`
 	Unsafe                    UnsafeFlags                          `json:"unsafeFlags,omitempty"`
-	VolumeExpansionEnabled    bool                                 `json:"enableVolumeExpansion,omitempty"`
-	StorageScaling            *StorageScalingSpec                  `json:"storageScaling,omitempty"`
+	// Deprecated: use `.spec.storageScaling.enableVolumeScaling` instead.
+	// This field will be removed in v1.23.0.
+	VolumeExpansionEnabled bool                `json:"enableVolumeExpansion,omitempty"`
+	StorageScaling         *StorageScalingSpec `json:"storageScaling,omitempty"`
 
 	// Deprecated, should be removed in the future. Use InitContainer.Image instead
 	InitImage string `json:"initImage,omitempty"`

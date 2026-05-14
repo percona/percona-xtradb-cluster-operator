@@ -2,6 +2,7 @@ package pxc
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 	"slices"
 	"time"
@@ -177,13 +178,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(ctx context.Context, cr *ap
 		if status.Size != status.Ready {
 			condition.Status = metav1.ConditionFalse
 			condition.Reason = "NotReady"
-			condition.Message = "Not ready"
-		}
-
-		if cr.Spec.Pause {
-			condition.Status = metav1.ConditionFalse
-			condition.Reason = "Paused"
-			condition.Message = "Paused"
+			condition.Message = fmt.Sprintf("want size %d, but have %d", status.Size, status.Ready)
 		}
 
 		if componentInProgress {
@@ -194,6 +189,12 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(ctx context.Context, cr *ap
 			if !inProgress {
 				inProgress = true
 			}
+		}
+
+		if cr.Spec.Pause {
+			condition.Status = metav1.ConditionFalse
+			condition.Reason = "Paused"
+			condition.Message = "Paused"
 		}
 
 		meta.SetStatusCondition(&cr.Status.Conditions, condition)

@@ -5,13 +5,13 @@ import (
 	stderrors "errors"
 	"slices"
 	"strings"
-	"time"
 
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	eventsv1 "k8s.io/api/events/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -20,7 +20,6 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 )
@@ -126,10 +125,11 @@ func (r *ReconcilePerconaXtraDBCluster) reconcilePersistentVolumes(ctx context.C
 	requested := cr.Spec.PXC.VolumeSpec.PersistentVolumeClaim.Resources.Requests[corev1.ResourceStorage]
 
 	if cr.PVCResizeInProgress() {
-		resizeStartedAt, err := time.Parse(time.RFC3339, cr.GetAnnotations()[pxcv1.AnnotationPVCResizeInProgress])
-		if err != nil {
-			return errors.Wrap(err, "parse annotation")
+		cond := meta.FindStatusCondition(cr.Status.Conditions, pxcv1.ConditionVolumeResizing)
+		if cond == nil {
+			return errors.New("volume resizing condition not found")
 		}
+		resizeStartedAt := cond.LastTransitionTime.Time
 
 		updatedPVCs := 0
 		var resizeErrors []error
@@ -206,9 +206,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcilePersistentVolumes(ctx context.C
 
 		resizeSucceeded := updatedPVCs == len(pvcsToUpdate)
 		if resizeSucceeded {
-			if err := k8s.DeannotateObject(ctx, r.client, cr, pxcv1.AnnotationPVCResizeInProgress); err != nil {
-				return errors.Wrap(err, "deannotate pxc")
-			}
+			meta.RemoveStatusCondition(&cr.Status.Conditions, pxcv1.ConditionVolumeResizing)
 
 			log.Info("PVC resize completed")
 			if err := r.client.Delete(ctx, sts, client.PropagationPolicy("Orphan")); err != nil {
@@ -266,12 +264,12 @@ func (r *ReconcilePerconaXtraDBCluster) reconcilePersistentVolumes(ctx context.C
 		return nil
 	}
 
-	now := metav1.Now().Format(time.RFC3339)
-
-	err = k8s.AnnotateObject(ctx, r.client, cr, map[string]string{pxcv1.AnnotationPVCResizeInProgress: now})
-	if err != nil {
-		return errors.Wrap(err, "annotate pxc")
-	}
+	meta.SetStatusCondition(&cr.Status.Conditions, metav1.Condition{
+		Type:    pxcv1.ConditionVolumeResizing,
+		Status:  metav1.ConditionTrue,
+		Reason:  "VolumeResizing",
+		Message: "Volume resizing in progress",
+	})
 
 	log.Info("Resizing PVCs", "requested", requested, "actual", actual, "pvcList", strings.Join(pvcsToUpdate, ","))
 
@@ -314,10 +312,7 @@ func (r *ReconcilePerconaXtraDBCluster) handlePVCResizeFailure(ctx context.Conte
 		return errors.Wrapf(err, "revert volume template in pxc/%s", cr.Name)
 	}
 
-	if err := k8s.DeannotateObject(ctx, r.client, cr, pxcv1.AnnotationPVCResizeInProgress); err != nil {
-		return errors.Wrapf(err, "deannotate pxc/%s", cr.Name)
-	}
-
+	meta.RemoveStatusCondition(&cr.Status.Conditions, pxcv1.ConditionVolumeResizing)
 	return nil
 }
 

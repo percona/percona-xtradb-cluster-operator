@@ -18,6 +18,7 @@ import (
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -325,6 +326,7 @@ const (
 	ConditionProxyReady     string = "ProxyReady"
 	ConditionPXCReady       string = "PXCReady"
 	ConditionPaused         string = "ClusterPaused"
+	ConditionVolumeResizing string = "VolumeResizing"
 )
 
 // PerconaXtraDBClusterStatus defines the observed state of PerconaXtraDBCluster
@@ -1980,11 +1982,9 @@ func (s *PerconaXtraDBClusterSpec) ProxySQLEnabled() bool {
 	return s.ProxySQL != nil && s.ProxySQL.Enabled
 }
 
-const AnnotationPVCResizeInProgress = "percona.com/pvc-resize-in-progress"
-
 func (cr *PerconaXtraDBCluster) PVCResizeInProgress() bool {
-	_, ok := cr.Annotations[AnnotationPVCResizeInProgress]
-	return ok
+	cond := meta.FindStatusCondition(cr.Status.Conditions, ConditionVolumeResizing)
+	return cond != nil && cond.Status == metav1.ConditionTrue
 }
 
 // IsReadOnly returns true if the cluster is configured as a replication

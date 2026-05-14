@@ -2,12 +2,12 @@ package pxc
 
 import (
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -102,9 +102,12 @@ func TestReconcilePersistentVolumes(t *testing.T) {
 			}
 			cr.Spec.VolumeExpansionEnabled = tt.volumeExpansion
 			if tt.resizeInProgress {
-				cr.Annotations = map[string]string{
-					pxcv1.AnnotationPVCResizeInProgress: time.Now().Add(-time.Minute).Format(time.RFC3339),
-				}
+				meta.SetStatusCondition(&cr.Status.Conditions, metav1.Condition{
+					Type:    pxcv1.ConditionVolumeResizing,
+					Status:  metav1.ConditionTrue,
+					Reason:  "VolumeResizing",
+					Message: "Volume resizing in progress",
+				})
 			}
 
 			sts := statefulset.NewNode(cr).StatefulSet()
@@ -180,7 +183,7 @@ func TestReconcilePersistentVolumes(t *testing.T) {
 			err = r.client.Get(t.Context(), client.ObjectKeyFromObject(cr), fetchedCR)
 			require.NoError(t, err)
 			if tt.expectResizeCleared {
-				assert.NotContains(t, fetchedCR.GetAnnotations(), pxcv1.AnnotationPVCResizeInProgress)
+				assert.Nil(t, meta.FindStatusCondition(cr.Status.Conditions, pxcv1.ConditionVolumeResizing))
 			}
 			if tt.expectCRStorage != "" {
 				expected := resource.MustParse(tt.expectCRStorage)

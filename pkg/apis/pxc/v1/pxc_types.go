@@ -1674,6 +1674,18 @@ func (p *PodSpec) reconcileAffinityOpts() {
 	}
 }
 
+// sandboxedTemplateSet returns pongo2 TemplateSet some file-access tags banned
+// to prevent server-side template injection from user-controlled .spec.*.configuration fields.
+func sandboxedTemplateSet() (*pongo2.TemplateSet, error) {
+	set := pongo2.NewSet("sandbox", pongo2.MustNewLocalFileSystemLoader(os.TempDir()))
+	for _, tag := range []string{"ssi", "include", "import", "extends"} {
+		if err := set.BanTag(tag); err != nil {
+			return nil, errors.Wrapf(err, "ban tag %q", tag)
+		}
+	}
+	return set, nil
+}
+
 func (p *PodSpec) executeConfigurationTemplate() error {
 	if _, ok := p.Resources.Limits[corev1.ResourceMemory]; !ok {
 		if strings.Contains(p.Configuration, "{{") {
@@ -1682,7 +1694,12 @@ func (p *PodSpec) executeConfigurationTemplate() error {
 		return nil
 	}
 
-	tmpl, err := pongo2.FromString(p.Configuration)
+	set, err := sandboxedTemplateSet()
+	if err != nil {
+		return errors.Wrap(err, "create sandboxed template set")
+	}
+
+	tmpl, err := set.FromString(p.Configuration)
 	if err != nil {
 		return errors.Wrap(err, "parse template")
 	}

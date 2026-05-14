@@ -324,6 +324,7 @@ const (
 	ConditionErrorReconcile string = "ErrorReconcile"
 	ConditionProxyReady     string = "ProxyReady"
 	ConditionPXCReady       string = "PXCReady"
+	ConditionPaused         string = "ClusterPaused"
 )
 
 // PerconaXtraDBClusterStatus defines the observed state of PerconaXtraDBCluster

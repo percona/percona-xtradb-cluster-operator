@@ -124,6 +124,16 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(ctx context.Context, cr *ap
 		})
 	}
 
+	meta.RemoveStatusCondition(&cr.Status.Conditions, api.ConditionPaused)
+	if cr.Spec.Pause {
+		meta.SetStatusCondition(&cr.Status.Conditions, metav1.Condition{
+			Type:    api.ConditionPaused,
+			Status:  metav1.ConditionTrue,
+			Reason:  "Paused",
+			Message: "Paused",
+		})
+	}
+
 	cr.Status.Size = 0
 	cr.Status.Ready = 0
 	for _, a := range apps {
@@ -168,6 +178,12 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(ctx context.Context, cr *ap
 			condition.Status = metav1.ConditionFalse
 			condition.Reason = "NotReady"
 			condition.Message = "Not ready"
+		}
+
+		if cr.Spec.Pause {
+			condition.Status = metav1.ConditionFalse
+			condition.Reason = "Paused"
+			condition.Message = "Paused"
 		}
 
 		if componentInProgress {

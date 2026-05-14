@@ -26,6 +26,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileStorageAutoscaling(
 	cr *api.PerconaXtraDBCluster,
 ) error {
 	log := logf.FromContext(ctx).WithName("StorageAutoscaling")
+	ctx = logf.IntoContext(ctx, log)
 
 	autoscalingSpec := cr.Spec.StorageAutoscaling()
 	if autoscalingSpec == nil || !autoscalingSpec.Enabled {
@@ -111,7 +112,8 @@ func (r *ReconcilePerconaXtraDBCluster) checkAndResizePVC(
 	pod *corev1.Pod,
 	volumeSpec *api.VolumeSpec,
 ) error {
-	log := logf.FromContext(ctx).WithName("StorageAutoscaling").WithValues("pvc", pvc.Name)
+	log := logf.FromContext(ctx).WithValues("pvc", pvc.Name)
+	ctx = logf.IntoContext(ctx, log)
 
 	podRunning := false
 	if pod.Status.Phase == corev1.PodRunning {
@@ -156,7 +158,7 @@ func (r *ReconcilePerconaXtraDBCluster) shouldTriggerResize(
 	pvc *corev1.PersistentVolumeClaim,
 	usage *metrics.PVCUsage,
 ) bool {
-	log := logf.FromContext(ctx).WithName("StorageAutoscaling").WithValues("pvc", pvc.Name)
+	log := logf.FromContext(ctx)
 	config := cr.Spec.StorageAutoscaling()
 
 	if usage.UsagePercent < config.TriggerThresholdPercent {
@@ -211,7 +213,7 @@ func (r *ReconcilePerconaXtraDBCluster) triggerResize(
 	newSize resource.Quantity,
 	volumeSpec *api.VolumeSpec,
 ) error {
-	log := logf.FromContext(ctx).WithName("StorageAutoscaling").WithValues("pvc", pvc.Name)
+	log := logf.FromContext(ctx)
 
 	orig := cr.DeepCopy()
 
@@ -236,7 +238,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateAutoscalingStatus(
 	usage *metrics.PVCUsage,
 	err error,
 ) {
-	log := logf.FromContext(ctx).WithName("StorageAutoscaling")
+	log := logf.FromContext(ctx)
 
 	if pvcName == "" {
 		log.V(1).Info("no pvc name specified")

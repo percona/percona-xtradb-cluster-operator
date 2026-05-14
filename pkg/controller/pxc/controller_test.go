@@ -113,7 +113,7 @@ var _ = Describe("Finalizer delete-ssl", Ordered, func() {
 		cr.Spec.SSLSecretName = "cluster1-ssl"
 		cr.Spec.SSLInternalSecretName = "cluster1-ssl-internal"
 		cr.Spec.Unsafe.TLS = false
-		cr.Spec.TLS.Enabled = ptr.To(true)
+		cr.Spec.TLS.Enabled = new(true)
 
 		It("Should create PerconaXtraDBCluster", func() {
 			Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
@@ -225,7 +225,7 @@ var _ = Describe("Finalizer delete-ssl", Ordered, func() {
 		cr.Spec.SSLSecretName = "cluster1-ssl"
 		cr.Spec.SSLInternalSecretName = "cluster1-ssl-internal"
 		cr.Spec.Unsafe.TLS = false
-		cr.Spec.TLS.Enabled = ptr.To(true)
+		cr.Spec.TLS.Enabled = new(true)
 
 		It("Should create PerconaXtraDBCluster", func() {
 			Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
@@ -313,7 +313,7 @@ var _ = Describe("Finalizer delete-ssl", Ordered, func() {
 		cr.Spec.SSLInternalSecretName = "cluster1-ssl-internal"
 		cr.Spec.CRVersion = "1.19.0"
 		cr.Spec.Unsafe.TLS = false
-		cr.Spec.TLS.Enabled = ptr.To(true)
+		cr.Spec.TLS.Enabled = new(true)
 
 		It("Should create PerconaXtraDBCluster with old crVersion", func() {
 			Expect(k8sClient.Create(ctx, cr)).Should(Succeed())

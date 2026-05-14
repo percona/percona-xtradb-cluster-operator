@@ -210,7 +210,7 @@ func validateTransactionGTID(targetGTID, startGTID string) error {
 		return errors.Wrap(err, "parse target GTID seqno")
 	}
 
-	for _, seg := range strings.Split(startGTID, ",") {
+	for seg := range strings.SplitSeq(startGTID, ",") {
 		seg = strings.TrimSpace(seg)
 		segParts := strings.SplitN(seg, ":", 2)
 		if len(segParts) != 2 || segParts[0] != targetUUID {
@@ -220,8 +220,8 @@ func validateTransactionGTID(targetGTID, startGTID string) error {
 		rangeStr := segParts[1]
 		rangeStr = rangeStr[strings.LastIndex(rangeStr, ":")+1:]
 		hi := rangeStr
-		if i := strings.Index(rangeStr, "-"); i >= 0 {
-			hi = rangeStr[i+1:]
+		if _, after, ok := strings.Cut(rangeStr, "-"); ok {
+			hi = after
 		}
 		hiInt, err := strconv.ParseInt(hi, 10, 64)
 		if err != nil {
@@ -511,7 +511,7 @@ func (r *Recoverer) setBinlogs(ctx context.Context) error {
 }
 
 func gtidSetContainsUUID(gtidSet, uuid string) bool {
-	for _, segment := range strings.Split(gtidSet, ",") {
+	for segment := range strings.SplitSeq(gtidSet, ",") {
 		segment = strings.TrimSpace(segment)
 		if strings.HasPrefix(segment, uuid+":") {
 			return true
@@ -610,11 +610,11 @@ func getStartGTIDSet(ctx context.Context, s storage.Storage) (string, error) {
 
 func getGTIDFromXtrabackup(content []byte) (string, error) {
 	sep := []byte("GTID of the last")
-	startIndex := bytes.Index(content, sep)
-	if startIndex == -1 {
+	_, after, ok := bytes.Cut(content, sep)
+	if !ok {
 		return "", errors.New("no gtid data in backup")
 	}
-	newOut := content[startIndex+len(sep):]
+	newOut := after
 	e := bytes.Index(newOut, []byte("'\n"))
 	if e == -1 {
 		return "", errors.New("can't find gtid data in backup")
@@ -708,14 +708,14 @@ func readBackupMeta(ctx context.Context, s storage.Storage) (*xbserver.BackupMet
 
 func parseGTIDFromSSTInfoContent(content []byte) (string, error) {
 	sep := []byte("galera-gtid=")
-	startIndex := bytes.Index(content, sep)
-	if startIndex == -1 {
+	_, after, ok := bytes.Cut(content, sep)
+	if !ok {
 		return "", errors.New("no gtid data in backup")
 	}
-	newOut := content[startIndex+len(sep):]
-	e := bytes.Index(newOut, []byte("\n"))
-	if e == -1 {
+	newOut := after
+	before, _, ok := bytes.Cut(newOut, []byte("\n"))
+	if !ok {
 		return "", errors.New("can't find gtid data in backup")
 	}
-	return string(newOut[:e]), nil
+	return string(before), nil
 }

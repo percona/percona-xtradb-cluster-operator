@@ -54,6 +54,7 @@ type PerconaXtraDBClusterSpec struct {
 	AllowUnsafeConfig         bool                                 `json:"allowUnsafeConfigurations,omitempty"`
 	Unsafe                    UnsafeFlags                          `json:"unsafeFlags,omitempty"`
 	VolumeExpansionEnabled    bool                                 `json:"enableVolumeExpansion,omitempty"`
+	VolumeExternalAutoscaling bool                                 `json:"enableExternalAutoscaling,omitempty"`
 
 	// Deprecated, should be removed in the future. Use InitContainer.Image instead
 	InitImage string `json:"initImage,omitempty"`

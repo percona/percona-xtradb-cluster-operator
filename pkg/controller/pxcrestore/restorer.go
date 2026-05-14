@@ -4,6 +4,7 @@ import (
 	"context"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 	batchv1 "k8s.io/api/batch/v1"
@@ -78,6 +79,9 @@ func (s *s3) Validate(ctx context.Context) error {
 		return errors.New("backup not found")
 	}
 
+	if err := validatePITRTarget(s.bcp, s.cr); err != nil {
+		return errors.Wrap(err, "invalid pitr target")
+	}
 	return nil
 }
 
@@ -112,10 +116,15 @@ func (s *pvc) Validate(ctx context.Context) error {
 	case corev1.PodFailed:
 		return errors.Errorf("backup files not found on %s", destination)
 	case corev1.PodSucceeded:
-		return nil
 	default:
 		return errWaitValidate
 	}
+
+	if err := validatePITRTarget(s.bcp, s.cr); err != nil {
+		return errors.Wrap(err, "invalid pitr target")
+	}
+
+	return nil
 }
 
 func (s *pvc) Job(ctx context.Context) (*batchv1.Job, error) {
@@ -227,6 +236,10 @@ func (s *azure) Validate(ctx context.Context) error {
 	if len(blobs) == 0 {
 		return errors.New("no backups found")
 	}
+
+	if err := validatePITRTarget(s.bcp, s.cr); err != nil {
+		return errors.Wrap(err, "invalid pitr target")
+	}
 	return nil
 }
 
@@ -309,5 +322,39 @@ func (opts *restorerOptions) ValidateJob(ctx context.Context, job *batchv1.Job) 
 		return errors.Errorf("secrets %s not found", strings.Join(secrets, ", "))
 	}
 
+	return nil
+}
+
+func validatePITRTarget(
+	backup *api.PerconaXtraDBClusterBackup,
+	restore *api.PerconaXtraDBClusterRestore,
+) error {
+	if restore.Spec.PITR == nil {
+		return nil
+	}
+
+	switch restore.Spec.PITR.Type {
+	case api.PITRTypeDate:
+		return validatePITRDatetime(backup, restore.Spec.PITR.Date)
+	}
+	return nil
+}
+
+func validatePITRDatetime(
+	backup *api.PerconaXtraDBClusterBackup,
+	target string,
+) error {
+	targetTime, err := time.Parse(time.DateTime, target)
+	if err != nil {
+		return errors.Wrap(err, "parse datetime")
+	}
+
+	if backup.Status.LatestRestorableTime.IsZero() {
+		return errors.New("latest restorable time is not known")
+	}
+
+	if backup.Status.LatestRestorableTime.Time.Before(targetTime) {
+		return errors.New("target datetime is after the latest restorable time")
+	}
 	return nil
 }

@@ -17,7 +17,6 @@ func TestParseRecoveredPosition(t *testing.T) {
 		log       string
 		wantUUID  string
 		wantSeq   int64
-		wantErr   bool
 		errSubstr string
 	}{
 		"new format with uuid and seqno": {
@@ -44,28 +43,24 @@ func TestParseRecoveredPosition(t *testing.T) {
 			log:       marker + ":cluster1-pxc-0:" + tail,
 			wantUUID:  invalidUUID,
 			wantSeq:   invalidSeqno,
-			wantErr:   true,
 			errSubstr: "invalid log format",
 		},
 		"too many fields": {
 			log:       marker + ":cluster1-pxc-0:uuid:42:extra:" + tail,
 			wantUUID:  invalidUUID,
 			wantSeq:   invalidSeqno,
-			wantErr:   true,
 			errSubstr: "invalid log format",
 		},
 		"non-numeric seqno in new format": {
 			log:       marker + ":cluster1-pxc-0:3f1b9c4e-1111-2222-3333-444455556666:notanumber:" + tail,
 			wantUUID:  "3f1b9c4e-1111-2222-3333-444455556666",
 			wantSeq:   invalidSeqno,
-			wantErr:   true,
 			errSubstr: "parse sequence",
 		},
 		"non-numeric seqno in legacy format": {
 			log:       marker + ":cluster1-pxc-0:notanumber:" + tail,
 			wantUUID:  invalidUUID,
 			wantSeq:   invalidSeqno,
-			wantErr:   true,
 			errSubstr: "parse sequence",
 		},
 	}
@@ -73,7 +68,7 @@ func TestParseRecoveredPosition(t *testing.T) {
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			uuid, seq, err := parseRecoveredPosition(tt.log)
-			if tt.wantErr {
+			if tt.errSubstr != "" {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tt.errSubstr)
 			} else {

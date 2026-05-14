@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -165,7 +166,7 @@ func (i podRecoveryInfo) String() string {
 }
 
 func (r *ReconcilePerconaXtraDBCluster) doFullCrashRecovery(ctx context.Context, cr *pxcv1.PerconaXtraDBCluster) error {
-	maxSeq := int64(-100)
+	maxSeq := int64(math.MinInt64)
 	recoveryPod := ""
 	podInfos := make(map[string]podRecoveryInfo, int(cr.Spec.PXC.Size))
 

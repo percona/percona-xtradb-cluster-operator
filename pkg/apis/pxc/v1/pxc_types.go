@@ -319,6 +319,13 @@ const (
 	AppStateError    AppState = "error"
 )
 
+const (
+	ConditionTLSEnabled     string = "TLSEnabled"
+	ConditionErrorReconcile string = "ErrorReconcile"
+	ConditionProxyReady     string = "ProxyReady"
+	ConditionPXCReady       string = "PXCReady"
+)
+
 // PerconaXtraDBClusterStatus defines the observed state of PerconaXtraDBCluster
 type PerconaXtraDBClusterStatus struct {
 	PXC                AppStatus          `json:"pxc,omitempty"`
@@ -331,7 +338,7 @@ type PerconaXtraDBClusterStatus struct {
 	Host               string             `json:"host,omitempty"`
 	Messages           []string           `json:"message,omitempty"`
 	Status             AppState           `json:"state,omitempty"`
-	Conditions         []ClusterCondition `json:"conditions,omitempty"`
+	Conditions         []metav1.Condition `json:"conditions,omitempty"`
 	ObservedGeneration int64              `json:"observedGeneration,omitempty"`
 	Size               int32              `json:"size"`
 	Ready              int32              `json:"ready"`
@@ -1943,32 +1950,6 @@ func (s *PerconaXtraDBClusterStatus) ClusterStatus(inProgress, deleted bool) App
 }
 
 const maxStatusesQuantity = 20
-
-func (s *PerconaXtraDBClusterStatus) AddCondition(c ClusterCondition) {
-	if len(s.Conditions) == 0 {
-		s.Conditions = append(s.Conditions, c)
-		return
-	}
-
-	if s.Conditions[len(s.Conditions)-1].Type != c.Type {
-		s.Conditions = append(s.Conditions, c)
-	}
-
-	if len(s.Conditions) > maxStatusesQuantity {
-		s.Conditions = s.Conditions[len(s.Conditions)-maxStatusesQuantity:]
-	}
-}
-
-// FindCondition finds the conditionType in conditions.
-func (s *PerconaXtraDBClusterStatus) FindCondition(conditionType AppState) *ClusterCondition {
-	for i := range s.Conditions {
-		if s.Conditions[i].Type == conditionType {
-			return &s.Conditions[i]
-		}
-	}
-
-	return nil
-}
 
 func (cr *PerconaXtraDBCluster) CanBackup() error {
 	if cr.Status.Status == AppStateReady {

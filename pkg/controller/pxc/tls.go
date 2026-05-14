@@ -13,6 +13,7 @@ import (
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	k8serr "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -490,17 +491,18 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileTLSToggle(ctx context.Context, 
 		return nil
 	}
 
-	condition := cr.Status.FindCondition(naming.ConditionTLS)
+	condition := meta.FindStatusCondition(cr.Status.Conditions, api.ConditionTLSEnabled)
 	if condition == nil {
-		cr.Status.AddCondition(api.ClusterCondition{
-			Type:               naming.ConditionTLS,
-			Status:             api.ConditionStatus(naming.GetConditionTLSState(cr)),
-			LastTransitionTime: metav1.NewTime(time.Now().Truncate(time.Second)),
+		meta.SetStatusCondition(&cr.Status.Conditions, metav1.Condition{
+			Type:    api.ConditionTLSEnabled,
+			Status:  naming.GetConditionTLSState(cr),
+			Reason:  "ReconcileTLSToggle",
+			Message: "ReconcileTLSToggle",
 		})
 		return nil
 	}
 
-	if condition.Status == api.ConditionStatus(naming.GetConditionTLSState(cr)) {
+	if condition.Status == naming.GetConditionTLSState(cr) {
 		return nil
 	}
 
@@ -512,14 +514,14 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileTLSToggle(ctx context.Context, 
 		return nil
 	}
 
-	switch naming.ConditionTLSState(condition.Status) {
-	case naming.ConditionTLSStateEnabled:
+	switch condition.Status {
+	case metav1.ConditionTrue:
 		if err := r.deleteCerts(ctx, cr); err != nil {
 			return errors.Wrap(err, "failed to delete tls secrets")
 		}
-	case naming.ConditionTLSStateDisabled:
+	case metav1.ConditionFalse:
 	default:
-		return errors.Errorf("unknown value for %s condition status: %s", naming.ConditionTLS, condition.Status)
+		return errors.Errorf("unknown value for %s condition status: %s", api.ConditionTLSEnabled, condition.Status)
 	}
 
 	patch := client.MergeFrom(cr.DeepCopy())
@@ -533,8 +535,12 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileTLSToggle(ctx context.Context, 
 		return errors.Wrap(err, "failed to start cluster")
 	}
 
-	condition.Status = api.ConditionStatus(naming.GetConditionTLSState(cr))
-	condition.LastTransitionTime = metav1.NewTime(time.Now().Truncate(time.Second))
+	meta.SetStatusCondition(&cr.Status.Conditions, metav1.Condition{
+		Type:    api.ConditionTLSEnabled,
+		Status:  naming.GetConditionTLSState(cr),
+		Reason:  "ReconcileTLSToggle",
+		Message: "ReconcileTLSToggle",
+	})
 	return nil
 }
 

@@ -9,6 +9,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
@@ -17,27 +18,33 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 )
 
-func (r *ReconcilePerconaXtraDBCluster) updateStatus(ctx context.Context, cr *api.PerconaXtraDBCluster, inProgress bool, reconcileErr error) (err error) {
-	clusterCondition := api.ClusterCondition{
-		Status:             api.ConditionTrue,
-		Type:               api.AppStateInit,
-		LastTransitionTime: metav1.NewTime(time.Now().Truncate(time.Second)),
+func componentConditionType(appName string) string {
+	switch appName {
+	case app.Name:
+		return api.ConditionPXCReady
+	case naming.ComponentHAProxy, naming.ComponentProxySQL:
+		return api.ConditionProxyReady
 	}
 
+	// panic because this is a developer error, this must be updated if a new component is added
+	panic("unknown component: " + appName)
+}
+
+func (r *ReconcilePerconaXtraDBCluster) updateStatus(ctx context.Context, cr *api.PerconaXtraDBCluster, inProgress bool, reconcileErr error) (err error) {
+	meta.RemoveStatusCondition(&cr.Status.Conditions, api.ConditionErrorReconcile)
 	if reconcileErr != nil {
 		if cr.Status.Status != api.AppStateError {
-			clusterCondition := api.ClusterCondition{
-				Status:             api.ConditionTrue,
-				Type:               api.AppStateError,
-				Message:            reconcileErr.Error(),
-				Reason:             "ErrorReconcile",
-				LastTransitionTime: metav1.NewTime(time.Now().Truncate(time.Second)),
-			}
-			cr.Status.AddCondition(clusterCondition)
-
+			meta.SetStatusCondition(&cr.Status.Conditions, metav1.Condition{
+				Type:    api.ConditionErrorReconcile,
+				Status:  metav1.ConditionTrue,
+				Reason:  "Error",
+				Message: reconcileErr.Error(),
+			})
 			cr.Status.Messages = append(cr.Status.Messages, "Error: "+reconcileErr.Error())
 			cr.Status.Status = api.AppStateError
 		}
@@ -127,17 +134,38 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(ctx context.Context, cr *ap
 		cr.Status.Size += status.Size
 		cr.Status.Ready += status.Ready
 
-		if !inProgress {
-			inProgress, err = r.upgradeInProgress(ctx, cr, a.app.Name())
-			if err != nil {
-				return errors.Wrapf(err, "check %s upgrade progress", a.app.Name())
+		condition := metav1.Condition{
+			Type:    componentConditionType(a.app.Name()),
+			Status:  metav1.ConditionTrue,
+			Reason:  "Ready",
+			Message: "Ready",
+		}
+
+		componentInProgress, err := r.upgradeInProgress(ctx, cr, a.app.Name())
+		if err != nil {
+			return errors.Wrapf(err, "check %s upgrade progress", a.app.Name())
+		}
+
+		if status.Size != status.Ready {
+			condition.Status = metav1.ConditionFalse
+			condition.Reason = "NotReady"
+			condition.Message = "Not ready"
+		}
+
+		if componentInProgress {
+			condition.Status = metav1.ConditionFalse
+			condition.Reason = "UpgradeInProgress"
+			condition.Message = "Upgrade in progress"
+
+			if !inProgress {
+				inProgress = true
 			}
 		}
+
+		meta.SetStatusCondition(&cr.Status.Conditions, condition)
 	}
 
 	cr.Status.Status = cr.Status.ClusterStatus(inProgress, cr.ObjectMeta.DeletionTimestamp != nil)
-	clusterCondition.Type = cr.Status.Status
-	cr.Status.AddCondition(clusterCondition)
 	cr.Status.ObservedGeneration = cr.ObjectMeta.Generation
 
 	return r.writeStatus(ctx, cr)

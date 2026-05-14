@@ -3,6 +3,7 @@ package pxc
 import (
 	"context"
 	"reflect"
+	"slices"
 	"time"
 
 	"github.com/pkg/errors"
@@ -35,7 +36,24 @@ func componentConditionType(appName string) string {
 	panic("unknown component: " + appName)
 }
 
+func cleanupLegacyConditions(cr *api.PerconaXtraDBCluster) {
+	legacyConditionTypes := []api.AppState{
+		api.AppStateInit,
+		api.AppStateReady,
+		api.AppStatePaused,
+		api.AppStateStopping,
+		api.AppStateError,
+	}
+
+	updated := slices.DeleteFunc(cr.Status.Conditions, func(cond metav1.Condition) bool {
+		return slices.Contains(legacyConditionTypes, api.AppState(cond.Type))
+	})
+	cr.Status.Conditions = updated
+}
+
 func (r *ReconcilePerconaXtraDBCluster) updateStatus(ctx context.Context, cr *api.PerconaXtraDBCluster, inProgress bool, reconcileErr error) (err error) {
+	cleanupLegacyConditions(cr)
+
 	meta.RemoveStatusCondition(&cr.Status.Conditions, api.ConditionErrorReconcile)
 	if reconcileErr != nil {
 		if cr.Status.Status != api.AppStateError {

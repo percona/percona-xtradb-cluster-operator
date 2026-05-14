@@ -486,10 +486,31 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileCARotation(
 	return nil
 }
 
+func normalizeLegacyTLSCondition(cr *api.PerconaXtraDBCluster) {
+	for i, cond := range cr.Status.Conditions {
+		if cond.Type == "tls" {
+			updated := metav1.Condition{
+				Type:               api.ConditionTLSEnabled,
+				LastTransitionTime: cond.LastTransitionTime,
+				Status:             metav1.ConditionFalse,
+				Message:            "ReconcileTLSToggle",
+				Reason:             "ReconcileTLSToggle",
+			}
+			if cond.Status == "enabled" {
+				updated.Status = metav1.ConditionTrue
+			}
+			cr.Status.Conditions[i] = updated
+			return
+		}
+	}
+}
+
 func (r *ReconcilePerconaXtraDBCluster) reconcileTLSToggle(ctx context.Context, cr *api.PerconaXtraDBCluster) error {
 	if cr.CompareVersionWith("1.16.0") < 0 {
 		return nil
 	}
+
+	normalizeLegacyTLSCondition(cr)
 
 	condition := meta.FindStatusCondition(cr.Status.Conditions, api.ConditionTLSEnabled)
 	if condition == nil {

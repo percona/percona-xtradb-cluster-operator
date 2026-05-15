@@ -18,7 +18,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
@@ -114,7 +113,7 @@ var _ = Describe("Finalizer delete-ssl", Ordered, func() {
 		cr.Spec.SSLSecretName = "cluster1-ssl"
 		cr.Spec.SSLInternalSecretName = "cluster1-ssl-internal"
 		cr.Spec.Unsafe.TLS = false
-		cr.Spec.TLS.Enabled = ptr.To(true)
+		cr.Spec.TLS.Enabled = new(true)
 
 		It("Should create PerconaXtraDBCluster", func() {
 			Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
@@ -226,7 +225,7 @@ var _ = Describe("Finalizer delete-ssl", Ordered, func() {
 		cr.Spec.SSLSecretName = "cluster1-ssl"
 		cr.Spec.SSLInternalSecretName = "cluster1-ssl-internal"
 		cr.Spec.Unsafe.TLS = false
-		cr.Spec.TLS.Enabled = ptr.To(true)
+		cr.Spec.TLS.Enabled = new(true)
 
 		It("Should create PerconaXtraDBCluster", func() {
 			Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
@@ -314,7 +313,7 @@ var _ = Describe("Finalizer delete-ssl", Ordered, func() {
 		cr.Spec.SSLInternalSecretName = "cluster1-ssl-internal"
 		cr.Spec.CRVersion = "1.19.0"
 		cr.Spec.Unsafe.TLS = false
-		cr.Spec.TLS.Enabled = ptr.To(true)
+		cr.Spec.TLS.Enabled = new(true)
 
 		It("Should create PerconaXtraDBCluster with old crVersion", func() {
 			Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
@@ -2187,19 +2186,19 @@ var _ = Describe("Affinity", Ordered, func() {
 			affinityCheck(nil, simpleAffinity("kubernetes.io/hostname", componentFunc(cr).Labels()))
 		})
 		When("topologyKey key is set to `none`", func() {
-			affinityCheck(&api.PodAffinity{TopologyKey: ptr.To("none")}, nil)
+			affinityCheck(&api.PodAffinity{TopologyKey: new("none")}, nil)
 		})
 		When("hostname affinity is set", func() {
 			topologyKey := "kubernetes.io/hostname"
-			affinityCheck(&api.PodAffinity{TopologyKey: ptr.To(topologyKey)}, simpleAffinity(topologyKey, componentFunc(cr).Labels()))
+			affinityCheck(&api.PodAffinity{TopologyKey: new(topologyKey)}, simpleAffinity(topologyKey, componentFunc(cr).Labels()))
 		})
 		When("zone affinity is set", func() {
 			topologyKey := "failure-domain.beta.kubernetes.io/zone"
-			affinityCheck(&api.PodAffinity{TopologyKey: ptr.To(topologyKey)}, simpleAffinity(topologyKey, componentFunc(cr).Labels()))
+			affinityCheck(&api.PodAffinity{TopologyKey: new(topologyKey)}, simpleAffinity(topologyKey, componentFunc(cr).Labels()))
 		})
 		When("region affinity is set", func() {
 			topologyKey := "failure-domain.beta.kubernetes.io/region"
-			affinityCheck(&api.PodAffinity{TopologyKey: ptr.To(topologyKey)}, simpleAffinity(topologyKey, componentFunc(cr).Labels()))
+			affinityCheck(&api.PodAffinity{TopologyKey: new(topologyKey)}, simpleAffinity(topologyKey, componentFunc(cr).Labels()))
 		})
 		When("custom affinity is set", func() {
 			customAffinity := &corev1.Affinity{
@@ -2270,7 +2269,7 @@ var _ = Describe("Affinity", Ordered, func() {
 			}
 
 			affinityCheck(&api.PodAffinity{
-				TopologyKey: ptr.To("kubernetes.io/hostname"),
+				TopologyKey: new("kubernetes.io/hostname"),
 				Advanced:    customAffinity.DeepCopy(),
 			}, customAffinity)
 		})

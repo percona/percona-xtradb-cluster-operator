@@ -33,8 +33,8 @@ func TestCRDVersionLabel(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to read file: %s", err.Error())
 	}
-	yamlDocs := bytes.Split(data, []byte("\n---\n"))
-	for _, doc := range yamlDocs {
+	yamlDocs := bytes.SplitSeq(data, []byte("\n---\n"))
+	for doc := range yamlDocs {
 		if len(doc) == 0 {
 			continue
 		}

@@ -171,7 +171,7 @@ func waitForPodsShutdown(ctx context.Context, cl client.Client, ls map[string]st
 const waitLimitSec int64 = 300
 
 func waitForPVCShutdown(ctx context.Context, cl client.Client, ls map[string]string, namespace string) error {
-	for i := int64(0); i < waitLimitSec; i++ {
+	for range waitLimitSec {
 		pvcs := corev1.PersistentVolumeClaimList{}
 
 		err := cl.List(

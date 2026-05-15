@@ -10,7 +10,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/ptr"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxctls"
@@ -163,12 +162,12 @@ func TestGetLoadBalancerClass(t *testing.T) {
 		},
 		"load balancer class is empty string": {
 			exposeType:          corev1.ServiceTypeLoadBalancer,
-			loadBalancerClass:   ptr.To(""),
+			loadBalancerClass:   new(""),
 			expectedErrorString: "load balancer class not provided or is empty",
 		},
 		"valid load balancer class": {
 			exposeType:        corev1.ServiceTypeLoadBalancer,
-			loadBalancerClass: ptr.To("my-lb-class"),
+			loadBalancerClass: new("my-lb-class"),
 		},
 	}
 
@@ -291,7 +290,7 @@ func TestCheckNSetDefaults(t *testing.T) {
 		ctx := t.Context()
 		cr := minimalCr.DeepCopy()
 		cr.Spec.TLS = &TLSSpec{
-			Enabled: ptr.To(true),
+			Enabled: new(true),
 		}
 
 		assert.NoError(t, cr.CheckNSetDefaults(nil, logf.FromContext(ctx)))
@@ -300,7 +299,7 @@ func TestCheckNSetDefaults(t *testing.T) {
 
 		cr = minimalCr.DeepCopy()
 		cr.Spec.TLS = &TLSSpec{
-			Enabled: ptr.To(false),
+			Enabled: new(false),
 		}
 		cr.Spec.Unsafe.TLS = true
 
@@ -310,7 +309,7 @@ func TestCheckNSetDefaults(t *testing.T) {
 
 		cr = minimalCr.DeepCopy()
 		cr.Spec.TLS = &TLSSpec{
-			Enabled:    ptr.To(true),
+			Enabled:    new(true),
 			Duration:   &metav1.Duration{Duration: time.Hour * 3000},
 			CADuration: &metav1.Duration{Duration: time.Hour * 1000},
 		}
@@ -318,21 +317,21 @@ func TestCheckNSetDefaults(t *testing.T) {
 
 		cr = minimalCr.DeepCopy()
 		cr.Spec.TLS = &TLSSpec{
-			Enabled:  ptr.To(true),
+			Enabled:  new(true),
 			Duration: &metav1.Duration{Duration: time.Hour * 30000},
 		}
 		assert.EqualError(t, cr.CheckNSetDefaults(nil, logf.FromContext(ctx)), ".spec.tls.caValidityDuration shouldn't be smaller than .spec.tls.certValidityDuration")
 
 		cr = minimalCr.DeepCopy()
 		cr.Spec.TLS = &TLSSpec{
-			Enabled:    ptr.To(true),
+			Enabled:    new(true),
 			CADuration: &metav1.Duration{Duration: time.Hour * 2000},
 		}
 		assert.EqualError(t, cr.CheckNSetDefaults(nil, logf.FromContext(ctx)), ".spec.tls.caValidityDuration shouldn't be smaller than .spec.tls.certValidityDuration")
 
 		cr = minimalCr.DeepCopy()
 		cr.Spec.TLS = &TLSSpec{
-			Enabled:    ptr.To(true),
+			Enabled:    new(true),
 			CADuration: &metav1.Duration{Duration: time.Hour * 720},
 			Duration:   &metav1.Duration{Duration: time.Hour * 700},
 		}
@@ -340,7 +339,7 @@ func TestCheckNSetDefaults(t *testing.T) {
 
 		cr = minimalCr.DeepCopy()
 		cr.Spec.TLS = &TLSSpec{
-			Enabled:  ptr.To(true),
+			Enabled:  new(true),
 			Duration: &metav1.Duration{Duration: time.Minute * 1},
 		}
 		assert.EqualError(t, cr.CheckNSetDefaults(nil, logf.FromContext(ctx)), ".spec.tls.certValidityDuration shouldn't be smaller than 1 hours")

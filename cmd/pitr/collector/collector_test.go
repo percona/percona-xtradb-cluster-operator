@@ -32,11 +32,9 @@ func TestReadBinlog(t *testing.T) {
 	errBuf := &bytes.Buffer{}
 
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		readBinlog(ctx, file, pipeWriter, errBuf, "test-binlog")
-	}()
+	})
 
 	testData := "foo"
 	if _, err := file.Write([]byte(testData)); err != nil {

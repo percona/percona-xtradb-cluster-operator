@@ -190,8 +190,13 @@ func (s *S3) ListObjects(ctx context.Context, prefix string) ([]string, error) {
 	opts := minio.ListObjectsOptions{
 		UseV1:     true,
 		Recursive: true,
-		Prefix:    path.Join(s.prefix, strings.TrimSuffix(prefix, "/")) + "/",
 	}
+
+	opts.Prefix = path.Join(s.prefix, prefix)
+	if strings.HasSuffix(prefix, "/") && !strings.HasSuffix(opts.Prefix, "/") {
+		opts.Prefix += "/"
+	}
+
 	list := []string{}
 
 	var err error
@@ -306,6 +311,9 @@ func (a *Azure) PutObject(ctx context.Context, name string, data io.Reader, _ in
 
 func (a *Azure) ListObjects(ctx context.Context, prefix string) ([]string, error) {
 	listPrefix := path.Join(a.prefix, prefix)
+	if strings.HasSuffix(prefix, "/") && !strings.HasSuffix(listPrefix, "/") {
+		listPrefix += "/"
+	}
 	pg := a.client.NewListBlobsFlatPager(a.container, &container.ListBlobsFlatOptions{
 		Prefix: &listPrefix,
 	})

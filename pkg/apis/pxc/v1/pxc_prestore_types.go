@@ -2,6 +2,7 @@ package v1
 
 import (
 	"errors"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -27,6 +28,11 @@ type PerconaXtraDBClusterRestoreStatus struct {
 	ProxySQLSize  int32        `json:"proxysqlSize,omitempty"`
 	Unsafe        UnsafeFlags  `json:"unsafeFlags,omitempty"`
 }
+
+const (
+	PITRTypeDate        = "date"
+	PITRTypeTransaction = "transaction"
+)
 
 // +kubebuilder:validation:XValidation:rule="self.type != 'date' || (has(self.date) && self.date.matches('^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01]) ([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$'))",message="Date is required for type 'date' and should be in format YYYY-MM-DD HH:MM:SS with valid ranges (MM: 01-12, DD: 01-31, HH: 00-23, MM/SS: 00-59)"
 // +kubebuilder:validation:XValidation:rule="(self.type != 'transaction' && self.type != 'skip') || (has(self.gtid) && size(self.gtid) > 0)",message="GTID is required for types 'transaction' and 'skip'"

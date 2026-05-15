@@ -170,7 +170,7 @@ func (r *ReconcilePerconaXtraDBCluster) doFullCrashRecovery(ctx context.Context,
 	recoveryPod := ""
 	podInfos := make(map[string]podRecoveryInfo, int(cr.Spec.PXC.Size))
 
-	for i := 0; i < int(cr.Spec.PXC.Size); i++ {
+	for i := range cr.Spec.PXC.Size {
 		podName := fmt.Sprintf("%s-pxc-%d", cr.Name, i)
 		isPodWaitingForRecovery, uuid, seq, err := r.isPodWaitingForRecovery(cr.Namespace, podName)
 		if err != nil {

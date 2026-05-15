@@ -3,6 +3,7 @@ package pxc
 import (
 	"context"
 	"fmt"
+	"maps"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -118,9 +119,7 @@ func StatefulSet(
 	ls := sfs.Labels()
 
 	customLabels := make(map[string]string, len(ls))
-	for k, v := range ls {
-		customLabels[k] = v
-	}
+	maps.Copy(customLabels, ls)
 
 	for k, v := range podSpec.Labels {
 		if _, ok := customLabels[k]; !ok {

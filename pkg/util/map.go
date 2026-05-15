@@ -1,6 +1,8 @@
 package util
 
 import (
+	"maps"
+
 	appsv1 "k8s.io/api/apps/v1"
 )
 
@@ -20,9 +22,7 @@ func MergeMaps(dest map[string]string, mapList ...map[string]string) map[string]
 		dest = make(map[string]string)
 	}
 	for _, m := range mapList {
-		for k, v := range m {
-			dest[k] = v
-		}
+		maps.Copy(dest, m)
 	}
 	return dest
 }

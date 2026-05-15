@@ -84,7 +84,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(ctx context.Context, cr
 		}
 	}
 
-	r.crons.backupJobs.Range(func(k, v interface{}) bool {
+	r.crons.backupJobs.Range(func(k, v any) bool {
 		item := v.(BackupScheduleJob)
 		if !strings.HasPrefix(item.Name, backupNamePrefix) {
 			return true
@@ -257,11 +257,11 @@ func (h minHeap) Less(i, j int) bool {
 
 func (h minHeap) Swap(i, j int) { h[i], h[j] = h[j], h[i] }
 
-func (h *minHeap) Push(x interface{}) {
+func (h *minHeap) Push(x any) {
 	*h = append(*h, x.(api.PerconaXtraDBClusterBackup))
 }
 
-func (h *minHeap) Pop() interface{} {
+func (h *minHeap) Pop() any {
 	old := *h
 	n := len(old)
 	x := old[n-1]

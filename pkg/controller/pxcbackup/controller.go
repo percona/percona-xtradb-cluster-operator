@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -423,10 +424,8 @@ func (r *ReconcilePerconaXtraDBClusterBackup) ensureFinalizers(ctx context.Conte
 		return nil
 	}
 
-	for _, f := range cr.GetFinalizers() {
-		if f == naming.FinalizerReleaseLock {
-			return nil
-		}
+	if slices.Contains(cr.GetFinalizers(), naming.FinalizerReleaseLock) {
+		return nil
 	}
 
 	orig := cr.DeepCopy()
@@ -455,7 +454,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) tryRunBackupFinalizers(ctx context
 	default:
 		if _, ok := r.bcpDeleteInProgress.Load(cr.Name); !ok {
 			inprog := []string{}
-			r.bcpDeleteInProgress.Range(func(key, value interface{}) bool {
+			r.bcpDeleteInProgress.Range(func(key, value any) bool {
 				inprog = append(inprog, key.(string))
 				return true
 			})
@@ -871,7 +870,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) suspendJobIfNeeded(
 			return err
 		}
 
-		job.Spec.Suspend = ptr.To(true)
+		job.Spec.Suspend = new(true)
 		err = r.client.Update(ctx, job)
 		if err != nil {
 			return err
@@ -934,7 +933,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) resumeJobIfNeeded(
 			return err
 		}
 
-		job.Spec.Suspend = ptr.To(false)
+		job.Spec.Suspend = new(false)
 		err = r.client.Update(ctx, job)
 		if err != nil {
 			return err

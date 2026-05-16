@@ -94,6 +94,7 @@ var _ = Describe("PerconaXtraDBClusterRestore PITR CRD validation", Ordered, fun
 		Entry("type latest", "valid-latest", &pxcv1.PITR{Type: "latest"}),
 		Entry("type date with valid format", "valid-date", &pxcv1.PITR{Type: "date", Date: "2024-01-15 12:30:00"}),
 		Entry("type transaction with gtid", "valid-transaction", &pxcv1.PITR{Type: "transaction", GTID: "abc123:1-10"}),
+		Entry("type skip with gtid", "valid-skip", &pxcv1.PITR{Type: "skip", GTID: "abc123:1-10"}),
 	)
 
 	DescribeTable("invalid PITR configurations",
@@ -104,8 +105,12 @@ var _ = Describe("PerconaXtraDBClusterRestore PITR CRD validation", Ordered, fun
 		},
 		Entry("type date with empty date", "invalid-date-empty", &pxcv1.PITR{Type: "date"}, "Date is required"),
 		Entry("type date with wrong format", "invalid-date-format", &pxcv1.PITR{Type: "date", Date: "15-01-2024 12:30:00"}, "format YYYY-MM-DD"),
+		Entry("type date with invalid month", "invalid-date-month", &pxcv1.PITR{Type: "date", Date: "2024-27-30 12:30:00"}, "format YYYY-MM-DD"),
+		Entry("type date with no time)", "invalid-date-no-time", &pxcv1.PITR{Type: "date", Date: "2024-12-30"}, "format YYYY-MM-DD"),
 		Entry("type latest with date set", "invalid-latest-date", &pxcv1.PITR{Type: "latest", Date: "2024-01-15 12:30:00"}, "Date and GTID should not be set"),
+		Entry("type latest with gtid set", "invalid-latest-gtid", &pxcv1.PITR{Type: "latest", GTID: "abc123:1"}, "Date and GTID should not be set"),
 		Entry("type transaction without gtid", "invalid-transaction-no-gtid", &pxcv1.PITR{Type: "transaction"}, "GTID is required"),
+		Entry("type skip without gtid", "invalid-skip-no-gtid", &pxcv1.PITR{Type: "skip"}, "GTID is required"),
 		Entry("unknown type", "invalid-unknown-type", &pxcv1.PITR{Type: "unknown"}, "Unsupported value"),
 	)
 })

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"maps"
 	"reflect"
 	"strconv"
 	"strings"
@@ -62,9 +63,7 @@ func GetDeployment(cr *api.PerconaXtraDBCluster, initImage string, existingMatch
 
 	labels := naming.LabelsPITR(cr)
 	if stg, ok := cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName]; ok {
-		for key, value := range stg.Labels {
-			labels[key] = value
-		}
+		maps.Copy(labels, stg.Labels)
 	}
 
 	matchLabels := naming.LabelsPITR(cr)

@@ -524,7 +524,7 @@ func gtidEndMarker(gtid string) (string, int64, error) {
 	}
 
 	maxSeq := int64(-1)
-	for _, interval := range strings.Split(parts[1], ":") {
+	for interval := range strings.SplitSeq(parts[1], ":") {
 		interval = strings.TrimSpace(interval)
 		if interval == "" {
 			continue
@@ -561,7 +561,7 @@ func gtidContainsSeq(gtidEntry, uuid string, seq int64) bool {
 		return false
 	}
 
-	for _, interval := range strings.Split(parts[1], ":") {
+	for interval := range strings.SplitSeq(parts[1], ":") {
 		interval = strings.TrimSpace(interval)
 		if interval == "" {
 			continue

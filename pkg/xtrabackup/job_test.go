@@ -8,7 +8,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/ptr"
 
 	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
@@ -75,14 +74,14 @@ func TestJobSpec(t *testing.T) {
 							},
 						},
 						ContainerSecurityContext: &corev1.SecurityContext{
-							RunAsUser:  ptr.To(int64(1000)),
-							RunAsGroup: ptr.To(int64(1000)),
-							Privileged: ptr.To(false),
+							RunAsUser:  new(int64(1000)),
+							RunAsGroup: new(int64(1000)),
+							Privileged: new(false),
 						},
 						PodSecurityContext: &corev1.PodSecurityContext{
-							RunAsUser:  ptr.To(int64(1000)),
-							RunAsGroup: ptr.To(int64(1000)),
-							FSGroup:    ptr.To(int64(1000)),
+							RunAsUser:  new(int64(1000)),
+							RunAsGroup: new(int64(1000)),
+							FSGroup:    new(int64(1000)),
 						},
 						Annotations: map[string]string{
 							"backup.annotation/key": "value",

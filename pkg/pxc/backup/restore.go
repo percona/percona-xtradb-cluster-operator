@@ -289,9 +289,6 @@ func RestoreJob(
 		}
 
 		if pitr {
-			if cluster.Spec.Backup == nil && len(cluster.Spec.Backup.Storages) == 0 {
-				return nil, errors.New("no storage section")
-			}
 			volumeMounts = []corev1.VolumeMount{}
 			volumes = []corev1.Volume{}
 			command = []string{"/opt/percona/pitr", "recover"}
@@ -672,6 +669,12 @@ func s3Envs(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBa
 			Value: "true",
 		})
 	}
+	if bcp.Status.S3.SkipBucketExistsCheck {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "S3_SKIP_BUCKET_EXISTS_CHECK",
+			Value: "true",
+		})
+	}
 	if pitr {
 		bucket := ""
 		storageS3 := new(api.BackupStorageS3Spec)
@@ -758,6 +761,14 @@ func s3Envs(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBa
 			envs = append(envs,
 				corev1.EnvVar{
 					Name:  "BINLOG_S3_FORCE_PATH",
+					Value: "true",
+				},
+			)
+		}
+		if storageS3.SkipBucketExistsCheck {
+			envs = append(envs,
+				corev1.EnvVar{
+					Name:  "BINLOG_S3_SKIP_BUCKET_EXISTS_CHECK",
 					Value: "true",
 				},
 			)

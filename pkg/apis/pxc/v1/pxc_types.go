@@ -328,6 +328,7 @@ type PerconaXtraDBClusterStatus struct {
 	Backup             ComponentStatus    `json:"backup,omitempty"`
 	PMM                ComponentStatus    `json:"pmm,omitempty"`
 	LogCollector       ComponentStatus    `json:"logcollector,omitempty"`
+	Recovery           *RecoveryStatus    `json:"recovery,omitempty"`
 	Host               string             `json:"host,omitempty"`
 	Messages           []string           `json:"message,omitempty"`
 	Status             AppState           `json:"state,omitempty"`
@@ -374,6 +375,29 @@ type AppStatus struct {
 
 	Size  int32 `json:"size,omitempty"`
 	Ready int32 `json:"ready,omitempty"`
+}
+
+// RecoveryStatus records the outcome of the most recent full-cluster-crash
+// recovery. It is consulted on subsequent crashes to decide whether automatic
+// recovery is safe: a UUID change or seqno regression indicates the operator
+// would be bootstrapping from a node with stale or unrelated data, so manual
+// intervention is required.
+type RecoveryStatus struct {
+	// ClusterUUID is the Galera cluster UUID reported by the pod the operator
+	// recovered from. The all-zeros UUID means the pod's grastate.dat had no
+	// recoverable UUID (uninitialized or reset). An empty value means the log
+	// line did not include a UUID (PXC entrypoint <1.20.0).
+	ClusterUUID string `json:"clusterUUID,omitempty"`
+	// LastRecoveryTime is when the operator triggered the most recent
+	// full-cluster-crash recovery.
+	LastRecoveryTime metav1.Time `json:"lastRecoveryTime,omitempty"`
+	// LastRecoveryPod is the pod the operator picked to bootstrap from
+	// (the one with the highest reported seqno).
+	LastRecoveryPod string `json:"lastRecoveryPod,omitempty"`
+	// LastRecoverySeqNo is the wsrep sequence number of the pod that was
+	// used to bootstrap. A subsequent recovery with a lower seqno is refused
+	// automatically, since proceeding would discard committed transactions.
+	LastRecoverySeqNo int64 `json:"lastRecoverySeqNo,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

@@ -25,6 +25,8 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage"
 )
 
+const PXCClusterBackupField = ".spec.pxcCluster"
+
 func CheckPITRErrors(ctx context.Context, cl client.Client, clcmd *clientcmd.Client, cr *api.PerconaXtraDBCluster, storageFunc storage.NewClientFunc) error {
 	log := logf.FromContext(ctx)
 
@@ -199,7 +201,7 @@ var ErrNoBackups = errors.New("No backups found")
 
 func getLatestSuccessfulBackup(ctx context.Context, cl client.Client, cr *api.PerconaXtraDBCluster) (*api.PerconaXtraDBClusterBackup, error) {
 	bcpList := api.PerconaXtraDBClusterBackupList{}
-	if err := cl.List(ctx, &bcpList, client.InNamespace(cr.GetNamespace()), client.MatchingFields{".spec.pxcCluster": cr.GetName()}); err != nil {
+	if err := cl.List(ctx, &bcpList, client.InNamespace(cr.GetNamespace()), client.MatchingFields{PXCClusterBackupField: cr.GetName()}); err != nil {
 		return nil, errors.Wrap(err, "get backup objects")
 	}
 

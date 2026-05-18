@@ -14,8 +14,6 @@ import (
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 )
 
-const backupPXCClusterField = ".spec.pxcCluster"
-
 func TestGetLatestSuccessfulBackup(t *testing.T) {
 	baseTime := time.Date(2026, 5, 18, 16, 3, 0, 0, time.UTC)
 
@@ -99,7 +97,7 @@ func buildBackupFakeClient(t *testing.T, backups ...runtime.Object) client.Clien
 	return fake.NewClientBuilder().
 		WithScheme(scheme).
 		WithRuntimeObjects(backups...).
-		WithIndex(&api.PerconaXtraDBClusterBackup{}, backupPXCClusterField, func(obj client.Object) []string {
+		WithIndex(&api.PerconaXtraDBClusterBackup{}, PXCClusterBackupField, func(obj client.Object) []string {
 			backup, ok := obj.(*api.PerconaXtraDBClusterBackup)
 			if !ok {
 				return nil

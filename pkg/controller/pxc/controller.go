@@ -100,7 +100,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 }
 
 func setupPXCBackupToClusterIndexer(mgr manager.Manager) error {
-	return mgr.GetFieldIndexer().IndexField(context.TODO(), &api.PerconaXtraDBClusterBackup{}, ".spec.pxcCluster", func(o client.Object) []string {
+	return mgr.GetFieldIndexer().IndexField(context.TODO(), &api.PerconaXtraDBClusterBackup{}, backup.PXCClusterBackupField, func(o client.Object) []string {
 		backup, ok := o.(*api.PerconaXtraDBClusterBackup)
 		if !ok {
 			return nil

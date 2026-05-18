@@ -87,10 +87,10 @@ func newReconciler(mgr manager.Manager) (reconcile.Reconciler, error) {
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	if err := setupSecretNameFieldIndexer(mgr); err != nil {
-		return errors.Wrap(err, "setup field indexers")
+		return errors.Wrap(err, "setup secret-name field indexer")
 	}
 	if err := setupPXCBackupToClusterIndexer(mgr); err != nil {
-		return errors.Wrap(err, "setup field indexers")
+		return errors.Wrap(err, "setup backup-to-cluster field indexer")
 	}
 	return builder.ControllerManagedBy(mgr).
 		Named(naming.OperatorController).

@@ -134,11 +134,11 @@ func (r *ReconcilePerconaXtraDBCluster) checkAndResizePVC(
 		return errors.Wrap(err, "get PVC usage from metrics")
 	}
 
+	r.updateAutoscalingStatus(ctx, cr, pvc.Name, usage, nil)
+
 	if !r.shouldTriggerResize(ctx, cr, pvc, usage) {
 		return nil
 	}
-
-	r.updateAutoscalingStatus(ctx, cr, pvc.Name, usage, nil)
 
 	newSize := r.calculateNewSize(cr, pvc)
 

@@ -312,11 +312,12 @@ func (s PXCScheduledBackupRetention) IsValidCountRetention() bool {
 type AppState string
 
 const (
-	AppStateInit     AppState = "initializing"
-	AppStatePaused   AppState = "paused"
-	AppStateStopping AppState = "stopping"
-	AppStateReady    AppState = "ready"
-	AppStateError    AppState = "error"
+	AppStateInit            AppState = "initializing"
+	AppStatePaused          AppState = "paused"
+	AppStateStopping        AppState = "stopping"
+	AppStateReady           AppState = "ready"
+	AppStateError           AppState = "error"
+	AppStateRecoveryBlocked AppState = "recoveryBlocked"
 )
 
 // PerconaXtraDBClusterStatus defines the observed state of PerconaXtraDBCluster
@@ -1981,6 +1982,18 @@ func (s *PerconaXtraDBClusterStatus) AddCondition(c ClusterCondition) {
 	if len(s.Conditions) > maxStatusesQuantity {
 		s.Conditions = s.Conditions[len(s.Conditions)-maxStatusesQuantity:]
 	}
+}
+
+// RemoveCondition removes all occurrences of the given condition type from the history.
+// Uses in-place slice filtering to avoid allocation.
+func (s *PerconaXtraDBClusterStatus) RemoveCondition(conditionType AppState) {
+	filtered := s.Conditions[:0]
+	for i := range s.Conditions {
+		if s.Conditions[i].Type != conditionType {
+			filtered = append(filtered, s.Conditions[i])
+		}
+	}
+	s.Conditions = filtered
 }
 
 // FindCondition finds the conditionType in conditions.

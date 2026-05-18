@@ -319,9 +319,15 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 	}
 
 	if o.CompareVersionWith("1.7.0") >= 0 && *o.Spec.PXC.AutoRecovery {
-		err = r.recoverFullClusterCrashIfNeeded(ctx, o)
+		result, err := r.recoverFullClusterCrashIfNeeded(ctx, o)
 		if err != nil {
-			log.Info("Failed to check if cluster needs to recover", "err", err.Error())
+			// Unexpected errors (API failure, exec failure) trigger controller-runtime backoff.
+			return reconcile.Result{}, errors.Wrap(err, "check if cluster needs to recover")
+		}
+		// Expected retry scenarios (pods temporarily unavailable) use controlled requeue
+		// to avoid hammering the API server with 5ms exponential backoff.
+		if result.RequeueAfter > 0 {
+			return result, nil
 		}
 	}
 

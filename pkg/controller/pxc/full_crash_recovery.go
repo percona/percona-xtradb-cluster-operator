@@ -16,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 )
@@ -25,7 +26,10 @@ var (
 	logLinesRequired        = int64(9)
 )
 
-const logPrefix = `#####################################################LAST_LINE`
+const (
+	logPrefix            = `#####################################################LAST_LINE`
+	recoveryRequeueAfter = 30 * time.Second
+)
 
 // recoverFullClusterCrashIfNeeded detects a full PXC cluster crash and
 // triggers a Galera bootstrap from the pod with the highest recovered seqno.
@@ -55,36 +59,41 @@ const logPrefix = `#####################################################LAST_LIN
 //	                                    yes -> doFullCrashRecovery
 //	  doFullCrashRecovery
 //	    parse LAST_LINE on every pod (parseRecoveredPosition)
+//	    skip pods with log errors, record as unavailable
 //	    any pod no longer waiting?     yes -> abort
-//	    recoveryPod = pod with max seqno
-//	    isAutomaticRecoverySafe(cr, uuid, seq)?
-//	      no  ->  return an error and wait for human intervention
-//	    exec "kill -s USR1 1" in recoveryPod -> entrypoint's node_recovery
-//	    persist RecoveryStatus{uuid, seqno, pod, time}
-//	    sleep 30s so the next reconcile doesn't re-signal the same pod
-func (r *ReconcilePerconaXtraDBCluster) recoverFullClusterCrashIfNeeded(ctx context.Context, cr *pxcv1.PerconaXtraDBCluster) error {
+//	    evaluateRecoveryScan -> Blocked / AllFailed / Proceed
+//	      Blocked: set RecoveryBlocked condition, requeue 30s
+//	      AllFailed: requeue 30s
+//	      Proceed:
+//	        recoveryPod = pod with max seqno
+//	        isAutomaticRecoverySafe(cr, uuid, seq)?
+//	          no  ->  return an error and wait for human intervention
+//	        exec "kill -s USR1 1" in recoveryPod -> entrypoint's node_recovery
+//	        persist RecoveryStatus{uuid, seqno, pod, time}
+//	        sleep 30s so the next reconcile doesn't re-signal the same pod
+func (r *ReconcilePerconaXtraDBCluster) recoverFullClusterCrashIfNeeded(ctx context.Context, cr *pxcv1.PerconaXtraDBCluster) (reconcile.Result, error) {
 	if cr.Spec.PXC.Size <= 0 {
-		return nil
+		return reconcile.Result{}, nil
 	}
 
 	err := r.checkIfPodsRunning(cr)
 	if err != nil {
 		if err == ErrNotAllPXCPodsRunning {
-			return nil
+			return reconcile.Result{}, nil
 		}
-		return err
+		return reconcile.Result{}, err
 	}
 
 	isWaiting, _, _, err := r.isPodWaitingForRecovery(cr.Namespace, cr.Name+"-pxc-0")
 	if err != nil {
-		return errors.Wrap(err, "failed to check if pxc pod 0 is waiting for recovery")
+		return reconcile.Result{}, errors.Wrap(err, "failed to check if pxc pod 0 is waiting for recovery")
 	}
 
 	if isWaiting {
 		return r.doFullCrashRecovery(ctx, cr)
 	}
 
-	return nil
+	return reconcile.Result{}, nil
 }
 
 const (
@@ -165,34 +174,136 @@ func (i podRecoveryInfo) String() string {
 	return fmt.Sprintf("%s:%d", i.uuid, i.seq)
 }
 
-func (r *ReconcilePerconaXtraDBCluster) doFullCrashRecovery(ctx context.Context, cr *pxcv1.PerconaXtraDBCluster) error {
+type podScanResult struct {
+	name    string
+	waiting bool
+	info    podRecoveryInfo
+	err     error
+}
+
+type recoveryAction int
+
+const (
+	recoveryProceed recoveryAction = iota
+	recoveryNotFullCrash
+	recoveryAllFailed
+	recoveryBlocked
+)
+
+type recoveryDecision struct {
+	action          recoveryAction
+	maxSeqPod       string
+	maxSeq          int64
+	recoveryInfo    podRecoveryInfo
+	unavailablePods []string
+}
+
+// evaluateRecoveryScan determines the recovery action from pod scan results.
+// The check ordering matters:
+//  1. err != nil → pod logs unavailable, can't determine state → mark unavailable
+//  2. !waiting → pod already recovered or not in crash → not a full crash, abort
+//  3. waiting + seq → candidate for bootstrap
+//
+// We only bootstrap when ALL pods are scannable and ALL are waiting.
+// If any pod is unavailable, we block recovery because it might have a higher seqno
+// and bootstrapping from a lower-seqno pod would cause data loss.
+func evaluateRecoveryScan(results []podScanResult) recoveryDecision {
 	maxSeq := int64(math.MinInt64)
-	recoveryPod := ""
-	podInfos := make(map[string]podRecoveryInfo, int(cr.Spec.PXC.Size))
+	maxSeqPod := ""
+	var recoveryInfo podRecoveryInfo
+	var unavailablePods []string
+	scannablePods := 0
 
-	for i := range cr.Spec.PXC.Size {
-		podName := fmt.Sprintf("%s-pxc-%d", cr.Name, i)
-		isPodWaitingForRecovery, uuid, seq, err := r.isPodWaitingForRecovery(cr.Namespace, podName)
-		if err != nil {
-			return errors.Wrapf(err, "parse %s pod logs", podName)
+	for _, r := range results {
+		if r.err != nil {
+			unavailablePods = append(unavailablePods, r.name)
+			continue
 		}
 
-		if !isPodWaitingForRecovery {
-			return nil
+		if !r.waiting {
+			return recoveryDecision{action: recoveryNotFullCrash}
 		}
 
-		podInfos[podName] = podRecoveryInfo{uuid: uuid, seq: seq}
-
-		if seq > maxSeq {
-			maxSeq = seq
-			recoveryPod = podName
+		scannablePods++
+		if r.info.seq > maxSeq {
+			maxSeq = r.info.seq
+			maxSeqPod = r.name
+			recoveryInfo = r.info
 		}
 	}
 
-	recoveryInfo := podInfos[recoveryPod]
+	if scannablePods == 0 {
+		return recoveryDecision{action: recoveryAllFailed, unavailablePods: unavailablePods}
+	}
+
+	if len(unavailablePods) > 0 {
+		return recoveryDecision{
+			action:          recoveryBlocked,
+			maxSeqPod:       maxSeqPod,
+			maxSeq:          maxSeq,
+			recoveryInfo:    recoveryInfo,
+			unavailablePods: unavailablePods,
+		}
+	}
+
+	return recoveryDecision{action: recoveryProceed, maxSeqPod: maxSeqPod, maxSeq: maxSeq, recoveryInfo: recoveryInfo}
+}
+
+func (r *ReconcilePerconaXtraDBCluster) doFullCrashRecovery(ctx context.Context, cr *pxcv1.PerconaXtraDBCluster) (reconcile.Result, error) {
 	log := logf.FromContext(ctx).WithName("CrashRecovery")
-	log.Info("We are in full cluster crash, starting recovery")
-	log.Info("Results of scanning sequences", "pod", recoveryPod, "clusterUUID", recoveryInfo.uuid, "maxSeq", recoveryInfo.seq)
+	pxcSize := int(cr.Spec.PXC.Size)
+	var results []podScanResult
+
+	for i := range pxcSize {
+		podName := fmt.Sprintf("%s-pxc-%d", cr.Name, i)
+		waiting, uuid, seq, err := r.isPodWaitingForRecovery(cr.Namespace, podName)
+		results = append(results, podScanResult{
+			name: podName,
+			waiting: waiting,
+			info:  podRecoveryInfo{uuid: uuid, seq: seq},
+			err:   err,
+		})
+		if err != nil {
+			log.Info("failed to get pod logs, recording as unavailable", "pod", podName, "error", err)
+		}
+	}
+
+	decision := evaluateRecoveryScan(results)
+
+	switch decision.action {
+	case recoveryNotFullCrash:
+		return reconcile.Result{}, nil
+	case recoveryAllFailed:
+		log.Info("no pods scannable for recovery, requeuing",
+			"unavailable", strings.Join(decision.unavailablePods, ","),
+		)
+		return reconcile.Result{RequeueAfter: recoveryRequeueAfter}, nil
+	case recoveryBlocked:
+		log.Info("recovery blocked: some pods unavailable, requeuing",
+			"unavailable", strings.Join(decision.unavailablePods, ","),
+			"bestCandidate", decision.maxSeqPod,
+			"maxSeq", decision.maxSeq,
+		)
+		// Remove before Add to prevent duplicate conditions when interleaved
+		// with other condition types (AddCondition only deduplicates the last entry).
+		cr.Status.RemoveCondition(pxcv1.AppStateRecoveryBlocked)
+		cr.Status.AddCondition(pxcv1.ClusterCondition{
+			Status:             pxcv1.ConditionTrue,
+			Type:               pxcv1.AppStateRecoveryBlocked,
+			LastTransitionTime: metav1.Now(),
+			Reason:             "PodsUnavailable",
+			Message:            fmt.Sprintf("crash recovery blocked: cannot determine seqno for pods %s", strings.Join(decision.unavailablePods, ", ")),
+		})
+		return reconcile.Result{RequeueAfter: recoveryRequeueAfter}, nil
+	}
+
+	// All pods scannable and waiting: safe to bootstrap.
+	// Clear any previously set RecoveryBlocked condition.
+	cr.Status.RemoveCondition(pxcv1.AppStateRecoveryBlocked)
+
+	recoveryInfo := decision.recoveryInfo
+	log.Info("full cluster crash detected, starting recovery")
+	log.Info("results of scanning sequences", "pod", decision.maxSeqPod, "clusterUUID", recoveryInfo.uuid, "maxSeq", recoveryInfo.seq)
 	r.recorder.Event(cr, corev1.EventTypeWarning, "FullClusterCrashDetected", "We are in full cluster crash")
 
 	if !isAutomaticRecoverySafe(cr, recoveryInfo.uuid, recoveryInfo.seq) {
@@ -205,33 +316,33 @@ func (r *ReconcilePerconaXtraDBCluster) doFullCrashRecovery(ctx context.Context,
 			recoveryInfo.seq,
 		)
 		r.recorder.Event(cr, corev1.EventTypeWarning, "AutomaticRecoveryRefused", msg)
-		return errors.New(msg)
+		return reconcile.Result{}, errors.New(msg)
 	}
 
 	if recoveryInfo.uuid == invalidUUID {
-		log.Info("Recovering from a pod that did not report a cluster UUID; future safety checks will rely on seqno only", "pod", recoveryPod)
+		log.Info("Recovering from a pod that did not report a cluster UUID; future safety checks will rely on seqno only", "pod", decision.maxSeqPod)
 	}
 
 	pod := &corev1.Pod{}
-	err := r.client.Get(ctx, types.NamespacedName{Name: recoveryPod, Namespace: cr.Namespace}, pod)
+	err := r.client.Get(ctx, types.NamespacedName{Name: decision.maxSeqPod, Namespace: cr.Namespace}, pod)
 	if err != nil {
-		return errors.Wrap(err, "get recovery pod")
+		return reconcile.Result{}, errors.Wrap(err, "get recovery pod")
 	}
 
 	stderrBuf := &bytes.Buffer{}
 	err = r.clientcmd.Exec(pod, "pxc", []string{"/bin/sh", "-c", "kill -s USR1 1"}, nil, nil, stderrBuf, false)
 	if err != nil {
-		return errors.Wrap(err, "exec command in pod")
+		return reconcile.Result{}, errors.Wrap(err, "exec command in pod")
 	}
 
 	if stderrBuf.Len() != 0 {
-		return errors.New("invalid exec command return: " + stderrBuf.String())
+		return reconcile.Result{}, errors.New("invalid exec command return: " + stderrBuf.String())
 	}
 
 	log.Info("Recovery started", "pod", pod.Name, "position", recoveryInfo)
 	r.recorder.Event(cr, corev1.EventTypeNormal, "RecoveryStarted", fmt.Sprintf("Recovery started in %s, position %s", pod.Name, recoveryInfo))
 
-	if err := updateRecoveryStatus(ctx, r.client, cr, recoveryInfo, recoveryPod); err != nil {
+	if err := updateRecoveryStatus(ctx, r.client, cr, recoveryInfo, decision.maxSeqPod); err != nil {
 		log.Error(err, "update recovery status")
 		// we already signalled the pod
 		// not returning here so we can sleep
@@ -241,7 +352,7 @@ func (r *ReconcilePerconaXtraDBCluster) doFullCrashRecovery(ctx context.Context,
 	// and not send a lot of signals to the same pod
 	time.Sleep(30 * time.Second)
 
-	return nil
+	return reconcile.Result{}, nil
 }
 
 func isAutomaticRecoverySafe(cr *pxcv1.PerconaXtraDBCluster, uuid string, seqno int64) bool {

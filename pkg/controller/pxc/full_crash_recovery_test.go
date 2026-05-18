@@ -138,9 +138,6 @@ func TestIsAutomaticRecoverySafe(t *testing.T) {
 			wantOK: false,
 		},
 		"unknown current uuid with known status uuid, seqno advanced": {
-			// Rolling-upgrade case: previous recovery saw a real UUID,
-			// current scan reads a legacy-format log and can't determine UUID.
-			// Fall back to seqno-only check.
 			cr:     withRecovery(clusterUUID, 10),
 			uuid:   invalidUUID,
 			seqno:  11,
@@ -153,26 +150,18 @@ func TestIsAutomaticRecoverySafe(t *testing.T) {
 			wantOK: false,
 		},
 		"known current uuid with unknown status uuid, seqno advanced": {
-			// Status was recorded during rolling upgrade with no UUID, now
-			// pods report real UUIDs.
 			cr:     withRecovery(invalidUUID, 10),
 			uuid:   clusterUUID,
 			seqno:  11,
 			wantOK: true,
 		},
 		"both uuids uninitialized (fresh clusters), seqno advanced": {
-			// Two fresh-grastate recoveries should not be falsely identified
-			// as the same cluster, but with seqno -1 on both sides the seqno
-			// check still permits the harmless bootstrap.
 			cr:     withRecovery(uninitializedUUID, -1),
 			uuid:   uninitializedUUID,
 			seqno:  -1,
 			wantOK: true,
 		},
 		"uninitialized current with known status uuid": {
-			// PVCs wiped, fresh cluster comes up — entrypoint emits all-zeros.
-			// Status has the real previous UUID. Treat current as unknown,
-			// fall back to seqno: if seqno is -1 vs 100, regression → unsafe.
 			cr:     withRecovery(clusterUUID, 100),
 			uuid:   uninitializedUUID,
 			seqno:  -1,
@@ -184,6 +173,123 @@ func TestIsAutomaticRecoverySafe(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			got := isAutomaticRecoverySafe(tt.cr, tt.uuid, tt.seqno)
 			assert.Equal(t, tt.wantOK, got)
+		})
+	}
+}
+
+func TestEvaluateRecoveryScan(t *testing.T) {
+	tests := []struct {
+		name                    string
+		results                 []podScanResult
+		expectedAction          recoveryAction
+		expectedMaxSeqPod       string
+		expectedUnavailablePods []string
+	}{
+		{
+			name: "all pods scannable and waiting - proceed with highest seq",
+			results: []podScanResult{
+				{name: "cluster-pxc-0", waiting: true, info: podRecoveryInfo{uuid: "uuid-a", seq: 100}, err: nil},
+				{name: "cluster-pxc-1", waiting: true, info: podRecoveryInfo{uuid: "uuid-a", seq: 200}, err: nil},
+				{name: "cluster-pxc-2", waiting: true, info: podRecoveryInfo{uuid: "uuid-a", seq: 150}, err: nil},
+			},
+			expectedAction:    recoveryProceed,
+			expectedMaxSeqPod: "cluster-pxc-1",
+		},
+		{
+			name: "single pod scannable with highest seq still wins",
+			results: []podScanResult{
+				{name: "cluster-pxc-0", waiting: true, info: podRecoveryInfo{uuid: "uuid-a", seq: 300}, err: nil},
+				{name: "cluster-pxc-1", waiting: true, info: podRecoveryInfo{uuid: "uuid-a", seq: 100}, err: nil},
+				{name: "cluster-pxc-2", waiting: true, info: podRecoveryInfo{uuid: "uuid-a", seq: 200}, err: nil},
+			},
+			expectedAction:    recoveryProceed,
+			expectedMaxSeqPod: "cluster-pxc-0",
+		},
+		{
+			name: "one pod not waiting - not a full crash",
+			results: []podScanResult{
+				{name: "cluster-pxc-0", waiting: true, info: podRecoveryInfo{seq: 100}, err: nil},
+				{name: "cluster-pxc-1", waiting: false, info: podRecoveryInfo{}, err: nil},
+				{name: "cluster-pxc-2", waiting: true, info: podRecoveryInfo{seq: 200}, err: nil},
+			},
+			expectedAction: recoveryNotFullCrash,
+		},
+		{
+			name: "one pod log failure - blocked because unavailable pod might be newer",
+			results: []podScanResult{
+				{name: "cluster-pxc-0", waiting: true, info: podRecoveryInfo{seq: 100}, err: nil},
+				{name: "cluster-pxc-1", waiting: false, info: podRecoveryInfo{}, err: assert.AnError},
+				{name: "cluster-pxc-2", waiting: true, info: podRecoveryInfo{seq: 150}, err: nil},
+			},
+			expectedAction:          recoveryBlocked,
+			expectedMaxSeqPod:       "cluster-pxc-2",
+			expectedUnavailablePods: []string{"cluster-pxc-1"},
+		},
+		{
+			name: "all pods failed to scan",
+			results: []podScanResult{
+				{name: "cluster-pxc-0", waiting: false, info: podRecoveryInfo{}, err: assert.AnError},
+				{name: "cluster-pxc-1", waiting: false, info: podRecoveryInfo{}, err: assert.AnError},
+				{name: "cluster-pxc-2", waiting: false, info: podRecoveryInfo{}, err: assert.AnError},
+			},
+			expectedAction:          recoveryAllFailed,
+			expectedUnavailablePods: []string{"cluster-pxc-0", "cluster-pxc-1", "cluster-pxc-2"},
+		},
+		{
+			name: "two pods failed - blocked",
+			results: []podScanResult{
+				{name: "cluster-pxc-0", waiting: true, info: podRecoveryInfo{seq: 50}, err: nil},
+				{name: "cluster-pxc-1", waiting: false, info: podRecoveryInfo{}, err: assert.AnError},
+				{name: "cluster-pxc-2", waiting: false, info: podRecoveryInfo{}, err: assert.AnError},
+			},
+			expectedAction:          recoveryBlocked,
+			expectedMaxSeqPod:       "cluster-pxc-0",
+			expectedUnavailablePods: []string{"cluster-pxc-1", "cluster-pxc-2"},
+		},
+		{
+			name: "single pod cluster - all scannable",
+			results: []podScanResult{
+				{name: "cluster-pxc-0", waiting: true, info: podRecoveryInfo{seq: 42}, err: nil},
+			},
+			expectedAction:    recoveryProceed,
+			expectedMaxSeqPod: "cluster-pxc-0",
+		},
+		{
+			name: "single pod cluster - scan fails",
+			results: []podScanResult{
+				{name: "cluster-pxc-0", waiting: false, info: podRecoveryInfo{}, err: assert.AnError},
+			},
+			expectedAction:          recoveryAllFailed,
+			expectedUnavailablePods: []string{"cluster-pxc-0"},
+		},
+		{
+			name: "first pod not waiting returns immediately",
+			results: []podScanResult{
+				{name: "cluster-pxc-0", waiting: false, info: podRecoveryInfo{}, err: nil},
+				{name: "cluster-pxc-1", waiting: true, info: podRecoveryInfo{seq: 200}, err: nil},
+			},
+			expectedAction: recoveryNotFullCrash,
+		},
+		{
+			name:           "empty results treated as all failed",
+			results:        []podScanResult{},
+			expectedAction: recoveryAllFailed,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			decision := evaluateRecoveryScan(tt.results)
+
+			assert.Equal(t, tt.expectedAction, decision.action, "recovery action mismatch")
+
+			if tt.expectedMaxSeqPod != "" {
+				assert.Equal(t, tt.expectedMaxSeqPod, decision.maxSeqPod, "max seq pod mismatch")
+			}
+
+			if tt.expectedUnavailablePods != nil {
+				assert.Equal(t, tt.expectedUnavailablePods, decision.unavailablePods, "unavailable pods mismatch")
+			}
 		})
 	}
 }

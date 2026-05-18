@@ -355,6 +355,10 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 		}
 	}
 	err = r.reconcilePersistentVolumes(ctx, o)
+	if errors.Is(err, ErrStatefulsetRecreated) {
+		err = nil
+		return rr, nil
+	}
 	if err != nil {
 		return reconcile.Result{}, errors.Wrap(err, "reconcile persistent volumes")
 	}
@@ -606,7 +610,8 @@ func (r *ReconcilePerconaXtraDBCluster) deletePXCPods(ctx context.Context, cr *a
 func (r *ReconcilePerconaXtraDBCluster) deleteStatefulSetPods(namespace string, sfs api.StatefulApp) error {
 	list := corev1.PodList{}
 
-	err := r.client.List(context.TODO(),
+	err := r.client.List(
+		context.TODO(),
 		&list,
 		&client.ListOptions{
 			Namespace:     namespace,
@@ -705,7 +710,8 @@ func (r *ReconcilePerconaXtraDBCluster) deleteServices(svcs ...*corev1.Service) 
 
 func (r *ReconcilePerconaXtraDBCluster) deletePVC(namespace string, lbls map[string]string) error {
 	list := corev1.PersistentVolumeClaimList{}
-	err := r.client.List(context.TODO(),
+	err := r.client.List(
+		context.TODO(),
 		&list,
 		&client.ListOptions{
 			Namespace:     namespace,
@@ -900,7 +906,8 @@ func (r *ReconcilePerconaXtraDBCluster) createOrUpdate(ctx context.Context, obj 
 			obj.SetResourceVersion(oldObject.GetResourceVersion())
 		}
 
-		log.V(1).Info("Updating object",
+		log.V(1).Info(
+			"Updating object",
 			"object", obj.GetName(),
 			"kind", obj.GetObjectKind(),
 			"hashChanged", oldObject.GetAnnotations()["percona.com/last-config-hash"] != hash,

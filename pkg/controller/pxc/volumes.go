@@ -29,6 +29,8 @@ func validatePVCName(pvc corev1.PersistentVolumeClaim, sts *appsv1.StatefulSet) 
 	return strings.HasPrefix(pvc.Name, "datadir-"+sts.Name)
 }
 
+var ErrStatefulsetRecreated = errors.New("statefulset recreated")
+
 func (r *ReconcilePerconaXtraDBCluster) reconcilePersistentVolumes(ctx context.Context, cr *pxcv1.PerconaXtraDBCluster) error {
 	pxcSet := statefulset.NewNode(cr)
 	sts := pxcSet.StatefulSet()
@@ -217,7 +219,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcilePersistentVolumes(ctx context.C
 				}
 			}
 
-			return nil
+			return ErrStatefulsetRecreated
 		}
 
 		log.Info("PVC resize in progress", "updated", updatedPVCs, "remaining", len(pvcsToUpdate)-updatedPVCs)
@@ -235,7 +237,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcilePersistentVolumes(ctx context.C
 					return errors.Wrapf(err, "delete statefulset/%s", sts.Name)
 				}
 			}
-			return nil
+			return ErrStatefulsetRecreated
 		}
 
 		if err := r.revertVolumeTemplate(ctx, cr, configured); err != nil {
@@ -254,7 +256,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcilePersistentVolumes(ctx context.C
 					return errors.Wrapf(err, "delete statefulset/%s", sts.Name)
 				}
 			}
-			return nil
+			return ErrStatefulsetRecreated
 		}
 
 		return nil

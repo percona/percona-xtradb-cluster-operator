@@ -163,6 +163,8 @@ func TestReconcilePersistentVolumes(t *testing.T) {
 			if tt.expectErrContains != "" {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tt.expectErrContains)
+			} else if tt.expectSTSDeleted {
+				require.ErrorIs(t, err, ErrStatefulsetRecreated)
 			} else {
 				require.NoError(t, err)
 			}

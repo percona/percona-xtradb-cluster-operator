@@ -205,10 +205,6 @@ func getLatestSuccessfulBackup(ctx context.Context, cl client.Client, cr *api.Pe
 		return nil, errors.Wrap(err, "get backup objects")
 	}
 
-	if len(bcpList.Items) == 0 {
-		return nil, ErrNoBackups
-	}
-
 	var latest *api.PerconaXtraDBClusterBackup
 	for _, bcp := range bcpList.Items {
 		if bcp.Status.State != api.BackupSucceeded {

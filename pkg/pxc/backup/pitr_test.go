@@ -61,6 +61,12 @@ func TestGetLatestSuccessfulBackup(t *testing.T) {
 			},
 			expectedErr: ErrNoBackups,
 		},
+		{
+			name:        "error when no backups exist for a cluster",
+			clusterName: "cluster1",
+			backups:     []runtime.Object{},
+			expectedErr: ErrNoBackups,
+		},
 	}
 
 	for _, tt := range tests {

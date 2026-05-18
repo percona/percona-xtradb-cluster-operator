@@ -117,11 +117,10 @@ func (r *ReconcilePerconaXtraDBCluster) checkAndResizePVC(
 
 	podRunning := false
 	if pod.Status.Phase == corev1.PodRunning {
-		podRunning = true
-	}
-	for _, container := range pod.Status.ContainerStatuses {
-		if container.Name == naming.ContainerNamePXC && container.State.Running != nil {
-			podRunning = true
+		for _, container := range pod.Status.ContainerStatuses {
+			if container.Name == naming.ContainerNamePXC && container.State.Running != nil {
+				podRunning = true
+			}
 		}
 	}
 	if !podRunning {

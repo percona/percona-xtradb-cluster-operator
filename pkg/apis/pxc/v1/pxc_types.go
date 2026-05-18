@@ -112,10 +112,6 @@ func (cr *PerconaXtraDBCluster) setStorageAutoscalingDefaults() {
 		spec.TriggerThresholdPercent = 80
 	}
 
-	if spec.TriggerThresholdPercent == 0 {
-		spec.TriggerThresholdPercent = 80
-	}
-
 	if spec.GrowthStep.IsZero() {
 		spec.GrowthStep = resource.MustParse("2Gi")
 	}

@@ -40,11 +40,11 @@ func GetPVCUsage(
 		Factor:   2.0,
 	}
 
-	// Execute df command in the mongod container to get disk usage
-	// df -B1 /data/db outputs in bytes
+	// Execute df command in the pxc container to get disk usage
+	// df -B1 /var/lib/mysql outputs in bytes
 	// Example output:
 	// Filesystem       1B-blocks       Used   Available Use% Mounted on
-	// /dev/sdb        3094126592  221798400  2855550976   8% /data/db
+	// /dev/sdb        3094126592  221798400  2855550976   8% /var/lib/mysql
 	var stdout, stderr bytes.Buffer
 	command := []string{"df", "-B1", "/var/lib/mysql"}
 

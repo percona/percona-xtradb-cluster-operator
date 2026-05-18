@@ -7,7 +7,7 @@ require (
 	github.com/Percona-Lab/percona-version-service/api v0.0.0-20201216104127-a39f2dded3cc
 	github.com/caarlos0/env v3.5.0+incompatible
 	github.com/cert-manager/cert-manager v1.20.2
-	github.com/flosch/pongo2/v6 v6.0.0
+	github.com/flosch/pongo2/v6 v6.1.0
 	github.com/go-ini/ini v1.67.0
 	github.com/go-logr/logr v1.4.3
 	github.com/go-logr/zapr v1.3.0

@@ -88,7 +88,7 @@ func (r *ReconcilePerconaXtraDBCluster) doFullCrashRecovery(ctx context.Context,
 	maxSeq := int64(-100)
 	maxSeqPod := ""
 
-	for i := 0; i < pxcSize; i++ {
+	for i := range pxcSize {
 		podName := fmt.Sprintf("%s-%s-%d", crName, naming.ComponentPXC, i)
 		isPodWaitingForRecovery, seq, err := r.isPodWaitingForRecovery(namespace, podName)
 		if err != nil {

@@ -867,7 +867,7 @@ func (r *ReconcilePerconaXtraDBCluster) createOrUpdate(ctx context.Context, obj 
 	obj.SetAnnotations(objAnnotations)
 
 	val := reflect.ValueOf(obj)
-	if val.Kind() == reflect.Ptr {
+	if val.Kind() == reflect.Pointer {
 		val = reflect.Indirect(val)
 	}
 	oldObject := reflect.New(val.Type()).Interface().(client.Object)
@@ -994,7 +994,7 @@ func (r *ReconcilePerconaXtraDBCluster) createOrUpdateService(ctx context.Contex
 }
 
 func getObjectHash(obj runtime.Object) (string, error) {
-	var dataToMarshall interface{}
+	var dataToMarshall any
 	switch object := obj.(type) {
 	case *appsv1.StatefulSet:
 		dataToMarshall = object.Spec

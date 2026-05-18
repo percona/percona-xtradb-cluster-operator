@@ -280,7 +280,6 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(ctx context.Context, sfs api
 
 	var primaryPod corev1.Pod
 	for _, pod := range list.Items {
-		pod := pod
 		if strings.HasPrefix(primary, pxc.PodFQDN(pod.Name, currentSet)) {
 			primaryPod = pod
 		} else {

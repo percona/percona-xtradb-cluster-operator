@@ -23,8 +23,10 @@ const (
 	PMMServerToken = "pmmservertoken"
 )
 
-var UserNames = []string{Root, Operator, Monitor, Xtrabackup,
-	Replication, ProxyAdmin, PMMServer, PMMServerKey, PMMServerToken}
+var UserNames = []string{
+	Root, Operator, Monitor, Xtrabackup,
+	Replication, ProxyAdmin, PMMServer, PMMServerKey, PMMServerToken,
+}
 
 type Manager struct {
 	db *sql.DB
@@ -233,7 +235,6 @@ func (u *Manager) UpdateProxyUser(user *SysUser) error {
 // Update160MonitorUserGrant grants SERVICE_CONNECTION_ADMIN rights to the monitor user
 // if pxc version is 8 or more and sets the MAX_USER_CONNECTIONS parameter to 100 (empirically determined)
 func (u *Manager) Update160MonitorUserGrant(pass string) (err error) {
-
 	_, err = u.db.Exec("CREATE USER IF NOT EXISTS 'monitor'@'%' IDENTIFIED BY ?", pass)
 	if err != nil {
 		return errors.Wrap(err, "create operator user")
@@ -254,7 +255,6 @@ func (u *Manager) Update160MonitorUserGrant(pass string) (err error) {
 
 // Update1150XtrabackupUser grants all needed rights to the xtrabackup user
 func (u *Manager) Update1150XtrabackupUser(pass string) (err error) {
-
 	_, err = u.db.Exec("CREATE USER IF NOT EXISTS 'xtrabackup'@'%' IDENTIFIED BY ?", pass)
 	if err != nil {
 		return errors.Wrap(err, "create operator user")
@@ -277,8 +277,16 @@ func (u *Manager) Update1100MonitorUserPrivilege() (err error) {
 	return nil
 }
 
-func (u *Manager) CreateReplicationUser(password string) error {
+// Update1200MonitorUserPrivilege grants audit_admin privilege for monitor
+func (u *Manager) Update1200MonitorUserPrivilege(ctx context.Context) error {
+	if _, err := u.db.ExecContext(ctx, "GRANT AUDIT_ADMIN ON *.* TO 'monitor'@'%'"); err != nil {
+		return errors.Wrap(err, "monitor user")
+	}
 
+	return nil
+}
+
+func (u *Manager) CreateReplicationUser(password string) error {
 	_, err := u.db.Exec("CREATE USER IF NOT EXISTS 'replication'@'%' IDENTIFIED BY ?", password)
 	if err != nil {
 		return errors.Wrap(err, "create replication user")

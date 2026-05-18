@@ -463,6 +463,12 @@ if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' ] && [ -z "$wantHelp" ]; then
 			EOSQL
 		fi
 
+		if [[ $MYSQL_VERSION == "8.4" ]]; then
+			read -r -d '' monitorAuditAdminGrant <<-EOSQL || true
+				GRANT AUDIT_ADMIN ON *.* TO 'monitor'@'${MONITOR_HOST}';
+			EOSQL
+		fi
+
 		# SYSTEM_USER since 8.0.16
 		# https://dev.mysql.com/doc/refman/8.0/en/privileges-provided.html#priv_system-user
 		if [[ $MYSQL_VERSION == "8.0" ]] && ((MYSQL_PATCH_VERSION >= 16)) || [[ $MYSQL_VERSION == "8.4" ]]; then
@@ -492,6 +498,7 @@ if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' ] && [ -z "$wantHelp" ]; then
 			GRANT SELECT, PROCESS, SUPER, REPLICATION CLIENT, RELOAD ON *.* TO 'monitor'@'${MONITOR_HOST}';
 			GRANT SELECT ON performance_schema.* TO 'monitor'@'${MONITOR_HOST}';
 			${monitorConnectGrant}
+			${monitorAuditAdminGrant}
 
 			${systemUserGrant}
 
@@ -540,6 +547,9 @@ if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' ] && [ -z "$wantHelp" ]; then
 			"${mysql[@]}" <<-EOSQL
 				INSTALL COMPONENT 'file://component_binlog_utils_udf';
 			EOSQL
+
+			echo "Installing file://component_audit_log_filter"
+			"${mysql[@]}" mysql </usr/share/percona-xtradb-cluster/audit_log_filter_linux_install.sql
 		fi
 
 		echo
@@ -700,6 +710,7 @@ if [ "$1" = 'mysqld' ] && [ -z "$wantHelp" ]; then
 					| sed 's/^[ \t]*//'
 			)"
 			wsrep_start_position_opt="--wsrep_start_position=$start_pos"
+			uuid=$(echo "$start_pos" | awk -F':' '{print $1}' || :)
 			seqno=$(echo "$start_pos" | awk -F':' '{print $NF}' || :)
 		else
 			# The server prints "..skipping position recovery.." if started without wsrep.
@@ -755,6 +766,9 @@ if [ "$1" = 'mysqld' ] && [ -z "$wantHelp" ]; then
 			|| [[ -z $is_primary_exists && -f $grastate_loc && $safe_to_bootstrap == 1 && -n ${CLUSTER_JOIN} ]]; then
 			trap '{ node_recovery "$@" ; }' USR1
 			touch /tmp/recovery-case
+			if [[ -z ${uuid} ]]; then
+				uuid="00000000-0000-0000-0000-000000000000"
+			fi
 			if [[ -z ${seqno} ]]; then
 				seqno="-1"
 			fi
@@ -765,12 +779,13 @@ if [ "$1" = 'mysqld' ] && [ -z "$wantHelp" ]; then
 			echo "#####################################################FULL_PXC_CLUSTER_CRASH:$NODE_NAME#####################################################"
 			echo 'You have the situation of a full PXC cluster crash. In order to restore your PXC cluster, please check the log'
 			echo 'from all pods/nodes to find the node with the most recent data (the one with the highest sequence number (seqno).'
+			echo "Cluster UUID: $uuid"
 			echo "It is $NODE_NAME node with sequence number (seqno): $seqno"
 			echo 'Cluster will recover automatically from the crash now.'
 			echo 'If you have set spec.pxc.autoRecovery to false, run the following command to recover manually from this node:'
 			echo "kubectl -n $POD_NAMESPACE exec $(hostname) -c pxc -- sh -c 'kill -s USR1 1'"
 			#DO NOT CHANGE THE LINE BELOW. OUR AUTO-RECOVERY IS USING IT TO DETECT SEQNO OF CURRENT NODE. See K8SPXC-564
-			echo "#####################################################LAST_LINE:$NODE_NAME:$seqno:#####################################################"
+			echo "#####################################################LAST_LINE:$NODE_NAME:$uuid:$seqno:#####################################################"
 
 			for (( ; ; )); do
 				is_primary_exists=$(get_primary)

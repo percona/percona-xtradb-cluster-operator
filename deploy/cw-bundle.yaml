@@ -361,6 +361,8 @@ spec:
                     type: boolean
                   region:
                     type: string
+                  skipBucketExistsCheck:
+                    type: boolean
                 type: object
               sslInternalSecretName:
                 type: string
@@ -618,6 +620,8 @@ spec:
                         type: boolean
                       region:
                         type: string
+                      skipBucketExistsCheck:
+                        type: boolean
                     type: object
                   sslInternalSecretName:
                     type: string
@@ -919,6 +923,8 @@ spec:
                             type: boolean
                           region:
                             type: string
+                          skipBucketExistsCheck:
+                            type: boolean
                         type: object
                       sslInternalSecretName:
                         type: string
@@ -2280,6 +2286,8 @@ spec:
                               type: boolean
                             region:
                               type: string
+                            skipBucketExistsCheck:
+                              type: boolean
                           type: object
                         schedulerName:
                           type: string
@@ -12365,6 +12373,19 @@ spec:
               ready:
                 format: int32
                 type: integer
+              recovery:
+                properties:
+                  clusterUUID:
+                    type: string
+                  lastRecoveryPod:
+                    type: string
+                  lastRecoverySeqNo:
+                    format: int64
+                    type: integer
+                  lastRecoveryTime:
+                    format: date-time
+                    type: string
+                type: object
               size:
                 format: int32
                 type: integer

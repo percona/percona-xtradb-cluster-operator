@@ -241,6 +241,8 @@ func (r *ReconcilePerconaXtraDBCluster) waitForCerts(ctx context.Context, namesp
 	defer ticker.Stop()
 	for {
 		select {
+		case <-ctx.Done():
+			return errors.Wrap(ctx.Err(), "waiting for tls certificates from certmanager")
 		case <-timeoutTimer.C:
 			return errors.Errorf("timeout: can't get tls certificates from certmanager, %s", secretsList)
 		case <-ticker.C:

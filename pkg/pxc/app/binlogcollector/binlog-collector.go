@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"maps"
 	"reflect"
 	"strconv"
 	"strings"
@@ -62,9 +63,7 @@ func GetDeployment(cr *api.PerconaXtraDBCluster, initImage string, existingMatch
 
 	labels := naming.LabelsPITR(cr)
 	if stg, ok := cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName]; ok {
-		for key, value := range stg.Labels {
-			labels[key] = value
-		}
+		maps.Copy(labels, stg.Labels)
 	}
 
 	matchLabels := naming.LabelsPITR(cr)
@@ -304,6 +303,12 @@ func getStorageEnvs(cr *api.PerconaXtraDBCluster) ([]corev1.EnvVar, error) {
 		if storage.S3.ForcePathStyle {
 			envs = append(envs, corev1.EnvVar{
 				Name:  "S3_FORCE_PATH",
+				Value: "true",
+			})
+		}
+		if storage.S3.SkipBucketExistsCheck {
+			envs = append(envs, corev1.EnvVar{
+				Name:  "S3_SKIP_BUCKET_EXISTS_CHECK",
 				Value: "true",
 			})
 		}

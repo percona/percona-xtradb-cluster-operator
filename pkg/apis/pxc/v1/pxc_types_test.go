@@ -6,9 +6,10 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/ptr"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxctls"
@@ -161,12 +162,12 @@ func TestGetLoadBalancerClass(t *testing.T) {
 		},
 		"load balancer class is empty string": {
 			exposeType:          corev1.ServiceTypeLoadBalancer,
-			loadBalancerClass:   ptr.To(""),
+			loadBalancerClass:   new(""),
 			expectedErrorString: "load balancer class not provided or is empty",
 		},
 		"valid load balancer class": {
 			exposeType:        corev1.ServiceTypeLoadBalancer,
-			loadBalancerClass: ptr.To("my-lb-class"),
+			loadBalancerClass: new("my-lb-class"),
 		},
 	}
 
@@ -289,7 +290,7 @@ func TestCheckNSetDefaults(t *testing.T) {
 		ctx := t.Context()
 		cr := minimalCr.DeepCopy()
 		cr.Spec.TLS = &TLSSpec{
-			Enabled: ptr.To(true),
+			Enabled: new(true),
 		}
 
 		assert.NoError(t, cr.CheckNSetDefaults(nil, logf.FromContext(ctx)))
@@ -298,7 +299,7 @@ func TestCheckNSetDefaults(t *testing.T) {
 
 		cr = minimalCr.DeepCopy()
 		cr.Spec.TLS = &TLSSpec{
-			Enabled: ptr.To(false),
+			Enabled: new(false),
 		}
 		cr.Spec.Unsafe.TLS = true
 
@@ -308,7 +309,7 @@ func TestCheckNSetDefaults(t *testing.T) {
 
 		cr = minimalCr.DeepCopy()
 		cr.Spec.TLS = &TLSSpec{
-			Enabled:    ptr.To(true),
+			Enabled:    new(true),
 			Duration:   &metav1.Duration{Duration: time.Hour * 3000},
 			CADuration: &metav1.Duration{Duration: time.Hour * 1000},
 		}
@@ -316,21 +317,21 @@ func TestCheckNSetDefaults(t *testing.T) {
 
 		cr = minimalCr.DeepCopy()
 		cr.Spec.TLS = &TLSSpec{
-			Enabled:  ptr.To(true),
+			Enabled:  new(true),
 			Duration: &metav1.Duration{Duration: time.Hour * 30000},
 		}
 		assert.EqualError(t, cr.CheckNSetDefaults(nil, logf.FromContext(ctx)), ".spec.tls.caValidityDuration shouldn't be smaller than .spec.tls.certValidityDuration")
 
 		cr = minimalCr.DeepCopy()
 		cr.Spec.TLS = &TLSSpec{
-			Enabled:    ptr.To(true),
+			Enabled:    new(true),
 			CADuration: &metav1.Duration{Duration: time.Hour * 2000},
 		}
 		assert.EqualError(t, cr.CheckNSetDefaults(nil, logf.FromContext(ctx)), ".spec.tls.caValidityDuration shouldn't be smaller than .spec.tls.certValidityDuration")
 
 		cr = minimalCr.DeepCopy()
 		cr.Spec.TLS = &TLSSpec{
-			Enabled:    ptr.To(true),
+			Enabled:    new(true),
 			CADuration: &metav1.Duration{Duration: time.Hour * 720},
 			Duration:   &metav1.Duration{Duration: time.Hour * 700},
 		}
@@ -338,7 +339,7 @@ func TestCheckNSetDefaults(t *testing.T) {
 
 		cr = minimalCr.DeepCopy()
 		cr.Spec.TLS = &TLSSpec{
-			Enabled:  ptr.To(true),
+			Enabled:  new(true),
 			Duration: &metav1.Duration{Duration: time.Minute * 1},
 		}
 		assert.EqualError(t, cr.CheckNSetDefaults(nil, logf.FromContext(ctx)), ".spec.tls.certValidityDuration shouldn't be smaller than 1 hours")
@@ -609,6 +610,132 @@ func TestValidateExtraPVCs(t *testing.T) {
 				assert.Contains(t, err.Error(), tc.errMsg)
 			} else {
 				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestExecuteConfigurationTemplate(t *testing.T) {
+	memoryLimit := resource.MustParse("1Gi")
+
+	tests := map[string]struct {
+		pod         PodSpec
+		expected    string
+		expectError string
+	}{
+		"simple variable substitution": {
+			pod: PodSpec{
+				Configuration: "[mysqld]\ninnodb_buffer_pool_size={{containerMemoryLimit}}",
+				Resources: corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{
+						corev1.ResourceMemory: memoryLimit,
+					},
+				},
+			},
+			expected: "[mysqld]\ninnodb_buffer_pool_size=1073741824",
+		},
+		"arithmetic expression": {
+			pod: PodSpec{
+				Configuration: "[mysqld]\ninnodb_buffer_pool_size={{containerMemoryLimit * 3 / 4}}",
+				Resources: corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{
+						corev1.ResourceMemory: memoryLimit,
+					},
+				},
+			},
+			expected: "[mysqld]\ninnodb_buffer_pool_size=805306368",
+		},
+		"no template markers": {
+			pod: PodSpec{
+				Configuration: "[mysqld]\nmax_connections=200",
+				Resources: corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{
+						corev1.ResourceMemory: memoryLimit,
+					},
+				},
+			},
+			expected: "[mysqld]\nmax_connections=200",
+		},
+		"template without memory limit": {
+			pod: PodSpec{
+				Configuration: "[mysqld]\ninnodb_buffer_pool_size={{containerMemoryLimit}}",
+				Resources:     corev1.ResourceRequirements{},
+			},
+			expectError: "resources.limits[memory] should be specified for template usage in configuration",
+		},
+		"no template and no memory limit": {
+			pod: PodSpec{
+				Configuration: "[mysqld]\nmax_connections=200",
+				Resources:     corev1.ResourceRequirements{},
+			},
+			expected: "[mysqld]\nmax_connections=200",
+		},
+		"ssi tag is blocked": {
+			pod: PodSpec{
+				Configuration: `{% ssi "/var/run/secrets/kubernetes.io/serviceaccount/token" %}`,
+				Resources: corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{
+						corev1.ResourceMemory: memoryLimit,
+					},
+				},
+			},
+			expectError: "sandbox restriction active",
+		},
+		"include tag is blocked": {
+			pod: PodSpec{
+				Configuration: `{% include "evil.html" %}`,
+				Resources: corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{
+						corev1.ResourceMemory: memoryLimit,
+					},
+				},
+			},
+			expectError: "sandbox restriction active",
+		},
+		"import tag is blocked": {
+			pod: PodSpec{
+				Configuration: `{% import "macros.html" %}`,
+				Resources: corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{
+						corev1.ResourceMemory: memoryLimit,
+					},
+				},
+			},
+			expectError: "sandbox restriction active",
+		},
+		"extends tag is blocked": {
+			pod: PodSpec{
+				Configuration: `{% extends "base.html" %}`,
+				Resources: corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{
+						corev1.ResourceMemory: memoryLimit,
+					},
+				},
+			},
+			expectError: "sandbox restriction active",
+		},
+		"invalid template syntax": {
+			pod: PodSpec{
+				Configuration: `{{invalid tag}`,
+				Resources: corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{
+						corev1.ResourceMemory: memoryLimit,
+					},
+				},
+			},
+			expectError: "parse template",
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			err := tc.pod.executeConfigurationTemplate()
+			if tc.expectError != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tc.expectError)
+			} else {
+				require.NoError(t, err)
+				assert.Equal(t, tc.expected, tc.pod.Configuration)
 			}
 		})
 	}

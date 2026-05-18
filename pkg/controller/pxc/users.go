@@ -25,7 +25,10 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 )
 
-var mysql80 = version.Must(version.NewVersion("8.0.0"))
+var (
+	mysql80 = version.Must(version.NewVersion("8.0.0"))
+	mysql84 = version.Must(version.NewVersion("8.4.0"))
+)
 
 // https://dev.mysql.com/doc/refman/8.0/en/privileges-provided.html#priv_system-user
 var privSystemUserAddedIn = version.Must(version.NewVersion("8.0.16"))
@@ -55,7 +58,8 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(
 
 	internalSecretName := internalSecretsPrefix + cr.Name
 	internalSecrets := corev1.Secret{}
-	err := r.client.Get(ctx,
+	err := r.client.Get(
+		ctx,
 		types.NamespacedName{
 			Namespace: cr.Namespace,
 			Name:      internalSecretName,
@@ -413,36 +417,37 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(ctx context.Context, c
 			}
 		}()
 
-		if cr.CompareVersionWith("1.6.0") >= 0 {
-			err := r.updateMonitorUserGrant(ctx, cr, internalSecrets, um)
+		if err := r.updateMonitorUserGrant(ctx, cr, internalSecrets, um); err != nil {
+			return errors.Wrap(err, "update monitor user grant")
+		}
+
+		mysqlVersion := cr.Status.PXC.Version
+		if mysqlVersion == "" {
+			var err error
+			mysqlVersion, err = r.mysqlVersion(ctx, cr, statefulset.NewNode(cr))
 			if err != nil {
-				return errors.Wrap(err, "update monitor user grant")
+				if errors.Is(err, versionNotReadyErr) {
+					return nil
+				}
+				return errors.Wrap(err, "retrieving pxc version")
 			}
 		}
 
-		if cr.CompareVersionWith("1.10.0") >= 0 {
-			mysqlVersion := cr.Status.PXC.Version
-			if mysqlVersion == "" {
-				var err error
-				mysqlVersion, err = r.mysqlVersion(ctx, cr, statefulset.NewNode(cr))
-				if err != nil {
-					if errors.Is(err, versionNotReadyErr) {
-						return nil
-					}
-					return errors.Wrap(err, "retrieving pxc version")
+		if mysqlVersion != "" {
+			ver, err := version.NewVersion(mysqlVersion)
+			if err != nil {
+				return errors.Wrap(err, "invalid pxc version")
+			}
+
+			if !ver.LessThan(privSystemUserAddedIn) {
+				if err := r.grantMonitorUserPrivilege(ctx, cr, internalSecrets, um); err != nil {
+					return errors.Wrap(err, "monitor user grant system privilege")
 				}
 			}
 
-			if mysqlVersion != "" {
-				ver, err := version.NewVersion(mysqlVersion)
-				if err != nil {
-					return errors.Wrap(err, "invalid pxc version")
-				}
-
-				if !ver.LessThan(privSystemUserAddedIn) {
-					if err := r.grantMonitorUserPrivilege(ctx, cr, internalSecrets, um); err != nil {
-						return errors.Wrap(err, "monitor user grant system privilege")
-					}
+			if !ver.LessThan(mysql84) {
+				if err := r.grantMonitorUserAuditAdminPrivilege(ctx, internalSecrets, um); err != nil {
+					return errors.Wrap(err, "monitor user grant audit admin privilege")
 				}
 			}
 		}
@@ -964,7 +969,8 @@ func (r *ReconcilePerconaXtraDBCluster) syncPXCUsersWithProxySQL(ctx context.Con
 
 	for i := 0; i < int(cr.Spec.ProxySQL.Size); i++ {
 		pod := corev1.Pod{}
-		err := r.client.Get(ctx,
+		err := r.client.Get(
+			ctx,
 			types.NamespacedName{
 				Namespace: cr.Namespace,
 				Name:      cr.Name + "-proxysql-" + strconv.Itoa(i),
@@ -1076,7 +1082,8 @@ func (r *ReconcilePerconaXtraDBCluster) isPassPropagated(ctx context.Context, cr
 		eg.Go(func() error {
 			for i := 0; int32(i) < compCount; i++ {
 				pod := corev1.Pod{}
-				err := r.client.Get(ctx,
+				err := r.client.Get(
+					ctx,
 					types.NamespacedName{
 						Namespace: cr.Namespace,
 						Name:      fmt.Sprintf("%s-%s-%d", cr.Name, comp, i),
@@ -1168,6 +1175,32 @@ func (r *ReconcilePerconaXtraDBCluster) grantMonitorUserPrivilege(ctx context.Co
 	}
 
 	log.Info("monitor user privileges granted")
+	return nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) grantMonitorUserAuditAdminPrivilege(ctx context.Context, internalSysSecretObj *corev1.Secret, um *users.Manager) error {
+	log := logf.FromContext(ctx)
+
+	annotationName := "grant-for-1.20.0-audit-admin"
+	if internalSysSecretObj.Annotations[annotationName] == "done" {
+		return nil
+	}
+
+	if err := um.Update1200MonitorUserPrivilege(ctx); err != nil {
+		return errors.Wrap(err, "grant audit admin privilege")
+	}
+
+	if internalSysSecretObj.Annotations == nil {
+		internalSysSecretObj.Annotations = make(map[string]string)
+	}
+
+	internalSysSecretObj.Annotations[annotationName] = "done"
+	err := r.client.Update(ctx, internalSysSecretObj)
+	if err != nil {
+		return errors.Wrap(err, "update internal sys users secret annotation")
+	}
+
+	log.Info("monitor user audit admin privilege granted")
 	return nil
 }
 

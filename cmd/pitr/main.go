@@ -110,7 +110,7 @@ func cacheInvalidationHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	if _, err := w.Write([]byte(fmt.Sprintf("cache invalidated for host: %s", hostname))); err != nil {
+	if _, err := w.Write(fmt.Appendf(nil, "cache invalidated for host: %s", hostname)); err != nil {
 		log.Println("ERROR: writing response:", err)
 	}
 }

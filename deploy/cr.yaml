@@ -12,6 +12,7 @@ metadata:
 spec:
   crVersion: 1.20.0
 #  enableVolumeExpansion: false
+#  enableExternalAutoscaling: false
 #  ignoreAnnotations:
 #    - iam.amazonaws.com/role
 #  ignoreLabels:

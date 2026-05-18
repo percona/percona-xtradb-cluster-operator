@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -o errexit
 
@@ -110,6 +110,30 @@ compare_mysql_user "-h $cluster-pxc -uproxyuser -ps3cret"
 compare_mysql_user_local "-uxtrabackup -pbackup_password" "$cluster-pxc-0" "" "pxc"
 desc "check that pmm server user don't have access"
 compare_mysql_user "-h $cluster-pxc -upmmserver -ppmmserver_password"
+
+if [[ $IMAGE_PXC =~ 8\.4 ]]; then
+	desc 'check audit log component rotation'
+
+	component_count=$(run_mysql_local \
+		"SELECT COUNT(*) FROM mysql.component WHERE component_urn='file://component_audit_log_filter';" \
+		"-uroot -proot_password" \
+		"$cluster-pxc-0" \
+		"pxc")
+	[[ ${component_count} == "1" ]]
+
+	audit_log_file=$(run_mysql_local \
+		"SHOW VARIABLES LIKE 'audit_log_filter.file';" \
+		"-uroot -proot_password" \
+		"$cluster-pxc-0" \
+		"pxc" | awk '{print $2}')
+
+	kubectl_bin exec $cluster-pxc-0 -c logrotate -- \
+		bash -ec "/opt/percona/logcollector/logrotate/postrotate-mysql.sh"
+
+	rotated_count=$(kubectl_bin exec $cluster-pxc-0 -c pxc -- \
+		bash -ec "find /var/lib/mysql -maxdepth 1 -type f \\( -name '${audit_log_file}' -o -name '${audit_log_file%.log}.*.log' \\) | wc -l")
+	[[ ${rotated_count// /} -gt 1 ]]
+fi
 
 desc 'check if ProxySQL users created'
 compare_mysql_user "-h $cluster-proxysql -uroot -proot_password"

@@ -12,7 +12,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -290,9 +289,6 @@ func RestoreJob(
 		}
 
 		if pitr {
-			if cluster.Spec.Backup == nil && len(cluster.Spec.Backup.Storages) == 0 {
-				return nil, errors.New("no storage section")
-			}
 			volumeMounts = []corev1.VolumeMount{}
 			volumes = []corev1.Volume{}
 			command = []string{"/opt/percona/pitr", "recover"}
@@ -662,7 +658,7 @@ func s3Envs(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBa
 						Name: bcp.Status.S3.CredentialsSecret,
 					},
 					Key:      "AWS_SESSION_TOKEN",
-					Optional: ptr.To(true),
+					Optional: new(true),
 				},
 			},
 		},
@@ -670,6 +666,12 @@ func s3Envs(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBa
 	if bcp.Status.S3.ForcePathStyle {
 		envs = append(envs, corev1.EnvVar{
 			Name:  "S3_FORCE_PATH",
+			Value: "true",
+		})
+	}
+	if bcp.Status.S3.SkipBucketExistsCheck {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "S3_SKIP_BUCKET_EXISTS_CHECK",
 			Value: "true",
 		})
 	}
@@ -742,7 +744,7 @@ func s3Envs(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBa
 							Name: storageS3.CredentialsSecret,
 						},
 						Key:      "AWS_SESSION_TOKEN",
-						Optional: ptr.To(true),
+						Optional: new(true),
 					},
 				},
 			},
@@ -759,6 +761,14 @@ func s3Envs(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBa
 			envs = append(envs,
 				corev1.EnvVar{
 					Name:  "BINLOG_S3_FORCE_PATH",
+					Value: "true",
+				},
+			)
+		}
+		if storageS3.SkipBucketExistsCheck {
+			envs = append(envs,
+				corev1.EnvVar{
+					Name:  "BINLOG_S3_SKIP_BUCKET_EXISTS_CHECK",
 					Value: "true",
 				},
 			)
@@ -923,7 +933,7 @@ func PrepareJob(
 					RuntimeClassName:   cluster.Spec.PXC.RuntimeClassName,
 				},
 			},
-			BackoffLimit: ptr.To(int32(4)),
+			BackoffLimit: new(int32(4)),
 		},
 	}
 

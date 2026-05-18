@@ -4,7 +4,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/utils/ptr"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
@@ -250,7 +249,7 @@ func NewServiceProxySQL(cr *api.PerconaXtraDBCluster) *corev1.Service {
 			svcTrafficPolicyType = cr.Spec.ProxySQL.Expose.InternalTrafficPolicy
 		}
 
-		obj.Spec.InternalTrafficPolicy = ptr.To(svcTrafficPolicyType)
+		obj.Spec.InternalTrafficPolicy = new(svcTrafficPolicyType)
 	}
 
 	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Expose.Annotations != nil {
@@ -361,7 +360,7 @@ func NewServiceHAProxy(cr *api.PerconaXtraDBCluster) *corev1.Service {
 			svcTrafficPolicyType = cr.Spec.HAProxy.ExposePrimary.InternalTrafficPolicy
 		}
 
-		obj.Spec.InternalTrafficPolicy = ptr.To(svcTrafficPolicyType)
+		obj.Spec.InternalTrafficPolicy = new(svcTrafficPolicyType)
 	}
 
 	if cr.CompareVersionWith("1.17.0") >= 0 {
@@ -468,7 +467,7 @@ func NewServiceHAProxyReplicas(cr *api.PerconaXtraDBCluster) *corev1.Service {
 			svcTrafficPolicyType = cr.Spec.HAProxy.ExposeReplicas.ServiceExpose.InternalTrafficPolicy
 		}
 
-		obj.Spec.InternalTrafficPolicy = ptr.To(svcTrafficPolicyType)
+		obj.Spec.InternalTrafficPolicy = new(svcTrafficPolicyType)
 	}
 
 	if cr.Spec.HAProxy != nil && cr.Spec.HAProxy.ExposeReplicas.ServiceExpose.Annotations != nil && cr.Spec.HAProxy.ExposeReplicas.ServiceExpose.Annotations[headlessServiceAnnotation] == "true" && svcType == corev1.ServiceTypeClusterIP {

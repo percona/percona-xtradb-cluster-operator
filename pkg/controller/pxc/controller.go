@@ -89,11 +89,24 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	if err := setupSecretNameFieldIndexer(mgr); err != nil {
 		return errors.Wrap(err, "setup field indexers")
 	}
+	if err := setupPXCBackupToClusterIndexer(mgr); err != nil {
+		return errors.Wrap(err, "setup field indexers")
+	}
 	return builder.ControllerManagedBy(mgr).
 		Named(naming.OperatorController).
 		For(&api.PerconaXtraDBCluster{}).
 		Watches(&corev1.Secret{}, enqueuePXCReferencingSecret(mgr.GetClient())).
 		Complete(r)
+}
+
+func setupPXCBackupToClusterIndexer(mgr manager.Manager) error {
+	return mgr.GetFieldIndexer().IndexField(context.TODO(), &api.PerconaXtraDBClusterBackup{}, ".spec.pxcCluster", func(o client.Object) []string {
+		backup, ok := o.(*api.PerconaXtraDBClusterBackup)
+		if !ok {
+			return nil
+		}
+		return []string{backup.Spec.PXCCluster}
+	})
 }
 
 func setupSecretNameFieldIndexer(mgr manager.Manager) error {

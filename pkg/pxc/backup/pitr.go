@@ -199,7 +199,7 @@ var ErrNoBackups = errors.New("No backups found")
 
 func getLatestSuccessfulBackup(ctx context.Context, cl client.Client, cr *api.PerconaXtraDBCluster) (*api.PerconaXtraDBClusterBackup, error) {
 	bcpList := api.PerconaXtraDBClusterBackupList{}
-	if err := cl.List(ctx, &bcpList, &client.ListOptions{Namespace: cr.Namespace}); err != nil {
+	if err := cl.List(ctx, &bcpList, client.InNamespace(cr.GetNamespace()), client.MatchingFields{".spec.pxcCluster": cr.GetName()}); err != nil {
 		return nil, errors.Wrap(err, "get backup objects")
 	}
 
@@ -207,21 +207,20 @@ func getLatestSuccessfulBackup(ctx context.Context, cl client.Client, cr *api.Pe
 		return nil, ErrNoBackups
 	}
 
-	latest := bcpList.Items[0]
+	var latest *api.PerconaXtraDBClusterBackup
 	for _, bcp := range bcpList.Items {
-		if bcp.Spec.PXCCluster != cr.Name || bcp.Status.State != api.BackupSucceeded {
+		if bcp.Status.State != api.BackupSucceeded {
 			continue
 		}
 
-		if latest.ObjectMeta.CreationTimestamp.Before(&bcp.ObjectMeta.CreationTimestamp) {
-			latest = bcp
+		if latest == nil || latest.ObjectMeta.CreationTimestamp.Before(&bcp.ObjectMeta.CreationTimestamp) {
+			latest = bcp.DeepCopy()
 		}
 	}
 
-	// if there are no successful backups, don't blindly return the first item
-	if latest.Status.State != api.BackupSucceeded {
+	if latest == nil {
 		return nil, ErrNoBackups
 	}
 
-	return &latest, nil
+	return latest, nil
 }

@@ -111,12 +111,14 @@ var _ = Describe("PerconaXtraDBClusterRestore PITR CRD validation", Ordered, fun
 		// date type
 		Entry("type date with empty date", "invalid-date-empty", &pxcv1.PITR{Type: "date"}, "Date is required"),
 		Entry("type date with wrong format", "invalid-date-format", &pxcv1.PITR{Type: "date", Date: "15-01-2024 12:30:00"}, "format YYYY-MM-DD"),
+		Entry("type date with invalid month", "invalid-date-month", &pxcv1.PITR{Type: "date", Date: "2024-27-30 12:30:00"}, "format YYYY-MM-DD"),
+		Entry("type date with no time", "invalid-date-no-time", &pxcv1.PITR{Type: "date", Date: "2024-12-30"}, "format YYYY-MM-DD"),
 		// latest type
 		Entry("type latest with date set", "invalid-latest-date", &pxcv1.PITR{Type: "latest", Date: "2024-01-15 12:30:00"}, "Date and GTID should not be set"),
 		Entry("type latest with gtid set", "invalid-latest-gtid", &pxcv1.PITR{Type: "latest", GTID: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee:1"}, "Date and GTID should not be set"),
 		// unknown type
 		Entry("unknown type", "invalid-unknown-type", &pxcv1.PITR{Type: "unknown"}, "Unsupported value"),
-		// transaction: must be UUID:N (single integer), not a range or set
+		// transaction: GTID is required and must be UUID:N (single integer only)
 		Entry("type transaction without gtid", "invalid-transaction-no-gtid", &pxcv1.PITR{Type: "transaction"}, "GTID is required"),
 		Entry("type transaction with non-uuid gtid", "invalid-transaction-bad-uuid", &pxcv1.PITR{Type: "transaction", GTID: "notauuid:42"}, "single transaction identifier"),
 		Entry("type transaction with gtid range", "invalid-transaction-range", &pxcv1.PITR{Type: "transaction", GTID: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee:1-10"}, "single transaction identifier"),

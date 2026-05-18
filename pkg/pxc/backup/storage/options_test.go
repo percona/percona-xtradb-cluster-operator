@@ -26,16 +26,17 @@ func TestGetS3Options(t *testing.T) {
 	boolPtr := func(b bool) *bool { return &b }
 
 	tests := []struct {
-		name            string
-		destination     string
-		bucket          string
-		accessKeyID     string
-		secretAccessKey string
-		endpoint        string
-		forcePathStyle  bool
-		region          string
-		verifyTLS       *bool
-		storage         *api.BackupStorageSpec
+		name                  string
+		destination           string
+		bucket                string
+		accessKeyID           string
+		secretAccessKey       string
+		endpoint              string
+		forcePathStyle        bool
+		skipBucketExistsCheck bool
+		region                string
+		verifyTLS             *bool
+		storage               *api.BackupStorageSpec
 
 		expected    *S3Options
 		expectedErr string
@@ -175,16 +176,28 @@ func TestGetS3Options(t *testing.T) {
 			forcePathStyle: true,
 			expectedErr:    `failed to get bucket and prefix: failed to parse endpointUrl: failed to parse endpointUrl: parse "https://s3.example.com/%invalid": invalid URL escape "%in"`,
 		},
+		{
+			name:                  "skip bucket exists check is propagated to options",
+			bucket:                "somebucket",
+			skipBucketExistsCheck: true,
+			expected: &S3Options{
+				BucketName:            "somebucket",
+				VerifyTLS:             true,
+				Region:                "us-east-1",
+				SkipBucketExistsCheck: true,
+			},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			backup := testBackup(ns, storageName, tt.destination, tt.verifyTLS, &api.BackupStorageS3Spec{
-				Bucket:            tt.bucket,
-				CredentialsSecret: secretName,
-				Region:            tt.region,
-				EndpointURL:       tt.endpoint,
-				ForcePathStyle:    tt.forcePathStyle,
+				Bucket:                tt.bucket,
+				CredentialsSecret:     secretName,
+				Region:                tt.region,
+				EndpointURL:           tt.endpoint,
+				ForcePathStyle:        tt.forcePathStyle,
+				SkipBucketExistsCheck: tt.skipBucketExistsCheck,
 			}, nil)
 
 			var cluster *api.PerconaXtraDBCluster

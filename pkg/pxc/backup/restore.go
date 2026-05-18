@@ -289,9 +289,6 @@ func RestoreJob(
 		}
 
 		if pitr {
-			if cluster.Spec.Backup == nil && len(cluster.Spec.Backup.Storages) == 0 {
-				return nil, errors.New("no storage section")
-			}
 			volumeMounts = []corev1.VolumeMount{}
 			volumes = []corev1.Volume{}
 			command = []string{"/opt/percona/pitr", "recover"}

@@ -104,14 +104,15 @@ type Config struct {
 }
 
 type BackupS3 struct {
-	Endpoint          string `env:"ENDPOINT" envDefault:"s3.amazonaws.com"`
-	AccessKeyID       string `env:"ACCESS_KEY_ID,required"`
-	AccessKey         string `env:"SECRET_ACCESS_KEY,required"`
-	SessionToken      string `env:"S3_SESSION_TOKEN"`
-	BucketURL         string `env:"S3_BUCKET_URL,required"`
-	Region            string `env:"DEFAULT_REGION,required"`
-	ForcePath         bool   `env:"S3_FORCE_PATH"`
-	ChecksumAlgorithm string `env:"S3_CHECKSUM_ALGORITHM"`
+	Endpoint              string `env:"ENDPOINT" envDefault:"s3.amazonaws.com"`
+	AccessKeyID           string `env:"ACCESS_KEY_ID,required"`
+	AccessKey             string `env:"SECRET_ACCESS_KEY,required"`
+	SessionToken          string `env:"S3_SESSION_TOKEN"`
+	BucketURL             string `env:"S3_BUCKET_URL,required"`
+	Region                string `env:"DEFAULT_REGION,required"`
+	ForcePath             bool   `env:"S3_FORCE_PATH"`
+	ChecksumAlgorithm     string `env:"S3_CHECKSUM_ALGORITHM"`
+	SkipBucketExistsCheck bool   `env:"S3_SKIP_BUCKET_EXISTS_CHECK"`
 }
 
 type BackupAzure struct {
@@ -150,17 +151,18 @@ func New(ctx context.Context, c Config) (*Collector, error) {
 		}
 
 		opts := storage.S3Options{
-			Endpoint:          c.BackupStorageS3.Endpoint,
-			AccessKeyID:       c.BackupStorageS3.AccessKeyID,
-			SecretAccessKey:   c.BackupStorageS3.AccessKey,
-			SessionToken:      c.BackupStorageS3.SessionToken,
-			BucketName:        bucketArr[0],
-			Prefix:            prefix,
-			Region:            c.BackupStorageS3.Region,
-			VerifyTLS:         c.VerifyTLS,
-			CABundle:          caBundle,
-			ForcePathStyle:    c.BackupStorageS3.ForcePath,
-			ChecksumAlgorithm: api.S3ChecksumAlgorithmType(c.BackupStorageS3.ChecksumAlgorithm),
+			Endpoint:              c.BackupStorageS3.Endpoint,
+			AccessKeyID:           c.BackupStorageS3.AccessKeyID,
+			SecretAccessKey:       c.BackupStorageS3.AccessKey,
+			SessionToken:          c.BackupStorageS3.SessionToken,
+			BucketName:            bucketArr[0],
+			Prefix:                prefix,
+			Region:                c.BackupStorageS3.Region,
+			VerifyTLS:             c.VerifyTLS,
+			CABundle:              caBundle,
+			ForcePathStyle:        c.BackupStorageS3.ForcePath,
+			ChecksumAlgorithm:     api.S3ChecksumAlgorithmType(c.BackupStorageS3.ChecksumAlgorithm),
+			SkipBucketExistsCheck: c.BackupStorageS3.SkipBucketExistsCheck,
 		}
 		s, err = storage.NewS3(ctx, opts)
 		if err != nil {

@@ -244,7 +244,7 @@ func (r *ReconcilePerconaXtraDBCluster) appStatus(ctx context.Context, app api.S
 					continue
 				}
 
-				isPodWaitingForRecovery, _, err := r.isPodWaitingForRecovery(namespace, pod.Name)
+				isPodWaitingForRecovery, _, _, err := r.isPodWaitingForRecovery(namespace, pod.Name)
 				if err != nil {
 					return api.AppStatus{}, errors.Wrapf(err, "parse %s pod logs", pod.Name)
 				}

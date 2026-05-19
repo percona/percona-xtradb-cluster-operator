@@ -107,15 +107,19 @@ func NewS3(
 		return nil, errors.Wrap(err, "new minio client")
 	}
 
-	bucketExists, err := minioClient.BucketExists(ctx, opts.BucketName)
-	if err != nil {
-		if merr, ok := err.(minio.ErrorResponse); ok && merr.Code == "301 Moved Permanently" {
-			return nil, errors.Errorf("%s region: %s bucket: %s", merr.Code, merr.Region, merr.BucketName)
+	if opts.SkipBucketExistsCheck {
+		logf.FromContext(ctx).Info("Skipping S3 bucket existence check", "bucket", opts.BucketName)
+	} else {
+		bucketExists, err := minioClient.BucketExists(ctx, opts.BucketName)
+		if err != nil {
+			if merr, ok := err.(minio.ErrorResponse); ok && merr.Code == "301 Moved Permanently" {
+				return nil, errors.Errorf("%s region: %s bucket: %s", merr.Code, merr.Region, merr.BucketName)
+			}
+			return nil, errors.Wrap(err, "failed to check if bucket exists")
 		}
-		return nil, errors.Wrap(err, "failed to check if bucket exists")
-	}
-	if !bucketExists {
-		return nil, errors.Errorf("bucket %s does not exist", opts.BucketName)
+		if !bucketExists {
+			return nil, errors.Errorf("bucket %s does not exist", opts.BucketName)
+		}
 	}
 
 	return &S3{

@@ -73,17 +73,18 @@ func (c Config) storages(ctx context.Context) (storage.Storage, storage.Storage,
 		}
 
 		binlogOpts := storage.S3Options{
-			Endpoint:          c.BinlogStorageS3.Endpoint,
-			AccessKeyID:       c.BinlogStorageS3.AccessKeyID,
-			SecretAccessKey:   c.BinlogStorageS3.AccessKey,
-			SessionToken:      c.BinlogStorageS3.SessionToken,
-			BucketName:        bucket,
-			Prefix:            prefix,
-			Region:            c.BinlogStorageS3.Region,
-			VerifyTLS:         c.VerifyTLS,
-			CABundle:          caBundle,
-			ForcePathStyle:    c.BinlogStorageS3.ForcePath,
-			ChecksumAlgorithm: api.S3ChecksumAlgorithmType(c.BinlogStorageS3.ChecksumAlgorithm),
+			Endpoint:              c.BinlogStorageS3.Endpoint,
+			AccessKeyID:           c.BinlogStorageS3.AccessKeyID,
+			SecretAccessKey:       c.BinlogStorageS3.AccessKey,
+			SessionToken:          c.BinlogStorageS3.SessionToken,
+			BucketName:            bucket,
+			Prefix:                prefix,
+			Region:                c.BinlogStorageS3.Region,
+			VerifyTLS:             c.VerifyTLS,
+			CABundle:              caBundle,
+			ForcePathStyle:        c.BinlogStorageS3.ForcePath,
+			ChecksumAlgorithm:     api.S3ChecksumAlgorithmType(c.BinlogStorageS3.ChecksumAlgorithm),
+			SkipBucketExistsCheck: c.BinlogStorageS3.SkipBucketExistsCheck,
 		}
 		binlogStorage, err = storage.NewS3(ctx, binlogOpts)
 		if err != nil {
@@ -95,17 +96,18 @@ func (c Config) storages(ctx context.Context) (storage.Storage, storage.Storage,
 			return nil, nil, errors.Wrap(err, "get bucket and prefix")
 		}
 		defaultStorageOpts := storage.S3Options{
-			Endpoint:          c.BackupStorageS3.Endpoint,
-			AccessKeyID:       c.BackupStorageS3.AccessKeyID,
-			SecretAccessKey:   c.BackupStorageS3.AccessKey,
-			SessionToken:      c.BackupStorageS3.SessionToken,
-			BucketName:        bucket,
-			Prefix:            prefix,
-			Region:            c.BackupStorageS3.Region,
-			VerifyTLS:         c.VerifyTLS,
-			CABundle:          caBundle,
-			ForcePathStyle:    c.BackupStorageS3.ForcePath,
-			ChecksumAlgorithm: api.S3ChecksumAlgorithmType(c.BackupStorageS3.ChecksumAlgorithm),
+			Endpoint:              c.BackupStorageS3.Endpoint,
+			AccessKeyID:           c.BackupStorageS3.AccessKeyID,
+			SecretAccessKey:       c.BackupStorageS3.AccessKey,
+			SessionToken:          c.BackupStorageS3.SessionToken,
+			BucketName:            bucket,
+			Prefix:                prefix,
+			Region:                c.BackupStorageS3.Region,
+			VerifyTLS:             c.VerifyTLS,
+			CABundle:              caBundle,
+			ForcePathStyle:        c.BackupStorageS3.ForcePath,
+			ChecksumAlgorithm:     api.S3ChecksumAlgorithmType(c.BackupStorageS3.ChecksumAlgorithm),
+			SkipBucketExistsCheck: c.BackupStorageS3.SkipBucketExistsCheck,
 		}
 		defaultStorage, err = storage.NewS3(ctx, defaultStorageOpts)
 		if err != nil {
@@ -129,14 +131,15 @@ func (c Config) storages(ctx context.Context) (storage.Storage, storage.Storage,
 }
 
 type BackupS3 struct {
-	Endpoint          string `env:"ENDPOINT" envDefault:"s3.amazonaws.com"`
-	AccessKeyID       string `env:"ACCESS_KEY_ID,required"`
-	AccessKey         string `env:"SECRET_ACCESS_KEY,required"`
-	SessionToken      string `env:"S3_SESSION_TOKEN"`
-	Region            string `env:"DEFAULT_REGION,required"`
-	BackupDest        string `env:"S3_BUCKET_URL,required"`
-	ForcePath         bool   `env:"S3_FORCE_PATH"`
-	ChecksumAlgorithm string `env:"S3_CHECKSUM_ALGORITHM"`
+	Endpoint              string `env:"ENDPOINT" envDefault:"s3.amazonaws.com"`
+	AccessKeyID           string `env:"ACCESS_KEY_ID,required"`
+	AccessKey             string `env:"SECRET_ACCESS_KEY,required"`
+	SessionToken          string `env:"S3_SESSION_TOKEN"`
+	Region                string `env:"DEFAULT_REGION,required"`
+	BackupDest            string `env:"S3_BUCKET_URL,required"`
+	ForcePath             bool   `env:"S3_FORCE_PATH"`
+	ChecksumAlgorithm     string `env:"S3_CHECKSUM_ALGORITHM"`
+	SkipBucketExistsCheck bool   `env:"S3_SKIP_BUCKET_EXISTS_CHECK"`
 }
 
 type BackupAzure struct {
@@ -151,14 +154,15 @@ type BackupAzure struct {
 }
 
 type BinlogS3 struct {
-	Endpoint          string `env:"BINLOG_S3_ENDPOINT" envDefault:"s3.amazonaws.com"`
-	AccessKeyID       string `env:"BINLOG_ACCESS_KEY_ID,required"`
-	AccessKey         string `env:"BINLOG_SECRET_ACCESS_KEY,required"`
-	SessionToken      string `env:"BINLOG_SESSION_TOKEN"`
-	Region            string `env:"BINLOG_S3_REGION,required"`
-	BucketURL         string `env:"BINLOG_S3_BUCKET_URL,required"`
-	ForcePath         bool   `env:"BINLOG_S3_FORCE_PATH"`
-	ChecksumAlgorithm string `env:"BINLOG_S3_CHECKSUM_ALGORITHM"`
+	Endpoint              string `env:"BINLOG_S3_ENDPOINT" envDefault:"s3.amazonaws.com"`
+	AccessKeyID           string `env:"BINLOG_ACCESS_KEY_ID,required"`
+	AccessKey             string `env:"BINLOG_SECRET_ACCESS_KEY,required"`
+	SessionToken          string `env:"BINLOG_SESSION_TOKEN"`
+	Region                string `env:"BINLOG_S3_REGION,required"`
+	BucketURL             string `env:"BINLOG_S3_BUCKET_URL,required"`
+	ForcePath             bool   `env:"BINLOG_S3_FORCE_PATH"`
+	ChecksumAlgorithm     string `env:"BINLOG_S3_CHECKSUM_ALGORITHM"`
+	SkipBucketExistsCheck bool   `env:"BINLOG_S3_SKIP_BUCKET_EXISTS_CHECK"`
 }
 
 type BinlogAzure struct {

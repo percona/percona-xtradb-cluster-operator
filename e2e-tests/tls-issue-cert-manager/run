@@ -149,8 +149,6 @@ main() {
 	kubectl_bin delete pods -l app.kubernetes.io/instance=$cluster,app.kubernetes.io/managed-by=percona-xtradb-cluster-operator --force --grace-period=0
 
 	desc 'wait for cluster to recover after full restart'
-	wait_for_running "$cluster-haproxy" 1
-	wait_for_running "$cluster-pxc" 3
 	wait_cluster_consistency "$cluster" 3 2
 
 	desc 'check ssl-internal certificate using PXC after CA rotation'

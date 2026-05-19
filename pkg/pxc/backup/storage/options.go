@@ -47,14 +47,15 @@ func GetOptionsFromBackupConfig(cfg *xbscapi.BackupConfig) (Options, error) {
 	switch cfg.Type {
 	case xbscapi.BackupStorageType_S3:
 		return &S3Options{
-			Endpoint:        cfg.S3.EndpointUrl,
-			AccessKeyID:     cfg.S3.AccessKey,
-			SecretAccessKey: cfg.S3.SecretKey,
-			SessionToken:    cfg.S3.SessionToken,
-			BucketName:      cfg.S3.Bucket,
-			Region:          cfg.S3.Region,
-			VerifyTLS:       cfg.VerifyTls,
-			ForcePathStyle:  cfg.S3.ForcePathStyle,
+			Endpoint:              cfg.S3.EndpointUrl,
+			AccessKeyID:           cfg.S3.AccessKey,
+			SecretAccessKey:       cfg.S3.SecretKey,
+			SessionToken:          cfg.S3.SessionToken,
+			BucketName:            cfg.S3.Bucket,
+			Region:                cfg.S3.Region,
+			VerifyTLS:             cfg.VerifyTls,
+			ForcePathStyle:        cfg.S3.ForcePathStyle,
+			SkipBucketExistsCheck: cfg.S3.SkipBucketExistsCheck,
 		}, nil
 	case xbscapi.BackupStorageType_AZURE:
 		return &AzureOptions{
@@ -201,17 +202,18 @@ func getS3Options(
 	}
 
 	return &S3Options{
-		Endpoint:          endpoint,
-		AccessKeyID:       accessKeyID,
-		SecretAccessKey:   secretAccessKey,
-		SessionToken:      sessionToken,
-		BucketName:        bucket,
-		Prefix:            prefix,
-		Region:            region,
-		VerifyTLS:         verify,
-		CABundle:          caBundle,
-		ForcePathStyle:    s3.ForcePathStyle,
-		ChecksumAlgorithm: s3.ChecksumAlgorithm,
+		Endpoint:              endpoint,
+		AccessKeyID:           accessKeyID,
+		SecretAccessKey:       secretAccessKey,
+		SessionToken:          sessionToken,
+		BucketName:            bucket,
+		Prefix:                prefix,
+		Region:                region,
+		VerifyTLS:             verify,
+		CABundle:              caBundle,
+		ForcePathStyle:        s3.ForcePathStyle,
+		ChecksumAlgorithm:     s3.ChecksumAlgorithm,
+		SkipBucketExistsCheck: s3.SkipBucketExistsCheck,
 	}, nil
 }
 
@@ -269,34 +271,36 @@ func getS3OptionsFromBackup(ctx context.Context, cl client.Client, cluster *api.
 	}
 
 	return &S3Options{
-		Endpoint:          endpoint,
-		AccessKeyID:       accessKeyID,
-		SecretAccessKey:   secretAccessKey,
-		SessionToken:      sessionToken,
-		BucketName:        bucket,
-		Prefix:            prefix,
-		Region:            region,
-		VerifyTLS:         verifyTLS,
-		CABundle:          caBundle,
-		ForcePathStyle:    backup.Status.S3.ForcePathStyle,
-		ChecksumAlgorithm: backup.Status.S3.ChecksumAlgorithm,
+		Endpoint:              endpoint,
+		AccessKeyID:           accessKeyID,
+		SecretAccessKey:       secretAccessKey,
+		SessionToken:          sessionToken,
+		BucketName:            bucket,
+		Prefix:                prefix,
+		Region:                region,
+		VerifyTLS:             verifyTLS,
+		CABundle:              caBundle,
+		ForcePathStyle:        backup.Status.S3.ForcePathStyle,
+		ChecksumAlgorithm:     backup.Status.S3.ChecksumAlgorithm,
+		SkipBucketExistsCheck: backup.Status.S3.SkipBucketExistsCheck,
 	}, nil
 }
 
 var _ = Options(new(S3Options))
 
 type S3Options struct {
-	Endpoint          string
-	AccessKeyID       string
-	SecretAccessKey   string
-	SessionToken      string
-	BucketName        string
-	Prefix            string
-	Region            string
-	VerifyTLS         bool
-	CABundle          []byte
-	ForcePathStyle    bool
-	ChecksumAlgorithm api.S3ChecksumAlgorithmType
+	Endpoint              string
+	AccessKeyID           string
+	SecretAccessKey       string
+	SessionToken          string
+	BucketName            string
+	Prefix                string
+	Region                string
+	VerifyTLS             bool
+	CABundle              []byte
+	ForcePathStyle        bool
+	ChecksumAlgorithm     api.S3ChecksumAlgorithmType
+	SkipBucketExistsCheck bool
 }
 
 func (o *S3Options) Type() api.BackupStorageType {

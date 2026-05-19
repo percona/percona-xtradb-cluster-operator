@@ -104,7 +104,7 @@ type ReconcilePerconaXtraDBClusterBackup struct {
 	scheme *runtime.Scheme
 
 	serverVersion       *version.ServerVersion
-	clientcmd           *clientcmd.Client
+	clientcmd           clientcmd.Client
 	chLimit             chan struct{}
 	bcpDeleteInProgress *sync.Map
 }

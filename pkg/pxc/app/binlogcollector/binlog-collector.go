@@ -146,7 +146,8 @@ func GetDeployment(cr *api.PerconaXtraDBCluster, initImage string, existingMatch
 
 	container.Command = []string{"/opt/percona/pitr"}
 	initContainers = []corev1.Container{statefulset.PitrInitContainer(cr, initImage)}
-	volumes = append(volumes,
+	volumes = append(
+		volumes,
 		corev1.Volume{
 			Name: naming.BinVolumeName,
 			VolumeSource: corev1.VolumeSource{
@@ -155,7 +156,8 @@ func GetDeployment(cr *api.PerconaXtraDBCluster, initImage string, existingMatch
 		},
 	)
 
-	container.VolumeMounts = append(container.VolumeMounts,
+	container.VolumeMounts = append(
+		container.VolumeMounts,
 		corev1.VolumeMount{
 			Name:      naming.BinVolumeName,
 			MountPath: naming.BinVolumeMountPath,
@@ -166,7 +168,8 @@ func GetDeployment(cr *api.PerconaXtraDBCluster, initImage string, existingMatch
 	storage, ok := cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName]
 	if ok && storage.S3 != nil && storage.S3.CABundle != nil {
 		sel := storage.S3.CABundle
-		volumes = append(volumes,
+		volumes = append(
+			volumes,
 			corev1.Volume{
 				Name: "ca-bundle",
 				VolumeSource: corev1.VolumeSource{
@@ -182,7 +185,8 @@ func GetDeployment(cr *api.PerconaXtraDBCluster, initImage string, existingMatch
 				},
 			},
 		)
-		container.VolumeMounts = append(container.VolumeMounts,
+		container.VolumeMounts = append(
+			container.VolumeMounts,
 			corev1.VolumeMount{
 				Name:      "ca-bundle",
 				MountPath: naming.BackupStorageCAFileDirectory,
@@ -382,7 +386,8 @@ func getBufferSize(cluster api.PerconaXtraDBClusterSpec) (mem int64, err error) 
 func GetPod(ctx context.Context, c client.Client, cr *api.PerconaXtraDBCluster) (*corev1.Pod, error) {
 	collectorPodList := corev1.PodList{}
 
-	err := c.List(ctx, &collectorPodList,
+	err := c.List(
+		ctx, &collectorPodList,
 		&client.ListOptions{
 			Namespace:     cr.Namespace,
 			LabelSelector: labels.SelectorFromSet(naming.LabelsPITR(cr)),
@@ -401,7 +406,7 @@ func GetPod(ctx context.Context, c client.Client, cr *api.PerconaXtraDBCluster) 
 
 var GapFileNotFound = errors.New("gap file not found")
 
-func RemoveGapFile(c *clientcmd.Client, pod *corev1.Pod) error {
+func RemoveGapFile(c clientcmd.Client, pod *corev1.Pod) error {
 	stderrBuf := &bytes.Buffer{}
 	err := c.Exec(pod, "pitr", []string{"/bin/bash", "-c", "rm " + naming.GapDetected}, nil, nil, stderrBuf, false)
 	if err != nil {
@@ -414,7 +419,7 @@ func RemoveGapFile(c *clientcmd.Client, pod *corev1.Pod) error {
 	return nil
 }
 
-func RemoveTimelineFile(c *clientcmd.Client, pod *corev1.Pod) error {
+func RemoveTimelineFile(c clientcmd.Client, pod *corev1.Pod) error {
 	stderrBuf := &bytes.Buffer{}
 	err := c.Exec(pod, "pitr", []string{"/bin/bash", "-c", "rm /tmp/pitr-timeline"}, nil, nil, stderrBuf, false)
 	if err != nil {

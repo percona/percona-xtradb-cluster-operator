@@ -26,7 +26,7 @@ type PVCUsage struct {
 
 func GetPVCUsage(
 	ctx context.Context,
-	clientcmd *clientcmd.Client,
+	clientcmd clientcmd.Client,
 	pod *corev1.Pod,
 	pvcName string,
 ) (*PVCUsage, error) {

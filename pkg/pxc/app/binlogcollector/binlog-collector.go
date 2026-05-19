@@ -306,6 +306,12 @@ func getStorageEnvs(cr *api.PerconaXtraDBCluster) ([]corev1.EnvVar, error) {
 				Value: "true",
 			})
 		}
+		if storage.S3.SkipBucketExistsCheck {
+			envs = append(envs, corev1.EnvVar{
+				Name:  "S3_SKIP_BUCKET_EXISTS_CHECK",
+				Value: "true",
+			})
+		}
 	case api.BackupStorageAzure:
 		if storage.Azure == nil {
 			return nil, errors.New("azure storage is not specified")

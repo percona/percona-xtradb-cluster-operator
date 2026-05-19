@@ -67,6 +67,23 @@ func TestGetLatestSuccessfulBackup(t *testing.T) {
 			backups:     []runtime.Object{},
 			expectedErr: ErrNoBackups,
 		},
+		{
+			name:        "returns no backup when one and only backup is running",
+			clusterName: "cluster1",
+			backups: []runtime.Object{
+				newBackup("running-backup", "cluster1", api.BackupRunning, baseTime.Add(2*time.Minute)),
+			},
+			expectedErr: ErrNoBackups,
+		},
+		{
+			name:        "running backup is ignored",
+			clusterName: "cluster1",
+			backups: []runtime.Object{
+				newBackup("running-backup", "cluster1", api.BackupRunning, baseTime.Add(2*time.Minute)),
+				newBackup("succeeded-backup", "cluster1", api.BackupSucceeded, baseTime.Add(3*time.Minute)),
+			},
+			expected: "succeeded-backup",
+		},
 	}
 
 	for _, tt := range tests {

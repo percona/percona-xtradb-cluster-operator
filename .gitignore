@@ -89,4 +89,4 @@ projects/
 installers/olm/operator_*.yaml
 installers/olm/bundles
 
-
+.codex

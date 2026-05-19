@@ -4,14 +4,12 @@ import (
 	"bytes"
 	"context"
 
-	"github.com/hashicorp/go-version"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 )
 
@@ -25,7 +23,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateUsersWithoutDP(ctx context.Context
 
 		switch u {
 		case users.Root:
-			if err := r.handleRootUserWithoutDP(ctx, cr, secrets, internalSecrets, res); err != nil {
+			if err := r.handleRootUserWithoutDP(ctx, cr, secrets, internalSecrets); err != nil {
 				return res, err
 			}
 		case users.Operator:
@@ -62,7 +60,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateUsersWithoutDP(ctx context.Context
 	return res, nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) handleRootUserWithoutDP(ctx context.Context, cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
+func (r *ReconcilePerconaXtraDBCluster) handleRootUserWithoutDP(ctx context.Context, cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret) error {
 	if cr.Status.Status != api.AppStateReady && !r.invalidPasswordApplied(cr.Status) {
 		return nil
 	}
@@ -85,7 +83,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleRootUserWithoutDP(ctx context.Cont
 
 	log.Info("Password changed, updating user", "user", user.Name)
 
-	err := r.updateUserPassWithoutDP(ctx, cr, secrets, internalSecrets, user)
+	err := r.updateUserPassWithoutDP(ctx, cr, internalSecrets, user)
 	if err != nil {
 		return errors.Wrap(err, "update root users pass")
 	}
@@ -141,7 +139,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleOperatorUserWithoutDP(ctx context.
 
 	log.Info("Password changed, updating user", "user", user.Name)
 
-	err := r.updateUserPassWithoutDP(ctx, cr, secrets, internalSecrets, user)
+	err := r.updateUserPassWithoutDP(ctx, cr, internalSecrets, user)
 	if err != nil {
 		return errors.Wrap(err, "update operator users pass")
 	}
@@ -187,38 +185,8 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUserWithoutDP(ctx context.C
 			}
 		}()
 
-		if cr.CompareVersionWith("1.6.0") >= 0 {
-			err := r.updateMonitorUserGrant(ctx, cr, internalSecrets, um)
-			if err != nil {
-				return errors.Wrap(err, "update monitor user grant")
-			}
-		}
-
-		if cr.CompareVersionWith("1.10.0") >= 0 {
-			mysqlVersion := cr.Status.PXC.Version
-			if mysqlVersion == "" {
-				var err error
-				mysqlVersion, err = r.mysqlVersion(ctx, cr, statefulset.NewNode(cr))
-				if err != nil {
-					if errors.Is(err, versionNotReadyErr) {
-						return nil
-					}
-					return errors.Wrap(err, "retrieving pxc version")
-				}
-			}
-
-			if mysqlVersion != "" {
-				ver, err := version.NewVersion(mysqlVersion)
-				if err != nil {
-					return errors.Wrap(err, "invalid pxc version")
-				}
-
-				if !ver.LessThan(privSystemUserAddedIn) {
-					if err := r.grantMonitorUserPrivilege(ctx, cr, internalSecrets, um); err != nil {
-						return errors.Wrap(err, "monitor user grant system privilege")
-					}
-				}
-			}
+		if err := r.updateMonitorUserGrant(ctx, cr, internalSecrets, um); err != nil {
+			return errors.Wrap(err, "update monitor user grant")
 		}
 	}
 
@@ -232,7 +200,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUserWithoutDP(ctx context.C
 
 	log.Info("Password changed, updating user", "user", user.Name)
 
-	err := r.updateUserPassWithoutDP(ctx, cr, secrets, internalSecrets, user)
+	err := r.updateUserPassWithoutDP(ctx, cr, internalSecrets, user)
 	if err != nil {
 		return errors.Wrap(err, "update monitor users pass")
 	}
@@ -304,7 +272,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleXtrabackupUserWithoutDP(ctx contex
 
 	log.Info("Password changed, updating user", "user", user.Name)
 
-	err := r.updateUserPassWithoutDP(ctx, cr, secrets, internalSecrets, user)
+	err := r.updateUserPassWithoutDP(ctx, cr, internalSecrets, user)
 	if err != nil {
 		return errors.Wrap(err, "update xtrabackup users pass")
 	}
@@ -364,7 +332,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleReplicationUserWithoutDP(ctx conte
 
 	log.Info("Password changed, updating user", "user", user.Name)
 
-	err := r.updateUserPassWithoutDP(ctx, cr, secrets, internalSecrets, user)
+	err := r.updateUserPassWithoutDP(ctx, cr, internalSecrets, user)
 	if err != nil {
 		return errors.Wrap(err, "update replication users pass")
 	}
@@ -431,7 +399,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleProxyadminUserWithoutDP(ctx contex
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) updateUserPassWithoutDP(ctx context.Context, cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, user *users.SysUser) error {
+func (r *ReconcilePerconaXtraDBCluster) updateUserPassWithoutDP(ctx context.Context, cr *api.PerconaXtraDBCluster, internalSecrets *corev1.Secret, user *users.SysUser) error {
 	um, err := getUserManager(cr, internalSecrets)
 	if err != nil {
 		return err

@@ -328,6 +328,7 @@ type PerconaXtraDBClusterStatus struct {
 	Backup             ComponentStatus    `json:"backup,omitempty"`
 	PMM                ComponentStatus    `json:"pmm,omitempty"`
 	LogCollector       ComponentStatus    `json:"logcollector,omitempty"`
+	Recovery           *RecoveryStatus    `json:"recovery,omitempty"`
 	Host               string             `json:"host,omitempty"`
 	Messages           []string           `json:"message,omitempty"`
 	Status             AppState           `json:"state,omitempty"`
@@ -374,6 +375,29 @@ type AppStatus struct {
 
 	Size  int32 `json:"size,omitempty"`
 	Ready int32 `json:"ready,omitempty"`
+}
+
+// RecoveryStatus records the outcome of the most recent full-cluster-crash
+// recovery. It is consulted on subsequent crashes to decide whether automatic
+// recovery is safe: a UUID change or seqno regression indicates the operator
+// would be bootstrapping from a node with stale or unrelated data, so manual
+// intervention is required.
+type RecoveryStatus struct {
+	// ClusterUUID is the Galera cluster UUID reported by the pod the operator
+	// recovered from. The all-zeros UUID means the pod's grastate.dat had no
+	// recoverable UUID (uninitialized or reset). An empty value means the log
+	// line did not include a UUID (PXC entrypoint <1.20.0).
+	ClusterUUID string `json:"clusterUUID,omitempty"`
+	// LastRecoveryTime is when the operator triggered the most recent
+	// full-cluster-crash recovery.
+	LastRecoveryTime metav1.Time `json:"lastRecoveryTime,omitempty"`
+	// LastRecoveryPod is the pod the operator picked to bootstrap from
+	// (the one with the highest reported seqno).
+	LastRecoveryPod string `json:"lastRecoveryPod,omitempty"`
+	// LastRecoverySeqNo is the wsrep sequence number of the pod that was
+	// used to bootstrap. A subsequent recovery with a lower seqno is refused
+	// automatically, since proceeding would discard committed transactions.
+	LastRecoverySeqNo int64 `json:"lastRecoverySeqNo,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -870,12 +894,13 @@ const (
 )
 
 type BackupStorageS3Spec struct {
-	Bucket            string                    `json:"bucket"`
-	CredentialsSecret string                    `json:"credentialsSecret"`
-	Region            string                    `json:"region,omitempty"`
-	EndpointURL       string                    `json:"endpointUrl,omitempty"`
-	CABundle          *corev1.SecretKeySelector `json:"caBundle,omitempty"`
-	ForcePathStyle    bool                      `json:"forcePathStyle,omitempty"`
+	Bucket                string                    `json:"bucket"`
+	CredentialsSecret     string                    `json:"credentialsSecret"`
+	Region                string                    `json:"region,omitempty"`
+	EndpointURL           string                    `json:"endpointUrl,omitempty"`
+	CABundle              *corev1.SecretKeySelector `json:"caBundle,omitempty"`
+	ForcePathStyle        bool                      `json:"forcePathStyle,omitempty"`
+	SkipBucketExistsCheck bool                      `json:"skipBucketExistsCheck,omitempty"`
 }
 
 func (b *BackupStorageS3Spec) endpointAndPath() (string, string, error) {
@@ -1674,6 +1699,18 @@ func (p *PodSpec) reconcileAffinityOpts() {
 	}
 }
 
+// sandboxedTemplateSet returns pongo2 TemplateSet some file-access tags banned
+// to prevent server-side template injection from user-controlled .spec.*.configuration fields.
+func sandboxedTemplateSet() (*pongo2.TemplateSet, error) {
+	set := pongo2.NewSet("sandbox", pongo2.MustNewLocalFileSystemLoader(os.TempDir()))
+	for _, tag := range []string{"ssi", "include", "import", "extends"} {
+		if err := set.BanTag(tag); err != nil {
+			return nil, errors.Wrapf(err, "ban tag %q", tag)
+		}
+	}
+	return set, nil
+}
+
 func (p *PodSpec) executeConfigurationTemplate() error {
 	if _, ok := p.Resources.Limits[corev1.ResourceMemory]; !ok {
 		if strings.Contains(p.Configuration, "{{") {
@@ -1682,7 +1719,12 @@ func (p *PodSpec) executeConfigurationTemplate() error {
 		return nil
 	}
 
-	tmpl, err := pongo2.FromString(p.Configuration)
+	set, err := sandboxedTemplateSet()
+	if err != nil {
+		return errors.Wrap(err, "create sandboxed template set")
+	}
+
+	tmpl, err := set.FromString(p.Configuration)
 	if err != nil {
 		return errors.Wrap(err, "parse template")
 	}

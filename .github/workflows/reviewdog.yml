@@ -5,12 +5,12 @@ jobs:
     name: runner / suggester / golangci-lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
         with:
           go-version: '1.26'
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v9
+        uses: golangci/golangci-lint-action@1e7e51e771db61008b38414a730f564565cf7c20 # v9
         with:
           version: latest
           only-new-issues: true
@@ -21,9 +21,9 @@ jobs:
     name: runner / suggester / gofmt
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
       - run: gofmt -w -s $(find . -not -path "*/vendor/*" -name "*.go")
-      - uses: reviewdog/action-suggester@v1
+      - uses: reviewdog/action-suggester@aa38384ceb608d00f84b4690cacc83a5aba307ff # v1
         with:
           tool_name: gofmt
 
@@ -31,14 +31,14 @@ jobs:
     name: runner / suggester / shfmt
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
         with:
           go-version: '1.26'
       - run: go install mvdan.cc/sh/v3/cmd/shfmt@latest
       - run: $(go env GOPATH)/bin/shfmt -f . | grep -v 'vendor' | xargs $(go env GOPATH)/bin/shfmt -bn -ci -s -w
       - name: suggester / shfmt
-        uses: reviewdog/action-suggester@v1
+        uses: reviewdog/action-suggester@aa38384ceb608d00f84b4690cacc83a5aba307ff # v1
         with:
           tool_name: shfmt
 
@@ -47,8 +47,8 @@ jobs:
     name: runner / shellcheck
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: reviewdog/action-shellcheck@v1
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: reviewdog/action-shellcheck@4c07458293ac342d477251099501a718ae5ef86e # v1
         with:
           github_token: ${{ secrets.github_token }}
           reporter: github-pr-check
@@ -59,8 +59,8 @@ jobs:
     name: runner / misspell
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: reviewdog/action-misspell@v1
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: reviewdog/action-misspell@d6429416b12b09b4e2768307d53bef58d172e962 # v1
         with:
           github_token: ${{ secrets.github_token }}
           locale: "US"
@@ -71,8 +71,8 @@ jobs:
     name: runner / alex
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: reviewdog/action-alex@v1
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: reviewdog/action-alex@b6673b547eeb6d430c87ef02dc3524bdf34e324d # v1
         with:
           github_token: ${{ secrets.github_token }}
           reporter: github-pr-review
@@ -82,8 +82,8 @@ jobs:
     name: runner / manifests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
         with:
           go-version: '1.26'
       - name: check on release branch
@@ -101,7 +101,7 @@ jobs:
     name: e2e-tests release_versions image availability
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           fetch-depth: 0
       - name: Check if e2e-tests/release_versions changed

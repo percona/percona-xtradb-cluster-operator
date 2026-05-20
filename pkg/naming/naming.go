@@ -23,4 +23,5 @@ const (
 const (
 	EventStorageClassNotSupportResize = "StorageClassNotSupportResize"
 	EventExceededQuota                = "ExceededQuota"
+	EventPVCStorageSizeMismatch       = "PVCStorageSizeMismatch"
 )

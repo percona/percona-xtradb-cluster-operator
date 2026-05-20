@@ -1,6 +1,7 @@
 package pxc
 
 import (
+	"strconv"
 	"testing"
 	"time"
 
@@ -12,12 +13,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/apis"
 	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 )
 
@@ -111,7 +114,7 @@ func TestReconcilePersistentVolumes(t *testing.T) {
 			sts.Spec.VolumeClaimTemplates = []corev1.PersistentVolumeClaim{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "datadir",
+						Name: app.DataVolumeName,
 					},
 					Spec: corev1.PersistentVolumeClaimSpec{
 						Resources: corev1.VolumeResourceRequirements{
@@ -132,7 +135,7 @@ func TestReconcilePersistentVolumes(t *testing.T) {
 			}
 			pvc := &corev1.PersistentVolumeClaim{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "datadir-" + sts.Name + "-0",
+					Name:      app.DataVolumeName + "-" + sts.Name + "-0",
 					Namespace: cr.Namespace,
 					Labels:    naming.LabelsPXC(cr),
 				},
@@ -190,6 +193,122 @@ func TestReconcilePersistentVolumes(t *testing.T) {
 	}
 }
 
+func TestReconcilePersistentVolumesWarnsAboutInconsistentPVCSizes(t *testing.T) {
+	const (
+		namespace   = "test-ns"
+		clusterName = "test-cluster"
+	)
+
+	tests := map[string]struct {
+		resizeInProgress bool
+		expectWarning    bool
+	}{
+		"warns when PVC capacities differ and resize is not in progress": {
+			expectWarning: true,
+		},
+		"does not warn while operator PVC resize is in progress": {
+			resizeInProgress: true,
+			expectWarning:    false,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			ctx := t.Context()
+
+			cr, err := readDefaultCR(clusterName, namespace)
+			require.NoError(t, err)
+			cr.Spec.PXC.Size = 3
+			cr.Spec.VolumeExternalAutoscaling = false
+			cr.Spec.PXC.VolumeSpec.PersistentVolumeClaim.Resources.Requests = corev1.ResourceList{
+				corev1.ResourceStorage: resource.MustParse("1200Mi"),
+			}
+			if tt.resizeInProgress {
+				cr.Annotations = map[string]string{
+					pxcv1.AnnotationPVCResizeInProgress: time.Now().Add(-time.Minute).Format(time.RFC3339),
+				}
+			}
+
+			sts := statefulset.NewNode(cr).StatefulSet()
+			sts.Spec.VolumeClaimTemplates = []corev1.PersistentVolumeClaim{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: app.DataVolumeName,
+					},
+					Spec: corev1.PersistentVolumeClaimSpec{
+						Resources: corev1.VolumeResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceStorage: resource.MustParse("1200Mi"),
+							},
+						},
+					},
+				},
+			}
+
+			objects := []client.Object{cr, sts}
+			for i, size := range []string{"3Gi", "2Gi", "2Gi"} {
+				podName := sts.Name + "-" + strconv.Itoa(i)
+				objects = append(
+					objects,
+					&corev1.Pod{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      podName,
+							Namespace: namespace,
+							Labels:    naming.LabelsPXC(cr),
+						},
+					},
+					&corev1.PersistentVolumeClaim{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      app.DataVolumeName + "-" + podName,
+							Namespace: namespace,
+							Labels:    naming.LabelsPXC(cr),
+						},
+						Status: corev1.PersistentVolumeClaimStatus{
+							Capacity: corev1.ResourceList{
+								corev1.ResourceStorage: resource.MustParse(size),
+							},
+						},
+					},
+				)
+			}
+
+			scheme := runtime.NewScheme()
+			require.NoError(t, clientgoscheme.AddToScheme(scheme))
+			require.NoError(t, apis.AddToScheme(scheme))
+
+			recorder := record.NewFakeRecorder(1)
+			r := &ReconcilePerconaXtraDBCluster{
+				client: fake.NewClientBuilder().
+					WithScheme(scheme).
+					WithObjects(objects...).
+					Build(),
+				scheme:   scheme,
+				recorder: recorder,
+			}
+
+			err = r.reconcilePersistentVolumes(ctx, cr)
+			require.NoError(t, err)
+
+			if tt.expectWarning {
+				select {
+				case event := <-recorder.Events:
+					assert.Contains(t, event, corev1.EventTypeWarning)
+					assert.Contains(t, event, naming.EventPVCStorageSizeMismatch)
+				case <-time.After(time.Second):
+					t.Fatal("expected PVC size mismatch warning event")
+				}
+				return
+			}
+
+			select {
+			case event := <-recorder.Events:
+				t.Fatalf("expected no warning event, got %q", event)
+			default:
+			}
+		})
+	}
+}
+
 func TestReconcilePersistentVolumesVolumeExternalAutoscaling(t *testing.T) {
 	const (
 		namespace      = "test-ns"
@@ -218,7 +337,7 @@ func TestReconcilePersistentVolumesVolumeExternalAutoscaling(t *testing.T) {
 			VolumeClaimTemplates: []corev1.PersistentVolumeClaim{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "datadir",
+						Name: app.DataVolumeName,
 					},
 					Spec: corev1.PersistentVolumeClaimSpec{
 						Resources: corev1.VolumeResourceRequirements{
@@ -265,7 +384,7 @@ func TestReconcilePersistentVolumesVolumeExternalAutoscaling(t *testing.T) {
 
 	pvc := &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "datadir-test-cluster-pxc-0",
+			Name:      app.DataVolumeName + "-test-cluster-pxc-0",
 			Namespace: namespace,
 			Labels:    labels,
 		},

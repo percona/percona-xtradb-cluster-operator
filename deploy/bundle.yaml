@@ -944,6 +944,7 @@ spec:
                   date:
                     type: string
                   gtid:
+                    maxLength: 1024
                     type: string
                   type:
                     enum:
@@ -965,6 +966,13 @@ spec:
                 - message: Date and GTID should not be set when type is 'latest'
                   rule: self.type != 'latest' || ((!has(self.date) || size(self.date)
                     == 0) && (!has(self.gtid) || size(self.gtid) == 0))
+                - message: GTID for type 'transaction' must be a single transaction
+                    identifier in the form 'UUID:N' (e.g. 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee:42')
+                  rule: self.type != 'transaction' || self.gtid.matches('^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}:[1-9][0-9]*$')
+                - message: GTID for type 'skip' must be a valid MySQL GTID set (e.g.
+                    'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee:1-10', 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee:Domain_1:1-10',
+                    or 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee:1,bbbbbbbb-bbbb-cccc-dddd-eeeeeeeeeeee:1-5')
+                  rule: self.type != 'skip' || self.gtid.matches('^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}:([a-zA-Z_][a-zA-Z0-9_]{0,31}:)?[1-9][0-9]*(-[1-9][0-9]*)?(:([a-zA-Z_][a-zA-Z0-9_]{0,31}:)?[1-9][0-9]*(-[1-9][0-9]*)?)*(,[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}:([a-zA-Z_][a-zA-Z0-9_]{0,31}:)?[1-9][0-9]*(-[1-9][0-9]*)?(:([a-zA-Z_][a-zA-Z0-9_]{0,31}:)?[1-9][0-9]*(-[1-9][0-9]*)?)*)*$')
               pxcCluster:
                 type: string
               resources:

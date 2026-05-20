@@ -26,7 +26,12 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, os.Interrupt)
 	defer stop()
 
-	srv := &http.Server{Addr: ":8080"}
+	srv := &http.Server{
+		Addr:              ":8080",
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       10 * time.Second,
+		WriteTimeout:      10 * time.Second,
+	}
 	go func() {
 		http.Handle("/metrics", promhttp.Handler())
 		http.HandleFunc("/health", healthHandler)

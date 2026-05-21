@@ -159,15 +159,16 @@ func TestReconcilePersistentVolumes(t *testing.T) {
 				scheme: s,
 			}
 
-			err = r.reconcilePersistentVolumes(t.Context(), cr)
+			stsRecreated, err := r.reconcilePersistentVolumes(t.Context(), cr)
 			if tt.expectErrContains != "" {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tt.expectErrContains)
 			} else if tt.expectSTSDeleted {
-				require.ErrorIs(t, err, ErrStatefulsetRecreated)
+				require.NoError(t, err)
 			} else {
 				require.NoError(t, err)
 			}
+			assert.Equal(t, tt.expectSTSDeleted, stsRecreated)
 
 			fetchedSTS := &appsv1.StatefulSet{}
 			err = r.client.Get(t.Context(), client.ObjectKeyFromObject(sts), fetchedSTS)
@@ -345,7 +346,7 @@ func TestReconcilePersistentVolumesVolumeExternalAutoscaling(t *testing.T) {
 				lockers: newLockStore(),
 			}
 
-			err := r.reconcilePersistentVolumes(ctx, cr)
+			_, err := r.reconcilePersistentVolumes(ctx, cr)
 			require.NoError(t, err)
 
 			gotCR := new(pxcv1.PerconaXtraDBCluster)

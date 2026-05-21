@@ -371,13 +371,12 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 	if err != nil {
 		return reconcile.Result{}, errors.Wrap(err, "reconcile storage autoscaling")
 	}
-	err = r.reconcilePersistentVolumes(ctx, o)
-	if errors.Is(err, ErrStatefulsetRecreated) {
-		err = nil
-		return rr, nil
-	}
+	shouldReconcile, err := r.reconcilePersistentVolumes(ctx, o)
 	if err != nil {
 		return reconcile.Result{}, errors.Wrap(err, "reconcile persistent volumes")
+	}
+	if shouldReconcile {
+		return rr, nil
 	}
 
 	err = r.reconcileSSL(ctx, o)

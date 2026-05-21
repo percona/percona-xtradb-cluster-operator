@@ -507,7 +507,7 @@ func (r *ReconcilePerconaXtraDBCluster) waitPodRestart(ctx context.Context, cr *
 
 			ready := false
 			for _, container := range pod.Status.ContainerStatuses {
-				if container.Name == "pxc" {
+				if container.Name == naming.ContainerNamePXC {
 					ready = container.Ready
 
 					if container.State.Waiting != nil {
@@ -564,7 +564,7 @@ func (r *ReconcilePerconaXtraDBCluster) waitPodRestart(ctx context.Context, cr *
 }
 
 func isPXC(sfs api.StatefulApp) bool {
-	return sfs.Labels()[naming.LabelAppKubernetesComponent] == "pxc"
+	return sfs.Labels()[naming.LabelAppKubernetesComponent] == naming.ComponentPXC
 }
 
 func isHAproxy(sfs api.StatefulApp) bool {

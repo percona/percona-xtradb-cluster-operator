@@ -21,6 +21,7 @@ import (
 
 	apiv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/queries"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/version"
@@ -425,7 +426,7 @@ func (r *ReconcilePerconaXtraDBCluster) mysqlVersion(ctx context.Context, cr *ap
 		return "", versionNotReadyErr
 	}
 
-	upgradeInProgress, err := r.upgradeInProgress(ctx, cr, "pxc")
+	upgradeInProgress, err := r.upgradeInProgress(ctx, cr, naming.ComponentPXC)
 	if err != nil {
 		return "", errors.Wrap(err, "check pxc upgrade progress")
 	}

@@ -10,6 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/test"
@@ -17,7 +18,6 @@ import (
 )
 
 func TestAppContainer(t *testing.T) {
-
 	secretName := "my-secret"
 
 	tests := map[string]struct {
@@ -362,8 +362,8 @@ func TestLogCollectorContainer(t *testing.T) {
 		},
 	}
 
-	datadirMount := corev1.VolumeMount{Name: app.DataVolumeName, MountPath: "/var/lib/mysql"}
-	binMount := corev1.VolumeMount{Name: app.BinVolumeName, MountPath: app.BinVolumeMountPath}
+	datadirMount := corev1.VolumeMount{Name: naming.DataVolumeName, MountPath: "/var/lib/mysql"}
+	binMount := corev1.VolumeMount{Name: naming.BinVolumeName, MountPath: naming.BinVolumeMountPath}
 
 	tests := map[string]struct {
 		crVersion      string
@@ -756,7 +756,7 @@ func defaultExpectedContainer() corev1.Container {
 			{ContainerPort: 33060, Name: "mysqlx"},
 		},
 		VolumeMounts: []corev1.VolumeMount{
-			{Name: app.DataVolumeName, MountPath: "/var/lib/mysql"},
+			{Name: naming.DataVolumeName, MountPath: "/var/lib/mysql"},
 			{Name: "config", MountPath: "/etc/percona-xtradb-cluster.conf.d"},
 			{Name: "tmp", MountPath: "/tmp"},
 			{Name: "ssl", MountPath: "/etc/mysql/ssl"},

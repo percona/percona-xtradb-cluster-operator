@@ -21,6 +21,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 )
@@ -1067,7 +1068,7 @@ func (r *ReconcilePerconaXtraDBCluster) isOldPasswordDiscarded(ctx context.Conte
 
 func (r *ReconcilePerconaXtraDBCluster) isPassPropagated(ctx context.Context, cr *api.PerconaXtraDBCluster, user *users.SysUser) (bool, error) {
 	components := map[string]int32{
-		"pxc": cr.Spec.PXC.Size,
+		naming.ComponentPXC: cr.Spec.PXC.Size,
 	}
 
 	if cr.HAProxyEnabled() {

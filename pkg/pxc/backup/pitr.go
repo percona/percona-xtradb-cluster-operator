@@ -27,7 +27,7 @@ import (
 
 const PXCClusterBackupField = ".spec.pxcCluster"
 
-func CheckPITRErrors(ctx context.Context, cl client.Client, clcmd *clientcmd.Client, cr *api.PerconaXtraDBCluster, storageFunc storage.NewClientFunc) error {
+func CheckPITRErrors(ctx context.Context, cl client.Client, clcmd clientcmd.Client, cr *api.PerconaXtraDBCluster, storageFunc storage.NewClientFunc) error {
 	log := logf.FromContext(ctx)
 
 	if cr.Spec.Backup == nil || !cr.Spec.Backup.PITR.Enabled {
@@ -113,7 +113,7 @@ func CheckPITRErrors(ctx context.Context, cl client.Client, clcmd *clientcmd.Cli
 	return nil
 }
 
-func UpdatePITRTimeline(ctx context.Context, cl client.Client, clcmd *clientcmd.Client, cr *api.PerconaXtraDBCluster) error {
+func UpdatePITRTimeline(ctx context.Context, cl client.Client, clcmd clientcmd.Client, cr *api.PerconaXtraDBCluster) error {
 	log := logf.FromContext(ctx)
 
 	if cr.Spec.Backup == nil || !cr.Spec.Backup.PITR.Enabled {

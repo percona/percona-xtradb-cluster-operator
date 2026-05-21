@@ -65,7 +65,7 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, cluster *api.PerconaXtraDBClu
 		},
 		{
 			Name:  "PXC_SERVICE",
-			Value: spec.PXCCluster + "-pxc",
+			Value: spec.PXCCluster + "-" + naming.ComponentPXC,
 		},
 		{
 			Name: "PXC_PASS",
@@ -86,7 +86,7 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, cluster *api.PerconaXtraDBClu
 	if cluster.CompareVersionWith("1.15.0") >= 0 {
 		volumes = append(volumes,
 			corev1.Volume{
-				Name: app.BinVolumeName,
+				Name: naming.BinVolumeName,
 				VolumeSource: corev1.VolumeSource{
 					EmptyDir: &corev1.EmptyDirVolumeSource{},
 				},
@@ -95,8 +95,8 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, cluster *api.PerconaXtraDBClu
 
 		volumeMounts = append(volumeMounts,
 			corev1.VolumeMount{
-				Name:      app.BinVolumeName,
-				MountPath: app.BinVolumeMountPath,
+				Name:      naming.BinVolumeName,
+				MountPath: naming.BinVolumeMountPath,
 			},
 		)
 

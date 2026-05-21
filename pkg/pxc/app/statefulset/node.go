@@ -46,15 +46,15 @@ func NewNode(cr *api.PerconaXtraDBCluster) api.StatefulApp {
 }
 
 func (c *Node) Name() string {
-	return app.Name
+	return naming.ComponentPXC
 }
 
 func (c *Node) InitContainers(cr *api.PerconaXtraDBCluster, initImageName string) []corev1.Container {
-	initC := EntrypointInitContainer(cr, initImageName, app.DataVolumeName)
+	initC := EntrypointInitContainer(cr, initImageName, naming.DataVolumeName)
 	if cr.CompareVersionWith("1.20.0") >= 0 {
 		initC.VolumeMounts = append(initC.VolumeMounts, corev1.VolumeMount{
-			Name:      app.BinVolumeName,
-			MountPath: app.BinVolumeMountPath,
+			Name:      naming.BinVolumeName,
+			MountPath: naming.BinVolumeMountPath,
 		})
 	}
 	return []corev1.Container{initC}
@@ -84,7 +84,7 @@ func (c *Node) AppContainer(ctx context.Context, cl client.Client, spec *api.Pod
 	}
 
 	appc := corev1.Container{
-		Name:            app.Name,
+		Name:            naming.ContainerNamePXC,
 		Image:           spec.Image,
 		ImagePullPolicy: spec.ImagePullPolicy,
 		ReadinessProbe: app.Probe(&corev1.Probe{
@@ -128,7 +128,7 @@ func (c *Node) AppContainer(ctx context.Context, cl client.Client, spec *api.Pod
 		},
 		VolumeMounts: []corev1.VolumeMount{
 			{
-				Name:      app.DataVolumeName,
+				Name:      naming.DataVolumeName,
 				MountPath: "/var/lib/mysql",
 			},
 			{
@@ -254,7 +254,6 @@ func (c *Node) AppContainer(ctx context.Context, cl client.Client, spec *api.Pod
 		if cr.Spec.ProxySQLEnabled() {
 			plugin = "mysql_native_password"
 		}
-
 	}
 	appc.Env = append(appc.Env, corev1.EnvVar{
 		Name:  "DEFAULT_AUTHENTICATION_PLUGIN",
@@ -363,7 +362,8 @@ func setLDPreloadEnv(
 	envVarsSecret := &corev1.Secret{}
 	err := cl.Get(ctx, types.NamespacedName{
 		Name:      cr.Spec.PXC.EnvVarsSecretName,
-		Namespace: cr.Namespace}, envVarsSecret)
+		Namespace: cr.Namespace,
+	}, envVarsSecret)
 	if client.IgnoreNotFound(err) == nil {
 		// Env vars are set via secret. Check if LD_PRELOAD is set.
 		if val, ok := envVarsSecret.Data[ldPreloadKey]; ok {
@@ -459,7 +459,7 @@ func (c *Node) LogCollectorContainer(cr *api.PerconaXtraDBCluster, logPsecrets s
 		},
 		VolumeMounts: []corev1.VolumeMount{
 			{
-				Name:      app.DataVolumeName,
+				Name:      naming.DataVolumeName,
 				MountPath: "/var/lib/mysql",
 			},
 		},
@@ -477,7 +477,7 @@ func (c *Node) LogCollectorContainer(cr *api.PerconaXtraDBCluster, logPsecrets s
 		},
 		VolumeMounts: []corev1.VolumeMount{
 			{
-				Name:      app.DataVolumeName,
+				Name:      naming.DataVolumeName,
 				MountPath: "/var/lib/mysql",
 			},
 		},
@@ -528,12 +528,12 @@ func (c *Node) LogCollectorContainer(cr *api.PerconaXtraDBCluster, logPsecrets s
 		logRotContainer.Command = []string{"/opt/percona/logcollector/entrypoint.sh"}
 
 		logProcContainer.VolumeMounts = append(logProcContainer.VolumeMounts, corev1.VolumeMount{
-			Name:      app.BinVolumeName,
-			MountPath: app.BinVolumeMountPath,
+			Name:      naming.BinVolumeName,
+			MountPath: naming.BinVolumeMountPath,
 		})
 		logRotContainer.VolumeMounts = append(logRotContainer.VolumeMounts, corev1.VolumeMount{
-			Name:      app.BinVolumeName,
-			MountPath: app.BinVolumeMountPath,
+			Name:      naming.BinVolumeName,
+			MountPath: naming.BinVolumeMountPath,
 		})
 	}
 
@@ -580,12 +580,12 @@ func (c *Node) XtrabackupContainer(ctx context.Context, cr *api.PerconaXtraDBClu
 		},
 		VolumeMounts: []corev1.VolumeMount{
 			{
-				Name:      app.DataVolumeName,
+				Name:      naming.DataVolumeName,
 				MountPath: "/var/lib/mysql",
 			},
 			{
 				Name:      "backup-logs",
-				MountPath: app.BackupLogDir,
+				MountPath: naming.BackupLogDir,
 			},
 			{
 				Name:      "tmp",
@@ -632,7 +632,7 @@ func (c *Node) PMMContainer(ctx context.Context, cl client.Client, spec *api.PMM
 
 		pmm3Container.VolumeMounts = []corev1.VolumeMount{
 			{
-				Name:      app.DataVolumeName,
+				Name:      naming.DataVolumeName,
 				MountPath: "/var/lib/mysql",
 			},
 		}
@@ -691,7 +691,7 @@ func (c *Node) PMMContainer(ctx context.Context, cl client.Client, spec *api.PMM
 		clusterEnvs := []corev1.EnvVar{
 			{
 				Name:  "DB_CLUSTER",
-				Value: app.Name,
+				Value: naming.ComponentPXC,
 			},
 			{
 				Name:  "DB_HOST",
@@ -775,7 +775,7 @@ func (c *Node) PMMContainer(ctx context.Context, cl client.Client, spec *api.PMM
 
 	ct.VolumeMounts = []corev1.VolumeMount{
 		{
-			Name:      app.DataVolumeName,
+			Name:      naming.DataVolumeName,
 			MountPath: "/var/lib/mysql",
 		},
 	}
@@ -806,9 +806,9 @@ func pmm3PXCNodeEnvVars(PmmPxcParams string) []corev1.EnvVar {
 }
 
 func (c *Node) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg api.CustomVolumeGetter) (*api.Volume, error) {
-	vol := app.Volumes(podSpec, app.DataVolumeName)
+	vol := app.Volumes(podSpec, naming.DataVolumeName)
 
-	configVolume, err := vg(cr.Namespace, "config", config.CustomConfigMapName(cr.Name, "pxc"), true)
+	configVolume, err := vg(cr.Namespace, "config", config.CustomConfigMapName(cr.Name, naming.ComponentPXC), true)
 	if err != nil {
 		return nil, err
 	}
@@ -824,7 +824,7 @@ func (c *Node) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg ap
 		configVolume,
 		app.GetSecretVolumes("ssl-internal", podSpec.SSLInternalSecretName, true),
 		sslVolume,
-		app.GetConfigVolumes("auto-config", config.AutoTuneConfigMapName(cr.Name, app.Name)),
+		app.GetConfigVolumes("auto-config", config.AutoTuneConfigMapName(cr.Name, naming.ComponentPXC)),
 		app.GetSecretVolumes(VaultSecretVolumeName, podSpec.VaultSecretName, true),
 		app.GetSecretVolumes("mysql-users-secret-file", "internal-"+cr.Name, false),
 	)
@@ -837,7 +837,7 @@ func (c *Node) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg ap
 	if cr.CompareVersionWith("1.11.0") >= 0 {
 		if cr.Spec.PXC != nil && cr.Spec.PXC.HookScript != "" {
 			vol.Volumes = append(vol.Volumes,
-				app.GetConfigVolumes("hookscript", config.HookScriptConfigMapName(cr.Name, "pxc")))
+				app.GetConfigVolumes("hookscript", config.HookScriptConfigMapName(cr.Name, naming.ComponentPXC)))
 		}
 
 		if cr.Spec.LogCollector != nil && cr.Spec.LogCollector.HookScript != "" {
@@ -858,7 +858,7 @@ func (c *Node) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg ap
 
 	if cr.CompareVersionWith("1.20.0") >= 0 {
 		vol.Volumes = append(vol.Volumes, corev1.Volume{
-			Name: app.BinVolumeName,
+			Name: naming.BinVolumeName,
 			VolumeSource: corev1.VolumeSource{
 				EmptyDir: &corev1.EmptyDirVolumeSource{},
 			},
@@ -911,7 +911,7 @@ func (c *Node) StatefulSet() *appsv1.StatefulSet {
 			Kind:       "StatefulSet",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      c.cr.Name + "-" + app.Name,
+			Name:      c.cr.Name + "-" + naming.ComponentPXC,
 			Namespace: c.cr.Namespace,
 		},
 	}
@@ -922,7 +922,7 @@ func (c *Node) Labels() map[string]string {
 }
 
 func (c *Node) Service() string {
-	return c.cr.Name + "-" + app.Name
+	return c.cr.Name + "-" + naming.ComponentPXC
 }
 
 func (c *Node) UpdateStrategy(cr *api.PerconaXtraDBCluster) appsv1.StatefulSetUpdateStrategy {

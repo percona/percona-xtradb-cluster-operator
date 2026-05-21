@@ -5,19 +5,18 @@ import (
 	"fmt"
 	"time"
 
-	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/queries"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-)
 
-const appName = "pxc"
+	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/queries"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
+)
 
 var NoProxyDetectedError = errors.New("can't detect enabled proxy, please enable HAProxy or ProxySQL")
 
@@ -53,7 +52,8 @@ func waitAndGetFirstReadyPodFQDN(ctx context.Context, cl client.Client, cr *api.
 func GetPrimaryPod(
 	ctx context.Context,
 	cl client.Client,
-	cr *api.PerconaXtraDBCluster) (string, error) {
+	cr *api.PerconaXtraDBCluster,
+) (string, error) {
 	conn, err := GetProxyConnection(cr, cl)
 	if errors.Is(err, NoProxyDetectedError) && cr.Spec.PXC.Size == 1 {
 		host, err := waitAndGetFirstReadyPodFQDN(ctx, cl, cr)
@@ -87,7 +87,8 @@ func GetPrimaryPod(
 func GetHostForSidecarBackup(
 	ctx context.Context,
 	cl client.Client,
-	cr *api.PerconaXtraDBCluster) (string, error) {
+	cr *api.PerconaXtraDBCluster,
+) (string, error) {
 	switch {
 	case cr.HAProxyEnabled():
 		return getNonPrimaryHAProxy(ctx, cl, cr)

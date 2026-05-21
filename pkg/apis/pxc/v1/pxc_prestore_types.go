@@ -37,11 +37,14 @@ const (
 // +kubebuilder:validation:XValidation:rule="self.type != 'date' || (has(self.date) && self.date.matches('^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01]) ([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$'))",message="Date is required for type 'date' and should be in format YYYY-MM-DD HH:MM:SS with valid ranges (MM: 01-12, DD: 01-31, HH: 00-23, MM/SS: 00-59)"
 // +kubebuilder:validation:XValidation:rule="(self.type != 'transaction' && self.type != 'skip') || (has(self.gtid) && size(self.gtid) > 0)",message="GTID is required for types 'transaction' and 'skip'"
 // +kubebuilder:validation:XValidation:rule="self.type != 'latest' || ((!has(self.date) || size(self.date) == 0) && (!has(self.gtid) || size(self.gtid) == 0))",message="Date and GTID should not be set when type is 'latest'"
+// +kubebuilder:validation:XValidation:rule="self.type != 'transaction' || self.gtid.matches('^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}:[1-9][0-9]*$')",message="GTID for type 'transaction' must be a single transaction identifier in the form 'UUID:N' (e.g. 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee:42')"
+// +kubebuilder:validation:XValidation:rule="self.type != 'skip' || self.gtid.matches('^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}:([a-zA-Z_][a-zA-Z0-9_]{0,31}:)?[1-9][0-9]*(-[1-9][0-9]*)?(:([a-zA-Z_][a-zA-Z0-9_]{0,31}:)?[1-9][0-9]*(-[1-9][0-9]*)?)*(,[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}:([a-zA-Z_][a-zA-Z0-9_]{0,31}:)?[1-9][0-9]*(-[1-9][0-9]*)?(:([a-zA-Z_][a-zA-Z0-9_]{0,31}:)?[1-9][0-9]*(-[1-9][0-9]*)?)*)*$')",message="GTID for type 'skip' must be a valid MySQL GTID set (e.g. 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee:1-10', 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee:Domain_1:1-10', or 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee:1,bbbbbbbb-bbbb-cccc-dddd-eeeeeeeeeeee:1-5')"
 type PITR struct {
 	BackupSource *PXCBackupStatus `json:"backupSource"`
 	// +kubebuilder:validation:Enum={latest,date,transaction,skip}
 	Type string `json:"type"`
 	Date string `json:"date"`
+	// +kubebuilder:validation:MaxLength=1024
 	GTID string `json:"gtid"`
 }
 

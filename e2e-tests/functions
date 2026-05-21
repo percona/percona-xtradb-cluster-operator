@@ -354,6 +354,9 @@ deploy_operator() {
 	desc 'start PXC operator'
 
 	kubectl_bin apply --server-side --force-conflicts -f ${src_dir}/deploy/crd.yaml || :
+	kubectl_bin wait --for=condition=Established --timeout=120s crd/perconaxtradbclusters.pxc.percona.com
+	kubectl_bin wait --for=condition=Established --timeout=120s crd/perconaxtradbclusterbackups.pxc.percona.com
+	kubectl_bin wait --for=condition=Established --timeout=120s crd/perconaxtradbclusterrestores.pxc.percona.com
 
 	if [ -n "$OPERATOR_NS" ]; then
 		apply_rbac cw-rbac

@@ -68,7 +68,7 @@ func main() {
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 	klog.SetLogger(ctrl.Log)
 
-	sv, err := version.Server()
+	sv, err := version.Server(context.Background())
 	if err != nil {
 		setupLog.Error(err, "unable to define server version")
 		os.Exit(1)
@@ -101,7 +101,8 @@ func main() {
 		os.Exit(1)
 	}
 	fgCtx := features.NewContextWithGate(context.Background(), fg)
-	setupLog.Info("Feature gates",
+	setupLog.Info(
+		"Feature gates",
 		// These are set by the user
 		"PXCO_FEATURE_GATES", features.ShowAssigned(fgCtx),
 		// These are enabled, including features that are on by default
@@ -176,13 +177,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	ctx := k8s.StartStopSignalHandler(mgr.GetClient(), strings.Split(namespace, ","))
 	// Setup all Controllers
-	if err := controller.AddToManager(mgr); err != nil {
+	if err := controller.AddToManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "")
 		os.Exit(1)
 	}
-
-	ctx := k8s.StartStopSignalHandler(mgr.GetClient(), strings.Split(namespace, ","))
 
 	if err := webhook.SetupWebhook(ctx, mgr); err != nil {
 		setupLog.Error(err, "set up validation webhook")
@@ -200,7 +200,7 @@ func main() {
 	}
 
 	err = mgr.GetFieldIndexer().IndexField(
-		context.Background(),
+		ctx,
 		&eventsv1.Event{},
 		"regarding.name",
 		func(rawObj client.Object) []string {

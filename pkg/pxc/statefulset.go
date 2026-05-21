@@ -51,7 +51,7 @@ func StatefulSet(
 		pod.ShareProcessNamespace = &t
 	}
 
-	sfsVolume, err := sfs.Volumes(podSpec, cr, vg)
+	sfsVolume, err := sfs.Volumes(ctx, podSpec, cr, vg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get volumes %v", err)
 	}

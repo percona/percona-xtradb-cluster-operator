@@ -434,7 +434,8 @@ func (r *ReconcilePerconaXtraDBCluster) mysqlVersion(ctx context.Context, cr *ap
 	}
 
 	list := corev1.PodList{}
-	if err := r.client.List(ctx,
+	if err := r.client.List(
+		ctx,
 		&list,
 		&client.ListOptions{
 			Namespace:     sfs.StatefulSet().Namespace,
@@ -456,7 +457,7 @@ func (r *ReconcilePerconaXtraDBCluster) mysqlVersion(ctx context.Context, cr *ap
 			continue
 		}
 
-		database, err := queries.New(r.client, cr.Namespace, secrets, users.Root, pod.Name+"."+cr.Name+"-pxc."+cr.Namespace, port, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
+		database, err := queries.New(ctx, r.client, cr.Namespace, secrets, users.Root, pod.Name+"."+cr.Name+"-pxc."+cr.Namespace, port, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
 		if err != nil {
 			log.Error(err, "failed to create db instance")
 			continue

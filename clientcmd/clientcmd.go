@@ -49,12 +49,12 @@ func NewClient() (*Client, error) {
 	}, nil
 }
 
-func (c *Client) PodLogs(namespace, podName string, opts *corev1.PodLogOptions) ([]string, error) {
+func (c *Client) PodLogs(ctx context.Context, namespace, podName string, opts *corev1.PodLogOptions) ([]string, error) {
 	var logArr []string
 	retryErr := retry.OnError(retry.DefaultRetry, func(err error) bool {
 		return true // Retry on all errors
 	}, func() error {
-		logs, err := c.client.Pods(namespace).GetLogs(podName, opts).Stream(context.TODO())
+		logs, err := c.client.Pods(namespace).GetLogs(podName, opts).Stream(ctx)
 		if err != nil {
 			return errors.Wrap(err, "get pod logs stream")
 		}
@@ -75,12 +75,12 @@ func (c *Client) PodLogs(namespace, podName string, opts *corev1.PodLogOptions) 
 	return logArr, nil
 }
 
-func (c *Client) IsPodRunning(namespace, podName string) (bool, error) {
+func (c *Client) IsPodRunning(ctx context.Context, namespace, podName string) (bool, error) {
 	var isRunning bool
 	retryErr := retry.OnError(retry.DefaultRetry, func(err error) bool {
 		return true // Retry on all errors
 	}, func() error {
-		pod, err := c.client.Pods(namespace).Get(context.TODO(), podName, metav1.GetOptions{})
+		pod, err := c.client.Pods(namespace).Get(ctx, podName, metav1.GetOptions{})
 		if err != nil {
 			return err
 		}

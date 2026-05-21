@@ -4,10 +4,6 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/apis"
-	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/version"
 	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -19,6 +15,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/apis"
+	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/version"
 )
 
 func TestRotateSSLCertificate(t *testing.T) {
@@ -130,7 +131,7 @@ func TestRotateSSLCertificate(t *testing.T) {
 
 func ensureSSLReconciled(t *testing.T, r *ReconcilePerconaXtraDBCluster, cr *api.PerconaXtraDBCluster, secretName string) {
 	sfs := statefulset.NewNode(cr).StatefulSet()
-	hash, err := r.getSecretHash(cr, secretName, false)
+	hash, err := r.getSecretHash(t.Context(), cr, secretName, false)
 	require.NoError(t, err)
 
 	currentSfs := &appsv1.StatefulSet{}

@@ -254,7 +254,6 @@ func (c *Node) AppContainer(ctx context.Context, cl client.Client, spec *api.Pod
 		if cr.Spec.ProxySQLEnabled() {
 			plugin = "mysql_native_password"
 		}
-
 	}
 	appc.Env = append(appc.Env, corev1.EnvVar{
 		Name:  "DEFAULT_AUTHENTICATION_PLUGIN",
@@ -363,7 +362,8 @@ func setLDPreloadEnv(
 	envVarsSecret := &corev1.Secret{}
 	err := cl.Get(ctx, types.NamespacedName{
 		Name:      cr.Spec.PXC.EnvVarsSecretName,
-		Namespace: cr.Namespace}, envVarsSecret)
+		Namespace: cr.Namespace,
+	}, envVarsSecret)
 	if client.IgnoreNotFound(err) == nil {
 		// Env vars are set via secret. Check if LD_PRELOAD is set.
 		if val, ok := envVarsSecret.Data[ldPreloadKey]; ok {
@@ -805,10 +805,10 @@ func pmm3PXCNodeEnvVars(PmmPxcParams string) []corev1.EnvVar {
 	}
 }
 
-func (c *Node) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg api.CustomVolumeGetter) (*api.Volume, error) {
+func (c *Node) Volumes(ctx context.Context, podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg api.CustomVolumeGetter) (*api.Volume, error) {
 	vol := app.Volumes(podSpec, app.DataVolumeName)
 
-	configVolume, err := vg(cr.Namespace, "config", config.CustomConfigMapName(cr.Name, "pxc"), true)
+	configVolume, err := vg(ctx, cr.Namespace, "config", config.CustomConfigMapName(cr.Name, "pxc"), true)
 	if err != nil {
 		return nil, err
 	}

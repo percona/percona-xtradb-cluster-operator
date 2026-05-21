@@ -18,8 +18,6 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 )
 
-const appName = "pxc"
-
 var NoProxyDetectedError = errors.New("can't detect enabled proxy, please enable HAProxy or ProxySQL")
 
 // waitAndGetFirstReadyPodFQDN waits for all pods to be ready and returns the FQDN of the first ready pod

@@ -212,6 +212,7 @@ func getS3Options(
 		VerifyTLS:             verify,
 		CABundle:              caBundle,
 		ForcePathStyle:        s3.ForcePathStyle,
+		ChecksumAlgorithm:     s3.ChecksumAlgorithm,
 		SkipBucketExistsCheck: s3.SkipBucketExistsCheck,
 	}, nil
 }
@@ -280,6 +281,7 @@ func getS3OptionsFromBackup(ctx context.Context, cl client.Client, cluster *api.
 		VerifyTLS:             verifyTLS,
 		CABundle:              caBundle,
 		ForcePathStyle:        backup.Status.S3.ForcePathStyle,
+		ChecksumAlgorithm:     backup.Status.S3.ChecksumAlgorithm,
 		SkipBucketExistsCheck: backup.Status.S3.SkipBucketExistsCheck,
 	}, nil
 }
@@ -297,6 +299,7 @@ type S3Options struct {
 	VerifyTLS             bool
 	CABundle              []byte
 	ForcePathStyle        bool
+	ChecksumAlgorithm     api.S3ChecksumAlgorithmType
 	SkipBucketExistsCheck bool
 }
 

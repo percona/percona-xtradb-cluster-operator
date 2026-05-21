@@ -23,6 +23,7 @@ spec:
   completions: 1
   manualSelector: true
   parallelism: 1
+  podReplacementPolicy: TerminatingOrFailed
   selector:
     matchLabels:
       app.kubernetes.io/instance: demand-backup

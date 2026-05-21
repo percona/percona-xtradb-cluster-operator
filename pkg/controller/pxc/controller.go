@@ -87,13 +87,26 @@ func newReconciler(ctx context.Context, mgr manager.Manager) (reconcile.Reconcil
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(ctx context.Context, mgr manager.Manager, r reconcile.Reconciler) error {
 	if err := setupSecretNameFieldIndexer(ctx, mgr); err != nil {
-		return errors.Wrap(err, "setup field indexers")
+		return errors.Wrap(err, "setup secret-name field indexer")
+	}
+	if err := setupPXCBackupToClusterIndexer(ctx, mgr); err != nil {
+		return errors.Wrap(err, "setup backup-to-cluster field indexer")
 	}
 	return builder.ControllerManagedBy(mgr).
 		Named(naming.OperatorController).
 		For(&api.PerconaXtraDBCluster{}).
 		Watches(&corev1.Secret{}, enqueuePXCReferencingSecret(mgr.GetClient())).
 		Complete(r)
+}
+
+func setupPXCBackupToClusterIndexer(ctx context.Context, mgr manager.Manager) error {
+	return mgr.GetFieldIndexer().IndexField(ctx, &api.PerconaXtraDBClusterBackup{}, backup.PXCClusterBackupField, func(o client.Object) []string {
+		bcp, ok := o.(*api.PerconaXtraDBClusterBackup)
+		if !ok {
+			return nil
+		}
+		return []string{bcp.Spec.PXCCluster}
+	})
 }
 
 func setupSecretNameFieldIndexer(ctx context.Context, mgr manager.Manager) error {
@@ -145,7 +158,7 @@ type ReconcilePerconaXtraDBCluster struct {
 	client         client.Client
 	scheme         *runtime.Scheme
 	crons          CronRegistry
-	clientcmd      *clientcmd.Client
+	clientcmd      clientcmd.Client
 	syncUsersState int32
 	serverVersion  *version.ServerVersion
 	lockers        lockStore
@@ -353,6 +366,10 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 		if err != nil {
 			log.Info("failed to ensure version, running with default", "error", err)
 		}
+	}
+	err = r.reconcileStorageAutoscaling(ctx, o)
+	if err != nil {
+		return reconcile.Result{}, errors.Wrap(err, "reconcile storage autoscaling")
 	}
 	err = r.reconcilePersistentVolumes(ctx, o)
 	if errors.Is(err, ErrStatefulsetRecreated) {

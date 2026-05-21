@@ -3,14 +3,16 @@ package statefulset
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/test"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/version"
-	"github.com/stretchr/testify/assert"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestAppContainer_ProxySQL(t *testing.T) {
@@ -229,7 +231,7 @@ func defaultExpectedProxySQLContainer() corev1.Container {
 			{Name: proxyDataVolumeName, MountPath: "/var/lib/proxysql"},
 			{Name: "ssl", MountPath: "/etc/proxysql/ssl"},
 			{Name: "ssl-internal", MountPath: "/etc/proxysql/ssl-internal"},
-			{Name: app.BinVolumeName, MountPath: app.BinVolumeMountPath},
+			{Name: naming.BinVolumeName, MountPath: naming.BinVolumeMountPath},
 		},
 		Env: []corev1.EnvVar{
 			{Name: "PXC_SERVICE", Value: "test-cluster-pxc"},

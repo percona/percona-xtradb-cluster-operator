@@ -11,8 +11,14 @@ metadata:
 #    percona.com/issue-vault-token: "true"
 spec:
   crVersion: 1.20.0
-#  enableVolumeExpansion: false
-#  enableExternalAutoscaling: false
+#  storageScaling:
+#    enableVolumeScaling: false
+#    enableExternalAutoscaling: false
+#    autoscaling:
+#      enabled: false
+#      triggerThresholdPercent: 80
+#      growthStep: 2Gi
+#      maxSize: 10Gi
 #  ignoreAnnotations:
 #    - iam.amazonaws.com/role
 #  ignoreLabels:
@@ -736,6 +742,8 @@ spec:
           credentialsSecret: my-cluster-name-backup-s3
           region: us-west-2
 #          forcePathStyle: true
+#          prefix: prefix
+#          checksumAlgorithm: SHA256
 #          caBundle:
 #           name: s3-ca-bundle-secret
 #           key: ca.crt

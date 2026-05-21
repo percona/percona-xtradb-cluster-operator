@@ -158,7 +158,7 @@ type ReconcilePerconaXtraDBCluster struct {
 	client         client.Client
 	scheme         *runtime.Scheme
 	crons          CronRegistry
-	clientcmd      *clientcmd.Client
+	clientcmd      clientcmd.Client
 	syncUsersState int32
 	serverVersion  *version.ServerVersion
 	lockers        lockStore
@@ -366,6 +366,10 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 		if err != nil {
 			log.Info("failed to ensure version, running with default", "error", err)
 		}
+	}
+	err = r.reconcileStorageAutoscaling(ctx, o)
+	if err != nil {
+		return reconcile.Result{}, errors.Wrap(err, "reconcile storage autoscaling")
 	}
 	err = r.reconcilePersistentVolumes(ctx, o)
 	if err != nil {
@@ -619,7 +623,8 @@ func (r *ReconcilePerconaXtraDBCluster) deletePXCPods(ctx context.Context, cr *a
 func (r *ReconcilePerconaXtraDBCluster) deleteStatefulSetPods(namespace string, sfs api.StatefulApp) error {
 	list := corev1.PodList{}
 
-	err := r.client.List(context.TODO(),
+	err := r.client.List(
+		context.TODO(),
 		&list,
 		&client.ListOptions{
 			Namespace:     namespace,
@@ -718,7 +723,8 @@ func (r *ReconcilePerconaXtraDBCluster) deleteServices(svcs ...*corev1.Service) 
 
 func (r *ReconcilePerconaXtraDBCluster) deletePVC(namespace string, lbls map[string]string) error {
 	list := corev1.PersistentVolumeClaimList{}
-	err := r.client.List(context.TODO(),
+	err := r.client.List(
+		context.TODO(),
 		&list,
 		&client.ListOptions{
 			Namespace:     namespace,
@@ -913,7 +919,8 @@ func (r *ReconcilePerconaXtraDBCluster) createOrUpdate(ctx context.Context, obj 
 			obj.SetResourceVersion(oldObject.GetResourceVersion())
 		}
 
-		log.V(1).Info("Updating object",
+		log.V(1).Info(
+			"Updating object",
 			"object", obj.GetName(),
 			"kind", obj.GetObjectKind(),
 			"hashChanged", oldObject.GetAnnotations()["percona.com/last-config-hash"] != hash,

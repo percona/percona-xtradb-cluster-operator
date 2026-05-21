@@ -10,8 +10,8 @@ import (
 	"k8s.io/utils/ptr"
 
 	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 )
 
@@ -26,7 +26,7 @@ func JobSpec(
 	var volumes []corev1.Volume
 	volumes = append(volumes,
 		corev1.Volume{
-			Name: app.BinVolumeName,
+			Name: naming.BinVolumeName,
 			VolumeSource: corev1.VolumeSource{
 				EmptyDir: &corev1.EmptyDirVolumeSource{},
 			},
@@ -35,8 +35,8 @@ func JobSpec(
 
 	volumeMounts = append(volumeMounts,
 		corev1.VolumeMount{
-			Name:      app.BinVolumeName,
-			MountPath: app.BinVolumeMountPath,
+			Name:      naming.BinVolumeName,
+			MountPath: naming.BinVolumeMountPath,
 		},
 	)
 	spec := backup.Spec

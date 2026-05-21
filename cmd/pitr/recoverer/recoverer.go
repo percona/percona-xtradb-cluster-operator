@@ -15,12 +15,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/percona/percona-xtradb-cluster-operator/cmd/pitr/pxc"
+	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage"
 	xbserver "github.com/percona/percona-xtradb-cluster-operator/pkg/xtrabackup/server"
-
-	"github.com/pkg/errors"
 )
 
 type Recoverer struct {
@@ -71,7 +72,21 @@ func (c Config) storages(ctx context.Context) (storage.Storage, storage.Storage,
 			return nil, nil, errors.Wrap(err, "read CA bundle file")
 		}
 
-		binlogStorage, err = storage.NewS3(ctx, c.BinlogStorageS3.Endpoint, c.BinlogStorageS3.AccessKeyID, c.BinlogStorageS3.AccessKey, c.BinlogStorageS3.SessionToken, bucket, prefix, c.BinlogStorageS3.Region, c.VerifyTLS, caBundle, c.BinlogStorageS3.ForcePath, c.BinlogStorageS3.SkipBucketExistsCheck)
+		binlogOpts := storage.S3Options{
+			Endpoint:              c.BinlogStorageS3.Endpoint,
+			AccessKeyID:           c.BinlogStorageS3.AccessKeyID,
+			SecretAccessKey:       c.BinlogStorageS3.AccessKey,
+			SessionToken:          c.BinlogStorageS3.SessionToken,
+			BucketName:            bucket,
+			Prefix:                prefix,
+			Region:                c.BinlogStorageS3.Region,
+			VerifyTLS:             c.VerifyTLS,
+			CABundle:              caBundle,
+			ForcePathStyle:        c.BinlogStorageS3.ForcePath,
+			ChecksumAlgorithm:     api.S3ChecksumAlgorithmType(c.BinlogStorageS3.ChecksumAlgorithm),
+			SkipBucketExistsCheck: c.BinlogStorageS3.SkipBucketExistsCheck,
+		}
+		binlogStorage, err = storage.NewS3(ctx, binlogOpts)
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "new s3 storage")
 		}
@@ -80,7 +95,21 @@ func (c Config) storages(ctx context.Context) (storage.Storage, storage.Storage,
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "get bucket and prefix")
 		}
-		defaultStorage, err = storage.NewS3(ctx, c.BackupStorageS3.Endpoint, c.BackupStorageS3.AccessKeyID, c.BackupStorageS3.AccessKey, c.BackupStorageS3.SessionToken, bucket, prefix, c.BackupStorageS3.Region, c.VerifyTLS, caBundle, c.BackupStorageS3.ForcePath, c.BackupStorageS3.SkipBucketExistsCheck)
+		defaultStorageOpts := storage.S3Options{
+			Endpoint:              c.BackupStorageS3.Endpoint,
+			AccessKeyID:           c.BackupStorageS3.AccessKeyID,
+			SecretAccessKey:       c.BackupStorageS3.AccessKey,
+			SessionToken:          c.BackupStorageS3.SessionToken,
+			BucketName:            bucket,
+			Prefix:                prefix,
+			Region:                c.BackupStorageS3.Region,
+			VerifyTLS:             c.VerifyTLS,
+			CABundle:              caBundle,
+			ForcePathStyle:        c.BackupStorageS3.ForcePath,
+			ChecksumAlgorithm:     api.S3ChecksumAlgorithmType(c.BackupStorageS3.ChecksumAlgorithm),
+			SkipBucketExistsCheck: c.BackupStorageS3.SkipBucketExistsCheck,
+		}
+		defaultStorage, err = storage.NewS3(ctx, defaultStorageOpts)
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "new storage manager")
 		}
@@ -109,6 +138,7 @@ type BackupS3 struct {
 	Region                string `env:"DEFAULT_REGION,required"`
 	BackupDest            string `env:"S3_BUCKET_URL,required"`
 	ForcePath             bool   `env:"S3_FORCE_PATH"`
+	ChecksumAlgorithm     string `env:"S3_CHECKSUM_ALGORITHM"`
 	SkipBucketExistsCheck bool   `env:"S3_SKIP_BUCKET_EXISTS_CHECK"`
 }
 
@@ -131,6 +161,7 @@ type BinlogS3 struct {
 	Region                string `env:"BINLOG_S3_REGION,required"`
 	BucketURL             string `env:"BINLOG_S3_BUCKET_URL,required"`
 	ForcePath             bool   `env:"BINLOG_S3_FORCE_PATH"`
+	ChecksumAlgorithm     string `env:"BINLOG_S3_CHECKSUM_ALGORITHM"`
 	SkipBucketExistsCheck bool   `env:"BINLOG_S3_SKIP_BUCKET_EXISTS_CHECK"`
 }
 
@@ -232,7 +263,8 @@ func validateTransactionGTID(targetGTID, startGTID string) error {
 		if targetSeq < hiInt {
 			return errors.Errorf(
 				"target GTID %s is already inside the backup (segment %s); can't recover to a transaction before backup",
-				targetGTID, seg)
+				targetGTID, seg,
+			)
 		}
 	}
 
@@ -647,7 +679,8 @@ func getBackupTimelineUUID(ctx context.Context, s storage.Storage) (string, erro
 	return "", errors.New(
 		"no Galera state info in backup (none of sst_info, .meta.json); " +
 			"PITR cannot determine timeline identity — backup may have been produced by an " +
-			"older sidecar that did not capture wsrep_cluster_state_uuid")
+			"older sidecar that did not capture wsrep_cluster_state_uuid",
+	)
 }
 
 func readUUIDFromSSTInfo(ctx context.Context, s storage.Storage) (string, error) {

@@ -70,8 +70,8 @@ func (s *s3) Validate(ctx context.Context) error {
 		return errors.Wrap(err, "failed to create s3 client")
 	}
 
-	backupName := s.bcp.Status.Destination.BackupName() + "/"
-	objs, err := s3cli.ListObjects(ctx, backupName)
+	backupPath := backupListPath(s3cli.GetPrefix(), s.bcp.Status.Destination)
+	objs, err := s3cli.ListObjects(ctx, backupPath)
 	if err != nil {
 		return errors.Wrap(err, "failed to list objects")
 	}
@@ -227,8 +227,8 @@ func (s *azure) Validate(ctx context.Context) error {
 		return errors.Wrap(err, "failed to create s3 client")
 	}
 
-	backupName := s.bcp.Status.Destination.BackupName() + "/"
-	blobs, err := azurecli.ListObjects(ctx, backupName)
+	backupPath := backupListPath(azurecli.GetPrefix(), s.bcp.Status.Destination)
+	blobs, err := azurecli.ListObjects(ctx, backupPath)
 	if err != nil {
 		return errors.Wrap(err, "list blobs")
 	}
@@ -241,6 +241,15 @@ func (s *azure) Validate(ctx context.Context) error {
 		return errors.Wrap(err, "invalid pitr target")
 	}
 	return nil
+}
+
+func backupListPath(storagePrefix string, destination api.PXCBackupDestination) string {
+	backupPath := destination.PathWithoutBucket()
+	storagePrefix = strings.TrimSuffix(storagePrefix, "/")
+	if storagePrefix != "" {
+		backupPath = strings.TrimPrefix(backupPath, storagePrefix+"/")
+	}
+	return strings.TrimSuffix(backupPath, "/") + "/"
 }
 
 func (r *ReconcilePerconaXtraDBClusterRestore) getRestorer(

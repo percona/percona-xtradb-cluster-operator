@@ -53,7 +53,7 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePxcPodServices(ctx context.Context
 	}
 
 	for i := 0; i < int(cr.Spec.PXC.Size); i++ {
-		svcName := fmt.Sprintf("%s-pxc-%d", cr.Name, i)
+		svcName := fmt.Sprintf("%s-%s-%d", cr.Name, naming.ComponentPXC, i)
 		svc := NewExposedPXCService(svcName, cr)
 
 		err = r.createOrUpdateService(ctx, cr, svc, len(cr.Spec.PXC.Expose.Annotations) == 0)
@@ -70,7 +70,7 @@ func (r *ReconcilePerconaXtraDBCluster) removeOutdatedServices(cr *api.PerconaXt
 
 	svcNames := make(map[string]struct{}, cr.Spec.PXC.Size)
 	for i := 0; i < int(cr.Spec.PXC.Size); i++ {
-		svcNames[fmt.Sprintf("%s-pxc-%d", cr.Name, i)] = struct{}{}
+		svcNames[fmt.Sprintf("%s-%s-%d", cr.Name, naming.ComponentPXC, i)] = struct{}{}
 	}
 
 	svcList := &corev1.ServiceList{}

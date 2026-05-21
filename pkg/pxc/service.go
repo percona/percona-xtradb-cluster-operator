@@ -22,7 +22,7 @@ func NewServicePXC(cr *api.PerconaXtraDBCluster) *corev1.Service {
 			Kind:       "Service",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-" + appName,
+			Name:      cr.Name + "-" + naming.ComponentPXC,
 			Namespace: cr.Namespace,
 			Labels:    naming.LabelsPXC(cr),
 		},
@@ -77,7 +77,7 @@ func NewServicePXCUnready(cr *api.PerconaXtraDBCluster) *corev1.Service {
 			Kind:       "Service",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-" + appName + "-unready",
+			Name:      cr.Name + "-" + naming.ComponentPXC + "-unready",
 			Namespace: cr.Namespace,
 			Annotations: map[string]string{
 				"service.alpha.kubernetes.io/tolerate-unready-endpoints": "true",

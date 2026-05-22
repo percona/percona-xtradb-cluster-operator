@@ -836,12 +836,38 @@ destroy() {
 	#TODO: maybe will be enabled later
 	#diff $test_dir/compare/operator.log $tmp_dir/operator.log
 
-	kubectl get pxc --all-namespaces -o wide \
-		| grep -v 'NAMESPACE' \
-		| xargs -L 1 sh -xc 'kubectl patch pxc -n $0 $1 --type=merge -p "{\"metadata\":{\"finalizers\":[]}}"' \
-		|| :
+	local backup_names
+	backup_names=$(kubectl_bin get pxc-backup --all-namespaces \
+		-o jsonpath='{range .items[*]}{.metadata.namespace}/{.metadata.name}{"\n"}{end}' 2>/dev/null || true)
+	if [[ -n "$backup_names" ]]; then
+		kubectl_bin delete pxc-backup --all --all-namespaces || :
+		local deadline=$(( $(date +%s) + 300 ))
+		until [[ -z "$(kubectl_bin get pxc-backup --all-namespaces --ignore-not-found 2>/dev/null)" ]]; do
+			if [[ $(date +%s) -ge $deadline ]]; then
+				echo "Timeout waiting for pxc-backup deletion — stripping finalizers"
+				kubectl get pxc-backup --all-namespaces \
+					-o jsonpath='{range .items[*]}{.metadata.namespace} {.metadata.name}{"\n"}{end}' 2>/dev/null \
+					| while read ns name; do
+						kubectl patch pxc-backup -n "$ns" "$name" \
+							--type=merge -p '{"metadata":{"finalizers":[]}}' || :
+					done
+				break
+			fi
+			sleep 5
+		done
+	fi
+
+	kubectl get pxc --all-namespaces \
+		-o jsonpath='{range .items[*]}{.metadata.namespace} {.metadata.name}{"\n"}{end}' 2>/dev/null \
+		| while read ns name; do
+			kubectl patch pxc -n "$ns" "$name" \
+				--type=json \
+				-p '[{"op":"remove","path":"/metadata/finalizers"}]' 2>/dev/null || \
+			kubectl patch pxc -n "$ns" "$name" \
+				--type=merge \
+				-p '{"metadata":{"finalizers":[]}}' 2>/dev/null || :
+		done
 	kubectl_bin delete pxc --all --all-namespaces || :
-	kubectl_bin delete pxc-backup --all --all-namespaces || :
 	kubectl_bin delete pxc-restore --all --all-namespaces || :
 	kubectl_bin delete ValidatingWebhookConfiguration percona-xtradbcluster-webhook || :
 
@@ -1252,6 +1278,203 @@ run_backup() {
 	wait_backup ${backup}
 }
 
+get_container_options() {
+	local backup_name=$1
+	local cluster_name=$2
+
+	local backup_options
+	backup_options=$(kubectl_bin get pxc-backup "$backup_name" -o jsonpath='{.spec.containerOptions}')
+	if [[ -n $backup_options ]]; then
+		echo "$backup_options"
+		return
+	fi
+
+	local storage_name
+	storage_name=$(kubectl_bin get pxc-backup "$backup_name" -o jsonpath='{.spec.storageName}')
+	local storage_options
+	storage_options=$(kubectl_bin get pxc "$cluster_name" -o jsonpath="{.spec.backup.storages.$storage_name.containerOptions}")
+	if [[ -n $storage_options ]]; then
+		echo "$storage_options"
+		return
+	fi
+}
+
+check_backup_container_options() {
+	local backup_name=$1
+	local cluster_name=$2
+	local backup_job="xb-${backup_name}"
+
+	local xbcloud_args
+	xbcloud_args=$(kubectl_bin get job "${backup_job}" -o json \
+		| jq -r '.spec.template.spec.containers[]
+			| select(.name == "xtrabackup")
+			| .env[]?
+			| select(.name == "XBCLOUD_EXTRA_ARGS")
+			| .value')
+	if ! echo "${xbcloud_args}" | grep -E -- '--parallel=2'; then
+		echo "xbcloud container options were not applied for backup ${backup_name}"
+		exit 1
+	fi
+
+	local xtrabackup_args
+	xtrabackup_args=$(kubectl_bin get job "${backup_job}" -o json \
+		| jq -r '.spec.template.spec.containers[]
+			| select(.name == "xtrabackup")
+			| .env[]?
+			| select(.name == "XB_EXTRA_ARGS")
+			| .value')
+	if ! echo "${xtrabackup_args}" | grep -E -- '--parallel=4'; then
+		echo "xtrabackup container options were not applied for backup ${backup_name}"
+		exit 1
+	fi
+
+	local xbstream_args
+	xbstream_args=$(kubectl_bin get job "${backup_job}" -o json \
+		| jq -r '.spec.template.spec.containers[]
+			| select(.name == "xtrabackup")
+			| .env[]?
+			| select(.name == "XBSTREAM_EXTRA_ARGS")
+			| .value')
+	if ! echo "${xbstream_args}" | grep -E -- '--parallel=3'; then
+		echo "xbstream container options were not applied for backup ${backup_name}"
+		exit 1
+	fi
+
+	local pxc_pod="${cluster_name}-pxc-0"
+	if ! kubectl_bin logs "${pxc_pod}" -c xtrabackup | grep -E 'xtrabackupCmd.*--parallel=4'; then
+		echo "xtrabackup container options were not reflected in ${pxc_pod} logs for backup ${backup_name}"
+		exit 1
+	fi
+	if ! kubectl_bin logs "${pxc_pod}" -c xtrabackup | grep -E 'xbcloudCmd.*--parallel=2'; then
+		echo "xbcloud container options were not reflected in ${pxc_pod} logs for backup ${backup_name}"
+		exit 1
+	fi
+}
+
+run_recovery_from_source() {
+	local storage_type=${1:-s3}
+	local backup_name=${2:-on-demand-backup-aws-s3}
+	local remove_bucket_or_container_name=${3:-""}
+	local remove_prefix_from_destination=${4:-""}
+
+	local remove_options=""
+	if [ -n "$remove_bucket_or_container_name" ]; then
+		remove_options=", .$storage_type.bucket, .$storage_type.container"
+	fi
+
+	local remove_prefix='test'
+	if [ -n "${remove_prefix_from_destination}" -a -z "${remove_bucket_or_container_name}" ]; then
+		remove_prefix="$storage_type"
+	fi
+
+	desc "$storage_type restore with backup source"
+	local restore_name="on-demand-backup-$storage_type"
+
+	local restore_json
+	restore_json=$(jq ".metadata.name=\"$restore_name\"" "$test_dir/conf/restore-from-source-backup.json")
+
+	local container_options
+	container_options=$(get_container_options "$backup_name" "$cluster")
+	if [[ -n $container_options ]]; then
+		restore_json=$(echo "$restore_json" | jq ".spec.containerOptions=$container_options")
+	fi
+
+	local backup_source_json
+	backup_source_json=$(kubectl_bin get pxc-backup "$backup_name" -o json \
+		| jq -c '.status | {'"$storage_type"', destination} | del(.'"$storage_type"'.endpointUrl, .'"$storage_type"'.storageClass '"$remove_options"')' \
+		| $sed "s|$remove_prefix://||")
+	echo "$restore_json" \
+		| jq ".spec.backupSource=$backup_source_json" \
+		| kubectl_bin apply -f -
+
+	sleep 30
+	wait_for_running "$cluster-proxysql" 1
+	wait_for_running "$cluster-pxc" 3
+	sleep 30
+	desc 'check data after backup from source'
+	compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
+	compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-1.$cluster-pxc -uroot -proot_password"
+	compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-2.$cluster-pxc -uroot -proot_password"
+}
+
+wait_for_upload_to_start() {
+	local pod_name=$1
+	local max_attempts=100
+
+	local attempts=0
+	until kubectl_bin logs ${pod_name} -c xtrabackup | grep -q 'successfully uploaded chunk'; do
+		sleep 1
+		let attempts+=1
+		if [ $attempts -ge $max_attempts ]; then
+			echo "Upload did not start on time"
+			exit 1
+		fi
+	done
+
+	return 0
+}
+
+delete_backup_pod() {
+	local backup_name=$1
+	desc "Delete ${backup_name} pod during backup"
+
+	local cluster_name
+	cluster_name=$(kubectl_bin get pxc-backup ${backup_name} -o jsonpath='{.spec.pxcCluster}')
+	if [[ -z $cluster_name ]]; then
+		echo "Cluster name is not set on backup ${backup_name}"
+		exit 1
+	fi
+
+	sleep 2
+	local backup_pod
+	backup_pod=$(kubectl_bin get pods --selector=percona.com/backup-job-name=xb-${backup_name} -o jsonpath='{.items[].metadata.name}')
+	echo "Waiting for pod/${backup_pod} to become Running"
+	kubectl_bin wait --for=jsonpath='{.status.phase}'=Running pod/${backup_pod} --timeout=120s
+
+	local pxc_pod="${cluster_name}-pxc-0"
+
+	echo "Waiting for upload to start"
+	wait_for_upload_to_start ${pxc_pod}
+	kubectl delete pod --force ${backup_pod}
+}
+
+check_cloud_storage_cleanup() {
+	local backup_name=$1
+
+	desc "Check storage cleanup of ${backup_name}"
+	if [[ $(kubectl_bin get events --field-selector involvedObject.kind=Job,involvedObject.name=xb-${backup_name} | grep -c "Created pod") == '1' ]]; then
+		echo "There should be 2+ pods started by job. First backup finished too quick"
+		exit 1
+	fi
+
+	local cluster_name
+	cluster_name=$(kubectl_bin get pxc-backup ${backup_name} -o jsonpath='{.spec.pxcCluster}')
+	if [[ -z $cluster_name ]]; then
+		echo "Cluster name is not set on backup ${backup_name}"
+		exit 1
+	fi
+
+	local pxc_pod="${cluster_name}-pxc-0"
+	if kubectl_bin logs ${pxc_pod} -c xtrabackup | grep 'Deleting Backup'; then
+		echo "Cleanup was performed."
+	else
+		echo "Something went wrong. Delete was not performed."
+		kubectl_bin logs ${pxc_pod} -c xtrabackup
+		exit 1
+	fi
+}
+
+run_backup_with_delete() {
+	local backup_name=$1
+
+	desc "make backup ${backup_name}"
+	kubectl_bin apply \
+		-f $test_dir/conf/${backup_name}.yml
+	delete_backup_pod ${backup_name}
+	wait_backup "${backup_name}"
+	check_cloud_storage_cleanup "${backup_name}"
+}
+
 run_recovery_check() {
 	local cluster=$1
 	local backup=$2
@@ -1391,7 +1614,7 @@ EOF
 		--from-file=vault.ca=${tmp_dir}/vault.ca
 }
 
-start_vault() {
+prepare_vault() {
 	name=${1:-vault-service}
 	protocol=${2:-http}
 
@@ -1497,10 +1720,34 @@ storage \"file\" {
 		$sed -i "/#vault_ca/d" "${tmp_dir}/vault-secret.yaml"
 		$sed -i "s/#84_vault_ca//g" "${tmp_dir}/vault-secret.yaml"
 	fi
+}
 
+activate_vault() {
+	local name=${1:-vault-service}
 	kubectl_bin apply --namespace="$namespace" -f ${tmp_dir}/vault-secret.yaml
-
 	kubectl_bin config set-context "$(kubectl_bin config current-context)" --namespace="$namespace"
+}
+
+start_vault() {
+	prepare_vault "$@"
+	activate_vault "${1:-vault-service}"
+}
+
+jq_filter() {
+	local vault_root=$1
+	jq -r "[ .[] | .=\"'$vault_root/\"+.+\"'\" ] | join(\", \")"
+}
+
+get_secret_mount_point() {
+	if [[ $IMAGE_PXC =~ 8\.4 ]]; then
+		kubectl_bin get -f ${conf_dir}/vault-secret-84.yaml -o yaml \
+			| yq '.data."keyring_vault.conf"' | base64 -d \
+			| jq -r .secret_mount_point
+	else
+		kubectl_bin get -f "${conf_dir}/vault-secret.yaml" -o json \
+			| grep -E -o "secret_mount_point = \w+" \
+			| awk -F "=[ ]*" '{print $2}'
+	fi
 }
 
 start_minio() {
@@ -2256,6 +2503,120 @@ get_pmm_server_token() {
 	echo "$token_json_response" | jq -r '.key'
 }
 
+write_data_for_pitr() {
+	local cluster=$1
+	local start=$2
+	local rows=$3
+
+	local proxy
+	proxy=$(get_proxy "$cluster")
+
+	local sql=""
+	for ((i = 0; i < rows; i++)); do
+		sql+="INSERT test.test (id) VALUES ($((start + i)));"
+	done
+
+	log "inserting ${rows} rows for pitr check"
+	run_mysql "${sql}" "-h ${proxy} -uroot -proot_password"
+}
+
+check_latest_restorable_time() {
+	local backup=$1
+
+	desc 'check latest restorable time'
+	local latest_restorable_time
+	latest_restorable_time=$(kubectl_bin get pxc-backup ${backup} -o jsonpath='{.status.latestRestorableTime}')
+	if [[ ${latest_restorable_time} =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T ]]; then
+		log "Latest restorable time is ${latest_restorable_time}"
+	else
+		log "Latest restorable time is not set"
+		exit 1
+	fi
+}
+
+check_binlog_collection() {
+	local timeout=60
+	local binlogs_exist=0
+
+	for i in $(seq 1 5); do
+		log "Checking if binlogs exist in bucket (attempt $i)..."
+		binlogs_exist=$(
+			kubectl_bin run -n "${NAMESPACE}" -i --rm aws-cli --image=perconalab/awscli --restart=Never -- \
+				/usr/bin/env AWS_ACCESS_KEY_ID=some-access-key AWS_SECRET_ACCESS_KEY=some-secret-key AWS_DEFAULT_REGION=us-east-1 \
+				/usr/bin/aws --endpoint-url https://minio-service:9000 --no-verify-ssl s3 ls operator-testing/binlogs/ | grep -c "binlog" | cat
+			exit "${PIPESTATUS[0]}"
+		)
+		if [ "$binlogs_exist" -gt 0 ]; then
+			log "${binlogs_exist} binlogs found in bucket"
+			break
+		else
+			local d=$((timeout * i))
+			log "No binlogs found in bucket."
+			sleep_with_log ${d}
+		fi
+	done
+
+	if [ "$binlogs_exist" -eq 0 ]; then
+		log "Binlogs are not found in S3"
+		exit 1
+	fi
+
+	desc "binlogs are collected: OK"
+}
+
+check_binlog_gap() {
+	local backup=$1
+
+	if [[ $(kubectl get pxc-backup ${backup} -o jsonpath='{.status.conditions}' | grep -c 'Binlog with GTID set') -eq 1 ]]; then
+		log "Binlog gap detected after pxc-backup/${backup}"
+		exit 1
+	fi
+
+	desc "no binlog gap after pxc-backup/${backup}: OK"
+}
+
+get_gtid_executed() {
+	local GTID_PATTERN='[A-F0-9a-f]{8}-[A-F0-9a-f]{4}-[A-F0-9a-f]{4}-[A-F0-9a-f]{4}-[A-F0-9a-f]{12}:[0-9]+'
+	local host=$1
+
+	local gtid
+	gtid=$(run_mysql "SELECT @@gtid_executed;" "-h ${host} -uroot -p${mysql_root_pass}" | $sed 's/\([a-f0-9-]\{36\}\):[0-9]*-\([0-9]*\).*/\1:\2/')
+
+	if [[ ! ${gtid} =~ ${GTID_PATTERN} ]]; then
+		printf "Some garbage --> %s <-- instead of legit GTID. Exiting" ${gtid}
+		exit 1
+	fi
+
+	echo ${gtid}
+}
+
+create_random_pass() {
+	local cluster="$1"
+	local root xtrabackup_pw monitor_pw proxyadmin_pw pmmserver_pw operator_pw replication_pw
+
+	root=$(openssl rand -hex 16)
+	xtrabackup_pw=$(openssl rand -hex 16)
+	monitor_pw=$(openssl rand -hex 16)
+	proxyadmin_pw=$(openssl rand -hex 16)
+	pmmserver_pw=$(openssl rand -hex 16)
+	operator_pw=$(openssl rand -hex 16)
+	replication_pw=$(openssl rand -hex 16)
+
+	kubectl_bin delete secret my-cluster-secrets --ignore-not-found
+	kubectl_bin delete secret "internal-${cluster}" --ignore-not-found
+
+	kubectl_bin create secret generic my-cluster-secrets \
+		--from-literal=root="$root" \
+		--from-literal=xtrabackup="$xtrabackup_pw" \
+		--from-literal=monitor="$monitor_pw" \
+		--from-literal=proxyadmin="$proxyadmin_pw" \
+		--from-literal=pmmserver="$pmmserver_pw" \
+		--from-literal=operator="$operator_pw" \
+		--from-literal=replication="$replication_pw"
+
+	mysql_root_pass="$root"
+}
+
 run_recovery_check_pitr() {
 	local cluster=$1
 	local restore=$2
@@ -2345,6 +2706,169 @@ is_old_password_discarded() {
 	fi
 	# Default: if we can't determine, assume not discarded (fail safe)
 	return 1
+}
+
+get_running_backups_amount() {
+	kubectl_bin get pxc-backup -o=jsonpath='{range .items[*]}{.metadata.name}{":"}{.spec.storageName}{":"}{.status.state}{"\n"}{end}' \
+		| grep -vE ":Succeeded|:Failed" \
+		| wc -l
+}
+
+get_successful_backups_amount() {
+	local storage="$1"
+	kubectl_bin get pxc-backup -o=jsonpath='{range .items[*]}{.metadata.name}{":"}{.spec.storageName}{":"}{.status.state}{"\n"}{end}' \
+		| grep $storage \
+		| grep -E ":Succeeded" \
+		| wc -l
+}
+
+get_failed_backups_amount() {
+	kubectl_bin get pxc-backup -o=jsonpath='{range .items[*]}{.metadata.name}{":"}{.spec.storageName}{":"}{.status.state}{"\n"}{end}' \
+		| grep ":Failed" \
+		| wc -l
+}
+
+wait_first_backup_appears() {
+	local storage="$1"
+	local retry=0
+	until [[ $(kubectl_bin get pxc-backup \
+		-o jsonpath='{range .items[*]}{.spec.storageName}{"\n"}{end}' 2>/dev/null \
+		| grep -c "^${storage}$") -gt 0 ]]; do
+		[ $retry -ge 24 ] && echo "No backup appeared for storage '${storage}' after 2 min" && exit 1
+		sleep 5
+		retry=$((retry + 1))
+	done
+}
+
+wait_num_backups() {
+	local storage="$1"
+	local num="$2"
+	local timer=0
+	echo "Starting to check number $num of backups for $storage"
+	while [[ "$(get_successful_backups_amount $storage)" -ne $num && $timer -le 400 ]]; do
+		sleep 2
+		((timer += 1))
+	done
+	echo "Finished to check number $num of backups for $storage. Timer: $timer"
+}
+
+wait_pxc_ready() {
+	local cluster=$1
+	local retry=0
+	until [ "$(kubectl_bin get pxc "$cluster" -o jsonpath='{.status.state}' 2>/dev/null)" = "ready" ]; do
+		[ $retry -ge 60 ] && echo "PXC cluster $cluster not ready after 5 min" && exit 1
+		sleep 5
+		retry=$((retry + 1))
+	done
+}
+
+wait_replication_channel() {
+	local host=$1
+	local channel=$2
+	local retry=0
+	until [[ "$(run_mysql "SELECT SERVICE_STATE FROM performance_schema.replication_connection_status WHERE CHANNEL_NAME='$channel';" \
+		"-h $host -uroot -proot_password" 2>/dev/null)" == "ON" ]]; do
+		[ $retry -ge 120 ] && echo "Replication channel '$channel' not running after 10 min" && exit 1
+		sleep 5
+		retry=$((retry + 1))
+	done
+}
+
+wait_replication_row() {
+	local host=$1
+	local query=$2
+	local retry=0
+	until run_mysql "$query" "-h $host -uroot -proot_password" 2>/dev/null | grep -q .; do
+		[ $retry -ge 24 ] && echo "Expected replicated data not visible after 2 min" && exit 1
+		sleep 5
+		retry=$((retry + 1))
+	done
+}
+
+wait_all_backups() {
+	while [[ "$(get_running_backups_amount)" -ne 0 && "$(get_failed_backups_amount)" -eq 0 ]]; do
+		wait_for_running "$cluster-pxc" 3 1
+		echo
+		kubectl_bin get pxc-backup
+		echo
+		kubectl_bin get pods
+		sleep 20
+	done
+	if [[ "$(get_failed_backups_amount)" -gt 0 ]]; then
+		echo "One or more backups have been failed!\n"
+		desc "LIST OF BACKUPS"
+		kubectl_bin get pxc-backup
+		desc "LIST OF PODS"
+		kubectl_bin get pods
+		exit 1
+	fi
+}
+
+label_node() {
+	LABELED_NODE=$(kubectl_bin get nodes --no-headers=true | grep -v master | head -n1 | awk '{print $1}')
+	kubectl_bin label nodes "${LABELED_NODE}" backupWorker=True --overwrite
+}
+
+unlabel_node() {
+	kubectl_bin label nodes "${LABELED_NODE}" backupWorker- --overwrite
+}
+
+compare_extrafields() {
+	local resource_type="$1"
+	local resource="$2"
+	local expected_result=${test_dir}/compare/extra-fields.json
+	local new_result="${tmp_dir}/${resource//\//_}.json"
+
+	if [ ! -z "$OPENSHIFT" -a -f ${expected_result//.json/-oc.json} ]; then
+		expected_result=${expected_result//.json/-oc.json}
+	fi
+
+	case ${resource_type} in
+		job)
+			kubectl_bin get ${resource_type} ${resource} -o json | jq '{
+                                                                            affinity: .spec.template.spec.affinity,
+                                                                            annotations:
+                                                                                {
+                                                                                    testName: .spec.template.metadata.annotations.testName
+                                                                                },
+                                                                            labels:
+                                                                                {
+                                                                                    backupWorker: .spec.template.metadata.labels.backupWorker
+                                                                                },
+                                                                            nodeSelector:
+                                                                                {
+                                                                                    backupWorker: .spec.template.spec.nodeSelector.backupWorker
+                                                                                },
+                                                                            priorityClassName: .spec.template.spec.priorityClassName,
+                                                                            schedulerName: .spec.template.spec.schedulerName,
+                                                                            tolerations: (.spec.template.spec.tolerations[] | select(.key | contains("backupWorker"))),
+                                                                            resources: .spec.template.spec.containers[0].resources
+                                                                        }' >${new_result}
+			;;
+		pod)
+			kubectl_bin get ${resource_type} ${resource} -o json | jq '{
+                                                                            affinity: .spec.affinity,
+                                                                            annotations:
+                                                                            {
+                                                                                testName: .metadata.annotations.testName
+                                                                            },
+                                                                            labels:
+                                                                                {
+                                                                                    backupWorker: .metadata.labels.backupWorker
+                                                                                },
+                                                                            nodeSelector:
+                                                                                {
+                                                                                    backupWorker: .spec.nodeSelector.backupWorker
+                                                                                },
+                                                                            priorityClassName: .spec.priorityClassName,
+                                                                            schedulerName: .spec.schedulerName,
+                                                                            tolerations: (.spec.tolerations[] | select(.key | contains("backupWorker"))),
+                                                                            resources: .spec.containers[0].resources
+                                                                        }' >${new_result}
+			;;
+	esac
+
+	diff -u ${expected_result} ${new_result}
 }
 
 wait_for_password_propagation() {

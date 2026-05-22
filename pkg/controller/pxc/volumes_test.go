@@ -20,7 +20,6 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/apis"
 	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 )
 
@@ -114,7 +113,7 @@ func TestReconcilePersistentVolumes(t *testing.T) {
 			sts.Spec.VolumeClaimTemplates = []corev1.PersistentVolumeClaim{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: app.DataVolumeName,
+						Name: naming.DataVolumeName,
 					},
 					Spec: corev1.PersistentVolumeClaimSpec{
 						Resources: corev1.VolumeResourceRequirements{
@@ -135,7 +134,7 @@ func TestReconcilePersistentVolumes(t *testing.T) {
 			}
 			pvc := &corev1.PersistentVolumeClaim{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      app.DataVolumeName + "-" + sts.Name + "-0",
+					Name:      naming.DataVolumeName + "-" + sts.Name + "-0",
 					Namespace: cr.Namespace,
 					Labels:    naming.LabelsPXC(cr),
 				},
@@ -219,7 +218,7 @@ func TestReconcilePersistentVolumesWarnsAboutInconsistentPVCSizes(t *testing.T) 
 			cr, err := readDefaultCR(clusterName, namespace)
 			require.NoError(t, err)
 			cr.Spec.PXC.Size = 3
-			cr.Spec.VolumeExternalAutoscaling = false
+			cr.Spec.StorageScaling.VolumeExternalAutoscaling = false
 			cr.Spec.PXC.VolumeSpec.PersistentVolumeClaim.Resources.Requests = corev1.ResourceList{
 				corev1.ResourceStorage: resource.MustParse("1200Mi"),
 			}
@@ -233,7 +232,7 @@ func TestReconcilePersistentVolumesWarnsAboutInconsistentPVCSizes(t *testing.T) 
 			sts.Spec.VolumeClaimTemplates = []corev1.PersistentVolumeClaim{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: app.DataVolumeName,
+						Name: naming.DataVolumeName,
 					},
 					Spec: corev1.PersistentVolumeClaimSpec{
 						Resources: corev1.VolumeResourceRequirements{
@@ -259,7 +258,7 @@ func TestReconcilePersistentVolumesWarnsAboutInconsistentPVCSizes(t *testing.T) 
 					},
 					&corev1.PersistentVolumeClaim{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:      app.DataVolumeName + "-" + podName,
+							Name:      naming.DataVolumeName + "-" + podName,
 							Namespace: namespace,
 							Labels:    naming.LabelsPXC(cr),
 						},
@@ -337,7 +336,7 @@ func TestReconcilePersistentVolumesVolumeExternalAutoscaling(t *testing.T) {
 			VolumeClaimTemplates: []corev1.PersistentVolumeClaim{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: app.DataVolumeName,
+						Name: naming.DataVolumeName,
 					},
 					Spec: corev1.PersistentVolumeClaimSpec{
 						Resources: corev1.VolumeResourceRequirements{
@@ -384,7 +383,7 @@ func TestReconcilePersistentVolumesVolumeExternalAutoscaling(t *testing.T) {
 
 	pvc := &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      app.DataVolumeName + "-test-cluster-pxc-0",
+			Name:      naming.DataVolumeName + "-test-cluster-pxc-0",
 			Namespace: namespace,
 			Labels:    labels,
 		},

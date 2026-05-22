@@ -199,15 +199,36 @@ func TestReconcilePersistentVolumesWarnsAboutInconsistentPVCSizes(t *testing.T) 
 	)
 
 	tests := map[string]struct {
-		resizeInProgress bool
-		expectWarning    bool
+		resizeInProgress          bool
+		volumeExternalAutoscaling bool
+		enableVolumeScaling       bool
+		expectWarning             bool
 	}{
-		"warns when PVC capacities differ and resize is not in progress": {
-			expectWarning: true,
+		"warns when PVC capacities differ with external autoscaling disabled and volume scaling enabled": {
+			volumeExternalAutoscaling: false,
+			enableVolumeScaling:       true,
+			expectWarning:             true,
+		},
+		"warns when PVC capacities differ with external autoscaling disabled and volume scaling disabled": {
+			volumeExternalAutoscaling: false,
+			enableVolumeScaling:       false,
+			expectWarning:             true,
+		},
+		"does not warn when external autoscaling is enabled and volume scaling is enabled": {
+			volumeExternalAutoscaling: true,
+			enableVolumeScaling:       true,
+			expectWarning:             false,
+		},
+		"does not warn when external autoscaling is enabled and volume scaling is disabled": {
+			volumeExternalAutoscaling: true,
+			enableVolumeScaling:       false,
+			expectWarning:             false,
 		},
 		"does not warn while operator PVC resize is in progress": {
-			resizeInProgress: true,
-			expectWarning:    false,
+			resizeInProgress:          true,
+			volumeExternalAutoscaling: false,
+			enableVolumeScaling:       true,
+			expectWarning:             false,
 		},
 	}
 
@@ -218,7 +239,10 @@ func TestReconcilePersistentVolumesWarnsAboutInconsistentPVCSizes(t *testing.T) 
 			cr, err := readDefaultCR(clusterName, namespace)
 			require.NoError(t, err)
 			cr.Spec.PXC.Size = 3
-			cr.Spec.StorageScaling.VolumeExternalAutoscaling = false
+			cr.Spec.StorageScaling = &pxcv1.StorageScalingSpec{
+				VolumeExternalAutoscaling: tt.volumeExternalAutoscaling,
+				EnableVolumeScaling:       tt.enableVolumeScaling,
+			}
 			cr.Spec.PXC.VolumeSpec.PersistentVolumeClaim.Resources.Requests = corev1.ResourceList{
 				corev1.ResourceStorage: resource.MustParse("1200Mi"),
 			}

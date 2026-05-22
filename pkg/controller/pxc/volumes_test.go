@@ -102,7 +102,7 @@ func TestReconcilePersistentVolumes(t *testing.T) {
 			cr.Spec.PXC.VolumeSpec.PersistentVolumeClaim.Resources.Requests = corev1.ResourceList{
 				corev1.ResourceStorage: requested,
 			}
-			cr.Spec.VolumeExpansionEnabled = tt.volumeExpansion
+			cr.Spec.StorageScaling.EnableVolumeScaling = tt.volumeExpansion
 			if tt.resizeInProgress {
 				cr.Annotations = map[string]string{
 					pxcv1.AnnotationPVCResizeInProgress: time.Now().Add(-time.Minute).Format(time.RFC3339),

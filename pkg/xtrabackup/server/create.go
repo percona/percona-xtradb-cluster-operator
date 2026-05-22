@@ -9,14 +9,15 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/xtrabackup/api"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/xtrabackup/api"
 )
 
 func (s *appServer) CreateBackup(req *api.CreateBackupRequest, stream api.XtrabackupService_CreateBackupServer) error {
@@ -72,7 +73,7 @@ func (s *appServer) CreateBackup(req *api.CreateBackupRequest, stream api.Xtraba
 	}
 	defer xbErr.Close() //nolint:errcheck
 
-	backupLog, err := os.Create(filepath.Join(app.BackupLogDir, req.BackupName+".log"))
+	backupLog, err := os.Create(filepath.Join(naming.BackupLogDir, req.BackupName+".log"))
 	if err != nil {
 		logger.Error(err, "failed to create log file")
 		return errors.Wrap(err, "failed to create log file")
@@ -215,7 +216,7 @@ func (s *appServer) deleteBackup(ctx context.Context, cfg *api.BackupConfig, bac
 	logWriter := io.Writer(os.Stderr)
 	if backupName != "" {
 		backupLog, err := os.OpenFile(
-			filepath.Join(app.BackupLogDir, backupName+".log"),
+			filepath.Join(naming.BackupLogDir, backupName+".log"),
 			os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o666)
 		if err != nil {
 			return errors.Wrap(err, "failed to open log file")
@@ -248,7 +249,6 @@ func (s *appServer) deleteBackup(ctx context.Context, cfg *api.BackupConfig, bac
 		return errors.Wrap(err, "failed waiting for xbcloud to finish")
 	}
 	return nil
-
 }
 
 func sanitizeCmd(cmd *exec.Cmd) string {

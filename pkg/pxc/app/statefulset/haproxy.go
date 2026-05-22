@@ -84,7 +84,7 @@ func (c *HAProxy) AppContainer(ctx context.Context, _ client.Client, spec *api.P
 		Env: []corev1.EnvVar{
 			{
 				Name:  "PXC_SERVICE",
-				Value: c.Labels()[naming.LabelAppKubernetesInstance] + "-" + "pxc",
+				Value: c.Labels()[naming.LabelAppKubernetesInstance] + "-" + naming.ComponentPXC,
 			},
 		},
 		SecurityContext: spec.ContainerSecurityContext,
@@ -95,8 +95,8 @@ func (c *HAProxy) AppContainer(ctx context.Context, _ client.Client, spec *api.P
 		appc.Command = []string{"/opt/percona/haproxy-entrypoint.sh"}
 		appc.Args = []string{"haproxy"}
 		appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
-			Name:      app.BinVolumeName,
-			MountPath: app.BinVolumeMountPath,
+			Name:      naming.BinVolumeName,
+			MountPath: naming.BinVolumeMountPath,
 		})
 
 	}
@@ -230,7 +230,7 @@ func (c *HAProxy) SidecarContainers(ctx context.Context, cl client.Client, spec 
 		Env: []corev1.EnvVar{
 			{
 				Name:  "PXC_SERVICE",
-				Value: c.Labels()[naming.LabelAppKubernetesInstance] + "-" + "pxc",
+				Value: c.Labels()[naming.LabelAppKubernetesInstance] + "-" + naming.ComponentPXC,
 			},
 		},
 		Resources: spec.SidecarResources,
@@ -307,8 +307,8 @@ func (c *HAProxy) SidecarContainers(ctx context.Context, cl client.Client, spec 
 			Value: strconv.FormatBool(cr.Spec.HAProxy.ExposeReplicas.OnlyReaders),
 		})
 		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
-			Name:      app.BinVolumeName,
-			MountPath: app.BinVolumeMountPath,
+			Name:      naming.BinVolumeName,
+			MountPath: naming.BinVolumeMountPath,
 		})
 	}
 
@@ -418,7 +418,7 @@ func (c *HAProxy) PMMContainer(ctx context.Context, cl client.Client, spec *api.
 		},
 		{
 			Name:  "DB_CLUSTER",
-			Value: app.Name,
+			Value: naming.ComponentPXC,
 		},
 		{
 			Name:  "DB_HOST",
@@ -540,7 +540,7 @@ func (c *HAProxy) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg
 	if cr.CompareVersionWith("1.13.0") >= 0 {
 		vol.Volumes = append(vol.Volumes,
 			corev1.Volume{
-				Name: app.BinVolumeName,
+				Name: naming.BinVolumeName,
 				VolumeSource: corev1.VolumeSource{
 					EmptyDir: &corev1.EmptyDirVolumeSource{},
 				},

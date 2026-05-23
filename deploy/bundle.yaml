@@ -194,6 +194,8 @@ spec:
                     type: string
                   endpointUrl:
                     type: string
+                  prefix:
+                    type: string
                   storageClass:
                     type: string
                 type: object
@@ -353,12 +355,23 @@ spec:
                     - key
                     type: object
                     x-kubernetes-map-type: atomic
+                  checksumAlgorithm:
+                    enum:
+                    - CRC64NVME
+                    - CRC32
+                    - CRC32C
+                    - SHA1
+                    - SHA256
+                    - MD5
+                    type: string
                   credentialsSecret:
                     type: string
                   endpointUrl:
                     type: string
                   forcePathStyle:
                     type: boolean
+                  prefix:
+                    type: string
                   region:
                     type: string
                   skipBucketExistsCheck:
@@ -452,6 +465,8 @@ spec:
                       credentialsSecret:
                         type: string
                       endpointUrl:
+                        type: string
+                      prefix:
                         type: string
                       storageClass:
                         type: string
@@ -612,12 +627,23 @@ spec:
                         - key
                         type: object
                         x-kubernetes-map-type: atomic
+                      checksumAlgorithm:
+                        enum:
+                        - CRC64NVME
+                        - CRC32
+                        - CRC32C
+                        - SHA1
+                        - SHA256
+                        - MD5
+                        type: string
                       credentialsSecret:
                         type: string
                       endpointUrl:
                         type: string
                       forcePathStyle:
                         type: boolean
+                      prefix:
+                        type: string
                       region:
                         type: string
                       skipBucketExistsCheck:
@@ -755,6 +781,8 @@ spec:
                           credentialsSecret:
                             type: string
                           endpointUrl:
+                            type: string
+                          prefix:
                             type: string
                           storageClass:
                             type: string
@@ -915,12 +943,23 @@ spec:
                             - key
                             type: object
                             x-kubernetes-map-type: atomic
+                          checksumAlgorithm:
+                            enum:
+                            - CRC64NVME
+                            - CRC32
+                            - CRC32C
+                            - SHA1
+                            - SHA256
+                            - MD5
+                            type: string
                           credentialsSecret:
                             type: string
                           endpointUrl:
                             type: string
                           forcePathStyle:
                             type: boolean
+                          prefix:
+                            type: string
                           region:
                             type: string
                           skipBucketExistsCheck:
@@ -1969,6 +2008,8 @@ spec:
                               type: string
                             endpointUrl:
                               type: string
+                            prefix:
+                              type: string
                             storageClass:
                               type: string
                           type: object
@@ -2286,12 +2327,23 @@ spec:
                               - key
                               type: object
                               x-kubernetes-map-type: atomic
+                            checksumAlgorithm:
+                              enum:
+                              - CRC64NVME
+                              - CRC32
+                              - CRC32C
+                              - SHA1
+                              - SHA256
+                              - MD5
+                              type: string
                             credentialsSecret:
                               type: string
                             endpointUrl:
                               type: string
                             forcePathStyle:
                               type: boolean
+                            prefix:
+                              type: string
                             region:
                               type: string
                             skipBucketExistsCheck:

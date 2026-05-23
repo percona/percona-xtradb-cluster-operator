@@ -42,7 +42,7 @@ func NewClient(ctx context.Context, opts Options) (Storage, error) {
 		if !ok {
 			return nil, errors.New("invalid options type")
 		}
-		return NewS3(ctx, opts.Endpoint, opts.AccessKeyID, opts.SecretAccessKey, opts.SessionToken, opts.BucketName, opts.Prefix, opts.Region, opts.VerifyTLS, opts.CABundle, opts.ForcePathStyle, opts.SkipBucketExistsCheck)
+		return NewS3(ctx, *opts)
 	case api.BackupStorageAzure:
 		opts, ok := opts.(*AzureOptions)
 		if !ok {
@@ -55,71 +55,62 @@ func NewClient(ctx context.Context, opts Options) (Storage, error) {
 
 // S3 is a type for working with S3 storages
 type S3 struct {
-	client     *minio.Client // minio client for work with storage
-	bucketName string        // S3 bucket name where binlogs will be stored
-	prefix     string        // prefix for S3 requests
+	client            *minio.Client // minio client for work with storage
+	bucketName        string        // S3 bucket name where binlogs will be stored
+	prefix            string        // prefix for S3 requests
+	checksumAlgorithm api.S3ChecksumAlgorithmType
 }
 
 // NewS3 return new Manager, useSSL using ssl for connection with storage
 func NewS3(
 	ctx context.Context,
-	endpoint,
-	accessKeyID,
-	secretAccessKey,
-	sessionToken,
-	bucketName,
-	prefix,
-	region string,
-	verifyTLS bool,
-	caBundle []byte,
-	forcePathStyle bool,
-	skipBucketExistsCheck bool,
+	opts S3Options,
 ) (Storage, error) {
-	if endpoint == "" {
-		endpoint = "https://s3.amazonaws.com"
+	if opts.Endpoint == "" {
+		opts.Endpoint = "https://s3.amazonaws.com"
 		// We can't use default endpoint if region is not us-east-1
 		// More info: https://docs.aws.amazon.com/general/latest/gr/s3.html
-		if region != "" && region != "us-east-1" {
-			endpoint = fmt.Sprintf("https://s3.%s.amazonaws.com", region)
+		if opts.Region != "" && opts.Region != "us-east-1" {
+			opts.Endpoint = fmt.Sprintf("https://s3.%s.amazonaws.com", opts.Region)
 		}
 	}
-	useSSL := strings.Contains(endpoint, "https")
-	endpoint = strings.TrimPrefix(strings.TrimPrefix(endpoint, "https://"), "http://")
+	useSSL := strings.Contains(opts.Endpoint, "https")
+	opts.Endpoint = strings.TrimPrefix(strings.TrimPrefix(opts.Endpoint, "https://"), "http://")
 	transport := http.DefaultTransport
 	transport.(*http.Transport).TLSClientConfig = &tls.Config{
-		InsecureSkipVerify: !verifyTLS,
+		InsecureSkipVerify: !opts.VerifyTLS,
 	}
 	// if caBundle is provided, we use it for the TLS client config
-	if len(caBundle) > 0 {
+	if len(opts.CABundle) > 0 {
 		roots, err := x509.SystemCertPool()
 		if err != nil {
 			return nil, errors.Wrap(err, "get system cert pool")
 		}
-		if ok := roots.AppendCertsFromPEM(caBundle); !ok {
+		if ok := roots.AppendCertsFromPEM(opts.CABundle); !ok {
 			return nil, errors.New("failed to append certs from PEM")
 		}
 		transport.(*http.Transport).TLSClientConfig.RootCAs = roots
 	}
 
-	opts := &minio.Options{
-		Creds:     credentials.NewStaticV4(accessKeyID, secretAccessKey, sessionToken),
+	minioOpts := &minio.Options{
+		Creds:     credentials.NewStaticV4(opts.AccessKeyID, opts.SecretAccessKey, opts.SessionToken),
 		Secure:    useSSL,
-		Region:    region,
+		Region:    opts.Region,
 		Transport: transport,
 	}
-	if forcePathStyle {
-		opts.BucketLookup = minio.BucketLookupPath
+	if opts.ForcePathStyle {
+		minioOpts.BucketLookup = minio.BucketLookupPath
 	}
 
-	minioClient, err := minio.New(strings.TrimRight(endpoint, "/"), opts)
+	minioClient, err := minio.New(strings.TrimRight(opts.Endpoint, "/"), minioOpts)
 	if err != nil {
 		return nil, errors.Wrap(err, "new minio client")
 	}
 
-	if skipBucketExistsCheck {
-		logf.FromContext(ctx).Info("Skipping S3 bucket existence check", "bucket", bucketName)
+	if opts.SkipBucketExistsCheck {
+		logf.FromContext(ctx).Info("Skipping S3 bucket existence check", "bucket", opts.BucketName)
 	} else {
-		bucketExists, err := minioClient.BucketExists(ctx, bucketName)
+		bucketExists, err := minioClient.BucketExists(ctx, opts.BucketName)
 		if err != nil {
 			if merr, ok := err.(minio.ErrorResponse); ok && merr.Code == "301 Moved Permanently" {
 				return nil, errors.Errorf("%s region: %s bucket: %s", merr.Code, merr.Region, merr.BucketName)
@@ -127,14 +118,15 @@ func NewS3(
 			return nil, errors.Wrap(err, "failed to check if bucket exists")
 		}
 		if !bucketExists {
-			return nil, errors.Errorf("bucket %s does not exist", bucketName)
+			return nil, errors.Errorf("bucket %s does not exist", opts.BucketName)
 		}
 	}
 
 	return &S3{
-		client:     minioClient,
-		bucketName: bucketName,
-		prefix:     prefix,
+		client:            minioClient,
+		bucketName:        opts.BucketName,
+		prefix:            opts.Prefix,
+		checksumAlgorithm: opts.ChecksumAlgorithm,
 	}, nil
 }
 
@@ -166,7 +158,7 @@ func (s *S3) GetObject(ctx context.Context, objectName string) (io.ReadCloser, e
 // PutObject puts new object to storage with given name and content
 func (s *S3) PutObject(ctx context.Context, name string, data io.Reader, size int64) error {
 	objPath := path.Join(s.prefix, name)
-	_, err := s.client.PutObject(ctx, s.bucketName, objPath, data, size, minio.PutObjectOptions{})
+	_, err := s.client.PutObject(ctx, s.bucketName, objPath, data, size, minioPutObjectOptions(size, s.checksumAlgorithm))
 	if err != nil {
 		return errors.Wrapf(err, "put object %s", objPath)
 	}
@@ -174,12 +166,41 @@ func (s *S3) PutObject(ctx context.Context, name string, data io.Reader, size in
 	return nil
 }
 
+func minioPutObjectOptions(size int64, algorithm api.S3ChecksumAlgorithmType) minio.PutObjectOptions {
+	// We should not use checksum for unknown size uploads
+	if size < 0 {
+		return minio.PutObjectOptions{}
+	}
+
+	switch algorithm {
+	case api.S3ChecksumAlgorithmSHA256:
+		return minio.PutObjectOptions{AutoChecksum: minio.ChecksumSHA256}
+	case api.S3ChecksumAlgorithmSHA1:
+		return minio.PutObjectOptions{AutoChecksum: minio.ChecksumSHA1}
+	case api.S3ChecksumAlgorithmCRC32:
+		return minio.PutObjectOptions{AutoChecksum: minio.ChecksumCRC32}
+	case api.S3ChecksumAlgorithmCRC32C:
+		return minio.PutObjectOptions{AutoChecksum: minio.ChecksumCRC32C}
+	case api.S3ChecksumAlgorithmCRC64NVME:
+		return minio.PutObjectOptions{AutoChecksum: minio.ChecksumCRC64NVME}
+	case api.S3ChecksumAlgorithmMD5:
+		return minio.PutObjectOptions{SendContentMd5: true}
+	default:
+		return minio.PutObjectOptions{}
+	}
+}
+
 func (s *S3) ListObjects(ctx context.Context, prefix string) ([]string, error) {
 	opts := minio.ListObjectsOptions{
 		UseV1:     true,
 		Recursive: true,
-		Prefix:    s.prefix + prefix,
 	}
+
+	opts.Prefix = path.Join(s.prefix, prefix)
+	if strings.HasSuffix(prefix, "/") && !strings.HasSuffix(opts.Prefix, "/") {
+		opts.Prefix += "/"
+	}
+
 	list := []string{}
 
 	var err error
@@ -294,6 +315,9 @@ func (a *Azure) PutObject(ctx context.Context, name string, data io.Reader, _ in
 
 func (a *Azure) ListObjects(ctx context.Context, prefix string) ([]string, error) {
 	listPrefix := path.Join(a.prefix, prefix)
+	if strings.HasSuffix(prefix, "/") && !strings.HasSuffix(listPrefix, "/") {
+		listPrefix += "/"
+	}
 	pg := a.client.NewListBlobsFlatPager(a.container, &container.ListBlobsFlatOptions{
 		Prefix: &listPrefix,
 	})

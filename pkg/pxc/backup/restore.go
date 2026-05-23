@@ -125,7 +125,8 @@ func PVCRestorePod(cr *api.PerconaXtraDBClusterRestore, bcpStorageName, pvcName 
 
 	var initContainers []corev1.Container
 	if cluster.CompareVersionWith("1.18.0") >= 0 {
-		volumes = append(volumes,
+		volumes = append(
+			volumes,
 			corev1.Volume{
 				Name: naming.BinVolumeName,
 				VolumeSource: corev1.VolumeSource{
@@ -134,7 +135,8 @@ func PVCRestorePod(cr *api.PerconaXtraDBClusterRestore, bcpStorageName, pvcName 
 			},
 		)
 
-		volumeMounts = append(volumeMounts,
+		volumeMounts = append(
+			volumeMounts,
 			corev1.VolumeMount{
 				Name:      naming.BinVolumeName,
 				MountPath: naming.BinVolumeMountPath,
@@ -309,7 +311,8 @@ func RestoreJob(
 	if pitr {
 		if cluster.CompareVersionWith("1.15.0") >= 0 {
 			initContainers = []corev1.Container{statefulset.PitrInitContainer(cluster, initImage)}
-			volumes = append(volumes,
+			volumes = append(
+				volumes,
 				corev1.Volume{
 					Name: naming.BinVolumeName,
 					VolumeSource: corev1.VolumeSource{
@@ -318,7 +321,8 @@ func RestoreJob(
 				},
 			)
 
-			volumeMounts = append(volumeMounts,
+			volumeMounts = append(
+				volumeMounts,
 				corev1.VolumeMount{
 					Name:      naming.BinVolumeName,
 					MountPath: naming.BinVolumeMountPath,
@@ -333,7 +337,8 @@ func RestoreJob(
 	}
 
 	if cluster.CompareVersionWith("1.18.0") >= 0 && !pitr {
-		volumes = append(volumes,
+		volumes = append(
+			volumes,
 			corev1.Volume{
 				Name: naming.BinVolumeName,
 				VolumeSource: corev1.VolumeSource{
@@ -342,7 +347,8 @@ func RestoreJob(
 			},
 		)
 
-		volumeMounts = append(volumeMounts,
+		volumeMounts = append(
+			volumeMounts,
 			corev1.VolumeMount{
 				Name:      naming.BinVolumeName,
 				MountPath: naming.BinVolumeMountPath,
@@ -669,6 +675,12 @@ func s3Envs(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBa
 			Value: "true",
 		})
 	}
+	if bcp.Status.S3.ChecksumAlgorithm != "" {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "S3_CHECKSUM_ALGORITHM",
+			Value: string(bcp.Status.S3.ChecksumAlgorithm),
+		})
+	}
 	if bcp.Status.S3.SkipBucketExistsCheck {
 		envs = append(envs, corev1.EnvVar{
 			Name:  "S3_SKIP_BUCKET_EXISTS_CHECK",
@@ -758,20 +770,26 @@ func s3Envs(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBa
 			},
 		}...)
 		if storageS3.ForcePathStyle {
-			envs = append(envs,
+			envs = append(
+				envs,
 				corev1.EnvVar{
 					Name:  "BINLOG_S3_FORCE_PATH",
 					Value: "true",
 				},
 			)
 		}
+		if storageS3.ChecksumAlgorithm != "" {
+			envs = append(envs, corev1.EnvVar{
+				Name:  "BINLOG_S3_CHECKSUM_ALGORITHM",
+				Value: string(storageS3.ChecksumAlgorithm),
+			})
+		}
 		if storageS3.SkipBucketExistsCheck {
 			envs = append(envs,
 				corev1.EnvVar{
 					Name:  "BINLOG_S3_SKIP_BUCKET_EXISTS_CHECK",
 					Value: "true",
-				},
-			)
+				})
 		}
 	}
 	return envs, nil

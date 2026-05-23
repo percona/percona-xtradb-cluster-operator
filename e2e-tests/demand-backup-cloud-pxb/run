@@ -56,7 +56,7 @@ main() {
 
 	desc "Check backup existence"
 	setup_aws_credentials
-	check_backup_existence_aws "$backup_dest_aws" "/xtrabackup_binlog_info.00000000000000000000"
+	check_backup_existence_aws "$backup_dest_aws" "$dest_file"
 
 	kubectl_bin delete pxc-backup --all
 

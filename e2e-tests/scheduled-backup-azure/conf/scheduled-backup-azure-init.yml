@@ -32,6 +32,7 @@ spec:
         type: azure
         labels:
           test: testLabel
+          backupWorker: 'True'
         azure:
           credentialsSecret: azure-secret
           container: operator-testing
@@ -57,7 +58,5 @@ spec:
             effect: "NoSchedule"
         annotations:
           testName: scheduled-backup
-        labels:
-          backupWorker: 'True'
         schedulerName: 'default-scheduler'
         priorityClassName: 'high-priority'

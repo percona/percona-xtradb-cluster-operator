@@ -2,7 +2,8 @@
 
 set -o errexit
 
-test_dir=$(realpath $(dirname $0)/../demand-backup)
+test_dir=$(realpath $(dirname $0))
+parent_dir=$(realpath $(dirname $0)/../demand-backup)
 . ${test_dir}/../functions
 
 set_debug
@@ -21,7 +22,7 @@ main() {
 	create_infra $namespace
 
 	cluster="demand-backup"
-	spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml"
+	spinup_pxc "$cluster" "$parent_dir/conf/$cluster.yml"
 
 	# We are using minio with tls enabled to check if `verifyTLS: false` works fine
 	start_minio "demand-backup-ssl"

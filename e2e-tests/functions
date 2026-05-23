@@ -842,10 +842,10 @@ destroy() {
 	if [[ -n "$backup_names" ]]; then
 		kubectl_bin delete pxc-backup --all --all-namespaces || :
 		local deadline=$(( $(date +%s) + 300 ))
-		until [[ -z "$(kubectl_bin get pxc-backup --all-namespaces --ignore-not-found 2>/dev/null)" ]]; do
+		until [[ -z "$(kubectl_bin get pxc-backup --all-namespaces -o name --ignore-not-found 2>/dev/null)" ]]; do
 			if [[ $(date +%s) -ge $deadline ]]; then
 				echo "Timeout waiting for pxc-backup deletion — stripping finalizers"
-				kubectl get pxc-backup --all-namespaces \
+				kubectl_bin get pxc-backup --all-namespaces \
 					-o jsonpath='{range .items[*]}{.metadata.namespace} {.metadata.name}{"\n"}{end}' 2>/dev/null \
 					| while read ns name; do
 						kubectl patch pxc-backup -n "$ns" "$name" \

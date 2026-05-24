@@ -3,7 +3,6 @@
 set -o errexit
 
 test_dir=$(realpath $(dirname $0))
-parent_dir=$(realpath $(dirname $0)/../demand-backup-cloud-pxb)
 . ${test_dir}/../functions
 
 set_debug
@@ -26,7 +25,7 @@ main() {
 	create_infra $namespace
 
 	cluster="demand-backup-cloud"
-	spinup_pxc "$cluster" "$parent_dir/conf/$cluster.yml"
+	spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml"
 
 	backup_name_azure="on-demand-backup-azure-blob"
 

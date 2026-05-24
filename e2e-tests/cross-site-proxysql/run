@@ -86,10 +86,10 @@ main() {
 
 	desc "patch replica cluster with replicationChannels settings"
 	kubectl_bin patch pxc $replica_cluster --type=merge --patch '{"spec": {"pxc": {"replicationChannels":[{"name": "source_to_replica", "isSource": false, "configuration": {"ssl": true, "sslSkipVerify": true, "ca": "/etc/mysql/ssl-internal/ca.crt"}, "sourcesList": [{"host": "'${source_endpoint0}'", "port": 3306, "weight": 100},{"host": "'${source_endpoint1}'", "port": 3306, "weight": 100},{"host": "'${source_endpoint2}'", "port": 3306, "weight": 100}]}]}}}'
-	wait_replication_channel "$replica_primary_endpoint" "source_to_replica"
 
 	desc "patch replica cluster secrets with replication user"
 	patch_replication_secret "$replica_cluster" 3 3
+	wait_replication_channel "$replica_primary_endpoint" "source_to_replica"
 
 	desc "Check replication works between source -> replica"
 	compare_mysql_cmd "select-2" "SELECT * from myApp.testSourceReplica;" "-h $replica_endpoint0 -uroot -proot_password"

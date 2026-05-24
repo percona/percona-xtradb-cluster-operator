@@ -1,0 +1,9 @@
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBClusterBackup
+metadata:
+  name: on-demand-backup-azure-blob
+  finalizers:
+    - percona.com/delete-backup
+spec:
+  pxcCluster: demand-backup-cloud
+  storageName: azure-blob

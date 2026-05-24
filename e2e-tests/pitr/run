@@ -30,7 +30,7 @@ run_backup() {
 
 write_test_data() {
 	local cluster=$1
-	local size="${3:-3}"
+	local size="${2:-3}"
 
 	local proxy
 	proxy=$(get_proxy "$cluster")

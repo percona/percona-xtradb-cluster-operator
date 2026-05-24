@@ -857,13 +857,13 @@ destroy() {
 		done
 	fi
 
-	kubectl get pxc --all-namespaces \
+	kubectl_bin get pxc --all-namespaces \
 		-o jsonpath='{range .items[*]}{.metadata.namespace} {.metadata.name}{"\n"}{end}' 2>/dev/null \
-		| while read ns name; do
-			kubectl patch pxc -n "$ns" "$name" \
+		| while read -r ns name; do
+			kubectl_bin patch pxc -n "$ns" "$name" \
 				--type=json \
 				-p '[{"op":"remove","path":"/metadata/finalizers"}]' 2>/dev/null || \
-			kubectl patch pxc -n "$ns" "$name" \
+			kubectl_bin patch pxc -n "$ns" "$name" \
 				--type=merge \
 				-p '{"metadata":{"finalizers":[]}}' 2>/dev/null || :
 		done
@@ -1435,7 +1435,7 @@ delete_backup_pod() {
 
 	echo "Waiting for upload to start"
 	wait_for_upload_to_start ${pxc_pod}
-	kubectl delete pod --force ${backup_pod}
+	kubectl_bin delete pod --force "$backup_pod"
 }
 
 check_cloud_storage_cleanup() {
@@ -2393,7 +2393,7 @@ deploy_pmm_server() {
 }
 
 deploy_pmm3_server() {
-	helm uninstall -n "${NAMESPACE}" monitoring || :
+	helm uninstall -n "${namespace}" monitoring || :
 	helm repo remove percona || :
 	kubectl delete clusterrole monitoring --ignore-not-found
 	kubectl delete clusterrolebinding monitoring --ignore-not-found
@@ -2414,7 +2414,7 @@ deploy_pmm3_server() {
 		local additional_params="--set platform=openshift --set supresshttp2=false --set serviceAccount.create=false --set serviceAccount.name=pmm-server"
 	fi
 
-	retry 10 60 helm install monitoring percona/pmm -n "${NAMESPACE}" \
+	retry 10 60 helm install monitoring percona/pmm -n "${namespace}" \
 		--set fullnameOverride=monitoring \
 		--set image.tag=${IMAGE_PMM3_SERVER#*:} \
 		--set image.repository=${IMAGE_PMM3_SERVER%:*} \
@@ -2541,7 +2541,7 @@ check_binlog_collection() {
 	for i in $(seq 1 5); do
 		log "Checking if binlogs exist in bucket (attempt $i)..."
 		binlogs_exist=$(
-			kubectl_bin run -n "${NAMESPACE}" -i --rm aws-cli --image=perconalab/awscli --restart=Never -- \
+			kubectl_bin run -n "${namespace}" -i --rm aws-cli --image=perconalab/awscli --restart=Never -- \
 				/usr/bin/env AWS_ACCESS_KEY_ID=some-access-key AWS_SECRET_ACCESS_KEY=some-secret-key AWS_DEFAULT_REGION=us-east-1 \
 				/usr/bin/aws --endpoint-url https://minio-service:9000 --no-verify-ssl s3 ls operator-testing/binlogs/ | grep -c "binlog" | cat
 			exit "${PIPESTATUS[0]}"

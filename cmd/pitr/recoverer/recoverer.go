@@ -326,6 +326,13 @@ func (r *Recoverer) Run(ctx context.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "get binlog list")
 	}
+	if len(r.binlogs) == 0 {
+		if r.recoverType == Latest {
+			log.Println("no binlogs to recover from, already at latest. Skipping recovery.")
+			return nil
+		}
+		return errors.New("no binlogs to recover")
+	}
 
 	switch r.recoverType {
 	case Skip:
@@ -482,7 +489,6 @@ func (r *Recoverer) setBinlogs(ctx context.Context) error {
 	}
 	reverse(list)
 	binlogs := []string{}
-	sourceID := strings.Split(r.startGTID, ":")[0]
 	log.Println("current gtid set is", r.startGTID)
 	for _, binlog := range list {
 		if strings.Contains(binlog, "-gtid-set") {
@@ -534,9 +540,6 @@ func (r *Recoverer) setBinlogs(ctx context.Context) error {
 		if !gtidSetEqual(subResult, r.startGTID) {
 			break
 		}
-	}
-	if len(binlogs) == 0 {
-		return errors.Errorf("no objects for prefix binlog_ or with source_id=%s", sourceID)
 	}
 	reverse(binlogs)
 	r.binlogs = binlogs

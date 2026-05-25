@@ -80,6 +80,8 @@ main() {
 	mysql_root_pass=root_password
 	spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml"
 
+	wait_pitr_pod_ready
+
 	run_backup "$cluster" "on-pitr-minio"
 
 	write_test_data "$cluster"
@@ -188,17 +190,7 @@ main() {
 	wait_for_running "$proxy" 2
 	wait_for_running "$cluster-pxc" 3
 
-	local pitr_pod=""
-	local retry=0
-	until [[ -n "$pitr_pod" ]]; do
-		pitr_pod=$(kubectl_bin get pods \
-			--selector="app.kubernetes.io/component=pitr" \
-			-o 'jsonpath={.items[].metadata.name}' 2>/dev/null || true)
-		[ $retry -ge 12 ] && echo "PiTR pod not scheduled after 1 min" && exit 1
-		[ -z "$pitr_pod" ] && sleep 5
-		retry=$((retry + 1))
-	done
-	wait_pod "$pitr_pod"
+	wait_pitr_pod_ready
 
 	wait_cluster_consistency ${cluster} 3 2
 

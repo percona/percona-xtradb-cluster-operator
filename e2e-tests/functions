@@ -811,7 +811,50 @@ deploy_cert_manager() {
 		oc adm policy add-scc-to-user restricted-seccomp -z cert-manager-cainjector
 		oc adm policy add-scc-to-user restricted-seccomp -z cert-manager-webhook
 	fi
-	sleep 70
+	kubectl_bin -n cert-manager rollout status deployment/cert-manager --timeout=120s
+	kubectl_bin -n cert-manager rollout status deployment/cert-manager-cainjector --timeout=120s
+	kubectl_bin -n cert-manager rollout status deployment/cert-manager-webhook --timeout=120s
+
+	# Wait until cainjector has injected the caBundle into the webhook configuration.
+	# Only once caBundle is populated will the API server be able to reach the webhook,
+	# so any cert-manager resource (Issuer, Certificate, …) applied immediately after
+	# deploy_cert_manager will not hit the "x509: certificate signed by unknown authority" error.
+	log "waiting for cert-manager webhook caBundle to be injected"
+	local deadline=$(( $(date +%s) + 120 ))
+	until kubectl_bin get validatingwebhookconfigurations cert-manager-webhook \
+		-o jsonpath='{.webhooks[0].clientConfig.caBundle}' 2>/dev/null | grep -q .; do
+		if [[ $(date +%s) -ge $deadline ]]; then
+			echo "timeout waiting for cert-manager webhook caBundle injection"
+			exit 1
+		fi
+		sleep 5
+	done
+
+	# Active probe: even after caBundle injection, the webhook TLS listener may not
+	# be serving yet. Dry-run an Issuer through the webhook until the call succeeds.
+	log "probing cert-manager webhook"
+	local probe_file
+	probe_file=$(mktemp)
+	cat >"$probe_file" <<'EOF'
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: cert-manager-webhook-probe
+  namespace: cert-manager
+spec:
+  selfSigned: {}
+EOF
+	local retries=0
+	until kubectl_bin apply -f "$probe_file" --dry-run=server >/dev/null 2>&1; do
+		if [[ $retries -ge 12 ]]; then
+			echo "timeout: cert-manager webhook not accepting requests after 60s"
+			rm -f "$probe_file"
+			exit 1
+		fi
+		retries=$((retries + 1))
+		sleep 5
+	done
+	rm -f "$probe_file"
 }
 
 destroy() {
@@ -2617,6 +2660,25 @@ create_random_pass() {
 	mysql_root_pass="$root"
 }
 
+wait_pitr_pod_ready() {
+	local timeout="${1:-120}"
+
+	log "waiting for pitr pod to become Ready"
+	set +o xtrace
+	local pitr_pod
+	local retry=0
+	until [[ -n "$pitr_pod" ]]; do
+		pitr_pod=$(kubectl_bin get pods \
+			--selector="app.kubernetes.io/component=pitr" \
+			-o 'jsonpath={.items[0].metadata.name}' 2>/dev/null || true)
+		[ $retry -ge 24 ] && echo "PiTR pod not scheduled after 2 min" && exit 1
+		[ -z "$pitr_pod" ] && sleep 5
+		retry=$((retry + 1))
+	done
+	kubectl_bin wait pod/"$pitr_pod" --for=condition=Ready --timeout="${timeout}s"
+	set_debug
+}
+
 run_recovery_check_pitr() {
 	local cluster=$1
 	local restore=$2
@@ -2654,17 +2716,19 @@ run_recovery_check_pitr() {
 	wait_pod ${cluster}-pxc-0
 
 	wait_backup_restore ${restore} "Starting Cluster"
-	local minio_pod=$(kubectl_bin get pods --selector=release=minio-service -o 'jsonpath={.items[].metadata.name}')
-	if kubectl_bin exec ${minio_pod} -- stat /exports/operator-testing/binlogs/gtid-binlog-cache.json 2>&1 1>/dev/null; then
+	local minio_pod
+	minio_pod=$(kubectl_bin get pods --selector=release=minio-service -o 'jsonpath={.items[].metadata.name}')
+	if kubectl_bin exec ${minio_pod} -- stat /exports/operator-testing/binlogs/gtid-binlog-cache.json >/dev/null 2>&1; then
 		echo "Binlog collector cache is not invalidated after restore!"
 		exit 1
 	fi
 
 	wait_backup_restore ${restore}
-	kubectl_bin logs job/restore-job-${restore}-${cluster}
+	kubectl_bin logs job/restore-job-${restore}-${cluster} 2>/dev/null || true
 	wait_for_running "$cluster-proxysql" 2
 	wait_for_running "$cluster-pxc" 3
 	wait_cluster_consistency "$cluster" 3 2
+	wait_pitr_pod_ready
 	desc 'check data after backup' $restore
 	compare_mysql_cmd $compare "SELECT * from test.test;" "-h $cluster-pxc-0.$cluster-pxc -uroot -p${mysql_root_pass}"
 	compare_mysql_cmd $compare "SELECT * from test.test;" "-h $cluster-pxc-1.$cluster-pxc -uroot -p${mysql_root_pass}"

@@ -776,7 +776,7 @@ func TestExecuteConfigurationTemplate(t *testing.T) {
 					},
 				},
 			},
-			expectError: "sandbox restriction active",
+			expectError: "tag is banned for this template set",
 		},
 		"include tag is blocked": {
 			pod: PodSpec{
@@ -787,7 +787,7 @@ func TestExecuteConfigurationTemplate(t *testing.T) {
 					},
 				},
 			},
-			expectError: "sandbox restriction active",
+			expectError: "tag is banned for this template set",
 		},
 		"import tag is blocked": {
 			pod: PodSpec{
@@ -798,7 +798,7 @@ func TestExecuteConfigurationTemplate(t *testing.T) {
 					},
 				},
 			},
-			expectError: "sandbox restriction active",
+			expectError: "tag is banned for this template set",
 		},
 		"extends tag is blocked": {
 			pod: PodSpec{
@@ -809,7 +809,7 @@ func TestExecuteConfigurationTemplate(t *testing.T) {
 					},
 				},
 			},
-			expectError: "sandbox restriction active",
+			expectError: "tag is banned for this template set",
 		},
 		"invalid template syntax": {
 			pod: PodSpec{

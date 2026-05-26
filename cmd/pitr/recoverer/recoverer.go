@@ -326,6 +326,13 @@ func (r *Recoverer) Run(ctx context.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "get binlog list")
 	}
+	if len(r.binlogs) == 0 {
+		if r.recoverType == Latest {
+			log.Println("no binlogs to recover from, already at latest. Skipping recovery.")
+			return nil
+		}
+		return errors.New("no binlogs to recover")
+	}
 
 	switch r.recoverType {
 	case Skip:
@@ -482,7 +489,6 @@ func (r *Recoverer) setBinlogs(ctx context.Context) error {
 	}
 	reverse(list)
 	binlogs := []string{}
-	sourceID := strings.Split(r.startGTID, ":")[0]
 	log.Println("current gtid set is", r.startGTID)
 	for _, binlog := range list {
 		if strings.Contains(binlog, "-gtid-set") {
@@ -513,7 +519,7 @@ func (r *Recoverer) setBinlogs(ctx context.Context) error {
 			if err != nil {
 				return errors.Wrapf(err, "check if '%s' is a subset of '%s", binlogGTIDSet, r.gtid)
 			}
-			if subResult != binlogGTIDSet {
+			if !gtidSetEqual(subResult, binlogGTIDSet) {
 				set, err := getExtendGTIDSet(binlogGTIDSet, r.gtid)
 				if err != nil {
 					return errors.Wrap(err, "get gtid set for extend")
@@ -527,16 +533,13 @@ func (r *Recoverer) setBinlogs(ctx context.Context) error {
 
 		binlogs = append(binlogs, binlog)
 		subResult, err := r.db.SubtractGTIDSet(ctx, r.startGTID, binlogGTIDSet)
-		log.Println("Checking sub result", " binlog gtid ", binlogGTIDSet, " sub result ", subResult)
 		if err != nil {
 			return errors.Wrapf(err, "check if '%s' is a subset of '%s", r.startGTID, binlogGTIDSet)
 		}
-		if subResult != r.startGTID {
+		log.Println("Checking sub result", " binlog gtid ", binlogGTIDSet, " sub result ", canonicalGTIDSet(subResult))
+		if !gtidSetEqual(subResult, r.startGTID) {
 			break
 		}
-	}
-	if len(binlogs) == 0 {
-		return errors.Errorf("no objects for prefix binlog_ or with source_id=%s", sourceID)
 	}
 	reverse(binlogs)
 	r.binlogs = binlogs
@@ -552,6 +555,31 @@ func gtidSetContainsUUID(gtidSet, uuid string) bool {
 		}
 	}
 	return false
+}
+
+// gtidSetEqual reports whether two GTID sets are semantically equal.
+//
+// MySQL's GTID functions (e.g. GTID_SUBTRACT) return multi-source GTID sets in
+// canonical form with a newline after each comma between sources, while GTID
+// sets read directly from files (e.g. xtrabackup_binlog_info) or from the
+// binlog UDF are usually single-line. Direct string comparison reports those
+// as different even when they represent the same set, so callers must
+// normalize before comparing.
+func gtidSetEqual(a, b string) bool {
+	return canonicalGTIDSet(a) == canonicalGTIDSet(b)
+}
+
+func canonicalGTIDSet(s string) string {
+	parts := make([]string, 0)
+	for segment := range strings.SplitSeq(s, ",") {
+		segment = strings.TrimSpace(segment)
+		if segment == "" {
+			continue
+		}
+		parts = append(parts, segment)
+	}
+	sort.Strings(parts)
+	return strings.Join(parts, ",")
 }
 
 func getExtendGTIDSet(gtidSet, gtid string) (string, error) {

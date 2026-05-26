@@ -64,6 +64,9 @@ main() {
 		exit 1
 	fi
 
+	desc "Restore from Azure scheduled backup and verify data integrity"
+	run_scheduled_recovery_check "$cluster" "$SECOND_AZURE_BACKUP"
+
 	desc "Check backup deletion from Azure Blob Storage"
 	check_backup_deletion_azure "$BACKUP_DEST_AZURE" ".sst_info/sst_info.00000000000000000000"
 

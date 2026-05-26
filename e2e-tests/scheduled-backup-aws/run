@@ -64,6 +64,9 @@ main() {
 		exit 1
 	fi
 
+	desc "Restore from AWS S3 scheduled backup and verify data integrity"
+	run_scheduled_recovery_check "$cluster" "$SECOND_AWS_BACKUP"
+
 	desc "Check backup deletion from S3"
 	check_backup_deletion_aws "$BACKUP_DEST_AWS" ".sst_info/sst_info.00000000000000000000"
 

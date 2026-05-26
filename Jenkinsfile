@@ -20,7 +20,7 @@ void createCluster(String CLUSTER_SUFFIX) {
                     --cluster-version=1.33 \
                     --num-nodes=3 \
                     --labels delete-cluster-after-hours=6 \
-                    --disk-size 50 \
+                    --disk-size 70 \
                     --network=jenkins-vpc \
                     --subnetwork=jenkins-${CLUSTER_SUFFIX} \
                     --cluster-ipv4-cidr=/21 \

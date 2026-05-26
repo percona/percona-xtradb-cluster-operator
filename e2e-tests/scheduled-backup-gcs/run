@@ -64,6 +64,9 @@ main() {
 		exit 1
 	fi
 
+	desc "Restore from GCS scheduled backup and verify data integrity"
+	run_scheduled_recovery_check "$cluster" "$SECOND_GCP_BACKUP"
+
 	desc "Check backup deletion from GCS"
 	check_backup_deletion_gcs "$BACKUP_DEST_GCP"
 

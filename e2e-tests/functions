@@ -904,11 +904,8 @@ destroy() {
 		-o jsonpath='{range .items[*]}{.metadata.namespace} {.metadata.name}{"\n"}{end}' 2>/dev/null \
 		| while read -r ns name; do
 			kubectl_bin patch pxc -n "$ns" "$name" \
-				--type=json \
-				-p '[{"op":"remove","path":"/metadata/finalizers"}]' 2>/dev/null || \
-			kubectl_bin patch pxc -n "$ns" "$name" \
 				--type=merge \
-				-p '{"metadata":{"finalizers":[]}}' 2>/dev/null || :
+				-p '{"metadata":{"finalizers":["percona.com/delete-pxc-pvc"]}}' 2>/dev/null || :
 		done
 	kubectl_bin delete pxc --all --all-namespaces || :
 	kubectl_bin delete pxc-restore --all --all-namespaces || :
@@ -1326,7 +1323,7 @@ get_container_options() {
 	local cluster_name=$2
 
 	local backup_options
-	backup_options=$(kubectl_bin get pxc-backup "$backup_name" -o jsonpath='{.spec.containerOptions}')
+	backup_options=$(kubectl_bin get pxc-backup "$backup_name" -o json | jq -c '.spec.containerOptions // empty')
 	if [[ -n $backup_options ]]; then
 		echo "$backup_options"
 		return
@@ -1335,7 +1332,7 @@ get_container_options() {
 	local storage_name
 	storage_name=$(kubectl_bin get pxc-backup "$backup_name" -o jsonpath='{.spec.storageName}')
 	local storage_options
-	storage_options=$(kubectl_bin get pxc "$cluster_name" -o jsonpath="{.spec.backup.storages.$storage_name.containerOptions}")
+	storage_options=$(kubectl_bin get pxc "$cluster_name" -o json | jq -c --arg s "$storage_name" '.spec.backup.storages[$s].containerOptions // empty')
 	if [[ -n $storage_options ]]; then
 		echo "$storage_options"
 		return
@@ -1419,7 +1416,7 @@ run_recovery_from_source() {
 	local container_options
 	container_options=$(get_container_options "$backup_name" "$cluster")
 	if [[ -n $container_options ]]; then
-		restore_json=$(echo "$restore_json" | jq ".spec.containerOptions=$container_options")
+		restore_json=$(echo "$restore_json" | jq --argjson opts "$container_options" '.spec.containerOptions=$opts')
 	fi
 
 	local backup_source_json
@@ -2987,4 +2984,59 @@ wait_for_password_propagation() {
 		fi
 	done
 	echo "Old password successfully discarded after $retry retries"
+}
+
+run_scheduled_recovery_check() {
+	local cluster=$1
+	local backup1=$2
+
+	restore_name="${backup1:22:32}"
+
+	desc 'write data after backup'
+	run_mysql \
+		'INSERT myApp.myApp (id) VALUES (100501)' \
+		"-h $cluster-proxysql -uroot -proot_password"
+
+	for node in \
+		"$cluster-pxc-0.$cluster-pxc" \
+		"$cluster-pxc-1.$cluster-pxc" \
+		"$cluster-pxc-2.$cluster-pxc"; do
+		local retry=0
+		until [[ "$(run_mysql 'SELECT COUNT(*) FROM myApp.myApp;' \
+			"-h $node -uroot -proot_password" 2>/dev/null)" == "2" ]]; do
+			[ $retry -ge 12 ] && echo "Row not propagated to $node after 1 min" && exit 1
+			sleep 5
+			retry=$((retry + 1))
+		done
+	done
+	compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
+	compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-pxc-1.$cluster-pxc -uroot -proot_password"
+	compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-pxc-2.$cluster-pxc -uroot -proot_password"
+
+	desc 'recover backup'
+	cat $src_dir/deploy/backup/restore.yaml \
+		| $sed "s/pxcCluster: .*/pxcCluster: $cluster/" \
+		| $sed "s/backupName: .*/backupName: $backup1/" \
+		| $sed "s/name: .*/name: $restore_name/" \
+		| kubectl_bin apply -f -
+	wait_backup_restore ${restore_name}
+
+	kubectl_bin logs job/restore-job-${restore_name}-${cluster:0:16}
+
+	wait_for_running "$cluster-proxysql" 1
+	wait_for_running "$cluster-pxc" 3
+
+	for node in "$cluster-pxc-0.$cluster-pxc" "$cluster-pxc-1.$cluster-pxc" "$cluster-pxc-2.$cluster-pxc"; do
+		local retry=0
+		until run_mysql 'SELECT 1;' "-h $node -uroot -proot_password" 2>/dev/null | grep -q 1; do
+			[ $retry -ge 24 ] && echo "Node $node not accessible after 2 min" && exit 1
+			sleep 5
+			retry=$((retry + 1))
+		done
+	done
+
+	desc 'check data after backup'
+	compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
+	compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-1.$cluster-pxc -uroot -proot_password"
+	compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-2.$cluster-pxc -uroot -proot_password"
 }

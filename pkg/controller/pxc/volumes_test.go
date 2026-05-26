@@ -314,7 +314,7 @@ func TestReconcilePersistentVolumesWarnsAboutInconsistentPVCSizes(t *testing.T) 
 				recorder: recorder,
 			}
 
-			err = r.reconcilePersistentVolumes(ctx, cr)
+			_, err = r.reconcilePersistentVolumes(ctx, cr)
 			require.NoError(t, err)
 
 			if tt.expectWarning {

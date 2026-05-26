@@ -283,6 +283,64 @@ server_version = 5.7.44-48-57-log
 	}
 }
 
+func TestGTIDSetEqual(t *testing.T) {
+	testCases := []struct {
+		desc string
+		a    string
+		b    string
+		want bool
+	}{
+		{
+			desc: "identical single-source sets",
+			a:    "uuid-a:1-10",
+			b:    "uuid-a:1-10",
+			want: true,
+		},
+		{
+			desc: "multi-source set with newline after comma matches single-line",
+			a:    "uuid-a:1-15,\nuuid-b:1-304",
+			b:    "uuid-a:1-15,uuid-b:1-304",
+			want: true,
+		},
+		{
+			desc: "multi-source set with leading/trailing whitespace",
+			a:    "  uuid-a:1-15, uuid-b:1-304 ",
+			b:    "uuid-a:1-15,uuid-b:1-304",
+			want: true,
+		},
+		{
+			desc: "different segment order",
+			a:    "uuid-b:1-304,uuid-a:1-15",
+			b:    "uuid-a:1-15,uuid-b:1-304",
+			want: true,
+		},
+		{
+			desc: "different ranges",
+			a:    "uuid-a:1-15,uuid-b:1-304",
+			b:    "uuid-a:1-16,uuid-b:1-304",
+			want: false,
+		},
+		{
+			desc: "missing segment",
+			a:    "uuid-a:1-15",
+			b:    "uuid-a:1-15,uuid-b:1-304",
+			want: false,
+		},
+		{
+			desc: "both empty",
+			a:    "",
+			b:    "",
+			want: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			assert.Equal(t, tc.want, gtidSetEqual(tc.a, tc.b))
+		})
+	}
+}
+
 func TestGetBackupTimelineUUID(t *testing.T) {
 	ctx := context.WithValue(context.Background(), testContextKey{}, true)
 	testCases := []struct {

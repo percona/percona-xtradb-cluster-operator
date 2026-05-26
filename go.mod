@@ -7,7 +7,7 @@ require (
 	github.com/Percona-Lab/percona-version-service/api v0.0.0-20201216104127-a39f2dded3cc
 	github.com/caarlos0/env v3.5.0+incompatible
 	github.com/cert-manager/cert-manager v1.20.2
-	github.com/flosch/pongo2/v6 v6.0.0
+	github.com/flosch/pongo2/v6 v6.1.0
 	github.com/go-ini/ini v1.67.0
 	github.com/go-logr/logr v1.4.3
 	github.com/go-logr/zapr v1.3.0
@@ -21,7 +21,7 @@ require (
 	github.com/hashicorp/go-version v1.9.0
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/minio/minio-go/v7 v7.1.0
-	github.com/onsi/ginkgo/v2 v2.28.3
+	github.com/onsi/ginkgo/v2 v2.29.0
 	github.com/onsi/gomega v1.41.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.23.2

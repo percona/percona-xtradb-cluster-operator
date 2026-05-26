@@ -86,9 +86,14 @@ func (r *ReconcilePerconaXtraDBCluster) reconcilePersistentVolumes(ctx context.C
 		return false, nil
 	}
 
-	var actual resource.Quantity
+	var actual, largestActual resource.Quantity
+	pvcSizes := make([]string, 0, len(pvcsToUpdate))
 	for _, pvc := range pvcList.Items {
 		if !validatePVCName(pvc, sts) {
+			continue
+		}
+
+		if !slices.Contains(pvcsToUpdate, pvc.Name) {
 			continue
 		}
 
@@ -96,10 +101,15 @@ func (r *ReconcilePerconaXtraDBCluster) reconcilePersistentVolumes(ctx context.C
 			continue
 		}
 
+		pvcSizes = append(pvcSizes, pvc.Name+"="+pvc.Status.Capacity.Storage().String())
+
 		// we need to find the smallest size among all PVCs
 		// since it indicates a failed resize operation
 		if actual.IsZero() || pvc.Status.Capacity.Storage().Cmp(actual) < 0 {
 			actual = *pvc.Status.Capacity.Storage()
+		}
+		if largestActual.IsZero() || pvc.Status.Capacity.Storage().Cmp(largestActual) > 0 {
+			largestActual = *pvc.Status.Capacity.Storage()
 		}
 	}
 
@@ -124,6 +134,12 @@ func (r *ReconcilePerconaXtraDBCluster) reconcilePersistentVolumes(ctx context.C
 
 	configured := volumeTemplate.Spec.Resources.Requests[corev1.ResourceStorage]
 	requested := cr.Spec.PXC.VolumeSpec.PersistentVolumeClaim.Resources.Requests[corev1.ResourceStorage]
+
+	if actual.Cmp(largestActual) != 0 && !cr.PVCResizeInProgress() {
+		message := "PVC capacities differ across PXC pods. Update `.spec.pxc.volumeSpec.persistentVolumeClaim.resources.requests.storage` to the largest size or keep external autoscaling enabled"
+		log.Error(nil, message, "requested", requested.String(), "smallestActual", actual.String(), "largestActual", largestActual.String(), "pvcs", strings.Join(pvcSizes, ","))
+		r.recorder.Event(cr, corev1.EventTypeWarning, naming.EventPVCStorageSizeMismatch, message)
+	}
 
 	if cr.PVCResizeInProgress() {
 		resizeStartedAt, err := time.Parse(time.RFC3339, cr.GetAnnotations()[pxcv1.AnnotationPVCResizeInProgress])

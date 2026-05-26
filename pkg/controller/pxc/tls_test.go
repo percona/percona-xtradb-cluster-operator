@@ -3,7 +3,11 @@ package pxc
 import (
 	"bytes"
 	"testing"
+	"time"
 
+	cm "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
+	cmmeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
+	cmscheme "github.com/cert-manager/cert-manager/pkg/client/clientset/versioned/scheme"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/apis"
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
@@ -20,6 +24,122 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
+
+func TestCreateOrUpdateCertificatePreservesExistingFields(t *testing.T) {
+	ctx := t.Context()
+
+	scheme := runtime.NewScheme()
+	require.NoError(t, clientgoscheme.AddToScheme(scheme))
+	require.NoError(t, cmscheme.AddToScheme(scheme))
+
+	existing := &cm.Certificate{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cluster-ca-cert",
+			Namespace: "default",
+			Annotations: map[string]string{
+				"external": "keep",
+			},
+			Labels: map[string]string{
+				"external":               "keep",
+				"app.kubernetes.io/name": "old",
+			},
+		},
+		Spec: cm.CertificateSpec{
+			SecretName: "old-secret",
+			IssuerRef: cmmeta.ObjectReference{
+				Name:  "cluster-ca-issuer",
+				Kind:  "Issuer",
+				Group: "cert-manager.io",
+			},
+			PrivateKey: &cm.CertificatePrivateKey{
+				RotationPolicy: cm.RotationPolicyAlways,
+			},
+		},
+		Status: cm.CertificateStatus{
+			Conditions: []cm.CertificateCondition{
+				{
+					Type:   cm.CertificateConditionIssuing,
+					Status: cmmeta.ConditionTrue,
+				},
+			},
+		},
+	}
+	desired := &cm.Certificate{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      existing.Name,
+			Namespace: existing.Namespace,
+			Annotations: map[string]string{
+				"desired": "true",
+			},
+			Labels: map[string]string{
+				"app.kubernetes.io/name": "pxc",
+				"desired":                "true",
+			},
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: api.SchemeGroupVersion.String(),
+					Kind:       "PerconaXtraDBCluster",
+					Name:       "cluster",
+					UID:        types.UID("cluster-uid"),
+				},
+			},
+		},
+		Spec: cm.CertificateSpec{
+			SecretName: "cluster-ca-cert",
+			CommonName: "cluster-ca",
+			IsCA:       true,
+			IssuerRef: cmmeta.ObjectReference{
+				Name: "cluster-ca-issuer",
+				Kind: "Issuer",
+			},
+			Duration: &metav1.Duration{Duration: time.Hour},
+			PrivateKey: &cm.CertificatePrivateKey{
+				RotationPolicy: cm.RotationPolicyNever,
+			},
+		},
+	}
+
+	cl := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(existing).
+		Build()
+	r := &ReconcilePerconaXtraDBCluster{
+		client: cl,
+		scheme: cl.Scheme(),
+	}
+
+	require.NoError(t, r.createOrUpdateCertificate(ctx, desired))
+
+	actual := &cm.Certificate{}
+	require.NoError(t, cl.Get(ctx, client.ObjectKeyFromObject(existing), actual))
+	require.Equal(t, map[string]string{
+		"external":               "keep",
+		"app.kubernetes.io/name": "pxc",
+		"desired":                "true",
+	}, actual.Labels)
+	require.Equal(t, map[string]string{
+		"external": "keep",
+		"desired":  "true",
+	}, actual.Annotations)
+	require.Equal(t, desired.OwnerReferences, actual.OwnerReferences)
+	require.Equal(t, "cert-manager.io", actual.Spec.IssuerRef.Group)
+	require.Equal(t, cm.RotationPolicyAlways, actual.Spec.PrivateKey.RotationPolicy)
+	require.Equal(t, "cluster-ca-cert", actual.Spec.SecretName)
+	require.Equal(t, "cluster-ca", actual.Spec.CommonName)
+	require.True(t, actual.Spec.IsCA)
+
+	actual.Status.Conditions = []cm.CertificateCondition{
+		{
+			Type:   cm.CertificateConditionIssuing,
+			Status: cmmeta.ConditionFalse,
+		},
+	}
+	require.NoError(t, cl.Update(ctx, actual))
+	require.NoError(t, r.createOrUpdateCertificate(ctx, desired))
+
+	require.NoError(t, cl.Get(ctx, client.ObjectKeyFromObject(existing), actual))
+	require.Equal(t, cm.RotationPolicyNever, actual.Spec.PrivateKey.RotationPolicy)
+}
 
 func TestRotateSSLCertificate(t *testing.T) {
 	ctx := t.Context()

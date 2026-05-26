@@ -17,6 +17,25 @@ check_verify_identity() {
 		bash -c "printf '%s\n' \"${command}\" | mysql -sN $args"
 }
 
+wait_for_certificate_generation() {
+	local certificate="$1"
+	local target_generation="$2"
+	local retries="${3:-36}"
+	local current_generation
+
+	for _ in $(seq 1 "$retries"); do
+		current_generation=$(kubectl_bin get certificate "$certificate" -o jsonpath='{.metadata.generation}' 2>/dev/null || true)
+		if [ "$current_generation" = "$target_generation" ]; then
+			return 0
+		fi
+		echo "Certificate $certificate is at generation ${current_generation:-unknown}; waiting for generation $target_generation"
+		sleep 5
+	done
+
+	echo "Certificate $certificate did not reach generation $target_generation after $retries retries"
+	return 1
+}
+
 trigger_ca_rotation() {
 	desc 'set rotationPolicy=Always on CA certificate'
 	kubectl_bin patch certificate "$cluster-ca-cert" --type=merge \
@@ -137,6 +156,24 @@ main() {
 	check_verify_identity "$cluster-pxc"
 	desc 'check ssl-internal certificate using HAProxy'
 	check_verify_identity "$cluster-haproxy"
+
+	desc 'update tls spec: change duration and add new SAN'
+	apply_config "$test_dir/conf/$cluster-updated.yml"
+
+	desc 'wait for cert-manager certificate specs to be updated'
+	wait_for_certificate_generation "$cluster-ca-cert" 2
+	wait_for_certificate_generation "$cluster-ssl" 2
+
+	desc 'check if CA certificate updated'
+	compare_kubectl certificate/$cluster-ca-cert "-updated"
+
+	desc 'check if SSL certificate updated'
+	compare_kubectl certificate/$cluster-ssl "-updated"
+
+	wait_cluster_consistency "$cluster" 3 2
+
+	desc 'check ssl-internal certificate using PXC after update'
+	check_verify_identity "$cluster-pxc"
 
 	desc 'trigger CA rotation and verify leaf cert re-issuance'
 	trigger_ca_rotation

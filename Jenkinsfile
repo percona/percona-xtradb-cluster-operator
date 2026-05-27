@@ -9,6 +9,11 @@ void createCluster(String CLUSTER_SUFFIX) {
             export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_SUFFIX}
             gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE
             gcloud config set project $GCP_PROJECT
+            cat > /tmp/kubelet-config-${CLUSTER_SUFFIX}.yaml <<'KUBELET_EOF'
+kubeletConfig:
+  imageGCHighThresholdPercent: 50
+  imageGCLowThresholdPercent: 40
+KUBELET_EOF
             ret_num=0
             while [ \${ret_num} -lt 15 ]; do
                 ret_val=0
@@ -20,7 +25,7 @@ void createCluster(String CLUSTER_SUFFIX) {
                     --cluster-version=1.33 \
                     --num-nodes=3 \
                     --labels delete-cluster-after-hours=6 \
-                    --disk-size 70 \
+                    --disk-size 200 \
                     --network=jenkins-vpc \
                     --subnetwork=jenkins-${CLUSTER_SUFFIX} \
                     --cluster-ipv4-cidr=/21 \
@@ -30,6 +35,7 @@ void createCluster(String CLUSTER_SUFFIX) {
                     --logging=NONE \
                     --no-enable-managed-prometheus \
                     --workload-pool=cloud-dev-112233.svc.id.goog \
+                    --system-config-from-file=/tmp/kubelet-config-${CLUSTER_SUFFIX}.yaml \
                     --quiet && \
                 kubectl create clusterrolebinding cluster-admin-binding --clusterrole cluster-admin --user jenkins@"$GCP_PROJECT".iam.gserviceaccount.com || ret_val=\$?
                 if [ \${ret_val} -eq 0 ]; then break; fi
@@ -37,8 +43,10 @@ void createCluster(String CLUSTER_SUFFIX) {
             done
             if [ \${ret_num} -eq 15 ]; then
                 gcloud container clusters list --filter $CLUSTER_NAME-${CLUSTER_SUFFIX} --zone ${region} --format='csv[no-heading](name)' | xargs -r gcloud container clusters delete --zone ${region} --quiet || true
+                rm -f /tmp/kubelet-config-${CLUSTER_SUFFIX}.yaml
                 exit 1
             fi
+            rm -f /tmp/kubelet-config-${CLUSTER_SUFFIX}.yaml
         """
    }
 }

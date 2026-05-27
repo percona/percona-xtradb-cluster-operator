@@ -180,7 +180,7 @@ spec:
         - sh
         - -c
         - |
-          echo "=== NODE: $(cat /proc/sys/kernel/hostname) ==="
+          echo "=== NODE: \$(cat /proc/sys/kernel/hostname) ==="
           echo "--- disk space ---"
           df -h /host
           echo "--- inodes ---"

@@ -181,10 +181,12 @@ spec:
         - -c
         - |
           echo "=== NODE: \$(cat /proc/sys/kernel/hostname) ==="
-          echo "--- disk space ---"
-          df -h /host
-          echo "--- inodes ---"
-          df -i /host
+          echo "--- disk space (all) ---"
+          df -h /host/mnt/stateful_partition /host/var/lib/containerd /host
+          echo "--- inodes (all) ---"
+          df -i /host/mnt/stateful_partition /host/var/lib/containerd /host
+          echo "--- containerd image store size ---"
+          du -sh /host/var/lib/containerd 2>/dev/null || echo "n/a"
           sleep 3600
         volumeMounts:
         - name: host-root

@@ -36,6 +36,40 @@ wait_for_pxc_restart_count() {
 	echo
 }
 
+wait_for_cluster_ready() {
+	local cluster=$1
+	local pxc_size=$2
+	local max_retry="${3:-900}"
+	local retry=0
+
+	echo -n "waiting for pxc/$cluster to become ready with $pxc_size PXC pods"
+	until [[ "$(kubectl_bin get pxc "$cluster" -o jsonpath='{.status.state}' 2>/dev/null)" == "ready" &&
+	"$(kubectl_bin get pxc "$cluster" -o jsonpath='{.status.pxc.ready}' 2>/dev/null)" == "$pxc_size" ]]; do
+		sleep 5
+		echo -n .
+		retry=$((retry + 5))
+		if [[ $retry -ge $max_retry ]]; then
+			echo
+			echo "ERROR: pxc/$cluster did not become ready with $pxc_size PXC pods"
+			kubectl_bin get pxc "$cluster" -o yaml || :
+			kubectl_bin get pods || :
+			kubectl_bin describe pod "$cluster-pxc-3" || :
+			kubectl_bin logs "$cluster-pxc-3" -c pxc || :
+			kubectl_bin logs "$cluster-pxc-3" -c pxc --previous || :
+			exit 1
+		fi
+	done
+	echo
+}
+
+recover_joiner_after_sst_retry_limit() {
+	local joiner_pod=$1
+
+	echo "removing SST retry marker files from pod/$joiner_pod"
+	kubectl_bin exec "$joiner_pod" -c pxc -- \
+		rm -f /var/lib/mysql/sst_retry_limit_reached /var/lib/mysql/sst_retry_count
+}
+
 detect_active_donor() {
 	local root_pass=$1
 	shift
@@ -230,6 +264,10 @@ main() {
 			exit 1
 		fi
 	done
+
+	desc 'manually recover the joiner and verify the cluster becomes ready'
+	recover_joiner_after_sst_retry_limit "$joiner_pod"
+	wait_for_cluster_ready "$cluster" 4 900
 
 	destroy "$namespace"
 	desc "test passed"

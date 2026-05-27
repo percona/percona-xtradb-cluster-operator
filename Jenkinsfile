@@ -9,11 +9,6 @@ void createCluster(String CLUSTER_SUFFIX) {
             export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_SUFFIX}
             gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE
             gcloud config set project $GCP_PROJECT
-            cat > /tmp/kubelet-config-${CLUSTER_SUFFIX}.yaml <<'KUBELET_EOF'
-kubeletConfig:
-  imageGCHighThresholdPercent: 50
-  imageGCLowThresholdPercent: 40
-KUBELET_EOF
             ret_num=0
             while [ \${ret_num} -lt 15 ]; do
                 ret_val=0
@@ -35,7 +30,6 @@ KUBELET_EOF
                     --logging=NONE \
                     --no-enable-managed-prometheus \
                     --workload-pool=cloud-dev-112233.svc.id.goog \
-                    --system-config-from-file=/tmp/kubelet-config-${CLUSTER_SUFFIX}.yaml \
                     --quiet && \
                 kubectl create clusterrolebinding cluster-admin-binding --clusterrole cluster-admin --user jenkins@"$GCP_PROJECT".iam.gserviceaccount.com || ret_val=\$?
                 if [ \${ret_val} -eq 0 ]; then break; fi
@@ -43,10 +37,8 @@ KUBELET_EOF
             done
             if [ \${ret_num} -eq 15 ]; then
                 gcloud container clusters list --filter $CLUSTER_NAME-${CLUSTER_SUFFIX} --zone ${region} --format='csv[no-heading](name)' | xargs -r gcloud container clusters delete --zone ${region} --quiet || true
-                rm -f /tmp/kubelet-config-${CLUSTER_SUFFIX}.yaml
                 exit 1
             fi
-            rm -f /tmp/kubelet-config-${CLUSTER_SUFFIX}.yaml
         """
    }
 }
@@ -159,6 +151,56 @@ void markPassedTests() {
     }
 }
 
+void printNodeDiskUsage(String CLUSTER_SUFFIX) {
+    sh """
+        export CLOUDSDK_CONFIG=/tmp/gcloud-$CLUSTER_NAME-$CLUSTER_SUFFIX
+        export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
+        echo "========== NODE DISK USAGE ($CLUSTER_SUFFIX) =========="
+        kubectl apply -f - <<'YAML_EOF'
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: disk-debug
+  namespace: kube-system
+spec:
+  selector:
+    matchLabels:
+      app: disk-debug
+  template:
+    metadata:
+      labels:
+        app: disk-debug
+    spec:
+      tolerations:
+      - operator: Exists
+      containers:
+      - name: debug
+        image: busybox:1.36
+        command:
+        - sh
+        - -c
+        - |
+          echo "=== NODE: $(cat /proc/sys/kernel/hostname) ==="
+          echo "--- disk space ---"
+          df -h /host
+          echo "--- inodes ---"
+          df -i /host
+          sleep 3600
+        volumeMounts:
+        - name: host-root
+          mountPath: /host
+      volumes:
+      - name: host-root
+        hostPath:
+          path: /
+YAML_EOF
+        kubectl rollout status daemonset/disk-debug -n kube-system --timeout=60s || true
+        kubectl logs -n kube-system -l app=disk-debug --prefix=true || true
+        kubectl delete daemonset disk-debug -n kube-system --ignore-not-found=true || true
+        echo "======================================================"
+    """
+}
+
 void printKubernetesStatus(String LOCATION, String CLUSTER_SUFFIX) {
     sh """
         export CLOUDSDK_CONFIG=/tmp/gcloud-$CLUSTER_NAME-$CLUSTER_SUFFIX
@@ -177,6 +219,7 @@ void printKubernetesStatus(String LOCATION, String CLUSTER_SUFFIX) {
         kubectl get events --field-selector type!=Normal --all-namespaces --sort-by=".lastTimestamp"
         echo "======================================================"
     """
+    printNodeDiskUsage(CLUSTER_SUFFIX)
 }
 
 String formatTime(def time) {
@@ -298,6 +341,7 @@ void runTest(Integer TEST_ID) {
             def durationSec = (timeStop - timeStart) / 1000
             tests[TEST_ID]["time"] = durationSec
             pushLogFile("$testNameWithMysqlVersion")
+            printNodeDiskUsage("$clusterSuffix")
             echo "The $testName-$mysqlVer test was finished!"
         }
     }

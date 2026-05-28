@@ -34,7 +34,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(ctx context.Context, cr
 	backupNamePrefix := backupJobClusterPrefix(cr.Namespace + "-" + cr.Name)
 
 	if cr.Spec.Backup != nil {
-		restoreRunning, err := r.isRestoreRunning(cr.Name, cr.Namespace)
+		restoreRunning, err := r.isRestoreRunning(ctx, cr.Name, cr.Namespace)
 		if err != nil {
 			return errors.Wrap(err, "failed to check if restore is running")
 		}
@@ -145,7 +145,8 @@ func backupJobClusterPrefix(clusterName string) string {
 // oldScheduledBackups returns list of the most old pxc-bakups that execeed `keep` limit
 func (r *ReconcilePerconaXtraDBCluster) oldScheduledBackups(ctx context.Context, cr *api.PerconaXtraDBCluster, ancestor string, keep int) ([]api.PerconaXtraDBClusterBackup, error) {
 	bcpList := api.PerconaXtraDBClusterBackupList{}
-	err := r.client.List(ctx,
+	err := r.client.List(
+		ctx,
 		&bcpList,
 		&client.ListOptions{
 			Namespace: cr.Namespace,

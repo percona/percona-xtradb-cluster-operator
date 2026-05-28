@@ -201,7 +201,8 @@ func (r *ReconcilePerconaXtraDBCluster) upgradeInProgress(ctx context.Context, c
 // Otherwise, we consider the statefulset is initializing.
 func (r *ReconcilePerconaXtraDBCluster) appStatus(ctx context.Context, app api.StatefulApp, namespace string, podSpec *api.PodSpec, crLt170, paused bool) (api.AppStatus, error) {
 	list := corev1.PodList{}
-	err := r.client.List(ctx,
+	err := r.client.List(
+		ctx,
 		&list,
 		&client.ListOptions{
 			Namespace:     namespace,
@@ -244,7 +245,7 @@ func (r *ReconcilePerconaXtraDBCluster) appStatus(ctx context.Context, app api.S
 					continue
 				}
 
-				isPodWaitingForRecovery, _, _, err := r.isPodWaitingForRecovery(namespace, pod.Name)
+				isPodWaitingForRecovery, _, _, err := r.isPodWaitingForRecovery(ctx, namespace, pod.Name)
 				if err != nil {
 					return api.AppStatus{}, errors.Wrapf(err, "parse %s pod logs", pod.Name)
 				}

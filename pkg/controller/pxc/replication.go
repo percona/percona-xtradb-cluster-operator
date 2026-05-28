@@ -34,7 +34,7 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePxcPodServices(ctx context.Context
 		return nil
 	}
 
-	isBackupRunning, err := r.isBackupRunning(cr)
+	isBackupRunning, err := r.isBackupRunning(ctx, cr)
 	if err != nil {
 		return errors.Wrap(err, "failed to check if backup is running")
 	}
@@ -43,7 +43,7 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePxcPodServices(ctx context.Context
 		return nil
 	}
 
-	isRestoreRunning, err := r.isRestoreRunning(cr.Name, cr.Namespace)
+	isRestoreRunning, err := r.isRestoreRunning(ctx, cr.Name, cr.Namespace)
 	if err != nil {
 		return errors.Wrap(err, "failed to check if restore is running")
 	}
@@ -61,10 +61,10 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePxcPodServices(ctx context.Context
 			return errors.Wrap(err, "failed to ensure pxc service")
 		}
 	}
-	return r.removeOutdatedServices(cr)
+	return r.removeOutdatedServices(ctx, cr)
 }
 
-func (r *ReconcilePerconaXtraDBCluster) removeOutdatedServices(cr *api.PerconaXtraDBCluster) error {
+func (r *ReconcilePerconaXtraDBCluster) removeOutdatedServices(ctx context.Context, cr *api.PerconaXtraDBCluster) error {
 	// needed for labels
 	svc := NewExposedPXCService("", cr)
 
@@ -74,7 +74,8 @@ func (r *ReconcilePerconaXtraDBCluster) removeOutdatedServices(cr *api.PerconaXt
 	}
 
 	svcList := &corev1.ServiceList{}
-	err := r.client.List(context.TODO(),
+	err := r.client.List(
+		ctx,
 		svcList,
 		&client.ListOptions{
 			Namespace:     cr.Namespace,
@@ -87,7 +88,7 @@ func (r *ReconcilePerconaXtraDBCluster) removeOutdatedServices(cr *api.PerconaXt
 
 	for _, service := range svcList.Items {
 		if _, ok := svcNames[service.Name]; !ok {
-			err = r.client.Delete(context.TODO(), &service)
+			err = r.client.Delete(ctx, &service)
 			if err != nil {
 				return errors.Wrapf(err, "failed to delete service %s", service.Name)
 			}
@@ -106,7 +107,8 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(ctx context.Context
 	sfs := statefulset.NewNode(cr)
 
 	listRaw := corev1.PodList{}
-	err := r.client.List(ctx,
+	err := r.client.List(
+		ctx,
 		&listRaw,
 		&client.ListOptions{
 			Namespace:     cr.Namespace,
@@ -148,7 +150,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(ctx context.Context
 
 	port := int32(33062)
 
-	primaryDB, err := queries.New(r.client, cr.Namespace, internalSecretsPrefix+cr.Name, users.Operator, primaryPod.Name+"."+cr.Name+"-pxc."+cr.Namespace, port, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
+	primaryDB, err := queries.New(ctx, r.client, cr.Namespace, internalSecretsPrefix+cr.Name, users.Operator, primaryPod.Name+"."+cr.Name+"-pxc."+cr.Namespace, port, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
 	if err != nil {
 		return errors.Wrapf(err, "failed to connect to pod %s", primaryPod.Name)
 	}
@@ -179,11 +181,11 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(ctx context.Context
 	}
 
 	if len(cr.Spec.PXC.ReplicationChannels) == 0 {
-		return deleteReplicaLabels(r.client, podList)
+		return deleteReplicaLabels(ctx, r.client, podList)
 	}
 
 	if cr.Spec.PXC.ReplicationChannels[0].IsSource {
-		return deleteReplicaLabels(r.client, podList)
+		return deleteReplicaLabels(ctx, r.client, podList)
 	}
 
 	// if primary pod is not a replica, we need to make it as replica, and stop replication on other pods
@@ -192,7 +194,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(ctx context.Context
 			continue
 		}
 		if _, ok := pod.Labels[replicationPodLabel]; ok {
-			db, err := queries.New(r.client, cr.Namespace, internalSecretsPrefix+cr.Name, users.Operator, pod.Name+"."+cr.Name+"-pxc."+cr.Namespace, port, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
+			db, err := queries.New(ctx, r.client, cr.Namespace, internalSecretsPrefix+cr.Name, users.Operator, pod.Name+"."+cr.Name+"-pxc."+cr.Namespace, port, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
 			if err != nil {
 				return errors.Wrapf(err, "failed to connect to pod %s", pod.Name)
 			}
@@ -221,7 +223,8 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(ctx context.Context
 	}
 
 	sysUsersSecretObj := corev1.Secret{}
-	err = r.client.Get(ctx,
+	err = r.client.Get(
+		ctx,
 		types.NamespacedName{
 			Namespace: cr.Namespace,
 			Name:      internalSecretsPrefix + cr.Name,
@@ -302,7 +305,7 @@ func checkReadonlyStatus(ctx context.Context, channels []api.ReplicationChannel,
 	}
 
 	for _, pod := range pods {
-		db, err := queries.New(client, cr.Namespace, internalSecretsPrefix+cr.Name, users.Operator, pod.Name+"."+cr.Name+"-pxc."+cr.Namespace, 33062, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
+		db, err := queries.New(ctx, client, cr.Namespace, internalSecretsPrefix+cr.Name, users.Operator, pod.Name+"."+cr.Name+"-pxc."+cr.Namespace, 33062, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
 		if err != nil {
 			return errors.Wrapf(err, "connect to pod %s", pod.Name)
 		}
@@ -475,11 +478,11 @@ func isSourcesChanged(new []api.ReplicationSource, old []queries.ReplicationChan
 	return len(oldSrc) != 0
 }
 
-func deleteReplicaLabels(client client.Client, pods []corev1.Pod) error {
+func deleteReplicaLabels(ctx context.Context, client client.Client, pods []corev1.Pod) error {
 	for _, pod := range pods {
 		if _, ok := pod.Labels[replicationPodLabel]; ok {
 			delete(pod.Labels, replicationPodLabel)
-			err := client.Update(context.TODO(), &pod)
+			err := client.Update(ctx, &pod)
 			if err != nil {
 				return errors.Wrap(err, "failed to remove replication label from pod")
 			}
@@ -488,7 +491,7 @@ func deleteReplicaLabels(client client.Client, pods []corev1.Pod) error {
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) removePxcPodServices(cr *api.PerconaXtraDBCluster) error {
+func (r *ReconcilePerconaXtraDBCluster) removePxcPodServices(ctx context.Context, cr *api.PerconaXtraDBCluster) error {
 	if cr.Spec.Pause {
 		return nil
 	}
@@ -497,7 +500,8 @@ func (r *ReconcilePerconaXtraDBCluster) removePxcPodServices(cr *api.PerconaXtra
 	svc := NewExposedPXCService("", cr)
 
 	svcList := &corev1.ServiceList{}
-	err := r.client.List(context.TODO(),
+	err := r.client.List(
+		ctx,
 		svcList,
 		&client.ListOptions{
 			Namespace:     cr.Namespace,
@@ -513,7 +517,7 @@ func (r *ReconcilePerconaXtraDBCluster) removePxcPodServices(cr *api.PerconaXtra
 	}
 
 	for _, service := range svcList.Items {
-		err = r.client.Delete(context.TODO(), &service)
+		err = r.client.Delete(ctx, &service)
 		if err != nil {
 			return errors.Wrap(err, "failed to delete external service")
 		}

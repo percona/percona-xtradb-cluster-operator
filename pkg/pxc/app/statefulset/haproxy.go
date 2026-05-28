@@ -516,9 +516,9 @@ func pmm3HaproxyEnvVars(secretName string) []corev1.EnvVar {
 	}
 }
 
-func (c *HAProxy) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg api.CustomVolumeGetter) (*api.Volume, error) {
+func (c *HAProxy) Volumes(ctx context.Context, podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg api.CustomVolumeGetter) (*api.Volume, error) {
 	vol := app.Volumes(podSpec, haproxyDataVolumeName)
-	configVolume, err := vg(cr.Namespace, "haproxy-custom", c.Labels()[naming.LabelAppKubernetesInstance]+"-haproxy", true)
+	configVolume, err := vg(ctx, cr.Namespace, "haproxy-custom", c.Labels()[naming.LabelAppKubernetesInstance]+"-haproxy", true)
 	if err != nil {
 		return nil, err
 	}
@@ -538,7 +538,8 @@ func (c *HAProxy) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg
 			app.GetConfigVolumes("hookscript", c.Labels()[naming.LabelAppKubernetesInstance]+"-"+c.Labels()[naming.LabelAppKubernetesComponent]+"-hookscript"))
 	}
 	if cr.CompareVersionWith("1.13.0") >= 0 {
-		vol.Volumes = append(vol.Volumes,
+		vol.Volumes = append(
+			vol.Volumes,
 			corev1.Volume{
 				Name: naming.BinVolumeName,
 				VolumeSource: corev1.VolumeSource{

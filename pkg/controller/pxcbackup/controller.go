@@ -44,8 +44,8 @@ import (
 
 // Add creates a new PerconaXtraDBClusterBackup Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
-func Add(mgr manager.Manager) error {
-	r, err := newReconciler(mgr)
+func Add(ctx context.Context, mgr manager.Manager) error {
+	r, err := newReconciler(ctx, mgr)
 	if err != nil {
 		return err
 	}
@@ -54,8 +54,8 @@ func Add(mgr manager.Manager) error {
 }
 
 // newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager) (reconcile.Reconciler, error) {
-	sv, err := version.Server()
+func newReconciler(ctx context.Context, mgr manager.Manager) (reconcile.Reconciler, error) {
+	sv, err := version.Server(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "get version")
 	}

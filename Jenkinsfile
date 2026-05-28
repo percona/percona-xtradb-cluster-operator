@@ -176,6 +176,8 @@ spec:
       containers:
       - name: debug
         image: busybox:1.36
+        securityContext:
+          privileged: true
         command:
         - sh
         - -c
@@ -187,6 +189,10 @@ spec:
           df -i /host/mnt/stateful_partition /host/var/lib/containerd /host
           echo "--- containerd image store size ---"
           du -sh /host/var/lib/containerd 2>/dev/null || echo "n/a"
+          echo "--- kernel messages (errors/readonly) ---"
+          chroot /host dmesg --time-format=reltime | grep -iE "error|readonly|read-only|ext4|overlayfs|scsi|blk_update" | tail -30 || echo "n/a"
+          echo "--- node-problem-detector logs ---"
+          chroot /host journalctl -u node-problem-detector --no-pager -n 30 2>/dev/null || echo "n/a"
           sleep 3600
         volumeMounts:
         - name: host-root

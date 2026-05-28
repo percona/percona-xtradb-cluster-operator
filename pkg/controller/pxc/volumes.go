@@ -136,7 +136,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcilePersistentVolumes(ctx context.C
 	requested := cr.Spec.PXC.VolumeSpec.PersistentVolumeClaim.Resources.Requests[corev1.ResourceStorage]
 
 	if actual.Cmp(largestActual) != 0 && !cr.PVCResizeInProgress() {
-		message := "PVC capacities differ across PXC pods. Update `.spec.pxc.volumeSpec.persistentVolumeClaim.resources.requests.storage` to the largest size or keep external autoscaling enabled"
+		message := "PVC capacities differ across PXC pods. Update `.spec.pxc.volumeSpec.persistentVolumeClaim.resources.requests.storage` to the largest size and set `.spec.storageScaling.enableVolumeScaling` to `true`"
 		log.Error(nil, message, "requested", requested.String(), "smallestActual", actual.String(), "largestActual", largestActual.String(), "pvcs", strings.Join(pvcSizes, ","))
 		r.recorder.Event(cr, corev1.EventTypeWarning, naming.EventPVCStorageSizeMismatch, message)
 	}

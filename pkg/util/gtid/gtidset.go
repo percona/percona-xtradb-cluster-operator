@@ -95,57 +95,61 @@ func (s *GTIDSet) IsEmpty() bool {
 	return s == nil || s.raw == ""
 }
 
-func (s *GTIDSet) Start(uuidFilter string) (string, int64) {
-	if s.IsEmpty() {
-		return "", 0
+type SegmentFilter func(seg segment) bool
+
+var MatchesUUID = func(uuid string) SegmentFilter {
+	return func(seg segment) bool {
+		return seg.uuid == uuid
 	}
-
-	if s == nil || len(s.segments) == 0 || len(s.segments[0].intervals) == 0 {
-		return "", 0
-	}
-
-	start := s.segments[0].intervals[0][0]
-	uuid := s.segments[0].uuid
-	for _, seg := range s.segments {
-		if uuidFilter != "" && seg.uuid != uuidFilter {
-			continue
-		}
-
-		for _, interval := range seg.intervals {
-			if interval[0] < start {
-				start = interval[0]
-				uuid = seg.uuid
-			}
-		}
-	}
-
-	return uuid, start
 }
 
-func (s *GTIDSet) End(uuidFilter string) (string, int64) {
+func (s *GTIDSet) Start(filters ...SegmentFilter) (string, int64) {
+	return s.selectSeq(
+		func(interval []int64) int64 { return interval[0] },
+		func(candidate, selected int64) bool { return candidate < selected },
+		filters...,
+	)
+}
+
+func (s *GTIDSet) End(filters ...SegmentFilter) (string, int64) {
+	return s.selectSeq(
+		func(interval []int64) int64 { return interval[1] },
+		func(candidate, selected int64) bool { return candidate > selected },
+		filters...,
+	)
+}
+
+func (s *GTIDSet) selectSeq(seq func([]int64) int64, prefer func(candidate, selected int64) bool, filters ...SegmentFilter) (string, int64) {
 	if s.IsEmpty() {
 		return "", 0
 	}
 
-	if s == nil || len(s.segments) == 0 || len(s.segments[0].intervals) == 0 {
-		return "", 0
-	}
+	var selected int64
+	var uuid string
+	found := false
 
-	end := s.segments[0].intervals[0][1]
-	uuid := s.segments[0].uuid
+outer:
 	for _, seg := range s.segments {
-		if uuidFilter != "" && seg.uuid != uuidFilter {
-			continue
+		for _, filter := range filters {
+			if !filter(seg) {
+				continue outer
+			}
 		}
+
 		for _, interval := range seg.intervals {
-			if interval[1] > end {
-				end = interval[1]
+			candidate := seq(interval)
+			if !found || prefer(candidate, selected) {
+				selected = candidate
 				uuid = seg.uuid
+				found = true
 			}
 		}
 	}
+	if !found {
+		return "", 0
+	}
 
-	return uuid, end
+	return uuid, selected
 }
 
 func (s *GTIDSet) ContainsSeq(uuid string, seq int64) bool {

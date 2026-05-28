@@ -16,6 +16,7 @@ func TestGTIDSetInterval(t *testing.T) {
 		wantStartUUID string
 		wantStartSeq  int64
 		wantErr       bool
+		filters       []SegmentFilter
 	}{
 		{
 			name:          "simple range",
@@ -99,6 +100,25 @@ func TestGTIDSetInterval(t *testing.T) {
 			wantEndUUID:   "uuid2",
 			wantEndSeq:    20,
 		},
+
+		{
+			name:          "multiple uuids with filters",
+			in:            "uuid1:1-10,uuid2:11-20",
+			filters:       []SegmentFilter{MatchesUUID("uuid1")},
+			wantStartUUID: "uuid1",
+			wantStartSeq:  1,
+			wantEndUUID:   "uuid1",
+			wantEndSeq:    10,
+		},
+
+		{
+			name:          "empty gtid",
+			in:            "",
+			wantStartUUID: "",
+			wantStartSeq:  0,
+			wantEndUUID:   "",
+			wantEndSeq:    0,
+		},
 	}
 
 	for _, tt := range tests {
@@ -112,8 +132,8 @@ func TestGTIDSetInterval(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			startUUID, startSeq := gtidset.Start("")
-			endUUID, endSeq := gtidset.End("")
+			startUUID, startSeq := gtidset.Start(tt.filters...)
+			endUUID, endSeq := gtidset.End(tt.filters...)
 			assert.Equal(t, tt.wantStartUUID, startUUID)
 			assert.Equal(t, tt.wantStartSeq, startSeq)
 			assert.Equal(t, tt.wantEndUUID, endUUID)
@@ -215,6 +235,14 @@ func TestGTIDSetContainsSeq(t *testing.T) {
 			seq:   4,
 			want:  true,
 		},
+
+		{
+			name:  "empty",
+			entry: "",
+			uuid:  "uuid",
+			seq:   1,
+			want:  false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -255,6 +283,13 @@ func TestGTIDSetContainsUUID(t *testing.T) {
 			name:  "multiple segments, does not contain uuid",
 			entry: "uuid:1-10,other:1-10",
 			uuid:  "missing",
+			want:  false,
+		},
+
+		{
+			name:  "empty",
+			entry: "",
+			uuid:  "uuid",
 			want:  false,
 		},
 	}
@@ -310,6 +345,12 @@ func TestGTIDSetEqual(t *testing.T) {
 			a:    "uuid-a:1-15",
 			b:    "uuid-a:1-15,uuid-b:1-304",
 			want: false,
+		},
+		{
+			desc: "empty",
+			a:    "",
+			b:    "",
+			want: true,
 		},
 	}
 

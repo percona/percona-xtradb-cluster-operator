@@ -530,8 +530,8 @@ func (r *Recoverer) selectBinlogCandidates(ctx context.Context) ([]binlog, error
 
 	// Sort descending by end-sequence. Tiebreak by object name descending.
 	sort.Slice(candidates, func(x, y int) bool {
-		_, xEndSeq := candidates[x].gtidSet.End(r.timelineUUID)
-		_, yEndSeq := candidates[y].gtidSet.End(r.timelineUUID)
+		_, xEndSeq := candidates[x].gtidSet.End(gtid.MatchesUUID(r.timelineUUID))
+		_, yEndSeq := candidates[y].gtidSet.End(gtid.MatchesUUID(r.timelineUUID))
 
 		if xEndSeq != yEndSeq {
 			return xEndSeq > yEndSeq

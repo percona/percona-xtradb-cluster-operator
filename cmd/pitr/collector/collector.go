@@ -538,7 +538,7 @@ func findBinlogWithEndMarker(binlogs []pxc.Binlog, lastUploadedSet pxc.GTIDSet) 
 				continue
 			}
 
-			uuid, endSeq := lastUploadedGTID.End("")
+			uuid, endSeq := lastUploadedGTID.End()
 
 			for _, gtidSet := range binlogs[i].GTIDSet.List() {
 				parsedGtidSet, err := gtid.New(gtidSet)

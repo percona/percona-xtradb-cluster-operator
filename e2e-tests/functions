@@ -2731,10 +2731,6 @@ run_recovery_check_pitr() {
 	wait_backup_restore ${restore} "Preparing Cluster"
 
 	wait_backup_restore ${restore} "Point-in-time recovering"
-	wait_for_delete pod/${cluster}-proxysql-0
-	wait_for_delete pod/${cluster}-proxysql-1
-	wait_for_delete pod/${cluster}-pxc-2
-	wait_for_delete pod/${cluster}-pxc-1
 
 	wait_pod ${cluster}-pxc-0
 

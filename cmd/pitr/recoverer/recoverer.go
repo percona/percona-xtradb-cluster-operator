@@ -530,8 +530,8 @@ func (r *Recoverer) selectBinlogCandidates(ctx context.Context) ([]binlog, error
 
 	// Sort descending by end-sequence. Tiebreak by object name descending.
 	sort.Slice(candidates, func(x, y int) bool {
-		_, xEndSeq := candidates[x].gtidSet.End()
-		_, yEndSeq := candidates[y].gtidSet.End()
+		_, xEndSeq := candidates[x].gtidSet.End(r.timelineUUID)
+		_, yEndSeq := candidates[y].gtidSet.End(r.timelineUUID)
 
 		if xEndSeq != yEndSeq {
 			return xEndSeq > yEndSeq
@@ -560,7 +560,7 @@ func (r *Recoverer) setBinlogs(ctx context.Context) error {
 		if len(r.gtid) > 0 && r.recoverType == Transaction {
 			subResult, err := r.db.SubtractGTIDSet(ctx, binlogGTIDSet.String(), r.gtid)
 			if err != nil {
-				return errors.Wrapf(err, "check if '%s' is a subset of '%s", binlogGTIDSet, r.gtid)
+				return errors.Wrapf(err, "check if '%s' is a subset of '%s'", binlogGTIDSet, r.gtid)
 			}
 
 			subResultGTIDSet, err := gtid.New(subResult)
@@ -579,6 +579,7 @@ func (r *Recoverer) setBinlogs(ctx context.Context) error {
 				continue
 			}
 		}
+
 		binlogs = append(binlogs, candidate.objectName)
 		subResult, err := r.db.SubtractGTIDSet(ctx, r.startGTID, binlogGTIDSet.String())
 		if err != nil {

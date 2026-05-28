@@ -95,7 +95,7 @@ func (s *GTIDSet) IsEmpty() bool {
 	return s == nil || s.raw == ""
 }
 
-func (s *GTIDSet) Start() (string, int64) {
+func (s *GTIDSet) Start(uuidFilter string) (string, int64) {
 	if s.IsEmpty() {
 		return "", 0
 	}
@@ -107,6 +107,10 @@ func (s *GTIDSet) Start() (string, int64) {
 	start := s.segments[0].intervals[0][0]
 	uuid := s.segments[0].uuid
 	for _, seg := range s.segments {
+		if uuidFilter != "" && seg.uuid != uuidFilter {
+			continue
+		}
+
 		for _, interval := range seg.intervals {
 			if interval[0] < start {
 				start = interval[0]
@@ -118,7 +122,7 @@ func (s *GTIDSet) Start() (string, int64) {
 	return uuid, start
 }
 
-func (s *GTIDSet) End() (string, int64) {
+func (s *GTIDSet) End(uuidFilter string) (string, int64) {
 	if s.IsEmpty() {
 		return "", 0
 	}
@@ -130,6 +134,9 @@ func (s *GTIDSet) End() (string, int64) {
 	end := s.segments[0].intervals[0][1]
 	uuid := s.segments[0].uuid
 	for _, seg := range s.segments {
+		if uuidFilter != "" && seg.uuid != uuidFilter {
+			continue
+		}
 		for _, interval := range seg.intervals {
 			if interval[1] > end {
 				end = interval[1]

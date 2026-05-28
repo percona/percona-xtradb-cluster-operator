@@ -112,8 +112,8 @@ func TestGTIDSetInterval(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			startUUID, startSeq := gtidset.Start()
-			endUUID, endSeq := gtidset.End()
+			startUUID, startSeq := gtidset.Start("")
+			endUUID, endSeq := gtidset.End("")
 			assert.Equal(t, tt.wantStartUUID, startUUID)
 			assert.Equal(t, tt.wantStartSeq, startSeq)
 			assert.Equal(t, tt.wantEndUUID, endUUID)

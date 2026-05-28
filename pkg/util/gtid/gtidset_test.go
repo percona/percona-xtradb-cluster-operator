@@ -254,8 +254,8 @@ func TestGTIDSetContainsUUID(t *testing.T) {
 		{
 			name:  "multiple segments, does not contain uuid",
 			entry: "uuid:1-10,other:1-10",
-			uuid:  "other",
-			want:  true,
+			uuid:  "missing",
+			want:  false,
 		},
 	}
 

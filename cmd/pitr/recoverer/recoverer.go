@@ -530,8 +530,8 @@ func (r *Recoverer) selectBinlogCandidates(ctx context.Context) ([]binlog, error
 
 	// Sort descending by end-sequence. Tiebreak by object name descending.
 	sort.Slice(candidates, func(x, y int) bool {
-		xEndSeq, _ := candidates[x].gtidSet.End()
-		yEndSeq, _ := candidates[y].gtidSet.End()
+		_, xEndSeq := candidates[x].gtidSet.End()
+		_, yEndSeq := candidates[y].gtidSet.End()
 
 		if xEndSeq != yEndSeq {
 			return xEndSeq > yEndSeq
@@ -539,7 +539,7 @@ func (r *Recoverer) selectBinlogCandidates(ctx context.Context) ([]binlog, error
 		return candidates[x].objectName > candidates[y].objectName
 	})
 
-	return nil, nil
+	return candidates, nil
 }
 
 func (r *Recoverer) setBinlogs(ctx context.Context) error {
@@ -596,8 +596,16 @@ func (r *Recoverer) setBinlogs(ctx context.Context) error {
 		}
 	}
 
+	reverse(binlogs)
 	r.binlogs = binlogs
 	return nil
+}
+
+func reverse(list []string) {
+	for i := len(list)/2 - 1; i >= 0; i-- {
+		opp := len(list) - 1 - i
+		list[i], list[opp] = list[opp], list[i]
+	}
 }
 
 func getExtendGTIDSet(gtidSet, gtid string) (string, error) {

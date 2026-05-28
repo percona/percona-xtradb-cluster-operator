@@ -22,6 +22,10 @@ func New(id string) (*GTIDSet, error) {
 }
 
 func parse(id string) (*GTIDSet, error) {
+	if id == "" {
+		return &GTIDSet{}, nil
+	}
+
 	segments := make([]segment, 0)
 	id = canonicalize(id)
 
@@ -87,7 +91,15 @@ func parseInterval(rawInterval string) ([]int64, bool) {
 	return []int64{start, end}, true
 }
 
+func (s *GTIDSet) IsEmpty() bool {
+	return s == nil || s.raw == ""
+}
+
 func (s *GTIDSet) Start() (string, int64) {
+	if s.IsEmpty() {
+		return "", 0
+	}
+
 	if s == nil || len(s.segments) == 0 || len(s.segments[0].intervals) == 0 {
 		return "", 0
 	}
@@ -107,6 +119,10 @@ func (s *GTIDSet) Start() (string, int64) {
 }
 
 func (s *GTIDSet) End() (string, int64) {
+	if s.IsEmpty() {
+		return "", 0
+	}
+
 	if s == nil || len(s.segments) == 0 || len(s.segments[0].intervals) == 0 {
 		return "", 0
 	}
@@ -126,6 +142,10 @@ func (s *GTIDSet) End() (string, int64) {
 }
 
 func (s *GTIDSet) ContainsSeq(uuid string, seq int64) bool {
+	if s.IsEmpty() {
+		return false
+	}
+
 	for _, seg := range s.segments {
 		if seg.uuid != uuid {
 			continue
@@ -141,6 +161,10 @@ func (s *GTIDSet) ContainsSeq(uuid string, seq int64) bool {
 }
 
 func (s *GTIDSet) ContainsUUID(uuid string) bool {
+	if s.IsEmpty() {
+		return false
+	}
+
 	for _, seg := range s.segments {
 		if seg.uuid == uuid {
 			return true
@@ -150,7 +174,14 @@ func (s *GTIDSet) ContainsUUID(uuid string) bool {
 }
 
 func (s *GTIDSet) Equal(other *GTIDSet) bool {
-	return s.raw == other.raw
+	var sRaw, otherRaw string
+	if s != nil {
+		sRaw = s.raw
+	}
+	if other != nil {
+		otherRaw = other.raw
+	}
+	return sRaw == otherRaw
 }
 
 func (s *GTIDSet) String() string {

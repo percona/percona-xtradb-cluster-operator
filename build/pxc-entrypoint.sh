@@ -158,6 +158,7 @@ pause_after_sst_retry_limit() {
 		SST retry limit reached.
 		The node attempted SST ${attempts} times and the configured limit is ${limit}.
 		The pod will stay running but unready until ${SST_RETRY_LIMIT_REACHED_FILE} is removed.
+		For manual recovery, remove both ${SST_RETRY_LIMIT_REACHED_FILE} and ${SST_RETRY_COUNTER_FILE}.
 	EOM
 
 	while [[ -f ${SST_RETRY_LIMIT_REACHED_FILE} ]]; do
@@ -191,6 +192,9 @@ handle_sst_retry_limit() {
 			attempts=$(cat "${SST_RETRY_COUNTER_FILE}" 2>/dev/null || echo 0)
 		fi
 		pause_after_sst_retry_limit "${limit}" "${attempts}"
+		if [[ ! -f ${SST_RETRY_COUNTER_FILE} ]]; then
+			attempts=0
+		fi
 	fi
 
 	if [[ -f ${SST_RETRY_COUNTER_FILE} ]]; then

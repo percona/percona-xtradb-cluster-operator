@@ -550,7 +550,7 @@ func (r *Recoverer) setBinlogs(ctx context.Context) error {
 
 	startGTIDSet, err := gtid.New(r.startGTID)
 	if err != nil {
-		return errors.Wrapf(err, "parse start gtid set")
+		return errors.Wrap(err, "parse start gtid set")
 	}
 
 	binlogs := []string{}
@@ -583,7 +583,7 @@ func (r *Recoverer) setBinlogs(ctx context.Context) error {
 		binlogs = append(binlogs, candidate.objectName)
 		subResult, err := r.db.SubtractGTIDSet(ctx, r.startGTID, binlogGTIDSet.String())
 		if err != nil {
-			return errors.Wrapf(err, "check if '%s' is a subset of '%s", r.startGTID, binlogGTIDSet)
+			return errors.Wrapf(err, "check if '%s' is a subset of '%s'", r.startGTID, binlogGTIDSet)
 		}
 		log.Println("Checking sub result", " binlog gtid ", binlogGTIDSet, " sub result ", subResult)
 

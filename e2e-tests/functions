@@ -923,6 +923,32 @@ destroy() {
 			kubectl_bin delete --grace-period=0 --force=true namespace "$OPERATOR_NS" &
 		fi
 	fi
+
+	# Wait for namespace deletion so PVCs are fully removed before the next test.
+	# Without this wait, GCE disks are force-detached mid-run causing kernel I/O
+	# errors that trigger ReadOnlyFileSystemDetected on all nodes.
+	local deadline=$(( $(date +%s) + 120 ))
+	until [[ -z "$(kubectl_bin get namespace "$namespace" --ignore-not-found -o name 2>/dev/null)" ]]; do
+		if [[ $(date +%s) -ge $deadline ]]; then
+			echo "Warning: timeout waiting for namespace $namespace deletion"
+			break
+		fi
+		sleep 5
+	done
+
+	# Wait for all PVs to finish detaching from nodes before handing off to
+	# the next test. A PV with a deletionTimestamp means the GCE disk is still
+	# in the detach process; proceeding before it completes risks I/O errors.
+	deadline=$(( $(date +%s) + 120 ))
+	until [[ -z "$(kubectl_bin get pv -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.metadata.deletionTimestamp}{"\n"}{end}' 2>/dev/null | awk '$2 != ""')" ]]; do
+		if [[ $(date +%s) -ge $deadline ]]; then
+			echo "Warning: timeout waiting for PV detachment"
+			break
+		fi
+		echo "Waiting for PVs to finish detaching..."
+		sleep 5
+	done
+
 	rm -rf ${tmp_dir}
 }
 

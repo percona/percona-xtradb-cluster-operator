@@ -96,7 +96,7 @@ func (s *GTIDSet) IsEmpty() bool {
 
 type SegmentFilter func(seg segment) bool
 
-var MatchesUUID = func(uuid string) SegmentFilter {
+func MatchesUUID(uuid string) SegmentFilter {
 	return func(seg segment) bool {
 		return seg.uuid == uuid
 	}

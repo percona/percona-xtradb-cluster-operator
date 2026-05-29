@@ -23,4 +23,14 @@ const (
 const (
 	EventStorageClassNotSupportResize = "StorageClassNotSupportResize"
 	EventExceededQuota                = "ExceededQuota"
+	EventPVCStorageSizeMismatch       = "PVCStorageSizeMismatch"
+)
+
+const (
+	ContainerNamePXC = "pxc"
+)
+
+const (
+	DataVolumeName = "datadir"
+	BinVolumeName  = "bin"
 )

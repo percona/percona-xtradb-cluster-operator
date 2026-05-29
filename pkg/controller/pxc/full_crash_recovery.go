@@ -18,6 +18,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 )
 
 var (
@@ -67,7 +68,7 @@ func (r *ReconcilePerconaXtraDBCluster) recoverFullClusterCrashIfNeeded(ctx cont
 		return nil
 	}
 
-	err := r.checkIfPodsRunning(cr)
+	err := r.checkIfPodsRunning(ctx, cr)
 	if err != nil {
 		if err == ErrNotAllPXCPodsRunning {
 			return nil
@@ -75,7 +76,7 @@ func (r *ReconcilePerconaXtraDBCluster) recoverFullClusterCrashIfNeeded(ctx cont
 		return err
 	}
 
-	isWaiting, _, _, err := r.isPodWaitingForRecovery(cr.Namespace, cr.Name+"-pxc-0")
+	isWaiting, _, _, err := r.isPodWaitingForRecovery(ctx, cr.Namespace, cr.Name+"-"+naming.ComponentPXC+"-0")
 	if err != nil {
 		return errors.Wrap(err, "failed to check if pxc pod 0 is waiting for recovery")
 	}
@@ -108,12 +109,12 @@ func isKnownUUID(uuid string) bool {
 	return uuid != invalidUUID && uuid != uninitializedUUID
 }
 
-func (r *ReconcilePerconaXtraDBCluster) isPodWaitingForRecovery(namespace, podName string) (bool, string, int64, error) {
+func (r *ReconcilePerconaXtraDBCluster) isPodWaitingForRecovery(ctx context.Context, namespace, podName string) (bool, string, int64, error) {
 	logOpts := &corev1.PodLogOptions{
-		Container: "pxc",
+		Container: naming.ContainerNamePXC,
 		TailLines: &logLinesRequired,
 	}
-	logLines, err := r.clientcmd.PodLogs(namespace, podName, logOpts)
+	logLines, err := r.clientcmd.PodLogs(ctx, namespace, podName, logOpts)
 	if err != nil {
 		return false, invalidUUID, invalidSeqno, errors.Wrapf(err, "get logs from %s pod", podName)
 	}
@@ -171,8 +172,8 @@ func (r *ReconcilePerconaXtraDBCluster) doFullCrashRecovery(ctx context.Context,
 	podInfos := make(map[string]podRecoveryInfo, int(cr.Spec.PXC.Size))
 
 	for i := range cr.Spec.PXC.Size {
-		podName := fmt.Sprintf("%s-pxc-%d", cr.Name, i)
-		isPodWaitingForRecovery, uuid, seq, err := r.isPodWaitingForRecovery(cr.Namespace, podName)
+		podName := fmt.Sprintf("%s-%s-%d", cr.Name, naming.ComponentPXC, i)
+		isPodWaitingForRecovery, uuid, seq, err := r.isPodWaitingForRecovery(ctx, cr.Namespace, podName)
 		if err != nil {
 			return errors.Wrapf(err, "parse %s pod logs", podName)
 		}
@@ -219,7 +220,7 @@ func (r *ReconcilePerconaXtraDBCluster) doFullCrashRecovery(ctx context.Context,
 	}
 
 	stderrBuf := &bytes.Buffer{}
-	err = r.clientcmd.Exec(pod, "pxc", []string{"/bin/sh", "-c", "kill -s USR1 1"}, nil, nil, stderrBuf, false)
+	err = r.clientcmd.Exec(pod, naming.ContainerNamePXC, []string{"/bin/sh", "-c", "kill -s USR1 1"}, nil, nil, stderrBuf, false)
 	if err != nil {
 		return errors.Wrap(err, "exec command in pod")
 	}
@@ -265,10 +266,10 @@ func isAutomaticRecoverySafe(cr *pxcv1.PerconaXtraDBCluster, uuid string, seqno 
 	return last.LastRecoverySeqNo <= seqno
 }
 
-func (r *ReconcilePerconaXtraDBCluster) checkIfPodsRunning(cr *pxcv1.PerconaXtraDBCluster) error {
+func (r *ReconcilePerconaXtraDBCluster) checkIfPodsRunning(ctx context.Context, cr *pxcv1.PerconaXtraDBCluster) error {
 	for i := 0; i < int(cr.Spec.PXC.Size); i++ {
-		podName := fmt.Sprintf("%s-pxc-%d", cr.Name, i)
-		ok, err := r.clientcmd.IsPodRunning(cr.Namespace, podName)
+		podName := fmt.Sprintf("%s-%s-%d", cr.Name, naming.ComponentPXC, i)
+		ok, err := r.clientcmd.IsPodRunning(ctx, cr.Namespace, podName)
 		if err != nil {
 			if k8serrors.IsNotFound(err) {
 				return ErrNotAllPXCPodsRunning

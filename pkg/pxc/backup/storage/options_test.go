@@ -35,6 +35,7 @@ func TestGetS3Options(t *testing.T) {
 		forcePathStyle        bool
 		skipBucketExistsCheck bool
 		region                string
+		checksumAlgorithm     api.S3ChecksumAlgorithmType
 		verifyTLS             *bool
 		storage               *api.BackupStorageSpec
 
@@ -83,6 +84,17 @@ func TestGetS3Options(t *testing.T) {
 				Prefix:     "prefix/",
 				VerifyTLS:  true,
 				Region:     "us-east-1",
+			},
+		},
+		{
+			name:              "checksum algorithm",
+			bucket:            "my-bucket",
+			checksumAlgorithm: api.S3ChecksumAlgorithmSHA256,
+			expected: &S3Options{
+				BucketName:        "my-bucket",
+				VerifyTLS:         true,
+				Region:            "us-east-1",
+				ChecksumAlgorithm: api.S3ChecksumAlgorithmSHA256,
 			},
 		},
 		{
@@ -196,6 +208,7 @@ func TestGetS3Options(t *testing.T) {
 				CredentialsSecret:     secretName,
 				Region:                tt.region,
 				EndpointURL:           tt.endpoint,
+				ChecksumAlgorithm:     tt.checksumAlgorithm,
 				ForcePathStyle:        tt.forcePathStyle,
 				SkipBucketExistsCheck: tt.skipBucketExistsCheck,
 			}, nil)

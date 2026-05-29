@@ -53,7 +53,7 @@ func (h *hook) Start(ctx context.Context) error {
 }
 
 func (h *hook) setup(ctx context.Context) error {
-	operatorDeployment, err := h.operatorDeployment()
+	operatorDeployment, err := h.operatorDeployment(ctx)
 	if err != nil {
 		return errors.Wrap(err, "failed to get operator deployment")
 	}
@@ -68,7 +68,7 @@ func (h *hook) setup(ctx context.Context) error {
 		return errors.Wrap(err, "Can't create service")
 	}
 
-	err = h.createWebhook(ref)
+	err = h.createWebhook(ctx, ref)
 	if err != nil {
 		return errors.Wrap(err, "can't create webhook")
 	}
@@ -92,11 +92,11 @@ func (h *hook) createService(ctx context.Context, ownerRef metav1.OwnerReference
 			Selector: opPod.Labels,
 		},
 	}
-	err = h.cl.Create(context.TODO(), svc)
+	err = h.cl.Create(ctx, svc)
 	if err != nil {
 		if k8serrors.IsAlreadyExists(err) {
 			service := &corev1.Service{}
-			err = h.cl.Get(context.TODO(), types.NamespacedName{
+			err = h.cl.Get(ctx, types.NamespacedName{
 				Name:      "percona-xtradb-cluster-operator",
 				Namespace: h.namespace,
 			}, service)
@@ -106,14 +106,14 @@ func (h *hook) createService(ctx context.Context, ownerRef metav1.OwnerReference
 
 			service.Spec.Selector = opPod.Labels
 			service.ObjectMeta.OwnerReferences = []metav1.OwnerReference{ownerRef}
-			return h.cl.Update(context.TODO(), service)
+			return h.cl.Update(ctx, service)
 		}
 		return err
 	}
 	return nil
 }
 
-func (h *hook) createWebhook(ownerRef metav1.OwnerReference) error {
+func (h *hook) createWebhook(ctx context.Context, ownerRef metav1.OwnerReference) error {
 	failPolicy := admissionregistration.Fail
 	sideEffects := admissionregistration.SideEffectClassNone
 	hook := &admissionregistration.ValidatingWebhookConfiguration{
@@ -149,14 +149,14 @@ func (h *hook) createWebhook(ownerRef metav1.OwnerReference) error {
 		},
 	}
 
-	err := h.cl.Create(context.TODO(), hook)
+	err := h.cl.Create(ctx, hook)
 	if k8serrors.IsForbidden(err) {
 		return nil
 	}
 
 	if err != nil && k8serrors.IsAlreadyExists(err) {
 		hook := &admissionregistration.ValidatingWebhookConfiguration{}
-		err := h.cl.Get(context.TODO(), types.NamespacedName{
+		err := h.cl.Get(ctx, types.NamespacedName{
 			Name: "percona-xtradbcluster-webhook",
 		}, hook)
 		if err != nil {
@@ -165,7 +165,7 @@ func (h *hook) createWebhook(ownerRef metav1.OwnerReference) error {
 
 		hook.Webhooks[0].ClientConfig.CABundle = h.caBundle
 		hook.ObjectMeta.OwnerReferences = []metav1.OwnerReference{ownerRef}
-		return h.cl.Update(context.TODO(), hook)
+		return h.cl.Update(ctx, hook)
 	}
 	return err
 }
@@ -374,13 +374,13 @@ func sendResponse(uid types.UID, meta metav1.TypeMeta, w http.ResponseWriter, er
 	return nil
 }
 
-func (h *hook) operatorDeployment() (*appsv1.Deployment, error) {
+func (h *hook) operatorDeployment(ctx context.Context) (*appsv1.Deployment, error) {
 	operatorDeploymentName := os.Getenv("OPERATOR_NAME")
 	if operatorDeploymentName == "" {
 		operatorDeploymentName = "percona-xtradb-cluster-operator"
 	}
 	deployment := &appsv1.Deployment{}
-	err := h.cl.Get(context.TODO(), types.NamespacedName{
+	err := h.cl.Get(ctx, types.NamespacedName{
 		Name:      operatorDeploymentName,
 		Namespace: h.namespace,
 	}, deployment)

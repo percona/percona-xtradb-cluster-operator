@@ -93,8 +93,15 @@ var _ = Describe("PerconaXtraDBClusterRestore PITR CRD validation", Ordered, fun
 		},
 		Entry("type latest", "valid-latest", &pxcv1.PITR{Type: "latest"}),
 		Entry("type date with valid format", "valid-date", &pxcv1.PITR{Type: "date", Date: "2024-01-15 12:30:00"}),
-		Entry("type transaction with gtid", "valid-transaction", &pxcv1.PITR{Type: "transaction", GTID: "abc123:1-10"}),
-		Entry("type skip with gtid", "valid-skip", &pxcv1.PITR{Type: "skip", GTID: "abc123:1-10"}),
+		// transaction: single UUID:N only (recoverer uses SplitN+ParseInt, tagged format UUID:tag:N not supported)
+		Entry("type transaction with single gtid", "valid-transaction", &pxcv1.PITR{Type: "transaction", GTID: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee:42"}),
+		// skip: full GTID set syntax is allowed, including tags (MySQL 8.4)
+		Entry("type skip with single gtid", "valid-skip-single", &pxcv1.PITR{Type: "skip", GTID: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee:42"}),
+		Entry("type skip with gtid range", "valid-skip-range", &pxcv1.PITR{Type: "skip", GTID: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee:1-10"}),
+		Entry("type skip with multiple intervals", "valid-skip-intervals", &pxcv1.PITR{Type: "skip", GTID: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee:1-5:7-9"}),
+		Entry("type skip with multi-source gtid set", "valid-skip-multi-source", &pxcv1.PITR{Type: "skip", GTID: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee:1-10,bbbbbbbb-bbbb-cccc-dddd-eeeeeeeeeeee:1-5"}),
+		Entry("type skip with tagged gtid", "valid-skip-tagged", &pxcv1.PITR{Type: "skip", GTID: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee:Domain_1:1-10"}),
+		Entry("type skip with multiple tags", "valid-skip-multi-tag", &pxcv1.PITR{Type: "skip", GTID: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee:Domain_1:1-3:Domain_2:8-52"}),
 	)
 
 	DescribeTable("invalid PITR configurations",
@@ -103,14 +110,26 @@ var _ = Describe("PerconaXtraDBClusterRestore PITR CRD validation", Ordered, fun
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring(errMsg))
 		},
+		// date type
 		Entry("type date with empty date", "invalid-date-empty", &pxcv1.PITR{Type: "date"}, "Date is required"),
 		Entry("type date with wrong format", "invalid-date-format", &pxcv1.PITR{Type: "date", Date: "15-01-2024 12:30:00"}, "format YYYY-MM-DD"),
 		Entry("type date with invalid month", "invalid-date-month", &pxcv1.PITR{Type: "date", Date: "2024-27-30 12:30:00"}, "format YYYY-MM-DD"),
-		Entry("type date with no time)", "invalid-date-no-time", &pxcv1.PITR{Type: "date", Date: "2024-12-30"}, "format YYYY-MM-DD"),
+		Entry("type date with no time", "invalid-date-no-time", &pxcv1.PITR{Type: "date", Date: "2024-12-30"}, "format YYYY-MM-DD"),
+		// latest type
 		Entry("type latest with date set", "invalid-latest-date", &pxcv1.PITR{Type: "latest", Date: "2024-01-15 12:30:00"}, "Date and GTID should not be set"),
-		Entry("type latest with gtid set", "invalid-latest-gtid", &pxcv1.PITR{Type: "latest", GTID: "abc123:1"}, "Date and GTID should not be set"),
-		Entry("type transaction without gtid", "invalid-transaction-no-gtid", &pxcv1.PITR{Type: "transaction"}, "GTID is required"),
-		Entry("type skip without gtid", "invalid-skip-no-gtid", &pxcv1.PITR{Type: "skip"}, "GTID is required"),
+		Entry("type latest with gtid set", "invalid-latest-gtid", &pxcv1.PITR{Type: "latest", GTID: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee:1"}, "Date and GTID should not be set"),
+		// unknown type
 		Entry("unknown type", "invalid-unknown-type", &pxcv1.PITR{Type: "unknown"}, "Unsupported value"),
+		// transaction: GTID is required and must be UUID:N or UUID:tag:N (N >= 1)
+		Entry("type transaction without gtid", "invalid-transaction-no-gtid", &pxcv1.PITR{Type: "transaction"}, "GTID is required"),
+		Entry("type transaction with non-uuid gtid", "invalid-transaction-bad-uuid", &pxcv1.PITR{Type: "transaction", GTID: "notauuid:42"}, "single transaction identifier"),
+		Entry("type transaction with gtid range", "invalid-transaction-range", &pxcv1.PITR{Type: "transaction", GTID: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee:1-10"}, "single transaction identifier"),
+		Entry("type transaction with multi-source gtid set", "invalid-transaction-multi-source", &pxcv1.PITR{Type: "transaction", GTID: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee:1,bbbbbbbb-bbbb-cccc-dddd-eeeeeeeeeeee:1"}, "single transaction identifier"),
+		Entry("type transaction with zero transaction id", "invalid-transaction-zero", &pxcv1.PITR{Type: "transaction", GTID: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee:0"}, "single transaction identifier"),
+		Entry("type transaction with tagged gtid", "invalid-transaction-tagged", &pxcv1.PITR{Type: "transaction", GTID: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee:Domain_1:42"}, "single transaction identifier"),
+		// skip: GTID is required and must be a valid MySQL GTID set
+		Entry("type skip without gtid", "invalid-skip-no-gtid", &pxcv1.PITR{Type: "skip"}, "GTID is required"),
+		Entry("type skip with non-uuid gtid", "invalid-skip-bad-uuid", &pxcv1.PITR{Type: "skip", GTID: "notauuid:1-10"}, "valid MySQL GTID set"),
+		Entry("type skip with malformed gtid", "invalid-skip-malformed", &pxcv1.PITR{Type: "skip", GTID: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"}, "valid MySQL GTID set"),
 	)
 })

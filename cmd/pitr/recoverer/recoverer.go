@@ -15,12 +15,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/percona/percona-xtradb-cluster-operator/cmd/pitr/pxc"
+	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage"
 	xbserver "github.com/percona/percona-xtradb-cluster-operator/pkg/xtrabackup/server"
-
-	"github.com/pkg/errors"
 )
 
 type Recoverer struct {
@@ -71,7 +72,21 @@ func (c Config) storages(ctx context.Context) (storage.Storage, storage.Storage,
 			return nil, nil, errors.Wrap(err, "read CA bundle file")
 		}
 
-		binlogStorage, err = storage.NewS3(ctx, c.BinlogStorageS3.Endpoint, c.BinlogStorageS3.AccessKeyID, c.BinlogStorageS3.AccessKey, c.BinlogStorageS3.SessionToken, bucket, prefix, c.BinlogStorageS3.Region, c.VerifyTLS, caBundle, c.BinlogStorageS3.ForcePath, c.BinlogStorageS3.SkipBucketExistsCheck)
+		binlogOpts := storage.S3Options{
+			Endpoint:              c.BinlogStorageS3.Endpoint,
+			AccessKeyID:           c.BinlogStorageS3.AccessKeyID,
+			SecretAccessKey:       c.BinlogStorageS3.AccessKey,
+			SessionToken:          c.BinlogStorageS3.SessionToken,
+			BucketName:            bucket,
+			Prefix:                prefix,
+			Region:                c.BinlogStorageS3.Region,
+			VerifyTLS:             c.VerifyTLS,
+			CABundle:              caBundle,
+			ForcePathStyle:        c.BinlogStorageS3.ForcePath,
+			ChecksumAlgorithm:     api.S3ChecksumAlgorithmType(c.BinlogStorageS3.ChecksumAlgorithm),
+			SkipBucketExistsCheck: c.BinlogStorageS3.SkipBucketExistsCheck,
+		}
+		binlogStorage, err = storage.NewS3(ctx, binlogOpts)
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "new s3 storage")
 		}
@@ -80,7 +95,21 @@ func (c Config) storages(ctx context.Context) (storage.Storage, storage.Storage,
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "get bucket and prefix")
 		}
-		defaultStorage, err = storage.NewS3(ctx, c.BackupStorageS3.Endpoint, c.BackupStorageS3.AccessKeyID, c.BackupStorageS3.AccessKey, c.BackupStorageS3.SessionToken, bucket, prefix, c.BackupStorageS3.Region, c.VerifyTLS, caBundle, c.BackupStorageS3.ForcePath, c.BackupStorageS3.SkipBucketExistsCheck)
+		defaultStorageOpts := storage.S3Options{
+			Endpoint:              c.BackupStorageS3.Endpoint,
+			AccessKeyID:           c.BackupStorageS3.AccessKeyID,
+			SecretAccessKey:       c.BackupStorageS3.AccessKey,
+			SessionToken:          c.BackupStorageS3.SessionToken,
+			BucketName:            bucket,
+			Prefix:                prefix,
+			Region:                c.BackupStorageS3.Region,
+			VerifyTLS:             c.VerifyTLS,
+			CABundle:              caBundle,
+			ForcePathStyle:        c.BackupStorageS3.ForcePath,
+			ChecksumAlgorithm:     api.S3ChecksumAlgorithmType(c.BackupStorageS3.ChecksumAlgorithm),
+			SkipBucketExistsCheck: c.BackupStorageS3.SkipBucketExistsCheck,
+		}
+		defaultStorage, err = storage.NewS3(ctx, defaultStorageOpts)
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "new storage manager")
 		}
@@ -109,6 +138,7 @@ type BackupS3 struct {
 	Region                string `env:"DEFAULT_REGION,required"`
 	BackupDest            string `env:"S3_BUCKET_URL,required"`
 	ForcePath             bool   `env:"S3_FORCE_PATH"`
+	ChecksumAlgorithm     string `env:"S3_CHECKSUM_ALGORITHM"`
 	SkipBucketExistsCheck bool   `env:"S3_SKIP_BUCKET_EXISTS_CHECK"`
 }
 
@@ -131,6 +161,7 @@ type BinlogS3 struct {
 	Region                string `env:"BINLOG_S3_REGION,required"`
 	BucketURL             string `env:"BINLOG_S3_BUCKET_URL,required"`
 	ForcePath             bool   `env:"BINLOG_S3_FORCE_PATH"`
+	ChecksumAlgorithm     string `env:"BINLOG_S3_CHECKSUM_ALGORITHM"`
 	SkipBucketExistsCheck bool   `env:"BINLOG_S3_SKIP_BUCKET_EXISTS_CHECK"`
 }
 
@@ -232,7 +263,8 @@ func validateTransactionGTID(targetGTID, startGTID string) error {
 		if targetSeq < hiInt {
 			return errors.Errorf(
 				"target GTID %s is already inside the backup (segment %s); can't recover to a transaction before backup",
-				targetGTID, seg)
+				targetGTID, seg,
+			)
 		}
 	}
 
@@ -293,6 +325,13 @@ func (r *Recoverer) Run(ctx context.Context) error {
 	err = r.setBinlogs(ctx)
 	if err != nil {
 		return errors.Wrap(err, "get binlog list")
+	}
+	if len(r.binlogs) == 0 {
+		if r.recoverType == Latest {
+			log.Println("no binlogs to recover from, already at latest. Skipping recovery.")
+			return nil
+		}
+		return errors.New("no binlogs to recover")
 	}
 
 	switch r.recoverType {
@@ -450,7 +489,6 @@ func (r *Recoverer) setBinlogs(ctx context.Context) error {
 	}
 	reverse(list)
 	binlogs := []string{}
-	sourceID := strings.Split(r.startGTID, ":")[0]
 	log.Println("current gtid set is", r.startGTID)
 	for _, binlog := range list {
 		if strings.Contains(binlog, "-gtid-set") {
@@ -481,7 +519,7 @@ func (r *Recoverer) setBinlogs(ctx context.Context) error {
 			if err != nil {
 				return errors.Wrapf(err, "check if '%s' is a subset of '%s", binlogGTIDSet, r.gtid)
 			}
-			if subResult != binlogGTIDSet {
+			if !gtidSetEqual(subResult, binlogGTIDSet) {
 				set, err := getExtendGTIDSet(binlogGTIDSet, r.gtid)
 				if err != nil {
 					return errors.Wrap(err, "get gtid set for extend")
@@ -495,16 +533,13 @@ func (r *Recoverer) setBinlogs(ctx context.Context) error {
 
 		binlogs = append(binlogs, binlog)
 		subResult, err := r.db.SubtractGTIDSet(ctx, r.startGTID, binlogGTIDSet)
-		log.Println("Checking sub result", " binlog gtid ", binlogGTIDSet, " sub result ", subResult)
 		if err != nil {
 			return errors.Wrapf(err, "check if '%s' is a subset of '%s", r.startGTID, binlogGTIDSet)
 		}
-		if subResult != r.startGTID {
+		log.Println("Checking sub result", " binlog gtid ", binlogGTIDSet, " sub result ", canonicalGTIDSet(subResult))
+		if !gtidSetEqual(subResult, r.startGTID) {
 			break
 		}
-	}
-	if len(binlogs) == 0 {
-		return errors.Errorf("no objects for prefix binlog_ or with source_id=%s", sourceID)
 	}
 	reverse(binlogs)
 	r.binlogs = binlogs
@@ -520,6 +555,31 @@ func gtidSetContainsUUID(gtidSet, uuid string) bool {
 		}
 	}
 	return false
+}
+
+// gtidSetEqual reports whether two GTID sets are semantically equal.
+//
+// MySQL's GTID functions (e.g. GTID_SUBTRACT) return multi-source GTID sets in
+// canonical form with a newline after each comma between sources, while GTID
+// sets read directly from files (e.g. xtrabackup_binlog_info) or from the
+// binlog UDF are usually single-line. Direct string comparison reports those
+// as different even when they represent the same set, so callers must
+// normalize before comparing.
+func gtidSetEqual(a, b string) bool {
+	return canonicalGTIDSet(a) == canonicalGTIDSet(b)
+}
+
+func canonicalGTIDSet(s string) string {
+	parts := make([]string, 0)
+	for segment := range strings.SplitSeq(s, ",") {
+		segment = strings.TrimSpace(segment)
+		if segment == "" {
+			continue
+		}
+		parts = append(parts, segment)
+	}
+	sort.Strings(parts)
+	return strings.Join(parts, ",")
 }
 
 func getExtendGTIDSet(gtidSet, gtid string) (string, error) {
@@ -647,7 +707,8 @@ func getBackupTimelineUUID(ctx context.Context, s storage.Storage) (string, erro
 	return "", errors.New(
 		"no Galera state info in backup (none of sst_info, .meta.json); " +
 			"PITR cannot determine timeline identity — backup may have been produced by an " +
-			"older sidecar that did not capture wsrep_cluster_state_uuid")
+			"older sidecar that did not capture wsrep_cluster_state_uuid",
+	)
 }
 
 func readUUIDFromSSTInfo(ctx context.Context, s storage.Storage) (string, error) {

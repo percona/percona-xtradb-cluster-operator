@@ -151,64 +151,6 @@ void markPassedTests() {
     }
 }
 
-void printNodeDiskUsage(String CLUSTER_SUFFIX) {
-    sh """
-        export CLOUDSDK_CONFIG=/tmp/gcloud-$CLUSTER_NAME-$CLUSTER_SUFFIX
-        export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
-        echo "========== NODE DISK USAGE ($CLUSTER_SUFFIX) =========="
-        kubectl apply -f - <<'YAML_EOF'
-apiVersion: apps/v1
-kind: DaemonSet
-metadata:
-  name: disk-debug
-  namespace: kube-system
-spec:
-  selector:
-    matchLabels:
-      app: disk-debug
-  template:
-    metadata:
-      labels:
-        app: disk-debug
-    spec:
-      tolerations:
-      - operator: Exists
-      containers:
-      - name: debug
-        image: busybox:1.36
-        securityContext:
-          privileged: true
-        command:
-        - sh
-        - -c
-        - |
-          echo "=== NODE: \$(cat /proc/sys/kernel/hostname) ==="
-          echo "--- disk space (all) ---"
-          df -h /host/mnt/stateful_partition /host/var/lib/containerd /host
-          echo "--- inodes (all) ---"
-          df -i /host/mnt/stateful_partition /host/var/lib/containerd /host
-          echo "--- containerd image store size ---"
-          du -sh /host/var/lib/containerd 2>/dev/null || echo "n/a"
-          echo "--- kernel messages (errors/readonly) ---"
-          chroot /host dmesg --time-format=reltime | grep -iE "error|readonly|read-only|ext4|overlayfs|scsi|blk_update" | tail -30 || echo "n/a"
-          echo "--- node-problem-detector logs ---"
-          chroot /host journalctl -u node-problem-detector --no-pager -n 30 2>/dev/null || echo "n/a"
-          sleep 3600
-        volumeMounts:
-        - name: host-root
-          mountPath: /host
-      volumes:
-      - name: host-root
-        hostPath:
-          path: /
-YAML_EOF
-        kubectl rollout status daemonset/disk-debug -n kube-system --timeout=60s || true
-        kubectl logs -n kube-system -l app=disk-debug --prefix=true || true
-        kubectl delete daemonset disk-debug -n kube-system --ignore-not-found=true || true
-        echo "======================================================"
-    """
-}
-
 void printKubernetesStatus(String LOCATION, String CLUSTER_SUFFIX) {
     sh """
         export CLOUDSDK_CONFIG=/tmp/gcloud-$CLUSTER_NAME-$CLUSTER_SUFFIX
@@ -227,7 +169,6 @@ void printKubernetesStatus(String LOCATION, String CLUSTER_SUFFIX) {
         kubectl get events --field-selector type!=Normal --all-namespaces --sort-by=".lastTimestamp"
         echo "======================================================"
     """
-    printNodeDiskUsage(CLUSTER_SUFFIX)
 }
 
 String formatTime(def time) {
@@ -349,7 +290,6 @@ void runTest(Integer TEST_ID) {
             def durationSec = (timeStop - timeStart) / 1000
             tests[TEST_ID]["time"] = durationSec
             pushLogFile("$testNameWithMysqlVersion")
-            printNodeDiskUsage("$clusterSuffix")
             echo "The $testName-$mysqlVer test was finished!"
         }
     }

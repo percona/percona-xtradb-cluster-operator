@@ -351,6 +351,7 @@ func TestGetBackupTimelineUUID(t *testing.T) {
 	}
 }
 
+// This unit test checks that even though object storage returns lexicographically sorted object names, the candidates are sorted by GTID end sequence.
 func TestSelectBinlogCandidates(t *testing.T) {
 	ctx := t.Context()
 

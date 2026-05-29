@@ -815,10 +815,6 @@ deploy_cert_manager() {
 	kubectl_bin -n cert-manager rollout status deployment/cert-manager-cainjector --timeout=120s
 	kubectl_bin -n cert-manager rollout status deployment/cert-manager-webhook --timeout=120s
 
-	# Wait until cainjector has injected the caBundle into the webhook configuration.
-	# Only once caBundle is populated will the API server be able to reach the webhook,
-	# so any cert-manager resource (Issuer, Certificate, …) applied immediately after
-	# deploy_cert_manager will not hit the "x509: certificate signed by unknown authority" error.
 	log "waiting for cert-manager webhook caBundle to be injected"
 	local deadline=$(( $(date +%s) + 120 ))
 	until kubectl_bin get validatingwebhookconfigurations cert-manager-webhook \
@@ -830,8 +826,6 @@ deploy_cert_manager() {
 		sleep 5
 	done
 
-	# Active probe: even after caBundle injection, the webhook TLS listener may not
-	# be serving yet. Dry-run an Issuer through the webhook until the call succeeds.
 	log "probing cert-manager webhook"
 	local probe_file
 	probe_file=$(mktemp)
@@ -924,9 +918,6 @@ destroy() {
 		fi
 	fi
 
-	# Wait for namespace deletion so PVCs are fully removed before the next test.
-	# Without this wait, GCE disks are force-detached mid-run causing kernel I/O
-	# errors that trigger ReadOnlyFileSystemDetected on all nodes.
 	local deadline=$(( $(date +%s) + 120 ))
 	until [[ -z "$(kubectl_bin get namespace "$namespace" --ignore-not-found -o name 2>/dev/null)" ]]; do
 		if [[ $(date +%s) -ge $deadline ]]; then
@@ -936,9 +927,6 @@ destroy() {
 		sleep 5
 	done
 
-	# Wait for all PVs to finish detaching from nodes before handing off to
-	# the next test. A PV with a deletionTimestamp means the GCE disk is still
-	# in the detach process; proceeding before it completes risks I/O errors.
 	deadline=$(( $(date +%s) + 120 ))
 	until [[ -z "$(kubectl_bin get pv -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.metadata.deletionTimestamp}{"\n"}{end}' 2>/dev/null | awk '$2 != ""')" ]]; do
 		if [[ $(date +%s) -ge $deadline ]]; then
@@ -1502,10 +1490,6 @@ delete_backup_pod() {
 	echo "Waiting for upload to start"
 	wait_for_upload_to_start ${pxc_pod}
 
-	# Verify the pod is still running before deleting. For fast storage backends
-	# (e.g. Azure Blob) the backup can complete before we react to the first
-	# uploaded-chunk log entry, which would mean deleting an already-succeeded
-	# pod that the Job won't retry.
 	local pod_phase
 	pod_phase=$(kubectl_bin get pod "${backup_pod}" -o jsonpath='{.status.phase}' 2>/dev/null || echo "NotFound")
 	if [[ "${pod_phase}" != "Running" ]]; then

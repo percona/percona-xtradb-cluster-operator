@@ -55,7 +55,6 @@ main() {
 	wait_num_backups 'azure-blob' 1
 	apply_config "${test_dir}/conf/scheduled-backup-azure-init.yml"
 	wait_all_backups
-	# Wait for the cluster to fully reconcile before reading the final backup list.
 	wait_cluster_consistency "$cluster" 3
 
 	SECOND_AZURE_BACKUP=$(kubectl_bin get pxc-backup -o jsonpath='{range .items[*]}{.metadata.name}:{.spec.storageName}:{.status.state}{"\n"}{end}' | grep Succeeded | grep azure | head -n1 | cut -d: -f1)

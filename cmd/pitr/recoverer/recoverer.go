@@ -565,7 +565,7 @@ func (r *Recoverer) setBinlogs(ctx context.Context) error {
 
 			subResultGTIDSet, err := gtid.New(subResult)
 			if err != nil {
-				return errors.Wrapf(err, "parse sub result gtid set")
+				return errors.Wrap(err, "parse sub result gtid set")
 			}
 
 			if !subResultGTIDSet.Equal(binlogGTIDSet) {
@@ -589,7 +589,7 @@ func (r *Recoverer) setBinlogs(ctx context.Context) error {
 
 		subResultGTIDSet, err := gtid.New(subResult)
 		if err != nil {
-			return errors.Wrapf(err, "parse sub result gtid set")
+			return errors.Wrap(err, "parse sub result gtid set")
 		}
 
 		if !subResultGTIDSet.Equal(startGTIDSet) {

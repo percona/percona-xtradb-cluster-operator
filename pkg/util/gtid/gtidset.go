@@ -22,13 +22,12 @@ func New(id string) (*GTIDSet, error) {
 }
 
 func parse(id string) (*GTIDSet, error) {
+	id = canonicalize(id)
 	if id == "" {
 		return &GTIDSet{}, nil
 	}
 
 	segments := make([]segment, 0)
-	id = canonicalize(id)
-
 	for _, rawSeg := range strings.Split(id, ",") {
 		rawSeg = strings.TrimSpace(rawSeg)
 		parts := strings.SplitN(rawSeg, ":", 2)

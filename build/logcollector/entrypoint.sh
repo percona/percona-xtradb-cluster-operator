@@ -29,7 +29,7 @@ is_logrotate_config_invalid() {
 	# Filter out logrotate.status lines first, then check for remaining errors
 	(
 		set +e
-		logrotate -d "$config_file" 2>&1 | grep -v "logrotate.status" | grep -qi "error"
+		logrotate -d "$config_file" 2>&1 | grep -v "logrotate.status" | grep -qi "^error:"
 	)
 	return $?
 }

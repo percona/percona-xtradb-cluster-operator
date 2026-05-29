@@ -601,17 +601,18 @@ spec:
 #    logRotate:
 #      schedule: "*/5 * * * *"
 #      configuration: |
-#        /var/lib/mysql/GRA_*.log {
-#          daily
-#          rotate 7
-#          missingok
-#          notifempty
-#          compress
-#          delaycompress
-#          sharedscripts
-#          postrotate
-#            /usr/bin/find /var/lib/mysql/ -name GRA_*.log -mtime +7 -delete
-#          endscript
+#        /var/lib/mysql/[!G]*.log {
+#           daily
+#           minsize 10M
+#           maxsize 100M
+#           rotate 10
+#           missingok
+#           nocompress
+#           notifempty
+#           sharedscripts
+#           postrotate
+#               /opt/percona/logcollector/logrotate/postrotate-mysql.sh
+#           endscript
 #        }
 #      extraConfig:
 #        name: my-logrotate-config

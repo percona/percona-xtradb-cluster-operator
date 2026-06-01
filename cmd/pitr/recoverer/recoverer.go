@@ -557,6 +557,8 @@ func (r *Recoverer) setBinlogs(ctx context.Context) error {
 	for _, candidate := range candidates {
 		binlogGTIDSet := candidate.gtidSet
 
+		log.Println("checking current file", " name ", candidate.objectName, " gtid ", binlogGTIDSet.String())
+
 		if len(r.gtid) > 0 && r.recoverType == Transaction {
 			subResult, err := r.db.SubtractGTIDSet(ctx, binlogGTIDSet.String(), r.gtid)
 			if err != nil {

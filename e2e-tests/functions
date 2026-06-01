@@ -531,11 +531,14 @@ compare_kubectl() {
 			del(.spec.template.spec.containers[].env[] | select(.name == "XTRABACKUP_ENABLED")) |
 			del(.metadata.selfLink) |
 			del(.metadata.deletionTimestamp) |
+			del(.metadata.labels."batch.kubernetes.io/job-name") |
+			del(.metadata.labels."job-name") |
+			del(.metadata.labels."topology.kubernetes.io/region") |
+			del(.metadata.labels."topology.kubernetes.io/zone") |
 			del(.metadata.annotations."kubectl.kubernetes.io/last-applied-configuration") |
 			del(.metadata.annotations."kubernetes.io/psp") |
 			del(.metadata.annotations."batch.kubernetes.io/job-tracking") |
-			del(.metadata.labels."batch.kubernetes.io/job-name") |
-			del(.metadata.labels."job-name") |
+			del(.metadata.annotations."networking.gke.io/target-pool") |
 			del(.metadata.annotations."cloud.google.com/neg") |
 			del(.metadata.annotations."k8s.v1.cni.cncf.io*") |
 			del(.metadata.annotations."k8s.ovn.org/pod-networks") |

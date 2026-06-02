@@ -8,6 +8,11 @@ test_dir=$(realpath $(dirname $0))
 set_debug
 
 main() {
+	if [ -n "$SKIP_REMOTE_BACKUPS" ]; then
+		echo "Skipping: SKIP_REMOTE_BACKUPS is set"
+		exit 0
+	fi
+
 	create_infra $namespace
 
 	cluster="scheduled-backup"

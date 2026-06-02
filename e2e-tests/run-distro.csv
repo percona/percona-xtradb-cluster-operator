@@ -1,6 +1,9 @@
 allocator
 auto-tuning
 default-cr
+demand-backup-cloud-aws
+demand-backup-cloud-azure
+demand-backup-cloud-gcs
 demand-backup-cloud-pxb-aws
 demand-backup-cloud-pxb-azure
 demand-backup-cloud-pxb-gcs

@@ -1,0 +1,119 @@
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBCluster
+metadata:
+  name: demand-backup
+  finalizers:
+    - percona.com/delete-pxc-pods-in-order
+  # annotations:
+  #   percona.com/issue-vault-token: "true"
+spec:
+  tls:
+    SANs:
+      - "minio-service.#namespace"
+  secretsName: my-cluster-secrets
+  vaultSecretName: some-name-vault
+  pause: false
+  pxc:
+    size: 3
+    image: -pxc
+    configuration: |
+      [mysqld]
+      wsrep_log_conflicts
+      log_error_verbosity=3
+      wsrep_debug=1
+      [sst]
+      xbstream-opts=--decompress
+      [xtrabackup]
+      compress=lz4
+    resources:
+      requests:
+        memory: 0.1G
+        cpu: 100m
+      limits:
+        memory: "2G"
+        cpu: "1"
+    volumeSpec:
+      persistentVolumeClaim:
+        resources:
+          requests:
+            storage: 2Gi
+    affinity:
+      antiAffinityTopologyKey: "kubernetes.io/hostname"
+  proxysql:
+    enabled: true
+    size: 2
+    image: -proxysql
+    resources:
+      requests:
+        memory: 0.1G
+        cpu: 100m
+      limits:
+        memory: 1G
+        cpu: 700m
+    volumeSpec:
+      persistentVolumeClaim:
+        resources:
+          requests:
+            storage: 2Gi
+    affinity:
+      antiAffinityTopologyKey: "kubernetes.io/hostname"
+  pmm:
+    enabled: false
+    image: perconalab/pmm-client:1.17.1
+    serverHost: monitoring-service
+    serverUser: pmm
+  backup:
+    ttlSecondsAfterFinished: 3600
+    activeDeadlineSeconds: 3600
+    allowParallel: false
+    backoffLimit: 3
+    image: -backup
+    storages:
+      pvc:
+        type: filesystem
+        volume:
+          persistentVolumeClaim:
+            accessModes: [ "ReadWriteOnce" ]
+            resources:
+              requests:
+                storage: 1Gi
+      minio-wrong:
+        type: s3
+        s3:
+          credentialsSecret: minio-secret
+          region: us-east-1
+          bucket: wrong-bucket
+          endpointUrl: https://wrong-service.#namespace:9000/
+      minio:
+        type: s3
+        resources:
+          requests:
+            memory: 0.5G
+            cpu: 500m
+          limits:
+            memory: "2G"
+            cpu: "1"
+        s3:
+          credentialsSecret: minio-secret
+          region: us-east-1
+          bucket: operator-testing/prefix
+          prefix: subfolder
+          endpointUrl: https://minio-service.#namespace:9000/
+        verifyTLS: false
+        containerOptions:
+          args:
+            xbstream: 
+            - 'invalidarg'
+            xtrabackup:
+            - 'invalidarg'
+            xbcloud: 
+            - 'invalidarg'
+      minio-force-path:
+        type: s3
+        s3:
+          credentialsSecret: minio-secret
+          region: us-east-1
+          bucket: ignored-bucket
+          endpointUrl: https://minio-service.#namespace:9000/operator-testing/prefix/subfolder
+          forcePathStyle: true
+        verifyTLS: false

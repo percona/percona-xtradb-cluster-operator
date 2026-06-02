@@ -34,8 +34,6 @@ main() {
 	run_backup "$cluster" "$minio_backup_name"
 	compare_kubectl "job/xb-$minio_backup_name"
 
-	# Wait until the wrong-creds backup job reaches Failed state before reading its
-	# lastTransitionTime timestamp (replaces the earlier hardcoded sleep 90).
 	kubectl_bin wait job "xb-$wrong_creds_backup_name" \
 		--for=condition=Failed \
 		--timeout=120s

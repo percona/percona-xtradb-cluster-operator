@@ -9,7 +9,9 @@ default-cr
 demand-backup
 demand-backup-flow-control
 demand-backup-parallel
-demand-backup-cloud
+demand-backup-cloud-aws
+demand-backup-cloud-azure
+demand-backup-cloud-gcs
 demand-backup-cloud-pxb-aws
 demand-backup-cloud-pxb-azure
 demand-backup-cloud-pxb-gcs

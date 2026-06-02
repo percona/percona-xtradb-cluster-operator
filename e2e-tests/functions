@@ -400,13 +400,23 @@ create_infra() {
 	local ns="$1"
 
 	if [ -n "$OPERATOR_NS" ]; then
-		kubectl get pxc --all-namespaces -o wide \
-			| grep -v 'NAMESPACE' \
-			| xargs -L 1 sh -xc 'kubectl patch pxc -n $0 $1 --type=merge -p "{\"metadata\":{\"finalizers\":[]}}"' \
-			|| :
-		kubectl_bin delete pxc --all --all-namespaces || :
-		kubectl_bin delete pxc-backup --all --all-namespaces || :
-		kubectl_bin delete pxc-restore --all --all-namespaces || :
+		kubectl_bin get pxc --all-namespaces \
+			-o jsonpath='{range .items[*]}{.metadata.namespace} {.metadata.name}{"\n"}{end}' 2>/dev/null \
+			| while read -r pns name; do
+				[[ -z "$pns" || -z "$name" ]] && continue
+				kubectl_bin patch pxc -n "$pns" "$name" \
+					--type=merge -p '{"metadata":{"finalizers":[]}}' || :
+			done
+		kubectl_bin get pxc-backup --all-namespaces \
+			-o jsonpath='{range .items[*]}{.metadata.namespace} {.metadata.name}{"\n"}{end}' 2>/dev/null \
+			| while read -r pns name; do
+				[[ -z "$pns" || -z "$name" ]] && continue
+				kubectl_bin patch pxc-backup -n "$pns" "$name" \
+					--type=merge -p '{"metadata":{"finalizers":[]}}' || :
+			done
+		timeout 300 kubectl delete pxc --all --all-namespaces --wait=false --ignore-not-found || :
+		timeout 300 kubectl delete pxc-backup --all --all-namespaces --wait=false --ignore-not-found || :
+		timeout 300 kubectl delete pxc-restore --all --all-namespaces --wait=false --ignore-not-found || :
 
 		create_namespace $OPERATOR_NS
 		deploy_operator
@@ -883,15 +893,15 @@ destroy() {
 	backup_names=$(kubectl_bin get pxc-backup --all-namespaces \
 		-o jsonpath='{range .items[*]}{.metadata.namespace}/{.metadata.name}{"\n"}{end}' 2>/dev/null || true)
 	if [[ -n "$backup_names" ]]; then
-		kubectl_bin delete pxc-backup --all --all-namespaces || :
+		timeout 300 kubectl delete pxc-backup --all --all-namespaces --wait=false --ignore-not-found || :
 		local deadline=$(( $(date +%s) + 300 ))
 		until [[ -z "$(kubectl_bin get pxc-backup --all-namespaces -o name --ignore-not-found 2>/dev/null)" ]]; do
 			if [[ $(date +%s) -ge $deadline ]]; then
-				echo "Timeout waiting for pxc-backup deletion — stripping finalizers"
+				echo "Timeout (5m) waiting for pxc-backup deletion — stripping finalizers and skipping"
 				kubectl_bin get pxc-backup --all-namespaces \
 					-o jsonpath='{range .items[*]}{.metadata.namespace} {.metadata.name}{"\n"}{end}' 2>/dev/null \
-					| while read -r ns name; do
-						kubectl_bin patch pxc-backup -n "$ns" "$name" \
+					| while read -r pns name; do
+						kubectl_bin patch pxc-backup -n "$pns" "$name" \
 							--type=merge -p '{"metadata":{"finalizers":[]}}' || :
 					done
 				break
@@ -902,14 +912,14 @@ destroy() {
 
 	kubectl_bin get pxc --all-namespaces \
 		-o jsonpath='{range .items[*]}{.metadata.namespace} {.metadata.name}{"\n"}{end}' 2>/dev/null \
-		| while read -r ns name; do
-			kubectl_bin patch pxc -n "$ns" "$name" \
+		| while read -r pns name; do
+			kubectl_bin patch pxc -n "$pns" "$name" \
 				--type=merge \
 				-p '{"metadata":{"finalizers":["percona.com/delete-pxc-pvc"]}}' 2>/dev/null || :
 		done
-	kubectl_bin delete pxc --all --all-namespaces || :
-	kubectl_bin delete pxc-restore --all --all-namespaces || :
-	kubectl_bin delete ValidatingWebhookConfiguration percona-xtradbcluster-webhook || :
+	timeout 300 kubectl delete pxc --all --all-namespaces --wait=false --ignore-not-found || :
+	timeout 300 kubectl delete pxc-restore --all --all-namespaces --wait=false --ignore-not-found || :
+	kubectl_bin delete ValidatingWebhookConfiguration percona-xtradbcluster-webhook --ignore-not-found || :
 
 	kubectl_bin delete -f https://github.com/jetstack/cert-manager/releases/download/v${CERT_MANAGER_VER}/cert-manager.yaml 2>/dev/null || :
 	if [ ! -z "$OPENSHIFT" ]; then
@@ -1459,10 +1469,15 @@ run_recovery_from_source() {
 
 wait_for_upload_to_start() {
 	local pod_name=$1
+	local container="${2:-xtrabackup}"
+	local pattern="${3:-successfully uploaded chunk}"
 	local max_attempts=100
 
+	local container_arg=""
+	[[ -n "$container" ]] && container_arg="-c $container"
+
 	local attempts=0
-	until kubectl_bin logs ${pod_name} -c xtrabackup | grep -q 'successfully uploaded chunk'; do
+	until kubectl_bin logs ${pod_name} ${container_arg} 2>/dev/null | grep -qF "$pattern"; do
 		sleep 1
 		let attempts+=1
 		if [ $attempts -ge $max_attempts ]; then
@@ -1472,6 +1487,21 @@ wait_for_upload_to_start() {
 	done
 
 	return 0
+}
+
+run_backup_with_delete() {
+	local backup_name=$1
+
+	desc "make backup ${backup_name}"
+	kubectl_bin apply \
+		-f $test_dir/conf/${backup_name}.yml
+	if ! delete_backup_pod ${backup_name}; then
+		echo "Skipping cloud storage cleanup check: backup completed before pod could be deleted."
+		wait_backup "${backup_name}"
+		return 0
+	fi
+	wait_backup "${backup_name}"
+	check_cloud_storage_cleanup "${backup_name}"
 }
 
 delete_backup_pod() {
@@ -1491,10 +1521,12 @@ delete_backup_pod() {
 	echo "Waiting for pod/${backup_pod} to become Running"
 	kubectl_bin wait --for=jsonpath='{.status.phase}'=Running pod/${backup_pod} --timeout=120s
 
-	local pxc_pod="${cluster_name}-pxc-0"
-
 	echo "Waiting for upload to start"
-	wait_for_upload_to_start ${pxc_pod}
+	if [[ "$PXCO_FEATURE_GATES" == *"XtrabackupSidecar=true"* ]]; then
+		wait_for_upload_to_start "${cluster_name}-pxc-0" "xtrabackup" "successfully uploaded chunk"
+	else
+		wait_for_upload_to_start "${backup_pod}" "" ".ibd."
+	fi
 
 	local pod_phase
 	pod_phase=$(kubectl_bin get pod "${backup_pod}" -o jsonpath='{.status.phase}' 2>/dev/null || echo "NotFound")
@@ -1515,36 +1547,66 @@ check_cloud_storage_cleanup() {
 		return 0
 	fi
 
-	local cluster_name
-	cluster_name=$(kubectl_bin get pxc-backup ${backup_name} -o jsonpath='{.spec.pxcCluster}')
-	if [[ -z $cluster_name ]]; then
-		echo "Cluster name is not set on backup ${backup_name}"
-		exit 1
+	if [[ "$PXCO_FEATURE_GATES" == *"XtrabackupSidecar=true"* ]]; then
+		local cluster_name
+		cluster_name=$(kubectl_bin get pxc-backup ${backup_name} -o jsonpath='{.spec.pxcCluster}')
+		if [[ -z $cluster_name ]]; then
+			echo "Cluster name is not set on backup ${backup_name}"
+			exit 1
+		fi
+		local pxc_pod="${cluster_name}-pxc-0"
+		if kubectl_bin logs ${pxc_pod} -c xtrabackup | grep 'Deleting Backup'; then
+			echo "Cleanup was performed."
+		else
+			echo "Something went wrong. Delete was not performed."
+			kubectl_bin logs ${pxc_pod} -c xtrabackup
+			exit 1
+		fi
+		return 0
 	fi
 
-	local pxc_pod="${cluster_name}-pxc-0"
-	if kubectl_bin logs ${pxc_pod} -c xtrabackup | grep 'Deleting Backup'; then
-		echo "Cleanup was performed."
+	local backup_pod
+	backup_pod=$(kubectl_bin get pods --selector=percona.com/backup-job-name=xb-${backup_name} -o jsonpath='{.items[].metadata.name}')
+	if [[ $IMAGE_PXC =~ 5\.7 ]]; then
+		# Two deletes during 5.7 backup: $backup_dir_sst_info & $backup_dir
+		local deletes_num
+		deletes_num=$(kubectl_bin logs ${backup_pod} | grep -c 'Delete completed.')
+		if [[ ${deletes_num} -ge '2' ]]; then
+			echo "Bucket cleanup was successful"
+		else
+			echo "Something went wrong. Delete was performed for $deletes_num. Expected: 2."
+			kubectl_bin logs ${backup_pod}
+			exit 1
+		fi
 	else
-		echo "Something went wrong. Delete was not performed."
-		kubectl_bin logs ${pxc_pod} -c xtrabackup
-		exit 1
+		if kubectl_bin logs ${backup_pod} | grep 'Object deleted successfully before attempt 1. Exiting.'; then
+			echo "Something went wrong. Delete was not performed."
+			kubectl_bin logs ${backup_pod}
+			exit 1
+		else
+			echo "Cleanup was performed."
+		fi
 	fi
 }
 
-run_backup_with_delete() {
-	local backup_name=$1
+check_optins_in_restore_pod() {
+	local restore_name=$1
+	local cluster_name=$2
 
-	desc "make backup ${backup_name}"
-	kubectl_bin apply \
-		-f $test_dir/conf/${backup_name}.yml
-	if ! delete_backup_pod ${backup_name}; then
-		echo "Skipping cloud storage cleanup check: backup completed before pod could be deleted."
-		wait_backup "${backup_name}"
+	echo "Waiting for ${restore_name} pod to become Complete"
+	sleep 1
+	kubectl_bin wait --for=jsonpath='{.status.phase}'=Succeeded pod --selector=percona.com/restore-job-name=restore-job-${restore_name}-${cluster_name} --timeout=200s
+	local restore_pod
+	restore_pod=$(kubectl_bin get pods --selector=percona.com/restore-job-name=restore-job-${restore_name}-${cluster_name} -o jsonpath='{.items[].metadata.name}')
+
+	echo "Grep logs of pod/${restore_pod}"
+	if kubectl logs ${restore_pod} | grep -q 'xtrabackup --defaults-file'; then
+		echo "Custom options are in the correct order for XtraBackup"
 		return 0
+	else
+		echo "Custom options are in the incorrect order for XtraBackup"
+		exit 1
 	fi
-	wait_backup "${backup_name}"
-	check_cloud_storage_cleanup "${backup_name}"
 }
 
 run_recovery_check() {
@@ -2834,10 +2896,14 @@ wait_num_backups() {
 	local num="$2"
 	local timer=0
 	echo "Starting to check number $num of backups for $storage"
-	while [[ "$(get_successful_backups_amount $storage)" -ne $num && $timer -le 400 ]]; do
+	while [[ "$(get_successful_backups_amount "$storage")" -ne "$num" && $timer -le 400 ]]; do
 		sleep 2
 		((timer += 1))
 	done
+	if [[ "$(get_successful_backups_amount "$storage")" -ne "$num" ]]; then
+		echo "Timed out waiting for $num successful backups for $storage"
+		exit 1
+	fi
 	echo "Finished to check number $num of backups for $storage. Timer: $timer"
 }
 

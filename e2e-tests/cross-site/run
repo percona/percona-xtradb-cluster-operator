@@ -17,7 +17,9 @@ wait_haproxy_primary() {
 	local retry=0
 	local primary=""
 	until [ -n "$primary" ]; do
-		primary=$(run_mysql 'SELECT @@hostname hostname;' "-h ${haproxy_host} -p33062 -uroot -proot_password" 2>/dev/null) || true
+		if ! primary=$(run_mysql 'SELECT @@hostname hostname;' "-h ${haproxy_host} -p33062 -uroot -proot_password"); then
+			primary=""
+		fi
 		if [ -z "$primary" ]; then
 			[ $retry -ge 36 ] && echo "HAProxy primary not available after 3 min" && exit 1
 			sleep 5

@@ -137,43 +137,66 @@ version_gt() {
 	fi
 }
 
+get_pxc_size() {
+	local cluster=${1}
+	local size=0
+
+	size="$(kubectl_bin get pxc "${cluster}" -o 'jsonpath={.spec.pxc.size}')"
+	echo "${size}"
+}
+
 get_proxy_size() {
 	local cluster=${1}
+	local size=0
+
 	if [[ "$(kubectl_bin get pxc "${cluster}" -o 'jsonpath={.spec.haproxy.enabled}')" == "true" ]]; then
-		kubectl_bin get pxc "${cluster}" -o 'jsonpath={.spec.haproxy.size}'
-		return
+		size="$(kubectl_bin get pxc "${cluster}" -o 'jsonpath={.spec.haproxy.size}')"
+	elif [[ "$(kubectl_bin get pxc "${cluster}" -o 'jsonpath={.spec.proxysql.enabled}')" == "true" ]]; then
+		size="$(kubectl_bin get pxc "${cluster}" -o 'jsonpath={.spec.proxysql.size}')"
 	fi
-	if [[ "$(kubectl_bin get pxc "${cluster}" -o 'jsonpath={.spec.proxysql.enabled}')" == "true" ]]; then
-		kubectl_bin get pxc "${cluster}" -o 'jsonpath={.spec.proxysql.size}'
-		return
-	fi
+
+	echo "${size}"
 }
 
 wait_cluster_consistency() {
 	local cluster_name=${1}
-	local cluster_size=${2}
-	local proxy_size=${3}
+	local pxc_size=${2:-"$(get_pxc_size "$cluster_name")"}
+	local proxy_size=${3:-"$(get_proxy_size "$cluster_name")"}
 
-	if [ -z "${proxy_size}" ]; then
-		proxy_size="$(get_proxy_size "$cluster_name")"
-	fi
 	desc "wait cluster consistency"
-	local i=0
-	local max=300
+	local max_seconds=1500
+	local delay=5
+	local retries=$((max_seconds / delay))
+	local pxc_ready
+	local proxy_ready
+
 	sleep 7 # wait for two reconcile loops ;)  3 sec x 2 times + 1 sec = 7 seconds
 	echo -n "waiting for pxc/${cluster_name} to be ready"
-	until [[ "$(kubectl_bin get pxc "${cluster_name}" -o jsonpath='{.status.state}')" == "ready" &&
-	"$(kubectl_bin get pxc "${cluster_name}" -o jsonpath='{.status.pxc.ready}')" == "${cluster_size}" &&
-	"$(kubectl_bin get pxc "${cluster_name}" -o jsonpath='{.status.'$(get_proxy_engine ${cluster_name})'.ready}')" == "${proxy_size}" ]]; do
-		echo -n .
-		sleep 5
-		if [[ $i -ge $max ]]; then
-			echo "Something went wrong waiting for cluster consistency!"
-			exit 1
+	for _ in $(seq 1 "${retries}"); do
+		state="$(kubectl_bin get pxc "${cluster_name}" -o jsonpath='{.status.state}')"
+		pxc_ready="$(kubectl_bin get pxc "${cluster_name}" -o jsonpath='{.status.pxc.ready}')"
+		proxy_ready=0
+
+		if [[ ${proxy_size} -gt 0 ]]; then
+			proxy_ready="$(
+				kubectl_bin get pxc "${cluster_name}" \
+					-o jsonpath='{.status.'$(get_proxy_engine ${cluster_name})'.ready}'
+			)"
 		fi
-		let i+=1
+
+		if [[ ${state} == "ready" &&
+			${pxc_ready} == "${pxc_size}" &&
+			${proxy_ready} == "${proxy_size}" ]]; then
+			echo
+			return
+		fi
+
+		echo -n .
+		sleep "${delay}"
 	done
-	echo
+
+	echo "Something went wrong waiting for cluster consistency!"
+	exit 1
 }
 
 create_namespace() {
@@ -420,9 +443,22 @@ create_infra() {
 
 wait_for_running() {
 	local name="$1"
-	let last_pod="$(($2 - 1))" || :
+	local size="${2:-0}"
+	local last_pod
 	local max_retry="${3:-480}"
-	desc "wait for running cluster"
+
+	if [[ -z ${name} ]]; then
+		desc "No resource provided to wait for running pods"
+		return
+	fi
+
+	if [[ ${size} -le 0 ]]; then
+		desc "No running pods expected for ${name}"
+		return
+	fi
+
+	last_pod=$((size - 1))
+	desc "Waiting for ${size} running pods for ${name}"
 	for i in $(seq 0 $last_pod); do
 		wait_pod ${name}-${i} ${max_retry}
 	done
@@ -695,6 +731,61 @@ compare_mysql_cmd_local() {
 	else
 		cp $tmp_dir/${command_id}.sql $expected_result
 	fi
+}
+
+compare_data() {
+	local cluster=$1
+	local compare=$2
+	local use_proxy=${3:-"false"}
+	local port=${4:-"-P 3306"}
+	local database=${5:-"myApp"}
+	local table=${6:-"myApp"}
+	local size
+
+	local root_pass
+	root_pass=$(get_password "${cluster}" "root")
+
+	if [[ ${use_proxy} == true || ${use_proxy} == "use-proxy" ]]; then
+		local host
+		host=$(get_proxy "${cluster}")
+		if [[ -z $host ]]; then
+			echo "No proxy service found for cluster ${cluster}"
+			exit 1
+		fi
+
+		compare_mysql_cmd "${compare}" \
+			"SELECT id FROM ${database}.${table} ORDER BY id;" \
+			"-h ${host} ${port} -uroot -p'${root_pass}'"
+	else
+		size="$(get_pxc_size "${cluster}")"
+		for i in $(seq 0 $((size - 1))); do
+			compare_mysql_cmd "${compare}" \
+				"SELECT id FROM ${database}.${table} ORDER BY id;" \
+				"-h ${cluster}-pxc-${i}.${cluster}-pxc ${port} -uroot -p'${root_pass}'"
+		done
+	fi
+}
+
+write_data() {
+	local cluster=$1
+	local id=$2
+	local use_proxy=${3:-"false"}
+	local port=${4:-"-P 3306"}
+	local database=${5:-"myApp"}
+	local table=${6:-"myApp"}
+
+	local root_pass
+	root_pass=$(get_password "${cluster}" "root")
+	proxy=$(get_proxy "${cluster}")
+	if [[ (${use_proxy} == true || ${use_proxy} == "use-proxy") && -n $proxy ]]; then
+		host="-h ${proxy}"
+	else
+		host="-h ${cluster}-pxc-0.${cluster}-pxc"
+	fi
+
+	run_mysql \
+		"INSERT IGNORE ${database}.${table} (id) VALUES (${id})" \
+		"${host} ${port} -uroot -p'${root_pass}'"
 }
 
 get_proxy_primary() {
@@ -1056,12 +1147,12 @@ get_proxy() {
 		echo "${target_cluster}-proxysql"
 		return
 	fi
-	echo "${target_cluster}-pxc"
 }
 
 get_proxy_engine() {
 	local cluster_name=$1
 	local cluster_proxy="$(get_proxy ${cluster_name})"
+
 	echo "${cluster_proxy//$cluster_name-/}"
 }
 
@@ -1086,11 +1177,13 @@ spinup_pxc() {
 		apply_config "$config"
 	fi
 
-	desc 'check if all 3 Pods started'
+	desc "waiting pods to be running for ${cluster}"
 	local proxy=$(get_proxy "$cluster")
-	kubectl_bin wait --for=condition=Ready pod -l app.kubernetes.io/instance=monitoring,app.kubernetes.io/managed-by=percona-xtradb-cluster-operator --timeout=300s -n ${namespace} || true
-	wait_for_running "$proxy" 1
+	local proxy_size=$(get_proxy_size "$cluster")
 	wait_for_running "$cluster-pxc" "$size"
+	wait_for_running "$proxy" "$proxy_size"
+
+	wait_cluster_consistency "$cluster" "$size" "$proxy_size"
 	sleep $sleep
 
 	local secret_name=$(kubectl get pxc $cluster -o jsonpath='{.spec.secretsName}')
@@ -1102,14 +1195,12 @@ spinup_pxc() {
 	fi
 	run_mysql \
 		"CREATE DATABASE IF NOT EXISTS myApp; use myApp; CREATE TABLE IF NOT EXISTS myApp (id int PRIMARY KEY) $encrypt;" \
-		"-h $proxy -uroot -p'${root_pass}' -P$port"
-	run_mysql \
-		'INSERT myApp.myApp (id) VALUES (100500)' \
-		"-h $proxy -uroot -p'${root_pass}' -P$port"
+		"-h ${cluster}-pxc-0.${cluster}-pxc -uroot -p'${root_pass}' -P$port"
+	write_data "$cluster" 100500 "no-proxy" "-P$port"
 	sleep 30
-	for i in $(seq 0 $((size - 1))); do
-		compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-$i.$cluster-pxc -uroot -p'${root_pass}' -P$port"
-	done
+
+	desc 'compare initial data'
+	compare_data "$cluster" "select-1" "no-proxy" "-P$port"
 
 	if is_keyring_plugin_in_use "$cluster"; then
 		log "keyring plugin is used. checking encryption..."
@@ -1251,16 +1342,20 @@ check_pvc_md5() {
 run_backup() {
 	local cluster=$1
 	local backup=$2
+	local status=${3:-Succeeded}
 
 	log "run pxc-backup/${backup}"
+
 	kubectl_bin apply \
 		-f ${test_dir}/conf/${backup}.yml
-	wait_backup ${backup}
+
+	wait_backup "${backup}" "${status}"
 }
 
 run_recovery_check() {
 	local cluster=$1
 	local backup=$2
+	local compare=${3:-"select-1"}
 	local proxy=$(get_proxy_engine $cluster)
 	pvc_name=$(get_pvc_name_for_backup "$backup")
 	dest="pvc/$pvc_name"
@@ -1289,14 +1384,11 @@ run_recovery_check() {
 	wait_for_running "$cluster-$proxy" 1
 	wait_for_running "$cluster-pxc" 3
 
-	local secret_name=$(kubectl_bin get pxc ${cluster} -o jsonpath='{.spec.secretsName}')
-	local root_pass=$(getSecretData ${secret_name} "root")
+	local root_pass=$(get_password "${cluster}" "root")
 
 	sleep 35
 	log "check data after pxc-restore/${backup}"
-	compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -p'${root_pass}'"
-	compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-1.$cluster-pxc -uroot -p'${root_pass}'"
-	compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-2.$cluster-pxc -uroot -p'${root_pass}'"
+	compare_data "$cluster" "$compare"
 
 	if [ "$backup" != "on-demand-backup-minio" ]; then
 		log 'copy backup'
@@ -1633,6 +1725,15 @@ getSecretData() {
 	local dataKey=$2
 	kubectl_bin get secrets/${secretName} --template={{.data.${dataKey}}} \
 		| base64 --decode
+}
+
+get_password() {
+	local cluster=$1
+	local user=$2
+
+	getSecretData \
+		"$(kubectl_bin get pxc "${cluster}" -o jsonpath='{.spec.secretsName}')" \
+		"${user}"
 }
 
 checkTLSSecret() {
@@ -2311,9 +2412,7 @@ run_recovery_check_pitr() {
 	wait_for_running "$cluster-pxc" 3
 	wait_cluster_consistency "$cluster" 3 2
 	desc 'check data after backup' $restore
-	compare_mysql_cmd $compare "SELECT * from test.test;" "-h $cluster-pxc-0.$cluster-pxc -uroot -p${mysql_root_pass}"
-	compare_mysql_cmd $compare "SELECT * from test.test;" "-h $cluster-pxc-1.$cluster-pxc -uroot -p${mysql_root_pass}"
-	compare_mysql_cmd $compare "SELECT * from test.test;" "-h $cluster-pxc-2.$cluster-pxc -uroot -p${mysql_root_pass}"
+	compare_data "$cluster" "$compare" "no-proxy" "-P 3306" "test" "test"
 	kubectl_bin delete -f "$test_dir/conf/${restore}.yaml"
 }
 
@@ -2405,4 +2504,51 @@ wait_for_password_propagation() {
 		fi
 	done
 	echo "Old password successfully discarded after $retry retries"
+}
+
+patch_cluster() {
+	local cluster=$1
+	local patch=$2
+
+	kubectl_bin patch pxc "${cluster}" --type=merge --patch "${patch}"
+}
+
+wait_cluster_error() {
+	local cluster=$1
+	local expected_message=$2
+	local max_retry="${3:-180}"
+	local retry=0
+	local state
+	local messages
+
+	until [[ ${state} == "error" && ${messages} == *"${expected_message}"* ]]; do
+		state="$(kubectl_bin get pxc "${cluster}" -o jsonpath='{.status.state}')"
+		messages="$(kubectl_bin get pxc "${cluster}" -o jsonpath='{.status.message}')"
+
+		sleep 2
+		((retry += 1))
+		if [[ ${retry} -ge ${max_retry} ]]; then
+			kubectl_bin get pxc "${cluster}" -o yaml
+			exit 1
+		fi
+	done
+}
+
+wait_cluster_initializing() {
+	local cluster=$1
+	local max_retry="${2:-180}"
+	local retry=0
+
+	echo -n "waiting for pxc/${cluster} to become initializing"
+	until [[ "$(kubectl_bin get pxc "${cluster}" -o jsonpath='{.status.state}')" == "initializing" ]]; do
+		sleep 2
+		echo -n .
+		((retry += 1))
+		if [[ ${retry} -ge ${max_retry} ]]; then
+			kubectl_bin get pxc "${cluster}" -o yaml
+			echo "pxc/${cluster} did not become initializing"
+			exit 1
+		fi
+	done
+	echo ".Ok"
 }

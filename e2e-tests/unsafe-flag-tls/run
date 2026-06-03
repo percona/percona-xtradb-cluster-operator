@@ -1,0 +1,159 @@
+#!/bin/bash
+
+set -o errexit
+
+test_dir=$(realpath "$(dirname "$0")")
+. "${test_dir}"/../functions
+
+set_debug
+
+cluster="tls"
+pxc_size=3
+proxy_size=3
+
+tls_option_pattern='^[[:space:]]*(ssl-ca|ssl-cert|ssl-key)[[:space:]]*='
+
+check_tls_options() {
+	local pod=$1
+	local expected=$2
+	local grep_options=("-qE")
+
+	if [[ ${expected} == "present" ]]; then
+		grep_options=("-E")
+	fi
+
+	kubectl_bin exec "${pod}" -c pxc -- \
+		grep "${grep_options[@]}" "${tls_option_pattern}" /etc/mysql/node.cnf
+}
+
+has_ssl_cipher() {
+	local pod=$1
+	local root_pass=$2
+	local ssl_mode=$3
+	local get_server_public_key=${4:-}
+	local host="${pod}.${cluster}-pxc"
+	local uri
+
+	uri="--ssl-mode=${ssl_mode} ${get_server_public_key} -h ${host} -uroot -p'${root_pass}'"
+
+	run_mysql_local "SHOW STATUS LIKE 'Ssl_cipher';" "${uri}" "${pod}" pxc \
+		| awk '$2 != "" { found=1 } END { exit found ? 0 : 1 }'
+}
+
+tls_should_be_disabled() {
+	local pod
+	local root_pass
+	local uri
+
+	if [[ "$(kubectl_bin get pxc "${cluster}" -o jsonpath='{.spec.tls.enabled}')" != "false" ]]; then
+		kubectl_bin get pxc "${cluster}" -o yaml
+		echo "tls is not disabled"
+		exit 1
+	fi
+
+	root_pass=$(get_password "${cluster}" "root")
+
+	for i in $(seq 0 $((pxc_size - 1))); do
+		pod="${cluster}-pxc-${i}"
+
+		if check_tls_options "${pod}" quiet; then
+			echo "${pod} still has TLS options in /etc/mysql/node.cnf:"
+			check_tls_options "${pod}" present
+			exit 1
+		fi
+
+		uri="--ssl-mode=DISABLED --get-server-public-key -h ${pod}.${cluster}-pxc -uroot -p'${root_pass}'"
+		run_mysql_local "SELECT 1" "${uri}" "${pod}" pxc
+
+		if has_ssl_cipher "${pod}" "${root_pass}" DISABLED "--get-server-public-key"; then
+			echo "${pod} is still using TLS for a --ssl-mode=DISABLED session:"
+			run_mysql_local "SHOW STATUS LIKE 'Ssl_cipher';" "${uri}" "${pod}" pxc
+			exit 1
+		fi
+	done
+}
+
+tls_should_be_enabled() {
+	local pod
+	local root_pass
+	local uri
+
+	if [[ "$(kubectl_bin get pxc "${cluster}" -o jsonpath='{.spec.tls.enabled}')" != "true" ]]; then
+		kubectl_bin get pxc "${cluster}" -o yaml
+		echo "tls is not enabled"
+		exit 1
+	fi
+
+	root_pass=$(get_password "${cluster}" "root")
+
+	for i in $(seq 0 $((pxc_size - 1))); do
+		pod="${cluster}-pxc-${i}"
+
+		if ! check_tls_options "${pod}" quiet; then
+			echo "${pod} does not have TLS options in /etc/mysql/node.cnf"
+			exit 1
+		fi
+
+		if ! has_ssl_cipher "${pod}" "${root_pass}" REQUIRED; then
+			echo "${pod} is not using TLS for a TCP session:"
+			uri="--ssl-mode=REQUIRED -h ${pod}.${cluster}-pxc -uroot -p'${root_pass}'"
+			run_mysql_local "SHOW STATUS LIKE 'Ssl_cipher';" "${uri}" "${pod}" pxc
+			exit 1
+		fi
+	done
+}
+
+test_tls_unsafe_flag() {
+	desc 'check TLS cannot be disabled without unsafeFlags.tls'
+	patch_cluster "${cluster}" '{
+		"spec": {
+			"tls": {
+				"enabled": false
+			},
+			"unsafeFlags": {
+				"tls": false
+			}
+		}
+	}'
+	wait_cluster_error "${cluster}" 'TLS must be enabled. Set spec.unsafeFlags.tls to true to disable this check'
+
+	desc 'enable unsafeFlags.tls and disable TLS'
+	patch_cluster "${cluster}" '{
+		"spec": {
+			"tls": {
+				"enabled": false
+			},
+			"unsafeFlags": {
+				"tls": true
+			}
+		}
+	}'
+	wait_cluster_consistency "${cluster}" "${pxc_size}" "${proxy_size}"
+	tls_should_be_disabled
+
+	desc 'disable unsafeFlags.tls and enable TLS'
+	patch_cluster "${cluster}" '{
+		"spec": {
+			"tls": {
+				"enabled": true
+			},
+			"unsafeFlags": {
+				"tls": false
+			}
+		}
+	}'
+	wait_cluster_consistency "${cluster}" "${pxc_size}" "${proxy_size}"
+	tls_should_be_enabled
+}
+
+main() {
+	create_infra "${namespace}"
+	spinup_pxc "${cluster}" "${test_dir}/../unsafe-flag-tls/conf/${cluster}.yml" "${pxc_size}"
+
+	test_tls_unsafe_flag
+
+	destroy "${namespace}"
+	desc "test passed"
+}
+
+main

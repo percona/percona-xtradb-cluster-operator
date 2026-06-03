@@ -22,7 +22,7 @@ build:
 
 olm:
   - changed-files:
-    - any-glob-to-any-file: 'deploy/csv/**'
+    - any-glob-to-any-file: 'installers/olm/**'
 
 dependencies:
   - changed-files:

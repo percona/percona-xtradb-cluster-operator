@@ -28,4 +28,4 @@ spec:
     image: percona/haproxy:2.8.18-1
   logcollector:
     enabled: true
-    image: percona/fluentbit:4.0.1-2
+    image: percona/fluentbit:5.0.6-1

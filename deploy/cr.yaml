@@ -585,7 +585,7 @@ spec:
 #     - 10.0.0.0/8
   logcollector:
     enabled: true
-    image: percona/fluentbit:4.0.1-2
+    image: percona/fluentbit:5.0.6-1
 #    configuration: |
 #      [OUTPUT]
 #           Name  es

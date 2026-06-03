@@ -6,6 +6,7 @@ import (
 	"hash/fnv"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -29,6 +30,9 @@ const (
 	VaultSecretVolumeName = "vault-keyring-secret"
 	VaultSecretMountPath  = "/etc/mysql/vault-keyring-secret"
 	VaultKeyringConfig    = "keyring_vault.conf"
+
+	LogRotateConfigVolumeName = "logrotate-config"
+	LogRotateConfigDir        = "/opt/percona/logcollector/logrotate/conf.d"
 )
 
 type Node struct {
@@ -42,14 +46,18 @@ func NewNode(cr *api.PerconaXtraDBCluster) api.StatefulApp {
 }
 
 func (c *Node) Name() string {
-	return app.Name
+	return naming.ComponentPXC
 }
 
 func (c *Node) InitContainers(cr *api.PerconaXtraDBCluster, initImageName string) []corev1.Container {
-	inits := []corev1.Container{
-		EntrypointInitContainer(cr, initImageName, app.DataVolumeName),
+	initC := EntrypointInitContainer(cr, initImageName, naming.DataVolumeName)
+	if cr.CompareVersionWith("1.20.0") >= 0 {
+		initC.VolumeMounts = append(initC.VolumeMounts, corev1.VolumeMount{
+			Name:      naming.BinVolumeName,
+			MountPath: naming.BinVolumeMountPath,
+		})
 	}
-	return inits
+	return []corev1.Container{initC}
 }
 
 func (c *Node) AppContainer(ctx context.Context, cl client.Client, spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster, _ []corev1.Volume) (corev1.Container, error) {
@@ -76,7 +84,7 @@ func (c *Node) AppContainer(ctx context.Context, cl client.Client, spec *api.Pod
 	}
 
 	appc := corev1.Container{
-		Name:            app.Name,
+		Name:            naming.ContainerNamePXC,
 		Image:           spec.Image,
 		ImagePullPolicy: spec.ImagePullPolicy,
 		ReadinessProbe: app.Probe(&corev1.Probe{
@@ -120,7 +128,7 @@ func (c *Node) AppContainer(ctx context.Context, cl client.Client, spec *api.Pod
 		},
 		VolumeMounts: []corev1.VolumeMount{
 			{
-				Name:      app.DataVolumeName,
+				Name:      naming.DataVolumeName,
 				MountPath: "/var/lib/mysql",
 			},
 			{
@@ -234,13 +242,18 @@ func (c *Node) AppContainer(ctx context.Context, cl client.Client, spec *api.Pod
 			Value: fmt.Sprint(spec.ReadinessProbes.TimeoutSeconds),
 		},
 	}...)
+	if cr.Spec.PXC.SSTRetryCount != nil {
+		appc.Env = append(appc.Env, corev1.EnvVar{
+			Name:  "PXC_SST_RETRY_COUNT",
+			Value: fmt.Sprint(*cr.Spec.PXC.SSTRetryCount),
+		})
+	}
 
 	plugin := "caching_sha2_password"
 	if cr.CompareVersionWith("1.19.0") < 0 {
 		if cr.Spec.ProxySQLEnabled() {
 			plugin = "mysql_native_password"
 		}
-
 	}
 	appc.Env = append(appc.Env, corev1.EnvVar{
 		Name:  "DEFAULT_AUTHENTICATION_PLUGIN",
@@ -284,6 +297,45 @@ func (c *Node) AppContainer(ctx context.Context, cl client.Client, spec *api.Pod
 	return appc, nil
 }
 
+func jemallocPathForPXCImage(pxcImage string) string {
+	const (
+		libJemallocSo1 = "/usr/lib64/libjemalloc.so.1"
+		libJemallocSo2 = "/usr/lib64/libjemalloc.so.2"
+	)
+	if pxcImage == "" {
+		return libJemallocSo2
+	}
+	idx := strings.LastIndex(pxcImage, ":")
+	if idx < 0 || idx == len(pxcImage)-1 {
+		return libJemallocSo2
+	}
+	tag := strings.ToLower(pxcImage[idx+1:])
+
+	// Operator-style tags: main-pxc8.0, main-pxc8.4
+	if strings.Contains(tag, "pxc8.0") {
+		return libJemallocSo1
+	}
+	if strings.Contains(tag, "pxc8.4") || strings.Contains(tag, "pxc9") {
+		return libJemallocSo2
+	}
+
+	// Semantic version in tag (e.g. 8.0.35, 8.4.32, 8.4.32-31)
+	parts := strings.SplitN(tag, ".", 3)
+	if len(parts) < 2 {
+		return libJemallocSo2
+	}
+	major, errMajor := strconv.Atoi(parts[0])
+	minor, errMinor := strconv.Atoi(parts[1])
+	if errMajor != nil || errMinor != nil {
+		return libJemallocSo2
+	}
+	// Only 8.0.x uses .so.1; everything else (8.4+, 9.x, unknown) uses .so.2
+	if major == 8 && minor == 0 {
+		return libJemallocSo1
+	}
+	return libJemallocSo2
+}
+
 func setLDPreloadEnv(
 	ctx context.Context,
 	cl client.Client,
@@ -292,7 +344,6 @@ func setLDPreloadEnv(
 ) {
 	const (
 		ldPreloadKey    = "LD_PRELOAD"
-		libJemallocPath = "/usr/lib64/libjemalloc.so.1"
 		libTcmallocPath = "/usr/lib64/libtcmalloc.so"
 	)
 
@@ -301,7 +352,7 @@ func setLDPreloadEnv(
 	// Determine the allocator
 	switch strings.ToLower(cr.Spec.PXC.MySQLAllocator) {
 	case "jemalloc":
-		ldPreloadValue += ":" + libJemallocPath
+		ldPreloadValue += ":" + jemallocPathForPXCImage(cr.Spec.PXC.Image)
 	case "tcmalloc":
 		ldPreloadValue += ":" + libTcmallocPath
 	}
@@ -311,7 +362,8 @@ func setLDPreloadEnv(
 	envVarsSecret := &corev1.Secret{}
 	err := cl.Get(ctx, types.NamespacedName{
 		Name:      cr.Spec.PXC.EnvVarsSecretName,
-		Namespace: cr.Namespace}, envVarsSecret)
+		Namespace: cr.Namespace,
+	}, envVarsSecret)
 	if client.IgnoreNotFound(err) == nil {
 		// Env vars are set via secret. Check if LD_PRELOAD is set.
 		if val, ok := envVarsSecret.Data[ldPreloadKey]; ok {
@@ -337,12 +389,14 @@ func (c *Node) SidecarContainers(ctx context.Context, cl client.Client, spec *ap
 	return nil, nil
 }
 
-func (c *Node) LogCollectorContainer(spec *api.LogCollectorSpec, logPsecrets string, logRsecrets string, cr *api.PerconaXtraDBCluster) ([]corev1.Container, error) {
+func (c *Node) LogCollectorContainer(cr *api.PerconaXtraDBCluster, logPsecrets string, logRsecrets string) ([]corev1.Container, error) {
+	spec := cr.Spec.LogCollector
 	logProcEnvs := []corev1.EnvVar{
 		{
 			Name:  "LOG_DATA_DIR",
 			Value: "/var/lib/mysql",
 		},
+		// Typo preserved for backwards compatibility
 		{
 			Name: "POD_NAMESPASE",
 			ValueFrom: &corev1.EnvVarSource{
@@ -359,6 +413,17 @@ func (c *Node) LogCollectorContainer(spec *api.LogCollectorSpec, logPsecrets str
 				},
 			},
 		},
+	}
+
+	if cr.CompareVersionWith("1.20.0") >= 0 {
+		logProcEnvs = append(logProcEnvs, corev1.EnvVar{
+			Name: "POD_NAMESPACE",
+			ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{
+					FieldPath: "metadata.namespace",
+				},
+			},
+		})
 	}
 
 	logRotEnvs := []corev1.EnvVar{
@@ -394,7 +459,7 @@ func (c *Node) LogCollectorContainer(spec *api.LogCollectorSpec, logPsecrets str
 		},
 		VolumeMounts: []corev1.VolumeMount{
 			{
-				Name:      app.DataVolumeName,
+				Name:      naming.DataVolumeName,
 				MountPath: "/var/lib/mysql",
 			},
 		},
@@ -412,7 +477,7 @@ func (c *Node) LogCollectorContainer(spec *api.LogCollectorSpec, logPsecrets str
 		},
 		VolumeMounts: []corev1.VolumeMount{
 			{
-				Name:      app.DataVolumeName,
+				Name:      naming.DataVolumeName,
 				MountPath: "/var/lib/mysql",
 			},
 		},
@@ -420,9 +485,13 @@ func (c *Node) LogCollectorContainer(spec *api.LogCollectorSpec, logPsecrets str
 
 	if cr.Spec.LogCollector != nil {
 		if cr.Spec.LogCollector.Configuration != "" {
+			customPath := "/etc/fluentbit/custom"
+			if cr.CompareVersionWith("1.20.0") >= 0 {
+				customPath = "/opt/percona/logcollector/fluentbit/custom"
+			}
 			logProcContainer.VolumeMounts = append(logProcContainer.VolumeMounts, corev1.VolumeMount{
 				Name:      "logcollector-config",
-				MountPath: "/etc/fluentbit/custom",
+				MountPath: customPath,
 			})
 		}
 
@@ -432,6 +501,40 @@ func (c *Node) LogCollectorContainer(spec *api.LogCollectorSpec, logPsecrets str
 				MountPath: "/opt/percona/hookscript",
 			})
 		}
+
+		if cfg := cr.Spec.LogCollector.LogRotate; cfg != nil {
+			if cfg.Configuration != "" || cfg.ExtraConfig.Name != "" {
+				logRotContainer.VolumeMounts = append(logRotContainer.VolumeMounts, corev1.VolumeMount{
+					Name:      LogRotateConfigVolumeName,
+					MountPath: LogRotateConfigDir,
+				})
+			}
+			if cfg.Schedule != "" {
+				logRotContainer.Env = append(logRotContainer.Env, corev1.EnvVar{
+					Name:  "LOGROTATE_SCHEDULE",
+					Value: cfg.Schedule,
+				})
+			}
+		}
+	}
+
+	if cr.CompareVersionWith("1.20.0") >= 0 {
+		logProcContainer.Command = []string{"/opt/percona/logcollector/entrypoint.sh"}
+		logProcContainer.Args = []string{"fluent-bit"}
+		logRotContainer.Env = append(logRotContainer.Env, corev1.EnvVar{
+			Name:  "LOGROTATE_STATUS_FILE",
+			Value: "/var/lib/mysql/logrotate.status",
+		})
+		logRotContainer.Command = []string{"/opt/percona/logcollector/entrypoint.sh"}
+
+		logProcContainer.VolumeMounts = append(logProcContainer.VolumeMounts, corev1.VolumeMount{
+			Name:      naming.BinVolumeName,
+			MountPath: naming.BinVolumeMountPath,
+		})
+		logRotContainer.VolumeMounts = append(logRotContainer.VolumeMounts, corev1.VolumeMount{
+			Name:      naming.BinVolumeName,
+			MountPath: naming.BinVolumeMountPath,
+		})
 	}
 
 	return []corev1.Container{logProcContainer, logRotContainer}, nil
@@ -477,12 +580,12 @@ func (c *Node) XtrabackupContainer(ctx context.Context, cr *api.PerconaXtraDBClu
 		},
 		VolumeMounts: []corev1.VolumeMount{
 			{
-				Name:      app.DataVolumeName,
+				Name:      naming.DataVolumeName,
 				MountPath: "/var/lib/mysql",
 			},
 			{
 				Name:      "backup-logs",
-				MountPath: app.BackupLogDir,
+				MountPath: naming.BackupLogDir,
 			},
 			{
 				Name:      "tmp",
@@ -529,7 +632,7 @@ func (c *Node) PMMContainer(ctx context.Context, cl client.Client, spec *api.PMM
 
 		pmm3Container.VolumeMounts = []corev1.VolumeMount{
 			{
-				Name:      app.DataVolumeName,
+				Name:      naming.DataVolumeName,
 				MountPath: "/var/lib/mysql",
 			},
 		}
@@ -588,7 +691,7 @@ func (c *Node) PMMContainer(ctx context.Context, cl client.Client, spec *api.PMM
 		clusterEnvs := []corev1.EnvVar{
 			{
 				Name:  "DB_CLUSTER",
-				Value: app.Name,
+				Value: naming.ComponentPXC,
 			},
 			{
 				Name:  "DB_HOST",
@@ -672,7 +775,7 @@ func (c *Node) PMMContainer(ctx context.Context, cl client.Client, spec *api.PMM
 
 	ct.VolumeMounts = []corev1.VolumeMount{
 		{
-			Name:      app.DataVolumeName,
+			Name:      naming.DataVolumeName,
 			MountPath: "/var/lib/mysql",
 		},
 	}
@@ -702,10 +805,10 @@ func pmm3PXCNodeEnvVars(PmmPxcParams string) []corev1.EnvVar {
 	}
 }
 
-func (c *Node) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg api.CustomVolumeGetter) (*api.Volume, error) {
-	vol := app.Volumes(podSpec, app.DataVolumeName)
+func (c *Node) Volumes(ctx context.Context, podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg api.CustomVolumeGetter) (*api.Volume, error) {
+	vol := app.Volumes(podSpec, naming.DataVolumeName)
 
-	configVolume, err := vg(cr.Namespace, "config", config.CustomConfigMapName(cr.Name, "pxc"), true)
+	configVolume, err := vg(ctx, cr.Namespace, "config", config.CustomConfigMapName(cr.Name, naming.ComponentPXC), true)
 	if err != nil {
 		return nil, err
 	}
@@ -721,7 +824,7 @@ func (c *Node) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg ap
 		configVolume,
 		app.GetSecretVolumes("ssl-internal", podSpec.SSLInternalSecretName, true),
 		sslVolume,
-		app.GetConfigVolumes("auto-config", config.AutoTuneConfigMapName(cr.Name, app.Name)),
+		app.GetConfigVolumes("auto-config", config.AutoTuneConfigMapName(cr.Name, naming.ComponentPXC)),
 		app.GetSecretVolumes(VaultSecretVolumeName, podSpec.VaultSecretName, true),
 		app.GetSecretVolumes("mysql-users-secret-file", "internal-"+cr.Name, false),
 	)
@@ -734,7 +837,7 @@ func (c *Node) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg ap
 	if cr.CompareVersionWith("1.11.0") >= 0 {
 		if cr.Spec.PXC != nil && cr.Spec.PXC.HookScript != "" {
 			vol.Volumes = append(vol.Volumes,
-				app.GetConfigVolumes("hookscript", config.HookScriptConfigMapName(cr.Name, "pxc")))
+				app.GetConfigVolumes("hookscript", config.HookScriptConfigMapName(cr.Name, naming.ComponentPXC)))
 		}
 
 		if cr.Spec.LogCollector != nil && cr.Spec.LogCollector.HookScript != "" {
@@ -753,6 +856,50 @@ func (c *Node) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg ap
 		}
 	}
 
+	if cr.CompareVersionWith("1.20.0") >= 0 {
+		vol.Volumes = append(vol.Volumes, corev1.Volume{
+			Name: naming.BinVolumeName,
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		})
+
+		if cr.Spec.LogCollector != nil && cr.Spec.LogCollector.LogRotate != nil {
+			volProjections := []corev1.VolumeProjection{}
+
+			if cr.Spec.LogCollector.LogRotate.Configuration != "" {
+				volProjections = append(volProjections, corev1.VolumeProjection{
+					ConfigMap: &corev1.ConfigMapProjection{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: config.CustomConfigMapName(cr.Name, "logrotate"),
+						},
+					},
+				})
+			}
+
+			if cr.Spec.LogCollector.LogRotate.ExtraConfig.Name != "" {
+				volProjections = append(volProjections, corev1.VolumeProjection{
+					ConfigMap: &corev1.ConfigMapProjection{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: cr.Spec.LogCollector.LogRotate.ExtraConfig.Name,
+						},
+					},
+				})
+			}
+
+			if len(volProjections) > 0 {
+				vol.Volumes = append(vol.Volumes, corev1.Volume{
+					Name: LogRotateConfigVolumeName,
+					VolumeSource: corev1.VolumeSource{
+						Projected: &corev1.ProjectedVolumeSource{
+							Sources: volProjections,
+						},
+					},
+				})
+			}
+		}
+	}
+
 	return vol, nil
 }
 
@@ -764,7 +911,7 @@ func (c *Node) StatefulSet() *appsv1.StatefulSet {
 			Kind:       "StatefulSet",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      c.cr.Name + "-" + app.Name,
+			Name:      c.cr.Name + "-" + naming.ComponentPXC,
 			Namespace: c.cr.Namespace,
 		},
 	}
@@ -775,7 +922,7 @@ func (c *Node) Labels() map[string]string {
 }
 
 func (c *Node) Service() string {
-	return c.cr.Name + "-" + app.Name
+	return c.cr.Name + "-" + naming.ComponentPXC
 }
 
 func (c *Node) UpdateStrategy(cr *api.PerconaXtraDBCluster) appsv1.StatefulSetUpdateStrategy {

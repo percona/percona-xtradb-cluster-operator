@@ -65,7 +65,7 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, cluster *api.PerconaXtraDBClu
 		},
 		{
 			Name:  "PXC_SERVICE",
-			Value: spec.PXCCluster + "-pxc",
+			Value: spec.PXCCluster + "-" + naming.ComponentPXC,
 		},
 		{
 			Name: "PXC_PASS",
@@ -86,7 +86,7 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, cluster *api.PerconaXtraDBClu
 	if cluster.CompareVersionWith("1.15.0") >= 0 {
 		volumes = append(volumes,
 			corev1.Volume{
-				Name: app.BinVolumeName,
+				Name: naming.BinVolumeName,
 				VolumeSource: corev1.VolumeSource{
 					EmptyDir: &corev1.EmptyDirVolumeSource{},
 				},
@@ -95,8 +95,8 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, cluster *api.PerconaXtraDBClu
 
 		volumeMounts = append(volumeMounts,
 			corev1.VolumeMount{
-				Name:      app.BinVolumeName,
-				MountPath: app.BinVolumeMountPath,
+				Name:      naming.BinVolumeName,
+				MountPath: naming.BinVolumeMountPath,
 			},
 		)
 
@@ -304,9 +304,13 @@ func SetStorageS3(ctx context.Context, job *batchv1.JobSpec, cr *api.PerconaXtra
 		Name:  "DEFAULT_REGION",
 		Value: s3.Region,
 	}
+	endpointURL, err := s3.Endpoint()
+	if err != nil {
+		return errors.Wrap(err, "get endpoint")
+	}
 	endpoint := corev1.EnvVar{
 		Name:  "ENDPOINT",
-		Value: s3.EndpointURL,
+		Value: endpointURL,
 	}
 
 	if s3.CredentialsSecret != "" {
@@ -322,13 +326,34 @@ func SetStorageS3(ctx context.Context, job *batchv1.JobSpec, cr *api.PerconaXtra
 				SecretKeyRef: app.SecretKeySelector(s3.CredentialsSecret, "AWS_SECRET_ACCESS_KEY"),
 			},
 		}
+		sessionToken := corev1.EnvVar{
+			Name: "S3_SESSION_TOKEN",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: app.SecretKeySelectorWithOptional(s3.CredentialsSecret, "AWS_SESSION_TOKEN", true),
+			},
+		}
 
-		job.Template.Spec.Containers[0].Env = append(job.Template.Spec.Containers[0].Env, accessKey, secretKey)
+		job.Template.Spec.Containers[0].Env = append(job.Template.Spec.Containers[0].Env, accessKey, secretKey, sessionToken)
 	}
 
 	job.Template.Spec.Containers[0].Env = append(job.Template.Spec.Containers[0].Env, region, endpoint)
+	if s3.ForcePathStyle {
+		job.Template.Spec.Containers[0].Env = append(job.Template.Spec.Containers[0].Env, corev1.EnvVar{
+			Name:  "S3_FORCE_PATH",
+			Value: "true",
+		})
+	}
+	if s3.SkipBucketExistsCheck {
+		job.Template.Spec.Containers[0].Env = append(job.Template.Spec.Containers[0].Env, corev1.EnvVar{
+			Name:  "S3_SKIP_BUCKET_EXISTS_CHECK",
+			Value: "true",
+		})
+	}
 
-	bucket, prefix := s3.BucketAndPrefix()
+	bucket, prefix, err := s3.BucketAndPrefix()
+	if err != nil {
+		return errors.Wrap(err, "get bucket and prefix")
+	}
 	if bucket == "" {
 		bucket, prefix = cr.Status.Destination.BucketAndPrefix()
 	}
@@ -345,8 +370,7 @@ func SetStorageS3(ctx context.Context, job *batchv1.JobSpec, cr *api.PerconaXtra
 	job.Template.Spec.Containers[0].Env = append(job.Template.Spec.Containers[0].Env, bucketEnv, bucketPathEnv)
 
 	// add SSL volumes
-	err := appendStorageSecret(job, cr)
-	if err != nil {
+	if err := appendStorageSecret(job, cr); err != nil {
 		return errors.Wrap(err, "failed to append storage secrets")
 	}
 

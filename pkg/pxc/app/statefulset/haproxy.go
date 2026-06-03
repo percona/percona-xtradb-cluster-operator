@@ -84,7 +84,7 @@ func (c *HAProxy) AppContainer(ctx context.Context, _ client.Client, spec *api.P
 		Env: []corev1.EnvVar{
 			{
 				Name:  "PXC_SERVICE",
-				Value: c.Labels()[naming.LabelAppKubernetesInstance] + "-" + "pxc",
+				Value: c.Labels()[naming.LabelAppKubernetesInstance] + "-" + naming.ComponentPXC,
 			},
 		},
 		SecurityContext: spec.ContainerSecurityContext,
@@ -95,8 +95,8 @@ func (c *HAProxy) AppContainer(ctx context.Context, _ client.Client, spec *api.P
 		appc.Command = []string{"/opt/percona/haproxy-entrypoint.sh"}
 		appc.Args = []string{"haproxy"}
 		appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
-			Name:      app.BinVolumeName,
-			MountPath: app.BinVolumeMountPath,
+			Name:      naming.BinVolumeName,
+			MountPath: naming.BinVolumeMountPath,
 		})
 
 	}
@@ -230,7 +230,7 @@ func (c *HAProxy) SidecarContainers(ctx context.Context, cl client.Client, spec 
 		Env: []corev1.EnvVar{
 			{
 				Name:  "PXC_SERVICE",
-				Value: c.Labels()[naming.LabelAppKubernetesInstance] + "-" + "pxc",
+				Value: c.Labels()[naming.LabelAppKubernetesInstance] + "-" + naming.ComponentPXC,
 			},
 		},
 		Resources: spec.SidecarResources,
@@ -307,8 +307,8 @@ func (c *HAProxy) SidecarContainers(ctx context.Context, cl client.Client, spec 
 			Value: strconv.FormatBool(cr.Spec.HAProxy.ExposeReplicas.OnlyReaders),
 		})
 		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
-			Name:      app.BinVolumeName,
-			MountPath: app.BinVolumeMountPath,
+			Name:      naming.BinVolumeName,
+			MountPath: naming.BinVolumeMountPath,
 		})
 	}
 
@@ -341,7 +341,7 @@ func (c *HAProxy) SidecarContainers(ctx context.Context, cl client.Client, spec 
 	return []corev1.Container{container}, nil
 }
 
-func (c *HAProxy) LogCollectorContainer(_ *api.LogCollectorSpec, _ string, _ string, _ *api.PerconaXtraDBCluster) ([]corev1.Container, error) {
+func (c *HAProxy) LogCollectorContainer(cr *api.PerconaXtraDBCluster, _ string, _ string) ([]corev1.Container, error) {
 	return nil, nil
 }
 
@@ -418,7 +418,7 @@ func (c *HAProxy) PMMContainer(ctx context.Context, cl client.Client, spec *api.
 		},
 		{
 			Name:  "DB_CLUSTER",
-			Value: app.Name,
+			Value: naming.ComponentPXC,
 		},
 		{
 			Name:  "DB_HOST",
@@ -516,9 +516,9 @@ func pmm3HaproxyEnvVars(secretName string) []corev1.EnvVar {
 	}
 }
 
-func (c *HAProxy) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg api.CustomVolumeGetter) (*api.Volume, error) {
+func (c *HAProxy) Volumes(ctx context.Context, podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg api.CustomVolumeGetter) (*api.Volume, error) {
 	vol := app.Volumes(podSpec, haproxyDataVolumeName)
-	configVolume, err := vg(cr.Namespace, "haproxy-custom", c.Labels()[naming.LabelAppKubernetesInstance]+"-haproxy", true)
+	configVolume, err := vg(ctx, cr.Namespace, "haproxy-custom", c.Labels()[naming.LabelAppKubernetesInstance]+"-haproxy", true)
 	if err != nil {
 		return nil, err
 	}
@@ -538,9 +538,10 @@ func (c *HAProxy) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg
 			app.GetConfigVolumes("hookscript", c.Labels()[naming.LabelAppKubernetesInstance]+"-"+c.Labels()[naming.LabelAppKubernetesComponent]+"-hookscript"))
 	}
 	if cr.CompareVersionWith("1.13.0") >= 0 {
-		vol.Volumes = append(vol.Volumes,
+		vol.Volumes = append(
+			vol.Volumes,
 			corev1.Volume{
-				Name: app.BinVolumeName,
+				Name: naming.BinVolumeName,
 				VolumeSource: corev1.VolumeSource{
 					EmptyDir: &corev1.EmptyDirVolumeSource{},
 				},

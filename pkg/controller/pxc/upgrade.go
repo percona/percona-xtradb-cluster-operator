@@ -25,9 +25,18 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/config"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/queries"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/util"
+)
+
+const (
+	configHashAnnotation      = "percona.com/configuration-hash"
+	sslHashAnnotation         = "percona.com/ssl-hash"
+	sslInternalHashAnnotation = "percona.com/ssl-internal-hash"
+	vaultConfigHashAnnotation = "percona.com/vault-config-hash"
+	envVarsHashAnnotation     = "percona.com/env-secret-config-hash"
 )
 
 func (r *ReconcilePerconaXtraDBCluster) updatePod(
@@ -61,11 +70,11 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(
 		return errors.Wrap(err, "get config hash")
 	}
 
-	envVarsHash, err := r.getSecretHash(cr, cr.Spec.PXC.EnvVarsSecretName, true)
+	envVarsHash, err := r.getSecretHash(ctx, cr, cr.Spec.PXC.EnvVarsSecretName, true)
 	if isHAproxy(sfs) {
-		envVarsHash, err = r.getSecretHash(cr, cr.Spec.HAProxy.EnvVarsSecretName, true)
+		envVarsHash, err = r.getSecretHash(ctx, cr, cr.Spec.HAProxy.EnvVarsSecretName, true)
 	} else if isProxySQL(sfs) {
-		envVarsHash, err = r.getSecretHash(cr, cr.Spec.ProxySQL.EnvVarsSecretName, true)
+		envVarsHash, err = r.getSecretHash(ctx, cr, cr.Spec.ProxySQL.EnvVarsSecretName, true)
 	}
 	if err != nil {
 		return errors.Wrap(err, "get env vars secret hash")
@@ -73,26 +82,26 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(
 
 	var vaultConfigHash, sslHash, sslInternalHash string
 	if !isHAproxy(sfs) {
-		vaultConfigHash, err = r.getSecretHash(cr, cr.Spec.VaultSecretName, true)
+		vaultConfigHash, err = r.getSecretHash(ctx, cr, cr.Spec.VaultSecretName, true)
 		if err != nil {
 			return errors.Wrap(err, "get vault secret hash")
 		}
-		sslHash, err = r.getSecretHash(cr, cr.Spec.PXC.SSLSecretName, !cr.TLSEnabled())
+		sslHash, err = r.getSecretHash(ctx, cr, cr.Spec.PXC.SSLSecretName, !cr.TLSEnabled())
 		if err != nil {
 			return errors.Wrap(err, "get ssl secret hash")
 		}
-		sslInternalHash, err = r.getSecretHash(cr, cr.Spec.PXC.SSLInternalSecretName, !cr.TLSEnabled())
+		sslInternalHash, err = r.getSecretHash(ctx, cr, cr.Spec.PXC.SSLInternalSecretName, !cr.TLSEnabled())
 		if err != nil && !k8serrors.IsNotFound(err) {
 			return errors.Wrap(err, "get internal ssl secret hash")
 		}
 	}
 
 	hashAnnotations := map[string]string{
-		"percona.com/configuration-hash":     configHash,
-		"percona.com/ssl-hash":               sslHash,
-		"percona.com/ssl-internal-hash":      sslInternalHash,
-		"percona.com/vault-config-hash":      vaultConfigHash,
-		"percona.com/env-secret-config-hash": envVarsHash,
+		configHashAnnotation:      configHash,
+		sslHashAnnotation:         sslHash,
+		sslInternalHashAnnotation: sslInternalHash,
+		vaultConfigHashAnnotation: vaultConfigHash,
+		envVarsHashAnnotation:     envVarsHash,
 	}
 
 	secrets := new(corev1.Secret)
@@ -213,7 +222,8 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(ctx context.Context, sfs api
 	}
 
 	list := corev1.PodList{}
-	if err := r.client.List(ctx,
+	if err := r.client.List(
+		ctx,
 		&list,
 		&client.ListOptions{
 			Namespace:     currentSet.Namespace,
@@ -235,7 +245,7 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(ctx context.Context, sfs api
 
 	log.Info("statefulSet was changed, run smart update")
 
-	running, err := r.isBackupRunning(cr)
+	running, err := r.isBackupRunning(ctx, cr)
 	if err != nil {
 		log.Error(err, "can't start 'SmartUpdate'")
 		return nil
@@ -271,7 +281,6 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(ctx context.Context, sfs api
 
 	var primaryPod corev1.Pod
 	for _, pod := range list.Items {
-		pod := pod
 		if strings.HasPrefix(primary, pxc.PodFQDN(pod.Name, currentSet)) {
 			primaryPod = pod
 		} else {
@@ -316,7 +325,7 @@ func (r *ReconcilePerconaXtraDBCluster) applyNWait(ctx context.Context, cr *api.
 		return errors.Wrap(err, "failed to wait pod")
 	}
 
-	if err := r.waitPXCSynced(cr, pxc.PodFQDN(pod.Name, sfs), waitLimit); err != nil {
+	if err := r.waitPXCSynced(ctx, cr, pxc.PodFQDN(pod.Name, sfs), waitLimit); err != nil {
 		return errors.Wrap(err, "failed to wait pxc sync")
 	}
 
@@ -347,7 +356,7 @@ func (r *ReconcilePerconaXtraDBCluster) waitHostgroups(
 	}
 	log := logf.FromContext(ctx)
 
-	database, err := pxc.GetProxyConnection(cr, r.client)
+	database, err := pxc.GetProxyConnection(ctx, cr, r.client)
 	if err != nil {
 		return errors.Wrap(err, "connect to proxy")
 	}
@@ -392,7 +401,7 @@ func (r *ReconcilePerconaXtraDBCluster) waitUntilOnline(
 		return nil
 	}
 
-	database, err := pxc.GetProxyConnection(cr, r.client)
+	database, err := pxc.GetProxyConnection(ctx, cr, r.client)
 	if err != nil {
 		return errors.Wrap(err, "failed to get proxySQL db")
 	}
@@ -452,7 +461,7 @@ func retry(in, limit time.Duration, f func() (bool, error)) error {
 	}
 }
 
-func (r *ReconcilePerconaXtraDBCluster) waitPXCSynced(cr *api.PerconaXtraDBCluster, host string, waitLimit int) error {
+func (r *ReconcilePerconaXtraDBCluster) waitPXCSynced(ctx context.Context, cr *api.PerconaXtraDBCluster, host string, waitLimit int) error {
 	secrets := cr.Spec.SecretsName
 	port := int32(3306)
 	if cr.CompareVersionWith("1.6.0") >= 0 {
@@ -460,7 +469,7 @@ func (r *ReconcilePerconaXtraDBCluster) waitPXCSynced(cr *api.PerconaXtraDBClust
 		port = int32(33062)
 	}
 
-	database, err := queries.New(r.client, cr.Namespace, secrets, users.Root, host, port, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
+	database, err := queries.New(ctx, r.client, cr.Namespace, secrets, users.Root, host, port, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
 	if err != nil {
 		return errors.Wrap(err, "failed to access PXC database")
 	}
@@ -499,7 +508,7 @@ func (r *ReconcilePerconaXtraDBCluster) waitPodRestart(ctx context.Context, cr *
 
 			ready := false
 			for _, container := range pod.Status.ContainerStatuses {
-				if container.Name == "pxc" {
+				if container.Name == naming.ContainerNamePXC {
 					ready = container.Ready
 
 					if container.State.Waiting != nil {
@@ -556,7 +565,7 @@ func (r *ReconcilePerconaXtraDBCluster) waitPodRestart(ctx context.Context, cr *
 }
 
 func isPXC(sfs api.StatefulApp) bool {
-	return sfs.Labels()[naming.LabelAppKubernetesComponent] == "pxc"
+	return sfs.Labels()[naming.LabelAppKubernetesComponent] == naming.ComponentPXC
 }
 
 func isHAproxy(sfs api.StatefulApp) bool {
@@ -567,9 +576,9 @@ func isProxySQL(sfs api.StatefulApp) bool {
 	return sfs.Labels()[naming.LabelAppKubernetesComponent] == "proxysql"
 }
 
-func (r *ReconcilePerconaXtraDBCluster) isBackupRunning(cr *api.PerconaXtraDBCluster) (bool, error) {
+func (r *ReconcilePerconaXtraDBCluster) isBackupRunning(ctx context.Context, cr *api.PerconaXtraDBCluster) (bool, error) {
 	bcpList := api.PerconaXtraDBClusterBackupList{}
-	if err := r.client.List(context.TODO(), &bcpList, &client.ListOptions{Namespace: cr.Namespace}); err != nil {
+	if err := r.client.List(ctx, &bcpList, &client.ListOptions{Namespace: cr.Namespace}); err != nil {
 		if k8serrors.IsNotFound(err) {
 			return false, nil
 		}
@@ -589,10 +598,10 @@ func (r *ReconcilePerconaXtraDBCluster) isBackupRunning(cr *api.PerconaXtraDBClu
 	return false, nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) isRestoreRunning(clusterName, namespace string) (bool, error) {
+func (r *ReconcilePerconaXtraDBCluster) isRestoreRunning(ctx context.Context, clusterName, namespace string) (bool, error) {
 	restoreList := api.PerconaXtraDBClusterRestoreList{}
 
-	err := r.client.List(context.TODO(), &restoreList, &client.ListOptions{
+	err := r.client.List(ctx, &restoreList, &client.ListOptions{
 		Namespace: namespace,
 	})
 	if err != nil {
@@ -632,7 +641,58 @@ func getCustomConfigHashHex(strData map[string]string, binData map[string][]byte
 	return hashHex, nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) getConfigHash(ctx context.Context, cr *api.PerconaXtraDBCluster, sfs api.StatefulApp) (string, error) {
+func (r *ReconcilePerconaXtraDBCluster) getConfigHash(
+	ctx context.Context, cr *api.PerconaXtraDBCluster, sfs api.StatefulApp,
+) (string, error) {
+	var b strings.Builder
+
+	if res, err := r.getComponentConfigHash(ctx, cr, sfs); err != nil {
+		return "", errors.Wrap(err, "failed to get component config hash")
+	} else {
+		b.WriteString(res)
+	}
+
+	component := sfs.Labels()[naming.LabelAppKubernetesComponent]
+
+	if component == naming.ComponentPXC &&
+		cr.CompareVersionWith("1.20.0") >= 0 &&
+		cr.Spec.LogCollector != nil &&
+		cr.Spec.LogCollector.Configuration != "" {
+		if res, err := r.getConfigMapHash(ctx, cr, config.CustomConfigMapName(cr.Name, "logcollector"), false); err != nil {
+			return "", errors.Wrap(err, "failed to get logcollector config hash")
+		} else {
+			b.WriteString(res)
+		}
+	}
+
+	if component == naming.ComponentPXC &&
+		cr.CompareVersionWith("1.20.0") >= 0 &&
+		cr.Spec.LogCollector != nil &&
+		cr.Spec.LogCollector.LogRotate != nil &&
+		cr.Spec.LogCollector.LogRotate.Configuration != "" {
+		if res, err := r.getConfigMapHash(ctx, cr, config.CustomConfigMapName(cr.Name, "logrotate"), false); err != nil {
+			return "", errors.Wrap(err, "failed to get logrotate config hash")
+		} else {
+			b.WriteString(res)
+		}
+	}
+
+	if component == naming.ComponentPXC &&
+		cr.CompareVersionWith("1.20.0") >= 0 &&
+		cr.Spec.LogCollector != nil &&
+		cr.Spec.LogCollector.LogRotate != nil &&
+		cr.Spec.LogCollector.LogRotate.ExtraConfig.Name != "" {
+		if res, err := r.getConfigMapHash(ctx, cr, cr.Spec.LogCollector.LogRotate.ExtraConfig.Name, false); err != nil {
+			return "", errors.Wrap(err, "failed to get logrotate config hash")
+		} else {
+			b.WriteString(res)
+		}
+	}
+
+	return b.String(), nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) getComponentConfigHash(ctx context.Context, cr *api.PerconaXtraDBCluster, sfs api.StatefulApp) (string, error) {
 	ls := sfs.Labels()
 
 	name := types.NamespacedName{
@@ -668,12 +728,13 @@ func (r *ReconcilePerconaXtraDBCluster) getFirstExisting(ctx context.Context, na
 	return nil, nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) getSecretHash(cr *api.PerconaXtraDBCluster, secretName string, allowNonExistingSecret bool) (string, error) {
+func (r *ReconcilePerconaXtraDBCluster) getSecretHash(ctx context.Context, cr *api.PerconaXtraDBCluster, secretName string, allowNonExistingSecret bool) (string, error) {
 	if allowNonExistingSecret && secretName == "" {
 		return "", nil
 	}
 	secretObj := corev1.Secret{}
-	if err := r.client.Get(context.TODO(),
+	if err := r.client.Get(
+		ctx,
 		types.NamespacedName{
 			Namespace: cr.Namespace,
 			Name:      secretName,
@@ -689,4 +750,25 @@ func (r *ReconcilePerconaXtraDBCluster) getSecretHash(cr *api.PerconaXtraDBClust
 	hash := fmt.Sprintf("%x", md5.Sum([]byte(secretString)))
 
 	return hash, nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) getConfigMapHash(ctx context.Context, cr *api.PerconaXtraDBCluster, name string, allowNonExisting bool) (string, error) {
+	if allowNonExisting && name == "" {
+		return "", nil
+	}
+	cm := corev1.ConfigMap{}
+	if err := r.client.Get(
+		ctx,
+		types.NamespacedName{
+			Namespace: cr.Namespace,
+			Name:      name,
+		},
+		&cm,
+	); err != nil && k8serrors.IsNotFound(err) && allowNonExisting {
+		return "", nil
+	} else if err != nil {
+		return "", err
+	}
+
+	return getCustomConfigHashHex(cm.Data, cm.BinaryData)
 }

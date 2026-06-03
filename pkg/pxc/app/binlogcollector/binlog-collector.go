@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"maps"
 	"reflect"
 	"strconv"
 	"strings"
@@ -62,9 +63,7 @@ func GetDeployment(cr *api.PerconaXtraDBCluster, initImage string, existingMatch
 
 	labels := naming.LabelsPITR(cr)
 	if stg, ok := cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName]; ok {
-		for key, value := range stg.Labels {
-			labels[key] = value
-		}
+		maps.Copy(labels, stg.Labels)
 	}
 
 	matchLabels := naming.LabelsPITR(cr)
@@ -80,7 +79,7 @@ func GetDeployment(cr *api.PerconaXtraDBCluster, initImage string, existingMatch
 	envs = append(envs, []corev1.EnvVar{
 		{
 			Name:  "PXC_SERVICE",
-			Value: cr.Name + "-pxc",
+			Value: cr.Name + "-" + naming.ComponentPXC,
 		},
 		{
 			Name:  "PXC_USER",
@@ -147,19 +146,21 @@ func GetDeployment(cr *api.PerconaXtraDBCluster, initImage string, existingMatch
 
 	container.Command = []string{"/opt/percona/pitr"}
 	initContainers = []corev1.Container{statefulset.PitrInitContainer(cr, initImage)}
-	volumes = append(volumes,
+	volumes = append(
+		volumes,
 		corev1.Volume{
-			Name: app.BinVolumeName,
+			Name: naming.BinVolumeName,
 			VolumeSource: corev1.VolumeSource{
 				EmptyDir: &corev1.EmptyDirVolumeSource{},
 			},
 		},
 	)
 
-	container.VolumeMounts = append(container.VolumeMounts,
+	container.VolumeMounts = append(
+		container.VolumeMounts,
 		corev1.VolumeMount{
-			Name:      app.BinVolumeName,
-			MountPath: app.BinVolumeMountPath,
+			Name:      naming.BinVolumeName,
+			MountPath: naming.BinVolumeMountPath,
 		},
 	)
 
@@ -167,7 +168,8 @@ func GetDeployment(cr *api.PerconaXtraDBCluster, initImage string, existingMatch
 	storage, ok := cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName]
 	if ok && storage.S3 != nil && storage.S3.CABundle != nil {
 		sel := storage.S3.CABundle
-		volumes = append(volumes,
+		volumes = append(
+			volumes,
 			corev1.Volume{
 				Name: "ca-bundle",
 				VolumeSource: corev1.VolumeSource{
@@ -183,7 +185,8 @@ func GetDeployment(cr *api.PerconaXtraDBCluster, initImage string, existingMatch
 				},
 			},
 		)
-		container.VolumeMounts = append(container.VolumeMounts,
+		container.VolumeMounts = append(
+			container.VolumeMounts,
 			corev1.VolumeMount{
 				Name:      "ca-bundle",
 				MountPath: naming.BackupStorageCAFileDirectory,
@@ -255,6 +258,14 @@ func getStorageEnvs(cr *api.PerconaXtraDBCluster) ([]corev1.EnvVar, error) {
 		if storage.S3 == nil {
 			return nil, errors.New("s3 storage is not specified")
 		}
+		bucketURL, err := storage.S3.BucketURL()
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to get bucket url")
+		}
+		endpoint, err := storage.S3.Endpoint()
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to get endpoint")
+		}
 		envs = []corev1.EnvVar{
 			{
 				Name: "SECRET_ACCESS_KEY",
@@ -269,22 +280,44 @@ func getStorageEnvs(cr *api.PerconaXtraDBCluster) ([]corev1.EnvVar, error) {
 				},
 			},
 			{
+				Name: "S3_SESSION_TOKEN",
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: app.SecretKeySelectorWithOptional(storage.S3.CredentialsSecret, "AWS_SESSION_TOKEN", true),
+				},
+			},
+			{
 				Name:  "S3_BUCKET_URL",
-				Value: storage.S3.Bucket,
+				Value: bucketURL,
 			},
 			{
 				Name:  "DEFAULT_REGION",
 				Value: storage.S3.Region,
 			},
 			{
+				Name:  "S3_CHECKSUM_ALGORITHM",
+				Value: string(storage.S3.ChecksumAlgorithm),
+			},
+			{
 				Name:  "STORAGE_TYPE",
 				Value: "s3",
 			},
 		}
-		if len(storage.S3.EndpointURL) > 0 {
+		if len(endpoint) > 0 {
 			envs = append(envs, corev1.EnvVar{
 				Name:  "ENDPOINT",
-				Value: storage.S3.EndpointURL,
+				Value: endpoint,
+			})
+		}
+		if storage.S3.ForcePathStyle {
+			envs = append(envs, corev1.EnvVar{
+				Name:  "S3_FORCE_PATH",
+				Value: "true",
+			})
+		}
+		if storage.S3.SkipBucketExistsCheck {
+			envs = append(envs, corev1.EnvVar{
+				Name:  "S3_SKIP_BUCKET_EXISTS_CHECK",
+				Value: "true",
 			})
 		}
 	case api.BackupStorageAzure:
@@ -357,7 +390,8 @@ func getBufferSize(cluster api.PerconaXtraDBClusterSpec) (mem int64, err error) 
 func GetPod(ctx context.Context, c client.Client, cr *api.PerconaXtraDBCluster) (*corev1.Pod, error) {
 	collectorPodList := corev1.PodList{}
 
-	err := c.List(ctx, &collectorPodList,
+	err := c.List(
+		ctx, &collectorPodList,
 		&client.ListOptions{
 			Namespace:     cr.Namespace,
 			LabelSelector: labels.SelectorFromSet(naming.LabelsPITR(cr)),
@@ -376,7 +410,7 @@ func GetPod(ctx context.Context, c client.Client, cr *api.PerconaXtraDBCluster) 
 
 var GapFileNotFound = errors.New("gap file not found")
 
-func RemoveGapFile(c *clientcmd.Client, pod *corev1.Pod) error {
+func RemoveGapFile(c clientcmd.Client, pod *corev1.Pod) error {
 	stderrBuf := &bytes.Buffer{}
 	err := c.Exec(pod, "pitr", []string{"/bin/bash", "-c", "rm " + naming.GapDetected}, nil, nil, stderrBuf, false)
 	if err != nil {
@@ -389,7 +423,7 @@ func RemoveGapFile(c *clientcmd.Client, pod *corev1.Pod) error {
 	return nil
 }
 
-func RemoveTimelineFile(c *clientcmd.Client, pod *corev1.Pod) error {
+func RemoveTimelineFile(c clientcmd.Client, pod *corev1.Pod) error {
 	stderrBuf := &bytes.Buffer{}
 	err := c.Exec(pod, "pitr", []string{"/bin/bash", "-c", "rm /tmp/pitr-timeline"}, nil, nil, stderrBuf, false)
 	if err != nil {

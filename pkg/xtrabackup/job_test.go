@@ -3,14 +3,15 @@ package xtrabackup
 import (
 	"testing"
 
-	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 	"github.com/stretchr/testify/assert"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/ptr"
+
+	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/version"
 )
 
 func TestJobSpec(t *testing.T) {
@@ -28,10 +29,24 @@ func TestJobSpec(t *testing.T) {
 	spec := &pxcv1.PXCBackupSpec{
 		StorageName:           storageName,
 		ActiveDeadlineSeconds: &activeDeadlineSeconds,
+		ContainerOptions: &pxcv1.BackupContainerOptions{
+			Env: []corev1.EnvVar{
+				{
+					Name:  "CUSTOM_ENV",
+					Value: "custom-value",
+				},
+			},
+			Args: pxcv1.BackupContainerArgs{
+				Xtrabackup: []string{"--parallel=10"},
+				Xbcloud:    []string{"--parallel=10"},
+				Xbstream:   []string{"--parallel=10"},
+			},
+		},
 	}
 
 	cluster := &pxcv1.PerconaXtraDBCluster{
 		Spec: pxcv1.PerconaXtraDBClusterSpec{
+			CRVersion: version.Version(),
 			Backup: &pxcv1.BackupSpec{
 				Image:           backupImage,
 				ImagePullPolicy: corev1.PullIfNotPresent,
@@ -59,14 +74,14 @@ func TestJobSpec(t *testing.T) {
 							},
 						},
 						ContainerSecurityContext: &corev1.SecurityContext{
-							RunAsUser:  ptr.To(int64(1000)),
-							RunAsGroup: ptr.To(int64(1000)),
-							Privileged: ptr.To(false),
+							RunAsUser:  new(int64(1000)),
+							RunAsGroup: new(int64(1000)),
+							Privileged: new(false),
 						},
 						PodSecurityContext: &corev1.PodSecurityContext{
-							RunAsUser:  ptr.To(int64(1000)),
-							RunAsGroup: ptr.To(int64(1000)),
-							FSGroup:    ptr.To(int64(1000)),
+							RunAsUser:  new(int64(1000)),
+							RunAsGroup: new(int64(1000)),
+							FSGroup:    new(int64(1000)),
 						},
 						Annotations: map[string]string{
 							"backup.annotation/key": "value",
@@ -179,7 +194,7 @@ func TestJobSpec(t *testing.T) {
 
 	// Assert Volumes
 	assert.Len(t, podSpec.Volumes, 1)
-	assert.Equal(t, app.BinVolumeName, podSpec.Volumes[0].Name)
+	assert.Equal(t, naming.BinVolumeName, podSpec.Volumes[0].Name)
 	assert.NotNil(t, podSpec.Volumes[0].EmptyDir)
 
 	// Assert InitContainers
@@ -191,8 +206,8 @@ func TestJobSpec(t *testing.T) {
 	assert.Equal(t, []string{"/backup-init-entrypoint.sh"}, initContainer.Command)
 	assert.Equal(t, cluster.Spec.Backup.Storages[storageName].ContainerSecurityContext, initContainer.SecurityContext)
 	assert.Len(t, initContainer.VolumeMounts, 1)
-	assert.Equal(t, app.BinVolumeName, initContainer.VolumeMounts[0].Name)
-	assert.Equal(t, app.BinVolumeMountPath, initContainer.VolumeMounts[0].MountPath)
+	assert.Equal(t, naming.BinVolumeName, initContainer.VolumeMounts[0].Name)
+	assert.Equal(t, naming.BinVolumeMountPath, initContainer.VolumeMounts[0].MountPath)
 
 	// Assert Containers
 	assert.Len(t, podSpec.Containers, 1)
@@ -204,11 +219,11 @@ func TestJobSpec(t *testing.T) {
 	assert.Equal(t, cluster.Spec.Backup.Storages[storageName].Resources, container.Resources)
 	assert.Equal(t, cluster.Spec.Backup.Storages[storageName].ContainerSecurityContext, container.SecurityContext)
 	assert.Len(t, container.VolumeMounts, 1)
-	assert.Equal(t, app.BinVolumeName, container.VolumeMounts[0].Name)
-	assert.Equal(t, app.BinVolumeMountPath, container.VolumeMounts[0].MountPath)
+	assert.Equal(t, naming.BinVolumeName, container.VolumeMounts[0].Name)
+	assert.Equal(t, naming.BinVolumeMountPath, container.VolumeMounts[0].MountPath)
 
 	// Assert Environment Variables
-	assert.Len(t, container.Env, 4)
+	assert.Len(t, container.Env, 8)
 	envMap := make(map[string]string)
 	for _, env := range container.Env {
 		envMap[env.Name] = env.Value
@@ -216,4 +231,8 @@ func TestJobSpec(t *testing.T) {
 	assert.Equal(t, primaryPodHost, envMap["HOST"])
 	assert.Equal(t, string(pxcv1.BackupStorageS3), envMap["STORAGE_TYPE"])
 	assert.Equal(t, "true", envMap["VERIFY_TLS"])
+	assert.Equal(t, "--parallel=10", envMap["XB_EXTRA_ARGS"])
+	assert.Equal(t, "--parallel=10", envMap["XBCLOUD_EXTRA_ARGS"])
+	assert.Equal(t, "--parallel=10", envMap["XBSTREAM_EXTRA_ARGS"])
+	assert.Equal(t, "custom-value", envMap["CUSTOM_ENV"])
 }

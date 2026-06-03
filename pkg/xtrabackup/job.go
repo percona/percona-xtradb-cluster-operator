@@ -3,14 +3,16 @@ package xtrabackup
 import (
 	"fmt"
 
-	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
+	"github.com/pkg/errors"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
+
+	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 )
 
 func JobSpec(
@@ -24,7 +26,7 @@ func JobSpec(
 	var volumes []corev1.Volume
 	volumes = append(volumes,
 		corev1.Volume{
-			Name: app.BinVolumeName,
+			Name: naming.BinVolumeName,
 			VolumeSource: corev1.VolumeSource{
 				EmptyDir: &corev1.EmptyDirVolumeSource{},
 			},
@@ -33,8 +35,8 @@ func JobSpec(
 
 	volumeMounts = append(volumeMounts,
 		corev1.VolumeMount{
-			Name:      app.BinVolumeName,
-			MountPath: app.BinVolumeMountPath,
+			Name:      naming.BinVolumeName,
+			MountPath: naming.BinVolumeMountPath,
 		},
 	)
 	spec := backup.Spec
@@ -42,9 +44,9 @@ func JobSpec(
 	var initContainers []corev1.Container
 	initContainers = append(initContainers, statefulset.BackupInitContainer(cluster, initImage, storage.ContainerSecurityContext))
 
-	envs, err := xtrabackupJobEnvVars(backup, storage, primaryPodHost)
+	envs, err := xtrabackupJobEnvVars(cluster, backup, storage, primaryPodHost)
 	if err != nil {
-		return batchv1.JobSpec{}, fmt.Errorf("failed to get xtrabackup job env vars: %w", err)
+		return batchv1.JobSpec{}, errors.Wrap(err, "failed to get xtrabackup job env vars")
 	}
 
 	container := corev1.Container{
@@ -94,6 +96,7 @@ func JobSpec(
 }
 
 func xtrabackupJobEnvVars(
+	cluster *pxcv1.PerconaXtraDBCluster,
 	backup *pxcv1.PerconaXtraDBClusterBackup,
 	storage *pxcv1.BackupStorageSpec,
 	primaryPodHost string,
@@ -116,5 +119,10 @@ func xtrabackupJobEnvVars(
 			Value: backup.Name,
 		},
 	}
+
+	if cluster.CompareVersionWith("1.20.0") >= 0 {
+		envs = append(envs, backup.Spec.ContainerOptions.GetEnvVar(cluster, backup.Spec.StorageName)...)
+	}
+
 	return envs, nil
 }

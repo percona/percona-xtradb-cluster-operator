@@ -6,9 +6,10 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/ptr"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxctls"
@@ -161,12 +162,12 @@ func TestGetLoadBalancerClass(t *testing.T) {
 		},
 		"load balancer class is empty string": {
 			exposeType:          corev1.ServiceTypeLoadBalancer,
-			loadBalancerClass:   ptr.To(""),
+			loadBalancerClass:   new(""),
 			expectedErrorString: "load balancer class not provided or is empty",
 		},
 		"valid load balancer class": {
 			exposeType:        corev1.ServiceTypeLoadBalancer,
-			loadBalancerClass: ptr.To("my-lb-class"),
+			loadBalancerClass: new("my-lb-class"),
 		},
 	}
 
@@ -183,6 +184,186 @@ func TestGetLoadBalancerClass(t *testing.T) {
 			if err != nil && err.Error() != tt.expectedErrorString {
 				t.Fatal("expected err:", tt.expectedErrorString, "; got:", err.Error())
 			}
+		})
+	}
+}
+
+func TestBackupStorageS3SpecBucketAndPrefix(t *testing.T) {
+	tests := map[string]struct {
+		spec           BackupStorageS3Spec
+		expectedBucket string
+		expectedPrefix string
+	}{
+		"bucket only": {
+			spec: BackupStorageS3Spec{
+				Bucket: "backups",
+			},
+			expectedBucket: "backups",
+			expectedPrefix: "",
+		},
+		"bucket path only": {
+			spec: BackupStorageS3Spec{
+				Bucket: "backups/daily/",
+			},
+			expectedBucket: "backups",
+			expectedPrefix: "daily/",
+		},
+		"explicit prefix only": {
+			spec: BackupStorageS3Spec{
+				Bucket: "backups",
+				Prefix: "cluster-a/",
+			},
+			expectedBucket: "backups",
+			expectedPrefix: "cluster-a",
+		},
+		"bucket path and explicit prefix": {
+			spec: BackupStorageS3Spec{
+				Bucket: "backups/daily/",
+				Prefix: "cluster-a/",
+			},
+			expectedBucket: "backups",
+			expectedPrefix: "daily/cluster-a",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			bucket, prefix, err := tt.spec.BucketAndPrefix()
+			require.NoError(t, err)
+
+			assert.Equal(t, tt.expectedBucket, bucket)
+			assert.Equal(t, tt.expectedPrefix, prefix)
+		})
+	}
+}
+
+func TestBackupStorageAzureSpecContainerAndPrefix(t *testing.T) {
+	tests := map[string]struct {
+		spec              BackupStorageAzureSpec
+		expectedContainer string
+		expectedPrefix    string
+	}{
+		"container only": {
+			spec: BackupStorageAzureSpec{
+				ContainerPath: "backups",
+			},
+			expectedContainer: "backups",
+			expectedPrefix:    "",
+		},
+		"container path only": {
+			spec: BackupStorageAzureSpec{
+				ContainerPath: "backups/daily/",
+			},
+			expectedContainer: "backups",
+			expectedPrefix:    "daily/",
+		},
+		"explicit prefix only": {
+			spec: BackupStorageAzureSpec{
+				ContainerPath: "backups",
+				Prefix:        "cluster-a/",
+			},
+			expectedContainer: "backups",
+			expectedPrefix:    "cluster-a",
+		},
+		"container path and explicit prefix": {
+			spec: BackupStorageAzureSpec{
+				ContainerPath: "backups/daily/",
+				Prefix:        "cluster-a/",
+			},
+			expectedContainer: "backups",
+			expectedPrefix:    "daily/cluster-a",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			container, prefix := tt.spec.ContainerAndPrefix()
+
+			assert.Equal(t, tt.expectedContainer, container)
+			assert.Equal(t, tt.expectedPrefix, prefix)
+		})
+	}
+}
+
+func TestBackupStorageS3SpecForcePath(t *testing.T) {
+	tests := map[string]struct {
+		spec              BackupStorageS3Spec
+		expectedEndpoint  string
+		expectedBucketURL string
+		expectedBucket    string
+		expectedPrefix    string
+	}{
+		"full endpoint url path is used when force path style is enabled": {
+			spec: BackupStorageS3Spec{
+				Bucket:         "ignored-bucket",
+				EndpointURL:    "https://s3.example.com/my-bucket/prefix",
+				ForcePathStyle: true,
+			},
+			expectedEndpoint:  "https://s3.example.com",
+			expectedBucketURL: "my-bucket/prefix",
+			expectedBucket:    "my-bucket",
+			expectedPrefix:    "prefix/",
+		},
+		"endpoint url without path falls back to bucket": {
+			spec: BackupStorageS3Spec{
+				Bucket:         "my-bucket/prefix",
+				EndpointURL:    "https://s3.example.com",
+				ForcePathStyle: true,
+			},
+			expectedEndpoint:  "https://s3.example.com",
+			expectedBucketURL: "my-bucket/prefix",
+			expectedBucket:    "my-bucket",
+			expectedPrefix:    "prefix/",
+		},
+		"root-only endpoint path falls back to bucket": {
+			spec: BackupStorageS3Spec{
+				Bucket:         "my-bucket/prefix",
+				EndpointURL:    "https://s3.example.com/",
+				ForcePathStyle: true,
+			},
+			expectedEndpoint:  "https://s3.example.com",
+			expectedBucketURL: "my-bucket/prefix",
+			expectedBucket:    "my-bucket",
+			expectedPrefix:    "prefix/",
+		},
+		"scheme-less endpoint path is split into endpoint and bucket": {
+			spec: BackupStorageS3Spec{
+				Bucket:         "ignored-bucket",
+				EndpointURL:    "s3.example.com/my-bucket/prefix",
+				ForcePathStyle: true,
+			},
+			expectedEndpoint:  "s3.example.com",
+			expectedBucketURL: "my-bucket/prefix",
+			expectedBucket:    "my-bucket",
+			expectedPrefix:    "prefix/",
+		},
+		"trailing slash is normalized in prefix": {
+			spec: BackupStorageS3Spec{
+				Bucket:         "ignored-bucket",
+				EndpointURL:    "https://s3.example.com/my-bucket/prefix/",
+				ForcePathStyle: true,
+			},
+			expectedEndpoint:  "https://s3.example.com",
+			expectedBucketURL: "my-bucket/prefix/",
+			expectedBucket:    "my-bucket",
+			expectedPrefix:    "prefix/",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			gotEndpoint, err := tt.spec.Endpoint()
+			assert.NoError(t, err)
+			assert.Equal(t, tt.expectedEndpoint, gotEndpoint)
+
+			gotBucketURL, err := tt.spec.BucketURL()
+			assert.NoError(t, err)
+			assert.Equal(t, tt.expectedBucketURL, gotBucketURL)
+
+			gotBucket, gotPrefix, err := tt.spec.BucketAndPrefix()
+			assert.NoError(t, err)
+			assert.Equal(t, tt.expectedBucket, gotBucket)
+			assert.Equal(t, tt.expectedPrefix, gotPrefix)
 		})
 	}
 }
@@ -206,7 +387,7 @@ func TestCheckNSetDefaults(t *testing.T) {
 		ctx := t.Context()
 		cr := minimalCr.DeepCopy()
 		cr.Spec.TLS = &TLSSpec{
-			Enabled: ptr.To(true),
+			Enabled: new(true),
 		}
 
 		assert.NoError(t, cr.CheckNSetDefaults(nil, logf.FromContext(ctx)))
@@ -215,7 +396,7 @@ func TestCheckNSetDefaults(t *testing.T) {
 
 		cr = minimalCr.DeepCopy()
 		cr.Spec.TLS = &TLSSpec{
-			Enabled: ptr.To(false),
+			Enabled: new(false),
 		}
 		cr.Spec.Unsafe.TLS = true
 
@@ -225,7 +406,7 @@ func TestCheckNSetDefaults(t *testing.T) {
 
 		cr = minimalCr.DeepCopy()
 		cr.Spec.TLS = &TLSSpec{
-			Enabled:    ptr.To(true),
+			Enabled:    new(true),
 			Duration:   &metav1.Duration{Duration: time.Hour * 3000},
 			CADuration: &metav1.Duration{Duration: time.Hour * 1000},
 		}
@@ -233,21 +414,21 @@ func TestCheckNSetDefaults(t *testing.T) {
 
 		cr = minimalCr.DeepCopy()
 		cr.Spec.TLS = &TLSSpec{
-			Enabled:  ptr.To(true),
+			Enabled:  new(true),
 			Duration: &metav1.Duration{Duration: time.Hour * 30000},
 		}
 		assert.EqualError(t, cr.CheckNSetDefaults(nil, logf.FromContext(ctx)), ".spec.tls.caValidityDuration shouldn't be smaller than .spec.tls.certValidityDuration")
 
 		cr = minimalCr.DeepCopy()
 		cr.Spec.TLS = &TLSSpec{
-			Enabled:    ptr.To(true),
+			Enabled:    new(true),
 			CADuration: &metav1.Duration{Duration: time.Hour * 2000},
 		}
 		assert.EqualError(t, cr.CheckNSetDefaults(nil, logf.FromContext(ctx)), ".spec.tls.caValidityDuration shouldn't be smaller than .spec.tls.certValidityDuration")
 
 		cr = minimalCr.DeepCopy()
 		cr.Spec.TLS = &TLSSpec{
-			Enabled:    ptr.To(true),
+			Enabled:    new(true),
 			CADuration: &metav1.Duration{Duration: time.Hour * 720},
 			Duration:   &metav1.Duration{Duration: time.Hour * 700},
 		}
@@ -255,7 +436,7 @@ func TestCheckNSetDefaults(t *testing.T) {
 
 		cr = minimalCr.DeepCopy()
 		cr.Spec.TLS = &TLSSpec{
-			Enabled:  ptr.To(true),
+			Enabled:  new(true),
 			Duration: &metav1.Duration{Duration: time.Minute * 1},
 		}
 		assert.EqualError(t, cr.CheckNSetDefaults(nil, logf.FromContext(ctx)), ".spec.tls.certValidityDuration shouldn't be smaller than 1 hours")
@@ -526,6 +707,132 @@ func TestValidateExtraPVCs(t *testing.T) {
 				assert.Contains(t, err.Error(), tc.errMsg)
 			} else {
 				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestExecuteConfigurationTemplate(t *testing.T) {
+	memoryLimit := resource.MustParse("1Gi")
+
+	tests := map[string]struct {
+		pod         PodSpec
+		expected    string
+		expectError string
+	}{
+		"simple variable substitution": {
+			pod: PodSpec{
+				Configuration: "[mysqld]\ninnodb_buffer_pool_size={{containerMemoryLimit}}",
+				Resources: corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{
+						corev1.ResourceMemory: memoryLimit,
+					},
+				},
+			},
+			expected: "[mysqld]\ninnodb_buffer_pool_size=1073741824",
+		},
+		"arithmetic expression": {
+			pod: PodSpec{
+				Configuration: "[mysqld]\ninnodb_buffer_pool_size={{containerMemoryLimit * 3 / 4}}",
+				Resources: corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{
+						corev1.ResourceMemory: memoryLimit,
+					},
+				},
+			},
+			expected: "[mysqld]\ninnodb_buffer_pool_size=805306368",
+		},
+		"no template markers": {
+			pod: PodSpec{
+				Configuration: "[mysqld]\nmax_connections=200",
+				Resources: corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{
+						corev1.ResourceMemory: memoryLimit,
+					},
+				},
+			},
+			expected: "[mysqld]\nmax_connections=200",
+		},
+		"template without memory limit": {
+			pod: PodSpec{
+				Configuration: "[mysqld]\ninnodb_buffer_pool_size={{containerMemoryLimit}}",
+				Resources:     corev1.ResourceRequirements{},
+			},
+			expectError: "resources.limits[memory] should be specified for template usage in configuration",
+		},
+		"no template and no memory limit": {
+			pod: PodSpec{
+				Configuration: "[mysqld]\nmax_connections=200",
+				Resources:     corev1.ResourceRequirements{},
+			},
+			expected: "[mysqld]\nmax_connections=200",
+		},
+		"ssi tag is blocked": {
+			pod: PodSpec{
+				Configuration: `{% ssi "/var/run/secrets/kubernetes.io/serviceaccount/token" %}`,
+				Resources: corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{
+						corev1.ResourceMemory: memoryLimit,
+					},
+				},
+			},
+			expectError: "tag is banned for this template set",
+		},
+		"include tag is blocked": {
+			pod: PodSpec{
+				Configuration: `{% include "evil.html" %}`,
+				Resources: corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{
+						corev1.ResourceMemory: memoryLimit,
+					},
+				},
+			},
+			expectError: "tag is banned for this template set",
+		},
+		"import tag is blocked": {
+			pod: PodSpec{
+				Configuration: `{% import "macros.html" %}`,
+				Resources: corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{
+						corev1.ResourceMemory: memoryLimit,
+					},
+				},
+			},
+			expectError: "tag is banned for this template set",
+		},
+		"extends tag is blocked": {
+			pod: PodSpec{
+				Configuration: `{% extends "base.html" %}`,
+				Resources: corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{
+						corev1.ResourceMemory: memoryLimit,
+					},
+				},
+			},
+			expectError: "tag is banned for this template set",
+		},
+		"invalid template syntax": {
+			pod: PodSpec{
+				Configuration: `{{invalid tag}`,
+				Resources: corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{
+						corev1.ResourceMemory: memoryLimit,
+					},
+				},
+			},
+			expectError: "parse template",
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			err := tc.pod.executeConfigurationTemplate()
+			if tc.expectError != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tc.expectError)
+			} else {
+				require.NoError(t, err)
+				assert.Equal(t, tc.expected, tc.pod.Configuration)
 			}
 		})
 	}

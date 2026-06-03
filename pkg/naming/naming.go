@@ -16,10 +16,21 @@ const (
 )
 
 const (
-	OperatorController = "pxc-controller"
+	OperatorController           = "pxc-controller"
+	OperatorWebhookTLSSecretName = "pxc-webhook-ssl"
 )
 
 const (
 	EventStorageClassNotSupportResize = "StorageClassNotSupportResize"
 	EventExceededQuota                = "ExceededQuota"
+	EventPVCStorageSizeMismatch       = "PVCStorageSizeMismatch"
+)
+
+const (
+	ContainerNamePXC = "pxc"
+)
+
+const (
+	DataVolumeName = "datadir"
+	BinVolumeName  = "bin"
 )

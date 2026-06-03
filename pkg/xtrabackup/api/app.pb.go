@@ -463,15 +463,18 @@ func (x *BackupConfig) GetAzure() *AzureConfig {
 }
 
 type S3Config struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Bucket        string                 `protobuf:"bytes,1,opt,name=bucket,proto3" json:"bucket,omitempty"`
-	Region        string                 `protobuf:"bytes,2,opt,name=region,proto3" json:"region,omitempty"`
-	EndpointUrl   string                 `protobuf:"bytes,3,opt,name=endpoint_url,json=endpointUrl,proto3" json:"endpoint_url,omitempty"`
-	AccessKey     string                 `protobuf:"bytes,4,opt,name=access_key,json=accessKey,proto3" json:"access_key,omitempty"`
-	SecretKey     string                 `protobuf:"bytes,5,opt,name=secret_key,json=secretKey,proto3" json:"secret_key,omitempty"`
-	StorageClass  string                 `protobuf:"bytes,6,opt,name=storage_class,json=storageClass,proto3" json:"storage_class,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                 protoimpl.MessageState `protogen:"open.v1"`
+	Bucket                string                 `protobuf:"bytes,1,opt,name=bucket,proto3" json:"bucket,omitempty"`
+	Region                string                 `protobuf:"bytes,2,opt,name=region,proto3" json:"region,omitempty"`
+	EndpointUrl           string                 `protobuf:"bytes,3,opt,name=endpoint_url,json=endpointUrl,proto3" json:"endpoint_url,omitempty"`
+	AccessKey             string                 `protobuf:"bytes,4,opt,name=access_key,json=accessKey,proto3" json:"access_key,omitempty"`
+	SecretKey             string                 `protobuf:"bytes,5,opt,name=secret_key,json=secretKey,proto3" json:"secret_key,omitempty"`
+	StorageClass          string                 `protobuf:"bytes,6,opt,name=storage_class,json=storageClass,proto3" json:"storage_class,omitempty"`
+	SessionToken          string                 `protobuf:"bytes,7,opt,name=session_token,json=sessionToken,proto3" json:"session_token,omitempty"`
+	ForcePathStyle        bool                   `protobuf:"varint,8,opt,name=force_path_style,json=forcePathStyle,proto3" json:"force_path_style,omitempty"`
+	SkipBucketExistsCheck bool                   `protobuf:"varint,9,opt,name=skip_bucket_exists_check,json=skipBucketExistsCheck,proto3" json:"skip_bucket_exists_check,omitempty"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
 }
 
 func (x *S3Config) Reset() {
@@ -544,6 +547,27 @@ func (x *S3Config) GetStorageClass() string {
 		return x.StorageClass
 	}
 	return ""
+}
+
+func (x *S3Config) GetSessionToken() string {
+	if x != nil {
+		return x.SessionToken
+	}
+	return ""
+}
+
+func (x *S3Config) GetForcePathStyle() bool {
+	if x != nil {
+		return x.ForcePathStyle
+	}
+	return false
+}
+
+func (x *S3Config) GetSkipBucketExistsCheck() bool {
+	if x != nil {
+		return x.SkipBucketExistsCheck
+	}
+	return false
 }
 
 type GCSConfig struct {
@@ -894,7 +918,7 @@ const file_app_proto_rawDesc = "" +
 	"\x05azure\x18\a \x01(\v2\x10.api.AzureConfigH\x02R\x05azure\x88\x01\x01B\x05\n" +
 	"\x03_s3B\x06\n" +
 	"\x04_gcsB\b\n" +
-	"\x06_azure\"\xc0\x01\n" +
+	"\x06_azure\"\xc8\x02\n" +
 	"\bS3Config\x12\x16\n" +
 	"\x06bucket\x18\x01 \x01(\tR\x06bucket\x12\x16\n" +
 	"\x06region\x18\x02 \x01(\tR\x06region\x12!\n" +
@@ -903,7 +927,10 @@ const file_app_proto_rawDesc = "" +
 	"access_key\x18\x04 \x01(\tR\taccessKey\x12\x1d\n" +
 	"\n" +
 	"secret_key\x18\x05 \x01(\tR\tsecretKey\x12#\n" +
-	"\rstorage_class\x18\x06 \x01(\tR\fstorageClass\"\xa9\x01\n" +
+	"\rstorage_class\x18\x06 \x01(\tR\fstorageClass\x12#\n" +
+	"\rsession_token\x18\a \x01(\tR\fsessionToken\x12(\n" +
+	"\x10force_path_style\x18\b \x01(\bR\x0eforcePathStyle\x127\n" +
+	"\x18skip_bucket_exists_check\x18\t \x01(\bR\x15skipBucketExistsCheck\"\xa9\x01\n" +
 	"\tGCSConfig\x12\x16\n" +
 	"\x06bucket\x18\x01 \x01(\tR\x06bucket\x12!\n" +
 	"\fendpoint_url\x18\x02 \x01(\tR\vendpointUrl\x12#\n" +

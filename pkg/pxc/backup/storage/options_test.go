@@ -26,15 +26,18 @@ func TestGetS3Options(t *testing.T) {
 	boolPtr := func(b bool) *bool { return &b }
 
 	tests := []struct {
-		name            string
-		destination     string
-		bucket          string
-		accessKeyID     string
-		secretAccessKey string
-		endpoint        string
-		region          string
-		verifyTLS       *bool
-		storage         *api.BackupStorageSpec
+		name                  string
+		destination           string
+		bucket                string
+		accessKeyID           string
+		secretAccessKey       string
+		endpoint              string
+		forcePathStyle        bool
+		skipBucketExistsCheck bool
+		region                string
+		checksumAlgorithm     api.S3ChecksumAlgorithmType
+		verifyTLS             *bool
+		storage               *api.BackupStorageSpec
 
 		expected    *S3Options
 		expectedErr string
@@ -81,6 +84,17 @@ func TestGetS3Options(t *testing.T) {
 				Prefix:     "prefix/",
 				VerifyTLS:  true,
 				Region:     "us-east-1",
+			},
+		},
+		{
+			name:              "checksum algorithm",
+			bucket:            "my-bucket",
+			checksumAlgorithm: api.S3ChecksumAlgorithmSHA256,
+			expected: &S3Options{
+				BucketName:        "my-bucket",
+				VerifyTLS:         true,
+				Region:            "us-east-1",
+				ChecksumAlgorithm: api.S3ChecksumAlgorithmSHA256,
 			},
 		},
 		{
@@ -139,15 +153,64 @@ func TestGetS3Options(t *testing.T) {
 				Region:     "us-east-1",
 			},
 		},
+		{
+			name:           "force path style uses endpoint path",
+			bucket:         "ignored-bucket",
+			endpoint:       "https://minio.example.com/my-bucket/prefix",
+			forcePathStyle: true,
+			expected: &S3Options{
+				Endpoint:       "https://minio.example.com",
+				BucketName:     "my-bucket",
+				Prefix:         "prefix/",
+				VerifyTLS:      true,
+				Region:         "us-east-1",
+				ForcePathStyle: true,
+			},
+		},
+		{
+			name:           "force path style uses scheme-less endpoint path",
+			bucket:         "ignored-bucket",
+			endpoint:       "minio.example.com/my-bucket/prefix",
+			forcePathStyle: true,
+			expected: &S3Options{
+				Endpoint:       "minio.example.com",
+				BucketName:     "my-bucket",
+				Prefix:         "prefix/",
+				VerifyTLS:      true,
+				Region:         "us-east-1",
+				ForcePathStyle: true,
+			},
+		},
+		{
+			name:           "invalid force path style endpoint",
+			bucket:         "ignored-bucket",
+			endpoint:       "https://s3.example.com/%invalid",
+			forcePathStyle: true,
+			expectedErr:    `failed to get bucket and prefix: failed to parse endpointUrl: failed to parse endpointUrl: parse "https://s3.example.com/%invalid": invalid URL escape "%in"`,
+		},
+		{
+			name:                  "skip bucket exists check is propagated to options",
+			bucket:                "somebucket",
+			skipBucketExistsCheck: true,
+			expected: &S3Options{
+				BucketName:            "somebucket",
+				VerifyTLS:             true,
+				Region:                "us-east-1",
+				SkipBucketExistsCheck: true,
+			},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			backup := testBackup(ns, storageName, tt.destination, tt.verifyTLS, &api.BackupStorageS3Spec{
-				Bucket:            tt.bucket,
-				CredentialsSecret: secretName,
-				Region:            tt.region,
-				EndpointURL:       tt.endpoint,
+				Bucket:                tt.bucket,
+				CredentialsSecret:     secretName,
+				Region:                tt.region,
+				EndpointURL:           tt.endpoint,
+				ChecksumAlgorithm:     tt.checksumAlgorithm,
+				ForcePathStyle:        tt.forcePathStyle,
+				SkipBucketExistsCheck: tt.skipBucketExistsCheck,
 			}, nil)
 
 			var cluster *api.PerconaXtraDBCluster

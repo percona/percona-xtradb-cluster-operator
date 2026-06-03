@@ -10,7 +10,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
@@ -41,7 +40,7 @@ var _ = Describe("Starting deadline", func() {
 		bcp, err := readDefaultBackup("backup1", "test")
 		Expect(err).ToNot(HaveOccurred())
 
-		cluster.Spec.Backup.StartingDeadlineSeconds = ptr.To(int64(60))
+		cluster.Spec.Backup.StartingDeadlineSeconds = new(int64(60))
 
 		bcp.Status.State = pxcv1.BackupNew
 		bcp.ObjectMeta.CreationTimestamp = metav1.NewTime(time.Now().Add(-2 * time.Minute))
@@ -57,11 +56,11 @@ var _ = Describe("Starting deadline", func() {
 		bcp, err := readDefaultBackup("backup1", "test")
 		Expect(err).ToNot(HaveOccurred())
 
-		cluster.Spec.Backup.StartingDeadlineSeconds = ptr.To(int64(600))
+		cluster.Spec.Backup.StartingDeadlineSeconds = new(int64(600))
 
 		bcp.Status.State = pxcv1.BackupNew
 		bcp.ObjectMeta.CreationTimestamp = metav1.NewTime(time.Now().Add(-2 * time.Minute))
-		bcp.Spec.StartingDeadlineSeconds = ptr.To(int64(60))
+		bcp.Spec.StartingDeadlineSeconds = new(int64(60))
 
 		err = checkStartingDeadline(context.Background(), cluster, bcp)
 		Expect(err).To(HaveOccurred())
@@ -74,11 +73,11 @@ var _ = Describe("Starting deadline", func() {
 		bcp, err := readDefaultBackup("backup1", "test")
 		Expect(err).ToNot(HaveOccurred())
 
-		cluster.Spec.Backup.StartingDeadlineSeconds = ptr.To(int64(600))
+		cluster.Spec.Backup.StartingDeadlineSeconds = new(int64(600))
 
 		bcp.Status.State = pxcv1.BackupNew
 		bcp.ObjectMeta.CreationTimestamp = metav1.NewTime(time.Now().Add(-2 * time.Minute))
-		bcp.Spec.StartingDeadlineSeconds = ptr.To(int64(300))
+		bcp.Spec.StartingDeadlineSeconds = new(int64(300))
 
 		err = checkStartingDeadline(context.Background(), cluster, bcp)
 		Expect(err).ToNot(HaveOccurred())
@@ -144,7 +143,7 @@ var _ = Describe("Running deadline", func() {
 
 		r := reconciler(buildFakeClient(job))
 
-		cluster.Spec.Backup.RunningDeadlineSeconds = ptr.To(int64(60))
+		cluster.Spec.Backup.RunningDeadlineSeconds = new(int64(60))
 		cr.Spec.RunningDeadlineSeconds = nil
 
 		err = r.checkRunningDeadline(context.Background(), cluster, cr)
@@ -169,8 +168,8 @@ var _ = Describe("Running deadline", func() {
 
 		r := reconciler(buildFakeClient(job))
 
-		cluster.Spec.Backup.RunningDeadlineSeconds = ptr.To(int64(60)) // this one is ignored
-		cr.Spec.RunningDeadlineSeconds = ptr.To(int64(300))
+		cluster.Spec.Backup.RunningDeadlineSeconds = new(int64(60)) // this one is ignored
+		cr.Spec.RunningDeadlineSeconds = new(int64(300))
 
 		err = r.checkRunningDeadline(context.Background(), cluster, cr)
 		Expect(err).ToNot(HaveOccurred())
@@ -231,7 +230,7 @@ var _ = Describe("Suspended deadline", func() {
 
 		job.Spec, err = bcp.JobSpec(cr.Spec, cluster, job, "")
 		Expect(err).ToNot(HaveOccurred())
-		job.Spec.Suspend = ptr.To(true)
+		job.Spec.Suspend = new(true)
 
 		job.Status.Conditions = append(job.Status.Conditions, batchv1.JobCondition{
 			Type:               batchv1.JobSuspended,
@@ -241,7 +240,7 @@ var _ = Describe("Suspended deadline", func() {
 
 		r := reconciler(buildFakeClient(job))
 
-		cluster.Spec.Backup.SuspendedDeadlineSeconds = ptr.To(int64(60))
+		cluster.Spec.Backup.SuspendedDeadlineSeconds = new(int64(60))
 		cr.Spec.SuspendedDeadlineSeconds = nil
 
 		err = r.checkSuspendedDeadline(context.Background(), cluster, cr)
@@ -260,7 +259,7 @@ var _ = Describe("Suspended deadline", func() {
 
 		job.Spec, err = bcp.JobSpec(cr.Spec, cluster, job, "")
 		Expect(err).ToNot(HaveOccurred())
-		job.Spec.Suspend = ptr.To(true)
+		job.Spec.Suspend = new(true)
 
 		job.Status.Conditions = append(job.Status.Conditions, batchv1.JobCondition{
 			Type:               batchv1.JobSuspended,
@@ -270,8 +269,8 @@ var _ = Describe("Suspended deadline", func() {
 
 		r := reconciler(buildFakeClient(job))
 
-		cluster.Spec.Backup.SuspendedDeadlineSeconds = ptr.To(int64(600))
-		cr.Spec.SuspendedDeadlineSeconds = ptr.To(int64(60))
+		cluster.Spec.Backup.SuspendedDeadlineSeconds = new(int64(600))
+		cr.Spec.SuspendedDeadlineSeconds = new(int64(60))
 
 		err = r.checkSuspendedDeadline(context.Background(), cluster, cr)
 		Expect(err).To(HaveOccurred())
@@ -289,7 +288,7 @@ var _ = Describe("Suspended deadline", func() {
 
 		job.Spec, err = bcp.JobSpec(cr.Spec, cluster, job, "")
 		Expect(err).ToNot(HaveOccurred())
-		job.Spec.Suspend = ptr.To(true)
+		job.Spec.Suspend = new(true)
 
 		job.Status.Conditions = append(job.Status.Conditions, batchv1.JobCondition{
 			Type:               batchv1.JobSuspended,
@@ -300,7 +299,7 @@ var _ = Describe("Suspended deadline", func() {
 		cl := buildFakeClient(job)
 		r := reconciler(cl)
 
-		cr.Spec.SuspendedDeadlineSeconds = ptr.To(int64(60))
+		cr.Spec.SuspendedDeadlineSeconds = new(int64(60))
 
 		err = r.checkSuspendedDeadline(context.Background(), cluster, cr)
 		Expect(err).To(HaveOccurred())
@@ -326,7 +325,7 @@ var _ = Describe("Suspended deadline", func() {
 
 		job.Spec, err = bcp.JobSpec(cr.Spec, cluster, job, "")
 		Expect(err).ToNot(HaveOccurred())
-		job.Spec.Suspend = ptr.To(true)
+		job.Spec.Suspend = new(true)
 
 		job.Status.Conditions = append(job.Status.Conditions, batchv1.JobCondition{
 			Type:               batchv1.JobSuspended,
@@ -336,8 +335,8 @@ var _ = Describe("Suspended deadline", func() {
 
 		r := reconciler(buildFakeClient(job))
 
-		cluster.Spec.Backup.SuspendedDeadlineSeconds = ptr.To(int64(600))
-		cr.Spec.SuspendedDeadlineSeconds = ptr.To(int64(300))
+		cluster.Spec.Backup.SuspendedDeadlineSeconds = new(int64(600))
+		cr.Spec.SuspendedDeadlineSeconds = new(int64(300))
 
 		err = r.checkSuspendedDeadline(context.Background(), cluster, cr)
 		Expect(err).ToNot(HaveOccurred())
@@ -362,10 +361,10 @@ var _ = Describe("Suspended deadline", func() {
 			Status:             corev1.ConditionTrue,
 			LastTransitionTime: metav1.NewTime(time.Now().Add(-2 * time.Minute)),
 		})
-		job.Spec.Suspend = ptr.To(false)
+		job.Spec.Suspend = new(false)
 
 		r := reconciler(buildFakeClient(job))
-		cr.Spec.SuspendedDeadlineSeconds = ptr.To(int64(60))
+		cr.Spec.SuspendedDeadlineSeconds = new(int64(60))
 
 		err = r.checkSuspendedDeadline(context.Background(), cluster, cr)
 		Expect(err).ToNot(HaveOccurred())
@@ -383,12 +382,12 @@ var _ = Describe("Suspended deadline", func() {
 
 		job.Spec, err = bcp.JobSpec(cr.Spec, cluster, job, "")
 		Expect(err).ToNot(HaveOccurred())
-		job.Spec.Suspend = ptr.To(false)
+		job.Spec.Suspend = new(false)
 
 		r := reconciler(buildFakeClient(job))
 
-		cluster.Spec.Backup.SuspendedDeadlineSeconds = ptr.To(int64(600))
-		cr.Spec.SuspendedDeadlineSeconds = ptr.To(int64(300))
+		cluster.Spec.Backup.SuspendedDeadlineSeconds = new(int64(600))
+		cr.Spec.SuspendedDeadlineSeconds = new(int64(300))
 
 		err = r.checkSuspendedDeadline(context.Background(), cluster, cr)
 		Expect(err).ToNot(HaveOccurred())
@@ -410,8 +409,8 @@ var _ = Describe("Suspended deadline", func() {
 
 		r := reconciler(buildFakeClient(job))
 
-		cluster.Spec.Backup.SuspendedDeadlineSeconds = ptr.To(int64(600))
-		cr.Spec.SuspendedDeadlineSeconds = ptr.To(int64(300))
+		cluster.Spec.Backup.SuspendedDeadlineSeconds = new(int64(600))
+		cr.Spec.SuspendedDeadlineSeconds = new(int64(300))
 
 		err = r.checkSuspendedDeadline(context.Background(), cluster, cr)
 		Expect(err).ToNot(HaveOccurred())

@@ -51,7 +51,7 @@ func proxyInitContainers(cr *api.PerconaXtraDBCluster, initImageName string) []c
 	inits := []corev1.Container{}
 	if cr.CompareVersionWith("1.13.0") >= 0 {
 		inits = []corev1.Container{
-			EntrypointInitContainer(cr, initImageName, app.BinVolumeName),
+			EntrypointInitContainer(cr, initImageName, naming.BinVolumeName),
 		}
 	}
 
@@ -158,8 +158,8 @@ func (c *Proxy) AppContainer(ctx context.Context, _ client.Client, spec *api.Pod
 		appc.Command = []string{"/opt/percona/proxysql-entrypoint.sh"}
 		appc.Args = []string{"proxysql", "-f", "-c", "/etc/proxysql/proxysql.cnf", "--reload"}
 		appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
-			Name:      app.BinVolumeName,
-			MountPath: app.BinVolumeMountPath,
+			Name:      naming.BinVolumeName,
+			MountPath: naming.BinVolumeMountPath,
 		})
 	}
 
@@ -252,8 +252,8 @@ func (c *Proxy) SidecarContainers(ctx context.Context, cl client.Client, spec *a
 
 	if cr.CompareVersionWith("1.15.0") >= 0 {
 		pxcMonit.VolumeMounts = append(pxcMonit.VolumeMounts, corev1.VolumeMount{
-			Name:      app.BinVolumeName,
-			MountPath: app.BinVolumeMountPath,
+			Name:      naming.BinVolumeName,
+			MountPath: naming.BinVolumeMountPath,
 		})
 	}
 
@@ -312,8 +312,8 @@ func (c *Proxy) SidecarContainers(ctx context.Context, cl client.Client, spec *a
 
 	if cr.CompareVersionWith("1.15.0") >= 0 {
 		proxysqlMonit.VolumeMounts = append(proxysqlMonit.VolumeMounts, corev1.VolumeMount{
-			Name:      app.BinVolumeName,
-			MountPath: app.BinVolumeMountPath,
+			Name:      naming.BinVolumeName,
+			MountPath: naming.BinVolumeMountPath,
 		})
 	}
 
@@ -445,10 +445,9 @@ func schedulerEnvVariables(scheduler api.ProxySQLSchedulerSpec) []corev1.EnvVar 
 			Value: SchedulerConfigPath,
 		},
 	}
-
 }
 
-func (c *Proxy) LogCollectorContainer(_ *api.LogCollectorSpec, _ string, _ string, _ *api.PerconaXtraDBCluster) ([]corev1.Container, error) {
+func (c *Proxy) LogCollectorContainer(_ *api.PerconaXtraDBCluster, _ string, _ string) ([]corev1.Container, error) {
 	return nil, nil
 }
 
@@ -516,7 +515,7 @@ func (c *Proxy) PMMContainer(ctx context.Context, cl client.Client, spec *api.PM
 		},
 		{
 			Name:  "DB_CLUSTER",
-			Value: app.Name,
+			Value: naming.ComponentPXC,
 		},
 		{
 			Name:  "DB_HOST",
@@ -631,7 +630,7 @@ func pmm3ProxySQLEnvVars(pmmProxysqlParams string) []corev1.EnvVar {
 	}
 }
 
-func (c *Proxy) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg api.CustomVolumeGetter) (*api.Volume, error) {
+func (c *Proxy) Volumes(ctx context.Context, podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg api.CustomVolumeGetter) (*api.Volume, error) {
 	ls := c.Labels()
 
 	sslVolume := app.GetSecretVolumes("ssl", podSpec.SSLSecretName, !cr.TLSEnabled())
@@ -646,7 +645,7 @@ func (c *Proxy) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg a
 		sslVolume,
 	)
 
-	configVolume, err := vg(cr.Namespace, proxyConfigVolumeName, ls[naming.LabelAppKubernetesInstance]+"-proxysql", false)
+	configVolume, err := vg(ctx, cr.Namespace, proxyConfigVolumeName, ls[naming.LabelAppKubernetesInstance]+"-proxysql", false)
 	if err != nil && !errors.Is(err, api.NoCustomVolumeErr) {
 		return nil, err
 	}
@@ -658,9 +657,10 @@ func (c *Proxy) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg a
 			app.GetConfigVolumes("hookscript", ls[naming.LabelAppKubernetesInstance]+"-"+ls[naming.LabelAppKubernetesComponent]+"-hookscript"))
 	}
 	if cr.CompareVersionWith("1.13.0") >= 0 {
-		vol.Volumes = append(vol.Volumes,
+		vol.Volumes = append(
+			vol.Volumes,
 			corev1.Volume{
-				Name: app.BinVolumeName,
+				Name: naming.BinVolumeName,
 				VolumeSource: corev1.VolumeSource{
 					EmptyDir: &corev1.EmptyDirVolumeSource{},
 				},

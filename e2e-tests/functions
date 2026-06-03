@@ -354,6 +354,9 @@ deploy_operator() {
 	desc 'start PXC operator'
 
 	kubectl_bin apply --server-side --force-conflicts -f ${src_dir}/deploy/crd.yaml || :
+	kubectl_bin wait --for=condition=Established --timeout=120s crd/perconaxtradbclusters.pxc.percona.com
+	kubectl_bin wait --for=condition=Established --timeout=120s crd/perconaxtradbclusterbackups.pxc.percona.com
+	kubectl_bin wait --for=condition=Established --timeout=120s crd/perconaxtradbclusterrestores.pxc.percona.com
 
 	if [ -n "$OPERATOR_NS" ]; then
 		apply_rbac cw-rbac
@@ -528,11 +531,14 @@ compare_kubectl() {
 			del(.spec.template.spec.containers[].env[] | select(.name == "XTRABACKUP_ENABLED")) |
 			del(.metadata.selfLink) |
 			del(.metadata.deletionTimestamp) |
+			del(.metadata.labels."batch.kubernetes.io/job-name") |
+			del(.metadata.labels."job-name") |
+			del(.metadata.labels."topology.kubernetes.io/region") |
+			del(.metadata.labels."topology.kubernetes.io/zone") |
 			del(.metadata.annotations."kubectl.kubernetes.io/last-applied-configuration") |
 			del(.metadata.annotations."kubernetes.io/psp") |
 			del(.metadata.annotations."batch.kubernetes.io/job-tracking") |
-			del(.metadata.labels."batch.kubernetes.io/job-name") |
-			del(.metadata.labels."job-name") |
+			del(.metadata.annotations."networking.gke.io/target-pool") |
 			del(.metadata.annotations."cloud.google.com/neg") |
 			del(.metadata.annotations."k8s.v1.cni.cncf.io*") |
 			del(.metadata.annotations."k8s.ovn.org/pod-networks") |
@@ -575,6 +581,7 @@ compare_kubectl() {
 			del(.. | select(has("preemptionPolicy")).preemptionPolicy) |
 			del(.spec.ipFamilies) |
 			del(.spec.ipFamilyPolicy) |
+			del(.spec.updateStrategy.rollingUpdate.maxUnavailable) |
 			(.. | select(. == "policy/v1beta1")) = "policy/v1" |
 			del(.. | select(has("kubernetes.io/hostname"))."kubernetes.io/hostname") |
 			(.. | select(tag == "!!str")) |= sub("'$namespace'", "namespace") |
@@ -624,7 +631,7 @@ run_mysql_local() {
 	local container_name="$4"
 	set +o xtrace
 	kubectl_bin exec $pod ${container_name:+-c $container_name} -- \
-		bash -c "printf \"$command\n\" | mysql -sN $uri" 2>&1 \
+		bash -c "printf '%s\n' \"$command\" | mysql -sN $uri" 2>&1 \
 		| sed -e 's/mysql: //' \
 		| grep -v 'Defaulted container "pxc-client" out of:' \
 		| (grep -E -v 'Using a password on the command line interface can be insecure.|Defaulted container|Defaulting container name|see all of the containers in this pod' || :)
@@ -1124,19 +1131,19 @@ function is_keyring_plugin_in_use() {
 	local cluster=$1
 
 	if [[ $IMAGE_PXC =~ 8\.4 ]]; then
-		if ! kubectl exec -it $cluster-pxc-0 -c pxc -- \
+		if ! kubectl exec $cluster-pxc-0 -c pxc -- \
 			ls /var/lib/mysql/mysqld.my >/dev/null 2>&1; then
 			return 1
 		fi
 		log "/var/lib/mysql/mysqld.my exists: OK"
 
-		if ! kubectl exec -it $cluster-pxc-0 -c pxc -- \
+		if ! kubectl exec $cluster-pxc-0 -c pxc -- \
 			ls /var/lib/mysql/component_keyring_vault.cnf >/dev/null 2>&1; then
 			return 1
 		fi
 		log "/var/lib/mysql/component_keyring_vault.cnf exists: OK"
 	else
-		if ! kubectl exec -it $cluster-pxc-0 -c pxc -- bash -c "cat /etc/mysql/node.cnf" \
+		if ! kubectl exec $cluster-pxc-0 -c pxc -- bash -c "cat /etc/mysql/node.cnf" \
 			| grep -E -o "early-plugin-load=keyring_\w+.so" >/dev/null 2>&1; then
 			return 1
 		fi
@@ -2263,6 +2270,7 @@ run_recovery_check_pitr() {
 	local time_now=$5
 	local dest=$6
 	local gtid=$7
+	local mysql_root_pass="${8:-root_password}"
 	desc 'recover backup' $restore
 	cat "$test_dir/conf/${restore}.yaml" \
 		| $sed -e "s/<datetime>/${time_now}/g" \
@@ -2277,6 +2285,10 @@ run_recovery_check_pitr() {
 	wait_for_delete pod/${cluster}-pxc-2
 	wait_for_delete pod/${cluster}-pxc-1
 	wait_for_delete pod/${cluster}-pxc-0
+
+	wait_backup_restore ${restore} "Restoring"
+
+	wait_backup_restore ${restore} "Preparing Cluster"
 
 	wait_backup_restore ${restore} "Point-in-time recovering"
 	wait_for_delete pod/${cluster}-proxysql-0
@@ -2299,9 +2311,9 @@ run_recovery_check_pitr() {
 	wait_for_running "$cluster-pxc" 3
 	wait_cluster_consistency "$cluster" 3 2
 	desc 'check data after backup' $restore
-	compare_mysql_cmd $compare "SELECT * from test.test;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
-	compare_mysql_cmd $compare "SELECT * from test.test;" "-h $cluster-pxc-1.$cluster-pxc -uroot -proot_password"
-	compare_mysql_cmd $compare "SELECT * from test.test;" "-h $cluster-pxc-2.$cluster-pxc -uroot -proot_password"
+	compare_mysql_cmd $compare "SELECT * from test.test;" "-h $cluster-pxc-0.$cluster-pxc -uroot -p${mysql_root_pass}"
+	compare_mysql_cmd $compare "SELECT * from test.test;" "-h $cluster-pxc-1.$cluster-pxc -uroot -p${mysql_root_pass}"
+	compare_mysql_cmd $compare "SELECT * from test.test;" "-h $cluster-pxc-2.$cluster-pxc -uroot -p${mysql_root_pass}"
 	kubectl_bin delete -f "$test_dir/conf/${restore}.yaml"
 }
 
@@ -2330,11 +2342,11 @@ is_old_password_discarded() {
 	local result
 	result=$(run_mysql "SELECT User_attributes FROM mysql.user WHERE user='${username}'" "${uri}" 2>/dev/null || echo "")
 	# If result contains additional_password, old password is still present (not discarded)
-	if [[ "$result" =~ additional_password ]]; then
+	if [[ $result =~ additional_password ]]; then
 		return 1
 	fi
 	# If result is empty, NULL, or whitespace only, old password is discarded
-	if [[ -z "$result" ]] || [[ "$result" =~ ^[[:space:]]*$ ]] || [[ "$result" =~ NULL ]]; then
+	if [[ -z $result ]] || [[ $result =~ ^[[:space:]]*$ ]] || [[ $result =~ NULL ]]; then
 		return 0
 	fi
 	# Default: if we can't determine, assume not discarded (fail safe)
@@ -2356,7 +2368,7 @@ wait_for_password_propagation() {
 	fi
 
 	# Validate root_pass is not empty
-	if [[ -z "${root_pass}" ]]; then
+	if [[ -z ${root_pass} ]]; then
 		echo "ERROR: Root password is empty"
 		return 1
 	fi

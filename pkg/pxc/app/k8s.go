@@ -20,3 +20,13 @@ func SecretKeySelector(name, key string) *corev1.SecretKeySelector {
 
 	return evs
 }
+
+// SecretKeySelectorWithOptional is a k8s helper to create SecretKeySelector object with optional flag
+func SecretKeySelectorWithOptional(name, key string, optional bool) *corev1.SecretKeySelector {
+	evs := &corev1.SecretKeySelector{}
+	evs.Name = name
+	evs.Key = key
+	evs.Optional = &optional
+
+	return evs
+}

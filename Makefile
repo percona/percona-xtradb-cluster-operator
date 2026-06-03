@@ -11,6 +11,8 @@ DEPLOYDIR = ./deploy
 # leading to test or pipeline failures.
 ENVTEST_K8S_VERSION = 1.34.1
 
+ENVTEST_VERSION ?= release-0.23
+
 all: build
 
 help: ## Display this help.
@@ -102,13 +104,15 @@ kustomize: ## Download kustomize locally if necessary.
 
 ENVTEST = $(shell pwd)/bin/setup-envtest
 envtest: ## Download envtest-setup locally if necessary.
-	$(call go-get-tool,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest@latest)
+	$(call go-get-tool,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest@$(ENVTEST_VERSION))
 
 SWAGGER = $(shell pwd)/bin/swagger
 swagger: ## Download swagger locally if necessary.
 	$(call go-get-tool,$(SWAGGER),github.com/go-swagger/go-swagger/cmd/swagger@latest)
 
 PROTOC_VERSION = 33.1
+PROTOC_GEN_GO_VERSION = v1.36.11
+PROTOC_GEN_GO_GRPC_VERSION = v1.6.2
 PROTOC = $(shell pwd)/bin/protoc
 PROTOC_GEN_GO = $(shell pwd)/bin/protoc-gen-go
 PROTOC_GEN_GO_GRPC = $(shell pwd)/bin/protoc-gen-go-grpc
@@ -128,8 +132,8 @@ protoc: ## Download protoc locally if necessary.
 		mv -f protoc-${PROTOC_VERSION}-$${os}-$${arch}/bin/protoc $(PROTOC); \
 		rm -rf protoc-${PROTOC_VERSION}-$${os}-$${arch}; \
 	fi
-	$(call go-get-tool,$(PROTOC_GEN_GO),google.golang.org/protobuf/cmd/protoc-gen-go@latest)
-	$(call go-get-tool,$(PROTOC_GEN_GO_GRPC),google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest)
+	$(call go-get-tool,$(PROTOC_GEN_GO),google.golang.org/protobuf/cmd/protoc-gen-go@$(PROTOC_GEN_GO_VERSION))
+	$(call go-get-tool,$(PROTOC_GEN_GO_GRPC),google.golang.org/grpc/cmd/protoc-gen-go-grpc@$(PROTOC_GEN_GO_GRPC_VERSION))
 
 # Prepare release
 include e2e-tests/release_versions
@@ -152,12 +156,14 @@ release: manifests
 		-e "/initContainer:/,/image:/{s#image: .*#image: $(IMAGE_OPERATOR)#}" \
 		-e "/^  pmm:/,/^    image:/{s#image: .*#image: $(IMAGE_PMM3_CLIENT)#}" deploy/cr.yaml
 
+update-version:
+	echo $(NEXT_VER) > pkg/version/version.txt
+
 # Prepare main branch after release
 MAJOR_VER := $(shell grep -oE "crVersion: .*" deploy/cr.yaml|grep -oE "[0-9]+\.[0-9]+\.[0-9]+"|cut -d'.' -f1)
 MINOR_VER := $(shell grep -oE "crVersion: .*" deploy/cr.yaml|grep -oE "[0-9]+\.[0-9]+\.[0-9]+"|cut -d'.' -f2)
 NEXT_VER ?= $(MAJOR_VER).$$(($(MINOR_VER) + 1)).0
-after-release: manifests
-	echo $(NEXT_VER) > pkg/version/version.txt
+after-release: update-version manifests
 	$(SED) -i \
 		-e "s/crVersion: .*/crVersion: $(NEXT_VER)/" \
 		-e "/^  pxc:/,/^    image:/{s#image: .*#image: perconalab/percona-xtradb-cluster-operator:main-pxc8.4#}" \
@@ -168,7 +174,7 @@ after-release: manifests
 		-e "/^  pxc:/,/^    image:/{s#image: .*#image: perconalab/percona-xtradb-cluster-operator:main-pxc8.4#}" \
 		-e "/^  haproxy:/,/^    image:/{s#image: .*#image: perconalab/percona-xtradb-cluster-operator:main-haproxy#}" \
 		-e "/^  proxysql:/,/^    image:/{s#image: .*#image: perconalab/percona-xtradb-cluster-operator:main-proxysql#}" \
-		-e "/^  logcollector:/,/^    image:/{s#image: .*#image: perconalab/percona-xtradb-cluster-operator:main-logcollector#}" \
+		-e "/^  logcollector:/,/^    image:/{s#image: .*#image: perconalab/fluentbit:main-logcollector#}" \
 		-e "/^  backup:/,/^    image:/{s#image: .*#image: perconalab/percona-xtradb-cluster-operator:main-pxc8.4-backup#}" \
 		-e "/initContainer:/,/image:/{s#image: .*#image: perconalab/percona-xtradb-cluster-operator:main#}" \
 		-e "/^  pmm:/,/^    image:/{s#image: .*#image: perconalab/pmm-client:3-dev-latest#}" deploy/cr.yaml

@@ -52,18 +52,18 @@ const (
 
 // Add creates a new PerconaXtraDBCluster Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
-func Add(mgr manager.Manager) error {
-	r, err := newReconciler(mgr)
+func Add(ctx context.Context, mgr manager.Manager) error {
+	r, err := newReconciler(ctx, mgr)
 	if err != nil {
 		return err
 	}
 
-	return add(mgr, r)
+	return add(ctx, mgr, r)
 }
 
 // newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager) (reconcile.Reconciler, error) {
-	sv, err := version.Server()
+func newReconciler(ctx context.Context, mgr manager.Manager) (reconcile.Reconciler, error) {
+	sv, err := version.Server(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "get version")
 	}
@@ -85,9 +85,12 @@ func newReconciler(mgr manager.Manager) (reconcile.Reconciler, error) {
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
-func add(mgr manager.Manager, r reconcile.Reconciler) error {
-	if err := setupSecretNameFieldIndexer(mgr); err != nil {
-		return errors.Wrap(err, "setup field indexers")
+func add(ctx context.Context, mgr manager.Manager, r reconcile.Reconciler) error {
+	if err := setupSecretNameFieldIndexer(ctx, mgr); err != nil {
+		return errors.Wrap(err, "setup secret-name field indexer")
+	}
+	if err := setupPXCBackupToClusterIndexer(ctx, mgr); err != nil {
+		return errors.Wrap(err, "setup backup-to-cluster field indexer")
 	}
 	return builder.ControllerManagedBy(mgr).
 		Named(naming.OperatorController).
@@ -96,8 +99,18 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		Complete(r)
 }
 
-func setupSecretNameFieldIndexer(mgr manager.Manager) error {
-	return mgr.GetFieldIndexer().IndexField(context.TODO(), &api.PerconaXtraDBCluster{}, secretsNameField, func(o client.Object) []string {
+func setupPXCBackupToClusterIndexer(ctx context.Context, mgr manager.Manager) error {
+	return mgr.GetFieldIndexer().IndexField(ctx, &api.PerconaXtraDBClusterBackup{}, backup.PXCClusterBackupField, func(o client.Object) []string {
+		bcp, ok := o.(*api.PerconaXtraDBClusterBackup)
+		if !ok {
+			return nil
+		}
+		return []string{bcp.Spec.PXCCluster}
+	})
+}
+
+func setupSecretNameFieldIndexer(ctx context.Context, mgr manager.Manager) error {
+	return mgr.GetFieldIndexer().IndexField(ctx, &api.PerconaXtraDBCluster{}, secretsNameField, func(o client.Object) []string {
 		cluster, ok := o.(*api.PerconaXtraDBCluster)
 		if !ok || cluster.Spec.SecretsName == "" {
 			return nil
@@ -145,7 +158,7 @@ type ReconcilePerconaXtraDBCluster struct {
 	client         client.Client
 	scheme         *runtime.Scheme
 	crons          CronRegistry
-	clientcmd      *clientcmd.Client
+	clientcmd      clientcmd.Client
 	syncUsersState int32
 	serverVersion  *version.ServerVersion
 	lockers        lockStore
@@ -242,7 +255,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 	defer atomic.StoreInt32(l.updateSync, updateDone)
 
 	o := &api.PerconaXtraDBCluster{}
-	err := r.client.Get(context.TODO(), request.NamespacedName, o)
+	err := r.client.Get(ctx, request.NamespacedName, o)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
@@ -280,10 +293,10 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 				sfs = statefulset.NewProxy(o)
 				// deletePVC is always true on this stage
 				// because we never reach this point without finalizers
-				err = r.deleteStatefulSet(o, sfs, true, false)
+				err = r.deleteStatefulSet(ctx, o, sfs, true, false)
 			case naming.FinalizerDeletePxcPvc:
 				sfs = statefulset.NewNode(o)
-				err = r.deleteStatefulSet(o, sfs, true, true)
+				err = r.deleteStatefulSet(ctx, o, sfs, true, true)
 			// nil error gonna be returned only when there is no more pods to delete (only 0 left)
 			// until than finalizer won't be deleted
 			case naming.FinalizerDeletePxcPodsInOrder:
@@ -354,14 +367,26 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 			log.Info("failed to ensure version, running with default", "error", err)
 		}
 	}
-	err = r.reconcilePersistentVolumes(ctx, o)
+	err = r.reconcileStorageAutoscaling(ctx, o)
+	if err != nil {
+		return reconcile.Result{}, errors.Wrap(err, "reconcile storage autoscaling")
+	}
+	shouldReconcile, err := r.reconcilePersistentVolumes(ctx, o)
 	if err != nil {
 		return reconcile.Result{}, errors.Wrap(err, "reconcile persistent volumes")
+	}
+	if shouldReconcile {
+		return rr, nil
 	}
 
 	err = r.reconcileSSL(ctx, o)
 	if err != nil {
 		return reconcile.Result{}, errors.Wrapf(err, "failed to reconcile SSL. Please create your TLS secret %s and %s manually or setup cert-manager correctly", o.Spec.PXC.SSLSecretName, o.Spec.PXC.SSLInternalSecretName)
+	}
+
+	err = r.rotateSSLCertificates(ctx, o)
+	if err != nil {
+		return reconcile.Result{}, errors.Wrap(err, "failed to rotate ssl certificates")
 	}
 
 	err = r.deploy(ctx, o)
@@ -394,7 +419,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 			return reconcile.Result{}, errors.Wrap(err, "create replication services")
 		}
 	} else {
-		err = r.removePxcPodServices(o)
+		err = r.removePxcPodServices(ctx, o)
 		if err != nil {
 			return reconcile.Result{}, errors.Wrap(err, "remove pxc pod services")
 		}
@@ -412,16 +437,9 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 		}
 		svc := pxc.NewServiceProxySQL(o)
 
-		if o.CompareVersionWith("1.14.0") >= 0 {
-			err = r.createOrUpdateService(ctx, o, svc, len(o.Spec.ProxySQL.Expose.Labels) == 0 && len(o.Spec.ProxySQL.Expose.Annotations) == 0)
-			if err != nil {
-				return reconcile.Result{}, errors.Wrapf(err, "%s upgrade error", svc.Name)
-			}
-		} else {
-			err = r.createOrUpdateService(ctx, o, svc, len(o.Spec.ProxySQL.ServiceLabels) == 0 && len(o.Spec.ProxySQL.ServiceAnnotations) == 0)
-			if err != nil {
-				return reconcile.Result{}, errors.Wrapf(err, "%s upgrade error", svc.Name)
-			}
+		err = r.createOrUpdateService(ctx, o, svc, len(o.Spec.ProxySQL.Expose.Labels) == 0 && len(o.Spec.ProxySQL.Expose.Annotations) == 0)
+		if err != nil {
+			return reconcile.Result{}, errors.Wrapf(err, "%s upgrade error", svc.Name)
 		}
 
 		svc = pxc.NewServiceProxySQLUnready(o)
@@ -440,12 +458,12 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 			}
 		}
 
-		err = r.deleteStatefulSet(o, proxysqlSet, deletePVC, false)
+		err = r.deleteStatefulSet(ctx, o, proxysqlSet, deletePVC, false)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 
-		err = r.deleteServices(pxc.NewServiceProxySQL(o), pxc.NewServiceProxySQLUnready(o))
+		err = r.deleteServices(ctx, pxc.NewServiceProxySQL(o), pxc.NewServiceProxySQLUnready(o))
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -492,15 +510,15 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 
 func (r *ReconcilePerconaXtraDBCluster) reconcileHAProxy(ctx context.Context, cr *api.PerconaXtraDBCluster, templateAnnotations map[string]string) error {
 	if !cr.HAProxyEnabled() {
-		if err := r.deleteServices(pxc.NewServiceHAProxyReplicas(cr)); err != nil {
+		if err := r.deleteServices(ctx, pxc.NewServiceHAProxyReplicas(cr)); err != nil {
 			return errors.Wrap(err, "delete HAProxy replica service")
 		}
 
-		if err := r.deleteServices(pxc.NewServiceHAProxy(cr)); err != nil {
+		if err := r.deleteServices(ctx, pxc.NewServiceHAProxy(cr)); err != nil {
 			return errors.Wrap(err, "delete HAProxy service")
 		}
 
-		if err := r.deleteStatefulSet(cr, statefulset.NewHAProxy(cr), false, false); err != nil {
+		if err := r.deleteStatefulSet(ctx, cr, statefulset.NewHAProxy(cr), false, false); err != nil {
 			return errors.Wrap(err, "delete HAProxy stateful set")
 		}
 
@@ -520,39 +538,23 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileHAProxy(ctx context.Context, cr
 		return errors.Wrap(err, "HAProxy upgrade error")
 	}
 	svc := pxc.NewServiceHAProxy(cr)
-	podSpec := cr.Spec.HAProxy.PodSpec
 	expose := cr.Spec.HAProxy.ExposePrimary
 
-	if cr.CompareVersionWith("1.14.0") >= 0 {
-		err := r.createOrUpdateService(ctx, cr, svc, len(expose.Labels) == 0 && len(expose.Annotations) == 0)
-		if err != nil {
-			return errors.Wrapf(err, "%s upgrade error", svc.Name)
-		}
-	} else {
-		err := r.createOrUpdateService(ctx, cr, svc, len(podSpec.ServiceLabels) == 0 && len(podSpec.ServiceAnnotations) == 0)
-		if err != nil {
-			return errors.Wrapf(err, "%s upgrade error", svc.Name)
-		}
+	err := r.createOrUpdateService(ctx, cr, svc, len(expose.Labels) == 0 && len(expose.Annotations) == 0)
+	if err != nil {
+		return errors.Wrapf(err, "%s upgrade error", svc.Name)
 	}
 
 	if cr.HAProxyReplicasServiceEnabled() {
 		svc := pxc.NewServiceHAProxyReplicas(cr)
 
-		if cr.CompareVersionWith("1.14.0") >= 0 {
-			e := cr.Spec.HAProxy.ExposeReplicas
-			err := r.createOrUpdateService(ctx, cr, svc, len(e.ServiceExpose.Labels) == 0 && len(e.ServiceExpose.Annotations) == 0)
-			if err != nil {
-				return errors.Wrapf(err, "%s upgrade error", svc.Name)
-			}
-		} else {
-			err := r.createOrUpdateService(ctx, cr, svc, len(podSpec.ReplicasServiceLabels) == 0 && len(podSpec.ReplicasServiceAnnotations) == 0)
-			if err != nil {
-				return errors.Wrapf(err, "%s upgrade error", svc.Name)
-			}
+		e := cr.Spec.HAProxy.ExposeReplicas
+		err := r.createOrUpdateService(ctx, cr, svc, len(e.ServiceExpose.Labels) == 0 && len(e.ServiceExpose.Annotations) == 0)
+		if err != nil {
+			return errors.Wrapf(err, "%s upgrade error", svc.Name)
 		}
-
 	} else {
-		if err := r.deleteServices(pxc.NewServiceHAProxyReplicas(cr)); err != nil {
+		if err := r.deleteServices(ctx, pxc.NewServiceHAProxyReplicas(cr)); err != nil {
 			return errors.Wrap(err, "delete HAProxy replica service")
 		}
 	}
@@ -610,7 +612,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcilePDB(ctx context.Context, cr *ap
 
 func (r *ReconcilePerconaXtraDBCluster) deletePXCPods(ctx context.Context, cr *api.PerconaXtraDBCluster) error {
 	sfs := statefulset.NewNode(cr)
-	err := r.deleteStatefulSetPods(cr.Namespace, sfs)
+	err := r.deleteStatefulSetPods(ctx, cr.Namespace, sfs)
 	if err != nil {
 		return errors.Wrap(err, "delete statefulset pods")
 	}
@@ -621,10 +623,11 @@ func (r *ReconcilePerconaXtraDBCluster) deletePXCPods(ctx context.Context, cr *a
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) deleteStatefulSetPods(namespace string, sfs api.StatefulApp) error {
+func (r *ReconcilePerconaXtraDBCluster) deleteStatefulSetPods(ctx context.Context, namespace string, sfs api.StatefulApp) error {
 	list := corev1.PodList{}
 
-	err := r.client.List(context.TODO(),
+	err := r.client.List(
+		ctx,
 		&list,
 		&client.ListOptions{
 			Namespace:     namespace,
@@ -644,7 +647,7 @@ func (r *ReconcilePerconaXtraDBCluster) deleteStatefulSetPods(namespace string, 
 	// after setting the pods for delete we need to downscale statefulset to 1 under,
 	// otherwise it will be trying to deploy the nodes again to reach the desired replicas count
 	cSet := sfs.StatefulSet()
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: cSet.Name, Namespace: cSet.Namespace}, cSet)
+	err = r.client.Get(ctx, types.NamespacedName{Name: cSet.Name, Namespace: cSet.Namespace}, cSet)
 	if err != nil {
 		return errors.Wrap(err, "get StatefulSet")
 	}
@@ -652,7 +655,7 @@ func (r *ReconcilePerconaXtraDBCluster) deleteStatefulSetPods(namespace string, 
 	if cSet.Spec.Replicas == nil || *cSet.Spec.Replicas != 1 {
 		dscaleTo := int32(1)
 		cSet.Spec.Replicas = &dscaleTo
-		err = r.client.Update(context.TODO(), cSet)
+		err = r.client.Update(ctx, cSet)
 		if err != nil {
 			return errors.Wrap(err, "downscale StatefulSet")
 		}
@@ -660,9 +663,9 @@ func (r *ReconcilePerconaXtraDBCluster) deleteStatefulSetPods(namespace string, 
 	return errors.New("waiting for pods to be deleted")
 }
 
-func (r *ReconcilePerconaXtraDBCluster) deleteStatefulSet(cr *api.PerconaXtraDBCluster, sfs api.StatefulApp, deletePVC, deleteSecrets bool) error {
+func (r *ReconcilePerconaXtraDBCluster) deleteStatefulSet(ctx context.Context, cr *api.PerconaXtraDBCluster, sfs api.StatefulApp, deletePVC, deleteSecrets bool) error {
 	sfsWithOwner := appsv1.StatefulSet{}
-	err := r.client.Get(context.TODO(), types.NamespacedName{
+	err := r.client.Get(ctx, types.NamespacedName{
 		Name:      sfs.StatefulSet().Name,
 		Namespace: cr.Namespace,
 	}, &sfsWithOwner)
@@ -678,19 +681,19 @@ func (r *ReconcilePerconaXtraDBCluster) deleteStatefulSet(cr *api.PerconaXtraDBC
 		return nil
 	}
 
-	err = r.client.Delete(context.TODO(), &sfsWithOwner, &client.DeleteOptions{Preconditions: &metav1.Preconditions{UID: &sfsWithOwner.UID}})
+	err = r.client.Delete(ctx, &sfsWithOwner, &client.DeleteOptions{Preconditions: &metav1.Preconditions{UID: &sfsWithOwner.UID}})
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return errors.Wrapf(err, "delete statefulset: %s", sfs.StatefulSet().Name)
 	}
 	if deletePVC {
-		err = r.deletePVC(cr.Namespace, sfs.Labels())
+		err = r.deletePVC(ctx, cr.Namespace, sfs.Labels())
 		if err != nil {
 			return errors.Wrapf(err, "delete pvc: %s", sfs.StatefulSet().Name)
 		}
 	}
 
 	if deleteSecrets {
-		err = r.deleteSecrets(cr)
+		err = r.deleteSecrets(ctx, cr)
 		if err != nil {
 			return errors.Wrap(err, "delete secrets")
 		}
@@ -699,9 +702,9 @@ func (r *ReconcilePerconaXtraDBCluster) deleteStatefulSet(cr *api.PerconaXtraDBC
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) deleteServices(svcs ...*corev1.Service) error {
+func (r *ReconcilePerconaXtraDBCluster) deleteServices(ctx context.Context, svcs ...*corev1.Service) error {
 	for _, s := range svcs {
-		err := r.client.Get(context.TODO(), types.NamespacedName{
+		err := r.client.Get(ctx, types.NamespacedName{
 			Name:      s.Name,
 			Namespace: s.Namespace,
 		}, &corev1.Service{})
@@ -713,7 +716,7 @@ func (r *ReconcilePerconaXtraDBCluster) deleteServices(svcs ...*corev1.Service) 
 			continue
 		}
 
-		err = r.client.Delete(context.TODO(), s)
+		err = r.client.Delete(ctx, s)
 		if err != nil {
 			return errors.Wrapf(err, "delete service: %s", s.Name)
 		}
@@ -721,9 +724,10 @@ func (r *ReconcilePerconaXtraDBCluster) deleteServices(svcs ...*corev1.Service) 
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) deletePVC(namespace string, lbls map[string]string) error {
+func (r *ReconcilePerconaXtraDBCluster) deletePVC(ctx context.Context, namespace string, lbls map[string]string) error {
 	list := corev1.PersistentVolumeClaimList{}
-	err := r.client.List(context.TODO(),
+	err := r.client.List(
+		ctx,
 		&list,
 		&client.ListOptions{
 			Namespace:     namespace,
@@ -735,7 +739,7 @@ func (r *ReconcilePerconaXtraDBCluster) deletePVC(namespace string, lbls map[str
 	}
 
 	for _, pvc := range list.Items {
-		err := r.client.Delete(context.TODO(), &pvc, &client.DeleteOptions{Preconditions: &metav1.Preconditions{UID: &pvc.UID}})
+		err := r.client.Delete(ctx, &pvc, &client.DeleteOptions{Preconditions: &metav1.Preconditions{UID: &pvc.UID}})
 		if err != nil {
 			return errors.Wrapf(err, "delete PVC %s", pvc.Name)
 		}
@@ -744,7 +748,7 @@ func (r *ReconcilePerconaXtraDBCluster) deletePVC(namespace string, lbls map[str
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) deleteSecrets(cr *api.PerconaXtraDBCluster) error {
+func (r *ReconcilePerconaXtraDBCluster) deleteSecrets(ctx context.Context, cr *api.PerconaXtraDBCluster) error {
 	secrets := []string{
 		cr.Spec.SecretsName,
 		"internal-" + cr.Name,
@@ -753,7 +757,7 @@ func (r *ReconcilePerconaXtraDBCluster) deleteSecrets(cr *api.PerconaXtraDBClust
 
 	for _, secretName := range secrets {
 		secret := &corev1.Secret{}
-		err := r.client.Get(context.TODO(), types.NamespacedName{
+		err := r.client.Get(ctx, types.NamespacedName{
 			Namespace: cr.Namespace,
 			Name:      secretName,
 		}, secret)
@@ -766,7 +770,7 @@ func (r *ReconcilePerconaXtraDBCluster) deleteSecrets(cr *api.PerconaXtraDBClust
 			continue
 		}
 
-		err = r.client.Delete(context.TODO(), secret, &client.DeleteOptions{Preconditions: &metav1.Preconditions{UID: &secret.UID}})
+		err = r.client.Delete(ctx, secret, &client.DeleteOptions{Preconditions: &metav1.Preconditions{UID: &secret.UID}})
 		if err != nil {
 			return errors.Wrapf(err, "delete secret %s", secretName)
 		}
@@ -777,8 +781,8 @@ func (r *ReconcilePerconaXtraDBCluster) deleteSecrets(cr *api.PerconaXtraDBClust
 
 func (r *ReconcilePerconaXtraDBCluster) deleteCerts(ctx context.Context, cr *api.PerconaXtraDBCluster) error {
 	issuers := []string{
-		cr.Name + "-pxc-ca-issuer",
-		cr.Name + "-pxc-issuer",
+		naming.CAIssuerName(cr),
+		naming.IssuerName(cr),
 	}
 	for _, issuerName := range issuers {
 		issuer := &cm.Issuer{}
@@ -794,9 +798,9 @@ func (r *ReconcilePerconaXtraDBCluster) deleteCerts(ctx context.Context, cr *api
 	}
 
 	certs := []string{
-		cr.Name + "-ssl",
-		cr.Name + "-ssl-internal",
-		cr.Name + "-ca-cert",
+		naming.SSLCertificateName(cr),
+		naming.SSLInternalCertificateName(cr),
+		naming.CACertificateName(cr),
 	}
 	for _, certName := range certs {
 		cert := &cm.Certificate{}
@@ -812,19 +816,19 @@ func (r *ReconcilePerconaXtraDBCluster) deleteCerts(ctx context.Context, cr *api
 	}
 
 	secrets := []string{
-		cr.Name + "-ca-cert",
+		naming.CACertificateName(cr),
 	}
 
 	if len(cr.Spec.SSLSecretName) > 0 {
 		secrets = append(secrets, cr.Spec.SSLSecretName)
 	} else {
-		secrets = append(secrets, cr.Name+"-ssl")
+		secrets = append(secrets, naming.SSLCertificateName(cr))
 	}
 
 	if len(cr.Spec.SSLInternalSecretName) > 0 {
 		secrets = append(secrets, cr.Spec.SSLInternalSecretName)
 	} else {
-		secrets = append(secrets, cr.Name+"-ssl-internal")
+		secrets = append(secrets, naming.SSLInternalCertificateName(cr))
 	}
 
 	for _, secretName := range secrets {
@@ -881,7 +885,7 @@ func (r *ReconcilePerconaXtraDBCluster) createOrUpdate(ctx context.Context, obj 
 	obj.SetAnnotations(objAnnotations)
 
 	val := reflect.ValueOf(obj)
-	if val.Kind() == reflect.Ptr {
+	if val.Kind() == reflect.Pointer {
 		val = reflect.Indirect(val)
 	}
 	oldObject := reflect.New(val.Type()).Interface().(client.Object)
@@ -918,7 +922,8 @@ func (r *ReconcilePerconaXtraDBCluster) createOrUpdate(ctx context.Context, obj 
 			obj.SetResourceVersion(oldObject.GetResourceVersion())
 		}
 
-		log.V(1).Info("Updating object",
+		log.V(1).Info(
+			"Updating object",
 			"object", obj.GetName(),
 			"kind", obj.GetObjectKind(),
 			"hashChanged", oldObject.GetAnnotations()["percona.com/last-config-hash"] != hash,
@@ -1008,7 +1013,7 @@ func (r *ReconcilePerconaXtraDBCluster) createOrUpdateService(ctx context.Contex
 }
 
 func getObjectHash(obj runtime.Object) (string, error) {
-	var dataToMarshall interface{}
+	var dataToMarshall any
 	switch object := obj.(type) {
 	case *appsv1.StatefulSet:
 		dataToMarshall = object.Spec
@@ -1046,13 +1051,13 @@ func compareMaps(x, y map[string]string) bool {
 	return true
 }
 
-func (r *ReconcilePerconaXtraDBCluster) getConfigVolume(nsName, cvName, cmName string, useDefaultVolume bool) (corev1.Volume, error) {
+func (r *ReconcilePerconaXtraDBCluster) getConfigVolume(ctx context.Context, nsName, cvName, cmName string, useDefaultVolume bool) (corev1.Volume, error) {
 	n := types.NamespacedName{
 		Namespace: nsName,
 		Name:      cmName,
 	}
 
-	err := r.client.Get(context.TODO(), n, &corev1.Secret{})
+	err := r.client.Get(ctx, n, &corev1.Secret{})
 	if err == nil {
 		return app.GetSecretVolumes(cvName, cmName, false), nil
 	}
@@ -1060,7 +1065,7 @@ func (r *ReconcilePerconaXtraDBCluster) getConfigVolume(nsName, cvName, cmName s
 		return corev1.Volume{}, err
 	}
 
-	err = r.client.Get(context.TODO(), n, &corev1.ConfigMap{})
+	err = r.client.Get(ctx, n, &corev1.ConfigMap{})
 	if err == nil {
 		return app.GetConfigVolumes(cvName, cmName), nil
 	}

@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path"
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -42,8 +44,8 @@ import (
 
 // Add creates a new PerconaXtraDBClusterBackup Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
-func Add(mgr manager.Manager) error {
-	r, err := newReconciler(mgr)
+func Add(ctx context.Context, mgr manager.Manager) error {
+	r, err := newReconciler(ctx, mgr)
 	if err != nil {
 		return err
 	}
@@ -52,8 +54,8 @@ func Add(mgr manager.Manager) error {
 }
 
 // newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager) (reconcile.Reconciler, error) {
-	sv, err := version.Server()
+func newReconciler(ctx context.Context, mgr manager.Manager) (reconcile.Reconciler, error) {
+	sv, err := version.Server(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "get version")
 	}
@@ -103,7 +105,7 @@ type ReconcilePerconaXtraDBClusterBackup struct {
 	scheme *runtime.Scheme
 
 	serverVersion       *version.ServerVersion
-	clientcmd           *clientcmd.Client
+	clientcmd           clientcmd.Client
 	chLimit             chan struct{}
 	bcpDeleteInProgress *sync.Map
 }
@@ -371,17 +373,21 @@ func (r *ReconcilePerconaXtraDBClusterBackup) createBackupJob(
 		if storage.S3 == nil {
 			return nil, errors.New("s3 storage is not specified")
 		}
-		cr.Status.Destination.SetS3Destination(storage.S3.Bucket, cr.Spec.PXCCluster+"-"+cr.CreationTimestamp.Time.Format("2006-01-02-15:04:05")+"-full")
-
-		err := backup.SetStorageS3(ctx, &job.Spec, cr)
+		bucket, prefix, err := storage.S3.BucketAndPrefix()
 		if err != nil {
+			return nil, errors.Wrap(err, "failed to get bucket and prefix")
+		}
+		cr.Status.Destination.SetS3Destination(path.Join(bucket, prefix), cr.Spec.PXCCluster+"-"+cr.CreationTimestamp.Time.Format("2006-01-02-15:04:05")+"-full")
+
+		if err := backup.SetStorageS3(ctx, &job.Spec, cr); err != nil {
 			return nil, errors.Wrap(err, "set storage FS")
 		}
 	case api.BackupStorageAzure:
 		if storage.Azure == nil {
 			return nil, errors.New("azure storage is not specified")
 		}
-		cr.Status.Destination.SetAzureDestination(storage.Azure.ContainerPath, cr.Spec.PXCCluster+"-"+cr.CreationTimestamp.Time.Format("2006-01-02-15:04:05")+"-full")
+		container, prefix := storage.Azure.ContainerAndPrefix()
+		cr.Status.Destination.SetAzureDestination(path.Join(container, prefix), cr.Spec.PXCCluster+"-"+cr.CreationTimestamp.Time.Format("2006-01-02-15:04:05")+"-full")
 
 		err := backup.SetStorageAzure(ctx, &job.Spec, cr)
 		if err != nil {
@@ -420,10 +426,8 @@ func (r *ReconcilePerconaXtraDBClusterBackup) ensureFinalizers(ctx context.Conte
 		return nil
 	}
 
-	for _, f := range cr.GetFinalizers() {
-		if f == naming.FinalizerReleaseLock {
-			return nil
-		}
+	if slices.Contains(cr.GetFinalizers(), naming.FinalizerReleaseLock) {
+		return nil
 	}
 
 	orig := cr.DeepCopy()
@@ -452,7 +456,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) tryRunBackupFinalizers(ctx context
 	default:
 		if _, ok := r.bcpDeleteInProgress.Load(cr.Name); !ok {
 			inprog := []string{}
-			r.bcpDeleteInProgress.Range(func(key, value interface{}) bool {
+			r.bcpDeleteInProgress.Range(func(key, value any) bool {
 				inprog = append(inprog, key.(string))
 				return true
 			})
@@ -616,6 +620,9 @@ func removeBackupObjects(ctx context.Context, s storage.Storage, destination str
 		}
 		if err := s.DeleteObject(ctx, strings.TrimSuffix(destination, "/")+".md5"); err != nil && err != storage.ErrObjectNotFound {
 			return errors.Wrapf(err, "delete object %s", strings.TrimSuffix(destination, "/")+".md5")
+		}
+		if err := s.DeleteObject(ctx, strings.TrimSuffix(destination, "/")+".meta.json"); err != nil && err != storage.ErrObjectNotFound {
+			return errors.Wrapf(err, "delete object %s", strings.TrimSuffix(destination, "/")+".meta.json")
 		}
 		destination = strings.TrimSuffix(destination, "/") + ".sst_info/"
 		blobs, err = s.ListObjects(ctx, destination)
@@ -865,7 +872,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) suspendJobIfNeeded(
 			return err
 		}
 
-		job.Spec.Suspend = ptr.To(true)
+		job.Spec.Suspend = new(true)
 		err = r.client.Update(ctx, job)
 		if err != nil {
 			return err
@@ -928,7 +935,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) resumeJobIfNeeded(
 			return err
 		}
 
-		job.Spec.Suspend = ptr.To(false)
+		job.Spec.Suspend = new(false)
 		err = r.client.Update(ctx, job)
 		if err != nil {
 			return err

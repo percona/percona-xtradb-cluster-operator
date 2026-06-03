@@ -5,19 +5,18 @@ import (
 	"fmt"
 	"time"
 
-	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/queries"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-)
 
-const appName = "pxc"
+	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/queries"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
+)
 
 var NoProxyDetectedError = errors.New("can't detect enabled proxy, please enable HAProxy or ProxySQL")
 
@@ -53,8 +52,9 @@ func waitAndGetFirstReadyPodFQDN(ctx context.Context, cl client.Client, cr *api.
 func GetPrimaryPod(
 	ctx context.Context,
 	cl client.Client,
-	cr *api.PerconaXtraDBCluster) (string, error) {
-	conn, err := GetProxyConnection(cr, cl)
+	cr *api.PerconaXtraDBCluster,
+) (string, error) {
+	conn, err := GetProxyConnection(ctx, cr, cl)
 	if errors.Is(err, NoProxyDetectedError) && cr.Spec.PXC.Size == 1 {
 		host, err := waitAndGetFirstReadyPodFQDN(ctx, cl, cr)
 		if err != nil {
@@ -87,12 +87,13 @@ func GetPrimaryPod(
 func GetHostForSidecarBackup(
 	ctx context.Context,
 	cl client.Client,
-	cr *api.PerconaXtraDBCluster) (string, error) {
+	cr *api.PerconaXtraDBCluster,
+) (string, error) {
 	switch {
 	case cr.HAProxyEnabled():
 		return getNonPrimaryHAProxy(ctx, cl, cr)
 	case cr.ProxySQLEnabled():
-		return getNonPrimaryProxySQL(cl, cr)
+		return getNonPrimaryProxySQL(ctx, cl, cr)
 	}
 	return waitAndGetFirstReadyPodFQDN(ctx, cl, cr)
 }
@@ -102,7 +103,7 @@ func PodFQDN(pod string, sts *appsv1.StatefulSet) string {
 }
 
 func getNonPrimaryHAProxy(ctx context.Context, cl client.Client, cr *api.PerconaXtraDBCluster) (string, error) {
-	conn, err := GetProxyConnection(cr, cl)
+	conn, err := GetProxyConnection(ctx, cr, cl)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to get proxy connection")
 	}
@@ -133,8 +134,8 @@ func getNonPrimaryHAProxy(ctx context.Context, cl client.Client, cr *api.Percona
 	return PodFQDN(primaryPod, sts), nil
 }
 
-func getNonPrimaryProxySQL(cl client.Client, cr *api.PerconaXtraDBCluster) (string, error) {
-	conn, err := GetProxyConnection(cr, cl)
+func getNonPrimaryProxySQL(ctx context.Context, cl client.Client, cr *api.PerconaXtraDBCluster) (string, error) {
+	conn, err := GetProxyConnection(ctx, cr, cl)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to get proxy connection")
 	}
@@ -153,7 +154,7 @@ func getNonPrimaryProxySQL(cl client.Client, cr *api.PerconaXtraDBCluster) (stri
 }
 
 // GetProxyConnection returns a new connection through the proxy (ProxySQL or HAProxy)
-func GetProxyConnection(cr *api.PerconaXtraDBCluster, cl client.Client) (queries.Database, error) {
+func GetProxyConnection(ctx context.Context, cr *api.PerconaXtraDBCluster, cl client.Client) (queries.Database, error) {
 	var database queries.Database
 	var user, host string
 	var port, proxySize int32
@@ -187,7 +188,7 @@ func GetProxyConnection(cr *api.PerconaXtraDBCluster, cl client.Client) (queries
 	}
 
 	for i := 0; ; i++ {
-		db, err := queries.New(cl, cr.Namespace, secrets, user, host, port, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
+		db, err := queries.New(ctx, cl, cr.Namespace, secrets, user, host, port, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
 		if err != nil && i < int(proxySize) {
 			time.Sleep(time.Second)
 		} else if err != nil && i == int(proxySize) {

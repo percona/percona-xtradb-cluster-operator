@@ -4,12 +4,13 @@ import (
 	"context"
 	"time"
 
-	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/pkg/errors"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
+
+	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 )
 
 var log = logf.Log
@@ -19,27 +20,27 @@ var log = logf.Log
 // stop.
 func StartStopSignalHandler(client client.Client, namespaces []string) context.Context {
 	ctx, shutdownFunc := context.WithCancel(context.Background())
-	go handleStopSignal(client, namespaces, shutdownFunc)
+	go handleStopSignal(ctx, client, namespaces, shutdownFunc)
 	return ctx
 }
 
-func handleStopSignal(client client.Client, namespaces []string, shutdownFunc context.CancelFunc) {
+func handleStopSignal(ctx context.Context, client client.Client, namespaces []string, shutdownFunc context.CancelFunc) {
 	<-signals.SetupSignalHandler().Done()
-	stop(client, namespaces)
+	stop(ctx, client, namespaces)
 	shutdownFunc()
 }
 
 // Stop is used to understand, when we need to stop operator(usially SIGTERM)
 // to start cleanup process and delete required pxc clusters in current(operator)
 // namespace. See K8SPXC-529
-func stop(cl client.Client, namespaces []string) {
+func stop(ctx context.Context, cl client.Client, namespaces []string) {
 	log.Info("Got stop signal, starting to list clusters")
 
 	readyToDelete := false
 
 	for !readyToDelete {
 		time.Sleep(5 * time.Second)
-		ready, err := checkClusters(cl, namespaces)
+		ready, err := checkClusters(ctx, cl, namespaces)
 		if err != nil {
 			log.Error(err, "delete clusters")
 		}
@@ -47,12 +48,12 @@ func stop(cl client.Client, namespaces []string) {
 	}
 }
 
-func checkClusters(cl client.Client, namespaces []string) (bool, error) {
+func checkClusters(ctx context.Context, cl client.Client, namespaces []string) (bool, error) {
 	for _, ns := range namespaces {
 
 		clusterList := &api.PerconaXtraDBClusterList{}
 
-		err := cl.List(context.TODO(), clusterList, &client.ListOptions{Namespace: ns})
+		err := cl.List(ctx, clusterList, &client.ListOptions{Namespace: ns})
 		if err != nil && !k8serrors.IsNotFound(err) {
 			return false, errors.Wrapf(err, "list clusters in namespace: %s", ns)
 		}
@@ -63,7 +64,7 @@ func checkClusters(cl client.Client, namespaces []string) (bool, error) {
 
 		bcpList := api.PerconaXtraDBClusterBackupList{}
 
-		err = cl.List(context.TODO(), &bcpList, &client.ListOptions{Namespace: ns})
+		err = cl.List(ctx, &bcpList, &client.ListOptions{Namespace: ns})
 		if err != nil && !k8serrors.IsNotFound(err) {
 			return false, errors.Wrap(err, "failed to get backup object")
 		}

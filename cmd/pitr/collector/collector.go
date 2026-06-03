@@ -12,7 +12,6 @@ import (
 	"os"
 	"os/exec"
 	"path"
-	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -26,6 +25,7 @@ import (
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/util/gtid"
 )
 
 const collectorPasswordPath = "/etc/mysql/mysql-users-secret/xtrabackup"
@@ -524,85 +524,6 @@ func (c *Collector) addGTIDSets(ctx context.Context, cache *HostBinlogCache, bin
 	return nil
 }
 
-// gtidEndMarker extracts UUID and the highest sequence number from a GTID entry.
-// Examples:
-//
-//	"uuid:6093289-6093543" -> ("uuid", 6093543, nil)
-//	"uuid:1-5:7-9"         -> ("uuid", 9, nil)
-func gtidEndMarker(gtid string) (string, int64, error) {
-	parts := strings.SplitN(gtid, ":", 2)
-	if len(parts) != 2 {
-		return "", 0, errors.Errorf("invalid gtid: %s", gtid)
-	}
-
-	uuid := strings.TrimSpace(parts[0])
-	if uuid == "" {
-		return "", 0, errors.New("uuid is empty")
-	}
-
-	maxSeq := int64(-1)
-	for interval := range strings.SplitSeq(parts[1], ":") {
-		interval = strings.TrimSpace(interval)
-		if interval == "" {
-			continue
-		}
-
-		hi := interval
-		if dash := strings.LastIndex(interval, "-"); dash >= 0 {
-			hi = interval[dash+1:]
-		}
-
-		n, err := strconv.ParseInt(hi, 10, 64)
-		if err != nil {
-			continue
-		}
-		if n > maxSeq {
-			maxSeq = n
-		}
-	}
-
-	if maxSeq < 0 {
-		return "", 0, errors.New("couldn't find maxSeq")
-	}
-	return uuid, maxSeq, nil
-}
-
-// gtidContainsSeq checks if GTID entry contains seq for uuid.
-// gtidEntry format: "uuid:1-5:7-9" or "uuid:10-20" etc.
-func gtidContainsSeq(gtidEntry, uuid string, seq int64) bool {
-	parts := strings.SplitN(gtidEntry, ":", 2)
-	if len(parts) != 2 {
-		return false
-	}
-	if strings.TrimSpace(parts[0]) != uuid {
-		return false
-	}
-
-	for interval := range strings.SplitSeq(parts[1], ":") {
-		interval = strings.TrimSpace(interval)
-		if interval == "" {
-			continue
-		}
-
-		loStr, hiStr := interval, interval
-		if dash := strings.LastIndex(interval, "-"); dash >= 0 {
-			loStr = interval[:dash]
-			hiStr = interval[dash+1:]
-		}
-
-		lo, err1 := strconv.ParseInt(loStr, 10, 64)
-		hi, err2 := strconv.ParseInt(hiStr, 10, 64)
-		if err1 != nil || err2 != nil {
-			continue
-		}
-		if lo <= seq && seq <= hi {
-			return true
-		}
-	}
-
-	return false
-}
-
 // findBinlogWithEndMarker walks binlogs from most recent to oldest and returns the
 // name of the first binlog whose GTID set contains the end (highest) sequence of any
 // GTID entry in lastUploadedSet. Returns "" when no binlog matches, indicating a gap.
@@ -611,14 +532,22 @@ func findBinlogWithEndMarker(binlogs []pxc.Binlog, lastUploadedSet pxc.GTIDSet) 
 		log.Printf("checking %s (%s) against last uploaded set", binlogs[i].Name, binlogs[i].GTIDSet.Raw())
 
 		for _, lastUploaded := range lastUploadedSet.List() {
-			uuid, endSeq, err := gtidEndMarker(lastUploaded)
+			lastUploadedGTID, err := gtid.New(lastUploaded)
 			if err != nil {
-				log.Printf("failed to get end marker of last uploaded gtid: %v", err)
+				log.Printf("failed to parse last uploaded gtid: %v", err)
 				continue
 			}
 
+			uuid, endSeq := lastUploadedGTID.End()
+
 			for _, gtidSet := range binlogs[i].GTIDSet.List() {
-				if gtidContainsSeq(gtidSet, uuid, endSeq) {
+				parsedGtidSet, err := gtid.New(gtidSet)
+				if err != nil {
+					log.Printf("failed to parse gtid set: %v", err)
+					continue
+				}
+
+				if parsedGtidSet.ContainsSeq(uuid, endSeq) {
 					log.Printf("last uploaded end marker %s:%d found in %s (%s)", uuid, endSeq, binlogs[i].Name, gtidSet)
 					return binlogs[i].Name
 				}

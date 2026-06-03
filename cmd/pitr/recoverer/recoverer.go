@@ -21,6 +21,7 @@ import (
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/util/gtid"
 	xbserver "github.com/percona/percona-xtradb-cluster-operator/pkg/xtrabackup/server"
 )
 
@@ -326,6 +327,13 @@ func (r *Recoverer) Run(ctx context.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "get binlog list")
 	}
+	if len(r.binlogs) == 0 {
+		if r.recoverType == Latest {
+			log.Println("no binlogs to recover from, already at latest. Skipping recovery.")
+			return nil
+		}
+		return errors.New("no binlogs to recover")
+	}
 
 	switch r.recoverType {
 	case Skip:
@@ -475,46 +483,95 @@ func getDecompressedContent(ctx context.Context, infoObj io.Reader, filename str
 	return decContent, nil
 }
 
-func (r *Recoverer) setBinlogs(ctx context.Context) error {
+type binlog struct {
+	objectName string
+	gtidSet    *gtid.GTIDSet
+}
+
+func (r *Recoverer) selectBinlogCandidates(ctx context.Context) ([]binlog, error) {
+	candidates := []binlog{}
+
 	list, err := r.storage.ListObjects(ctx, "binlog_")
 	if err != nil {
-		return errors.Wrap(err, "list objects with prefix 'binlog_'")
+		return nil, errors.Wrap(err, "list objects with prefix 'binlog_'")
 	}
-	reverse(list)
-	binlogs := []string{}
-	sourceID := strings.Split(r.startGTID, ":")[0]
-	log.Println("current gtid set is", r.startGTID)
-	for _, binlog := range list {
-		if strings.Contains(binlog, "-gtid-set") {
+
+	for _, objectName := range list {
+		if strings.Contains(objectName, "-gtid-set") {
 			continue
 		}
-		infoObj, err := r.storage.GetObject(ctx, binlog+"-gtid-set")
+
+		infoObj, err := r.storage.GetObject(ctx, objectName+"-gtid-set")
 		if err != nil {
-			log.Println("Can't get binlog object with gtid set. Name:", binlog, "error", err)
+			log.Println("Can't get binlog object with gtid set. Name:", objectName, "error", err)
 			continue
 		}
 
 		content, err := io.ReadAll(infoObj)
 		infoObj.Close() //nolint:errcheck
 		if err != nil {
-			return errors.Wrapf(err, "read %s gtid-set object", binlog)
+			return nil, errors.Wrapf(err, "read %s gtid-set object", objectName)
 		}
 
-		binlogGTIDSet := string(content)
-		log.Println("checking current file", " name ", binlog, " gtid ", binlogGTIDSet)
+		binlogGTIDSet, err := gtid.New(string(content))
+		if err != nil {
+			return nil, errors.Wrapf(err, "parse gtid set for %s", objectName)
+		}
 
-		if !gtidSetContainsUUID(binlogGTIDSet, r.timelineUUID) {
-			log.Println("skipping binlog", binlog, "because it's not from the same timeline as the backup")
+		if !binlogGTIDSet.ContainsUUID(r.timelineUUID) {
 			continue
 		}
 
+		candidates = append(candidates, binlog{
+			objectName: objectName,
+			gtidSet:    binlogGTIDSet,
+		})
+	}
+
+	// Sort descending by end-sequence. Tiebreak by object name descending.
+	sort.Slice(candidates, func(x, y int) bool {
+		_, xEndSeq := candidates[x].gtidSet.End(gtid.MatchesUUID(r.timelineUUID))
+		_, yEndSeq := candidates[y].gtidSet.End(gtid.MatchesUUID(r.timelineUUID))
+
+		if xEndSeq != yEndSeq {
+			return xEndSeq > yEndSeq
+		}
+		return candidates[x].objectName > candidates[y].objectName
+	})
+
+	return candidates, nil
+}
+
+func (r *Recoverer) setBinlogs(ctx context.Context) error {
+	candidates, err := r.selectBinlogCandidates(ctx)
+	if err != nil {
+		return errors.Wrap(err, "select binlog candidates")
+	}
+
+	startGTIDSet, err := gtid.New(r.startGTID)
+	if err != nil {
+		return errors.Wrap(err, "parse start gtid set")
+	}
+
+	binlogs := []string{}
+	for _, candidate := range candidates {
+		binlogGTIDSet := candidate.gtidSet
+
+		log.Println("checking current file", " name ", candidate.objectName, " gtid ", binlogGTIDSet.String())
+
 		if len(r.gtid) > 0 && r.recoverType == Transaction {
-			subResult, err := r.db.SubtractGTIDSet(ctx, binlogGTIDSet, r.gtid)
+			subResult, err := r.db.SubtractGTIDSet(ctx, binlogGTIDSet.String(), r.gtid)
 			if err != nil {
-				return errors.Wrapf(err, "check if '%s' is a subset of '%s", binlogGTIDSet, r.gtid)
+				return errors.Wrapf(err, "check if '%s' is a subset of '%s'", binlogGTIDSet, r.gtid)
 			}
-			if subResult != binlogGTIDSet {
-				set, err := getExtendGTIDSet(binlogGTIDSet, r.gtid)
+
+			subResultGTIDSet, err := gtid.New(subResult)
+			if err != nil {
+				return errors.Wrap(err, "parse sub result gtid set")
+			}
+
+			if !subResultGTIDSet.Equal(binlogGTIDSet) {
+				set, err := getExtendGTIDSet(binlogGTIDSet.String(), r.gtid)
 				if err != nil {
 					return errors.Wrap(err, "get gtid set for extend")
 				}
@@ -525,33 +582,33 @@ func (r *Recoverer) setBinlogs(ctx context.Context) error {
 			}
 		}
 
-		binlogs = append(binlogs, binlog)
-		subResult, err := r.db.SubtractGTIDSet(ctx, r.startGTID, binlogGTIDSet)
-		log.Println("Checking sub result", " binlog gtid ", binlogGTIDSet, " sub result ", subResult)
+		binlogs = append(binlogs, candidate.objectName)
+		subResult, err := r.db.SubtractGTIDSet(ctx, r.startGTID, binlogGTIDSet.String())
 		if err != nil {
-			return errors.Wrapf(err, "check if '%s' is a subset of '%s", r.startGTID, binlogGTIDSet)
+			return errors.Wrapf(err, "check if '%s' is a subset of '%s'", r.startGTID, binlogGTIDSet)
 		}
-		if subResult != r.startGTID {
+		log.Println("Checking sub result", " binlog gtid ", binlogGTIDSet, " sub result ", subResult)
+
+		subResultGTIDSet, err := gtid.New(subResult)
+		if err != nil {
+			return errors.Wrap(err, "parse sub result gtid set")
+		}
+
+		if !subResultGTIDSet.Equal(startGTIDSet) {
 			break
 		}
 	}
-	if len(binlogs) == 0 {
-		return errors.Errorf("no objects for prefix binlog_ or with source_id=%s", sourceID)
-	}
+
 	reverse(binlogs)
 	r.binlogs = binlogs
-
 	return nil
 }
 
-func gtidSetContainsUUID(gtidSet, uuid string) bool {
-	for segment := range strings.SplitSeq(gtidSet, ",") {
-		segment = strings.TrimSpace(segment)
-		if strings.HasPrefix(segment, uuid+":") {
-			return true
-		}
+func reverse(list []string) {
+	for i := len(list)/2 - 1; i >= 0; i-- {
+		opp := len(list) - 1 - i
+		list[i], list[opp] = list[opp], list[i]
 	}
-	return false
 }
 
 func getExtendGTIDSet(gtidSet, gtid string) (string, error) {
@@ -578,13 +635,6 @@ func getExtendGTIDSet(gtidSet, gtid string) (string, error) {
 	es := strings.Split(gs[1], "-")
 
 	return gs[0] + ":" + es[0] + "-" + e[eidx], nil
-}
-
-func reverse(list []string) {
-	for i := len(list)/2 - 1; i >= 0; i-- {
-		opp := len(list) - 1 - i
-		list[i], list[opp] = list[opp], list[i]
-	}
 }
 
 func getStartGTIDSet(ctx context.Context, s storage.Storage) (string, error) {

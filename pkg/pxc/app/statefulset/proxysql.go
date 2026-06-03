@@ -630,7 +630,7 @@ func pmm3ProxySQLEnvVars(pmmProxysqlParams string) []corev1.EnvVar {
 	}
 }
 
-func (c *Proxy) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg api.CustomVolumeGetter) (*api.Volume, error) {
+func (c *Proxy) Volumes(ctx context.Context, podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg api.CustomVolumeGetter) (*api.Volume, error) {
 	ls := c.Labels()
 
 	sslVolume := app.GetSecretVolumes("ssl", podSpec.SSLSecretName, !cr.TLSEnabled())
@@ -645,7 +645,7 @@ func (c *Proxy) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg a
 		sslVolume,
 	)
 
-	configVolume, err := vg(cr.Namespace, proxyConfigVolumeName, ls[naming.LabelAppKubernetesInstance]+"-proxysql", false)
+	configVolume, err := vg(ctx, cr.Namespace, proxyConfigVolumeName, ls[naming.LabelAppKubernetesInstance]+"-proxysql", false)
 	if err != nil && !errors.Is(err, api.NoCustomVolumeErr) {
 		return nil, err
 	}
@@ -657,7 +657,8 @@ func (c *Proxy) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg a
 			app.GetConfigVolumes("hookscript", ls[naming.LabelAppKubernetesInstance]+"-"+ls[naming.LabelAppKubernetesComponent]+"-hookscript"))
 	}
 	if cr.CompareVersionWith("1.13.0") >= 0 {
-		vol.Volumes = append(vol.Volumes,
+		vol.Volumes = append(
+			vol.Volumes,
 			corev1.Volume{
 				Name: naming.BinVolumeName,
 				VolumeSource: corev1.VolumeSource{

@@ -112,9 +112,16 @@ main() {
 			echo "timeout: ${internal_tls_new_secret} was not removed after internal TLS rotation (waited 5m)"
 			exit 1
 		fi
-		probe=$(run_mysql "SELECT 1;" "-h ${cluster}-proxysql -uroot -proot_password")
+		probe=""
+		for probe_attempt in $(seq 1 5); do
+			probe=$(run_mysql "SELECT 1;" "-h ${cluster}-proxysql -uroot -proot_password")
+			if [ "$probe" == "1" ]; then
+				break
+			fi
+			sleep 1
+		done
 		if [ "$probe" != "1" ]; then
-			echo "error: downtime during certificate rotation"
+			echo "error: downtime during certificate rotation. Probe result: $probe"
 			exit 1
 		fi
 		sleep 5

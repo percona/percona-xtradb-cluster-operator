@@ -36,14 +36,16 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileSSL(ctx context.Context, cr *ap
 
 	secretObj := corev1.Secret{}
 	secretInternalObj := corev1.Secret{}
-	errSecret := r.client.Get(ctx,
+	errSecret := r.client.Get(
+		ctx,
 		types.NamespacedName{
 			Namespace: cr.Namespace,
 			Name:      cr.Spec.PXC.SSLSecretName,
 		},
 		&secretObj,
 	)
-	errInternalSecret := r.client.Get(ctx,
+	errInternalSecret := r.client.Get(
+		ctx,
 		types.NamespacedName{
 			Namespace: cr.Namespace,
 			Name:      cr.Spec.PXC.SSLInternalSecretName,
@@ -417,7 +419,8 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileCARotation(
 		return nil
 	}
 
-	log.Info("CA certificate rotation detected, re-issuing leaf TLS certificates",
+	log.Info(
+		"CA certificate rotation detected, re-issuing leaf TLS certificates",
 		"cluster", cr.Name,
 		"sslMismatch", sslMismatch,
 		"sslInternalMismatch", sslInternalMismatch,
@@ -579,7 +582,8 @@ func (r *ReconcilePerconaXtraDBCluster) rotateSSLCertificate(
 	// newSecret contains the new TLS certificates
 	newSecretName := secretName + "-new"
 	newSecretObj := corev1.Secret{}
-	if err := r.client.Get(ctx,
+	if err := r.client.Get(
+		ctx,
 		types.NamespacedName{
 			Namespace: cr.GetNamespace(),
 			Name:      newSecretName,
@@ -593,7 +597,8 @@ func (r *ReconcilePerconaXtraDBCluster) rotateSSLCertificate(
 
 	// secretObj contains the current TLS certificates
 	secretObj := corev1.Secret{}
-	if err := r.client.Get(ctx,
+	if err := r.client.Get(
+		ctx,
 		types.NamespacedName{
 			Namespace: cr.GetNamespace(),
 			Name:      secretName,
@@ -676,7 +681,7 @@ func (r *ReconcilePerconaXtraDBCluster) rotateSSLCertificate(
 }
 
 func (r *ReconcilePerconaXtraDBCluster) isSSLReconciled(ctx context.Context, cr *api.PerconaXtraDBCluster, secretName string) (bool, error) {
-	calculatedHash, err := r.getSecretHash(cr, secretName, false)
+	calculatedHash, err := r.getSecretHash(ctx, cr, secretName, false)
 	if err != nil {
 		return false, errors.Wrap(err, "failed to get secret hash")
 	}

@@ -70,11 +70,11 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(
 		return errors.Wrap(err, "get config hash")
 	}
 
-	envVarsHash, err := r.getSecretHash(cr, cr.Spec.PXC.EnvVarsSecretName, true)
+	envVarsHash, err := r.getSecretHash(ctx, cr, cr.Spec.PXC.EnvVarsSecretName, true)
 	if isHAproxy(sfs) {
-		envVarsHash, err = r.getSecretHash(cr, cr.Spec.HAProxy.EnvVarsSecretName, true)
+		envVarsHash, err = r.getSecretHash(ctx, cr, cr.Spec.HAProxy.EnvVarsSecretName, true)
 	} else if isProxySQL(sfs) {
-		envVarsHash, err = r.getSecretHash(cr, cr.Spec.ProxySQL.EnvVarsSecretName, true)
+		envVarsHash, err = r.getSecretHash(ctx, cr, cr.Spec.ProxySQL.EnvVarsSecretName, true)
 	}
 	if err != nil {
 		return errors.Wrap(err, "get env vars secret hash")
@@ -82,15 +82,15 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(
 
 	var vaultConfigHash, sslHash, sslInternalHash string
 	if !isHAproxy(sfs) {
-		vaultConfigHash, err = r.getSecretHash(cr, cr.Spec.VaultSecretName, true)
+		vaultConfigHash, err = r.getSecretHash(ctx, cr, cr.Spec.VaultSecretName, true)
 		if err != nil {
 			return errors.Wrap(err, "get vault secret hash")
 		}
-		sslHash, err = r.getSecretHash(cr, cr.Spec.PXC.SSLSecretName, !cr.TLSEnabled())
+		sslHash, err = r.getSecretHash(ctx, cr, cr.Spec.PXC.SSLSecretName, !cr.TLSEnabled())
 		if err != nil {
 			return errors.Wrap(err, "get ssl secret hash")
 		}
-		sslInternalHash, err = r.getSecretHash(cr, cr.Spec.PXC.SSLInternalSecretName, !cr.TLSEnabled())
+		sslInternalHash, err = r.getSecretHash(ctx, cr, cr.Spec.PXC.SSLInternalSecretName, !cr.TLSEnabled())
 		if err != nil && !k8serrors.IsNotFound(err) {
 			return errors.Wrap(err, "get internal ssl secret hash")
 		}
@@ -222,7 +222,8 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(ctx context.Context, sfs api
 	}
 
 	list := corev1.PodList{}
-	if err := r.client.List(ctx,
+	if err := r.client.List(
+		ctx,
 		&list,
 		&client.ListOptions{
 			Namespace:     currentSet.Namespace,
@@ -244,7 +245,7 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(ctx context.Context, sfs api
 
 	log.Info("statefulSet was changed, run smart update")
 
-	running, err := r.isBackupRunning(cr)
+	running, err := r.isBackupRunning(ctx, cr)
 	if err != nil {
 		log.Error(err, "can't start 'SmartUpdate'")
 		return nil
@@ -324,7 +325,7 @@ func (r *ReconcilePerconaXtraDBCluster) applyNWait(ctx context.Context, cr *api.
 		return errors.Wrap(err, "failed to wait pod")
 	}
 
-	if err := r.waitPXCSynced(cr, pxc.PodFQDN(pod.Name, sfs), waitLimit); err != nil {
+	if err := r.waitPXCSynced(ctx, cr, pxc.PodFQDN(pod.Name, sfs), waitLimit); err != nil {
 		return errors.Wrap(err, "failed to wait pxc sync")
 	}
 
@@ -355,7 +356,7 @@ func (r *ReconcilePerconaXtraDBCluster) waitHostgroups(
 	}
 	log := logf.FromContext(ctx)
 
-	database, err := pxc.GetProxyConnection(cr, r.client)
+	database, err := pxc.GetProxyConnection(ctx, cr, r.client)
 	if err != nil {
 		return errors.Wrap(err, "connect to proxy")
 	}
@@ -400,7 +401,7 @@ func (r *ReconcilePerconaXtraDBCluster) waitUntilOnline(
 		return nil
 	}
 
-	database, err := pxc.GetProxyConnection(cr, r.client)
+	database, err := pxc.GetProxyConnection(ctx, cr, r.client)
 	if err != nil {
 		return errors.Wrap(err, "failed to get proxySQL db")
 	}
@@ -460,7 +461,7 @@ func retry(in, limit time.Duration, f func() (bool, error)) error {
 	}
 }
 
-func (r *ReconcilePerconaXtraDBCluster) waitPXCSynced(cr *api.PerconaXtraDBCluster, host string, waitLimit int) error {
+func (r *ReconcilePerconaXtraDBCluster) waitPXCSynced(ctx context.Context, cr *api.PerconaXtraDBCluster, host string, waitLimit int) error {
 	secrets := cr.Spec.SecretsName
 	port := int32(3306)
 	if cr.CompareVersionWith("1.6.0") >= 0 {
@@ -468,7 +469,7 @@ func (r *ReconcilePerconaXtraDBCluster) waitPXCSynced(cr *api.PerconaXtraDBClust
 		port = int32(33062)
 	}
 
-	database, err := queries.New(r.client, cr.Namespace, secrets, users.Root, host, port, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
+	database, err := queries.New(ctx, r.client, cr.Namespace, secrets, users.Root, host, port, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
 	if err != nil {
 		return errors.Wrap(err, "failed to access PXC database")
 	}
@@ -575,9 +576,9 @@ func isProxySQL(sfs api.StatefulApp) bool {
 	return sfs.Labels()[naming.LabelAppKubernetesComponent] == "proxysql"
 }
 
-func (r *ReconcilePerconaXtraDBCluster) isBackupRunning(cr *api.PerconaXtraDBCluster) (bool, error) {
+func (r *ReconcilePerconaXtraDBCluster) isBackupRunning(ctx context.Context, cr *api.PerconaXtraDBCluster) (bool, error) {
 	bcpList := api.PerconaXtraDBClusterBackupList{}
-	if err := r.client.List(context.TODO(), &bcpList, &client.ListOptions{Namespace: cr.Namespace}); err != nil {
+	if err := r.client.List(ctx, &bcpList, &client.ListOptions{Namespace: cr.Namespace}); err != nil {
 		if k8serrors.IsNotFound(err) {
 			return false, nil
 		}
@@ -597,10 +598,10 @@ func (r *ReconcilePerconaXtraDBCluster) isBackupRunning(cr *api.PerconaXtraDBClu
 	return false, nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) isRestoreRunning(clusterName, namespace string) (bool, error) {
+func (r *ReconcilePerconaXtraDBCluster) isRestoreRunning(ctx context.Context, clusterName, namespace string) (bool, error) {
 	restoreList := api.PerconaXtraDBClusterRestoreList{}
 
-	err := r.client.List(context.TODO(), &restoreList, &client.ListOptions{
+	err := r.client.List(ctx, &restoreList, &client.ListOptions{
 		Namespace: namespace,
 	})
 	if err != nil {
@@ -641,7 +642,8 @@ func getCustomConfigHashHex(strData map[string]string, binData map[string][]byte
 }
 
 func (r *ReconcilePerconaXtraDBCluster) getConfigHash(
-	ctx context.Context, cr *api.PerconaXtraDBCluster, sfs api.StatefulApp) (string, error) {
+	ctx context.Context, cr *api.PerconaXtraDBCluster, sfs api.StatefulApp,
+) (string, error) {
 	var b strings.Builder
 
 	if res, err := r.getComponentConfigHash(ctx, cr, sfs); err != nil {
@@ -726,12 +728,13 @@ func (r *ReconcilePerconaXtraDBCluster) getFirstExisting(ctx context.Context, na
 	return nil, nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) getSecretHash(cr *api.PerconaXtraDBCluster, secretName string, allowNonExistingSecret bool) (string, error) {
+func (r *ReconcilePerconaXtraDBCluster) getSecretHash(ctx context.Context, cr *api.PerconaXtraDBCluster, secretName string, allowNonExistingSecret bool) (string, error) {
 	if allowNonExistingSecret && secretName == "" {
 		return "", nil
 	}
 	secretObj := corev1.Secret{}
-	if err := r.client.Get(context.TODO(),
+	if err := r.client.Get(
+		ctx,
 		types.NamespacedName{
 			Namespace: cr.Namespace,
 			Name:      secretName,
@@ -754,7 +757,8 @@ func (r *ReconcilePerconaXtraDBCluster) getConfigMapHash(ctx context.Context, cr
 		return "", nil
 	}
 	cm := corev1.ConfigMap{}
-	if err := r.client.Get(ctx,
+	if err := r.client.Get(
+		ctx,
 		types.NamespacedName{
 			Namespace: cr.Namespace,
 			Name:      name,

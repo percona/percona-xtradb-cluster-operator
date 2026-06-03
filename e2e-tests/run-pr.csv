@@ -70,6 +70,10 @@ storage,8.0
 tls-issue-cert-manager-ref,8.0
 tls-issue-cert-manager,8.0
 tls-issue-self,8.0
+unsafe-flag-backup-if-unhealthy,8.0
+unsafe-flag-proxy-size,8.0
+unsafe-flag-pxc-size,8.0
+unsafe-flag-tls,8.0
 upgrade-consistency,8.0
 upgrade-consistency,8.4
 upgrade-haproxy,5.7

@@ -33,14 +33,14 @@ type ServerVersion struct {
 
 // Server returns server version and platform (k8s|oc)
 // it performs API requests for the first invocation and then returns "cached" value
-func Server() (*ServerVersion, error) {
+func Server(ctx context.Context) (*ServerVersion, error) {
 	mx.Lock()
 	defer mx.Unlock()
 	if cVersion != nil {
 		return cVersion, nil
 	}
 
-	v, err := GetServer()
+	v, err := GetServer(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -51,7 +51,7 @@ func Server() (*ServerVersion, error) {
 }
 
 // GetServer make request to platform server and returns server version and platform (k8s|oc)
-func GetServer() (*ServerVersion, error) {
+func GetServer(ctx context.Context) (*ServerVersion, error) {
 	cl, err := clientcmd.NewClient()
 	if err != nil {
 		return nil, fmt.Errorf("create REST client: %v", err)
@@ -60,14 +60,14 @@ func GetServer() (*ServerVersion, error) {
 
 	version := &ServerVersion{}
 	// oc 3.9
-	version.Info, err = probeAPI("/version/openshift", client)
+	version.Info, err = probeAPI(ctx, "/version/openshift", client)
 	if err == nil {
 		version.Platform = PlatformOpenshift
 		return version, nil
 	}
 
 	// oc 3.11+
-	version.Info, err = probeAPI("/oapi/v1", client)
+	version.Info, err = probeAPI(ctx, "/oapi/v1", client)
 	if err == nil {
 		version.Platform = PlatformOpenshift
 		version.Info.GitVersion = "undefined (v3.11+)"
@@ -75,7 +75,7 @@ func GetServer() (*ServerVersion, error) {
 	}
 
 	// openshift 4.0
-	version.Info, err = probeAPI("/apis/quota.openshift.io", client)
+	version.Info, err = probeAPI(ctx, "/apis/quota.openshift.io", client)
 	if err == nil {
 		version.Platform = PlatformOpenshift
 		version.Info.GitVersion = "undefined (v4.0+)"
@@ -83,7 +83,7 @@ func GetServer() (*ServerVersion, error) {
 	}
 
 	// k8s
-	version.Info, err = probeAPI("/version", client)
+	version.Info, err = probeAPI(ctx, "/version", client)
 	if err == nil {
 		version.Platform = PlatformKubernetes
 		return version, nil
@@ -92,9 +92,9 @@ func GetServer() (*ServerVersion, error) {
 	return version, err
 }
 
-func probeAPI(path string, client rest.Interface) (k8sversion.Info, error) {
+func probeAPI(ctx context.Context, path string, client rest.Interface) (k8sversion.Info, error) {
 	var vInfo k8sversion.Info
-	vBody, err := client.Get().AbsPath(path).Do(context.TODO()).Raw()
+	vBody, err := client.Get().AbsPath(path).Do(ctx).Raw()
 	if err != nil {
 		return vInfo, err
 	}

@@ -34,6 +34,10 @@ function has_error_status() {
 	fi
 }
 
+function get_initial_size() {
+	kubectl_bin get pvc -l app.kubernetes.io/component=pxc -o jsonpath='{.items[0].status.capacity.storage}'
+}
+
 function ensure_default_sc_allows_expansion() {
 	local default_sc=$(get_default_storageclass)
 
@@ -207,6 +211,7 @@ desc 'create 1st insufficient resourcequota'
 # We're setting the quota to 10Gi, so we can only resize the first PVC to 4Gi
 # the others should fail to resize due to the exceeded quota but operator should
 # handle the error and keep the cluster ready. Errored PVCs should keep old size.
+initial_size=$(get_initial_size)
 apply_resourcequota 10Gi
 patch_pvc_request "${cluster}" "4G"
 wait_cluster_consistency "$cluster" 3 2
@@ -218,12 +223,12 @@ resized_pvc=$(kubectl_bin get pvc -l app.kubernetes.io/component=pxc -o json | j
 echo "$resized_pvc was resized"
 wait_cluster_status ${cluster} "ready"
 
-# Check that 2 PVCs keep old size: 3$size_unit
-if [[ $(kubectl_bin get pvc -l app.kubernetes.io/component=pxc -o json | jq "[.items[] | select(.status.capacity.storage == \"3$size_unit\")] | length") != 2 ]]; then
+# Check that 2 PVCs keep the old size (${initial_size})
+if [[ $(kubectl_bin get pvc -l app.kubernetes.io/component=pxc -o json | jq "[.items[] | select(.status.capacity.storage == \"$initial_size\")] | length") != 2 ]]; then
 	echo "Number of PVCs with old size is not 2."
 	exit 1
 fi
-for pvc in $(kubectl_bin get pvc -l app.kubernetes.io/component=pxc -o json | jq -r ".items[] | select(.status.capacity.storage == \"3$size_unit\") | .metadata.name"); do
+for pvc in $(kubectl_bin get pvc -l app.kubernetes.io/component=pxc -o json | jq -r ".items[] | select(.status.capacity.storage == \"$initial_size\") | .metadata.name"); do
 	if [[ ! $(kubectl_bin describe pvc $pvc | grep "ExceededQuota" | grep "PVC resize failed") ]]; then
 		echo "PVCs do not have ExceededQuota error."
 		exit 1
@@ -243,12 +248,12 @@ resized_pvc=$(kubectl_bin get pvc -l app.kubernetes.io/component=pxc -o json | j
 echo "$resized_pvc was resized"
 wait_cluster_status ${cluster} "ready"
 
-# Check that 1 PVC keep old size: 3$size_unit
-if [[ $(kubectl_bin get pvc -l app.kubernetes.io/component=pxc -o json | jq "[.items[] | select(.status.capacity.storage == \"3$size_unit\")] | length") != 1 ]]; then
+# Check that 1 PVC keeps the old size (${initial_size})
+if [[ $(kubectl_bin get pvc -l app.kubernetes.io/component=pxc -o json | jq "[.items[] | select(.status.capacity.storage == \"$initial_size\")] | length") != 1 ]]; then
 	echo "Number of PVCs with old size is not 1."
 	exit 1
 fi
-for pvc in $(kubectl_bin get pvc -l app.kubernetes.io/component=pxc -o json | jq -r ".items[] | select(.status.capacity.storage == \"3$size_unit\") | .metadata.name"); do
+for pvc in $(kubectl_bin get pvc -l app.kubernetes.io/component=pxc -o json | jq -r ".items[] | select(.status.capacity.storage == \"$initial_size\") | .metadata.name"); do
 	if [[ ! $(kubectl_bin describe pvc $pvc | grep "ExceededQuota" | grep "PVC resize failed") ]]; then
 		echo "PVCs do not have ExceededQuota error."
 		exit 1

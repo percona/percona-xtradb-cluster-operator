@@ -45,7 +45,7 @@ main() {
 	apply_config "${test_dir}/conf/scheduled-backup-gcs-init.yml"
 	wait_all_backups
 
-	FIRST_GCP_BACKUP=$(kubectl_bin get pxc-backup -o jsonpath='{range .items[*]}{.metadata.name}:{.spec.storageName}:{.status.state}{"\n"}{end}' | grep Succeeded | grep gcp | head -n1 | cut -d: -f1)
+	FIRST_GCP_BACKUP=$(kubectl_bin get pxc-backup --sort-by=.metadata.creationTimestamp -o jsonpath='{range .items[?(@.spec.storageName=="gcp-cs")]}{.metadata.name}:{.status.state}{"\n"}{end}' | grep ":Succeeded$" | head -n1 | cut -d: -f1)
 	BACKUP_DEST_GCP=$(kubectl_bin get pxc-backup "$FIRST_GCP_BACKUP" -o jsonpath='{.status.destination}' | sed -e 's/.json$//' | cut -c 6-)
 
 	desc "Check backup existence in GCS"
@@ -62,7 +62,7 @@ main() {
 	wait_all_backups
 	wait_cluster_consistency "$cluster" 3
 
-	SECOND_GCP_BACKUP=$(kubectl_bin get pxc-backup -o jsonpath='{range .items[*]}{.metadata.name}:{.spec.storageName}:{.status.state}{"\n"}{end}' | grep Succeeded | grep gcp | head -n1 | cut -d: -f1)
+	SECOND_GCP_BACKUP=$(kubectl_bin get pxc-backup --sort-by=.metadata.creationTimestamp -o jsonpath='{range .items[?(@.spec.storageName=="gcp-cs")]}{.metadata.name}:{.status.state}{"\n"}{end}' | grep ":Succeeded$" | head -n1 | cut -d: -f1)
 	if [[ $FIRST_GCP_BACKUP == "$SECOND_GCP_BACKUP" ]]; then
 		echo "Something got wrong: First $FIRST_GCP_BACKUP and Second backup $SECOND_GCP_BACKUP for GCS are the same"
 		exit 1

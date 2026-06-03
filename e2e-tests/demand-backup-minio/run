@@ -54,7 +54,7 @@ main() {
 		exit 1
 	fi
 
-	if [[ $wrong_backup_job_fail_timestamp > $minio_job_creation_timestamp ]]; then
+	if (( wrong_backup_job_fail_timestamp > minio_job_creation_timestamp )); then
 		echo "\"allowParallel: false\" doesn't work as expected. $minio_backup_name job was created before $wrong_creds_backup_name backup job failed"
 		exit 1
 	fi

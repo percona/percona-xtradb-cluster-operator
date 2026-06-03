@@ -45,7 +45,7 @@ main() {
 	apply_config "${test_dir}/conf/scheduled-backup-azure-init.yml"
 	wait_all_backups
 
-	FIRST_AZURE_BACKUP=$(kubectl_bin get pxc-backup -o jsonpath='{range .items[*]}{.metadata.name}:{.spec.storageName}:{.status.state}{"\n"}{end}' | grep Succeeded | grep azure | head -n1 | cut -d: -f1)
+	FIRST_AZURE_BACKUP=$(kubectl_bin get pxc-backup --sort-by=.metadata.creationTimestamp -o jsonpath='{range .items[?(@.spec.storageName=="azure-blob")]}{.metadata.name}:{.status.state}{"\n"}{end}' | grep ":Succeeded$" | head -n1 | cut -d: -f1)
 	BACKUP_DEST_AZURE=$(kubectl_bin get pxc-backup "$FIRST_AZURE_BACKUP" -o jsonpath='{.status.destination}' | sed -e 's/.json$//' | cut -c 9-)
 
 	desc "Check backup existence in Azure Blob Storage"
@@ -62,7 +62,7 @@ main() {
 	wait_all_backups
 	wait_cluster_consistency "$cluster" 3
 
-	SECOND_AZURE_BACKUP=$(kubectl_bin get pxc-backup -o jsonpath='{range .items[*]}{.metadata.name}:{.spec.storageName}:{.status.state}{"\n"}{end}' | grep Succeeded | grep azure | head -n1 | cut -d: -f1)
+	SECOND_AZURE_BACKUP=$(kubectl_bin get pxc-backup --sort-by=.metadata.creationTimestamp -o jsonpath='{range .items[?(@.spec.storageName=="azure-blob")]}{.metadata.name}:{.status.state}{"\n"}{end}' | grep ":Succeeded$" | head -n1 | cut -d: -f1)
 	if [[ $FIRST_AZURE_BACKUP == "$SECOND_AZURE_BACKUP" ]]; then
 		echo "Something got wrong: First $FIRST_AZURE_BACKUP and Second backup $SECOND_AZURE_BACKUP for Azure are the same"
 		exit 1

@@ -60,7 +60,7 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
             done
             kubectl get svc --all-namespaces || true
             gcloud container clusters delete --zone ${region} $CLUSTER_NAME-${CLUSTER_SUFFIX}
-            rm -rf /tmp/gcloud-$CLUSTER_NAME-${CLUSTER_SUFFIX}
+            rm -rf "/tmp/gcloud-$CLUSTER_NAME-${CLUSTER_SUFFIX}"
         """
    }
 }

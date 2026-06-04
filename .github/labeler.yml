@@ -1,0 +1,31 @@
+doc:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'README*'
+      - 'CONTRIBUTING*'
+      - 'code-of-conduct*'
+      - 'docs/**'
+
+tests:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'e2e-tests/**'
+      - 'Jenkinsfile*'
+
+ci:
+  - changed-files:
+    - any-glob-to-any-file: '.github/workflows/**'
+
+build:
+  - changed-files:
+    - any-glob-to-any-file: 'build/**'
+
+olm:
+  - changed-files:
+    - any-glob-to-any-file: 'installers/olm/**'
+
+dependencies:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'go.mod'
+      - 'go.sum'

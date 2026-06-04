@@ -1,0 +1,10 @@
+{
+    "apiVersion": "pxc.percona.com/v1",
+    "kind": "PerconaXtraDBClusterRestore",
+    "metadata": {
+        "name": "on-demand-backup-aws-s3-2"
+    },
+    "spec": {
+        "pxcCluster": "demand-backup-cloud"
+    }
+}

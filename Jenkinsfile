@@ -5,6 +5,7 @@ tests = []
 void createCluster(String CLUSTER_SUFFIX) {
     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
         sh """
+            export CLOUDSDK_CONFIG=/tmp/gcloud-$CLUSTER_NAME-${CLUSTER_SUFFIX}
             export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_SUFFIX}
             gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE
             gcloud config set project $GCP_PROJECT
@@ -45,6 +46,7 @@ void createCluster(String CLUSTER_SUFFIX) {
 void shutdownCluster(String CLUSTER_SUFFIX) {
     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
         sh """
+            export CLOUDSDK_CONFIG=/tmp/gcloud-$CLUSTER_NAME-${CLUSTER_SUFFIX}
             export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_SUFFIX}
             gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE
             gcloud config set project $GCP_PROJECT
@@ -58,6 +60,7 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
             done
             kubectl get svc --all-namespaces || true
             gcloud container clusters delete --zone ${region} $CLUSTER_NAME-${CLUSTER_SUFFIX}
+            rm -rf "/tmp/gcloud-$CLUSTER_NAME-${CLUSTER_SUFFIX}"
         """
    }
 }
@@ -66,6 +69,8 @@ void deleteOldClusters(String FILTER) {
     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
         sh """
             if gcloud --version > /dev/null 2>&1; then
+                export CLOUDSDK_CONFIG=\$(mktemp -d)
+                trap "rm -rf \$CLOUDSDK_CONFIG" EXIT
                 gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE
                 gcloud config set project $GCP_PROJECT
                 for GKE_CLUSTER in \$(gcloud container clusters list --format='csv[no-heading](name)' --filter="$FILTER"); do
@@ -148,6 +153,7 @@ void markPassedTests() {
 
 void printKubernetesStatus(String LOCATION, String CLUSTER_SUFFIX) {
     sh """
+        export CLOUDSDK_CONFIG=/tmp/gcloud-$CLUSTER_NAME-$CLUSTER_SUFFIX
         export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
         echo "========== KUBERNETES STATUS $LOCATION TEST =========="
         gcloud container clusters list|grep -E "NAME|$CLUSTER_NAME-$CLUSTER_SUFFIX "
@@ -259,6 +265,7 @@ void runTest(Integer TEST_ID) {
                     else
                         export DEBUG_TESTS=1
                     fi
+                    export CLOUDSDK_CONFIG=/tmp/gcloud-$CLUSTER_NAME-$clusterSuffix
                     export KUBECONFIG=/tmp/$CLUSTER_NAME-$clusterSuffix
                     export MYSQL_VERSION=$mysqlVer
                     time bash e2e-tests/$testName/run
@@ -643,6 +650,26 @@ pipeline {
                 stage('cluster12') {
                     steps {
                         clusterRunner('cluster12')
+                    }
+                }
+                stage('cluster13') {
+                    steps {
+                        clusterRunner('cluster13')
+                    }
+                }
+                stage('cluster14') {
+                    steps {
+                        clusterRunner('cluster14')
+                    }
+                }
+                stage('cluster15') {
+                    steps {
+                        clusterRunner('cluster15')
+                    }
+                }
+                stage('cluster16') {
+                    steps {
+                        clusterRunner('cluster16')
                     }
                 }
             }

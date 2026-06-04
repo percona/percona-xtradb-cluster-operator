@@ -45,3 +45,9 @@ updates:
       interval: weekly
       day: "thursday"
       time: "01:00"
+    groups:
+      k8s-ecosystem:
+        patterns:
+          - "k8s.io/*"
+          - "sigs.k8s.io/*"
+          - "github.com/go-openapi/*"

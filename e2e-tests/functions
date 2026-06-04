@@ -1001,14 +1001,34 @@ destroy() {
 		done
 	fi
 
-	kubectl_bin get pxc --all-namespaces \
-		-o jsonpath='{range .items[*]}{.metadata.namespace} {.metadata.name}{"\n"}{end}' 2>/dev/null \
-		| while read -r pns name; do
-			kubectl_bin patch pxc -n "$pns" "$name" \
-				--type=merge \
-				-p '{"metadata":{"finalizers":["percona.com/delete-pxc-pvc"]}}' 2>/dev/null || :
+	local pxc_names
+	pxc_names=$(kubectl_bin get pxc --all-namespaces \
+		-o jsonpath='{range .items[*]}{.metadata.namespace}/{.metadata.name}{"\n"}{end}' 2>/dev/null || true)
+	if [[ -n "$pxc_names" ]]; then
+		kubectl_bin get pxc --all-namespaces \
+			-o jsonpath='{range .items[*]}{.metadata.namespace} {.metadata.name}{"\n"}{end}' 2>/dev/null \
+			| while read -r pns name; do
+				kubectl_bin patch pxc -n "$pns" "$name" \
+					--type=merge \
+					-p '{"metadata":{"finalizers":["percona.com/delete-pxc-pvc"]}}' 2>/dev/null || :
+			done
+		timeout 300 kubectl delete pxc --all --all-namespaces --ignore-not-found || :
+		local deadline=$(( $(date +%s) + 300 ))
+		until [[ -z "$(kubectl_bin get pxc --all-namespaces -o name --ignore-not-found 2>/dev/null)" ]]; do
+			if [[ $(date +%s) -ge $deadline ]]; then
+				echo "Timeout (5m) waiting for pxc deletion — stripping finalizers and skipping"
+				kubectl_bin get pxc --all-namespaces \
+					-o jsonpath='{range .items[*]}{.metadata.namespace} {.metadata.name}{"\n"}{end}' 2>/dev/null \
+					| while read -r pns name; do
+						kubectl_bin patch pxc -n "$pns" "$name" \
+							--type=merge -p '{"metadata":{"finalizers":[]}}' || :
+					done
+				break
+			fi
+			sleep 5
 		done
-	timeout 300 kubectl delete pxc --all --all-namespaces --wait=false --ignore-not-found || :
+	fi
+
 	timeout 300 kubectl delete pxc-restore --all --all-namespaces --wait=false --ignore-not-found || :
 	kubectl_bin delete ValidatingWebhookConfiguration percona-xtradbcluster-webhook --ignore-not-found || :
 

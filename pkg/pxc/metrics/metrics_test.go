@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"context"
 	"io"
 	"testing"
 
@@ -25,11 +26,11 @@ func (m *mockClientCmd) Exec(pod *corev1.Pod, containerName string, command []st
 	return nil
 }
 
-func (m *mockClientCmd) IsPodRunning(namespace, podName string) (bool, error) {
+func (m *mockClientCmd) IsPodRunning(ctx context.Context, namespace, podName string) (bool, error) {
 	return true, nil
 }
 
-func (m *mockClientCmd) PodLogs(namespace, podName string, opts *corev1.PodLogOptions) ([]string, error) {
+func (m *mockClientCmd) PodLogs(ctx context.Context, namespace, podName string, opts *corev1.PodLogOptions) ([]string, error) {
 	return nil, nil
 }
 

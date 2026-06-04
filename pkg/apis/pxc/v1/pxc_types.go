@@ -1175,7 +1175,7 @@ func ContainsVolume(vs []corev1.Volume, name string) bool {
 }
 
 // +kubebuilder:object:generate=false
-type CustomVolumeGetter func(nsName, cvName, cmName string, useDefaultVolume bool) (corev1.Volume, error)
+type CustomVolumeGetter func(ctx context.Context, nsName, cvName, cmName string, useDefaultVolume bool) (corev1.Volume, error)
 
 var NoCustomVolumeErr = errors.New("no custom volume found")
 
@@ -1187,7 +1187,7 @@ type App interface {
 	PMMContainer(ctx context.Context, cl client.Client, spec *PMMSpec, secret *corev1.Secret, cr *PerconaXtraDBCluster) (*corev1.Container, error)
 	LogCollectorContainer(cr *PerconaXtraDBCluster, logPsecrets string, logRsecrets string) ([]corev1.Container, error)
 	XtrabackupContainer(ctx context.Context, cr *PerconaXtraDBCluster) (*corev1.Container, error)
-	Volumes(podSpec *PodSpec, cr *PerconaXtraDBCluster, vg CustomVolumeGetter) (*Volume, error)
+	Volumes(ctx context.Context, podSpec *PodSpec, cr *PerconaXtraDBCluster, vg CustomVolumeGetter) (*Volume, error)
 	Labels() map[string]string
 }
 

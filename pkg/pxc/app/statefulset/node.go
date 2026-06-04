@@ -805,10 +805,10 @@ func pmm3PXCNodeEnvVars(PmmPxcParams string) []corev1.EnvVar {
 	}
 }
 
-func (c *Node) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg api.CustomVolumeGetter) (*api.Volume, error) {
+func (c *Node) Volumes(ctx context.Context, podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg api.CustomVolumeGetter) (*api.Volume, error) {
 	vol := app.Volumes(podSpec, naming.DataVolumeName)
 
-	configVolume, err := vg(cr.Namespace, "config", config.CustomConfigMapName(cr.Name, naming.ComponentPXC), true)
+	configVolume, err := vg(ctx, cr.Namespace, "config", config.CustomConfigMapName(cr.Name, naming.ComponentPXC), true)
 	if err != nil {
 		return nil, err
 	}

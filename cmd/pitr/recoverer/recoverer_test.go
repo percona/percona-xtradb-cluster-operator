@@ -350,3 +350,44 @@ func TestGetBackupTimelineUUID(t *testing.T) {
 		})
 	}
 }
+
+// This unit test checks that even though object storage returns lexicographically sorted object names, the candidates are sorted by GTID end sequence.
+func TestSelectBinlogCandidates(t *testing.T) {
+	ctx := t.Context()
+
+	const timelineUUID = "timeline-uuid"
+	startGTID := timelineUUID + ":1-10"
+
+	objectGTIDSets := map[string]string{
+		"binlog_0000": "some-other-timeline" + ":1-10", // not from the backup timeline
+		"binlog_0001": startGTID,
+		"binlog_0005": timelineUUID + ":21-30", // lexicographically earlier, but contains newer binlogs
+		"binlog_0010": timelineUUID + ":11-20",
+	}
+
+	mockStorage := mock.NewStorage(t)
+	mockStorage.On("ListObjects", ctx, "binlog_").Return([]string{
+		"binlog_0000",
+		"binlog_0001",
+		"binlog_0005",
+		"binlog_0010",
+	}, nil).Once()
+
+	for objectName, gtidSet := range objectGTIDSets {
+		mockStorage.On("GetObject", ctx, objectName+"-gtid-set").Return(newStringReader(gtidSet), nil).Once()
+	}
+
+	recoverer := &Recoverer{
+		storage:      mockStorage,
+		startGTID:    startGTID,
+		timelineUUID: timelineUUID,
+	}
+
+	candidates, err := recoverer.selectBinlogCandidates(ctx)
+	require.NoError(t, err)
+
+	assert.Len(t, candidates, 3)
+	assert.Equal(t, candidates[0].objectName, "binlog_0005")
+	assert.Equal(t, candidates[1].objectName, "binlog_0010")
+	assert.Equal(t, candidates[2].objectName, "binlog_0001")
+}

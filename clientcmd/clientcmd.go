@@ -18,8 +18,8 @@ import (
 
 type Client interface {
 	Exec(pod *corev1.Pod, containerName string, command []string, stdin io.Reader, stdout, stderr io.Writer, tty bool) error
-	PodLogs(namespace, podName string, opts *corev1.PodLogOptions) ([]string, error)
-	IsPodRunning(namespace, podName string) (bool, error)
+	PodLogs(ctx context.Context, namespace, podName string, opts *corev1.PodLogOptions) ([]string, error)
+	IsPodRunning(ctx context.Context, namespace, podName string) (bool, error)
 	REST() restclient.Interface
 }
 
@@ -56,12 +56,12 @@ func NewClient() (*client, error) {
 	}, nil
 }
 
-func (c *client) PodLogs(namespace, podName string, opts *corev1.PodLogOptions) ([]string, error) {
+func (c *client) PodLogs(ctx context.Context, namespace, podName string, opts *corev1.PodLogOptions) ([]string, error) {
 	var logArr []string
 	retryErr := retry.OnError(retry.DefaultRetry, func(err error) bool {
 		return true // Retry on all errors
 	}, func() error {
-		logs, err := c.client.Pods(namespace).GetLogs(podName, opts).Stream(context.TODO())
+		logs, err := c.client.Pods(namespace).GetLogs(podName, opts).Stream(ctx)
 		if err != nil {
 			return errors.Wrap(err, "get pod logs stream")
 		}
@@ -82,12 +82,12 @@ func (c *client) PodLogs(namespace, podName string, opts *corev1.PodLogOptions) 
 	return logArr, nil
 }
 
-func (c *client) IsPodRunning(namespace, podName string) (bool, error) {
+func (c *client) IsPodRunning(ctx context.Context, namespace, podName string) (bool, error) {
 	var isRunning bool
 	retryErr := retry.OnError(retry.DefaultRetry, func(err error) bool {
 		return true // Retry on all errors
 	}, func() error {
-		pod, err := c.client.Pods(namespace).Get(context.TODO(), podName, metav1.GetOptions{})
+		pod, err := c.client.Pods(namespace).Get(ctx, podName, metav1.GetOptions{})
 		if err != nil {
 			return err
 		}

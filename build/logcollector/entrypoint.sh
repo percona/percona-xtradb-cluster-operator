@@ -40,6 +40,14 @@ run_logrotate() {
 	local logrotate_additional_conf_files=()
 	local conf_d_dir="/opt/percona/logcollector/logrotate/conf.d"
 
+	# Ensure logrotate can run with current UID
+	if [[ $EUID != 1001 ]]; then
+		# logrotate requires UID in /etc/passwd
+		sed -e "s^x:1001:^x:$EUID:^" /etc/passwd >/tmp/passwd
+		cat /tmp/passwd >/etc/passwd
+		rm -rf /tmp/passwd
+	fi
+
 	# Check if logrotate-mysql.conf exists and validate it
 	if [ -f "$conf_d_dir/logrotate-$SERVICE_TYPE.conf" ]; then
 		logrotate_conf_file="$conf_d_dir/logrotate-$SERVICE_TYPE.conf"
@@ -62,13 +70,6 @@ run_logrotate() {
 				logrotate_additional_conf_files+=("$conf_file")
 			fi
 		done
-	fi
-	# Ensure logrotate can run with current UID
-	if [[ $EUID != 1001 ]]; then
-		# logrotate requires UID in /etc/passwd
-		sed -e "s^x:1001:^x:$EUID:^" /etc/passwd >/tmp/passwd
-		cat /tmp/passwd >/etc/passwd
-		rm -rf /tmp/passwd
 	fi
 
 	local logrotate_cmd="logrotate -s \"$logrotate_status_file\" \"$logrotate_conf_file\""

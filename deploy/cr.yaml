@@ -10,7 +10,7 @@ metadata:
 #  annotations:
 #    percona.com/issue-vault-token: "true"
 spec:
-  crVersion: 1.20.0
+  crVersion: 1.21.0
 #  storageScaling:
 #    enableVolumeScaling: false
 #    enableExternalAutoscaling: false
@@ -29,7 +29,7 @@ spec:
 #  sslInternalSecretName: cluster1-ssl-internal
 #  logCollectorSecretName: cluster1-log-collector-secrets
 #  initContainer:
-#    image: percona/percona-xtradb-cluster-operator:1.20.0
+#    image: perconalab/percona-xtradb-cluster-operator:main
 #    containerSecurityContext:
 #      privileged: false
 #      runAsUser: 1001
@@ -68,7 +68,7 @@ spec:
     schedule: "0 4 * * *"
   pxc:
     size: 3
-    image: percona/percona-xtradb-cluster:8.4.8-8.1
+    image: perconalab/percona-xtradb-cluster-operator:main-pxc8.4
     autoRecovery: true
 #    extraPVCs:
 #      - name: extra-data-volume
@@ -223,7 +223,7 @@ spec:
   haproxy:
     enabled: true
     size: 3
-    image: percona/haproxy:2.8.18-1
+    image: perconalab/percona-xtradb-cluster-operator:main-haproxy
 #    imagePullPolicy: Always
 #    schedulerName: mycustom-scheduler
 #    configuration: |
@@ -405,7 +405,7 @@ spec:
   proxysql:
     enabled: false
     size: 3
-    image: percona/proxysql2:2.7.3-1.3
+    image: perconalab/percona-xtradb-cluster-operator:main-proxysql
 #    imagePullPolicy: Always
 #    configuration: |
 #      datadir="/var/lib/proxysql"
@@ -585,7 +585,7 @@ spec:
 #     - 10.0.0.0/8
   logcollector:
     enabled: true
-    image: percona/fluentbit:5.0.6-1
+    image: perconalab/fluentbit:main-logcollector
 #    configuration: |
 #      [OUTPUT]
 #           Name  es
@@ -636,7 +636,7 @@ spec:
 
   pmm:
     enabled: false
-    image: percona/pmm-client:3.8.0
+    image: perconalab/pmm-client:3-dev-latest
     serverHost: monitoring-service
 #    customClusterName: "testClusterName"
 #    serverUser: admin
@@ -662,7 +662,7 @@ spec:
         cpu: 300m
   backup:
 #    allowParallel: true
-    image: percona/percona-xtrabackup:8.4.0-5.1
+    image: perconalab/percona-xtradb-cluster-operator:main-pxc8.4-backup
 #    ttlSecondsAfterFinished: 3600
 #    backoffLimit: 6
 #    activeDeadlineSeconds: 3600

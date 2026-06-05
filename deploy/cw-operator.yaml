@@ -58,7 +58,7 @@ spec:
           value: "10s"
         - name: PXCO_LEADER_ELECTION_RETRY_PERIOD
           value: "2s"
-        image: percona/percona-xtradb-cluster-operator:1.20.0
+        image: perconalab/percona-xtradb-cluster-operator:main
         imagePullPolicy: Always
         resources:
           limits:

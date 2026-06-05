@@ -51,7 +51,6 @@ spec:
     image: -proxysql
     resources:
       requests:
-      requests:
         memory: 0.1G
         cpu: 100m
       limits:

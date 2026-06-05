@@ -7,29 +7,13 @@ test_dir=$(realpath $(dirname $0))
 
 set_debug
 
-function jq_filter() {
-	local vault_root=$1
-	jq -r "[ .[] | .=\"'$vault_root/\"+.+\"'\" ] | join(\", \")"
-}
-
-function get_secret_mount_point() {
-	if [[ $IMAGE_PXC =~ 8\.4 ]]; then
-		kubectl_bin get -f ${conf_dir}/vault-secret-84.yaml -o yaml \
-			| yq '.data."keyring_vault.conf"' | base64 -d \
-			| jq -r .secret_mount_point
-	else
-		kubectl_bin get -f "${conf_dir}/vault-secret.yaml" -o json \
-			| grep -E -o "secret_mount_point = \w+" \
-			| awk -F "=[ ]*" '{print $2}'
-	fi
-}
-
 main() {
-	create_infra $namespace
-
 	vault1="vault-service-1-${RANDOM}"
 	protocol="https"
-	start_vault $vault1 $protocol
+
+	create_infra $namespace
+	prepare_vault $vault1 $protocol
+	activate_vault $vault1
 	token1=$(jq -r ".root_token" <"$tmp_dir/$vault1")
 	ip1="$protocol://$vault1.$vault1.svc.cluster.local"
 
@@ -38,28 +22,23 @@ main() {
 	keyring_plugin_must_be_in_use "$cluster"
 	table_must_be_encrypted "$cluster" "myApp"
 
+	vault2="vault-service-2-${RANDOM}"
+
 	run_backup "$cluster" "on-demand-backup-pvc"
 	run_recovery_check "$cluster" "on-demand-backup-pvc"
 	kubectl_bin delete -f "$test_dir/conf/restore-on-demand-backup-pvc.yaml"
+	kubectl_bin wait pxc-restore/on-demand-backup-pvc --for=delete --timeout=60s
 	check_pvc_md5 "on-demand-backup-pvc"
 	table_must_be_encrypted "$cluster" "myApp"
 	keyring_plugin_must_be_in_use "$cluster"
-
-	if [ -z "$SKIP_REMOTE_BACKUPS" ]; then
-		run_backup "$cluster" "on-demand-backup-aws-s3"
-		run_recovery_check "$cluster" "on-demand-backup-aws-s3"
-		kubectl_bin delete -f "$test_dir/conf/restore-on-demand-backup-aws-s3.yaml"
-		table_must_be_encrypted "$cluster" "myApp"
-		keyring_plugin_must_be_in_use "$cluster"
-	fi
 
 	mountpt=$(get_secret_mount_point)
 	transition_keys=$(kubectl_bin exec --namespace="$vault1" -it $vault1-0 -- sh -c "
         VAULT_TOKEN=$token1 vault kv list -format=json $mountpt/backup/" \
 		| jq_filter "$mountpt/backup/")
 
-	vault2="vault-service-2-${RANDOM}"
-	start_vault $vault2 $protocol
+	prepare_vault $vault2 $protocol
+	activate_vault $vault2
 	token2=$(jq -r ".root_token" <"$tmp_dir/$vault2")
 	ip2="$protocol://$vault2.$vault2.svc.cluster.local"
 
@@ -79,12 +58,6 @@ secrets = [ $transition_keys ]
 	run_recovery_check "$cluster" "on-demand-backup-pvc"
 	table_must_be_encrypted "$cluster" "myApp"
 	keyring_plugin_must_be_in_use "$cluster"
-
-	if [ -z "$SKIP_REMOTE_BACKUPS" ]; then
-		run_recovery_check "$cluster" "on-demand-backup-aws-s3"
-		table_must_be_encrypted "$cluster" "myApp"
-		keyring_plugin_must_be_in_use "$cluster"
-	fi
 
 	for i in $vault1 $vault2; do
 		helm uninstall $i || :

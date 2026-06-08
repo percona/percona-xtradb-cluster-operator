@@ -179,7 +179,6 @@ after-release: update-version manifests upgrade-consistency-after-release
 		-e "/initContainer:/,/image:/{s#image: .*#image: perconalab/percona-xtradb-cluster-operator:main#}" \
 		-e "/^  pmm:/,/^    image:/{s#image: .*#image: perconalab/pmm-client:3-dev-latest#}" deploy/cr.yaml
 # Revert release_versions file to perconalab dev images
-# NOTE: IMAGE_PROXY3 (proxysql3) has no perconalab dev image and is intentionally not reverted here.
 	$(SED) -i \
 		-e "s#^IMAGE_OPERATOR=.*#IMAGE_OPERATOR=perconalab/percona-xtradb-cluster-operator:main#" \
 		-e "s#^IMAGE_PXC84=.*#IMAGE_PXC84=perconalab/percona-xtradb-cluster-operator:main-pxc8.4#" \

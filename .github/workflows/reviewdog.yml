@@ -87,12 +87,12 @@ jobs:
         with:
           go-version: '1.26'
       - name: check on release branch
-        if: ${{ contains(github.base_ref, 'release-') }}
+        if: ${{ contains(github.base_ref, 'release-') && ! startsWith(github.head_ref, 'after-release-') }}
         run: |
           make generate manifests VERSION="$(cat pkg/version/version.txt)" IMAGE_TAG_BASE="percona/percona-xtradb-cluster-operator"
           git diff --exit-code
       - name: check on non release branches
-        if: ${{ ! contains(github.base_ref, 'release-') }}
+        if: ${{ ! contains(github.base_ref, 'release-') || startsWith(github.head_ref, 'after-release-') }}
         run: |
           make generate manifests VERSION=main
           git diff --exit-code
@@ -136,3 +136,75 @@ jobs:
             exit 1
           fi
           echo "All images are available."
+
+  deploy-images-in-release-versions:
+    name: runner / deploy images in release_versions
+    runs-on: ubuntu-latest
+    # Only relevant for release branches, where deploy manifests pin released images.
+    if: ${{ contains(github.base_ref, 'release-') }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - name: Verify each deploy/*.yaml image matches its e2e-tests/release_versions entry
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Return the value of an IMAGE_* variable from release_versions.
+          rv() { grep -E "^$1=" e2e-tests/release_versions | head -n1 | cut -d= -f2-; }
+
+          # Map a PerconaXtraDBCluster .spec.<component> to its release_versions variable.
+          # PXC and backup use the 8.4 (default) versions.
+          declare -A COMPONENT_VAR=(
+            [pxc]=IMAGE_PXC84
+            [haproxy]=IMAGE_HAPROXY
+            [proxysql]=IMAGE_PROXY
+            [logcollector]=IMAGE_LOGCOLLECTOR
+            [backup]=IMAGE_BACKUP84
+            [pmm]=IMAGE_PMM3_CLIENT
+          )
+
+          failed=0
+
+          # Compare a single image to the expected release_versions variable.
+          check_value() {
+            local where=$1 actual=$2 var=$3 expected
+            expected=$(rv "$var")
+            if [ -z "$expected" ]; then
+              echo "::error::$var is not defined in e2e-tests/release_versions"; failed=1; return
+            fi
+            if [ "$actual" != "$expected" ]; then
+              echo "::error::$where image '$actual' does not match $var='$expected' from e2e-tests/release_versions"; failed=1; return
+            fi
+            echo "OK: $where = $actual (matches $var)"
+          }
+
+          # PerconaXtraDBCluster manifests: verify EVERY image-bearing component under .spec.
+          # Any component without a mapping fails the check, so newly added images can't slip through.
+          for file in deploy/cr.yaml deploy/cr-minimal.yaml; do
+            while IFS= read -r comp; do
+              [ -z "$comp" ] && continue
+              image=$(yq ".spec.${comp}.image" "$file")
+              var=${COMPONENT_VAR[$comp]:-}
+              if [ -z "$var" ]; then
+                echo "::error file=$file::No release_versions mapping for component '$comp' (update this check)"; failed=1
+              else
+                check_value "$file[$comp]" "$image" "$var"
+              fi
+            done < <(yq '.spec | to_entries | .[] | select(.value | has("image")) | .key' "$file")
+          done
+
+          # Operator Deployment manifests: the operator container image must match IMAGE_OPERATOR.
+          for file in deploy/operator.yaml deploy/bundle.yaml; do
+            image=$(yq '.spec.template.spec.containers[]? | select(.name == "percona-xtradb-cluster-operator") | .image' "$file" | head -n1)
+            if [ -z "$image" ]; then
+              echo "::error file=$file::Could not find the operator container image"; failed=1
+            else
+              check_value "$file[operator]" "$image" IMAGE_OPERATOR
+            fi
+          done
+
+          if [ "$failed" -ne 0 ]; then
+            echo "::error::deploy manifest images are out of sync with e2e-tests/release_versions"
+            exit 1
+          fi
+          echo "All deploy images match their release_versions entries."

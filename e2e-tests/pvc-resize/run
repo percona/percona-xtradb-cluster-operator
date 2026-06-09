@@ -151,7 +151,8 @@ function wait_pvc_resize() {
 
 set_debug
 
-size_unit=$(if version_gt "1.34"; then echo 'G'; else echo 'Gi'; fi)
+size_unit=$(if version_gt "1.34" || [[ $AKS == 1 ]] || [[ $EKS == 1 ]]; then echo 'G'; else echo 'Gi'; fi)
+echo "Size unit: $size_unit"
 if [ "$EKS" == 1 -o -n "$OPENSHIFT" ]; then
 	echo "EKS environment detected, creating storageclass for EBS volumes"
 	kubectl_bin apply -f ${test_dir}/conf/eks-storageclass.yml

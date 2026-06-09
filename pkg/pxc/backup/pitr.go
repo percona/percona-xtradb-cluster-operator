@@ -145,10 +145,17 @@ func UpdatePITRTimeline(ctx context.Context, cl client.Client, clcmd clientcmd.C
 		return errors.Wrap(err, "get binlog collector pod")
 	}
 
+	if collectorPod.Status.Phase != corev1.PodRunning {
+		return nil
+	}
+
 	stdoutBuf := &bytes.Buffer{}
 	stderrBuf := &bytes.Buffer{}
 	err = clcmd.Exec(collectorPod, "pitr", []string{"/bin/bash", "-c", "cat /tmp/pitr-timeline || true"}, nil, stdoutBuf, stderrBuf, false)
 	if err != nil {
+		if strings.Contains(err.Error(), "container not found") {
+			return nil
+		}
 		return errors.Wrapf(err, "exec binlog collector pod %s", collectorPod.Name)
 	}
 

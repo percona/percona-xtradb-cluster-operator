@@ -1,0 +1,82 @@
+#!/bin/bash
+
+set -o errexit
+
+test_dir=$(realpath $(dirname $0))
+. ${test_dir}/../functions
+
+set_debug
+
+main() {
+	if [ -n "$SKIP_REMOTE_BACKUPS" ]; then
+		echo "Skipping: SKIP_REMOTE_BACKUPS is set"
+		exit 0
+	fi
+
+	create_infra $namespace
+
+	cluster="scheduled-backup"
+
+	if command -v gsutil >/dev/null 2>&1; then
+		echo "gsutil is installed"
+	else
+		echo "gsutil command is not installed"
+		exit 1
+	fi
+
+	cat - <<-EOF | kubectl_bin apply -f -
+		        apiVersion: scheduling.k8s.io/v1
+		        kind: PriorityClass
+		        metadata:
+		            name: high-priority
+		        value: 1000000
+		        globalDefault: false
+		        description: "This priority class should be used for backup service pods only."
+	EOF
+
+	spinup_pxc "$cluster" "$test_dir/conf/scheduled-backup-gcs-init.yml"
+
+	label_node
+
+	desc 'add backups schedule for gcs storage'
+	kubectl_bin config set-context "$(kubectl_bin config current-context)" --namespace="$namespace"
+	apply_config "${test_dir}/conf/scheduled-backup-gcs-gcs.yml"
+	wait_first_backup_appears "gcp-cs"
+	apply_config "${test_dir}/conf/scheduled-backup-gcs-init.yml"
+	wait_all_backups
+
+	FIRST_GCP_BACKUP=$(kubectl_bin get pxc-backup --sort-by=.metadata.creationTimestamp -o jsonpath='{range .items[?(@.spec.storageName=="gcp-cs")]}{.metadata.name}:{.status.state}{"\n"}{end}' | grep ":Succeeded$" | head -n1 | cut -d: -f1)
+	BACKUP_DEST_GCP=$(kubectl_bin get pxc-backup "$FIRST_GCP_BACKUP" -o jsonpath='{.status.destination}' | sed -e 's/.json$//' | cut -c 6-)
+
+	desc "Check backup existence in GCS"
+	setup_gcs_credentials
+	check_backup_existence_gcs "$BACKUP_DEST_GCP"
+
+	desc "Check that KEEP option saves correct backup's amount (1 for our settings)"
+	apply_config "${test_dir}/conf/scheduled-backup-gcs-gcs.yml"
+	wait_num_backups 'gcp-cs' 2
+	echo "Patch backup schedule to yearly to stop new backups and verify keep=1 deletes the oldest"
+	kubectl patch pxc ${cluster} --type="merge" -p '{"spec":{"backup":{"schedule":[{"name":"each-min-gcp-cs","storageName":"gcp-cs","keep":1,"schedule":"0 0 1 * *"}]}}}'
+	wait_num_backups 'gcp-cs' 1
+	apply_config "${test_dir}/conf/scheduled-backup-gcs-init.yml"
+	wait_all_backups
+	wait_cluster_consistency "$cluster" 3
+
+	SECOND_GCP_BACKUP=$(kubectl_bin get pxc-backup --sort-by=.metadata.creationTimestamp -o jsonpath='{range .items[?(@.spec.storageName=="gcp-cs")]}{.metadata.name}:{.status.state}{"\n"}{end}' | grep ":Succeeded$" | head -n1 | cut -d: -f1)
+	if [[ $FIRST_GCP_BACKUP == "$SECOND_GCP_BACKUP" ]]; then
+		echo "Something got wrong: First $FIRST_GCP_BACKUP and Second backup $SECOND_GCP_BACKUP for GCS are the same"
+		exit 1
+	fi
+
+	desc "Restore from GCS scheduled backup and verify data integrity"
+	run_scheduled_recovery_check "$cluster" "$SECOND_GCP_BACKUP"
+
+	desc "Check backup deletion from GCS"
+	check_backup_deletion_gcs "$BACKUP_DEST_GCP"
+
+	unlabel_node
+	destroy $namespace
+	desc "test passed"
+}
+
+main

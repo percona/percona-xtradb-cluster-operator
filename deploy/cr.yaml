@@ -10,7 +10,7 @@ metadata:
 #  annotations:
 #    percona.com/issue-vault-token: "true"
 spec:
-  crVersion: 1.20.0
+  crVersion: 1.21.0
 #  storageScaling:
 #    enableVolumeScaling: false
 #    enableExternalAutoscaling: false

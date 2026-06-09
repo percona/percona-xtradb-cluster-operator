@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  generation: 2
+  generation: 1
   name: some-name-proxysql
   ownerReferences:
     - controller: true
@@ -87,8 +87,6 @@ spec:
               value: "0"
             - name: PERCONA_SCHEDULER_CFG
               value: /tmp/scheduler-config.toml
-            - name: PXC_READ_ONLY
-              value: "false"
           envFrom:
             - secretRef:
                 name: some-name-env-vars-proxysql
@@ -166,8 +164,6 @@ spec:
               value: "0"
             - name: PERCONA_SCHEDULER_CFG
               value: /tmp/scheduler-config.toml
-            - name: PXC_READ_ONLY
-              value: "false"
           envFrom:
             - secretRef:
                 name: some-name-env-vars-proxysql

@@ -778,6 +778,9 @@ func defaultExpectedContainer() corev1.Container {
 			{Name: "MONITOR_PASSWORD", ValueFrom: &corev1.EnvVarSource{
 				SecretKeyRef: app.SecretKeySelector("my-secret", users.Monitor),
 			}},
+			{Name: "POD_NAMESPACE", ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.namespace"},
+			}},
 			{Name: "CLUSTER_HASH", Value: "2584669"},
 			{Name: "OPERATOR_ADMIN_PASSWORD", ValueFrom: &corev1.EnvVarSource{
 				SecretKeyRef: app.SecretKeySelector("my-secret", users.Operator),
@@ -787,9 +790,6 @@ func defaultExpectedContainer() corev1.Container {
 			{Name: "DEFAULT_AUTHENTICATION_PLUGIN", Value: "caching_sha2_password"},
 			{Name: "MYSQL_NOTIFY_SOCKET", Value: "/var/lib/mysql/notify.sock"},
 			{Name: "MYSQL_STATE_FILE", Value: "/var/lib/mysql/mysql.state"},
-			{Name: "POD_NAMESPACE", ValueFrom: &corev1.EnvVarSource{
-				FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.namespace"},
-			}},
 		},
 		EnvFrom: []corev1.EnvFromSource{
 			{

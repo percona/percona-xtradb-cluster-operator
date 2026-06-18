@@ -203,7 +203,7 @@ func TestAppContainer(t *testing.T) {
 			},
 			expectedContainer: func() corev1.Container {
 				c := defaultExpectedContainer()
-				c.Env[9].Value = "mysql_native_password"
+				c.Env[10].Value = "mysql_native_password"
 				return c
 			},
 		},

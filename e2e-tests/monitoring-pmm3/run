@@ -282,6 +282,20 @@ desc 'check haproxy metrics'
 get_metric_values_pmm3 haproxy_backend_status pxc-prefix-$namespace-$cluster-haproxy-0 $NEW_TOKEN
 get_metric_values_pmm3 haproxy_backend_active_servers pxc-prefix-$namespace-$cluster-haproxy-0 $NEW_TOKEN
 
+desc 'switch from haproxy to proxysql'
+kubectl_bin patch pxc ${cluster} --type=json -p '[
+	{"op": "replace", "path": "/spec/haproxy/enabled", "value": false},
+	{"op": "replace", "path": "/spec/proxysql/enabled", "value": true}
+]'
+wait_for_delete "sts/${cluster}-haproxy"
+wait_for_running "${cluster}-proxysql" 2
+sleep 60
+kubectl wait pod -l 'app.kubernetes.io/managed-by=percona-xtradb-cluster-operator' --for=condition=ready --timeout=300s
+
+desc 'check proxysql metrics'
+get_metric_values_pmm3 proxysql_connection_pool_conn_used pxc-prefix-$namespace-$cluster-proxysql-0 $NEW_TOKEN
+get_metric_values_pmm3 proxysql_connection_pool_status pxc-prefix-$namespace-$cluster-proxysql-0 $NEW_TOKEN
+
 desc 'check QAN data'
 get_qan20_values $cluster-pxc-0 $NEW_TOKEN
 

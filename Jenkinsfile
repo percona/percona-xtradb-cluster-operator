@@ -9,15 +9,21 @@ void createCluster(String CLUSTER_SUFFIX) {
             export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_SUFFIX}
             gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE
             gcloud config set project $GCP_PROJECT
+            GKE_VERSION=\$(gcloud container get-server-config --zone ${region} --flatten='channels[].validVersions[]' --filter='channels.channel=STABLE' --format='value(channels.validVersions)' | sort -V | head -n1)
+            if [ -z "\${GKE_VERSION}" ]; then
+                echo "Failed to detect the minimum Kubernetes version from the GKE stable release channel"
+                exit 1
+            fi
             ret_num=0
             while [ \${ret_num} -lt 15 ]; do
                 ret_val=0
                 gcloud container clusters list --filter $CLUSTER_NAME-${CLUSTER_SUFFIX} --zone ${region} --format='csv[no-heading](name)' | xargs -r gcloud container clusters delete --zone ${region} --quiet || true
+                echo "Creating GKE cluster $CLUSTER_NAME-${CLUSTER_SUFFIX} with Kubernetes version \${GKE_VERSION} from the stable release channel"
                 gcloud container clusters create $CLUSTER_NAME-${CLUSTER_SUFFIX} \
                     --preemptible \
                     --zone ${region} \
                     --machine-type=c2d-standard-4 \
-                    --cluster-version=1.33 \
+                    --cluster-version="\${GKE_VERSION}" \
                     --num-nodes=3 \
                     --labels delete-cluster-after-hours=6 \
                     --disk-size 30 \

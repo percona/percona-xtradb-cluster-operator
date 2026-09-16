@@ -1293,8 +1293,8 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 			}
 			if !channel.IsSource && channel.Config == nil {
 				c.PXC.ReplicationChannels[chIdx].Config = &ReplicationChannelConfig{
-					SourceRetryCount:   3,
-					SourceConnectRetry: 60,
+					SourceRetryCount:   cr.defaultSourceRetryCount(),
+					SourceConnectRetry: defaultSourceConnectRetry,
 				}
 			}
 		}
@@ -1749,6 +1749,26 @@ func (cr *PerconaXtraDBCluster) Version() *v.Version {
 // Returns -1, 0, or 1 if given version is smaller, equal, or larger than the current version, respectively.
 func (cr *PerconaXtraDBCluster) CompareVersionWith(ver string) int {
 	return cr.Version().Compare(v.Must(v.NewVersion(ver)))
+}
+
+// MySQL defaults for SOURCE_RETRY_COUNT and SOURCE_CONNECT_RETRY. The
+// SOURCE_RETRY_COUNT default is 10 starting from MySQL 8.4 and 86400 in 8.0:
+// https://dev.mysql.com/doc/refman/8.4/en/change-replication-source-to.html#crs-opt-source_retry_count
+const (
+	defaultSourceRetryCount   uint = 10
+	defaultSourceRetryCount80 uint = 86400
+	defaultSourceConnectRetry uint = 60
+)
+
+// defaultSourceRetryCount returns the MySQL default of SOURCE_RETRY_COUNT for
+// the current MySQL version. It uses the 8.4 default unless the cluster is
+// known to run a version older than 8.4.
+func (cr *PerconaXtraDBCluster) defaultSourceRetryCount() uint {
+	compare840, err := cr.CompareMySQLVersion("8.4.0")
+	if err == nil && compare840 < 0 {
+		return defaultSourceRetryCount80
+	}
+	return defaultSourceRetryCount
 }
 
 // CompareMySQLVersion compares given version to current MySQL version.

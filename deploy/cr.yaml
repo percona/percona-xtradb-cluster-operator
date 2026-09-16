@@ -95,7 +95,7 @@ spec:
 #    - name: pxc2_to_pxc1
 #      isSource: false
 #      configuration:
-#        sourceRetryCount: 3
+#        sourceRetryCount: 10
 #        sourceConnectRetry: 60
 #        ssl: false
 #        sslSkipVerify: true

@@ -26,6 +26,10 @@ if [[ $DB_TYPE == "mysql" ]]; then
 	)
 fi
 
+if [[ $DB_TYPE == "proxysql" && "${PROXYSQL_ADMIN_TLS}" == "true" ]]; then
+	pmm_args+=(--tls-skip-verify)
+fi
+
 if [[ $DB_TYPE == "haproxy" ]]; then
 	pmm_args+=(
 		"$PMM_AGENT_SETUP_NODE_NAME"

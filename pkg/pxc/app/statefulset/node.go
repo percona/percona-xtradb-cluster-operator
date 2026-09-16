@@ -187,6 +187,14 @@ func (c *Node) AppContainer(ctx context.Context, cl client.Client, spec *api.Pod
 					SecretKeyRef: app.SecretKeySelector(secrets, users.Monitor),
 				},
 			},
+			{
+				Name: "POD_NAMESPACE",
+				ValueFrom: &corev1.EnvVarSource{
+					FieldRef: &corev1.ObjectFieldSelector{
+						FieldPath: "metadata.namespace",
+					},
+				},
+			},
 		},
 		EnvFrom: []corev1.EnvFromSource{
 			{

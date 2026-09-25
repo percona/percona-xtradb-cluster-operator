@@ -39,6 +39,11 @@ spec:
       requests:
         memory: 500M
         cpu: 300m
+    volumeSpec:
+      persistentVolumeClaim:
+        resources:
+          requests:
+            storage: 2Gi
     affinity:
       antiAffinityTopologyKey: none
     envVarsSecret: my-env-var-secrets

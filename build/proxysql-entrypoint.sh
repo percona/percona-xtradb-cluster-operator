@@ -119,10 +119,6 @@ if [ -f "$CA" ] && [ -f "$KEY" ] && [ -f "$CERT" ] && [ -n "$PXC_SERVICE" ]; the
 	sed_in_place "s^ssl_p2s_key=\"\"^ssl_p2s_key=\"$KEY\"^" ${PROXY_CFG}
 	sed_in_place "s^ssl_p2s_cert=\"\"^ssl_p2s_cert=\"$CERT\"^" ${PROXY_CFG}
 
-	sed_in_place "s^ssl_ca=\"\"^ssl_ca=\"$CA\"^" ${PROXY_CFG}
-	sed_in_place "s^ssl_key=\"\"^ssl_key=\"$KEY\"^" ${PROXY_CFG}
-	sed_in_place "s^ssl_cert=\"\"^ssl_cert=\"$CERT\"^" ${PROXY_CFG}
-
 	# Percona scheduler
 	if [[ -f ${PERCONA_SCHEDULER_CFG} ]]; then
 		sed_in_place "s:^sslCa.*=.*\"$:sslCa = \"${CA##*/}\":" ${PERCONA_SCHEDULER_CFG}

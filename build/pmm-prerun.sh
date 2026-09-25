@@ -26,8 +26,8 @@ if [[ $DB_TYPE == "mysql" ]]; then
 	)
 fi
 
-if [[ $DB_TYPE == "proxysql" && "${PROXYSQL_ADMIN_TLS}" == "true" ]]; then
-	pmm_args+=(--tls-skip-verify)
+if [[ $DB_TYPE == "proxysql" ]]; then
+	pmm_args+=(--tls --tls-skip-verify)
 fi
 
 if [[ $DB_TYPE == "haproxy" ]]; then

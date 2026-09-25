@@ -12,7 +12,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -126,19 +125,21 @@ func PVCRestorePod(cr *api.PerconaXtraDBClusterRestore, bcpStorageName, pvcName 
 
 	var initContainers []corev1.Container
 	if cluster.CompareVersionWith("1.18.0") >= 0 {
-		volumes = append(volumes,
+		volumes = append(
+			volumes,
 			corev1.Volume{
-				Name: app.BinVolumeName,
+				Name: naming.BinVolumeName,
 				VolumeSource: corev1.VolumeSource{
 					EmptyDir: &corev1.EmptyDirVolumeSource{},
 				},
 			},
 		)
 
-		volumeMounts = append(volumeMounts,
+		volumeMounts = append(
+			volumeMounts,
 			corev1.VolumeMount{
-				Name:      app.BinVolumeName,
-				MountPath: app.BinVolumeMountPath,
+				Name:      naming.BinVolumeName,
+				MountPath: naming.BinVolumeMountPath,
 			},
 		)
 		initContainers = []corev1.Container{statefulset.BackupInitContainer(cluster, initImage, cluster.Spec.PXC.ContainerSecurityContext)}
@@ -250,7 +251,7 @@ func RestoreJob(
 			Name: "datadir",
 			VolumeSource: corev1.VolumeSource{
 				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-					ClaimName: "datadir-" + cr.Spec.PXCCluster + "-pxc-0",
+					ClaimName: "datadir-" + cr.Spec.PXCCluster + "-" + naming.ComponentPXC + "-0",
 				},
 			},
 		},
@@ -290,9 +291,6 @@ func RestoreJob(
 		}
 
 		if pitr {
-			if cluster.Spec.Backup == nil && len(cluster.Spec.Backup.Storages) == 0 {
-				return nil, errors.New("no storage section")
-			}
 			volumeMounts = []corev1.VolumeMount{}
 			volumes = []corev1.Volume{}
 			command = []string{"/opt/percona/pitr", "recover"}
@@ -313,19 +311,21 @@ func RestoreJob(
 	if pitr {
 		if cluster.CompareVersionWith("1.15.0") >= 0 {
 			initContainers = []corev1.Container{statefulset.PitrInitContainer(cluster, initImage)}
-			volumes = append(volumes,
+			volumes = append(
+				volumes,
 				corev1.Volume{
-					Name: app.BinVolumeName,
+					Name: naming.BinVolumeName,
 					VolumeSource: corev1.VolumeSource{
 						EmptyDir: &corev1.EmptyDirVolumeSource{},
 					},
 				},
 			)
 
-			volumeMounts = append(volumeMounts,
+			volumeMounts = append(
+				volumeMounts,
 				corev1.VolumeMount{
-					Name:      app.BinVolumeName,
-					MountPath: app.BinVolumeMountPath,
+					Name:      naming.BinVolumeName,
+					MountPath: naming.BinVolumeMountPath,
 				},
 			)
 		}
@@ -337,19 +337,21 @@ func RestoreJob(
 	}
 
 	if cluster.CompareVersionWith("1.18.0") >= 0 && !pitr {
-		volumes = append(volumes,
+		volumes = append(
+			volumes,
 			corev1.Volume{
-				Name: app.BinVolumeName,
+				Name: naming.BinVolumeName,
 				VolumeSource: corev1.VolumeSource{
 					EmptyDir: &corev1.EmptyDirVolumeSource{},
 				},
 			},
 		)
 
-		volumeMounts = append(volumeMounts,
+		volumeMounts = append(
+			volumeMounts,
 			corev1.VolumeMount{
-				Name:      app.BinVolumeName,
-				MountPath: app.BinVolumeMountPath,
+				Name:      naming.BinVolumeName,
+				MountPath: naming.BinVolumeMountPath,
 			},
 		)
 		initContainers = []corev1.Container{statefulset.BackupInitContainer(cluster, initImage, cluster.Spec.PXC.ContainerSecurityContext)}
@@ -452,7 +454,7 @@ func restoreJobEnvs(
 	envs := []corev1.EnvVar{
 		{
 			Name:  "PXC_SERVICE",
-			Value: cr.Spec.PXCCluster + "-pxc",
+			Value: cr.Spec.PXCCluster + "-" + naming.ComponentPXC,
 		},
 		{
 			Name:  "PXC_USER",
@@ -662,7 +664,7 @@ func s3Envs(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBa
 						Name: bcp.Status.S3.CredentialsSecret,
 					},
 					Key:      "AWS_SESSION_TOKEN",
-					Optional: ptr.To(true),
+					Optional: new(true),
 				},
 			},
 		},
@@ -670,6 +672,18 @@ func s3Envs(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBa
 	if bcp.Status.S3.ForcePathStyle {
 		envs = append(envs, corev1.EnvVar{
 			Name:  "S3_FORCE_PATH",
+			Value: "true",
+		})
+	}
+	if bcp.Status.S3.ChecksumAlgorithm != "" {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "S3_CHECKSUM_ALGORITHM",
+			Value: string(bcp.Status.S3.ChecksumAlgorithm),
+		})
+	}
+	if bcp.Status.S3.SkipBucketExistsCheck {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "S3_SKIP_BUCKET_EXISTS_CHECK",
 			Value: "true",
 		})
 	}
@@ -742,7 +756,7 @@ func s3Envs(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBa
 							Name: storageS3.CredentialsSecret,
 						},
 						Key:      "AWS_SESSION_TOKEN",
-						Optional: ptr.To(true),
+						Optional: new(true),
 					},
 				},
 			},
@@ -756,12 +770,26 @@ func s3Envs(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBa
 			},
 		}...)
 		if storageS3.ForcePathStyle {
-			envs = append(envs,
+			envs = append(
+				envs,
 				corev1.EnvVar{
 					Name:  "BINLOG_S3_FORCE_PATH",
 					Value: "true",
 				},
 			)
+		}
+		if storageS3.ChecksumAlgorithm != "" {
+			envs = append(envs, corev1.EnvVar{
+				Name:  "BINLOG_S3_CHECKSUM_ALGORITHM",
+				Value: string(storageS3.ChecksumAlgorithm),
+			})
+		}
+		if storageS3.SkipBucketExistsCheck {
+			envs = append(envs,
+				corev1.EnvVar{
+					Name:  "BINLOG_S3_SKIP_BUCKET_EXISTS_CHECK",
+					Value: "true",
+				})
 		}
 	}
 	return envs, nil
@@ -859,11 +887,11 @@ func PrepareJob(
 			Name: "datadir",
 			VolumeSource: corev1.VolumeSource{
 				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-					ClaimName: "datadir-" + cr.Spec.PXCCluster + "-pxc-0",
+					ClaimName: "datadir-" + cr.Spec.PXCCluster + "-" + naming.ComponentPXC + "-0",
 				},
 			},
 		},
-		app.GetConfigVolumes("config", config.CustomConfigMapName(cluster.Name, "pxc")),
+		app.GetConfigVolumes("config", config.CustomConfigMapName(cluster.Name, naming.ComponentPXC)),
 		app.GetSecretVolumes("mysql-users-secret-file", "internal-"+cluster.Name, false),
 		app.GetSecretVolumes("vault-keyring-secret", cluster.Spec.PXC.VaultSecretName, true),
 		app.GetSecretVolumes("ssl", cluster.Spec.PXC.SSLSecretName, !cluster.TLSEnabled()),
@@ -894,7 +922,7 @@ func PrepareJob(
 					ImagePullSecrets: cluster.Spec.PXC.ImagePullSecrets,
 					SecurityContext:  cluster.Spec.PXC.PodSecurityContext,
 					InitContainers: []corev1.Container{
-						statefulset.EntrypointInitContainer(cluster, initImage, app.DataVolumeName),
+						statefulset.EntrypointInitContainer(cluster, initImage, naming.DataVolumeName),
 					},
 					Containers: []corev1.Container{
 						{
@@ -923,7 +951,7 @@ func PrepareJob(
 					RuntimeClassName:   cluster.Spec.PXC.RuntimeClassName,
 				},
 			},
-			BackoffLimit: ptr.To(int32(4)),
+			BackoffLimit: new(int32(4)),
 		},
 	}
 

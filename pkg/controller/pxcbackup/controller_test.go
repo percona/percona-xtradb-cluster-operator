@@ -11,7 +11,6 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -131,7 +130,7 @@ var _ = Describe("Error checking deadlines", Ordered, func() {
 	It("Should not fail when error checking deadline", func() {
 		pxcBackup, err := newBackup("backup1", ns)
 		Expect(err).To(Not(HaveOccurred()))
-		pxcBackup.Spec.RunningDeadlineSeconds = ptr.To(int64(300))
+		pxcBackup.Spec.RunningDeadlineSeconds = new(int64(300))
 
 		pxcBackupReq := reconcile.Request{NamespacedName: types.NamespacedName{
 			Name:      pxcBackup.Name,
@@ -211,7 +210,7 @@ var _ = Describe("Backup Job deleted when running deadline is exceeded", Ordered
 	It("Should delete the backup job when running deadline is exceeded", func() {
 		pxcBackup, err := newBackup("backup1", ns)
 		Expect(err).To(Not(HaveOccurred()))
-		pxcBackup.Spec.RunningDeadlineSeconds = ptr.To(int64(5))
+		pxcBackup.Spec.RunningDeadlineSeconds = new(int64(5))
 
 		pxcBackupReq := reconcile.Request{NamespacedName: types.NamespacedName{
 			Name:      pxcBackup.Name,

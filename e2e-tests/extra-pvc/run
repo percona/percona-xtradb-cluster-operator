@@ -127,6 +127,12 @@ function patch_cluster_add_multiple_extra_pvcs() {
 	]'
 }
 
+# task to fix https://perconadev.atlassian.net/browse/K8SPXC-1790
+if [[ "$EKS" == "1" || -n "$OPENSHIFT" ]]; then
+	echo "EKS/OpenShift environment detected, skipping extra PVC test"
+	exit 0
+fi
+
 set_debug
 
 create_infra ${namespace}

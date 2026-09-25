@@ -1,0 +1,82 @@
+#!/bin/bash
+
+set -o errexit
+
+test_dir=$(realpath $(dirname $0))
+. ${test_dir}/../functions
+
+set_debug
+
+main() {
+	if [ -n "$SKIP_REMOTE_BACKUPS" ]; then
+		echo "Skipping: SKIP_REMOTE_BACKUPS is set"
+		exit 0
+	fi
+
+	create_infra $namespace
+
+	cluster="scheduled-backup"
+
+	if command -v az >/dev/null 2>&1; then
+		echo "Azure CLI is installed"
+	else
+		echo "Azure CLI is not installed"
+		exit 1
+	fi
+
+	cat - <<-EOF | kubectl_bin apply -f -
+		        apiVersion: scheduling.k8s.io/v1
+		        kind: PriorityClass
+		        metadata:
+		            name: high-priority
+		        value: 1000000
+		        globalDefault: false
+		        description: "This priority class should be used for backup service pods only."
+	EOF
+
+	spinup_pxc "$cluster" "$test_dir/conf/scheduled-backup-azure-init.yml"
+
+	label_node
+
+	desc 'add backups schedule for azure storage'
+	kubectl_bin config set-context "$(kubectl_bin config current-context)" --namespace="$namespace"
+	apply_config "${test_dir}/conf/scheduled-backup-azure-azure.yml"
+	wait_first_backup_appears "azure-blob"
+	apply_config "${test_dir}/conf/scheduled-backup-azure-init.yml"
+	wait_all_backups
+
+	FIRST_AZURE_BACKUP=$(kubectl_bin get pxc-backup --sort-by=.metadata.creationTimestamp -o jsonpath='{range .items[?(@.spec.storageName=="azure-blob")]}{.metadata.name}:{.status.state}{"\n"}{end}' | grep ":Succeeded$" | head -n1 | cut -d: -f1)
+	BACKUP_DEST_AZURE=$(kubectl_bin get pxc-backup "$FIRST_AZURE_BACKUP" -o jsonpath='{.status.destination}' | sed -e 's/.json$//' | cut -c 9-)
+
+	desc "Check backup existence in Azure Blob Storage"
+	setup_azure_credentials
+	check_backup_existence_azure "$BACKUP_DEST_AZURE" ".sst_info/sst_info.00000000000000000000"
+
+	desc "Check that KEEP option saves correct backup's amount (1 for our settings)"
+	apply_config "${test_dir}/conf/scheduled-backup-azure-azure.yml"
+	wait_num_backups 'azure-blob' 2
+	echo "Patch backup schedule to yearly to stop new backups and verify keep=1 deletes the oldest"
+	kubectl patch pxc ${cluster} --type="merge" -p '{"spec":{"backup":{"schedule":[{"name":"each-min-azure-every","storageName":"azure-blob","keep":1,"schedule":"0 0 1 * *"}]}}}'
+	wait_num_backups 'azure-blob' 1
+	apply_config "${test_dir}/conf/scheduled-backup-azure-init.yml"
+	wait_all_backups
+	wait_cluster_consistency "$cluster" 3
+
+	SECOND_AZURE_BACKUP=$(kubectl_bin get pxc-backup --sort-by=.metadata.creationTimestamp -o jsonpath='{range .items[?(@.spec.storageName=="azure-blob")]}{.metadata.name}:{.status.state}{"\n"}{end}' | grep ":Succeeded$" | head -n1 | cut -d: -f1)
+	if [[ $FIRST_AZURE_BACKUP == "$SECOND_AZURE_BACKUP" ]]; then
+		echo "Something got wrong: First $FIRST_AZURE_BACKUP and Second backup $SECOND_AZURE_BACKUP for Azure are the same"
+		exit 1
+	fi
+
+	desc "Restore from Azure scheduled backup and verify data integrity"
+	run_scheduled_recovery_check "$cluster" "$SECOND_AZURE_BACKUP"
+
+	desc "Check backup deletion from Azure Blob Storage"
+	check_backup_deletion_azure "$BACKUP_DEST_AZURE" ".sst_info/sst_info.00000000000000000000"
+
+	unlabel_node
+	destroy $namespace
+	desc "test passed"
+}
+
+main

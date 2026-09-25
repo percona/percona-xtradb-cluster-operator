@@ -30,7 +30,7 @@ main() {
 	start_minio
 	apply_secrets
 	spinup_pxc "$source_cluster" "$test_dir/conf/$source_cluster.yml"
-	sleep 60
+	wait_pxc_ready "$source_cluster"
 	desc "get main cluster services endpoints"
 	source_endpoint0=$(get_service_ip ${source_cluster}-pxc-0)
 	source_endpoint1=$(get_service_ip ${source_cluster}-pxc-1)
@@ -63,7 +63,7 @@ main() {
 	kubectl_bin apply -f ${tmp_dir}/replica-ssl-internal.yaml
 	apply_secrets
 	spinup_pxc "$replica_cluster" "$test_dir/conf/$replica_cluster.yml"
-	sleep 60
+	wait_pxc_ready "$replica_cluster"
 
 	desc "restore backup from source cluster"
 	destination=$(kubectl_bin get -n "${namespace}" pxc-backup backup-minio-source -o jsonpath='{.status.destination}')
@@ -86,10 +86,10 @@ main() {
 
 	desc "patch replica cluster with replicationChannels settings"
 	kubectl_bin patch pxc $replica_cluster --type=merge --patch '{"spec": {"pxc": {"replicationChannels":[{"name": "source_to_replica", "isSource": false, "configuration": {"ssl": true, "sslSkipVerify": true, "ca": "/etc/mysql/ssl-internal/ca.crt"}, "sourcesList": [{"host": "'${source_endpoint0}'", "port": 3306, "weight": 100},{"host": "'${source_endpoint1}'", "port": 3306, "weight": 100},{"host": "'${source_endpoint2}'", "port": 3306, "weight": 100}]}]}}}'
-	sleep 40
 
 	desc "patch replica cluster secrets with replication user"
 	patch_replication_secret "$replica_cluster" 3 3
+	wait_replication_channel "$replica_primary_endpoint" "source_to_replica"
 
 	desc "Check replication works between source -> replica"
 	compare_mysql_cmd "select-2" "SELECT * from myApp.testSourceReplica;" "-h $replica_endpoint0 -uroot -proot_password"
@@ -186,7 +186,7 @@ main() {
 		'INSERT myApp.testReplicaSource (id) VALUES (100800)' \
 		"-h $replica_primary_endpoint -uroot -proot_password"
 
-	sleep 15
+	wait_replication_row "$source_endpoint0" "SELECT * FROM myApp.testReplicaSource WHERE id=100800"
 
 	desc "Check replication works between replica -> source"
 	switch_namespace "$namespace"

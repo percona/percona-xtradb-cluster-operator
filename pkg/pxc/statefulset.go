@@ -3,6 +3,7 @@ package pxc
 import (
 	"context"
 	"fmt"
+	"maps"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -50,7 +51,7 @@ func StatefulSet(
 		pod.ShareProcessNamespace = &t
 	}
 
-	sfsVolume, err := sfs.Volumes(podSpec, cr, vg)
+	sfsVolume, err := sfs.Volumes(ctx, podSpec, cr, vg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get volumes %v", err)
 	}
@@ -118,9 +119,7 @@ func StatefulSet(
 	ls := sfs.Labels()
 
 	customLabels := make(map[string]string, len(ls))
-	for k, v := range ls {
-		customLabels[k] = v
-	}
+	maps.Copy(customLabels, ls)
 
 	for k, v := range podSpec.Labels {
 		if _, ok := customLabels[k]; !ok {

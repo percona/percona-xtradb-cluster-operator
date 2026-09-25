@@ -1,0 +1,61 @@
+#!/bin/bash
+
+set -o errexit
+
+test_dir=$(realpath $(dirname $0))
+. ${test_dir}/../functions
+
+set_debug
+
+main() {
+	if [ -n "$SKIP_REMOTE_BACKUPS" ]; then
+		echo "Skipping test because SKIP_REMOTE_BACKUPS variable is set!"
+		exit 0
+	fi
+
+	if command -v az >/dev/null 2>&1; then
+		echo "Azure CLI is installed"
+	else
+		echo "Azure CLI is not installed"
+		exit 1
+	fi
+
+	create_infra $namespace
+
+	cluster="demand-backup-cloud"
+	spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml"
+
+	backup_name_azure="on-demand-backup-azure-blob"
+
+	desc "Run backup ${backup_name_azure} for $cluster cluster"
+	run_backup_with_delete "${backup_name_azure}"
+
+	desc "Run recovery from azure for $cluster cluster"
+	run_recovery_check "$cluster" "${backup_name_azure}"
+
+	desc "Run recovery from azure source with default options"
+	run_recovery_from_source 'azure' "${backup_name_azure}"
+
+	desc 'Run recovery from azure source without azure:// prefix in destination'
+	run_recovery_from_source 'azure' "${backup_name_azure}" '' 'remove_prefix_from_destination'
+
+	desc 'Run recovery from azure source without container option'
+	run_recovery_from_source 'azure' "${backup_name_azure}" 'remove_container_name'
+	compare_kubectl job.batch/xb-"${backup_name_azure}"
+	compare_kubectl job.batch/restore-job-on-demand-backup-azure-demand-backup-cloud
+
+	backup_dest_azure=$(kubectl_bin get pxc-backup "$backup_name_azure" -o jsonpath='{.status.destination}' | sed -e 's/.json$//' | cut -c 9-)
+
+	desc "Check backup existence"
+	setup_azure_credentials
+	check_backup_existence_azure "${backup_dest_azure}" ".sst_info/sst_info.00000000000000000000"
+
+	kubectl_bin delete pxc-backup --all
+
+	desc "Check backup deletion"
+	check_backup_deletion_azure "${backup_dest_azure}" ".sst_info/sst_info.00000000000000000000"
+
+	destroy $namespace
+	desc "test passed"
+}
+main

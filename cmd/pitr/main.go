@@ -26,7 +26,12 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, os.Interrupt)
 	defer stop()
 
-	srv := &http.Server{Addr: ":8080"}
+	srv := &http.Server{
+		Addr:              ":8080",
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       10 * time.Second,
+		WriteTimeout:      10 * time.Second,
+	}
 	go func() {
 		http.Handle("/metrics", promhttp.Handler())
 		http.HandleFunc("/health", healthHandler)
@@ -110,7 +115,7 @@ func cacheInvalidationHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	if _, err := w.Write([]byte(fmt.Sprintf("cache invalidated for host: %s", hostname))); err != nil {
+	if _, err := w.Write(fmt.Appendf(nil, "cache invalidated for host: %s", hostname)); err != nil {
 		log.Println("ERROR: writing response:", err)
 	}
 }

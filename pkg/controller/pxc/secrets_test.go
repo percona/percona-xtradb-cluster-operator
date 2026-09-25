@@ -191,7 +191,7 @@ func TestGeneratePass(t *testing.T) {
 					MaxLength: tt.maxLength,
 				}
 
-				for i := 0; i < 100; i++ {
+				for range 100 {
 					p, err := generatePass("", secretOptions)
 					require.NoError(t, err)
 					assert.GreaterOrEqual(t, len(p), tt.minLength, "password length should be >= minLength")
@@ -232,7 +232,7 @@ func TestGeneratePass(t *testing.T) {
 					MaxLength: 20,
 				}
 
-				for i := 0; i < 100; i++ {
+				for range 100 {
 					p, err := generatePass("", secretOptions)
 					require.NoError(t, err)
 
@@ -270,7 +270,7 @@ func TestGeneratePass(t *testing.T) {
 					MaxLength: 20,
 				}
 
-				for i := 0; i < 100; i++ {
+				for range 100 {
 					p, err := generatePass("", secretOptions)
 					require.NoError(t, err)
 
@@ -294,7 +294,7 @@ func TestGeneratePass(t *testing.T) {
 			MinLength: 20,
 		}
 
-		for i := 0; i < 100; i++ {
+		for range 100 {
 			p, err := generatePass(users.ProxyAdmin, secretOptions)
 			require.NoError(t, err)
 
@@ -348,7 +348,7 @@ func TestGeneratePass(t *testing.T) {
 			MaxLength: 20,
 		}
 
-		for i := 0; i < 100; i++ {
+		for range 100 {
 			p, err := generatePass(users.ProxyAdmin, secretOptions)
 			require.NoError(t, err)
 
@@ -373,7 +373,7 @@ func TestGeneratePass(t *testing.T) {
 			MaxLength: 20,
 		}
 
-		for i := 0; i < 50; i++ {
+		for range 50 {
 			p, err := generatePass("", secretOptions)
 			require.NoError(t, err)
 
@@ -396,7 +396,7 @@ func TestGeneratePass(t *testing.T) {
 		passwords := make(map[string]bool)
 		iterations := 100
 
-		for i := 0; i < iterations; i++ {
+		for range iterations {
 			p, err := generatePass("", secretOptions)
 			require.NoError(t, err)
 			passwords[string(p)] = true
@@ -414,7 +414,7 @@ func TestGeneratePass(t *testing.T) {
 
 		lengths := make(map[int]int)
 
-		for i := 0; i < 500; i++ {
+		for range 500 {
 			p, err := generatePass("", secretOptions)
 			require.NoError(t, err)
 			lengths[len(p)]++

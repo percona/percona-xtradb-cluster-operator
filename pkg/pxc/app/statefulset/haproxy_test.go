@@ -6,15 +6,15 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-
-	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/test"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/version"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+
+	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/test"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/version"
 )
 
 func TestAppContainer_HAProxy(t *testing.T) {
@@ -139,7 +139,7 @@ func defaultExpectedHAProxyContainer() corev1.Container {
 		VolumeMounts: []corev1.VolumeMount{
 			{Name: "haproxy-custom", MountPath: "/etc/haproxy-custom/"},
 			{Name: "haproxy-auto", MountPath: "/etc/haproxy/pxc"},
-			{Name: app.BinVolumeName, MountPath: app.BinVolumeMountPath},
+			{Name: naming.BinVolumeName, MountPath: naming.BinVolumeMountPath},
 			{Name: "mysql-users-secret-file", MountPath: "/etc/mysql/mysql-users-secret"},
 			{Name: "test-secret", MountPath: "/etc/mysql/haproxy-env-secret"},
 		},

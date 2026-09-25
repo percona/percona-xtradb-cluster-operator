@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+
+set -o errexit
+
+test_dir=$(realpath $(dirname $0))
+. ${test_dir}/../functions
+
+set_debug
+
+PXCO_FEATURE_GATES="XtrabackupSidecar=true"
+
+main() {
+	if [ -n "$SKIP_REMOTE_BACKUPS" ]; then
+		echo "Skipping test because SKIP_REMOTE_BACKUPS variable is set!"
+		exit 0
+	fi
+
+	if command -v gsutil >/dev/null 2>&1; then
+		echo "gsutil is installed"
+	else
+		echo "gsutil command is not installed"
+		exit 1
+	fi
+
+	create_infra $namespace
+
+	cluster="demand-backup-cloud"
+	spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml"
+
+	backup_name_gcp="on-demand-backup-gcp-cs"
+
+	desc "Run backup ${backup_name_gcp} for $cluster cluster"
+	run_backup_with_delete "${backup_name_gcp}"
+
+	desc "Run recovery from gcs for $cluster cluster"
+	run_recovery_check "$cluster" "${backup_name_gcp}"
+
+	backup_dest_gcp=$(kubectl_bin get pxc-backup "$backup_name_gcp" -o jsonpath='{.status.destination}' | sed -e 's/.json$//' | cut -c 6-)
+
+	dest_file="/xtrabackup_binlog_info.00000000000000000000"
+	if [[ $MYSQL_VERSION == "5.7" ]]; then
+		dest_file="/xtrabackup_info.00000000000000000000"
+	fi
+
+	desc "Check backup existence"
+	setup_gcs_credentials
+	check_backup_existence_gcs "${backup_dest_gcp}" "$dest_file"
+
+	kubectl_bin delete pxc-backup --all
+
+	desc "Check backup deletion"
+	check_backup_deletion_gcs "${backup_dest_gcp}" "$dest_file"
+
+	destroy $namespace
+	desc "test passed"
+}
+main

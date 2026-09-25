@@ -18,23 +18,45 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage"
 )
 
+func getBackupFromBackupSource(cr *api.PerconaXtraDBClusterRestore) (*api.PerconaXtraDBClusterBackup, error) {
+	if cr.Spec.BackupSource == nil {
+		return nil, nil
+	}
+	status := cr.Spec.BackupSource.DeepCopy()
+	status.State = api.BackupSucceeded
+	status.CompletedAt = nil
+	status.LastScheduled = nil
+
+	if cr.Spec.PITR != nil {
+		// In case of BackupSource, we do not know the latest restorable time,
+		// so we assume the user provides a valid date and set it here so that validation
+		// can pass.
+		if cr.Spec.PITR.Type == api.PITRTypeDate {
+			parsedTime, err := time.Parse(time.DateTime, cr.Spec.PITR.Date)
+			if err != nil {
+				return nil, errors.Wrap(err, "parse datetime")
+			}
+			status.LatestRestorableTime = &metav1.Time{Time: parsedTime}
+		}
+	}
+
+	return &api.PerconaXtraDBClusterBackup{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cr.Name,
+			Namespace: cr.Namespace,
+		},
+		Spec: api.PXCBackupSpec{
+			PXCCluster:  cr.Spec.PXCCluster,
+			StorageName: cr.Spec.BackupSource.StorageName,
+		},
+		Status: *status,
+	}, nil
+
+}
+
 func getBackup(ctx context.Context, cl client.Client, cr *api.PerconaXtraDBClusterRestore) (*api.PerconaXtraDBClusterBackup, error) {
 	if cr.Spec.BackupSource != nil {
-		status := cr.Spec.BackupSource.DeepCopy()
-		status.State = api.BackupSucceeded
-		status.CompletedAt = nil
-		status.LastScheduled = nil
-		return &api.PerconaXtraDBClusterBackup{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      cr.Name,
-				Namespace: cr.Namespace,
-			},
-			Spec: api.PXCBackupSpec{
-				PXCCluster:  cr.Spec.PXCCluster,
-				StorageName: cr.Spec.BackupSource.StorageName,
-			},
-			Status: *status,
-		}, nil
+		return getBackupFromBackupSource(cr)
 	}
 
 	bcp := &api.PerconaXtraDBClusterBackup{}

@@ -21,6 +21,7 @@ import (
 
 	apiv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/queries"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/version"
@@ -425,7 +426,7 @@ func (r *ReconcilePerconaXtraDBCluster) mysqlVersion(ctx context.Context, cr *ap
 		return "", versionNotReadyErr
 	}
 
-	upgradeInProgress, err := r.upgradeInProgress(ctx, cr, "pxc")
+	upgradeInProgress, err := r.upgradeInProgress(ctx, cr, naming.ComponentPXC)
 	if err != nil {
 		return "", errors.Wrap(err, "check pxc upgrade progress")
 	}
@@ -434,7 +435,8 @@ func (r *ReconcilePerconaXtraDBCluster) mysqlVersion(ctx context.Context, cr *ap
 	}
 
 	list := corev1.PodList{}
-	if err := r.client.List(ctx,
+	if err := r.client.List(
+		ctx,
 		&list,
 		&client.ListOptions{
 			Namespace:     sfs.StatefulSet().Namespace,
@@ -456,7 +458,7 @@ func (r *ReconcilePerconaXtraDBCluster) mysqlVersion(ctx context.Context, cr *ap
 			continue
 		}
 
-		database, err := queries.New(r.client, cr.Namespace, secrets, users.Root, pod.Name+"."+cr.Name+"-pxc."+cr.Namespace, port, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
+		database, err := queries.New(ctx, r.client, cr.Namespace, secrets, users.Root, pod.Name+"."+cr.Name+"-pxc."+cr.Namespace, port, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
 		if err != nil {
 			log.Error(err, "failed to create db instance")
 			continue

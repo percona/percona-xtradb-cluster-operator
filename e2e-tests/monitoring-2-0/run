@@ -115,12 +115,13 @@ kubectl_bin patch pxc ${cluster} --type=json -p '[
 ]'
 wait_for_delete "sts/${cluster}-haproxy"
 wait_for_running "${cluster}-proxysql" 2
-sleep 60
+wait_cluster_consistency ${cluster} 3 2
 kubectl wait pod -l 'app.kubernetes.io/managed-by=percona-xtradb-cluster-operator' --for=condition=ready --timeout=300s
+sleep 60
 
 desc 'check proxysql exporter is running'
 kubectl_bin exec ${cluster}-proxysql-0 -c pmm-client -- pmm-admin status --json \
-	| jq -e '[.agents[] | select(.agent_type | ascii_downcase | contains("proxysql")) | .status | ascii_downcase] | any(. == "running")'
+	| jq -e '[.pmm_agent_status.agents[] | select(.agent_type | ascii_downcase | contains("proxysql")) | .status | ascii_downcase] | any(. == "running")'
 
 desc 'check proxysql metrics'
 get_metric_values proxysql_connection_pool_conn_used pxc-prefix-$namespace-$cluster-proxysql-0 admin:admin

@@ -18,7 +18,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
@@ -113,6 +112,8 @@ var _ = Describe("Finalizer delete-ssl", Ordered, func() {
 		cr.Finalizers = append(cr.Finalizers, naming.FinalizerDeleteSSL)
 		cr.Spec.SSLSecretName = "cluster1-ssl"
 		cr.Spec.SSLInternalSecretName = "cluster1-ssl-internal"
+		cr.Spec.Unsafe.TLS = false
+		cr.Spec.TLS.Enabled = new(true)
 
 		It("Should create PerconaXtraDBCluster", func() {
 			Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
@@ -152,6 +153,12 @@ var _ = Describe("Finalizer delete-ssl", Ordered, func() {
 				return err == nil
 			}, time.Second*30, time.Millisecond*250).Should(BeTrue())
 			Expect(certs.Items).ShouldNot(BeEmpty())
+
+			for _, cert := range certs.Items {
+				Expect(cert.Spec.PrivateKey).NotTo(BeNil(), "certificate %s should have privateKey set", cert.Name)
+				Expect(cert.Spec.PrivateKey.RotationPolicy).To(Equal(cm.RotationPolicyNever),
+					"certificate %s should have rotationPolicy set to Never", cert.Name)
+			}
 		})
 
 		When("PXC cluster is deleted with delete-ssl finalizer certs should be removed", func() {
@@ -217,6 +224,8 @@ var _ = Describe("Finalizer delete-ssl", Ordered, func() {
 
 		cr.Spec.SSLSecretName = "cluster1-ssl"
 		cr.Spec.SSLInternalSecretName = "cluster1-ssl-internal"
+		cr.Spec.Unsafe.TLS = false
+		cr.Spec.TLS.Enabled = new(true)
 
 		It("Should create PerconaXtraDBCluster", func() {
 			Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
@@ -269,6 +278,65 @@ var _ = Describe("Finalizer delete-ssl", Ordered, func() {
 			certs := &cm.CertificateList{}
 			Expect(k8sClient.List(ctx, certs, &client.ListOptions{Namespace: cr.Namespace})).Should(Succeed())
 			Expect(certs.Items).ShouldNot(BeEmpty())
+		})
+	})
+
+	Context("crVersion below 1.20.0 should not set privateKey rotationPolicy", Ordered, func() {
+		const oldCRName = "del-ssl-fnlz-old"
+		const oldNs = "del-ssl-fnlz-old"
+
+		oldNamespace := &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      oldNs,
+				Namespace: oldNs,
+			},
+		}
+
+		BeforeAll(func() {
+			By("Creating the Namespace for old crVersion test")
+			err := k8sClient.Create(ctx, oldNamespace)
+			Expect(err).To(Not(HaveOccurred()))
+		})
+
+		AfterAll(func() {
+			_ = k8sClient.Delete(ctx, oldNamespace)
+		})
+
+		cr, err := readDefaultCR(oldCRName, oldNs)
+
+		It("should read default cr.yaml", func() {
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		cr.Finalizers = append(cr.Finalizers, naming.FinalizerDeleteSSL)
+		cr.Spec.SSLSecretName = "cluster1-ssl"
+		cr.Spec.SSLInternalSecretName = "cluster1-ssl-internal"
+		cr.Spec.CRVersion = "1.19.0"
+		cr.Spec.Unsafe.TLS = false
+		cr.Spec.TLS.Enabled = new(true)
+
+		It("Should create PerconaXtraDBCluster with old crVersion", func() {
+			Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
+		})
+
+		It("should reconcile once to create user secret", func() {
+			_, err := reconciler().Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Name: oldCRName, Namespace: oldNs}})
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("certificates should not have privateKey rotationPolicy set", func() {
+			certs := &cm.CertificateList{}
+			Eventually(func() bool {
+				opts := &client.ListOptions{Namespace: oldNs}
+				err := k8sClient.List(ctx, certs, opts)
+				return err == nil && len(certs.Items) > 0
+			}, time.Second*30, time.Millisecond*250).Should(BeTrue())
+			Expect(certs.Items).ShouldNot(BeEmpty())
+
+			for _, cert := range certs.Items {
+				Expect(cert.Spec.PrivateKey).To(BeNil(),
+					"certificate %s should not have privateKey set for crVersion < 1.20.0", cert.Name)
+			}
 		})
 	})
 })
@@ -2118,19 +2186,19 @@ var _ = Describe("Affinity", Ordered, func() {
 			affinityCheck(nil, simpleAffinity("kubernetes.io/hostname", componentFunc(cr).Labels()))
 		})
 		When("topologyKey key is set to `none`", func() {
-			affinityCheck(&api.PodAffinity{TopologyKey: ptr.To("none")}, nil)
+			affinityCheck(&api.PodAffinity{TopologyKey: new("none")}, nil)
 		})
 		When("hostname affinity is set", func() {
 			topologyKey := "kubernetes.io/hostname"
-			affinityCheck(&api.PodAffinity{TopologyKey: ptr.To(topologyKey)}, simpleAffinity(topologyKey, componentFunc(cr).Labels()))
+			affinityCheck(&api.PodAffinity{TopologyKey: new(topologyKey)}, simpleAffinity(topologyKey, componentFunc(cr).Labels()))
 		})
 		When("zone affinity is set", func() {
 			topologyKey := "failure-domain.beta.kubernetes.io/zone"
-			affinityCheck(&api.PodAffinity{TopologyKey: ptr.To(topologyKey)}, simpleAffinity(topologyKey, componentFunc(cr).Labels()))
+			affinityCheck(&api.PodAffinity{TopologyKey: new(topologyKey)}, simpleAffinity(topologyKey, componentFunc(cr).Labels()))
 		})
 		When("region affinity is set", func() {
 			topologyKey := "failure-domain.beta.kubernetes.io/region"
-			affinityCheck(&api.PodAffinity{TopologyKey: ptr.To(topologyKey)}, simpleAffinity(topologyKey, componentFunc(cr).Labels()))
+			affinityCheck(&api.PodAffinity{TopologyKey: new(topologyKey)}, simpleAffinity(topologyKey, componentFunc(cr).Labels()))
 		})
 		When("custom affinity is set", func() {
 			customAffinity := &corev1.Affinity{
@@ -2201,7 +2269,7 @@ var _ = Describe("Affinity", Ordered, func() {
 			}
 
 			affinityCheck(&api.PodAffinity{
-				TopologyKey: ptr.To("kubernetes.io/hostname"),
+				TopologyKey: new("kubernetes.io/hostname"),
 				Advanced:    customAffinity.DeepCopy(),
 			}, customAffinity)
 		})

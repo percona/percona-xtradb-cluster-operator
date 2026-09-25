@@ -41,7 +41,7 @@ var (
 // fields in the Object's metadata
 //
 // See https://github.com/knative/serving/issues/11448 for details
-func Decode(bites []byte, target interface{}, disallowUnknownFields bool) error {
+func Decode(bites []byte, target any, disallowUnknownFields bool) error {
 	if !disallowUnknownFields {
 		return json.Unmarshal(bites, target)
 	}

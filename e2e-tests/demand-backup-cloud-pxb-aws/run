@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+
+set -o errexit
+
+test_dir=$(realpath $(dirname $0))
+. ${test_dir}/../functions
+
+set_debug
+
+PXCO_FEATURE_GATES="XtrabackupSidecar=true"
+
+main() {
+	if [ -n "$SKIP_REMOTE_BACKUPS" ]; then
+		echo "Skipping test because SKIP_REMOTE_BACKUPS variable is set!"
+		exit 0
+	fi
+
+	if command -v aws >/dev/null 2>&1; then
+		echo "AWS CLI is installed"
+	else
+		echo "AWS CLI is not installed"
+		exit 1
+	fi
+
+	create_infra $namespace
+
+	cluster="demand-backup-cloud"
+	spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml"
+
+	backup_name_aws="on-demand-backup-aws-s3"
+
+	desc "Run backup ${backup_name_aws} for $cluster cluster"
+	run_backup_with_delete "${backup_name_aws}"
+	check_backup_container_options "${backup_name_aws}" "$cluster"
+
+	desc "Run recovery from s3 for $cluster cluster"
+	run_recovery_check "$cluster" "${backup_name_aws}"
+
+	desc "Check correct order for custom options"
+
+	desc "Run recovery from s3 source with default options"
+	run_recovery_from_source
+
+	desc 'Run recovery from s3 source without s3:// prefix in destination'
+	run_recovery_from_source 's3' "${backup_name_aws}" '' 'remove_prefix_from_destination'
+
+	desc 'Run recovery from s3 source without bucket option'
+	run_recovery_from_source 's3' "${backup_name_aws}" 'remove_bucket_name'
+
+	backup_dest_aws=$(kubectl_bin get pxc-backup "$backup_name_aws" -o jsonpath='{.status.destination}' | sed -e 's/.json$//' | cut -c 6-)
+
+	dest_file="/xtrabackup_binlog_info.00000000000000000000"
+	if [[ $MYSQL_VERSION == "5.7" ]]; then
+		dest_file="/xtrabackup_info.00000000000000000000"
+	fi
+
+	desc "Check backup existence"
+	setup_aws_credentials
+	check_backup_existence_aws "$backup_dest_aws" "$dest_file"
+
+	kubectl_bin delete pxc-backup --all
+
+	desc "Check backup deletion"
+	check_backup_deletion_aws "$backup_dest_aws" "$dest_file"
+
+	destroy $namespace
+	desc "test passed"
+}
+main

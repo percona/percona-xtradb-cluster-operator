@@ -22,8 +22,10 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/percona/percona-xtradb-cluster-operator/cmd/pitr/pxc"
+	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/util/gtid"
 )
 
 const collectorPasswordPath = "/etc/mysql/mysql-users-secret/xtrabackup"
@@ -102,13 +104,15 @@ type Config struct {
 }
 
 type BackupS3 struct {
-	Endpoint     string `env:"ENDPOINT" envDefault:"s3.amazonaws.com"`
-	AccessKeyID  string `env:"ACCESS_KEY_ID,required"`
-	AccessKey    string `env:"SECRET_ACCESS_KEY,required"`
-	SessionToken string `env:"S3_SESSION_TOKEN"`
-	BucketURL    string `env:"S3_BUCKET_URL,required"`
-	Region       string `env:"DEFAULT_REGION,required"`
-	ForcePath    bool   `env:"S3_FORCE_PATH"`
+	Endpoint              string `env:"ENDPOINT" envDefault:"s3.amazonaws.com"`
+	AccessKeyID           string `env:"ACCESS_KEY_ID,required"`
+	AccessKey             string `env:"SECRET_ACCESS_KEY,required"`
+	SessionToken          string `env:"S3_SESSION_TOKEN"`
+	BucketURL             string `env:"S3_BUCKET_URL,required"`
+	Region                string `env:"DEFAULT_REGION,required"`
+	ForcePath             bool   `env:"S3_FORCE_PATH"`
+	ChecksumAlgorithm     string `env:"S3_CHECKSUM_ALGORITHM"`
+	SkipBucketExistsCheck bool   `env:"S3_SKIP_BUCKET_EXISTS_CHECK"`
 }
 
 type BackupAzure struct {
@@ -146,7 +150,21 @@ func New(ctx context.Context, c Config) (*Collector, error) {
 			return nil, errors.Wrap(err, "read CA bundle file")
 		}
 
-		s, err = storage.NewS3(ctx, c.BackupStorageS3.Endpoint, c.BackupStorageS3.AccessKeyID, c.BackupStorageS3.AccessKey, c.BackupStorageS3.SessionToken, bucketArr[0], prefix, c.BackupStorageS3.Region, c.VerifyTLS, caBundle, c.BackupStorageS3.ForcePath)
+		opts := storage.S3Options{
+			Endpoint:              c.BackupStorageS3.Endpoint,
+			AccessKeyID:           c.BackupStorageS3.AccessKeyID,
+			SecretAccessKey:       c.BackupStorageS3.AccessKey,
+			SessionToken:          c.BackupStorageS3.SessionToken,
+			BucketName:            bucketArr[0],
+			Prefix:                prefix,
+			Region:                c.BackupStorageS3.Region,
+			VerifyTLS:             c.VerifyTLS,
+			CABundle:              caBundle,
+			ForcePathStyle:        c.BackupStorageS3.ForcePath,
+			ChecksumAlgorithm:     api.S3ChecksumAlgorithmType(c.BackupStorageS3.ChecksumAlgorithm),
+			SkipBucketExistsCheck: c.BackupStorageS3.SkipBucketExistsCheck,
+		}
+		s, err = storage.NewS3(ctx, opts)
 		if err != nil {
 			return nil, errors.Wrap(err, "new storage manager")
 		}
@@ -506,6 +524,39 @@ func (c *Collector) addGTIDSets(ctx context.Context, cache *HostBinlogCache, bin
 	return nil
 }
 
+// findBinlogWithEndMarker walks binlogs from most recent to oldest and returns the
+// name of the first binlog whose GTID set contains the end (highest) sequence of any
+// GTID entry in lastUploadedSet. Returns "" when no binlog matches, indicating a gap.
+func findBinlogWithEndMarker(binlogs []pxc.Binlog, lastUploadedSet pxc.GTIDSet) string {
+	for i := len(binlogs) - 1; i >= 0; i-- {
+		log.Printf("checking %s (%s) against last uploaded set", binlogs[i].Name, binlogs[i].GTIDSet.Raw())
+
+		for _, lastUploaded := range lastUploadedSet.List() {
+			lastUploadedGTID, err := gtid.New(lastUploaded)
+			if err != nil {
+				log.Printf("failed to parse last uploaded gtid: %v", err)
+				continue
+			}
+
+			uuid, endSeq := lastUploadedGTID.End()
+
+			for _, gtidSet := range binlogs[i].GTIDSet.List() {
+				parsedGtidSet, err := gtid.New(gtidSet)
+				if err != nil {
+					log.Printf("failed to parse gtid set: %v", err)
+					continue
+				}
+
+				if parsedGtidSet.ContainsSeq(uuid, endSeq) {
+					log.Printf("last uploaded end marker %s:%d found in %s (%s)", uuid, endSeq, binlogs[i].Name, gtidSet)
+					return binlogs[i].Name
+				}
+			}
+		}
+	}
+	return ""
+}
+
 func (c *Collector) CollectBinLogs(ctx context.Context) error {
 	cache, err := loadCache(ctx, c.storage, c.gtidCacheKey)
 	if err != nil {
@@ -569,40 +620,7 @@ func (c *Collector) CollectBinLogs(ctx context.Context) error {
 	if !c.lastUploadedSet.IsEmpty() {
 		log.Printf("last uploaded GTID set: %s", c.lastUploadedSet.Raw())
 
-		for i := len(binlogList) - 1; i >= 0 && lastUploadedBinlogName == ""; i-- {
-			log.Printf("checking %s (%s) against last uploaded set", binlogList[i].Name, binlogList[i].GTIDSet.Raw())
-			for _, gtidSet := range binlogList[i].GTIDSet.List() {
-				if lastUploadedBinlogName != "" {
-					break
-				}
-				for _, lastUploaded := range c.lastUploadedSet.List() {
-					if lastUploaded == gtidSet {
-						log.Printf("last uploaded %s is equal to %s in %s", lastUploaded, gtidSet, binlogList[i].Name)
-						lastUploadedBinlogName = binlogList[i].Name
-						break
-					}
-					isSubset, err := c.db.GTIDSubset(ctx, lastUploaded, gtidSet)
-					if err != nil {
-						return errors.Wrap(err, "check if gtid set is subset")
-					}
-					if isSubset {
-						log.Printf("last uploaded %s is subset of %s in %s", lastUploaded, gtidSet, binlogList[i].Name)
-						lastUploadedBinlogName = binlogList[i].Name
-						break
-					}
-					isSubset, err = c.db.GTIDSubset(ctx, gtidSet, lastUploaded)
-					if err != nil {
-						return errors.Wrap(err, "check if gtid set is subset")
-					}
-					if isSubset {
-						log.Printf("%s in %s is subset of last uploaded %s", gtidSet, binlogList[i].Name, lastUploaded)
-						lastUploadedBinlogName = binlogList[i].Name
-						break
-					}
-					log.Printf("last uploaded %s is not subset of %s in %s or vice versa", lastUploaded, gtidSet, binlogList[i].Name)
-				}
-			}
-		}
+		lastUploadedBinlogName = findBinlogWithEndMarker(binlogList, c.lastUploadedSet)
 
 		if lastUploadedBinlogName == "" {
 			log.Println("ERROR: Couldn't find the binlog that contains GTID set:", c.lastUploadedSet.Raw())

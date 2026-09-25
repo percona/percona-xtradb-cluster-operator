@@ -4,7 +4,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 )
 
 func EntrypointInitContainer(cr *api.PerconaXtraDBCluster, initImageName string, volumeName string) corev1.Container {
@@ -50,8 +50,8 @@ func PitrInitContainer(cluster *api.PerconaXtraDBCluster, initImageName string) 
 	return corev1.Container{
 		VolumeMounts: []corev1.VolumeMount{
 			{
-				Name:      app.BinVolumeName,
-				MountPath: app.BinVolumeMountPath,
+				Name:      naming.BinVolumeName,
+				MountPath: naming.BinVolumeMountPath,
 			},
 		},
 		Image:           initImageName,
@@ -67,8 +67,8 @@ func BackupInitContainer(cluster *api.PerconaXtraDBCluster, initImageName string
 	return corev1.Container{
 		VolumeMounts: []corev1.VolumeMount{
 			{
-				Name:      app.BinVolumeName,
-				MountPath: app.BinVolumeMountPath,
+				Name:      naming.BinVolumeName,
+				MountPath: naming.BinVolumeMountPath,
 			},
 		},
 		Image:           initImageName,
@@ -90,8 +90,8 @@ func HaproxyEntrypointInitContainer(cluster *api.PerconaXtraDBCluster, initImage
 	return corev1.Container{
 		VolumeMounts: []corev1.VolumeMount{
 			{
-				Name:      app.BinVolumeName,
-				MountPath: app.BinVolumeMountPath,
+				Name:      naming.BinVolumeName,
+				MountPath: naming.BinVolumeMountPath,
 			},
 		},
 		Image:           initImageName,
@@ -113,8 +113,8 @@ func ProxySQLEntrypointInitContainer(cluster *api.PerconaXtraDBCluster, initImag
 	return corev1.Container{
 		VolumeMounts: []corev1.VolumeMount{
 			{
-				Name:      app.BinVolumeName,
-				MountPath: app.BinVolumeMountPath,
+				Name:      naming.BinVolumeName,
+				MountPath: naming.BinVolumeMountPath,
 			},
 		},
 		Image:           initImageName,

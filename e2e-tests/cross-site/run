@@ -12,6 +12,23 @@ if [[ $IMAGE_PXC =~ 5\.7 ]]; then
 	exit 0
 fi
 
+wait_haproxy_primary() {
+	local haproxy_host=$1
+	local retry=0
+	local primary=""
+	until [ -n "$primary" ]; do
+		if ! primary=$(run_mysql 'SELECT @@hostname hostname;' "-h ${haproxy_host} -p33062 -uroot -proot_password"); then
+			primary=""
+		fi
+		if [ -z "$primary" ]; then
+			[ $retry -ge 36 ] && echo "HAProxy primary not available after 3 min" && exit 1
+			sleep 5
+			retry=$((retry + 1))
+		fi
+	done
+	echo "$primary"
+}
+
 main() {
 	local source_cluster="cross-site-source"
 	local replica_cluster="cross-site-replica"
@@ -21,19 +38,17 @@ main() {
 	start_minio
 	apply_secrets
 	spinup_pxc "$source_cluster" "$test_dir/conf/$source_cluster.yml"
-	sleep 60
 	desc "get main cluster services endpoints"
 	source_endpoint0=$(get_service_ip ${source_cluster}-pxc-0)
 	source_endpoint1=$(get_service_ip ${source_cluster}-pxc-1)
 	source_endpoint2=$(get_service_ip ${source_cluster}-pxc-2)
 
-	source_primary=$(run_mysql 'SELECT @@hostname hostname;' "-h ${source_cluster}-haproxy -p33062 -uroot -proot_password")
+	source_primary=$(wait_haproxy_primary "${source_cluster}-haproxy")
 	source_primary_endpoint=$(get_service_ip ${source_primary})
 	desc "patch source cluster with replicationChannels settings"
 	kubectl_bin patch pxc $source_cluster --type=merge --patch '{"spec": {"pxc":{"replicationChannels": [{"name":"source_to_replica", "isSource": true}]}}}'
 	desc "patch main cluster secrets with replication user"
 	kubectl_bin patch secret my-cluster-secrets -p '{"data":{"replication": "'$(echo -n new_password | base64)'"}}'
-	sleep 15
 	wait_cluster_consistency "$source_cluster" 3 2
 
 	desc 'write data to source cluster'
@@ -56,7 +71,7 @@ main() {
 	kubectl_bin apply -f ${tmp_dir}/replica-ssl-internal.yaml
 	apply_secrets
 	spinup_pxc "$replica_cluster" "$test_dir/conf/$replica_cluster.yml"
-	sleep 60
+	wait_pxc_ready "$replica_cluster"
 
 	desc "restore backup from source cluster"
 	destination=$(kubectl_bin get -n "${namespace}" pxc-backup backup-minio-source -o jsonpath='{.status.destination}')
@@ -71,7 +86,7 @@ main() {
 	replica_endpoint0=$(get_service_ip ${replica_cluster}-pxc-0)
 	replica_endpoint1=$(get_service_ip ${replica_cluster}-pxc-1)
 	replica_endpoint2=$(get_service_ip ${replica_cluster}-pxc-2)
-	replica_primary=$(run_mysql 'SELECT @@hostname hostname;' "-h ${replica_cluster}-haproxy -p33062 -uroot -proot_password")
+	replica_primary=$(wait_haproxy_primary "${replica_cluster}-haproxy")
 	replica_primary_endpoint=$(get_service_ip ${replica_primary})
 
 	run_mysql \
@@ -80,12 +95,11 @@ main() {
 
 	desc "patch replica cluster with replicationChannels settings"
 	kubectl_bin patch pxc $replica_cluster --type=merge --patch '{"spec": {"pxc": {"replicationChannels":[{"name": "source_to_replica", "isSource": false, "configuration": {"ssl": true, "sslSkipVerify": true, "ca": "/etc/mysql/ssl-internal/ca.crt"}, "sourcesList": [{"host": "'${source_endpoint0}'", "port": 3306, "weight": 100},{"host": "'${source_endpoint1}'", "port": 3306, "weight": 100},{"host": "'${source_endpoint2}'", "port": 3306, "weight": 100}]}]}}}'
-	sleep 40
 
 	desc "patch replica cluster secrets with replication user"
 	kubectl_bin patch secret my-cluster-secrets -p '{"data":{"replication": "'$(echo -n new_password | base64)'"}}'
-	sleep 15
 	wait_cluster_consistency "$replica_cluster" 3 2
+	wait_replication_channel "$replica_primary_endpoint" "source_to_replica"
 
 	desc "Check replication works between source -> replica"
 	compare_mysql_cmd "select-2" "SELECT * from myApp.testSourceReplica;" "-h $replica_endpoint0 -uroot -proot_password"
@@ -137,7 +151,7 @@ main() {
 		'INSERT myApp.testReplicaSource (id) VALUES (100800)' \
 		"-h $replica_primary_endpoint -uroot -proot_password"
 
-	sleep 15
+	wait_replication_row "$source_endpoint0" "SELECT 1 FROM myApp.testReplicaSource LIMIT 1"
 
 	desc "Check replication works between replica -> source"
 	kubectl_bin config set-context $(kubectl_bin config current-context) --namespace="$namespace"

@@ -18,7 +18,18 @@ run_recovery_check() {
 		'INSERT myApp.myApp (id) VALUES (100501)' \
 		"-h $cluster-proxysql -uroot -proot_password"
 
-	sleep 20
+	for node in \
+		"$cluster-pxc-0.$cluster-pxc" \
+		"$cluster-pxc-1.$cluster-pxc" \
+		"$cluster-pxc-2.$cluster-pxc"; do
+		local retry=0
+		until [[ "$(run_mysql 'SELECT COUNT(*) FROM myApp.myApp;' \
+			"-h $node -uroot -proot_password" 2>/dev/null)" == "2" ]]; do
+			[ $retry -ge 12 ] && echo "Row not propagated to $node after 1 min" && exit 1
+			sleep 5
+			retry=$((retry + 1))
+		done
+	done
 	compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
 	compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-pxc-1.$cluster-pxc -uroot -proot_password"
 	compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-pxc-2.$cluster-pxc -uroot -proot_password"
@@ -35,7 +46,15 @@ run_recovery_check() {
 
 	wait_for_running "$cluster-proxysql" 1
 	wait_for_running "$cluster-pxc" 3
-	sleep 20
+
+	for node in "$cluster-pxc-0.$cluster-pxc" "$cluster-pxc-1.$cluster-pxc" "$cluster-pxc-2.$cluster-pxc"; do
+		local retry=0
+		until run_mysql 'SELECT 1;' "-h $node -uroot -proot_password" 2>/dev/null | grep -q 1; do
+			[ $retry -ge 24 ] && echo "Node $node not accessible after 2 min" && exit 1
+			sleep 5
+			retry=$((retry + 1))
+		done
+	done
 
 	desc 'check data after backup'
 	compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
@@ -48,131 +67,6 @@ get_backup_name() {
 		| grep ":$1:Succeeded" \
 		| tail -1 \
 		| cut -d ':' -f 1
-}
-
-wait_backup() {
-	while [ -z "$(get_backup_name $1)" ]; do
-		sleep 20
-	done
-}
-
-get_running_backups_amount() {
-	kubectl_bin get pxc-backup -o=jsonpath='{range .items[*]}{.metadata.name}{":"}{.spec.storageName}{":"}{.status.state}{"\n"}{end}' \
-		| grep -vE ":Succeeded|:Failed" \
-		| wc -l
-}
-
-get_successful_backups_amount() {
-	local storage="$1"
-	kubectl_bin get pxc-backup -o=jsonpath='{range .items[*]}{.metadata.name}{":"}{.spec.storageName}{":"}{.status.state}{"\n"}{end}' \
-		| grep $storage \
-		| grep -E ":Succeeded" \
-		| wc -l
-}
-
-get_failed_backups_amount() {
-	kubectl_bin get pxc-backup -o=jsonpath='{range .items[*]}{.metadata.name}{":"}{.spec.storageName}{":"}{.status.state}{"\n"}{end}' \
-		| grep ":Failed" \
-		| wc -l
-}
-
-wait_num_backups() {
-	local storage="$1"
-	local num="$2"
-    local timer=0
-	echo "Starting to check number $num of backups for $storage"
-	while [[ "$(get_successful_backups_amount $storage)" -ne $num  && $timer -le 400 ]]; do
-		sleep 2
-		((timer += 1))
-	done
-	echo "Finished to check number $num of backups for $storage. Timer: $timer"
-}
-
-wait_all_backups() {
-	while [[ "$(get_running_backups_amount)" -ne 0 && "$(get_failed_backups_amount)" -eq 0 ]]; do
-		wait_for_running "$cluster-pxc" 3 1
-		echo
-		kubectl_bin get pxc-backup
-		echo
-		kubectl_bin get pods
-		sleep 20
-	done
-	if [[ "$(get_failed_backups_amount)" -gt 0 ]]; then
-		echo "One or more backups have been failed!\n"
-		desc "LIST OF BACKUPS"
-		kubectl_bin get pxc-backup
-		desc "LIST OF PODS"
-		kubectl_bin get pods
-		exit 1
-	fi
-}
-
-label_node() {
-	LABELED_NODE=$(kubectl_bin get nodes --no-headers=true | grep -v master | head -n1 | awk '{print $1}')
-
-	kubectl_bin label nodes "${LABELED_NODE}" backupWorker=True --overwrite
-}
-
-unlabel_node() {
-	kubectl_bin label nodes "${LABELED_NODE}" backupWorker- --overwrite
-}
-
-compare_extrafields() {
-	local resource_type="$1"
-	local resource="$2"
-	local expected_result=${test_dir}/compare/extra-fields.json
-	local new_result="${tmp_dir}/${resource//\//_}.json"
-
-	if [ ! -z "$OPENSHIFT" -a -f ${expected_result//.json/-oc.json} ]; then
-		expected_result=${expected_result//.json/-oc.json}
-	fi
-
-	case ${resource_type} in
-		job)
-			kubectl_bin get ${resource_type} ${resource} -o json | jq '{
-                                                                            affinity: .spec.template.spec.affinity,
-                                                                            annotations:
-                                                                                {
-                                                                                    testName: .spec.template.metadata.annotations.testName
-                                                                                },
-                                                                            labels:
-                                                                                {
-                                                                                    backupWorker: .spec.template.metadata.labels.backupWorker
-                                                                                },
-                                                                            nodeSelector:
-                                                                                {
-                                                                                    backupWorker: .spec.template.spec.nodeSelector.backupWorker
-                                                                                },
-                                                                            priorityClassName: .spec.template.spec.priorityClassName,
-                                                                            schedulerName: .spec.template.spec.schedulerName,
-                                                                            tolerations: (.spec.template.spec.tolerations[] | select(.key | contains("backupWorker"))),
-                                                                            resources: .spec.template.spec.containers[0].resources
-                                                                        }' >${new_result}
-			;;
-		pod)
-			kubectl_bin get ${resource_type} ${resource} -o json | jq '{
-                                                                            affinity: .spec.affinity,
-                                                                            annotations:
-                                                                            {
-                                                                                testName: .metadata.annotations.testName
-                                                                            },
-                                                                            labels:
-                                                                                {
-                                                                                    backupWorker: .metadata.labels.backupWorker
-                                                                                },
-                                                                            nodeSelector:
-                                                                                {
-                                                                                    backupWorker: .spec.nodeSelector.backupWorker
-                                                                                },
-                                                                            priorityClassName: .spec.priorityClassName,
-                                                                            schedulerName: .spec.schedulerName,
-                                                                            tolerations: (.spec.tolerations[] | select(.key | contains("backupWorker"))),
-                                                                            resources: .spec.containers[0].resources
-                                                                        }' >${new_result}
-			;;
-	esac
-
-	diff -u ${expected_result} ${new_result}
 }
 
 main() {
@@ -192,152 +86,27 @@ main() {
 	EOF
 
 	spinup_pxc "$cluster" "$test_dir/conf/${cluster}-init.yml"
-	sleep 20
 
 	desc 'add backups schedule for pvc storage'
 	kubectl_bin config set-context "$(kubectl_bin config current-context)" --namespace="$namespace"
 	apply_config "${test_dir}/conf/${cluster}-pvc.yml"
 	label_node
-	sleep 61
-	apply_config "${test_dir}/conf/${cluster}-disable.yml"
-	wait_all_backups
-	desc 'add backups schedule for aws s3 storage'
-	apply_config "${test_dir}/conf/${cluster}-aws.yml"
-	sleep 61
+	wait_first_backup_appears "pvc"
 	apply_config "${test_dir}/conf/${cluster}-disable.yml"
 	wait_all_backups
 	desc 'add backups schedule for minio storage'
 	apply_config "${test_dir}/conf/${cluster}-minio.yml"
-	sleep 61
+	wait_first_backup_appears "minio"
 	apply_config "${test_dir}/conf/${cluster}-disable.yml"
 	wait_all_backups
-	desc 'add backups schedule for gcs storage'
-	apply_config "${test_dir}/conf/${cluster}-gcs.yml"
-	sleep 61
-	apply_config "${test_dir}/conf/${cluster}-disable.yml"
-	wait_all_backups
-	desc 'add backups schedule for azure storage'
-	apply_config "${test_dir}/conf/${cluster}-azure.yml"
-	sleep 61
-	apply_config "${test_dir}/conf/${cluster}-disable.yml"
-	wait_all_backups
-
-	FIRST_PVC_BACKUP=$(kubectl_bin get pxc-backup -o jsonpath='{range .items[*]}{.metadata.name}:{.spec.storageName}:{.status.state}{"\n"}{end}' | grep Succeeded | grep pvc | head -n1 | cut -d: -f1)
-	JOB_PVC_BACKUP=$(kubectl_bin get jobs | grep ${FIRST_PVC_BACKUP} | awk '{print $1}')
-	POD_PVC_BACKUP=$(kubectl_bin get pods | grep ${JOB_PVC_BACKUP%-*} | awk '{print $1}')
-
-	FIRST_MINIO_BACKUP=$(kubectl_bin get pxc-backup -o jsonpath='{range .items[*]}{.metadata.name}:{.spec.storageName}:{.status.state}{"\n"}{end}' | grep Succeeded | grep minio | head -n1 | cut -d: -f1)
-	JOB_MINIO_BACKUP=$(kubectl_bin get jobs | grep ${FIRST_MINIO_BACKUP} | awk '{print $1}')
-	POD_MINIO_BACKUP=$(kubectl_bin get pods | grep ${JOB_MINIO_BACKUP%-*} | awk '{print $1}')
-
-	if [ -z "$SKIP_REMOTE_BACKUPS" ]; then
-		if command -v aws >/dev/null 2>&1; then
-			echo "AWS CLI is installed"
-		else
-			echo "AWS CLI is not installed"
-			exit 1
-		fi
-		if command -v gsutil >/dev/null 2>&1; then
-			echo "gutil is installed"
-		else
-			echo "gsutil command is not installed"
-			exit 1
-		fi
-		if command -v az >/dev/null 2>&1; then
-			echo "Azure CLI is installed"
-		else
-			echo "Azure CLI is not installed"
-			exit 1
-		fi
-
-		FIRST_AWS_BACKUP=$(kubectl_bin get pxc-backup -o jsonpath='{range .items[*]}{.metadata.name}:{.spec.storageName}:{.status.state}{"\n"}{end}' | grep Succeeded | grep aws | head -n1 | cut -d: -f1)
-		JOB_AWS_BACKUP=$(kubectl_bin get jobs | grep ${FIRST_AWS_BACKUP} | awk '{print $1}')
-		POD_AWS_BACKUP=$(kubectl_bin get pods | grep ${JOB_AWS_BACKUP%-*} | awk '{print $1}')
-
-		FIRST_GCP_BACKUP=$(kubectl_bin get pxc-backup -o jsonpath='{range .items[*]}{.metadata.name}:{.spec.storageName}:{.status.state}{"\n"}{end}' | grep Succeeded | grep gcp | head -n1 | cut -d: -f1)
-		JOB_GCP_BACKUP=$(kubectl_bin get jobs | grep ${FIRST_GCP_BACKUP} | awk '{print $1}')
-		POD_GCP_BACKUP=$(kubectl_bin get pods | grep ${JOB_GCP_BACKUP%-*} | awk '{print $1}')
-
-		FIRST_AZURE_BACKUP=$(kubectl_bin get pxc-backup -o jsonpath='{range .items[*]}{.metadata.name}:{.spec.storageName}:{.status.state}{"\n"}{end}' | grep Succeeded | grep azure | head -n1 | cut -d: -f1)
-		JOB_AZURE_BACKUP=$(kubectl_bin get jobs | grep ${FIRST_AZURE_BACKUP} | awk '{print $1}')
-		POD_AZURE_BACKUP=$(kubectl_bin get pods | grep ${JOB_AZURE_BACKUP%-*} | awk '{print $1}')
-
-		BACKUP_DEST_AWS=$(kubectl_bin get pxc-backup "$FIRST_AWS_BACKUP" -o jsonpath='{.status.destination}' | sed -e 's/.json$//' | cut -c 6-)
-		BACKUP_DEST_GCP=$(kubectl_bin get pxc-backup "$FIRST_GCP_BACKUP" -o jsonpath='{.status.destination}' | sed -e 's/.json$//' | cut -c 6-)
-		BACKUP_DEST_AZURE=$(kubectl_bin get pxc-backup "$FIRST_AZURE_BACKUP" -o jsonpath='{.status.destination}' | sed -e 's/.json$//' | cut -c 9-)
-
-		desc "Check backup existence"
-		setup_aws_credentials
-		check_backup_existence_aws "$BACKUP_DEST_AWS" ".sst_info/sst_info.00000000000000000000"
-
-		setup_gcs_credentials
-		check_backup_existence_gcs "$BACKUP_DEST_GCP"
-
-		setup_azure_credentials
-		check_backup_existence_azure "$BACKUP_DEST_AZURE" ".sst_info/sst_info.00000000000000000000"
-
-		desc "Check that KEEP option saves correct backup's amount (1 for our settings)"
-
-		desc 'add backups schedule for gcs storage'
-		apply_config "${test_dir}/conf/${cluster}-gcs.yml"
-		sleep 50
-		wait_num_backups 'gcp-cs' 2
-		echo "Patch backup for yearly backup for gcs storage"
-		kubectl patch pxc ${cluster} --type="merge" -p '{"spec":{"backup":{"schedule":[{"name":"each-min-gcp-cs","storageName":"gcp-cs","keep":1,"schedule":"0 0 1 * *"}]}}}'
-		wait_num_backups 'gcp-cs' 1
-		apply_config "${test_dir}/conf/${cluster}-disable.yml"
-		wait_all_backups
-		desc 'add backups schedule for azure storage'
-		apply_config "${test_dir}/conf/${cluster}-azure.yml"
-		sleep 50
-		wait_num_backups 'azure-blob' 2
-		echo "Patch backup for yearly backup for azure storag"
-		kubectl patch pxc ${cluster} --type="merge" -p '{"spec":{"backup":{"schedule":[{"name":"each-min-azure-every","storageName":"azure-blob","keep":1,"schedule":"0 0 1 * *"}]}}}'
-		wait_num_backups 'azure-blob' 1
-		apply_config "${test_dir}/conf/${cluster}-disable.yml"
-		wait_all_backups
-		desc 'add backups schedule for aws s3 storage'
-		apply_config "${test_dir}/conf/${cluster}-aws.yml"
-		sleep 50
-		wait_num_backups 'aws-s3' 2
-		echo "Patch backup for yearly backup for aws s3 storage"
-		kubectl patch pxc ${cluster} --type="merge" -p '{"spec":{"backup":{"schedule":[{"name":"each-min-aws-s3","storageName":"aws-s3","keep":1,"schedule":"0 0 1 * *"}]}}}'
-		wait_num_backups 'aws-s3' 1
-		apply_config "${test_dir}/conf/${cluster}-disable.yml"
-		wait_all_backups
-		sleep 30
-		SECOND_AWS_BACKUP=$(kubectl_bin get pxc-backup -o jsonpath='{range .items[*]}{.metadata.name}:{.spec.storageName}:{.status.state}{"\n"}{end}' | grep Succeeded | grep aws | head -n1 | cut -d: -f1)
-		SECOND_GCP_BACKUP=$(kubectl_bin get pxc-backup -o jsonpath='{range .items[*]}{.metadata.name}:{.spec.storageName}:{.status.state}{"\n"}{end}' | grep Succeeded | grep gcp | head -n1 | cut -d: -f1)
-		SECOND_AZURE_BACKUP=$(kubectl_bin get pxc-backup -o jsonpath='{range .items[*]}{.metadata.name}:{.spec.storageName}:{.status.state}{"\n"}{end}' | grep Succeeded | grep azure | head -n1 | cut -d: -f1)
-
-		if [[ $FIRST_GCP_BACKUP == "$SECOND_GCP_BACKUP" || $FIRST_AZURE_BACKUP == "$SECOND_AZURE_BACKUP" || $FIRST_AWS_BACKUP == "$SECOND_AWS_BACKUP" ]]; then
-			echo "Something got wrong: First $FIRST_GCP_BACKUP and Second backup $SECOND_GCP_BACKUP for GCP or first $FIRST_AZURE_BACKUP and second backup $SECOND_AZURE_BACKUP for AZURE or first $FIRST_AWS_BACKUP and second backup $SECOND_AWS_BACKUP for AWS are the same"
-			exit 1
-		fi
-
-		desc "Check backup deletion"
-		check_backup_deletion_aws "$BACKUP_DEST_AWS" ".sst_info/sst_info.00000000000000000000"
-		check_backup_deletion_gcs "$BACKUP_DEST_GCP"
-		check_backup_deletion_azure "$BACKUP_DEST_AZURE" ".sst_info/sst_info.00000000000000000000"
-	fi
 
 	backup_name_pvc=$(get_backup_name "pvc")
 	backup_name_minio=$(get_backup_name "minio")
-	if [ -z "$SKIP_REMOTE_BACKUPS" ]; then
-		backup_name_aws=$(get_backup_name "aws-s3")
-		backup_name_gcp=$(get_backup_name "gcp-cs")
-		backup_name_azure=$(get_backup_name "azure-blob")
-	fi
 
 	apply_config "$test_dir/conf/${cluster}-init.yml"
 
 	run_recovery_check "$cluster" "$backup_name_pvc"
 	run_recovery_check "$cluster" "$backup_name_minio"
-	if [ -z "$SKIP_REMOTE_BACKUPS" ]; then
-		run_recovery_check "$cluster" "$backup_name_aws"
-		run_recovery_check "$cluster" "$backup_name_gcp"
-		run_recovery_check "$cluster" "$backup_name_azure"
-	fi
 
 	unlabel_node
 	destroy $namespace

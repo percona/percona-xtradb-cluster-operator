@@ -1,0 +1,90 @@
+#!/bin/bash
+
+set -o errexit
+
+test_dir=$(realpath "$(dirname "$0")")
+. "${test_dir}"/../functions
+
+set_debug
+
+cluster="pxc-size"
+pxc_size=3
+proxy_size=3
+
+check_pxc_size_without_unsafe_flag() {
+	desc 'check PXC cannot be scaled to one replica without unsafeFlags.pxcSize'
+	patch_cluster "${cluster}" '{
+		"spec": {
+			"pxc": {
+				"size": 1
+			},
+			"unsafeFlags": {
+				"pxcSize": false
+			}
+		}
+	}'
+	wait_cluster_error "${cluster}" 'PXC size must be at least 3. Set spec.unsafeFlags.pxcSize to true to disable this check'
+}
+
+# The data 100500 is added by default in spinup_pxc
+test_pxc_size_unsafe_flag() {
+	local backup="on-demand-backup-pvc"
+
+	desc 'write data before PXC unsafe size test'
+	write_data "${cluster}" 100501
+	compare_data "${cluster}" "select-2"
+
+	check_pxc_size_without_unsafe_flag
+
+	desc 'enable unsafeFlags.pxcSize and scale PXC to one replica'
+	patch_cluster "${cluster}" '{
+		"spec": {
+			"pxc": {
+				"size": 1
+			},
+			"unsafeFlags": {
+				"pxcSize": true
+			}
+		}
+	}'
+	wait_for_running "${cluster}-pxc" 1
+	wait_cluster_consistency "${cluster}" 1 "${proxy_size}"
+	compare_data "${cluster}" "select-2"
+
+	desc 'run backup while PXC runs with one replica'
+	run_backup "${cluster}" "on-demand-backup-pvc"
+
+	desc 'write data while PXC runs with one replica'
+	write_data "${cluster}" 100502
+	compare_data "${cluster}" "select-3"
+
+	desc 'disable unsafeFlags.pxcSize and scale PXC back'
+	patch_cluster "${cluster}" '{
+		"spec": {
+			"pxc": {
+				"size": 3
+			},
+			"unsafeFlags": {
+				"pxcSize": false
+			}
+		}
+	}'
+	wait_for_running "${cluster}-pxc" "${pxc_size}"
+	wait_cluster_consistency "${cluster}" "${pxc_size}" "${proxy_size}"
+	compare_data "${cluster}" "select-3"
+
+	desc 'restore backup after PXC is back to three replicas'
+	run_recovery_check "${cluster}" "${backup}" "select-2"
+}
+
+main() {
+	create_infra "${namespace}"
+	spinup_pxc "${cluster}" "${test_dir}/../unsafe-flag-pxc-size/conf/${cluster}.yml" "${pxc_size}"
+
+	test_pxc_size_unsafe_flag
+
+	destroy "${namespace}"
+	desc "test passed"
+}
+
+main

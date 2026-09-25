@@ -9,23 +9,6 @@ set_debug
 
 PXCO_FEATURE_GATES="XtrabackupSidecar=true"
 
-function jq_filter() {
-	local vault_root=$1
-	jq -r "[ .[] | .=\"'$vault_root/\"+.+\"'\" ] | join(\", \")"
-}
-
-function get_secret_mount_point() {
-	if [[ $IMAGE_PXC =~ 8\.4 ]]; then
-		kubectl_bin get -f ${conf_dir}/vault-secret-84.yaml -o yaml \
-			| yq '.data."keyring_vault.conf"' | base64 -d \
-			| jq -r .secret_mount_point
-	else
-		kubectl_bin get -f "${conf_dir}/vault-secret.yaml" -o json \
-			| grep -E -o "secret_mount_point = \w+" \
-			| awk -F "=[ ]*" '{print $2}'
-	fi
-}
-
 main() {
 	# todo: support PVC for pxb
 	if [ -n "$SKIP_REMOTE_BACKUPS" ]; then

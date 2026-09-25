@@ -7,7 +7,7 @@ metadata:
     app.kubernetes.io/component: crd
     app.kubernetes.io/name: percona-xtradb-cluster
     app.kubernetes.io/part-of: percona-xtradb-cluster-operator
-    app.kubernetes.io/version: v1.20.0
+    app.kubernetes.io/version: v1.21.0
   name: perconaxtradbclusterbackups.pxc.percona.com
 spec:
   group: pxc.percona.com
@@ -194,6 +194,8 @@ spec:
                     type: string
                   endpointUrl:
                     type: string
+                  prefix:
+                    type: string
                   storageClass:
                     type: string
                 type: object
@@ -353,14 +355,27 @@ spec:
                     - key
                     type: object
                     x-kubernetes-map-type: atomic
+                  checksumAlgorithm:
+                    enum:
+                    - CRC64NVME
+                    - CRC32
+                    - CRC32C
+                    - SHA1
+                    - SHA256
+                    - MD5
+                    type: string
                   credentialsSecret:
                     type: string
                   endpointUrl:
                     type: string
                   forcePathStyle:
                     type: boolean
+                  prefix:
+                    type: string
                   region:
                     type: string
+                  skipBucketExistsCheck:
+                    type: boolean
                 type: object
               sslInternalSecretName:
                 type: string
@@ -392,7 +407,7 @@ metadata:
     app.kubernetes.io/component: crd
     app.kubernetes.io/name: percona-xtradb-cluster
     app.kubernetes.io/part-of: percona-xtradb-cluster-operator
-    app.kubernetes.io/version: v1.20.0
+    app.kubernetes.io/version: v1.21.0
   name: perconaxtradbclusterrestores.pxc.percona.com
 spec:
   group: pxc.percona.com
@@ -450,6 +465,8 @@ spec:
                       credentialsSecret:
                         type: string
                       endpointUrl:
+                        type: string
+                      prefix:
                         type: string
                       storageClass:
                         type: string
@@ -610,14 +627,27 @@ spec:
                         - key
                         type: object
                         x-kubernetes-map-type: atomic
+                      checksumAlgorithm:
+                        enum:
+                        - CRC64NVME
+                        - CRC32
+                        - CRC32C
+                        - SHA1
+                        - SHA256
+                        - MD5
+                        type: string
                       credentialsSecret:
                         type: string
                       endpointUrl:
                         type: string
                       forcePathStyle:
                         type: boolean
+                      prefix:
+                        type: string
                       region:
                         type: string
+                      skipBucketExistsCheck:
+                        type: boolean
                     type: object
                   sslInternalSecretName:
                     type: string
@@ -751,6 +781,8 @@ spec:
                           credentialsSecret:
                             type: string
                           endpointUrl:
+                            type: string
+                          prefix:
                             type: string
                           storageClass:
                             type: string
@@ -911,14 +943,27 @@ spec:
                             - key
                             type: object
                             x-kubernetes-map-type: atomic
+                          checksumAlgorithm:
+                            enum:
+                            - CRC64NVME
+                            - CRC32
+                            - CRC32C
+                            - SHA1
+                            - SHA256
+                            - MD5
+                            type: string
                           credentialsSecret:
                             type: string
                           endpointUrl:
                             type: string
                           forcePathStyle:
                             type: boolean
+                          prefix:
+                            type: string
                           region:
                             type: string
+                          skipBucketExistsCheck:
+                            type: boolean
                         type: object
                       sslInternalSecretName:
                         type: string
@@ -938,6 +983,7 @@ spec:
                   date:
                     type: string
                   gtid:
+                    maxLength: 1024
                     type: string
                   type:
                     enum:
@@ -959,6 +1005,13 @@ spec:
                 - message: Date and GTID should not be set when type is 'latest'
                   rule: self.type != 'latest' || ((!has(self.date) || size(self.date)
                     == 0) && (!has(self.gtid) || size(self.gtid) == 0))
+                - message: GTID for type 'transaction' must be a single transaction
+                    identifier in the form 'UUID:N' (e.g. 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee:42')
+                  rule: self.type != 'transaction' || self.gtid.matches('^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}:[1-9][0-9]*$')
+                - message: GTID for type 'skip' must be a valid MySQL GTID set (e.g.
+                    'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee:1-10', 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee:Domain_1:1-10',
+                    or 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee:1,bbbbbbbb-bbbb-cccc-dddd-eeeeeeeeeeee:1-5')
+                  rule: self.type != 'skip' || self.gtid.matches('^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}:([a-zA-Z_][a-zA-Z0-9_]{0,31}:)?[1-9][0-9]*(-[1-9][0-9]*)?(:([a-zA-Z_][a-zA-Z0-9_]{0,31}:)?[1-9][0-9]*(-[1-9][0-9]*)?)*(,[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}:([a-zA-Z_][a-zA-Z0-9_]{0,31}:)?[1-9][0-9]*(-[1-9][0-9]*)?(:([a-zA-Z_][a-zA-Z0-9_]{0,31}:)?[1-9][0-9]*(-[1-9][0-9]*)?)*)*$')
               pxcCluster:
                 type: string
               resources:
@@ -1043,7 +1096,7 @@ metadata:
     app.kubernetes.io/component: crd
     app.kubernetes.io/name: percona-xtradb-cluster
     app.kubernetes.io/part-of: percona-xtradb-cluster-operator
-    app.kubernetes.io/version: v1.20.0
+    app.kubernetes.io/version: v1.21.0
   name: perconaxtradbclusters.pxc.percona.com
 spec:
   group: pxc.percona.com
@@ -1955,6 +2008,8 @@ spec:
                               type: string
                             endpointUrl:
                               type: string
+                            prefix:
+                              type: string
                             storageClass:
                               type: string
                           type: object
@@ -2272,14 +2327,27 @@ spec:
                               - key
                               type: object
                               x-kubernetes-map-type: atomic
+                            checksumAlgorithm:
+                              enum:
+                              - CRC64NVME
+                              - CRC32
+                              - CRC32C
+                              - SHA1
+                              - SHA256
+                              - MD5
+                              type: string
                             credentialsSecret:
                               type: string
                             endpointUrl:
                               type: string
                             forcePathStyle:
                               type: boolean
+                            prefix:
+                              type: string
                             region:
                               type: string
+                            skipBucketExistsCheck:
+                              type: boolean
                           type: object
                         schedulerName:
                           type: string
@@ -12140,6 +12208,41 @@ spec:
                 type: string
               sslSecretName:
                 type: string
+              storageScaling:
+                properties:
+                  autoscaling:
+                    properties:
+                      enabled:
+                        type: boolean
+                      growthStep:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        default: 2Gi
+                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                        x-kubernetes-int-or-string: true
+                      maxSize:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                        x-kubernetes-int-or-string: true
+                      triggerThresholdPercent:
+                        default: 80
+                        maximum: 95
+                        minimum: 50
+                        type: integer
+                    type: object
+                  enableExternalAutoscaling:
+                    type: boolean
+                  enableVolumeScaling:
+                    type: boolean
+                type: object
+                x-kubernetes-validations:
+                - message: autoscaling cannot be enabled when enableVolumeScaling
+                    is disabled
+                  rule: '!has(self.autoscaling) || !has(self.autoscaling.enabled)
+                    || !self.autoscaling.enabled || self.enableVolumeScaling'
               tls:
                 properties:
                   SANs:
@@ -12363,11 +12466,39 @@ spec:
               ready:
                 format: int32
                 type: integer
+              recovery:
+                properties:
+                  clusterUUID:
+                    type: string
+                  lastRecoveryPod:
+                    type: string
+                  lastRecoverySeqNo:
+                    format: int64
+                    type: integer
+                  lastRecoveryTime:
+                    format: date-time
+                    type: string
+                type: object
               size:
                 format: int32
                 type: integer
               state:
                 type: string
+              storageAutoscaling:
+                additionalProperties:
+                  properties:
+                    currentSize:
+                      type: string
+                    lastError:
+                      type: string
+                    lastResizeTime:
+                      format: date-time
+                      type: string
+                    resizeCount:
+                      format: int32
+                      type: integer
+                  type: object
+                type: object
             type: object
         type: object
         x-kubernetes-preserve-unknown-fields: true
@@ -12489,6 +12620,7 @@ rules:
   resources:
   - issuers
   - certificates
+  - certificates/status
   verbs:
   - get
   - list
@@ -12569,6 +12701,16 @@ spec:
           value: "1"
         - name: PXCO_FEATURE_GATES
           value: ""
+        - name: PXCO_LEADER_ELECTION_ENABLED
+          value: "true"
+        - name: PXCO_LEADER_ELECTION_LEASE_NAME
+          value: ""
+        - name: PXCO_LEADER_ELECTION_LEASE_DURATION
+          value: "15s"
+        - name: PXCO_LEADER_ELECTION_RENEW_DEADLINE
+          value: "10s"
+        - name: PXCO_LEADER_ELECTION_RETRY_PERIOD
+          value: "2s"
         image: perconalab/percona-xtradb-cluster-operator:main
         imagePullPolicy: Always
         livenessProbe:

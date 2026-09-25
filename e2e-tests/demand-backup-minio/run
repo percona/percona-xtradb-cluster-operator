@@ -1,0 +1,99 @@
+#!/bin/bash
+
+set -o errexit
+
+test_dir=$(realpath $(dirname $0))
+. ${test_dir}/../functions
+
+set_debug
+
+check_logs() {
+	local restore=$1
+	local search=$2
+
+	if ! kubectl logs ${restore} | grep -E "${search}"; then
+		log "couldn't find '${search}' in ${restore} logs"
+		exit 1
+	fi
+}
+
+main() {
+	create_infra $namespace
+
+	cluster="demand-backup"
+	spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml"
+
+	# We are using minio with tls enabled to check if `verifyTLS: false` works fine
+	start_minio "demand-backup-ssl"
+
+	minio_backup_name="on-demand-backup-minio"
+	wrong_creds_backup_name="on-demand-backup-wrong-creds"
+
+	kubectl_bin apply -f "$test_dir/conf/$wrong_creds_backup_name.yml"
+
+	run_backup "$cluster" "$minio_backup_name"
+	compare_kubectl "job/xb-$minio_backup_name"
+
+	kubectl_bin wait job "xb-$wrong_creds_backup_name" \
+		--for=condition=Failed \
+		--timeout=120s
+
+	wrong_backup_job_fail_timestamp=$(kubectl_bin get job xb-$wrong_creds_backup_name -o yaml \
+		| yq '.status.conditions[] | select(.type == "Failed").lastTransitionTime' \
+		| xargs -I {} "$date" -d "{}" +%s)
+	if [[ -z $wrong_backup_job_fail_timestamp ]]; then
+		echo 'failed to get wrong_backup_job_fail_timestamp'
+		exit 1
+	fi
+
+	minio_job_creation_timestamp=$(kubectl get job xb-$minio_backup_name -o yaml \
+		| yq '.metadata.creationTimestamp' \
+		| xargs -I {} "$date" -d "{}" +%s)
+	if [[ -z $minio_job_creation_timestamp ]]; then
+		echo 'failed to get minio_job_creation_timestamp'
+		exit 1
+	fi
+
+	if (( wrong_backup_job_fail_timestamp > minio_job_creation_timestamp )); then
+		echo "\"allowParallel: false\" doesn't work as expected. $minio_backup_name job was created before $wrong_creds_backup_name backup job failed"
+		exit 1
+	fi
+
+	backup_job_name=$(kubectl get pod -l "percona.com/backup-job-name=xb-on-demand-backup-minio" -o jsonpath='{.items[].metadata.name}')
+	check_logs "$backup_job_name" "xbcloud put --storage=s3 --md5 --parallel=[0-9]+ --insecure (--curl-retriable-errors=7 )?--parallel=2 --curl-retriable-errors=8"
+	check_logs "$backup_job_name" "xbstream -x -C /tmp --parallel=2"
+
+	new_pass=$(echo -n "newpass" | base64)
+	kubectl_bin patch secret my-cluster-secrets -p="{\"data\":{\"xtrabackup\": \"${new_pass}\", \"monitor\": \"${new_pass}\"}}"
+	wait_cluster_consistency ${cluster} 3 2
+
+	compare_kubectl secret/${cluster}-mysql-init
+
+	run_recovery_check "$cluster" "on-demand-backup-minio"
+	compare_kubectl job/restore-job-on-demand-backup-minio-demand-backup
+	restore_job_name=$(kubectl get pod -l "percona.com/restore-job-name=restore-job-on-demand-backup-minio-demand-backup" -o jsonpath='{.items[].metadata.name}')
+
+	check_logs ${restore_job_name} "xtrabackup  --defaults-group=mysqld --datadir=/datadir --move-back"
+	check_logs ${restore_job_name} "xtrabackup  --use-memory=1500000000 --prepare"
+	check_logs ${restore_job_name} "xbcloud get --parallel=[0-9]+ --insecure (--curl-retriable-errors=7 )?--parallel=3"
+	check_logs ${restore_job_name} "xbstream -x -C .* --parallel=[0-9]+ --parallel=3"
+	check_logs ${restore_job_name} "(xbstream --decompress -x -C .* --parallel=[0-9]+ --parallel=3|xbstream -x -C .* --parallel=[0-9]+ --parallel=3)"
+
+	desc "Check backup deletion"
+	kubectl_bin delete pxc-backup --all
+	backup_exists=$(
+		kubectl_bin run -n "${namespace}" -i --rm aws-cli --image=perconalab/awscli --restart=Never -- \
+			/usr/bin/env AWS_ACCESS_KEY_ID=some-access-key AWS_SECRET_ACCESS_KEY=some-secret-key AWS_DEFAULT_REGION=us-east-1 \
+			/usr/bin/aws --endpoint-url https://minio-service:9000 --no-verify-ssl s3 ls operator-testing/ | grep -c "prefix" | cat
+		exit "${PIPESTATUS[0]}"
+	)
+	if [[ $backup_exists -ne 0 ]]; then
+		echo "Backup was not removed from bucket -- minio"
+		exit 1
+	fi
+
+	destroy $namespace
+	desc "test passed"
+}
+
+main

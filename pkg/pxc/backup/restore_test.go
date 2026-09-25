@@ -8,7 +8,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sversion "k8s.io/apimachinery/pkg/version"
-	"k8s.io/utils/ptr"
 
 	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
@@ -115,7 +114,7 @@ func TestPrepareJob(t *testing.T) {
 					LocalObjectReference: corev1.LocalObjectReference{
 						Name: "test-cluster-pxc",
 					},
-					Optional: ptr.To(true),
+					Optional: new(true),
 				},
 			},
 		},
@@ -124,7 +123,7 @@ func TestPrepareJob(t *testing.T) {
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
 					SecretName: "internal-test-cluster",
-					Optional:   ptr.To(false),
+					Optional:   new(false),
 				},
 			},
 		},
@@ -133,7 +132,7 @@ func TestPrepareJob(t *testing.T) {
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
 					SecretName: "test-cluster-vault",
-					Optional:   ptr.To(true),
+					Optional:   new(true),
 				},
 			},
 		},
@@ -142,7 +141,7 @@ func TestPrepareJob(t *testing.T) {
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
 					SecretName: "test-cluster-ssl",
-					Optional:   ptr.To(false),
+					Optional:   new(false),
 				},
 			},
 		},
@@ -151,7 +150,7 @@ func TestPrepareJob(t *testing.T) {
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
 					SecretName: "test-cluster-ssl-internal",
-					Optional:   ptr.To(false),
+					Optional:   new(false),
 				},
 			},
 		},

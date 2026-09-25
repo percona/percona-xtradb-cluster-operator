@@ -1,0 +1,8 @@
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBClusterBackup
+metadata:
+  name: forbidden-backup-pvc
+spec:
+  pxcCluster: backup-if-unhealthy
+  storageName: pvc
+  startingDeadlineSeconds: 0

@@ -1,0 +1,120 @@
+#!/bin/bash
+
+set -o errexit
+
+test_dir=$(realpath "$(dirname "$0")")
+. "${test_dir}"/../functions
+
+set_debug
+
+cluster="backup-if-unhealthy"
+pxc_size=3
+proxy_size=3
+
+create_blocked_pvc() {
+	local pvc=$1
+
+	sed "s/<pvc-name>/${pvc}/" "${test_dir}/conf/blocked-pxc-pvc.yml" \
+		| kubectl_bin apply -f -
+}
+
+wait_pvc_pending() {
+	local pvc=$1
+	local max_retry="${2:-180}"
+	local retry=0
+
+	set +o xtrace
+	echo -n "waiting for pvc/${pvc} to stay Pending"
+	until [[ "$(kubectl_bin get pvc "${pvc}" -o jsonpath='{.status.phase}')" == "Pending" ]]; do
+		sleep 2
+		echo -n .
+		((retry += 1))
+		if [[ ${retry} -ge ${max_retry} ]]; then
+			kubectl_bin describe pvc "${pvc}"
+			echo "pvc/${pvc} is not Pending"
+			exit 1
+		fi
+	done
+	echo ".Ok"
+	set_debug
+}
+
+backup_should_be_forbidden() {
+	local backup=$1
+
+	run_backup "${cluster}" "${backup}" "Failed"
+
+	if kubectl_bin get jobs --no-headers 2>/dev/null | grep -q "xb-${backup}"; then
+		kubectl_bin get jobs
+		echo "backup job for pxc-backup/${backup} should not be created"
+		exit 1
+	fi
+}
+
+test_backup_if_unhealthy_unsafe_flag() {
+	local backup="on-demand-backup-pvc"
+	local blocked_pvc="datadir-${cluster}-pxc-4"
+
+	desc 'create invalid PVC for the fifth PXC replica'
+	create_blocked_pvc "${blocked_pvc}"
+	wait_pvc_pending "${blocked_pvc}"
+
+	desc 'scale PXC to five replicas without unsafeFlags.backupIfUnhealthy'
+	patch_cluster "${cluster}" '
+	{
+		"spec": {
+			"pxc": {
+				"size": 5
+			}
+		}
+	}'
+	wait_cluster_initializing "${cluster}"
+
+	desc 'check backup is forbidden while cluster is unhealthy and backupIfUnhealthy=false'
+	backup_should_be_forbidden "forbidden-backup-pvc"
+
+	desc 'enable unsafeFlags.backupIfUnhealthy while cluster is still initializing'
+	patch_cluster "${cluster}" '
+	{
+		"spec": {
+			"unsafeFlags": {
+				"backupIfUnhealthy": true
+			}
+		}
+	}'
+	wait_cluster_initializing "${cluster}"
+
+	desc 'run backup while cluster is initializing'
+	run_backup "${cluster}" "${backup}"
+
+	desc "pvc/${blocked_pvc} should still be Pending after backup"
+	wait_pvc_pending "${blocked_pvc}" 30
+
+	desc 'scale PXC back before restore'
+	patch_cluster "${cluster}" '
+	{
+		"spec": {
+			"pxc": {
+				"size": 3
+			}
+		}
+	}'
+	kubectl_bin delete pvc "${blocked_pvc}" --ignore-not-found=true
+	wait_for_running "${cluster}-pxc" "${pxc_size}"
+	wait_cluster_consistency "${cluster}" "${pxc_size}" "${proxy_size}"
+
+	desc 'restore backup created while cluster was initializing'
+	run_recovery_check "${cluster}" "${backup}"
+}
+
+main() {
+	create_infra "${namespace}"
+	spinup_pxc "${cluster}" "${test_dir}/../unsafe-flag-backup-if-unhealthy/conf/${cluster}.yml" "${pxc_size}"
+
+	test_backup_if_unhealthy_unsafe_flag
+
+	destroy "${namespace}"
+	desc "test passed"
+}
+
+main

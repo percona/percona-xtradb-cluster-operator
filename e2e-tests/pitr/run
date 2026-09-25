@@ -7,8 +7,6 @@ test_dir=$(realpath $(dirname $0))
 
 set_debug
 
-GTID_PATTERN='[A-F0-9a-f]{8}-[A-F0-9a-f]{4}-[A-F0-9a-f]{4}-[A-F0-9a-f]{4}-[A-F0-9a-f]{12}:[0-9]+'
-
 if [[ $IMAGE_PXC =~ 5\.7 ]]; then
 	echo "Skipping PITR test because 5.7 doesn't support it!"
 	exit 0
@@ -32,15 +30,13 @@ run_backup() {
 
 write_test_data() {
 	local cluster=$1
-	local config=$2
-	local size="${3:-3}"
-	local sleep="${4:-10}"
-	local secretsFile="${5:-$conf_dir/secrets.yml}"
-	local pxcClientFile="${6:-$conf_dir/client.yml}"
+	local size="${2:-3}"
 
-	local proxy=$(get_proxy "$cluster")
+	local proxy
+	proxy=$(get_proxy "$cluster")
 
 	desc 'write test data'
+	local encrypt=''
 	if [[ $IMAGE_PXC =~ 5\.7 ]] && [[ "$(is_keyring_plugin_in_use "$cluster")" ]]; then
 		encrypt='ENCRYPTION=\"Y\"'
 	fi
@@ -50,7 +46,16 @@ write_test_data() {
 	run_mysql \
 		'INSERT test.test (id) VALUES (100500); INSERT test.test (id) VALUES (100501); INSERT test.test (id) VALUES (100502);' \
 		"-h $proxy -uroot -proot_password"
-	sleep_with_log 30
+	for i in $(seq 0 $((size - 1))); do
+		local node="$cluster-pxc-$i.$cluster-pxc"
+		local retry=0
+		until [[ "$(run_mysql 'SELECT COUNT(*) FROM test.test;' \
+			"-h $node -uroot -proot_password" 2>/dev/null)" == "3" ]]; do
+			[ $retry -ge 12 ] && echo "Rows not propagated to $node after 1 min" && exit 1
+			sleep 5
+			retry=$((retry + 1))
+		done
+	done
 	for i in $(seq 0 $((size - 1))); do
 		compare_mysql_cmd "select-2" "SELECT * from test.test;" "-h $cluster-pxc-$i.$cluster-pxc -uroot -proot_password"
 	done
@@ -60,107 +65,20 @@ write_test_data() {
 	fi
 }
 
-write_data_for_pitr() {
-	local cluster=$1
-	local start=$2
-	local rows=$3
-
-	local proxy=$(get_proxy "$cluster")
-
-	local sql=""
-	for ((i=0; i<rows; i++)); do
-		sql+="INSERT test.test (id) VALUES ($((start+i)));"
-	done
-
-	log "inserting ${rows} rows for pitr check"
-	run_mysql "${sql}" "-h ${proxy} -uroot -proot_password"
-}
-
-check_latest_restorable_time() {
-	local backup=$1
-
-	desc 'check latest restorable time'
-	latest_restorable_time=$(kubectl_bin get pxc-backup ${backup} -o jsonpath='{.status.latestRestorableTime}')
-	if [[ ${latest_restorable_time} =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T ]]; then
-		log "Latest restorable time is ${latest_restorable_time}"
-	else
-		log "Latest restorable time is not set"
-		exit 1
-	fi
-}
-
-check_binlog_collection() {
-	local timeout=60
-	local binlogs_exist=0
-
-	for i in $(seq 1 5); do
-		log "Checking if binlogs exist in bucket (attempt $i)..."
-		binlogs_exist=$(
-			kubectl_bin run -n "${NAMESPACE}" -i --rm aws-cli --image=perconalab/awscli --restart=Never -- \
-				/usr/bin/env AWS_ACCESS_KEY_ID=some-access-key AWS_SECRET_ACCESS_KEY=some-secret-key AWS_DEFAULT_REGION=us-east-1 \
-				/usr/bin/aws --endpoint-url https://minio-service:9000 --no-verify-ssl s3 ls operator-testing/binlogs/ | grep -c "binlog" | cat
-			exit "${PIPESTATUS[0]}"
-		)
-		if [ "$binlogs_exist" -gt 0 ]; then
-			log "${binlogs_exist} binlogs found in bucket"
-			break
-		else
-			d=$((timeout * i))
-			log "No binlogs found in bucket."
-			sleep_with_log ${d}
-		fi
-	done
-
-	if [ "$binlogs_exist" -eq 0 ]; then
-		log "Binlogs are not found in S3"
-		exit 1
-	fi
-
-	desc "binlogs are collected: OK"
-}
-
-check_binlog_gap() {
-	local backup=$1
-
-	if [[ $(kubectl get pxc-backup ${backup} -o jsonpath='{.status.conditions}' | grep -c 'Binlog with GTID set') -eq 1 ]]; then
-		log "Binlog gap detected"
-		exit 1
-	fi
-
-	desc "no binlog gap after pxc-backup/${backup}: OK"
-}
-
-get_gtid_executed() {
-	local host=$1
-
-	local gtid=$(run_mysql "SELECT @@gtid_executed;" "-h ${host} -uroot -proot_password" | $sed 's/\([a-f0-9-]\{36\}\):[0-9]*-\([0-9]*\).*/\1:\2/')
-
-	if [[ ! ${gtid} =~ ${GTID_PATTERN} ]]; then
-		printf "Some garbage --> %s <-- instead of legit GTID. Exiting" ${gtid}
-		exit 1
-	fi
-
-	echo ${gtid}
-}
-
 main() {
 	create_infra $namespace
 	deploy_cert_manager
 	kubectl_bin apply -f "$test_dir/conf/issuer.yml"
 	kubectl_bin apply -f "$test_dir/conf/cert.yml"
-	sleep_with_log 25
+	kubectl_bin wait certificate/tls-minio --for=condition=Ready --timeout=120s
 	# We are using minio with tls enabled to check if `verifyTLS: false` works fine
 	start_minio "tls-minio"
 
 	cluster="pitr"
+	mysql_root_pass=root_password
 	spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml"
 
-	pitr_pod=$(
-		kubectl_bin get pods \
-			--selector="app.kubernetes.io/component=pitr" \
-			-o 'jsonpath={.items[].metadata.name}'
-	)
-	wait_pod "$pitr_pod"
+	wait_pitr_pod_ready
 	if [[ $(kubectl_bin logs -l "app.kubernetes.io/component=pitr" --tail=-1 2>/dev/null | egrep -c 'already exists|is already installed') == '0' ]]; then
 		echo "There are no 'function ... already exists' logs"
 		exit 1
@@ -217,6 +135,7 @@ main() {
 	log "[CASE 2]: gtid_executed: ${gtid}"
 
 	write_data_for_pitr "$cluster" 100503 3
+	sleep_with_log 65 # wait for one binlog collection cycle
 
 	desc "[CASE 2] PiTR with datetime: ${time_now}"
 	run_recovery_check_pitr "$cluster" "restore-on-pitr-minio-time" "on-pitr-minio" "select-3" "$time_now" "" ""
@@ -245,6 +164,45 @@ main() {
 	log "[CASE 3]: gtid_executed (after restore): ${gtid}"
 
 	desc "[CASE 3] PiTR with latest using backupSource: OK"
+
+	desc "[CASE 4] PiTR from source on new cluster"
+	log "[CASE 4]: using backup destination from on-pitr-minio-3 (escaped for restore): ${dest}"
+
+	desc "[CASE 4] delete PXC cluster ${cluster} and wait for PVCs"
+	kubectl_bin delete pxc ${cluster}
+	desc "[CASE 4] wait for PVCs (app.kubernetes.io/instance=${cluster}) to be deleted"
+	if ! kubectl_bin wait pvc \
+		-l "app.kubernetes.io/instance=${cluster}" \
+		--for=delete \
+		--timeout=360s; then
+		if kubectl_bin get pvc -l "app.kubernetes.io/instance=${cluster}" --no-headers 2>/dev/null | grep -q .; then
+			log "PVCs still exist after kubectl wait"
+			kubectl_bin get pvc -l "app.kubernetes.io/instance=${cluster}"
+			exit 1
+		fi
+	fi
+
+	desc "[CASE 4] recreate empty PXC cluster ${cluster} with random system user passwords"
+	kubectl_bin apply -f ${conf_dir}/secrets.yml
+	create_random_pass "$cluster"
+	apply_config "${conf_dir}/client.yml"
+	apply_config "$test_dir/conf/$cluster.yml"
+
+	proxy=$(get_proxy "$cluster")
+	wait_for_running "$proxy" 2
+	wait_for_running "$cluster-pxc" 3
+
+	wait_pitr_pod_ready
+
+	wait_cluster_consistency ${cluster} 3 2
+
+	desc "[CASE 4] PiTR with latest using backupSource on new cluster"
+	run_recovery_check_pitr "$cluster" "restore-on-pitr-minio" "on-pitr-minio" "select-4" "" "$dest" "" "$mysql_root_pass"
+
+	gtid=$(get_gtid_executed ${mysql_host})
+	log "[CASE 4]: gtid_executed (after restore): ${gtid}"
+
+	desc "[CASE 4] PiTR from source on new cluster: OK"
 
 	destroy $namespace
 	desc "test passed"

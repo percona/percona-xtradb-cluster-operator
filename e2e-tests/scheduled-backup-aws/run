@@ -1,0 +1,82 @@
+#!/bin/bash
+
+set -o errexit
+
+test_dir=$(realpath $(dirname $0))
+. ${test_dir}/../functions
+
+set_debug
+
+main() {
+	if [ -n "$SKIP_REMOTE_BACKUPS" ]; then
+		echo "Skipping: SKIP_REMOTE_BACKUPS is set"
+		exit 0
+	fi
+
+	create_infra $namespace
+
+	cluster="scheduled-backup"
+
+	if command -v aws >/dev/null 2>&1; then
+		echo "AWS CLI is installed"
+	else
+		echo "AWS CLI is not installed"
+		exit 1
+	fi
+
+	cat - <<-EOF | kubectl_bin apply -f -
+		        apiVersion: scheduling.k8s.io/v1
+		        kind: PriorityClass
+		        metadata:
+		            name: high-priority
+		        value: 1000000
+		        globalDefault: false
+		        description: "This priority class should be used for backup service pods only."
+	EOF
+
+	spinup_pxc "$cluster" "$test_dir/conf/scheduled-backup-aws-init.yml"
+
+	label_node
+
+	desc 'add backups schedule for aws s3 storage'
+	kubectl_bin config set-context "$(kubectl_bin config current-context)" --namespace="$namespace"
+	apply_config "${test_dir}/conf/scheduled-backup-aws-aws.yml"
+	wait_first_backup_appears "aws-s3"
+	apply_config "${test_dir}/conf/scheduled-backup-aws-init.yml"
+	wait_all_backups
+
+	FIRST_AWS_BACKUP=$(kubectl_bin get pxc-backup --sort-by=.metadata.creationTimestamp -o jsonpath='{range .items[?(@.spec.storageName=="aws-s3")]}{.metadata.name}:{.status.state}{"\n"}{end}' | grep ":Succeeded$" | head -n1 | cut -d: -f1)
+	BACKUP_DEST_AWS=$(kubectl_bin get pxc-backup "$FIRST_AWS_BACKUP" -o jsonpath='{.status.destination}' | sed -e 's/.json$//' | cut -c 6-)
+
+	desc "Check backup existence in S3"
+	setup_aws_credentials
+	check_backup_existence_aws "$BACKUP_DEST_AWS" ".sst_info/sst_info.00000000000000000000"
+
+	desc "Check that KEEP option saves correct backup's amount (1 for our settings)"
+	apply_config "${test_dir}/conf/scheduled-backup-aws-aws.yml"
+	wait_num_backups 'aws-s3' 2
+	echo "Patch backup schedule to yearly to stop new backups and verify keep=1 deletes the oldest"
+	kubectl patch pxc ${cluster} --type="merge" -p '{"spec":{"backup":{"schedule":[{"name":"each-min-aws-s3","storageName":"aws-s3","keep":1,"schedule":"0 0 1 * *"}]}}}'
+	wait_num_backups 'aws-s3' 1
+	apply_config "${test_dir}/conf/scheduled-backup-aws-init.yml"
+	wait_all_backups
+	wait_cluster_consistency "$cluster" 3
+
+	SECOND_AWS_BACKUP=$(kubectl_bin get pxc-backup --sort-by=.metadata.creationTimestamp -o jsonpath='{range .items[?(@.spec.storageName=="aws-s3")]}{.metadata.name}:{.status.state}{"\n"}{end}' | grep ":Succeeded$" | head -n1 | cut -d: -f1)
+	if [[ $FIRST_AWS_BACKUP == "$SECOND_AWS_BACKUP" ]]; then
+		echo "Something got wrong: First $FIRST_AWS_BACKUP and Second backup $SECOND_AWS_BACKUP for AWS are the same"
+		exit 1
+	fi
+
+	desc "Restore from AWS S3 scheduled backup and verify data integrity"
+	run_scheduled_recovery_check "$cluster" "$SECOND_AWS_BACKUP"
+
+	desc "Check backup deletion from S3"
+	check_backup_deletion_aws "$BACKUP_DEST_AWS" ".sst_info/sst_info.00000000000000000000"
+
+	unlabel_node
+	destroy $namespace
+	desc "test passed"
+}
+
+main

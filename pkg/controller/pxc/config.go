@@ -16,6 +16,7 @@ import (
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/config"
 )
 
@@ -77,7 +78,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMaps(ctx context.Context,
 }
 
 func (r *ReconcilePerconaXtraDBCluster) reconcileAutotuneConfigMap(ctx context.Context, cr *api.PerconaXtraDBCluster) (controllerutil.OperationResult, error) {
-	autotuneCm := config.AutoTuneConfigMapName(cr.Name, "pxc")
+	autotuneCm := config.AutoTuneConfigMapName(cr.Name, naming.ComponentPXC)
 
 	_, ok := cr.Spec.PXC.Resources.Limits[corev1.ResourceMemory]
 	if !ok {
@@ -104,7 +105,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileAutotuneConfigMap(ctx context.C
 }
 
 func (r *ReconcilePerconaXtraDBCluster) reconcileCustomConfigMap(ctx context.Context, cr *api.PerconaXtraDBCluster) (controllerutil.OperationResult, error) {
-	pxcConfigName := config.CustomConfigMapName(cr.Name, "pxc")
+	pxcConfigName := config.CustomConfigMapName(cr.Name, naming.ComponentPXC)
 
 	if cr.Spec.PXC.Configuration == "" {
 		err := deleteConfigMapIfExists(ctx, r.client, cr, pxcConfigName)
@@ -127,7 +128,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileCustomConfigMap(ctx context.Con
 }
 
 func (r *ReconcilePerconaXtraDBCluster) reconcileHookScriptConfigMaps(ctx context.Context, cr *api.PerconaXtraDBCluster) (controllerutil.OperationResult, error) {
-	pxcHookScriptName := config.HookScriptConfigMapName(cr.Name, "pxc")
+	pxcHookScriptName := config.HookScriptConfigMapName(cr.Name, naming.ComponentPXC)
 	if cr.Spec.PXC != nil && cr.Spec.PXC.HookScript != "" {
 		err := r.createHookScriptConfigMap(ctx, cr, cr.Spec.PXC.HookScript, pxcHookScriptName)
 		if err != nil {

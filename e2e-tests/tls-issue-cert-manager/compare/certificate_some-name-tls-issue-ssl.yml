@@ -20,4 +20,6 @@ spec:
   issuerRef:
     kind: Issuer
     name: some-name-tls-issue-pxc-issuer
+  privateKey:
+    rotationPolicy: Never
   secretName: some-name-tls-issue-ssl

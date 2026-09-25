@@ -34,7 +34,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(ctx context.Context, cr
 	backupNamePrefix := backupJobClusterPrefix(cr.Namespace + "-" + cr.Name)
 
 	if cr.Spec.Backup != nil {
-		restoreRunning, err := r.isRestoreRunning(cr.Name, cr.Namespace)
+		restoreRunning, err := r.isRestoreRunning(ctx, cr.Name, cr.Namespace)
 		if err != nil {
 			return errors.Wrap(err, "failed to check if restore is running")
 		}
@@ -84,7 +84,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(ctx context.Context, cr
 		}
 	}
 
-	r.crons.backupJobs.Range(func(k, v interface{}) bool {
+	r.crons.backupJobs.Range(func(k, v any) bool {
 		item := v.(BackupScheduleJob)
 		if !strings.HasPrefix(item.Name, backupNamePrefix) {
 			return true
@@ -145,7 +145,8 @@ func backupJobClusterPrefix(clusterName string) string {
 // oldScheduledBackups returns list of the most old pxc-bakups that execeed `keep` limit
 func (r *ReconcilePerconaXtraDBCluster) oldScheduledBackups(ctx context.Context, cr *api.PerconaXtraDBCluster, ancestor string, keep int) ([]api.PerconaXtraDBClusterBackup, error) {
 	bcpList := api.PerconaXtraDBClusterBackupList{}
-	err := r.client.List(ctx,
+	err := r.client.List(
+		ctx,
 		&bcpList,
 		&client.ListOptions{
 			Namespace: cr.Namespace,
@@ -257,11 +258,11 @@ func (h minHeap) Less(i, j int) bool {
 
 func (h minHeap) Swap(i, j int) { h[i], h[j] = h[j], h[i] }
 
-func (h *minHeap) Push(x interface{}) {
+func (h *minHeap) Push(x any) {
 	*h = append(*h, x.(api.PerconaXtraDBClusterBackup))
 }
 
-func (h *minHeap) Pop() interface{} {
+func (h *minHeap) Pop() any {
 	old := *h
 	n := len(old)
 	x := old[n-1]

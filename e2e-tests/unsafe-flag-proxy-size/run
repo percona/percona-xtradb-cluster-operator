@@ -1,0 +1,150 @@
+#!/bin/bash
+
+set -o errexit
+
+test_dir=$(realpath "$(dirname "$0")")
+. "${test_dir}"/../functions
+
+set_debug
+
+cluster="proxy-size"
+pxc_size=3
+proxy_size=3
+
+check_proxy_size_without_unsafe_flag() {
+	local proxy_engine=$1
+	local error_message=$2
+
+	desc "check ${proxy_engine} cannot be scaled to one replica without unsafeFlags.proxySize"
+	patch_cluster "${cluster}" '{
+		"spec": {
+			"'"${proxy_engine}"'": {
+				"size": 1
+			},
+			"unsafeFlags": {
+				"proxySize": false
+			}
+		}
+	}'
+	wait_cluster_error "${cluster}" "${error_message}"
+}
+
+# The data 100500 is added by default in spinup_pxc
+test_proxy_size_unsafe_flag() {
+	local proxy_engine=$1
+	local write_id=$2
+	local expected=$3
+	local proxy
+	local expected_before
+
+	expected_before="${expected%-*}-$((${expected##*-} - 1))"
+	proxy=$(get_proxy "${cluster}")
+	desc "enable unsafeFlags.proxySize and scale ${proxy_engine} to one replica"
+	patch_cluster "${cluster}" '{
+		"spec": {
+			"'"${proxy_engine}"'": {
+				"size": 1
+			},
+			"unsafeFlags": {
+				"proxySize": true
+			}
+		}
+	}'
+	wait_for_running "${proxy}" 1
+	wait_cluster_consistency "${cluster}" "${pxc_size}" 1
+	compare_data "${cluster}" "${expected_before}" "use-proxy"
+
+	desc "write data while ${proxy_engine} runs with one replica"
+	write_data "${cluster}" "${write_id}" "use-proxy"
+	compare_data "${cluster}" "${expected}" "use-proxy"
+
+	desc "disable unsafeFlags.proxySize and scale ${proxy_engine} back"
+	patch_cluster "${cluster}" '{
+		"spec": {
+			"'"${proxy_engine}"'": {
+				"size": 3
+			},
+			"unsafeFlags": {
+				"proxySize": false
+			}
+		}
+	}'
+	wait_for_running "${proxy}" "${proxy_size}"
+	wait_cluster_consistency "${cluster}" "${pxc_size}" "${proxy_size}"
+	compare_data "${cluster}" "${expected}" "use-proxy"
+}
+
+test_haproxy_size_unsafe_flag() {
+	desc 'write data before HAProxy unsafe size test'
+	write_data "${cluster}" 100501 "use-proxy"
+	compare_data "${cluster}" "select-2" "use-proxy"
+
+	check_proxy_size_without_unsafe_flag \
+		haproxy \
+		'HAProxy size must be at least 2. Set spec.unsafeFlags.proxySize to true to disable this check'
+
+	test_proxy_size_unsafe_flag \
+		haproxy \
+		100502 \
+		"select-3"
+}
+
+enable_proxysql() {
+	desc 'enable ProxySQL and disable HAProxy'
+	patch_cluster "${cluster}" '{
+		"spec": {
+			"haproxy": {
+				"enabled": false
+			},
+			"proxysql": {
+				"enabled": true,
+				"size": 3,
+				"image": "'"${IMAGE_PROXY}"'",
+				"volumeSpec": {
+					"persistentVolumeClaim": {
+						"resources": {
+							"requests": {
+								"storage": "2G"
+							}
+						}
+					}
+				}
+			},
+			"unsafeFlags": {
+				"proxySize": false
+			}
+		}
+	}'
+	wait_for_running "${cluster}-proxysql" "${proxy_size}"
+	wait_cluster_consistency "${cluster}" "${pxc_size}" "${proxy_size}"
+}
+
+test_proxysql_size_unsafe_flag() {
+	enable_proxysql
+
+	desc 'write data before ProxySQL unsafe size test'
+	write_data "${cluster}" 100502 "use-proxy"
+	compare_data "${cluster}" "select-3" "use-proxy"
+
+	check_proxy_size_without_unsafe_flag \
+		proxysql \
+		'ProxySQL size must be at least 2. Set spec.unsafeFlags.proxySize to true to disable this check'
+
+	test_proxy_size_unsafe_flag \
+		proxysql \
+		100503 \
+		"select-4"
+}
+
+main() {
+	create_infra "${namespace}"
+	spinup_pxc "${cluster}" "${test_dir}/../unsafe-flag-proxy-size/conf/${cluster}.yml" "${pxc_size}"
+
+	test_haproxy_size_unsafe_flag
+	test_proxysql_size_unsafe_flag
+
+	destroy "${namespace}"
+	desc "test passed"
+}
+
+main

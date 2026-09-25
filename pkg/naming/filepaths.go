@@ -12,3 +12,8 @@ const (
 	TimelinePath     = "/tmp/pitr-timeline" // path to file with timeline
 	LatestBackupPath = "/tmp/latest-backup"
 )
+
+const (
+	BinVolumeMountPath = "/opt/percona"
+	BackupLogDir       = "/var/log/xtrabackup"
+)

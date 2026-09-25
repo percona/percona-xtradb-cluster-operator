@@ -60,6 +60,7 @@ message S3Config {
     string storage_class = 6;
     string session_token = 7;
     bool force_path_style = 8;
+    bool skip_bucket_exists_check = 9;
 }
 
 message GCSConfig {

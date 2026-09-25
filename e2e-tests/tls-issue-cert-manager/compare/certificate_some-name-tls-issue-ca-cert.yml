@@ -15,5 +15,7 @@ spec:
   issuerRef:
     kind: Issuer
     name: some-name-tls-issue-pxc-ca-issuer
+  privateKey:
+    rotationPolicy: Never
   renewBefore: 730h0m0s
   secretName: some-name-tls-issue-ca-cert

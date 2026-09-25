@@ -19,4 +19,6 @@ spec:
   issuerRef:
     kind: Issuer
     name: no-proxysql-pxc-issuer
+  privateKey:
+    rotationPolicy: Never
   secretName: no-proxysql-ssl

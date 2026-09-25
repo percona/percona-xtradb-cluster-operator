@@ -8,6 +8,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 )
 
@@ -96,7 +97,7 @@ func PMMClient(cr *api.PerconaXtraDBCluster, spec *api.PMMSpec, secret *corev1.S
 		},
 		VolumeMounts: []corev1.VolumeMount{
 			{
-				Name:      BinVolumeName,
+				Name:      naming.BinVolumeName,
 				MountPath: "/var/lib/mysql",
 			},
 		},
@@ -372,7 +373,7 @@ func PMM3Client(cr *api.PerconaXtraDBCluster, secret *corev1.Secret, envVarsSecr
 		},
 		{
 			Name:  "DB_CLUSTER",
-			Value: Name,
+			Value: naming.ComponentPXC,
 		},
 		{
 			Name:  "DB_USER",
@@ -434,7 +435,7 @@ func PMM3Client(cr *api.PerconaXtraDBCluster, secret *corev1.Secret, envVarsSecr
 		},
 		VolumeMounts: []corev1.VolumeMount{
 			{
-				Name:      BinVolumeName,
+				Name:      naming.BinVolumeName,
 				MountPath: "/var/lib/mysql",
 			},
 		},

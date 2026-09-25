@@ -23,7 +23,7 @@ admin_variables =
 	cluster_mysql_servers_diffs_before_sync=1
 	cluster_mysql_users_diffs_before_sync=1
 	cluster_proxysql_servers_diffs_before_sync=1
-	stats_credentials="monitor:monitor"
+	stats_credentials="proxystats:monitor"
 }
 
 mysql_variables=

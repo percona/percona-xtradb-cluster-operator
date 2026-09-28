@@ -457,7 +457,7 @@ func (c *Proxy) PMMContainer(ctx context.Context, cl client.Client, spec *api.PM
 	}
 
 	envVarsSecret := &corev1.Secret{}
-	err := cl.Get(ctx, types.NamespacedName{Name: cr.Spec.PXC.EnvVarsSecretName, Namespace: cr.Namespace}, envVarsSecret)
+	err := cl.Get(ctx, types.NamespacedName{Name: cr.Spec.ProxySQL.EnvVarsSecretName, Namespace: cr.Namespace}, envVarsSecret)
 	if client.IgnoreNotFound(err) != nil {
 		return nil, errors.Wrap(err, "get env vars secret")
 	}
@@ -469,6 +469,24 @@ func (c *Proxy) PMMContainer(ctx context.Context, cl client.Client, spec *api.PM
 		}
 
 		pmm3Container.Env = append(pmm3Container.Env, pmm3ProxySQLEnvVars(spec.ProxysqlParams)...)
+
+		for i := range pmm3Container.Env {
+			if pmm3Container.Env[i].Name == "DB_USER" {
+				pmm3Container.Env[i].Value = users.ProxyStats
+			}
+		}
+
+		pBool := true
+		pmm3Container.EnvFrom = []corev1.EnvFromSource{
+			{
+				SecretRef: &corev1.SecretEnvSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: cr.Spec.ProxySQL.EnvVarsSecretName,
+					},
+					Optional: &pBool,
+				},
+			},
+		}
 
 		return &pmm3Container, nil
 	}
@@ -505,7 +523,7 @@ func (c *Proxy) PMMContainer(ctx context.Context, cl client.Client, spec *api.PM
 	dbEnvs := []corev1.EnvVar{
 		{
 			Name:  "DB_USER",
-			Value: users.Monitor,
+			Value: users.ProxyStats,
 		},
 		{
 			Name: "DB_PASSWORD",

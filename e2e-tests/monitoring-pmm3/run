@@ -282,11 +282,43 @@ desc 'check haproxy metrics'
 get_metric_values_pmm3 haproxy_backend_status pxc-prefix-$namespace-$cluster-haproxy-0 $NEW_TOKEN
 get_metric_values_pmm3 haproxy_backend_active_servers pxc-prefix-$namespace-$cluster-haproxy-0 $NEW_TOKEN
 
+desc 'switch from haproxy to proxysql'
+kubectl_bin patch pxc ${cluster} --type=json -p '[
+	{"op": "replace", "path": "/spec/haproxy/enabled", "value": false},
+	{"op": "replace", "path": "/spec/proxysql/enabled", "value": true}
+]'
+wait_for_delete "sts/${cluster}-haproxy"
+wait_for_running "${cluster}-proxysql" 2
+wait_cluster_consistency ${cluster} 3 2
+kubectl wait pod -l 'app.kubernetes.io/managed-by=percona-xtradb-cluster-operator' --for=condition=ready --timeout=300s
+sleep 60
+
+desc 'check proxysql exporter is running'
+kubectl_bin exec ${cluster}-proxysql-0 -c pmm-client -- pmm-admin status --json \
+	| jq -e '[.pmm_agent_status.agents[] | select(.agent_type | ascii_downcase | contains("proxysql")) | .status | ascii_downcase] | any(. == "running")'
+
+desc 'check proxysql metrics'
+get_metric_values_pmm3 proxysql_connection_pool_conn_used pxc-prefix-$namespace-$cluster-proxysql-0 $NEW_TOKEN
+get_metric_values_pmm3 proxysql_connection_pool_status pxc-prefix-$namespace-$cluster-proxysql-0 $NEW_TOKEN
+
 desc 'check QAN data'
 get_qan20_values $cluster-pxc-0 $NEW_TOKEN
 
 desc 'verify that the custom cluster name is configured'
 verify_custom_cluster_name pxc-prefix-foo-custom-cluster-name $NEW_TOKEN pxc-prefix-$namespace-$cluster-pxc-0 pxc-prefix-$namespace-$cluster-pxc-1 pxc-prefix-$namespace-$cluster-pxc-2
+
+desc 'check proxysql metrics with tls disabled'
+kubectl_bin patch pxc ${cluster} --type=merge --patch '{"spec": {"tls":{"enabled": false}, "unsafeFlags": {"tls": true}}}'
+sleep 10
+wait_cluster_consistency ${cluster} 3 2
+kubectl wait pod -l 'app.kubernetes.io/managed-by=percona-xtradb-cluster-operator' --for=condition=ready --timeout=600s
+sleep 60
+
+kubectl_bin exec ${cluster}-proxysql-0 -c pmm-client -- pmm-admin status --json \
+	| jq -e '[.pmm_agent_status.agents[] | select(.agent_type | ascii_downcase | contains("proxysql")) | .status | ascii_downcase] | any(. == "running")'
+
+get_metric_values_pmm3 proxysql_connection_pool_conn_used pxc-prefix-$namespace-$cluster-proxysql-0 $NEW_TOKEN
+get_metric_values_pmm3 proxysql_connection_pool_status pxc-prefix-$namespace-$cluster-proxysql-0 $NEW_TOKEN
 
 nodeList=($(get_node_id_from_pmm))
 nodeList_from_pmm=($(does_node_id_exists "${nodeList[@]}"))

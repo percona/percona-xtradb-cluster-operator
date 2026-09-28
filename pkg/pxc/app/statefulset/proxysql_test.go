@@ -1,11 +1,14 @@
 package statefulset
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes/scheme"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
@@ -504,5 +507,98 @@ func defaultExpectedProxySQLSidecarContainers() []corev1.Container {
 				{Name: "bin", MountPath: "/opt/percona"},
 			},
 		},
+	}
+}
+
+func TestPMMContainer_ProxySQL(t *testing.T) {
+	const envVarsSecretName = "proxysql-env-vars"
+
+	pmmSecret := corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: "pmm-secret", Namespace: "test-ns"},
+		Data:       map[string][]byte{users.PMMServerToken: []byte("token")},
+	}
+
+	expectedEnvFrom := []corev1.EnvFromSource{
+		{
+			SecretRef: &corev1.SecretEnvSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: envVarsSecretName,
+				},
+				Optional: pointerToTrue(),
+			},
+		},
+	}
+
+	tests := map[string]struct {
+		proxySQLEnvVars  map[string][]byte
+		pxcEnvVars       map[string][]byte
+		expectedNodeName string
+	}{
+		"PMM_PREFIX from the proxysql env vars secret is used": {
+			proxySQLEnvVars:  map[string][]byte{"PMM_PREFIX": []byte("pxc-prefix-")},
+			pxcEnvVars:       nil,
+			expectedNodeName: "$(PMM_PREFIX)$(POD_NAMESPACE)-$(POD_NAME)",
+		},
+		"PMM_PREFIX from the pxc env vars secret is ignored": {
+			proxySQLEnvVars:  nil,
+			pxcEnvVars:       map[string][]byte{"PMM_PREFIX": []byte("pxc-prefix-")},
+			expectedNodeName: "$(POD_NAMESPACE)-$(POD_NAME)",
+		},
+	}
+
+	ctx := context.Background()
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			cr := &api.PerconaXtraDBCluster{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-cluster", Namespace: "test-ns"},
+				Spec: api.PerconaXtraDBClusterSpec{
+					CRVersion: "1.19.0",
+					PMM: &api.PMMSpec{
+						Enabled:    true,
+						Image:      "pmm-image",
+						ServerHost: "pmm-server",
+					},
+					ProxySQL: &api.ProxySQLSpec{
+						PodSpec: api.PodSpec{
+							Image:             "test-image",
+							EnvVarsSecretName: envVarsSecretName,
+						},
+					},
+					PXC: &api.PXCSpec{
+						PodSpec: &api.PodSpec{EnvVarsSecretName: "pxc-env-vars"},
+					},
+				},
+			}
+
+			proxySQLEnvVarsSecret := corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Name: envVarsSecretName, Namespace: "test-ns"},
+				Data:       tt.proxySQLEnvVars,
+			}
+			pxcEnvVarsSecret := corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Name: "pxc-env-vars", Namespace: "test-ns"},
+				Data:       tt.pxcEnvVars,
+			}
+
+			proxy := &Proxy{cr: cr}
+			cl := fake.NewClientBuilder().WithScheme(scheme.Scheme).
+				WithObjects(&pmmSecret, &proxySQLEnvVarsSecret, &pxcEnvVarsSecret).Build()
+
+			c, err := proxy.PMMContainer(ctx, cl, cr.Spec.PMM, &pmmSecret, cr)
+			assert.NoError(t, err)
+			assert.NotNil(t, c)
+			assert.Equal(t, expectedEnvFrom, c.EnvFrom)
+
+			env := make(map[string]corev1.EnvVar, len(c.Env))
+			for _, e := range c.Env {
+				env[e.Name] = e
+			}
+
+			assert.Equal(t, tt.expectedNodeName, env["PMM_AGENT_SETUP_NODE_NAME"].Value)
+
+			assert.Equal(t, users.ProxyStats, env["DB_USER"].Value)
+			assert.NotEqual(t, users.Monitor, env["DB_USER"].Value)
+			assert.Equal(t, "localhost", env["DB_HOST"].Value)
+			assert.Equal(t, "6032", env["DB_PORT"].Value)
+		})
 	}
 }

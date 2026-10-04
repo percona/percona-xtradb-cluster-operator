@@ -47,6 +47,7 @@ sed_in_place "s/\"admin:admin\"/\"${PROXY_ADMIN_USER:-admin}:${PROXY_ADMIN_PASSW
 sed_in_place "s/cluster_username=\"admin\"/cluster_username=\"${PROXY_ADMIN_USER:-admin}\"/g" ${PROXY_CFG}
 sed_in_place "s/cluster_password=\"admin\"/cluster_password=\"${PROXY_ADMIN_PASSWORD_ESCAPED:-admin}\"/g" ${PROXY_CFG}
 sed_in_place "s/monitor_password=\"monitor\"/monitor_password=\"${MONITOR_PASSWORD_ESCAPED:-monitor}\"/g" ${PROXY_CFG}
+sed_in_place "s/stats_credentials=\"proxystats:monitor\"/stats_credentials=\"proxystats:${MONITOR_PASSWORD_ESCAPED:-monitor}\"/g" ${PROXY_CFG}
 sed_in_place "s/PROXYSQL_USERNAME='admin'/PROXYSQL_USERNAME='${PROXY_ADMIN_USER:-admin}'/g" ${PROXY_ADMIN_CFG}
 sed_in_place "s/PROXYSQL_PASSWORD='admin'/PROXYSQL_PASSWORD='${PROXY_ADMIN_PASSWORD_ESCAPED:-admin}'/g" ${PROXY_ADMIN_CFG}
 sed_in_place "s/CLUSTER_USERNAME='admin'/CLUSTER_USERNAME='${OPERATOR_USERNAME:-operator}'/g" ${PROXY_ADMIN_CFG}

@@ -18,6 +18,7 @@ const (
 	Xtrabackup     = "xtrabackup"
 	Replication    = "replication"
 	ProxyAdmin     = "proxyadmin"
+	ProxyStats     = "proxystats"
 	PMMServer      = "pmmserver"
 	PMMServerKey   = "pmmserverkey"
 	PMMServerToken = "pmmservertoken"
@@ -224,6 +225,20 @@ func (u *Manager) UpdateProxyUser(user *SysUser) error {
 		}
 
 		_, err = u.db.Exec("SAVE MYSQL VARIABLES TO DISK")
+		if err != nil {
+			return errors.Wrap(err, "save to disk")
+		}
+
+		_, err = u.db.Exec("UPDATE global_variables SET variable_value=? WHERE variable_name='admin-stats_credentials'", ProxyStats+":"+user.Pass)
+		if err != nil {
+			return errors.Wrap(err, "update proxy stats password")
+		}
+		_, err = u.db.Exec("LOAD ADMIN VARIABLES TO RUNTIME")
+		if err != nil {
+			return errors.Wrap(err, "load to runtime")
+		}
+
+		_, err = u.db.Exec("SAVE ADMIN VARIABLES TO DISK")
 		if err != nil {
 			return errors.Wrap(err, "save to disk")
 		}

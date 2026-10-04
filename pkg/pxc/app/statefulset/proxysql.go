@@ -462,6 +462,11 @@ func (c *Proxy) PMMContainer(ctx context.Context, cl client.Client, spec *api.PM
 		return nil, errors.Wrap(err, "get env vars secret")
 	}
 
+	dbUser := users.Monitor
+	if cr.CompareVersionWith("1.21.0") >= 0 {
+		dbUser = users.ProxyStats
+	}
+
 	if v, exists := secret.Data[users.PMMServerToken]; exists && len(v) != 0 {
 		pmm3Container, err := app.PMM3Client(cr, secret, envVarsSecret)
 		if err != nil {
@@ -472,7 +477,7 @@ func (c *Proxy) PMMContainer(ctx context.Context, cl client.Client, spec *api.PM
 
 		for i := range pmm3Container.Env {
 			if pmm3Container.Env[i].Name == "DB_USER" {
-				pmm3Container.Env[i].Value = users.ProxyStats
+				pmm3Container.Env[i].Value = dbUser
 			}
 		}
 
@@ -523,7 +528,7 @@ func (c *Proxy) PMMContainer(ctx context.Context, cl client.Client, spec *api.PM
 	dbEnvs := []corev1.EnvVar{
 		{
 			Name:  "DB_USER",
-			Value: users.ProxyStats,
+			Value: dbUser,
 		},
 		{
 			Name: "DB_PASSWORD",

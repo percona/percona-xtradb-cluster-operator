@@ -2027,13 +2027,14 @@ start_minio() {
 	fi
 
 	desc 'install Minio'
-	helm uninstall minio-service || :
-	retry 10 60 helm install \
+	helm uninstall --wait --namespace "$namespace" minio-service || :
+	kubectl_bin delete secret --namespace "$namespace" -l owner=helm,name=minio-service --ignore-not-found
+	retry 10 60 helm upgrade --install --wait \
+		--namespace "$namespace" \
 		$HELM_ARGS \
 		minio-service \
 		"${minio_args[@]}" \
 		minio/minio
-	sleep 30
 	MINIO_POD=$(kubectl_bin get pods --selector=release=minio-service -o 'jsonpath={.items[].metadata.name}')
 	wait_pod $MINIO_POD
 

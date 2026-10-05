@@ -441,6 +441,63 @@ func TestCheckNSetDefaults(t *testing.T) {
 		}
 		assert.EqualError(t, cr.CheckNSetDefaults(nil, logf.FromContext(ctx)), ".spec.tls.certValidityDuration shouldn't be smaller than 1 hours")
 	})
+
+	t.Run("replication channels", func(t *testing.T) {
+		tests := map[string]struct {
+			pxcVersion               string
+			expectedSourceRetryCount uint
+		}{
+			"unknown pxc version": {
+				pxcVersion:               "",
+				expectedSourceRetryCount: 10,
+			},
+			"pxc 8.0": {
+				pxcVersion:               "8.0.42-33.1",
+				expectedSourceRetryCount: 86400,
+			},
+			"pxc 8.4": {
+				pxcVersion:               "8.4.5-5.1",
+				expectedSourceRetryCount: 10,
+			},
+		}
+
+		for name, tt := range tests {
+			t.Run(name, func(t *testing.T) {
+				ctx := t.Context()
+				cr := minimalCr.DeepCopy()
+				cr.Status.PXC.Version = tt.pxcVersion
+				cr.Spec.PXC.ReplicationChannels = []ReplicationChannel{
+					{
+						Name:        "defaults",
+						SourcesList: []ReplicationSource{{Host: "10.0.0.1"}},
+					},
+					{
+						Name:        "custom",
+						SourcesList: []ReplicationSource{{Host: "10.0.0.2"}},
+						Config: &ReplicationChannelConfig{
+							SourceRetryCount:   3,
+							SourceConnectRetry: 10,
+						},
+					},
+				}
+
+				assert.NoError(t, cr.CheckNSetDefaults(nil, logf.FromContext(ctx)))
+
+				channels := cr.Spec.PXC.ReplicationChannels
+				require.NotNil(t, channels[0].Config)
+				assert.Equal(t, tt.expectedSourceRetryCount, channels[0].Config.SourceRetryCount)
+				assert.Equal(t, uint(60), channels[0].Config.SourceConnectRetry)
+				assert.Equal(t, &ReplicationChannelConfig{SourceRetryCount: 3, SourceConnectRetry: 10}, channels[1].Config)
+
+				cr = minimalCr.DeepCopy()
+				cr.Status.PXC.Version = tt.pxcVersion
+				cr.Spec.PXC.ReplicationChannels = []ReplicationChannel{{Name: "source", IsSource: true}}
+
+				assert.NoError(t, cr.CheckNSetDefaults(nil, logf.FromContext(ctx)))
+				assert.Nil(t, cr.Spec.PXC.ReplicationChannels[0].Config)
+			})
+		}
+	})
 }
 
 func TestExtraPVCVolumeMounts(t *testing.T) {

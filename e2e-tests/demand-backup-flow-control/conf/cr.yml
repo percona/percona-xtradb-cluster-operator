@@ -7,7 +7,7 @@ metadata:
 spec:
   tls:
     SANs:
-      - "minio-service.#namespace"
+      - "s3-storage-all-in-one.#namespace"
   secretsName: my-cluster-secrets
   vaultSecretName: some-name-vault
   pause: false
@@ -69,7 +69,7 @@ spec:
             resources:
               requests:
                 storage: 1Gi
-      minio:
+      local-s3:
         type: s3
         resources:
           requests:
@@ -79,8 +79,8 @@ spec:
             memory: "2G"
             cpu: "1"
         s3:
-          credentialsSecret: minio-secret
+          credentialsSecret: s3-secret
           region: us-east-1
           bucket: operator-testing/prefix/subfolder
-          endpointUrl: http://minio-service.#namespace:9000/
+          endpointUrl: http://s3-storage-all-in-one.#namespace:8333/
         verifyTLS: false

@@ -27,7 +27,7 @@ main() {
 	desc "Create source cluster"
 
 	create_infra ${namespace}
-	start_minio
+	deploy_s3_storage
 	apply_secrets
 	spinup_pxc "$source_cluster" "$test_dir/conf/$source_cluster.yml"
 	wait_pxc_ready "$source_cluster"
@@ -54,7 +54,7 @@ main() {
 	kubectl_bin get secrets cross-site-source-ssl-internal -o yaml | yq 'del(.metadata)' - | yq '.metadata={"name": "cross-site-replica-ssl-internal"}' - >${tmp_dir}/replica-ssl-internal.yaml
 
 	desc "take backup of source cluster"
-	run_backup "$source_cluster" "backup-minio-source"
+	run_backup "$source_cluster" "backup-local-s3-source"
 
 	desc "create replica cluster"
 
@@ -66,11 +66,11 @@ main() {
 	wait_pxc_ready "$replica_cluster"
 
 	desc "restore backup from source cluster"
-	destination=$(kubectl_bin get -n "${namespace}" pxc-backup backup-minio-source -o jsonpath='{.status.destination}')
-	cat "${test_dir}/conf/restore-backup-minio.yml" \
+	destination=$(kubectl_bin get -n "${namespace}" pxc-backup backup-local-s3-source -o jsonpath='{.status.destination}')
+	cat "${test_dir}/conf/restore-backup-local-s3.yml" \
 		| $sed -e "s~#cluster~${replica_cluster}~" \
 		| $sed -e "s~#destination~${destination}~" \
-		| $sed -e "s~minio-service.#namespace~minio-service.${namespace}~" \
+		| $sed -e "s~s3-storage-all-in-one.#namespace~s3-storage-all-in-one.${namespace}~" \
 		| kubectl_bin apply -f -
 	wait_cluster_consistency "$replica_cluster" 3 3
 
@@ -120,17 +120,17 @@ main() {
 	compare_mysql_cmd "select-2" "SELECT * from myApp.testSourceReplica;" \
 		"-h ${replica_cluster}-proxysql -p3306 -uroot -proot_password"
 
-	run_backup "$replica_cluster" "backup-minio-replica"
+	run_backup "$replica_cluster" "backup-local-s3-replica"
 
 	desc "Switch clusters over"
 	switch_namespace "$namespace"
 
 	desc "rebuild source cluster"
-	destination=$(kubectl_bin get -n "${replica_namespace}" pxc-backup backup-minio-replica -o jsonpath='{.status.destination}')
-	cat "${test_dir}/conf/restore-backup-minio.yml" \
+	destination=$(kubectl_bin get -n "${replica_namespace}" pxc-backup backup-local-s3-replica -o jsonpath='{.status.destination}')
+	cat "${test_dir}/conf/restore-backup-local-s3.yml" \
 		| $sed -e "s~#cluster~${source_cluster}~" \
 		| $sed -e "s~#destination~${destination}~" \
-		| $sed -e "s~minio-service.#namespace~minio-service.${namespace}~" \
+		| $sed -e "s~s3-storage-all-in-one.#namespace~s3-storage-all-in-one.${namespace}~" \
 		| kubectl_bin apply -f -
 	wait_cluster_consistency "$source_cluster" 3 3
 

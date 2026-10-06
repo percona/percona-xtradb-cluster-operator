@@ -1,0 +1,7 @@
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBClusterRestore
+metadata:
+  name: on-demand-backup-local-s3
+spec:
+  pxcCluster: upgrade-haproxy
+  backupName: on-demand-backup-local-s3

@@ -9,5 +9,5 @@ spec:
     type: transaction
     gtid: <gtid>
     backupSource:
-      storageName: "minio-binlogs"
+      storageName: "local-s3-binlogs"
 

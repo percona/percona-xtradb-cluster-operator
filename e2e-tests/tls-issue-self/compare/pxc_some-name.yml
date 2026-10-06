@@ -20,11 +20,11 @@ spec:
           endpointUrl: https://storage.googleapis.com
           region: us-east-1
         type: s3
-      minio:
+      local-s3:
         s3:
           bucket: operator-testing
-          credentialsSecret: minio-secret
-          endpointUrl: http://minio-service:9000/
+          credentialsSecret: s3-secret
+          endpointUrl: http://s3-storage-all-in-one:8333/
           region: us-east-1
         type: s3
       pvc:

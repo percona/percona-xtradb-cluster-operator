@@ -62,7 +62,7 @@ kubectl_bin config set-context "$(kubectl_bin config current-context)" --namespa
 desc 'run pvc restore'
 restore="restore-pvc"
 cat "$test_dir/conf/$cluster-$restore.yml" \
-	| $sed -e "s~minio-service.#namespace~minio-service.$namespace~" \
+	| $sed -e "s~s3-storage-all-in-one.#namespace~s3-storage-all-in-one.$namespace~" \
 	| kubectl_bin apply -f -
 wait_pod restore-src-$restore-$cluster
 kubectl_bin get -o yaml pod/restore-src-restore-pvc-sec-context
@@ -75,8 +75,8 @@ wait_backup_restore $restore
 compare_kubectl job.batch/restore-job-$restore-$cluster
 
 desc 'run s3 backup'
-kubectl_bin apply -f $conf_dir/minio-secret.yml
-start_minio
+kubectl_bin apply -f $conf_dir/s3-secret.yml
+deploy_s3_storage
 
 wait_cluster_consistency "$cluster" 3 2
 backup="on-demand-backup-s3"
@@ -87,7 +87,7 @@ compare_kubectl job.batch/xb-$backup
 desc 'run s3 restore'
 restore="restore-s3"
 cat "$test_dir/conf/$cluster-$restore.yml" \
-	| $sed -e "s~minio-service.#namespace~minio-service.$namespace~" \
+	| $sed -e "s~s3-storage-all-in-one.#namespace~s3-storage-all-in-one.$namespace~" \
 	| kubectl_bin apply -f -
 wait_backup_restore $restore
 compare_kubectl job.batch/restore-job-$restore-$cluster

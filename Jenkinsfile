@@ -1,4 +1,4 @@
-region = "us-central1-a"
+region = "us-central1-f"
 testUrlPrefix = "https://percona-jenkins-artifactory-public.s3.amazonaws.com/cloud-pxc-operator"
 tests = []
 

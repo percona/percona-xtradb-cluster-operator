@@ -1,0 +1,19 @@
+# Layered on top of seaweedfs-values.yaml for the TLS variant.
+# The chart only wires the TLS flags when global.seaweedfs.enableSecurity is on,
+# which would also pull in cert-manager, so pass them directly instead.
+s3:
+  httpsPort: 8443
+
+allInOne:
+  extraArgs:
+    - "-s3.port.https=8443"
+    - "-s3.cert.file=/tls/tls.crt"
+    - "-s3.key.file=/tls/tls.key"
+  extraVolumeMounts: |
+    - name: s3-tls
+      readOnly: true
+      mountPath: /tls
+  extraVolumes: |
+    - name: s3-tls
+      secret:
+        secretName: s3-tls

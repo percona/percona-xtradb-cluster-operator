@@ -1,0 +1,24 @@
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBClusterRestore
+metadata:
+  name: restore-on-pitr-local-s3
+spec:
+  pxcCluster: pitr
+  backupSource:
+    verifyTLS: false
+    destination: <destination>
+    s3:
+      bucket: operator-testing
+      credentialsSecret: s3-secret
+      endpointUrl: https://s3-storage-all-in-one.#namespace:8443/
+      region: us-east-1
+  pitr:
+    type: latest
+    backupSource:
+      verifyTLS: false
+      s3:
+        bucket: operator-testing/binlogs
+        credentialsSecret: s3-secret
+        endpointUrl: https://s3-storage-all-in-one.#namespace:8443/
+        region: us-east-1
+

@@ -116,11 +116,11 @@ check_binlog_gap_error() {
 		echo "ERROR: Gap error text is not found in operator pod logs."
 		exit 1
 	fi
-	# check backup on-pitr-minio-gap marked as unready for PITR restore
-	local backup_cond=$(kubectl_bin get pxc-backup on-pitr-minio-gap -ojsonpath='{.status.conditions[]}' | grep -c '"reason":"BinlogGapDetected","status":"False","type":"PITRReady"')
+	# check backup on-pitr-local-s3-gap marked as unready for PITR restore
+	local backup_cond=$(kubectl_bin get pxc-backup on-pitr-local-s3-gap -ojsonpath='{.status.conditions[]}' | grep -c '"reason":"BinlogGapDetected","status":"False","type":"PITRReady"')
 	if [[ $backup_cond -eq 0 ]]; then
 		echo "ERROR: Backup is not tagged as PITR unready in the backup condition."
-		kubectl_bin get pxc-backup on-pitr-minio-gap -oyaml
+		kubectl_bin get pxc-backup on-pitr-local-s3-gap -oyaml
 		exit 1
 	fi
 }
@@ -134,22 +134,22 @@ check_binlog_gap_restore() {
 	kubectl patch pxc $cluster --type=merge -p '{"spec":{"backup":{"pitr":{"enabled":false}}}}'
 	# try restore, check error
 	if [ "$type" == "error" ]; then
-		local restore=restore-on-pitr-minio-gap-error
+		local restore=restore-on-pitr-local-s3-gap-error
 		kubectl_bin apply -f $test_dir/conf/${restore}.yaml
 		wait_backup_restore "${restore}" "Failed"
 		local backup_error=$(kubectl_bin get pxc-restore ${restore} -ojsonpath='{.status.comments}' | grep -c "Backup doesn't guarantee consistent recovery with PITR. Annotate PerconaXtraDBClusterRestore with percona.com/unsafe-pitr to force it.")
 		if [[ $backup_error -eq 0 ]]; then
 			echo "ERROR: Backup is not tagged as PITR unready in the backup condition."
-			kubectl_bin get pxc-backup on-pitr-minio-gap -oyaml
+			kubectl_bin get pxc-backup on-pitr-local-s3-gap -oyaml
 			exit 1
 		fi
 		kubectl_bin delete -f "$test_dir/conf/${restore}.yaml"
 	elif [ "$type" == "backup-source" ]; then
-		local restore=restore-on-pitr-minio-gap-bs
-		destination=$(kubectl_bin get pxc-backup on-pitr-minio-gap -o jsonpath='{.status.destination}')
+		local restore=restore-on-pitr-local-s3-gap-bs
+		destination=$(kubectl_bin get pxc-backup on-pitr-local-s3-gap -o jsonpath='{.status.destination}')
 		cat "${test_dir}/conf/${restore}.yaml" \
 			| $sed -e "s~#destination~${destination}~" \
-			| $sed -e "s~minio-service.#namespace~minio-service.${namespace}~" \
+			| $sed -e "s~s3-storage-all-in-one.#namespace~s3-storage-all-in-one.${namespace}~" \
 			| kubectl_bin apply -f -
 
 		wait_backup_restore "${restore}" "Failed"
@@ -160,7 +160,7 @@ check_binlog_gap_restore() {
 		fi
 		kubectl_bin delete -f "$test_dir/conf/${restore}.yaml"
 	elif [ "$type" == "force" ]; then
-		local restore=restore-on-pitr-minio-gap-force
+		local restore=restore-on-pitr-local-s3-gap-force
 		kubectl_bin apply -f "$test_dir/conf/${restore}.yaml"
 		wait_backup_restore "${restore}" "Succeeded"
 		wait_for_running "$cluster-proxysql" 2
@@ -172,13 +172,13 @@ check_binlog_gap_restore() {
 		compare_mysql_cmd "select-gap" "SELECT * from test.gap;" "-h $cluster-pxc-2.$cluster-pxc -uroot -proot_password"
 		kubectl_bin delete -f "$test_dir/conf/${restore}.yaml"
 	elif [ "$type" == "no-pitr" ]; then
-		local restore=restore-on-pitr-minio-gap-no-pitr
+		local restore=restore-on-pitr-local-s3-gap-no-pitr
 		kubectl_bin apply -f $test_dir/conf/${restore}.yaml
 		wait_backup_restore "${restore}" "Succeeded"
 		local backup_error=$(kubectl_bin get pxc-restore ${restore} -ojsonpath='{.status.comments}' | grep -c "Backup doesn't guarantee consistent recovery with PITR. Annotate PerconaXtraDBClusterRestore with percona.com/unsafe-pitr to force it.")
 		if [[ $backup_error -ne 0 ]]; then
 			echo "ERROR: Restore without PiTR is failed because backups is tagged PiTR unready in the backup condition."
-			kubectl_bin get pxc-backup on-pitr-minio-gap -oyaml
+			kubectl_bin get pxc-backup on-pitr-local-s3-gap -oyaml
 			exit 1
 		fi
 	else
@@ -250,8 +250,8 @@ invalid_binlog_test() {
 
 	# restore to initial state
 	local backup
-	backup="on-pitr-minio"
-	yq "$test_dir/conf/restore-on-pitr-minio.yaml" \
+	backup="on-pitr-local-s3"
+	yq "$test_dir/conf/restore-on-pitr-local-s3.yaml" \
 		| yq eval 'del(.spec.pitr)' \
 		| yq eval 'del(.spec.backupSource)' \
 		| yq eval ".spec.backupName=\"$backup\"" \
@@ -262,7 +262,7 @@ invalid_binlog_test() {
 	wait_cluster_consistency "$cluster" 3 2
 
 	# create new full backup after restore
-	run_backup "$cluster" "on-pitr-minio1"
+	run_backup "$cluster" "on-pitr-local-s3-1"
 
 	run_mysql \
 		"CREATE DATABASE IF NOT EXISTS test; use test; " \
@@ -318,7 +318,7 @@ invalid_binlog_test() {
 
 	sleep 20
 
-	kubectl patch pxc $cluster --type=merge -p '{"spec": {"backup": {"storages": {"minio-binlogs": {"s3": {"bucket": "operator-testing/binlogs-invalid"}}}}}}'
+	kubectl patch pxc $cluster --type=merge -p '{"spec": {"backup": {"storages": {"local-s3-binlogs": {"s3": {"bucket": "operator-testing/binlogs-invalid"}}}}}}'
 	# re-enable pitr
 	kubectl patch pxc $cluster --type=merge -p '{"spec":{"backup":{"pitr":{"enabled":true}}}}'
 	sleep 180 # wait for next PITR collect cycle and error to appear
@@ -331,7 +331,7 @@ invalid_binlog_test() {
 		exit 1
 	fi
 
-	run_recovery_check_pitr "$cluster" "restore-on-pitr-minio-invalid" "on-pitr-minio1" "select-6" "" "" "$gtid"
+	run_recovery_check_pitr "$cluster" "restore-on-pitr-local-s3-invalid" "on-pitr-local-s3-1" "select-6" "" "" "$gtid"
 
 	# invalid table should not exist
 	compare_mysql_cmd "select-invalid" "SELECT * from test.invalid;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
@@ -347,18 +347,18 @@ main() {
 	kubectl_bin apply -f "$test_dir/conf/issuer.yml"
 	kubectl_bin apply -f "$test_dir/conf/cert.yml"
 	sleep_with_log 25
-	# We are using minio with tls enabled to check if `verifyTLS: false` works fine
-	start_minio "tls-minio"
+	# We are using SeaweedFS with TLS enabled to check if `verifyTLS: false` works fine
+	deploy_s3_storage "tls-s3"
 
 	cluster="pitr-gap-errors"
 	spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml"
 
-	run_backup "$cluster" "on-pitr-minio"
+	run_backup "$cluster" "on-pitr-local-s3"
 
 	desc 'binlog gap test'
 	write_test_data "$cluster"
 	log 'creating gap backup (will be marked as PITR unready)'
-	run_backup "$cluster" "on-pitr-minio-gap"
+	run_backup "$cluster" "on-pitr-local-s3-gap"
 	write_data_for_pitr "$cluster"
 	sleep_with_log 65 # need to wait while collector catch new data
 	create_binlog_gap ${cluster}

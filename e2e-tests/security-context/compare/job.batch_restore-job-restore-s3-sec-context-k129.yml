@@ -50,24 +50,24 @@ spec:
             - name: VERIFY_TLS
               value: "true"
             - name: ENDPOINT
-              value: http://minio-service.namespace:9000/
+              value: http://s3-storage-all-in-one.namespace:8333/
             - name: DEFAULT_REGION
               value: us-east-1
             - name: ACCESS_KEY_ID
               valueFrom:
                 secretKeyRef:
                   key: AWS_ACCESS_KEY_ID
-                  name: minio-secret
+                  name: s3-secret
             - name: SECRET_ACCESS_KEY
               valueFrom:
                 secretKeyRef:
                   key: AWS_SECRET_ACCESS_KEY
-                  name: minio-secret
+                  name: s3-secret
             - name: S3_SESSION_TOKEN
               valueFrom:
                 secretKeyRef:
                   key: AWS_SESSION_TOKEN
-                  name: minio-secret
+                  name: s3-secret
                   optional: true
             - name: XB_USE_MEMORY
               value: 100MB

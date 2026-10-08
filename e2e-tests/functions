@@ -9,7 +9,7 @@ MYSQL_VERSION=${MYSQL_VERSION:-"8.4"}
 SKIP_REMOTE_BACKUPS=${SKIP_REMOTE_BACKUPS:-1}
 PMM_SERVER_VER=${PMM_SERVER_VER:-"9.9.9"}
 CERT_MANAGER_VER="1.20.2"
-MINIO_VER="5.4.0"
+SEAWEEDFS_VER="4.47.0"
 CHAOS_MESH_VER="2.7.1"
 VAULT_VER="0.30.0"
 UPDATE_COMPARE_FILES=${UPDATE_COMPARE_FILES:-0}
@@ -415,7 +415,7 @@ deploy_operator() {
 
 deploy_helm() {
 	helm repo add hashicorp https://helm.releases.hashicorp.com
-	helm repo add minio https://charts.min.io/
+	helm repo add seaweedfs https://seaweedfs.github.io/seaweedfs/helm
 	helm repo update
 }
 
@@ -1215,7 +1215,7 @@ cat_config() {
 		| $sed -e "s#image:.*-proxysql\$#image: $IMAGE_PROXY#" \
 		| $sed -e "s#image:.*-haproxy\$#image: $IMAGE_HAPROXY#" \
 		| $sed -e "s#image:.*-logcollector\$#image: $IMAGE_LOGCOLLECTOR#" \
-		| $sed -e "s~minio-service.#namespace~minio-service.$namespace~" \
+		| $sed -e "s~s3-storage-all-in-one.#namespace~s3-storage-all-in-one.$namespace~" \
 		| $sed -e "s#apply:.*#apply: Never#" \
 		| $sed -e "s#claimName:..*-backup-pvc\$#claimName: $pvc_name#"
 
@@ -1225,11 +1225,11 @@ apply_secrets() {
 	desc 'create secrets for cloud storages'
 	if [ -z "$SKIP_REMOTE_BACKUPS" ]; then
 		kubectl_bin apply \
-			-f $conf_dir/minio-secret.yml \
+			-f $conf_dir/s3-secret.yml \
 			-f $conf_dir/cloud-secret.yml
 	else
 		kubectl_bin apply \
-			-f $conf_dir/minio-secret.yml
+			-f $conf_dir/s3-secret.yml
 	fi
 }
 
@@ -1735,7 +1735,7 @@ run_recovery_check() {
 	YAML_INPUT_FILE="$test_dir/conf/restore-${backup}.yaml"
 	MODIFIED_YAML=$(
 		cat "$YAML_INPUT_FILE" \
-			| $sed -e "s~minio-service.#namespace~minio-service.$namespace~" \
+			| $sed -e "s~s3-storage-all-in-one.#namespace~s3-storage-all-in-one.$namespace~" \
 			| $sed -e "s#<destination>#${dest}#g"
 	)
 
@@ -1761,7 +1761,7 @@ run_recovery_check() {
 	log "check data after pxc-restore/${backup}"
 	compare_data "$cluster" "$compare"
 
-	if [ "$backup" != "on-demand-backup-minio" ]; then
+	if [ "$backup" != "on-demand-backup-local-s3" ]; then
 		log 'copy backup'
 		if [ -n "$OPENSHIFT" ]; then
 			replace_docker_registry $src_dir/deploy/backup/copy-backup.sh
@@ -1996,46 +1996,41 @@ get_secret_mount_point() {
 	fi
 }
 
-start_minio() {
+deploy_s3_storage() {
 	deploy_helm $namespace
 	local cert_secret="$1"
+	local fullname="${2:-s3-storage}"
 
-	local endpoint="http://minio-service:9000"
-	local minio_args=(
-		--version $MINIO_VER
-		--set replicas=1
-		--set mode=standalone
-		--set resources.requests.memory=256Mi
-		--set rootUser=rootuser
-		--set rootPassword=rootpass123
-		--set "users[0].accessKey=some-access-key"
-		--set "users[0].secretKey=some-secret-key"
-		--set "users[0].policy=consoleAdmin"
-		--set service.type=ClusterIP
-		--set configPathmc=/tmp/
-		--set securityContext.enabled=false
-		--set persistence.size=2G
+	local endpoint="http://${fullname}-all-in-one:8333"
+	local seaweedfs_args=(
+		--version $SEAWEEDFS_VER
+		-f "${conf_dir}/seaweedfs-values.yaml"
+		--set allInOne.data.type=persistentVolumeClaim
+		--set allInOne.data.size=2G
+		--set fullnameOverride="${fullname}"
+		--set-string s3.credentials.admin.accessKey=some-access-key
+		--set-string s3.credentials.admin.secretKey=some-secret-key
+		--set-string global.seaweedfs.serviceAccountName="${fullname}-sa"
 	)
+
 	if [[ -n $cert_secret ]]; then
-		endpoint="https://minio-service:9000"
-		minio_args+=(
-			--set tls.enabled=true
-			--set tls.certSecret="$cert_secret"
-			--set tls.publicCrt=tls.crt
-			--set tls.privateKey=tls.key
+		endpoint="https://${fullname}-all-in-one:8443"
+		seaweedfs_args+=(
+			-f "${conf_dir}/seaweedfs-tls-values.yaml"
+			--set-string "allInOne.extraVolumes=- name: s3-tls
+  secret:
+    secretName: ${cert_secret}"
 		)
 	fi
 
-	desc 'install Minio'
-	helm uninstall minio-service || :
+	desc "install SeaweedFS: ${fullname}"
+	helm uninstall "${fullname}" || :
 	retry 10 60 helm install \
 		$HELM_ARGS \
-		minio-service \
-		"${minio_args[@]}" \
-		minio/minio
-	sleep 30
-	MINIO_POD=$(kubectl_bin get pods --selector=release=minio-service -o 'jsonpath={.items[].metadata.name}')
-	wait_pod $MINIO_POD
+		"${fullname}" \
+		"${seaweedfs_args[@]}" \
+		seaweedfs/seaweedfs
+	kubectl_bin rollout status "deployment/${fullname}-all-in-one" --timeout=300s
 
 	kubectl_bin run -i --rm aws-cli --image=perconalab/awscli --restart=Never -- \
 		/usr/bin/env AWS_ACCESS_KEY_ID=some-access-key AWS_SECRET_ACCESS_KEY=some-secret-key AWS_DEFAULT_REGION=us-east-1 \
@@ -2267,11 +2262,11 @@ function prepare_cr_yaml() {
 			.spec.proxysql.image = \"-proxysql\" |
 			.spec.haproxy.image = \"-haproxy\" |
 			.spec.backup.image = \"-backup\" |
-			.spec.backup.storages.minio.s3.credentialsSecret = \"minio-secret\" |
-			.spec.backup.storages.minio.s3.region = \"us-east-1\" |
-			.spec.backup.storages.minio.s3.bucket = \"operator-testing\" |
-			.spec.backup.storages.minio.s3.endpointUrl = \"http://minio-service.#namespace:9000/\" |
-			.spec.backup.storages.minio.type = \"s3\" |
+			.spec.backup.storages.\"local-s3\".s3.credentialsSecret = \"s3-secret\" |
+			.spec.backup.storages.\"local-s3\".s3.region = \"us-east-1\" |
+			.spec.backup.storages.\"local-s3\".s3.bucket = \"operator-testing\" |
+			.spec.backup.storages.\"local-s3\".s3.endpointUrl = \"http://s3-storage-all-in-one.#namespace:8333/\" |
+			.spec.backup.storages.\"local-s3\".type = \"s3\" |
 			.spec.pmm.image = \"-pmm\"
 		" - >"${cr_yaml}"
 	if [[ ${proxy} == "haproxy" ]]; then
@@ -2798,7 +2793,7 @@ check_binlog_collection() {
 		binlogs_exist=$(
 			kubectl_bin run -n "${namespace}" -i --rm aws-cli --image=perconalab/awscli --restart=Never -- \
 				/usr/bin/env AWS_ACCESS_KEY_ID=some-access-key AWS_SECRET_ACCESS_KEY=some-secret-key AWS_DEFAULT_REGION=us-east-1 \
-				/usr/bin/aws --endpoint-url https://minio-service:9000 --no-verify-ssl s3 ls operator-testing/binlogs/ | grep -c "binlog" | cat
+				/usr/bin/aws --endpoint-url https://s3-storage-all-in-one:8443 --no-verify-ssl s3 ls operator-testing/binlogs/ | grep -c "binlog" | cat
 			exit "${PIPESTATUS[0]}"
 		)
 		if [ "$binlogs_exist" -gt 0 ]; then
@@ -2905,7 +2900,7 @@ run_recovery_check_pitr() {
 		| $sed -e "s/<datetime>/${time_now}/g" \
 		| $sed -e "s/<destination>/${dest}/g" \
 		| $sed -e "s/<gtid>/${gtid}/g" \
-		| $sed -e "s~minio-service.#namespace~minio-service.$namespace~" \
+		| $sed -e "s~s3-storage-all-in-one.#namespace~s3-storage-all-in-one.$namespace~" \
 		| kubectl_bin apply -f -
 
 	wait_backup_restore ${restore} "Stopping Cluster"
@@ -2924,9 +2919,10 @@ run_recovery_check_pitr() {
 	wait_pod ${cluster}-pxc-0
 
 	wait_backup_restore ${restore} "Starting Cluster"
-	local minio_pod
-	minio_pod=$(kubectl_bin get pods --selector=release=minio-service -o 'jsonpath={.items[].metadata.name}')
-	if kubectl_bin exec ${minio_pod} -- stat /exports/operator-testing/binlogs/gtid-binlog-cache.json >/dev/null 2>&1; then
+	if kubectl_bin run -i --rm aws-cli-check --image=perconalab/awscli --restart=Never -- \
+		/usr/bin/env AWS_ACCESS_KEY_ID=some-access-key AWS_SECRET_ACCESS_KEY=some-secret-key AWS_DEFAULT_REGION=us-east-1 \
+		/usr/bin/aws --endpoint-url https://s3-storage-all-in-one:8443 --no-verify-ssl \
+		s3 ls s3://operator-testing/binlogs/gtid-binlog-cache.json 2>&1 | grep -q "gtid-binlog-cache.json"; then
 		echo "Binlog collector cache is not invalidated after restore!"
 		exit 1
 	fi

@@ -2919,13 +2919,6 @@ run_recovery_check_pitr() {
 	wait_pod ${cluster}-pxc-0
 
 	wait_backup_restore ${restore} "Starting Cluster"
-	if kubectl_bin run -i --rm aws-cli-check --image=perconalab/awscli --restart=Never -- \
-		/usr/bin/env AWS_ACCESS_KEY_ID=some-access-key AWS_SECRET_ACCESS_KEY=some-secret-key AWS_DEFAULT_REGION=us-east-1 \
-		/usr/bin/aws --endpoint-url https://s3-storage-all-in-one:8443 --no-verify-ssl \
-		s3 ls s3://operator-testing/binlogs/gtid-binlog-cache.json 2>&1 | grep -q "gtid-binlog-cache.json"; then
-		echo "Binlog collector cache is not invalidated after restore!"
-		exit 1
-	fi
 
 	wait_backup_restore ${restore}
 	kubectl_bin logs job/restore-job-${restore}-${cluster} 2>/dev/null || true

@@ -81,22 +81,26 @@ main() {
 
 	desc "Check backup deletion"
 	kubectl_bin delete pxc-backup --all
-	# SeaweedFS has eventual consistency for deletions (~2 min lag)
+	# SeaweedFS keeps empty directory markers after all objects are deleted.
+	# Count only actual data files (exclude directory markers ending in /).
 	local backup_removed=0
 	for i in $(seq 1 20); do
-		backup_exists=$(
+		listing=$(
 			kubectl_bin run -n "${namespace}" -i --rm aws-cli --image=perconalab/awscli --restart=Never -- \
 				/usr/bin/env AWS_ACCESS_KEY_ID=some-access-key AWS_SECRET_ACCESS_KEY=some-secret-key AWS_DEFAULT_REGION=us-east-1 \
-				/usr/bin/aws --endpoint-url https://s3-storage-all-in-one:8443 --no-verify-ssl s3 ls --recursive operator-testing/prefix/subfolder/ 2>/dev/null | grep -c "demand-backup" || true
+				/usr/bin/aws --endpoint-url https://s3-storage-all-in-one:8443 --no-verify-ssl s3 ls --recursive operator-testing/prefix/subfolder/ 2>/dev/null || true
 		)
+		backup_exists=$(echo "$listing" | grep "demand-backup" | grep -cv '/$' || true)
 		if [[ $backup_exists -eq 0 ]]; then
 			backup_removed=1
 			break
 		fi
-		log "Backup still exists in bucket, retrying ($i/20)..."
+		log "Backup still exists in bucket ($backup_exists files), retrying ($i/20)..."
 		sleep 10
 	done
 	if [[ $backup_removed -ne 1 ]]; then
+		echo "Remaining S3 listing:"
+		echo "$listing"
 		echo "Backup was not removed from bucket -- local-s3"
 		exit 1
 	fi

@@ -81,8 +81,9 @@ main() {
 
 	desc "Check backup deletion"
 	kubectl_bin delete pxc-backup --all
-	# Use plain kubectl (not kubectl_bin) to avoid capturing stderr noise
-	# (pod deletion messages contain the namespace name which includes "demand-backup").
+	# kubectl run --rm prints 'pod "aws-cli" deleted from <namespace>' to stdout.
+	# The namespace contains "demand-backup", so filter to only S3 listing lines
+	# (which start with a date like YYYY-MM-DD).
 	local backup_removed=0
 	for i in $(seq 1 12); do
 		listing=$(
@@ -90,7 +91,7 @@ main() {
 				/usr/bin/env AWS_ACCESS_KEY_ID=some-access-key AWS_SECRET_ACCESS_KEY=some-secret-key AWS_DEFAULT_REGION=us-east-1 \
 				/usr/bin/aws --endpoint-url https://s3-storage-all-in-one:8443 --no-verify-ssl s3 ls --recursive operator-testing/prefix/subfolder/ 2>/dev/null || true
 		)
-		backup_exists=$(echo "$listing" | grep -c "demand-backup" || true)
+		backup_exists=$(echo "$listing" | grep "^[0-9]" | grep -c "demand-backup" || true)
 		if [[ $backup_exists -eq 0 ]]; then
 			backup_removed=1
 			break

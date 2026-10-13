@@ -81,9 +81,9 @@ main() {
 
 	desc "Check backup deletion"
 	kubectl_bin delete pxc-backup --all
-	sleep 5
+	# SeaweedFS has eventual consistency for deletions (~2 min lag)
 	local backup_removed=0
-	for i in $(seq 1 12); do
+	for i in $(seq 1 20); do
 		backup_exists=$(
 			kubectl_bin run -n "${namespace}" -i --rm aws-cli --image=perconalab/awscli --restart=Never -- \
 				/usr/bin/env AWS_ACCESS_KEY_ID=some-access-key AWS_SECRET_ACCESS_KEY=some-secret-key AWS_DEFAULT_REGION=us-east-1 \
@@ -93,18 +93,11 @@ main() {
 			backup_removed=1
 			break
 		fi
-		log "Backup still exists in bucket, retrying ($i/12)..."
-		sleep 5
+		log "Backup still exists in bucket, retrying ($i/20)..."
+		sleep 10
 	done
 	if [[ $backup_removed -ne 1 ]]; then
 		echo "Backup was not removed from bucket -- local-s3"
-		echo "=== Operator logs (backup deletion) ==="
-		kubectl_bin logs ${OPERATOR_NS:+-n $OPERATOR_NS} $(get_operator_pod) --tail=100 | grep -E "delete|backup|finalizer|remove" || true
-		echo "=== Remaining S3 objects ==="
-		kubectl_bin run -n "${namespace}" -i --rm aws-cli-debug --image=perconalab/awscli --restart=Never -- \
-			/usr/bin/env AWS_ACCESS_KEY_ID=some-access-key AWS_SECRET_ACCESS_KEY=some-secret-key AWS_DEFAULT_REGION=us-east-1 \
-			/usr/bin/aws --endpoint-url https://s3-storage-all-in-one:8443 --no-verify-ssl s3 ls --recursive operator-testing/ || true
-		echo "=== End debug output ==="
 		exit 1
 	fi
 

@@ -7,7 +7,7 @@ metadata:
 spec:
   tls:
     SANs:
-      - "minio-service.#namespace"
+      - "s3-storage-all-in-one.#namespace"
   secretsName: my-cluster-secrets
   pause: false
   pxc:
@@ -66,28 +66,28 @@ spec:
     image: -backup
     pitr:
       enabled: true
-      storageName: minio-binlogs
+      storageName: local-s3-binlogs
       timeBetweenUploads: 55
     storages:
-      minio:
+      local-s3:
         type: s3
         s3:
-          credentialsSecret: minio-secret
+          credentialsSecret: s3-secret
           region: us-east-1
           bucket: operator-testing
-          endpointUrl: https://minio-service.#namespace:9000
+          endpointUrl: https://s3-storage-all-in-one.#namespace:8443
           caBundle:
-            name: minio-tls-certs
+            name: s3-tls-certs
             key: ca.crt
         verifyTLS: true
-      minio-binlogs:
+      local-s3-binlogs:
         type: s3
         s3:
-          credentialsSecret: minio-secret
+          credentialsSecret: s3-secret
           region: us-east-1
           bucket: operator-testing/binlogs
-          endpointUrl: https://minio-service.#namespace:9000
+          endpointUrl: https://s3-storage-all-in-one.#namespace:8443
           caBundle:
-            name: minio-tls-certs
+            name: s3-tls-certs
             key: ca.crt
         verifyTLS: true

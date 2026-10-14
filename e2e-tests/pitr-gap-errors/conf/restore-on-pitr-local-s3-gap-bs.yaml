@@ -1,0 +1,19 @@
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBClusterRestore
+metadata:
+  name: restore-on-pitr-local-s3-gap-bs
+spec:
+  pxcCluster: pitr-gap-errors
+  pitr:
+    type: latest
+    backupSource:
+      storageName: "local-s3-binlogs"
+  backupSource:
+    destination: #destination
+    s3:
+      bucket: operator-testing
+      credentialsSecret: s3-secret
+      endpointUrl: https://s3-storage-all-in-one.#namespace:8443/
+      region: us-east-1
+    verifyTLS: false
+

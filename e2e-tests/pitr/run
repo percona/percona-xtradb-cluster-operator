@@ -70,9 +70,9 @@ main() {
 	deploy_cert_manager
 	kubectl_bin apply -f "$test_dir/conf/issuer.yml"
 	kubectl_bin apply -f "$test_dir/conf/cert.yml"
-	kubectl_bin wait certificate/tls-minio --for=condition=Ready --timeout=120s
-	# We are using minio with tls enabled to check if `verifyTLS: false` works fine
-	start_minio "tls-minio"
+	kubectl_bin wait certificate/tls-s3 --for=condition=Ready --timeout=120s
+	# We are using SeaweedFS with TLS enabled to check if `verifyTLS: false` works fine
+	deploy_s3_storage "tls-s3"
 
 	cluster="pitr"
 	mysql_root_pass=root_password
@@ -84,7 +84,7 @@ main() {
 		exit 1
 	fi
 
-	run_backup "$cluster" "on-pitr-minio"
+	run_backup "$cluster" "on-pitr-local-s3"
 
 	write_test_data "$cluster"
 
@@ -113,21 +113,21 @@ main() {
 
 	check_binlog_collection
 
-	check_latest_restorable_time "on-pitr-minio"
-	check_binlog_gap "on-pitr-minio"
+	check_latest_restorable_time "on-pitr-local-s3"
+	check_binlog_gap "on-pitr-local-s3"
 
 	desc "[CASE 1] PiTR with GTID: ${gtid}"
-	run_recovery_check_pitr "$cluster" "restore-on-pitr-minio-gtid" "on-pitr-minio" "select-2" "" "" "$gtid"
+	run_recovery_check_pitr "$cluster" "restore-on-pitr-local-s3-gtid" "on-pitr-local-s3" "select-2" "" "" "$gtid"
 
 	gtid=$(get_gtid_executed ${mysql_host})
 	log "[CASE 1]: gtid_executed (after restore): ${gtid}"
 
 	desc "[CASE 1] PiTR with GTID: OK"
 
-	run_backup "$cluster" "on-pitr-minio" "on-pitr-minio-2"
+	run_backup "$cluster" "on-pitr-local-s3" "on-pitr-local-s3-2"
 	sleep_with_log 65 # wait for one binlog collection cycle
 
-	check_binlog_gap "on-pitr-minio-2"
+	check_binlog_gap "on-pitr-local-s3-2"
 
 	time_now=$(run_mysql "SELECT now();" "-h ${mysql_host} -uroot -proot_password")
 
@@ -138,17 +138,17 @@ main() {
 	sleep_with_log 65 # wait for one binlog collection cycle
 
 	desc "[CASE 2] PiTR with datetime: ${time_now}"
-	run_recovery_check_pitr "$cluster" "restore-on-pitr-minio-time" "on-pitr-minio" "select-3" "$time_now" "" ""
+	run_recovery_check_pitr "$cluster" "restore-on-pitr-local-s3-time" "on-pitr-local-s3" "select-3" "$time_now" "" ""
 
 	gtid=$(get_gtid_executed ${mysql_host})
 	log "[CASE 2]: gtid_executed (after restore): ${gtid}"
 
 	desc "[CASE 2] PiTR with datetime: OK"
 
-	run_backup "$cluster" "on-pitr-minio" "on-pitr-minio-3"
+	run_backup "$cluster" "on-pitr-local-s3" "on-pitr-local-s3-3"
 	sleep_with_log 65 # wait for one binlog collection cycle
 
-	check_binlog_gap "on-pitr-minio-3"
+	check_binlog_gap "on-pitr-local-s3-3"
 
 	write_data_for_pitr "$cluster" 100503 3
 	sleep_with_log 65 # wait for one binlog collection cycle
@@ -156,9 +156,9 @@ main() {
 	gtid=$(get_gtid_executed ${mysql_host})
 	log "[CASE 3]: gtid_executed: ${gtid}"
 
-	dest=$(sed 's,/,\\/,g' <<<$(kubectl get pxc-backup on-pitr-minio-3 -o jsonpath='{.status.destination}'))
+	dest=$(sed 's,/,\\/,g' <<<$(kubectl get pxc-backup on-pitr-local-s3-3 -o jsonpath='{.status.destination}'))
 	desc "[CASE 3] PiTR with latest using backupSource: ${dest}"
-	run_recovery_check_pitr "$cluster" "restore-on-pitr-minio" "on-pitr-minio" "select-4" "" "$dest" ""
+	run_recovery_check_pitr "$cluster" "restore-on-pitr-local-s3" "on-pitr-local-s3" "select-4" "" "$dest" ""
 
 	gtid=$(get_gtid_executed ${mysql_host})
 	log "[CASE 3]: gtid_executed (after restore): ${gtid}"
@@ -166,7 +166,7 @@ main() {
 	desc "[CASE 3] PiTR with latest using backupSource: OK"
 
 	desc "[CASE 4] PiTR from source on new cluster"
-	log "[CASE 4]: using backup destination from on-pitr-minio-3 (escaped for restore): ${dest}"
+	log "[CASE 4]: using backup destination from on-pitr-local-s3-3 (escaped for restore): ${dest}"
 
 	desc "[CASE 4] delete PXC cluster ${cluster} and wait for PVCs"
 	kubectl_bin delete pxc ${cluster}
@@ -197,7 +197,7 @@ main() {
 	wait_cluster_consistency ${cluster} 3 2
 
 	desc "[CASE 4] PiTR with latest using backupSource on new cluster"
-	run_recovery_check_pitr "$cluster" "restore-on-pitr-minio" "on-pitr-minio" "select-4" "" "$dest" "" "$mysql_root_pass"
+	run_recovery_check_pitr "$cluster" "restore-on-pitr-local-s3" "on-pitr-local-s3" "select-4" "" "$dest" "" "$mysql_root_pass"
 
 	gtid=$(get_gtid_executed ${mysql_host})
 	log "[CASE 4]: gtid_executed (after restore): ${gtid}"

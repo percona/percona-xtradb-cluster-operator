@@ -1,0 +1,11 @@
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBClusterRestore
+metadata:
+  name: restore-on-pitr-local-s3-gap-error
+spec:
+  pxcCluster: pitr-gap-errors
+  backupName: on-pitr-local-s3-gap
+  pitr:
+    type: latest
+    backupSource:
+      storageName: "local-s3-binlogs"

@@ -4,4 +4,4 @@ metadata:
   name:
 spec:
   pxcCluster: some-name
-  storageName: minio
+  storageName: local-s3

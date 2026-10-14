@@ -4,4 +4,4 @@ metadata:
   name:
 spec:
   pxcCluster: demand-backup-parallel
-  storageName: minio
+  storageName: local-s3

@@ -1,0 +1,14 @@
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBClusterBackup
+metadata:
+  name: backup-local-s3-source
+spec:
+  pxcCluster: cross-site-source
+  storageName: local-s3
+  containerOptions:
+    args:
+      xbstream:
+      - '--parallel=2'
+      xbcloud:
+      - '--parallel=2'
+      - '--curl-retriable-errors=8'

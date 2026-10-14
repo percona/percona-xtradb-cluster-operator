@@ -9,7 +9,7 @@ metadata:
 spec:
   tls:
     SANs:
-      - "minio-service.#namespace"
+      - "s3-storage-all-in-one.#namespace"
   secretsName: my-cluster-secrets
   vaultSecretName: some-name-vault
   pause: false
@@ -77,14 +77,14 @@ spec:
             resources:
               requests:
                 storage: 1Gi
-      minio-wrong:
+      local-s3-wrong:
         type: s3
         s3:
-          credentialsSecret: minio-secret
+          credentialsSecret: s3-secret
           region: us-east-1
           bucket: wrong-bucket
           endpointUrl: https://wrong-service.#namespace:9000/
-      minio:
+      local-s3:
         type: s3
         resources:
           requests:
@@ -94,11 +94,11 @@ spec:
             memory: "2G"
             cpu: "1"
         s3:
-          credentialsSecret: minio-secret
+          credentialsSecret: s3-secret
           region: us-east-1
           bucket: operator-testing/prefix
           prefix: subfolder
-          endpointUrl: https://minio-service.#namespace:9000/
+          endpointUrl: https://s3-storage-all-in-one.#namespace:8443/
         verifyTLS: false
         containerOptions:
           args:
@@ -108,12 +108,12 @@ spec:
             - 'invalidarg'
             xbcloud: 
             - 'invalidarg'
-      minio-force-path:
+      local-s3-force-path:
         type: s3
         s3:
-          credentialsSecret: minio-secret
+          credentialsSecret: s3-secret
           region: us-east-1
           bucket: ignored-bucket
-          endpointUrl: https://minio-service.#namespace:9000/operator-testing/prefix/subfolder
+          endpointUrl: https://s3-storage-all-in-one.#namespace:8443/operator-testing/prefix/subfolder
           forcePathStyle: true
         verifyTLS: false

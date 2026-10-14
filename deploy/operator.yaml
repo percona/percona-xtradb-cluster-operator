@@ -61,6 +61,8 @@ spec:
           value: "10s"
         - name: PXCO_LEADER_ELECTION_RETRY_PERIOD
           value: "2s"
+        - name: PXCO_SECRET_CACHE_EXCLUDED_TYPES
+          value: ""
         image: perconalab/percona-xtradb-cluster-operator:main
         imagePullPolicy: Always
         livenessProbe:

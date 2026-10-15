@@ -13,11 +13,15 @@ deploy_cert_manager
 desc 'apply my-env-var-secrets to add PEER_LIST_SRV_PROTOCOL'
 kubectl_bin apply -f "$test_dir/conf/envsecrets.yaml"
 
-desc 'update operator config to set MAX_CONCURRENT_RECONCILES'
+desc 'create a Helm release Secret, so the test runs with a Secret of an excluded type present'
+kubectl_bin create secret generic sh.helm.release.v1.init-deploy.v1 --type=helm.sh/release.v1 --from-literal=release=init-deploy
+
+desc 'update operator config to set MAX_CONCURRENT_RECONCILES and PXCO_SECRET_CACHE_EXCLUDED_TYPES'
 expected_worker_count=5
 
 kubectl_bin get deployment ${OPERATOR_NS:+-n $OPERATOR_NS} percona-xtradb-cluster-operator -o yaml \
 	| yq eval '(.spec.template.spec.containers[] | select(.name == "percona-xtradb-cluster-operator").env[] | select(.name == "MAX_CONCURRENT_RECONCILES").value) = "'${expected_worker_count}'"' - \
+	| yq eval '(.spec.template.spec.containers[] | select(.name == "percona-xtradb-cluster-operator").env[] | select(.name == "PXCO_SECRET_CACHE_EXCLUDED_TYPES").value) = "helm.sh/release.v1"' - \
 	| kubectl_bin apply ${OPERATOR_NS:+-n $OPERATOR_NS} -f -
 
 desc 'wait for operator deployment rollout to complete'
@@ -68,6 +72,12 @@ if [ $retry -eq $max_retries ]; then
 	echo "ERROR: Timeout waiting for all 'Starting workers' logs to appear"
 	echo "Current logs:"
 	echo "$operator_logs"
+	exit 1
+fi
+
+desc 'verify PXCO_SECRET_CACHE_EXCLUDED_TYPES is applied'
+if ! echo "$operator_logs" | grep 'Secret types excluded from the cache' | grep -q 'helm.sh/release.v1'; then
+	echo "ERROR: the operator did not log the excluded Secret types"
 	exit 1
 fi
 

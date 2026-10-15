@@ -156,6 +156,9 @@ func (r *ReconcilePerconaXtraDBCluster) writeStatus(ctx context.Context, cr *api
 
 		return r.client.Status().Update(ctx, c)
 	})
+	if err != nil {
+		return errors.Wrap(client.IgnoreNotFound(err), "write status")
+	}
 
 	// We need to make sure that the next reconcile gets a PerconaXtraDBCluster with an updated status.
 	// Without this, the next reconcile may occur too quickly, possibly before the status is updated.
@@ -169,7 +172,7 @@ func (r *ReconcilePerconaXtraDBCluster) writeStatus(ctx context.Context, cr *api
 	if err := k8sretry.OnError(b, func(error) bool { return true }, func() error {
 		c := &api.PerconaXtraDBCluster{}
 		if err := r.client.Get(ctx, client.ObjectKeyFromObject(cr), c); err != nil {
-			return err
+			return client.IgnoreNotFound(err)
 		}
 
 		if !reflect.DeepEqual(c.Status.Conditions, cr.Status.Conditions) {
@@ -180,7 +183,7 @@ func (r *ReconcilePerconaXtraDBCluster) writeStatus(ctx context.Context, cr *api
 		return err
 	}
 
-	return errors.Wrap(client.IgnoreNotFound(err), "write status")
+	return nil
 }
 
 func (r *ReconcilePerconaXtraDBCluster) upgradeInProgress(ctx context.Context, cr *api.PerconaXtraDBCluster, appName string) (bool, error) {

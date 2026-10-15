@@ -10,7 +10,6 @@ import (
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
-	k8sretry "k8s.io/client-go/util/retry"
 
 	"github.com/percona/percona-xtradb-cluster-operator/clientcmd"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
@@ -24,20 +23,30 @@ type PVCUsage struct {
 	UsagePercent int
 }
 
+var defaultExecBackoff = wait.Backoff{
+	Steps:    5,
+	Duration: 5 * time.Second,
+	Factor:   2.0,
+}
+
 func GetPVCUsage(
 	ctx context.Context,
 	clientcmd clientcmd.Client,
 	pod *corev1.Pod,
 	pvcName string,
 ) (*PVCUsage, error) {
+	return getPVCUsage(ctx, clientcmd, pod, pvcName, defaultExecBackoff)
+}
+
+func getPVCUsage(
+	ctx context.Context,
+	clientcmd clientcmd.Client,
+	pod *corev1.Pod,
+	pvcName string,
+	backoff wait.Backoff,
+) (*PVCUsage, error) {
 	if pod == nil {
 		return nil, errors.New("pod is nil")
-	}
-
-	backoff := wait.Backoff{
-		Steps:    5,
-		Duration: 5 * time.Second,
-		Factor:   2.0,
 	}
 
 	// Execute df command in the pxc container to get disk usage
@@ -48,17 +57,21 @@ func GetPVCUsage(
 	var stdout, stderr bytes.Buffer
 	command := []string{"df", "-B1", "/var/lib/mysql"}
 
-	err := k8sretry.OnError(backoff, func(err error) bool { return true }, func() error {
+	var execErr error
+	err := wait.ExponentialBackoffWithContext(ctx, backoff, func(context.Context) (bool, error) {
 		stdout.Reset()
 		stderr.Reset()
 
-		err := clientcmd.Exec(pod, naming.ContainerNamePXC, command, nil, &stdout, &stderr, false)
-		if err != nil {
-			return errors.Wrapf(err, "failed to execute df in pod %s: %s", pod.Name, stderr.String())
+		if err := clientcmd.Exec(pod, naming.ContainerNamePXC, command, nil, &stdout, &stderr, false); err != nil {
+			execErr = errors.Wrapf(err, "failed to execute df in pod %s: %s", pod.Name, stderr.String())
+			return false, nil
 		}
-		return nil
+		return true, nil
 	})
 	if err != nil {
+		if execErr != nil {
+			err = execErr
+		}
 		return nil, errors.Wrap(err, "wait for df execution")
 	}
 

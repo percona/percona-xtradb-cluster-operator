@@ -48,7 +48,9 @@ fmt: ## Run go fmt against code.
 vet: ## Run go vet against code.
 	go vet ./...
 
-test: manifests generate fmt vet envtest ## Run tests.
+test: manifests generate fmt vet test-only ## Run tests.
+
+test-only: envtest ## Run tests without code generation, fmt and vet.
 	DISABLE_TELEMETRY=true KUBEBUILDER_ASSETS="$(shell $(ENVTEST) --arch=amd64 use $(ENVTEST_K8S_VERSION) -p path)" go test ./... -coverprofile cover.out
 
 e2e-test:

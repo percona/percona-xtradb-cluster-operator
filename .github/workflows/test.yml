@@ -12,7 +12,5 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
-      - name: go vet
-        run: make vet
       - name: go test
-        run: make test-only
+        run: make test

@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	cmscheme "github.com/cert-manager/cert-manager/pkg/client/clientset/versioned/scheme"
 	. "github.com/onsi/ginkgo/v2"
@@ -78,12 +79,19 @@ var _ = AfterSuite(func() {
 func reconciler() *ReconcilePerconaXtraDBCluster {
 	cli, _ := clientcmd.NewClient()
 
+	crons := NewCronRegistry()
+	DeferCleanup(func() { crons.crons.Stop() })
+
 	return (&ReconcilePerconaXtraDBCluster{
 		client:    k8sClient,
 		scheme:    k8sClient.Scheme(),
-		crons:     NewCronRegistry(),
+		crons:     crons,
 		lockers:   newLockStore(),
 		clientcmd: cli,
+
+		certWaitPoll:       10 * time.Millisecond,
+		certWaitTimeout:    50 * time.Millisecond,
+		stsPodsDeleteDelay: time.Millisecond,
 		serverVersion: &version.ServerVersion{
 			Platform: version.PlatformKubernetes,
 		},

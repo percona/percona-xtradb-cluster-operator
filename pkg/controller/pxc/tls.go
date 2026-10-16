@@ -25,6 +25,11 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxctls"
 )
 
+const (
+	defaultCertWaitPoll    = 3 * time.Second
+	defaultCertWaitTimeout = 30 * time.Second
+)
+
 func (r *ReconcilePerconaXtraDBCluster) reconcileSSL(ctx context.Context, cr *api.PerconaXtraDBCluster) error {
 	if err := r.reconcileTLSToggle(ctx, cr); err != nil {
 		return errors.Wrap(err, "reconcile tls toggle")
@@ -237,8 +242,17 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(ctx context.Conte
 }
 
 func (r *ReconcilePerconaXtraDBCluster) waitForCerts(ctx context.Context, namespace string, secretsList ...string) error {
-	ticker := time.NewTicker(3 * time.Second)
-	timeoutTimer := time.NewTimer(30 * time.Second)
+	poll := r.certWaitPoll
+	if poll <= 0 {
+		poll = defaultCertWaitPoll
+	}
+	timeout := r.certWaitTimeout
+	if timeout <= 0 {
+		timeout = defaultCertWaitTimeout
+	}
+
+	ticker := time.NewTicker(poll)
+	timeoutTimer := time.NewTimer(timeout)
 	defer timeoutTimer.Stop()
 	defer ticker.Stop()
 	for {

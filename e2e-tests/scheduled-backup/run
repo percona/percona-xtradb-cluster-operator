@@ -71,7 +71,7 @@ get_backup_name() {
 
 main() {
 	create_infra $namespace
-	start_minio
+	deploy_s3_storage
 
 	cluster="scheduled-backup"
 
@@ -94,19 +94,19 @@ main() {
 	wait_first_backup_appears "pvc"
 	apply_config "${test_dir}/conf/${cluster}-disable.yml"
 	wait_all_backups
-	desc 'add backups schedule for minio storage'
-	apply_config "${test_dir}/conf/${cluster}-minio.yml"
-	wait_first_backup_appears "minio"
+	desc 'add backups schedule for local-s3 storage'
+	apply_config "${test_dir}/conf/${cluster}-local-s3.yml"
+	wait_first_backup_appears "local-s3"
 	apply_config "${test_dir}/conf/${cluster}-disable.yml"
 	wait_all_backups
 
 	backup_name_pvc=$(get_backup_name "pvc")
-	backup_name_minio=$(get_backup_name "minio")
+	backup_name_local_s3=$(get_backup_name "local-s3")
 
 	apply_config "$test_dir/conf/${cluster}-init.yml"
 
 	run_recovery_check "$cluster" "$backup_name_pvc"
-	run_recovery_check "$cluster" "$backup_name_minio"
+	run_recovery_check "$cluster" "$backup_name_local_s3"
 
 	unlabel_node
 	destroy $namespace

@@ -1,0 +1,39 @@
+# In-cluster S3 storage for the e2e tests, backed by SeaweedFS.
+global:
+  seaweedfs:
+    createClusterRole: false
+
+# The S3 endpoint is hardcoded as <fullnameOverride>-all-in-one.<namespace>.
+fullnameOverride: s3-storage
+
+allInOne:
+  enabled: true
+  s3:
+    enabled: true
+    enableAuth: true
+  affinity: ""
+
+# allInOne runs master, filer and volume in one pod; the standalone components
+# are disabled because they use hostPath, which fails on GKE/EKS/AKS. Their
+# values below still feed the all-in-one command.
+master:
+  enabled: false
+  # With the defaults (1000 / maxVolumes 0, which auto-sizes from free disk) a 2G
+  # PVC gets a single volume slot and writes fail once it is taken.
+  volumeSizeLimitMB: 64
+
+filer:
+  enabled: false
+
+volume:
+  enabled: false
+  # Only maxVolumes is read in all-in-one mode, but helm replaces whole lists.
+  dataDirs:
+    - name: data1
+      type: hostPath
+      hostPathPrefix: /ssd
+      maxVolumes: 100
+
+s3:
+  port: 8333
+  enableAuth: true

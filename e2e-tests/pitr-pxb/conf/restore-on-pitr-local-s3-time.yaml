@@ -1,0 +1,13 @@
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBClusterRestore
+metadata:
+  name: restore-on-pitr-local-s3-time
+spec:
+  pxcCluster: pitr
+  backupName: on-pitr-local-s3-2
+  pitr:
+    type: date
+    date: "<datetime>"
+    backupSource:
+      storageName: "local-s3-binlogs"
+

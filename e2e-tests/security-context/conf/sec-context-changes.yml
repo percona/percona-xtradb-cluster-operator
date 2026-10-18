@@ -88,7 +88,7 @@ spec:
             resources:
               requests:
                 storage: 1Gi
-      minio:
+      local-s3:
         annotations:
           openshift.io/scc: privileged
         containerSecurityContext:
@@ -102,10 +102,10 @@ spec:
             topologyKey: ""
         type: s3
         s3:
-          credentialsSecret: minio-secret
+          credentialsSecret: s3-secret
           region: us-east-1
           bucket: operator-testing
-          endpointUrl: http://minio-service.#namespace:9000/
+          endpointUrl: http://s3-storage-all-in-one.#namespace:8333/
     schedule:
       - name: each-hour-pvc
         schedule: "0 */1 * * *"

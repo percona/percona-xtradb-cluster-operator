@@ -18,7 +18,7 @@ demand-backup-cloud-pxb-gcs
 demand-backup-encrypted-with-tls
 demand-backup-encrypted-with-tls-pxb
 demand-backup-encrypted-with-tls-s3
-demand-backup-minio
+demand-backup-local-s3
 demand-backup-without-passwords
 extra-pvc
 haproxy

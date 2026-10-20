@@ -11,10 +11,15 @@ pmm_args+=(
 	"${PMM_ADMIN_CUSTOM_PARAMS_ARRAY[@]}"
 )
 
+pmm_host="$POD_NAME"
+if [[ $DB_TYPE == "proxysql" ]]; then
+	pmm_host="${DB_HOST:-$POD_NAME}"
+fi
+
 if [[ $DB_TYPE != "haproxy" ]]; then
 	pmm_args+=(
 		--service-name="$PMM_AGENT_SETUP_NODE_NAME"
-		--host="$POD_NAME"
+		--host="$pmm_host"
 		--port="$DB_PORT"
 	)
 fi
@@ -24,6 +29,10 @@ if [[ $DB_TYPE == "mysql" ]]; then
 	pmm_args+=(
 		"${DB_ARGS_ARRAY[@]}"
 	)
+fi
+
+if [[ $DB_TYPE == "proxysql" ]]; then
+	pmm_args+=(--tls --tls-skip-verify)
 fi
 
 if [[ $DB_TYPE == "haproxy" ]]; then

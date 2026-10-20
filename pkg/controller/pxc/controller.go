@@ -93,11 +93,15 @@ func add(ctx context.Context, mgr manager.Manager, r reconcile.Reconciler) error
 	if err := setupPXCBackupToClusterIndexer(ctx, mgr); err != nil {
 		return errors.Wrap(err, "setup backup-to-cluster field indexer")
 	}
-	return builder.ControllerManagedBy(mgr).
+	b := builder.ControllerManagedBy(mgr).
 		Named(naming.OperatorController).
-		For(&api.PerconaXtraDBCluster{}).
-		Watches(&corev1.Secret{}, enqueuePXCReferencingSecret(mgr.GetClient())).
-		Complete(r)
+		For(&api.PerconaXtraDBCluster{})
+	if k8s.IsSecretCache(mgr.GetCache()) {
+		b = b.WatchesMetadata(&corev1.Secret{}, enqueuePXCReferencingSecret(mgr.GetClient()))
+	} else {
+		b = b.Watches(&corev1.Secret{}, enqueuePXCReferencingSecret(mgr.GetClient()))
+	}
+	return b.Complete(r)
 }
 
 func setupPXCBackupToClusterIndexer(ctx context.Context, mgr manager.Manager) error {
@@ -111,31 +115,35 @@ func setupPXCBackupToClusterIndexer(ctx context.Context, mgr manager.Manager) er
 }
 
 func setupSecretNameFieldIndexer(ctx context.Context, mgr manager.Manager) error {
-	return mgr.GetFieldIndexer().IndexField(ctx, &api.PerconaXtraDBCluster{}, secretsNameField, func(o client.Object) []string {
-		cluster, ok := o.(*api.PerconaXtraDBCluster)
-		if !ok || cluster.Spec.SecretsName == "" {
-			return nil
-		}
-		return []string{cluster.Spec.SecretsName}
-	})
+	return mgr.GetFieldIndexer().IndexField(ctx, &api.PerconaXtraDBCluster{}, secretsNameField, indexSecretsName)
+}
+
+func indexSecretsName(o client.Object) []string {
+	cluster, ok := o.(*api.PerconaXtraDBCluster)
+	if !ok || cluster.Spec.SecretsName == "" {
+		return nil
+	}
+	return []string{cluster.Spec.SecretsName}
 }
 
 // enqueuePXCReferencingSecret returns an EventHandler that returns a list of all
-// pxc-clusters that reference the secret via `.spec.secretsName`.
+// pxc-clusters that reference the secret via `.spec.secretsName`. With the
+// Secret metadata cache, it gets the secret's metadata only, without
+// annotations (see k8s.NewSecretCache).
 func enqueuePXCReferencingSecret(c client.Client) handler.EventHandler {
-	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
-		secret, ok := o.(*corev1.Secret)
-		if !ok {
-			return nil
-		}
+	return handler.EnqueueRequestsFromMapFunc(pxcReferencingSecret(c))
+}
+
+func pxcReferencingSecret(c client.Client) handler.MapFunc {
+	return func(ctx context.Context, o client.Object) []reconcile.Request {
 		list := &api.PerconaXtraDBClusterList{}
 		err := c.List(ctx, list, &client.ListOptions{
-			FieldSelector: fields.OneTermEqualSelector(secretsNameField, secret.GetName()),
-			Namespace:     secret.GetNamespace(),
+			FieldSelector: fields.OneTermEqualSelector(secretsNameField, o.GetName()),
+			Namespace:     o.GetNamespace(),
 		})
 		log := logf.FromContext(ctx)
 		if err != nil {
-			log.Error(err, "failed to list clusters referencing secret", "secret", secret.GetName())
+			log.Error(err, "failed to list clusters referencing secret", "secret", o.GetName())
 		}
 		var requests []reconcile.Request
 		for _, cr := range list.Items {
@@ -147,7 +155,7 @@ func enqueuePXCReferencingSecret(c client.Client) handler.EventHandler {
 			})
 		}
 		return requests
-	})
+	}
 }
 
 var _ reconcile.Reconciler = &ReconcilePerconaXtraDBCluster{}

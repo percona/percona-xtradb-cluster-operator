@@ -4,11 +4,13 @@ import (
 	"context"
 	"io"
 	"testing"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	restclient "k8s.io/client-go/rest"
 
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
@@ -36,6 +38,12 @@ func (m *mockClientCmd) PodLogs(ctx context.Context, namespace, podName string, 
 
 func (m *mockClientCmd) REST() restclient.Interface {
 	return nil
+}
+
+var testExecBackoff = wait.Backoff{
+	Steps:    defaultExecBackoff.Steps,
+	Duration: time.Millisecond,
+	Factor:   defaultExecBackoff.Factor,
 }
 
 func TestGetPVCUsageFromMetrics(t *testing.T) {
@@ -174,7 +182,7 @@ func TestGetPVCUsageFromMetrics(t *testing.T) {
 				},
 			}
 
-			result, err := GetPVCUsage(t.Context(), mockCmd, pod, tt.pvcName)
+			result, err := getPVCUsage(t.Context(), mockCmd, pod, tt.pvcName, testExecBackoff)
 
 			if tt.expectedErr {
 				assert.Error(t, err)

@@ -210,7 +210,7 @@ var _ = Describe("Backup Job deleted when running deadline is exceeded", Ordered
 	It("Should delete the backup job when running deadline is exceeded", func() {
 		pxcBackup, err := newBackup("backup1", ns)
 		Expect(err).To(Not(HaveOccurred()))
-		pxcBackup.Spec.RunningDeadlineSeconds = new(int64(5))
+		pxcBackup.Spec.RunningDeadlineSeconds = new(int64(1))
 
 		pxcBackupReq := reconcile.Request{NamespacedName: types.NamespacedName{
 			Name:      pxcBackup.Name,
@@ -227,7 +227,7 @@ var _ = Describe("Backup Job deleted when running deadline is exceeded", Ordered
 		Expect(err).To(Not(HaveOccurred()))
 		Expect(pxcBackup.Status.State).To(Equal(pxcv1.BackupStarting))
 
-		time.Sleep(6 * time.Second)
+		time.Sleep(2 * time.Second)
 
 		_, err = reconciler.Reconcile(ctx, pxcBackupReq)
 		Expect(err).To(Not(HaveOccurred()))

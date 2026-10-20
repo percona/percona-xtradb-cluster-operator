@@ -163,6 +163,10 @@ type ReconcilePerconaXtraDBCluster struct {
 	serverVersion  *version.ServerVersion
 	lockers        lockStore
 	recorder       record.EventRecorder
+
+	certWaitPoll       time.Duration
+	certWaitTimeout    time.Duration
+	stsPodsDeleteDelay time.Duration
 }
 
 type lockStore struct {
@@ -623,6 +627,8 @@ func (r *ReconcilePerconaXtraDBCluster) deletePXCPods(ctx context.Context, cr *a
 	return nil
 }
 
+const defaultStsPodsDeleteDelay = 3 * time.Second
+
 func (r *ReconcilePerconaXtraDBCluster) deleteStatefulSetPods(ctx context.Context, namespace string, sfs api.StatefulApp) error {
 	list := corev1.PodList{}
 
@@ -640,7 +646,11 @@ func (r *ReconcilePerconaXtraDBCluster) deleteStatefulSetPods(ctx context.Contex
 
 	// the last pod left - we can leave it for the stateful set
 	if len(list.Items) <= 1 {
-		time.Sleep(time.Second * 3)
+		delay := r.stsPodsDeleteDelay
+		if delay <= 0 {
+			delay = defaultStsPodsDeleteDelay
+		}
+		time.Sleep(delay)
 		return nil
 	}
 

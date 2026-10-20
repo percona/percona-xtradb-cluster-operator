@@ -17,6 +17,8 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	corev1ac "k8s.io/client-go/applyconfigurations/core/v1"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -26,6 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/cache/informertest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 )
 
@@ -165,6 +168,21 @@ func (r *flakyReader) Get(ctx context.Context, key client.ObjectKey, obj client.
 	return r.Reader.Get(ctx, key, obj, opts...)
 }
 
+// metadataCache answers metadata reads with metadata, or with err if set.
+type metadataCache struct {
+	cache.Cache
+	metadata *metav1.PartialObjectMetadata
+	err      error
+}
+
+func (c metadataCache) Get(_ context.Context, _ client.ObjectKey, obj client.Object, _ ...client.GetOption) error {
+	if c.err != nil {
+		return c.err
+	}
+	c.metadata.DeepCopyInto(obj.(*metav1.PartialObjectMetadata))
+	return nil
+}
+
 var _ = Describe("Secret cache", func() {
 	DescribeTable("tells failures to reach the API server from answers",
 		func(err error, transient bool) {
@@ -178,6 +196,21 @@ var _ = Describe("Secret cache", func() {
 		Entry("not found", k8serrors.NewNotFound(corev1.Resource("secrets"), "s"), false),
 		Entry("forbidden", k8serrors.NewForbidden(corev1.Resource("secrets"), "s", nil), false),
 	)
+
+	It("refuses to select Secrets by label or field", func() {
+		selected := labels.SelectorFromSet(labels.Set{"app": "pxc"})
+		var secrets client.Object = &corev1.Secret{}
+		for _, options := range []cache.Options{
+			{DefaultLabelSelector: selected},
+			{DefaultFieldSelector: fields.OneTermEqualSelector("metadata.name", "s")},
+			{ByObject: map[client.Object]cache.ByObject{secrets: {Label: selected}}},
+			{DefaultNamespaces: map[string]cache.Config{"pxc": {LabelSelector: selected}}},
+			{ByObject: map[client.Object]cache.ByObject{secrets: {Namespaces: map[string]cache.Config{"pxc": {LabelSelector: selected}}}}},
+		} {
+			_, err := NewSecretCache()(&rest.Config{}, options)
+			Expect(err).To(MatchError(ContainSubstring("cannot be selected by label or field")), "options %+v", options)
+		}
+	})
 
 	It("is told apart from the stock cache", func() {
 		Expect(IsSecretCache(&secretCache{})).To(BeTrue())
@@ -241,6 +274,29 @@ var _ = Describe("Secret cache", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(out.(*metav1.PartialObjectMetadata).Labels).To(HaveKeyWithValue("set", "by caller"))
 		Expect(out.(*metav1.PartialObjectMetadata).Annotations).To(BeEmpty())
+	})
+
+	It("lists Secrets in the namespaces their informer watches", func() {
+		var secrets client.Object = &corev1.Secret{}
+		namespaces, err := secretNamespaces(cache.Options{
+			Scheme:            scheme.Scheme,
+			DefaultNamespaces: map[string]cache.Config{"a": {}, "b": {}},
+			ByObject:          map[client.Object]cache.ByObject{secrets: {Namespaces: map[string]cache.Config{"b": {}}}},
+		})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(namespaces).To(Equal([]string{"b"}), "Namespaces set for Secrets must take precedence over DefaultNamespaces")
+
+		namespaces, err = secretNamespaces(cache.Options{Scheme: scheme.Scheme, DefaultNamespaces: map[string]cache.Config{"a": {}, "b": {}}})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(namespaces).To(Equal([]string{"a", "b"}))
+
+		namespaces, err = secretNamespaces(cache.Options{
+			Scheme:            scheme.Scheme,
+			DefaultNamespaces: map[string]cache.Config{"a": {}},
+			ByObject:          map[client.Object]cache.ByObject{secrets: {Namespaces: map[string]cache.Config{}}},
+		})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(namespaces).To(BeEmpty(), "empty Namespaces set for Secrets means all namespaces")
 	})
 
 	It("evicts Secrets that go unread", func() {
@@ -335,7 +391,7 @@ var _ = Describe("Secret cache", func() {
 			Expect(c.entries).To(HaveKey(key))
 
 			deleted.UID = "new"
-			c.forget(deleted)
+			c.forget(toolscache.DeletedFinalStateUnknown{Key: key.String(), Obj: deleted})
 			Expect(c.entries).NotTo(HaveKey(key))
 		})
 
@@ -456,7 +512,7 @@ var _ = Describe("Secret cache", func() {
 			Eventually(reader.calls.Load).Should(BeEquivalentTo(1))
 			c.wrote(written("5"), version("4"), true)
 			release()
-			Expect(<-done).To(Succeed())
+			Eventually(done).WithTimeout(10 * time.Second).Should(Receive(BeNil()))
 			Expect(c.stored(key, version("4"), true)).To(Equal(written("5")))
 		})
 
@@ -472,7 +528,7 @@ var _ = Describe("Secret cache", func() {
 			Eventually(reader.calls.Load).Should(BeEquivalentTo(1))
 			c.forgetKey(key)
 			release()
-			Expect(<-done).To(Succeed())
+			Eventually(done).WithTimeout(10 * time.Second).Should(Receive(BeNil()))
 			Expect(c.outdated(key, version("5"))).To(BeNil(), "a newer version may have been read since the drop")
 		})
 
@@ -491,8 +547,8 @@ var _ = Describe("Secret cache", func() {
 			go fetch()
 			Eventually(reader.calls.Load).Should(BeEquivalentTo(2), "a read after the operator's write must not get the Secret as read before it")
 			release()
-			Expect(<-done).To(Succeed())
-			Expect(<-done).To(Succeed())
+			Eventually(done).WithTimeout(10 * time.Second).Should(Receive(BeNil()))
+			Eventually(done).WithTimeout(10 * time.Second).Should(Receive(BeNil()))
 		})
 
 		It("does not store a fetch that started before its namespace was dropped", func() {
@@ -507,7 +563,7 @@ var _ = Describe("Secret cache", func() {
 			Eventually(reader.calls.Load).Should(BeEquivalentTo(1))
 			c.forgetNamespace(key.Namespace)
 			release()
-			Expect(<-done).To(Succeed())
+			Eventually(done).WithTimeout(10 * time.Second).Should(Receive(BeNil()))
 			Expect(c.outdated(key, version("5"))).To(BeNil(), "a newer version may have been read since the drop")
 		})
 
@@ -530,7 +586,7 @@ var _ = Describe("Secret cache", func() {
 			c.entries[key] = &secretEntry{metadataVersion: "4", secret: recreated, lastRead: now}
 			c.mu.Unlock()
 			release()
-			Expect(<-done).To(Succeed())
+			Eventually(done).WithTimeout(10 * time.Second).Should(Receive(BeNil()))
 			Expect(c.entries[key].secret.UID).To(BeEquivalentTo("recreated"), "a deleted Secret must not replace the one read after the drop")
 		})
 
@@ -547,7 +603,7 @@ var _ = Describe("Secret cache", func() {
 			Eventually(reader.calls.Load).Should(BeEquivalentTo(1))
 			c.forgetKey(client.ObjectKey{Namespace: key.Namespace, Name: "other"})
 			release()
-			Expect(<-done).To(Succeed())
+			Eventually(done).WithTimeout(10 * time.Second).Should(Receive(BeNil()))
 			Expect(c.outdated(key, version("8"))).To(Equal(written("7")), "an earlier version must not be served after a newer one was read")
 		})
 
@@ -557,6 +613,32 @@ var _ = Describe("Secret cache", func() {
 			_, err := fetchSecret(c, context.Background(), key, "4")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(c.stored(key, version("5"), true)).To(Equal(written("5")), "a stored Secret must be served without fetching it again")
+		})
+
+		It("does not serve a deleted Secret as last read for one recreated under its name", func() {
+			deleted := written("4")
+			deleted.UID = "deleted"
+			c.entries[key] = &secretEntry{metadataVersion: "4", secret: deleted, lastRead: now}
+			recreated := version("7")
+			recreated.UID = "recreated"
+			Expect(c.outdated(key, recreated)).To(BeNil())
+		})
+
+		It("keeps a Secret that is read", func() {
+			c.entries[key] = &secretEntry{metadataVersion: "5", secret: written("5"), lastRead: now}
+			now = now.Add(secretIdleTimeout - time.Minute)
+			Expect(c.stored(key, version("5"), true)).NotTo(BeNil())
+			now = now.Add(2 * time.Minute)
+			c.evictIdle()
+			Expect(c.entries).To(HaveKey(key))
+		})
+
+		It("stores a Secret fetched again at the metadata that shows it", func() {
+			c.entries[key] = &secretEntry{metadataVersion: "5", secret: written("7"), lastRead: now}
+			c.reader = &blockingReader{release: closedChannel(), secret: written("7")}
+			_, err := fetchSecret(c, context.Background(), key, "7")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(c.stored(key, version("7"), true)).To(Equal(written("7")), "a stored Secret must be served without fetching it again")
 		})
 	})
 
@@ -578,12 +660,12 @@ var _ = Describe("Secret cache", func() {
 			_, err := fetchSecret(c, context.Background(), key, "4")
 			second <- err
 		}()
-		// Give the second caller time to join the request in flight.
-		time.Sleep(100 * time.Millisecond)
+		Eventually(func() int { return callersWaitingIn("(*secretCache).timedFetch") }).WithTimeout(10 * time.Second).Should(Equal(2))
 		cancelFirst()
-		Expect(<-first).To(MatchError(context.Canceled))
+		Eventually(first).WithTimeout(10 * time.Second).Should(Receive(MatchError(context.Canceled)))
 		release()
-		Expect(<-second).To(Succeed())
+		Eventually(second).WithTimeout(10 * time.Second).Should(Receive(BeNil()))
+		Expect(reader.calls.Load()).To(BeEquivalentTo(1), "the callers must share one request")
 	})
 
 	It("returns the context's error when it ends while waiting to retry", func() {
@@ -593,9 +675,118 @@ var _ = Describe("Secret cache", func() {
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
 
+		start := time.Now()
 		_, err := c.retryFetch(ctx, key, "4", unavailable)
 
 		Expect(err).To(MatchError(context.Canceled))
+		Expect(time.Since(start)).To(BeNumerically("<", fetchRetryDelays[0]), "the retry must not wait once the context ended")
+	})
+
+	It("waits for a slow fetch of a Secret with no stored copy", func() {
+		key := client.ObjectKey{Namespace: "pxc", Name: "cluster1-secrets"}
+		metadata := secretMetadata()
+		metadata.Namespace, metadata.Name, metadata.ResourceVersion = key.Namespace, key.Name, "4"
+		wait := outdatedFetchWait
+		DeferCleanup(func() { outdatedFetchWait = wait })
+		outdatedFetchWait = 50 * time.Millisecond
+		released, release := releasedOnCleanup()
+		time.AfterFunc(3*outdatedFetchWait, release)
+		c := &secretCache{
+			Cache:   metadataCache{metadata: metadata},
+			scheme:  scheme.Scheme,
+			reader:  &blockingReader{release: released, secret: &corev1.Secret{Data: map[string][]byte{"root": []byte("fetched")}}},
+			now:     time.Now,
+			entries: map[client.ObjectKey]*secretEntry{},
+		}
+
+		secret := &corev1.Secret{}
+		Expect(c.Get(context.Background(), key, secret)).To(Succeed(), "only a read with a stored copy to serve stops waiting early")
+		Expect(secret.Data).To(HaveKeyWithValue("root", []byte("fetched")))
+	})
+
+	It("stops retrying a fetch that failed slowly", func() {
+		key := client.ObjectKey{Namespace: "pxc", Name: "cluster1-secrets"}
+		failedFastWithin, delays := fetchFailedFast, fetchRetryDelays
+		DeferCleanup(func() { fetchFailedFast, fetchRetryDelays = failedFastWithin, delays })
+		fetchFailedFast, fetchRetryDelays = 50*time.Millisecond, []time.Duration{time.Millisecond, time.Millisecond, time.Millisecond}
+		unavailable := k8serrors.NewServiceUnavailable("unavailable")
+		reader := &slowReader{err: unavailable, delay: 2 * fetchFailedFast}
+		c := &secretCache{reader: reader, now: time.Now, entries: map[client.ObjectKey]*secretEntry{}}
+
+		_, err := c.retryFetch(context.Background(), key, "4", unavailable)
+
+		Expect(err).To(MatchError(unavailable))
+		Expect(reader.calls.Load()).To(BeEquivalentTo(1), "a slow failure must not be retried")
+	})
+
+	It("returns the context's error from a read when it ends while waiting to retry", func() {
+		key := client.ObjectKey{Namespace: "pxc", Name: "cluster1-secrets"}
+		metadata := secretMetadata()
+		metadata.Namespace, metadata.Name, metadata.ResourceVersion = key.Namespace, key.Name, "4"
+		c := &secretCache{
+			Cache:   metadataCache{metadata: metadata},
+			scheme:  scheme.Scheme,
+			reader:  failingReader{err: k8serrors.NewServiceUnavailable("unavailable")},
+			now:     time.Now,
+			entries: map[client.ObjectKey]*secretEntry{},
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), fetchRetryDelays[0]/2)
+		defer cancel()
+
+		err := c.Get(ctx, key, &corev1.Secret{})
+
+		Expect(err).To(MatchError(context.DeadlineExceeded))
+		Expect(IsSecretUnavailable(err)).To(BeFalse(), "the caller's own deadline is not a failure to reach the API server")
+	})
+
+	Context("with a writing client", func() {
+		inNamespace := func(namespace string) *corev1.Secret {
+			return &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "s", Namespace: namespace}}
+		}
+		var c *secretCache
+
+		BeforeEach(func() {
+			c = &secretCache{now: time.Now, entries: map[client.ObjectKey]*secretEntry{}}
+			for _, namespace := range []string{"a", "b"} {
+				c.entries[client.ObjectKeyFromObject(inNamespace(namespace))] = &secretEntry{secret: inNamespace(namespace), lastRead: time.Now()}
+			}
+		})
+
+		It("drops a Secret written while its metadata could not be read", func(ctx SpecContext) {
+			c.Cache = metadataCache{err: k8serrors.NewServiceUnavailable("unavailable")}
+			writer := &secretWritingClient{Client: fake.NewClientBuilder().WithObjects(inNamespace("a")).Build(), secrets: c}
+
+			Expect(writer.Update(ctx, inNamespace("a"))).To(Succeed())
+			Expect(c.entries).NotTo(HaveKey(client.ObjectKeyFromObject(inNamespace("a"))))
+			Expect(c.entries).To(HaveKey(client.ObjectKeyFromObject(inNamespace("b"))))
+		})
+
+		It("does not serve a write once the informer shows a newer write made by someone else", func(ctx SpecContext) {
+			metadata := secretMetadata()
+			metadata.Namespace, metadata.Name, metadata.ResourceVersion = "a", "s", "999"
+			c.Cache = metadataCache{metadata: metadata}
+			writer := &secretWritingClient{
+				Client: fake.NewClientBuilder().WithObjects(inNamespace("a")).WithInterceptorFuncs(interceptor.Funcs{
+					Update: func(ctx context.Context, cl client.WithWatch, obj client.Object, opts ...client.UpdateOption) error {
+						err := cl.Update(ctx, obj, opts...)
+						metadata.ResourceVersion = "2000"
+						return err
+					},
+				}).Build(),
+				secrets: c,
+			}
+
+			Expect(writer.Update(ctx, inNamespace("a"))).To(Succeed())
+			Expect(c.stored(client.ObjectKeyFromObject(inNamespace("a")), metadata, true)).To(BeNil(),
+				"the metadata must be read before the write: read after, it hides the newer write")
+		})
+
+		It("drops the Secrets of all namespaces when they are deleted in bulk across namespaces", func(ctx SpecContext) {
+			writer := &secretWritingClient{Client: fake.NewClientBuilder().WithObjects(inNamespace("a"), inNamespace("b")).Build(), secrets: c}
+
+			Expect(writer.DeleteAllOf(ctx, &corev1.Secret{})).To(Succeed())
+			Expect(c.entries).To(BeEmpty())
+		})
 	})
 
 	It("lists Secrets in each namespace it is restricted to", func(ctx SpecContext) {
@@ -609,6 +800,7 @@ var _ = Describe("Secret cache", func() {
 		Expect(c.List(ctx, secrets)).To(Succeed())
 		Expect(secrets.Items).To(HaveLen(2))
 		Expect([]string{secrets.Items[0].Namespace, secrets.Items[1].Namespace}).To(ConsistOf("a", "b"))
+		Expect(secrets.Items[0].Kind).To(Equal("Secret"), "items must have their kind, as from the stock cache")
 		Expect(secrets.ResourceVersion).To(BeEmpty())
 		Expect(secrets.Continue).To(BeEmpty())
 
@@ -653,6 +845,7 @@ var _ = Describe("Secret cache", func() {
 		const namespace = "pxc"
 
 		var (
+			cfg        *rest.Config
 			k8sClient  client.Client
 			writer     client.Client
 			c          *secretCache
@@ -676,7 +869,8 @@ var _ = Describe("Secret cache", func() {
 
 		BeforeAll(func(ctx SpecContext) {
 			testEnv := &envtest.Environment{}
-			cfg, err := testEnv.Start()
+			var err error
+			cfg, err = testEnv.Start()
 			Expect(err).NotTo(HaveOccurred())
 			DeferCleanup(testEnv.Stop)
 
@@ -714,7 +908,7 @@ var _ = Describe("Secret cache", func() {
 			go func() { stopped <- c.Start(cacheCtx) }()
 			DeferCleanup(func() {
 				cancel()
-				Expect(<-stopped).To(Succeed())
+				Eventually(stopped).WithTimeout(10 * time.Second).Should(Receive(BeNil()))
 			})
 			Expect(c.WaitForCacheSync(ctx)).To(BeTrue(), "cache did not sync")
 
@@ -733,7 +927,7 @@ var _ = Describe("Secret cache", func() {
 			Expect(requests.watches.Load()).To(BeZero(), "Secrets must only be watched as metadata")
 		})
 
-		It("fetches a Secret once and serves later reads from the cache", func(ctx SpecContext) {
+		It("fetches a Secret once and serves later reads from the cache", SpecTimeout(time.Minute), func(ctx SpecContext) {
 			for range 3 {
 				secret, err := get(ctx, client.ObjectKeyFromObject(userSecret))
 				Expect(err).NotTo(HaveOccurred())
@@ -743,7 +937,16 @@ var _ = Describe("Secret cache", func() {
 			Expect(requests.gets.Load()).To(BeEquivalentTo(1))
 		})
 
-		It("returns a copy", func(ctx SpecContext) {
+		It("serves Secret metadata", SpecTimeout(time.Minute), func(ctx SpecContext) {
+			_, err := c.GetInformer(ctx, secretMetadata())
+			Expect(err).NotTo(HaveOccurred())
+			metadata := secretMetadata()
+			Expect(c.Get(ctx, client.ObjectKeyFromObject(userSecret), metadata)).To(Succeed())
+			Expect(metadata.UID).To(Equal(userSecret.UID))
+			Expect(requests.gets.Load()).To(BeZero(), "metadata must be read from the informer")
+		})
+
+		It("returns a copy", SpecTimeout(time.Minute), func(ctx SpecContext) {
 			secret, err := get(ctx, client.ObjectKeyFromObject(userSecret))
 			Expect(err).NotTo(HaveOccurred())
 			secret.Data["root"] = []byte("changed by the caller")
@@ -753,7 +956,7 @@ var _ = Describe("Secret cache", func() {
 			Expect(secret.Data).To(HaveKeyWithValue("root", []byte("first")))
 		})
 
-		It("answers missing Secrets without API requests", func(ctx SpecContext) {
+		It("answers missing Secrets without API requests", SpecTimeout(time.Minute), func(ctx SpecContext) {
 			for _, missing := range []client.ObjectKey{{Namespace: namespace, Name: "missing"}, {Namespace: namespace}} {
 				_, err := get(ctx, missing)
 				Expect(k8serrors.IsNotFound(err)).To(BeTrue(), "a missing Secret %q must be NotFound, got %v", missing, err)
@@ -761,7 +964,7 @@ var _ = Describe("Secret cache", func() {
 			Expect(requests.gets.Load()).To(BeZero())
 		})
 
-		It("keeps neither data nor large metadata in the informer", func(ctx SpecContext) {
+		It("keeps neither data nor large metadata in the informer", SpecTimeout(time.Minute), func(ctx SpecContext) {
 			metadata := secretMetadata()
 			Expect(c.Cache.Get(ctx, client.ObjectKeyFromObject(helmSecret), metadata)).To(Succeed())
 			Expect(metadata.Annotations).To(BeEmpty())
@@ -769,7 +972,39 @@ var _ = Describe("Secret cache", func() {
 			Expect(isStored(client.ObjectKeyFromObject(helmSecret))).To(BeFalse(), "a Secret nobody read must not be stored")
 		})
 
-		It("fetches a Secret again after it changes", func(ctx SpecContext) {
+		It("returns annotations, including ones changed by an annotation-only write", SpecTimeout(time.Minute), func(ctx SpecContext) {
+			annotated := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "cluster1-internal",
+					Namespace:   namespace,
+					Annotations: map[string]string{"cert-manager.io/issuer-kind": "Issuer"},
+				},
+				StringData: map[string]string{"root": "first"},
+			}
+			Expect(k8sClient.Create(ctx, annotated)).To(Succeed())
+			Eventually(func() (map[string]string, error) {
+				secret, err := get(ctx, client.ObjectKeyFromObject(annotated))
+				return secret.Annotations, err
+			}).WithContext(ctx).WithTimeout(10 * time.Second).Should(HaveKeyWithValue("cert-manager.io/issuer-kind", "Issuer"))
+
+			secret, err := get(ctx, client.ObjectKeyFromObject(annotated))
+			Expect(err).NotTo(HaveOccurred())
+			secret.Annotations["grant-for-1.10.0-xtrabackup-user"] = "done"
+			Expect(writer.Update(ctx, secret)).To(Succeed())
+			secret, err = get(ctx, client.ObjectKeyFromObject(annotated))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(secret.Annotations).To(HaveKeyWithValue("grant-for-1.10.0-xtrabackup-user", "done"), "the operator must see its own annotation write")
+
+			external := secret.DeepCopy()
+			external.Annotations["changed-elsewhere"] = "true"
+			Expect(k8sClient.Update(ctx, external)).To(Succeed())
+			Eventually(func() (map[string]string, error) {
+				secret, err := get(ctx, client.ObjectKeyFromObject(annotated))
+				return secret.Annotations, err
+			}).WithContext(ctx).WithTimeout(10*time.Second).Should(HaveKeyWithValue("changed-elsewhere", "true"), "an annotation-only change made elsewhere must be read")
+		})
+
+		It("fetches a Secret again after it changes", SpecTimeout(time.Minute), func(ctx SpecContext) {
 			updated := userSecret.DeepCopy()
 			updated.StringData = map[string]string{"root": "second"}
 			Expect(k8sClient.Update(ctx, updated)).To(Succeed())
@@ -786,7 +1021,7 @@ var _ = Describe("Secret cache", func() {
 			Expect(requests.gets.Load()).To(BeZero(), "an unchanged Secret must be served from the cache")
 		})
 
-		It("serves a changed Secret as last read when reading it fails with a server error", func(ctx SpecContext) {
+		It("serves a changed Secret as last read when reading it fails with a server error", SpecTimeout(time.Minute), func(ctx SpecContext) {
 			changed := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{Name: "cluster1-ssl-internal", Namespace: namespace},
 				StringData: map[string]string{"tls.crt": "cert"},
@@ -826,7 +1061,44 @@ var _ = Describe("Secret cache", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("reads a Secret with no stored copy again when reading it fails with a server error", func(ctx SpecContext) {
+		It("does not serve a deleted Secret's data for one recreated under its name", SpecTimeout(time.Minute), func(ctx SpecContext) {
+			deleted := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Name: "cluster1-recreated", Namespace: namespace},
+				StringData: map[string]string{"root": "deleted"},
+			}
+			Expect(k8sClient.Create(ctx, deleted)).To(Succeed())
+			key := client.ObjectKeyFromObject(deleted)
+			Eventually(func() error {
+				_, err := get(ctx, key)
+				return err
+			}).WithContext(ctx).Should(Succeed())
+			c.mu.Lock()
+			entry := c.entries[key]
+			c.mu.Unlock()
+			Expect(entry).NotTo(BeNil())
+
+			Expect(k8sClient.Delete(ctx, deleted)).To(Succeed())
+			recreated := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: deleted.Name, Namespace: namespace}, StringData: map[string]string{"root": "recreated"}}
+			Expect(k8sClient.Create(ctx, recreated)).To(Succeed())
+			Eventually(func(g Gomega) {
+				metadata := secretMetadata()
+				g.Expect(c.Cache.Get(ctx, key, metadata)).To(Succeed())
+				g.Expect(metadata.UID).To(Equal(recreated.UID))
+			}).WithContext(ctx).Should(Succeed())
+			// As after a relist that showed the new Secret without the deletion.
+			c.mu.Lock()
+			c.entries[key] = entry
+			c.mu.Unlock()
+
+			reader := c.reader
+			DeferCleanup(func() { c.reader = reader })
+			c.reader = failingReader{err: k8serrors.NewServiceUnavailable("unavailable")}
+			secret, err := get(ctx, key)
+			Expect(IsSecretUnavailable(err)).To(BeTrue(), "the deleted Secret must not be served, got %v with %v", err, secret.Data)
+			Expect(isStored(key)).To(BeFalse(), "the deleted Secret must not be kept")
+		})
+
+		It("reads a Secret with no stored copy again when reading it fails with a server error", SpecTimeout(time.Minute), func(ctx SpecContext) {
 			unread := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{Name: "s3-credentials", Namespace: namespace},
 				StringData: map[string]string{"AWS_ACCESS_KEY_ID": "key"},
@@ -864,7 +1136,7 @@ var _ = Describe("Secret cache", func() {
 			Expect(IsSecretUnavailable(errors.Wrap(err, "get credentials"))).To(BeTrue(), "callers must be able to retry a Secret the cache could not read")
 		})
 
-		It("serves a changed Secret as last read when reading it is slow", func(ctx SpecContext) {
+		It("serves a changed Secret as last read when reading it is slow", SpecTimeout(time.Minute), func(ctx SpecContext) {
 			slowSecret := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{Name: "slow", Namespace: namespace},
 				StringData: map[string]string{"tls.crt": "cert"},
@@ -911,7 +1183,7 @@ var _ = Describe("Secret cache", func() {
 			Expect(blocked.calls.Load()).To(BeEquivalentTo(1), "the stored Secret must be served without another read")
 		})
 
-		It("does not read a Secret again when reading it failed slowly", func(ctx SpecContext) {
+		It("does not read a Secret again when reading it failed slowly", SpecTimeout(time.Minute), func(ctx SpecContext) {
 			throttled := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "throttled", Namespace: namespace}}
 			Expect(k8sClient.Create(ctx, throttled)).To(Succeed())
 			Eventually(func() error {
@@ -927,7 +1199,7 @@ var _ = Describe("Secret cache", func() {
 			Expect(slow.calls.Load()).To(BeEquivalentTo(1), "client-go already retried throttling it was told to wait for")
 		})
 
-		It("times a failure by the shared read, not by how long a caller waited", func(ctx SpecContext) {
+		It("times a failure by the shared read, not by how long a caller waited", SpecTimeout(time.Minute), func(ctx SpecContext) {
 			joined := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "joined", Namespace: namespace}}
 			Expect(k8sClient.Create(ctx, joined)).To(Succeed())
 			Eventually(func() error {
@@ -958,7 +1230,7 @@ var _ = Describe("Secret cache", func() {
 			Expect(slow.calls.Load()).To(BeEquivalentTo(1), "a caller that joined a slow read late must not retry it")
 		})
 
-		It("does not read a Secret again when reading it timed out", func(ctx SpecContext) {
+		It("does not read a Secret again when reading it timed out", SpecTimeout(time.Minute), func(ctx SpecContext) {
 			hung := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "hung", Namespace: namespace}}
 			Expect(k8sClient.Create(ctx, hung)).To(Succeed())
 			Eventually(func() error {
@@ -977,7 +1249,7 @@ var _ = Describe("Secret cache", func() {
 			Expect(time.Since(start)).To(BeNumerically("<", time.Second))
 		})
 
-		It("reads Secrets created after the sync", func(ctx SpecContext) {
+		It("reads Secrets created after the sync", SpecTimeout(time.Minute), func(ctx SpecContext) {
 			created := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{Name: "cluster1-ssl", Namespace: namespace},
 				StringData: map[string]string{"tls.crt": "cert"},
@@ -993,7 +1265,7 @@ var _ = Describe("Secret cache", func() {
 			}).WithContext(ctx).Should(Succeed())
 		})
 
-		It("forgets deleted Secrets", func(ctx SpecContext) {
+		It("forgets deleted Secrets", SpecTimeout(time.Minute), func(ctx SpecContext) {
 			key := client.ObjectKeyFromObject(userSecret)
 			_, err := get(ctx, key)
 			Expect(err).NotTo(HaveOccurred())
@@ -1006,7 +1278,7 @@ var _ = Describe("Secret cache", func() {
 			}).WithContext(ctx).Should(Succeed())
 		})
 
-		It("reads its own writes", func(ctx SpecContext) {
+		It("reads its own writes", SpecTimeout(time.Minute), func(ctx SpecContext) {
 			written := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{Name: "cluster1-written", Namespace: namespace},
 				Data:       map[string][]byte{"root": []byte("created")},
@@ -1038,7 +1310,18 @@ var _ = Describe("Secret cache", func() {
 			Expect(k8serrors.IsNotFound(err)).To(BeTrue(), "a deleted Secret must be NotFound, got %v", err)
 		})
 
-		It("drops Secrets written with server-side apply or deleted in bulk", func(ctx SpecContext) {
+		It("lists Secrets in the namespaces set for Secrets", func() {
+			var secrets client.Object = &corev1.Secret{}
+			informerCache, err := NewSecretCache()(cfg, cache.Options{
+				Scheme:            scheme.Scheme,
+				DefaultNamespaces: map[string]cache.Config{"a": {}, namespace: {}},
+				ByObject:          map[client.Object]cache.ByObject{secrets: {Namespaces: map[string]cache.Config{namespace: {}}}},
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(informerCache.(*secretCache).namespaces).To(Equal([]string{namespace}))
+		})
+
+		It("drops Secrets written with server-side apply or deleted in bulk", SpecTimeout(time.Minute), func(ctx SpecContext) {
 			applied := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{Name: "cluster1-applied", Namespace: namespace, Labels: map[string]string{"bulk": "true"}},
 				Data:       map[string][]byte{"root": []byte("created")},
@@ -1055,11 +1338,22 @@ var _ = Describe("Secret cache", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(secret.Data).To(HaveKeyWithValue("root", []byte("applied")))
 
+			unstructuredApply := &unstructured.Unstructured{}
+			unstructuredApply.SetGroupVersionKind(secretGVK)
+			unstructuredApply.SetName(applied.Name)
+			unstructuredApply.SetNamespace(applied.Namespace)
+			Expect(unstructured.SetNestedField(unstructuredApply.Object, "dW5zdHJ1Y3R1cmVk", "data", "root")).To(Succeed())
+			Expect(writer.Apply(ctx, client.ApplyConfigurationFromUnstructured(unstructuredApply), client.FieldOwner("test"), client.ForceOwnership)).To(Succeed())
+			Expect(isStored(key)).To(BeFalse(), "a Secret applied unstructured must not be served as stored before the apply")
+			secret, err = get(ctx, key)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(secret.Data).To(HaveKeyWithValue("root", []byte("unstructured")))
+
 			Expect(writer.DeleteAllOf(ctx, &corev1.Secret{}, client.InNamespace(namespace), client.MatchingLabels{"bulk": "true"})).To(Succeed())
 			Expect(isStored(key)).To(BeFalse(), "a Secret deleted in bulk must not be served as stored")
 		})
 
-		It("drops Secrets written unstructured", func(ctx SpecContext) {
+		It("drops Secrets written unstructured", SpecTimeout(time.Minute), func(ctx SpecContext) {
 			written := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{Name: "cluster1-unstructured", Namespace: namespace},
 				Data:       map[string][]byte{"root": []byte("created")},
@@ -1080,14 +1374,14 @@ var _ = Describe("Secret cache", func() {
 			Expect(secret.Data).To(HaveKeyWithValue("root", []byte("updated")))
 		})
 
-		It("does not store dry-run writes", func(ctx SpecContext) {
+		It("does not store dry-run writes", SpecTimeout(time.Minute), func(ctx SpecContext) {
 			dryRun := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "cluster1-dry-run", Namespace: namespace}}
 			Expect(writer.Create(ctx, dryRun, client.DryRunAll)).To(Succeed())
 			_, err := get(ctx, client.ObjectKeyFromObject(dryRun))
 			Expect(k8serrors.IsNotFound(err)).To(BeTrue())
 		})
 
-		It("lists Secrets from the API server", func(ctx SpecContext) {
+		It("lists Secrets from the API server", SpecTimeout(time.Minute), func(ctx SpecContext) {
 			secrets := &corev1.SecretList{}
 			Expect(c.List(ctx, secrets, client.InNamespace(namespace))).To(Succeed())
 			Expect(secrets.Items).NotTo(BeEmpty())
@@ -1098,7 +1392,7 @@ var _ = Describe("Secret cache", func() {
 			Expect(unstructuredSecrets.Items).To(HaveLen(len(secrets.Items)))
 		})
 
-		It("lists Secret metadata by label", func(ctx SpecContext) {
+		It("lists Secret metadata by label", SpecTimeout(time.Minute), func(ctx SpecContext) {
 			metadata := &metav1.PartialObjectMetadataList{}
 			metadata.SetGroupVersionKind(secretListGVK)
 			Expect(c.List(ctx, metadata, client.InNamespace(namespace), client.MatchingLabels{"owner": "helm"})).To(Succeed())
@@ -1106,7 +1400,7 @@ var _ = Describe("Secret cache", func() {
 			Expect(metadata.Items[0].Name).To(Equal(helmSecret.Name))
 		})
 
-		It("refuses a Secret informer with data", func(ctx SpecContext) {
+		It("refuses a Secret informer with data", SpecTimeout(time.Minute), func(ctx SpecContext) {
 			_, err := c.GetInformer(ctx, &corev1.Secret{})
 			Expect(err).To(MatchError(errFullSecretInformer))
 			unstructuredSecret := &unstructured.Unstructured{}

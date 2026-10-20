@@ -70,22 +70,22 @@ spec:
               valueFrom:
                 secretKeyRef:
                   key: AWS_ACCESS_KEY_ID
-                  name: minio-secret
+                  name: s3-secret
             - name: SECRET_ACCESS_KEY
               valueFrom:
                 secretKeyRef:
                   key: AWS_SECRET_ACCESS_KEY
-                  name: minio-secret
+                  name: s3-secret
             - name: S3_SESSION_TOKEN
               valueFrom:
                 secretKeyRef:
                   key: AWS_SESSION_TOKEN
-                  name: minio-secret
+                  name: s3-secret
                   optional: true
             - name: DEFAULT_REGION
               value: us-east-1
             - name: ENDPOINT
-              value: http://minio-service.namespace:9000/
+              value: http://s3-storage-all-in-one.namespace:8333/
             - name: S3_BUCKET
               value: operator-testing
           imagePullPolicy: Always

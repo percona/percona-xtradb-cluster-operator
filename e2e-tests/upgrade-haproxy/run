@@ -60,7 +60,7 @@ function main() {
 	# we cannot use create_infra and deploy_operator from functions since they deploy from the current source tree
 	# so we fetch last officially released images and yaml files as initial state for upgrade from github
 	create_infra_gh "${namespace}" "${GIT_TAG}"
-	start_minio
+	deploy_s3_storage
 
 	local proxy="haproxy"
 	local cr_yaml="${tmp_dir}/cr_${INIT_OPERATOR_VER}_${proxy}.yaml"
@@ -68,7 +68,7 @@ function main() {
 	spinup_pxc "${CLUSTER}" "${cr_yaml}" "${CLUSTER_SIZE}" "30" "${conf_dir}/secrets_without_tls.yml"
 	compare_generation "1" "${proxy}" "${CLUSTER}"
 
-	run_backup "${CLUSTER}" "on-demand-backup-minio"
+	run_backup "${CLUSTER}" "on-demand-backup-local-s3"
 
 	desc 'upgrade operator'
 	kubectl_bin apply --server-side --force-conflicts -f "${src_dir}/deploy/crd.yaml"
@@ -158,7 +158,7 @@ function main() {
 	run_mysql 'drop database myApp;' "-h ${CLUSTER}-pxc -uroot -proot_password"
 
 	desc 'run restore'
-	run_recovery_check "${CLUSTER}" "on-demand-backup-minio"
+	run_recovery_check "${CLUSTER}" "on-demand-backup-local-s3"
 
 	desc 'cleanup'
 	destroy "${namespace}"

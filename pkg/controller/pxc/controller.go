@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -163,6 +164,9 @@ type ReconcilePerconaXtraDBCluster struct {
 	serverVersion  *version.ServerVersion
 	lockers        lockStore
 	recorder       record.EventRecorder
+	// tlsSecretsUnreadableSince maps the UID of a deleted cluster to when
+	// its TLS Secrets were first found unreadable.
+	tlsSecretsUnreadableSince sync.Map
 }
 
 type lockStore struct {
@@ -289,6 +293,19 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 			switch fnlz {
 			case naming.FinalizerDeleteSSL:
 				err = r.deleteCerts(ctx, o)
+				if !errors.As(err, new(unreadableSecretsError)) {
+					// The wait counts how long the Secrets stay unreadable
+					// without a break.
+					r.tlsSecretsUnreadableSince.Delete(o.UID)
+				}
+				if err != nil {
+					log.Error(err, "delete TLS secrets")
+					if errors.As(err, new(unreadableSecretsError)) && r.tlsSecretsUnreadableFor(o) > deleteCertsTimeout {
+						r.recorder.Event(o, corev1.EventTypeWarning, naming.EventTLSSecretsNotDeleted,
+							fmt.Sprintf("TLS secrets could not be read for %s and are left behind: %v", deleteCertsTimeout, err))
+						err = nil
+					}
+				}
 			case naming.FinalizerDeleteProxysqlPvc:
 				sfs = statefulset.NewProxy(o)
 				// deletePVC is always true on this stage
@@ -319,6 +336,9 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 		})
 		if err != nil {
 			return reconcile.Result{}, errors.Wrap(err, "failed to update cr finalizers")
+		}
+		if !slices.Contains(finalizers, naming.FinalizerDeleteSSL) {
+			r.tlsSecretsUnreadableSince.Delete(o.UID)
 		}
 
 		// object is being deleted, no need in further actions
@@ -779,6 +799,27 @@ func (r *ReconcilePerconaXtraDBCluster) deleteSecrets(ctx context.Context, cr *a
 	return nil
 }
 
+// deleteCertsTimeout is how long the delete-ssl finalizer waits for TLS
+// Secrets that cannot be read before it is removed with them left behind.
+// The wait counts from the first failure to read them and starts over after
+// an attempt that does not fail that way. Failures to delete keep the
+// finalizer. The time of the first failure is not kept across operator
+// restarts, which start the wait over.
+const deleteCertsTimeout = 5 * time.Minute
+
+// tlsSecretsUnreadableFor returns how long the TLS Secrets of the deleted
+// cluster have been unreadable without a break.
+func (r *ReconcilePerconaXtraDBCluster) tlsSecretsUnreadableFor(cr *api.PerconaXtraDBCluster) time.Duration {
+	since, _ := r.tlsSecretsUnreadableSince.LoadOrStore(cr.UID, time.Now())
+	return time.Since(since.(time.Time))
+}
+
+// unreadableSecretsError is returned by deleteCerts when everything else
+// was deleted, but some TLS Secrets could not be read.
+type unreadableSecretsError struct{ error }
+
+func (e unreadableSecretsError) Unwrap() error { return e.error }
+
 func (r *ReconcilePerconaXtraDBCluster) deleteCerts(ctx context.Context, cr *api.PerconaXtraDBCluster) error {
 	issuers := []string{
 		naming.CAIssuerName(cr),
@@ -831,10 +872,19 @@ func (r *ReconcilePerconaXtraDBCluster) deleteCerts(ctx context.Context, cr *api
 		secrets = append(secrets, naming.SSLInternalCertificateName(cr))
 	}
 
+	// Delete the Secrets that can be read, and return the first read error
+	// so that the finalizer stays for the rest.
+	var readErr error
 	for _, secretName := range secrets {
 		secret := &corev1.Secret{}
 		err := r.client.Get(ctx, types.NamespacedName{Namespace: cr.Namespace, Name: secretName}, secret)
+		if k8serrors.IsNotFound(err) {
+			continue
+		}
 		if err != nil {
+			if readErr == nil {
+				readErr = unreadableSecretsError{errors.Wrapf(err, "get secret %s", secretName)}
+			}
 			continue
 		}
 
@@ -844,7 +894,7 @@ func (r *ReconcilePerconaXtraDBCluster) deleteCerts(ctx context.Context, cr *api
 		}
 	}
 
-	return nil
+	return readErr
 }
 
 // resyncPXCUsersWithProxySQL calls the method of synchronizing users and makes sure that only one Goroutine works at a time

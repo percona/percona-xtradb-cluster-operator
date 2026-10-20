@@ -288,7 +288,9 @@ func (c *Node) AppContainer(ctx context.Context, cl client.Client, spec *api.Pod
 	}
 
 	if cr.CompareVersionWith("1.19.0") >= 0 {
-		setLDPreloadEnv(ctx, cl, cr, &appc)
+		if err := setLDPreloadEnv(ctx, cl, cr, &appc); err != nil {
+			return appc, errors.Wrap(err, "set LD_PRELOAD")
+		}
 
 		extraMounts := api.ExtraPVCVolumeMounts(ctx, spec.ExtraPVCs)
 		appc.VolumeMounts = append(appc.VolumeMounts, extraMounts...)
@@ -341,7 +343,7 @@ func setLDPreloadEnv(
 	cl client.Client,
 	cr *api.PerconaXtraDBCluster,
 	appc *corev1.Container,
-) {
+) error {
 	const (
 		ldPreloadKey    = "LD_PRELOAD"
 		libTcmallocPath = "/usr/lib64/libtcmalloc.so"
@@ -364,11 +366,12 @@ func setLDPreloadEnv(
 		Name:      cr.Spec.PXC.EnvVarsSecretName,
 		Namespace: cr.Namespace,
 	}, envVarsSecret)
-	if client.IgnoreNotFound(err) == nil {
-		// Env vars are set via secret. Check if LD_PRELOAD is set.
-		if val, ok := envVarsSecret.Data[ldPreloadKey]; ok {
-			ldPreloadValue = string(val)
-		}
+	if client.IgnoreNotFound(err) != nil {
+		return errors.Wrap(err, "get env vars secret")
+	}
+	// Env vars are set via secret. Check if LD_PRELOAD is set.
+	if val, ok := envVarsSecret.Data[ldPreloadKey]; ok {
+		ldPreloadValue = string(val)
 	}
 
 	if ldPreloadValue != "" {
@@ -383,6 +386,7 @@ func setLDPreloadEnv(
 			Value: ldPreloadValue,
 		})
 	}
+	return nil
 }
 
 func (c *Node) SidecarContainers(ctx context.Context, cl client.Client, spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster) ([]corev1.Container, error) {

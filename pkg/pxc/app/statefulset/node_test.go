@@ -1,13 +1,18 @@
 package statefulset
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
@@ -805,4 +810,32 @@ func defaultExpectedContainer() corev1.Container {
 			TimeoutSeconds: 5,
 		}, "/var/lib/mysql/liveness-check.sh"),
 	}
+}
+
+func TestAppContainerReturnsEnvVarsSecretReadErrors(t *testing.T) {
+	cr := &api.PerconaXtraDBCluster{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-cluster", Namespace: "test-ns"},
+		Spec: api.PerconaXtraDBClusterSpec{
+			CRVersion: version.Version(),
+			PXC: &api.PXCSpec{
+				PodSpec: &api.PodSpec{EnvVarsSecretName: "test-secret"},
+			},
+		},
+	}
+	envVarsSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-secret", Namespace: "test-ns"},
+		Data:       map[string][]byte{"LD_PRELOAD": []byte("/usr/lib64/libcustom.so")},
+	}
+	cl := interceptor.NewClient(fake.NewClientBuilder().WithObjects(envVarsSecret).Build(), interceptor.Funcs{
+		Get: func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+			if _, ok := obj.(*corev1.Secret); ok {
+				return k8serrors.NewServiceUnavailable("unavailable")
+			}
+			return c.Get(ctx, key, obj, opts...)
+		},
+	})
+
+	_, err := (&Node{cr: cr}).AppContainer(t.Context(), cl, cr.Spec.PXC.PodSpec, "my-secret", cr, nil)
+
+	assert.True(t, k8serrors.IsServiceUnavailable(err), "LD_PRELOAD must not be dropped when the Secret cannot be read: %v", err)
 }

@@ -51,9 +51,21 @@ func GetInitImage(ctx context.Context, cr *api.PerconaXtraDBCluster, cli client.
 		return "", err
 	}
 	if cr.CompareVersionWith(version.Version()) != 0 {
-		imageName = strings.Split(imageName, ":")[0] + ":" + cr.Spec.CRVersion
+		imageName = imageWithTag(imageName, cr.Spec.CRVersion)
 	}
 	return imageName, nil
+}
+
+// imageWithTag replaces the tag and digest of image with tag. A ':' before
+// the last '/' belongs to the registry host (registry:5000/...), not the tag.
+func imageWithTag(image, tag string) string {
+	if i := strings.Index(image, "@"); i >= 0 {
+		image = image[:i]
+	}
+	if i := strings.LastIndex(image, ":"); i > strings.LastIndex(image, "/") {
+		image = image[:i]
+	}
+	return image + ":" + tag
 }
 
 func IsPodReady(pod corev1.Pod) bool {

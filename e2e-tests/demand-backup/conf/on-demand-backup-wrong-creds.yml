@@ -4,4 +4,4 @@ metadata:
   name: on-demand-backup-wrong-creds
 spec:
   pxcCluster: demand-backup
-  storageName: minio-wrong
+  storageName: local-s3-wrong

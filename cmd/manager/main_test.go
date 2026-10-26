@@ -1,16 +1,20 @@
 package main
 
 import (
+	"maps"
+	"slices"
 	"testing"
 	"time"
 
 	"github.com/kelseyhightower/envconfig"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	ctrl "sigs.k8s.io/controller-runtime"
+	metricsServer "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
-	metricsServer "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 )
 
 func parseEnvConfig(t *testing.T) *envConfig {
@@ -193,5 +197,39 @@ func TestConfigureGroupKindConcurrency(t *testing.T) {
 		err := envconfig.Process("", envs)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "MAX_CONCURRENT_RECONCILES")
+	})
+}
+
+func TestConfigureCache(t *testing.T) {
+	secretSelector := func(t *testing.T, options ctrl.Options) fields.Selector {
+		t.Helper()
+		for obj, byObject := range options.Cache.ByObject {
+			if _, isSecret := obj.(*corev1.Secret); isSecret {
+				require.NotNil(t, byObject.Field)
+				return byObject.Field
+			}
+		}
+		require.Fail(t, "Secrets must have cache options")
+		return nil
+	}
+
+	t.Run("excludes Helm release Secrets", func(t *testing.T) {
+		options := ctrl.Options{}
+		configureCache(&options, "", "operator-ns")
+
+		assert.Empty(t, options.Cache.DefaultNamespaces)
+		selector := secretSelector(t, options)
+		assert.Equal(t, "type!=helm.sh/release.v1", selector.String())
+		assert.False(t, selector.Matches(fields.Set{"type": "helm.sh/release.v1"}))
+		assert.True(t, selector.Matches(fields.Set{"type": string(corev1.SecretTypeOpaque)}))
+		assert.True(t, selector.Matches(fields.Set{"type": string(corev1.SecretTypeTLS)}))
+	})
+
+	t.Run("watch namespaces include the operator namespace", func(t *testing.T) {
+		options := ctrl.Options{}
+		configureCache(&options, "ns-1,ns-2", "operator-ns")
+
+		assert.ElementsMatch(t, []string{"ns-1", "ns-2", "operator-ns"}, slices.Collect(maps.Keys(options.Cache.DefaultNamespaces)))
+		assert.Equal(t, "type!=helm.sh/release.v1", secretSelector(t, options).String())
 	})
 }

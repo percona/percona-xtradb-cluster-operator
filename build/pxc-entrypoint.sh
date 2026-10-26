@@ -234,7 +234,7 @@ start_temp_mysqld() {
 	if [ -n "$MYSQL_ROOT_PASSWORD" ]; then
 		mysql+=(-p"${MYSQL_ROOT_PASSWORD}")
 	fi
-	set -x
+	# Keep tracing disabled while callers use the credential-bearing mysql array.
 
 	for i in {120..0}; do
 		if echo 'SELECT 1' | "${mysql[@]}" &>/dev/null; then
@@ -253,6 +253,7 @@ stop_temp_mysqld() {
 		echo >&2 'Failed to stop temporary MySQL instance.'
 		exit 1
 	fi
+	set -x
 }
 
 install_component() {

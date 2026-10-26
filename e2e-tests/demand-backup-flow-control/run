@@ -29,7 +29,7 @@ function check_backup_error() {
 
 create_infra ${namespace}
 
-start_minio
+deploy_s3_storage
 
 log "creating PXC client"
 kubectl_bin apply -f ${conf_dir}/client.yml

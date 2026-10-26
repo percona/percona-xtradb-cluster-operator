@@ -4,4 +4,4 @@ metadata:
   name: on-demand-backup-s3
 spec:
   pxcCluster: sec-context
-  storageName: minio
+  storageName: local-s3

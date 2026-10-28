@@ -276,7 +276,6 @@ drop_legacy_binlog_udf() {
 	echo "Removing legacy binlog_utils_udf functions from mysql.func"
 	"${mysql[@]}" <<-EOSQL
 		DELETE FROM mysql.func WHERE dl = 'binlog_utils_udf.so';
-		FLUSH PRIVILEGES;
 	EOSQL
 }
 

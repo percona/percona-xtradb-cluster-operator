@@ -76,11 +76,24 @@ spec:
               value: "0"
             - name: PERCONA_SCHEDULER_CFG
               value: /tmp/scheduler-config.toml
+            - name: LIVENESS_CHECK_TIMEOUT
+              value: "5"
+            - name: READINESS_CHECK_TIMEOUT
+              value: "1"
           envFrom:
             - secretRef:
                 name: hostpath-env-vars-proxysql
                 optional: true
           imagePullPolicy: Always
+          livenessProbe:
+            exec:
+              command:
+                - /opt/percona/proxysql_liveness_check.sh
+            failureThreshold: 4
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            successThreshold: 1
+            timeoutSeconds: 5
           name: proxysql
           ports:
             - containerPort: 3306
@@ -92,6 +105,15 @@ spec:
             - containerPort: 6070
               name: stats
               protocol: TCP
+          readinessProbe:
+            exec:
+              command:
+                - /opt/percona/proxysql_readiness_check.sh
+            failureThreshold: 3
+            initialDelaySeconds: 15
+            periodSeconds: 5
+            successThreshold: 1
+            timeoutSeconds: 1
           resources: {}
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File

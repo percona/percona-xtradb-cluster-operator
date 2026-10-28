@@ -88,6 +88,24 @@ compare_kubectl service/$cluster-pxc
 compare_kubectl service/$cluster-proxysql
 compare_kubectl service/$cluster-proxysql-unready
 
+desc 'check if proxysql readinessProbe/livenessProbe are configured and the container is healthy'
+proxysql_readiness_cmd=$(kubectl_bin get statefulset "$cluster-proxysql" \
+	-o jsonpath='{.spec.template.spec.containers[?(@.name=="proxysql")].readinessProbe.exec.command[0]}')
+proxysql_liveness_cmd=$(kubectl_bin get statefulset "$cluster-proxysql" \
+	-o jsonpath='{.spec.template.spec.containers[?(@.name=="proxysql")].livenessProbe.exec.command[0]}')
+if [[ "$proxysql_readiness_cmd" != "/opt/percona/proxysql_readiness_check.sh" ]]; then
+	echo "proxysql readinessProbe is not configured as expected: $proxysql_readiness_cmd"
+	exit 1
+fi
+if [[ "$proxysql_liveness_cmd" != "/opt/percona/proxysql_liveness_check.sh" ]]; then
+	echo "proxysql livenessProbe is not configured as expected: $proxysql_liveness_cmd"
+	exit 1
+fi
+for pod in $(kubectl_bin get pod -l app.kubernetes.io/component=proxysql --no-headers | awk '{print $1}'); do
+	kubectl_bin exec "${pod}" -c proxysql -- /opt/percona/proxysql_readiness_check.sh
+	kubectl_bin exec "${pod}" -c proxysql -- /opt/percona/proxysql_liveness_check.sh
+done
+
 if [[ ! $IMAGE_PXC =~ 5\.7 ]]; then
 	desc 'check if mysql-state-monitor works as expected'
 	for pod in $(kubectl_bin get pod -l app.kubernetes.io/component=pxc --no-headers | awk '{print $1}'); do

@@ -725,6 +725,9 @@ if [ "$1" = 'mysqld' ] && [ -z "$wantHelp" ]; then
 			drop_legacy_binlog_udf
 			install_component "file://component_binlog_utils_udf"
 
+			echo "Installing file://component_audit_log_filter"
+			"${mysql[@]}" mysql </usr/share/percona-xtradb-cluster/audit_log_filter_linux_install.sql
+
 			stop_temp_mysqld
 		fi
 	fi

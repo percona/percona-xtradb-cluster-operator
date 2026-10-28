@@ -40,6 +40,9 @@ func TestAppContainer_ProxySQL(t *testing.T) {
 				c := defaultExpectedProxySQLContainer()
 				// 1.18 doesn't have scheduler env vars
 				c.Env = c.Env[:5]
+				// probes were added in 1.21.0
+				c.LivenessProbe = nil
+				c.ReadinessProbe = nil
 				return c
 			},
 		},
@@ -99,6 +102,8 @@ func TestAppContainer_ProxySQL(t *testing.T) {
 					{Name: "PERCONA_SCHEDULER_CFG", Value: "/tmp/scheduler-config.toml"},
 					{Name: "SCHEDULER_ENABLED", Value: "true"},
 					{Name: "PXC_READ_ONLY", Value: "false"},
+					{Name: "LIVENESS_CHECK_TIMEOUT", Value: "0"},
+					{Name: "READINESS_CHECK_TIMEOUT", Value: "0"},
 				}...)
 				return c
 			},
@@ -146,6 +151,8 @@ func TestAppContainer_ProxySQL(t *testing.T) {
 					{Name: "PERCONA_SCHEDULER_CFG", Value: "/tmp/scheduler-config.toml"},
 					{Name: "SCHEDULER_ENABLED", Value: "true"},
 					{Name: "PXC_READ_ONLY", Value: "true"},
+					{Name: "LIVENESS_CHECK_TIMEOUT", Value: "0"},
+					{Name: "READINESS_CHECK_TIMEOUT", Value: "0"},
 				}...)
 				return c
 			},
@@ -254,6 +261,8 @@ func defaultExpectedProxySQLContainer() corev1.Container {
 			{Name: "SCHEDULER_MAXCONNECTIONS", Value: "0"},
 			{Name: "PERCONA_SCHEDULER_CFG", Value: "/tmp/scheduler-config.toml"},
 			{Name: "PXC_READ_ONLY", Value: "false"},
+			{Name: "LIVENESS_CHECK_TIMEOUT", Value: "0"},
+			{Name: "READINESS_CHECK_TIMEOUT", Value: "0"},
 		},
 		EnvFrom: []corev1.EnvFromSource{
 			{
@@ -262,6 +271,20 @@ func defaultExpectedProxySQLContainer() corev1.Container {
 						Name: "test-secret",
 					},
 					Optional: pointerToTrue(),
+				},
+			},
+		},
+		LivenessProbe: &corev1.Probe{
+			ProbeHandler: corev1.ProbeHandler{
+				Exec: &corev1.ExecAction{
+					Command: []string{"/opt/percona/proxysql_liveness_check.sh"},
+				},
+			},
+		},
+		ReadinessProbe: &corev1.Probe{
+			ProbeHandler: corev1.ProbeHandler{
+				Exec: &corev1.ExecAction{
+					Command: []string{"/opt/percona/proxysql_readiness_check.sh"},
 				},
 			},
 		},

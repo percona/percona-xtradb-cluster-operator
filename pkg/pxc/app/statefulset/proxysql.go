@@ -202,6 +202,22 @@ func (c *Proxy) AppContainer(ctx context.Context, _ client.Client, spec *api.Pod
 		})
 	}
 
+	if cr.CompareVersionWith("1.21.0") >= 0 {
+		appc.ReadinessProbe = app.Probe(&cr.Spec.ProxySQL.ReadinessProbe, "/opt/percona/proxysql_readiness_check.sh")
+		appc.LivenessProbe = app.Probe(&cr.Spec.ProxySQL.LivenessProbe, "/opt/percona/proxysql_liveness_check.sh")
+
+		appc.Env = append(appc.Env, []corev1.EnvVar{
+			{
+				Name:  "LIVENESS_CHECK_TIMEOUT",
+				Value: strconv.FormatInt(int64(cr.Spec.ProxySQL.LivenessProbe.TimeoutSeconds), 10),
+			},
+			{
+				Name:  "READINESS_CHECK_TIMEOUT",
+				Value: strconv.FormatInt(int64(cr.Spec.ProxySQL.ReadinessProbe.TimeoutSeconds), 10),
+			},
+		}...)
+	}
+
 	return appc, nil
 }
 

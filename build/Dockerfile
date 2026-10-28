@@ -96,6 +96,8 @@ COPY build/proxysql_add_cluster_nodes.sh /proxysql_add_cluster_nodes.sh
 COPY build/proxysql_add_proxysql_nodes.sh /proxysql_add_proxysql_nodes.sh
 COPY build/proxysql_add_pxc_nodes.sh /proxysql_add_pxc_nodes.sh
 COPY build/proxysql_scheduler_config.tmpl /proxysql_scheduler_config.tmpl
+COPY build/proxysql_readiness_check.sh /proxysql_readiness_check.sh
+COPY build/proxysql_liveness_check.sh /proxysql_liveness_check.sh
 COPY build/logcollector /logcollector
 
 COPY build/backup /backup

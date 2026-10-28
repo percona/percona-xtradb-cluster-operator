@@ -758,6 +758,14 @@ type ProxySQLSpec struct {
 	Expose ServiceExpose `json:"expose,omitempty"`
 
 	Scheduler ProxySQLSchedulerSpec `json:"scheduler"`
+
+	// ReadinessProbe overrides the default readiness probe settings for the proxysql container.
+	// +optional
+	ReadinessProbe corev1.Probe `json:"readinessProbe,omitempty"`
+
+	// LivenessProbe overrides the default liveness probe settings for the proxysql container.
+	// +optional
+	LivenessProbe corev1.Probe `json:"livenessProbe,omitempty"`
 }
 
 type ProxySQLSchedulerSpec struct {
@@ -1659,6 +1667,40 @@ func (cr *PerconaXtraDBCluster) setProbesDefaults() {
 
 		if cr.Spec.HAProxy.LivenessProbes.SuccessThreshold == 0 {
 			cr.Spec.HAProxy.LivenessProbes.SuccessThreshold = 1
+		}
+	}
+
+	if cr.Spec.ProxySQLEnabled() && cr.CompareVersionWith("1.21.0") >= 0 {
+		if cr.Spec.ProxySQL.ReadinessProbe.InitialDelaySeconds == 0 {
+			cr.Spec.ProxySQL.ReadinessProbe.InitialDelaySeconds = 15
+		}
+		if cr.Spec.ProxySQL.ReadinessProbe.PeriodSeconds == 0 {
+			cr.Spec.ProxySQL.ReadinessProbe.PeriodSeconds = 5
+		}
+		if cr.Spec.ProxySQL.ReadinessProbe.TimeoutSeconds == 0 {
+			cr.Spec.ProxySQL.ReadinessProbe.TimeoutSeconds = 1
+		}
+		if cr.Spec.ProxySQL.ReadinessProbe.SuccessThreshold == 0 {
+			cr.Spec.ProxySQL.ReadinessProbe.SuccessThreshold = 1
+		}
+		if cr.Spec.ProxySQL.ReadinessProbe.FailureThreshold == 0 {
+			cr.Spec.ProxySQL.ReadinessProbe.FailureThreshold = 3
+		}
+
+		if cr.Spec.ProxySQL.LivenessProbe.InitialDelaySeconds == 0 {
+			cr.Spec.ProxySQL.LivenessProbe.InitialDelaySeconds = 60
+		}
+		if cr.Spec.ProxySQL.LivenessProbe.TimeoutSeconds == 0 {
+			cr.Spec.ProxySQL.LivenessProbe.TimeoutSeconds = 5
+		}
+		if cr.Spec.ProxySQL.LivenessProbe.FailureThreshold == 0 {
+			cr.Spec.ProxySQL.LivenessProbe.FailureThreshold = 4
+		}
+		if cr.Spec.ProxySQL.LivenessProbe.PeriodSeconds == 0 {
+			cr.Spec.ProxySQL.LivenessProbe.PeriodSeconds = 30
+		}
+		if cr.Spec.ProxySQL.LivenessProbe.SuccessThreshold == 0 {
+			cr.Spec.ProxySQL.LivenessProbe.SuccessThreshold = 1
 		}
 	}
 }

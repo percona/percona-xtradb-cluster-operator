@@ -6,7 +6,8 @@ ADMIN_USER="${PROXY_ADMIN_USER:-admin}"
 TIMEOUT=${READINESS_CHECK_TIMEOUT:-10}
 MYSQL_CMDLINE="/usr/bin/timeout $TIMEOUT /usr/bin/mysql -nNE -u$ADMIN_USER"
 
-export MYSQL_PWD="${PROXY_ADMIN_PASSWORD}"
+proxyadmin_pass=$(cat /etc/mysql/mysql-users-secret/proxyadmin 2>/dev/null || :)
+export MYSQL_PWD="${proxyadmin_pass:-$PROXY_ADMIN_PASSWORD}"
 
 STATUS=$($MYSQL_CMDLINE -h127.0.0.1 -P$PROXYSQL_ADMIN_PORT -e 'select 1;' | sed -n -e '2p' | tr '\n' ' ')
 

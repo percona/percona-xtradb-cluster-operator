@@ -206,6 +206,13 @@ func (c *Proxy) AppContainer(ctx context.Context, _ client.Client, spec *api.Pod
 		appc.ReadinessProbe = app.Probe(&cr.Spec.ProxySQL.ReadinessProbe, "/opt/percona/proxysql_readiness_check.sh")
 		appc.LivenessProbe = app.Probe(&cr.Spec.ProxySQL.LivenessProbe, "/opt/percona/proxysql_liveness_check.sh")
 
+		if api.ContainsVolume(availableVolumes, naming.MySQLUsersSecretVolumeName) {
+			appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
+				Name:      naming.MySQLUsersSecretVolumeName,
+				MountPath: naming.MySQLUsersSecretMountPath,
+			})
+		}
+
 		appc.Env = append(appc.Env, []corev1.EnvVar{
 			{
 				Name:  "LIVENESS_CHECK_TIMEOUT",
@@ -688,6 +695,11 @@ func (c *Proxy) Volumes(ctx context.Context, podSpec *api.PodSpec, cr *api.Perco
 		for i := range vol.PVCs {
 			vol.PVCs[i].Labels = ls
 		}
+	}
+
+	if cr.CompareVersionWith("1.21.0") >= 0 {
+		vol.Volumes = append(vol.Volumes,
+			app.GetSecretVolumes(naming.MySQLUsersSecretVolumeName, "internal-"+cr.Name, false))
 	}
 
 	return vol, nil

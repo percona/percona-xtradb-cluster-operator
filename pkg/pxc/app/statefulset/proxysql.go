@@ -206,12 +206,10 @@ func (c *Proxy) AppContainer(ctx context.Context, _ client.Client, spec *api.Pod
 		appc.ReadinessProbe = app.Probe(&cr.Spec.ProxySQL.ReadinessProbe, "/opt/percona/proxysql_readiness_check.sh")
 		appc.LivenessProbe = app.Probe(&cr.Spec.ProxySQL.LivenessProbe, "/opt/percona/proxysql_liveness_check.sh")
 
-		if api.ContainsVolume(availableVolumes, naming.MySQLUsersSecretVolumeName) {
-			appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
-				Name:      naming.MySQLUsersSecretVolumeName,
-				MountPath: naming.MySQLUsersSecretMountPath,
-			})
-		}
+		appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
+			Name:      naming.MySQLUsersSecretVolumeName,
+			MountPath: naming.MySQLUsersSecretMountPath,
+		})
 
 		appc.Env = append(appc.Env, []corev1.EnvVar{
 			{

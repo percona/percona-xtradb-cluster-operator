@@ -203,8 +203,14 @@ func (c *Proxy) AppContainer(ctx context.Context, _ client.Client, spec *api.Pod
 	}
 
 	if cr.CompareVersionWith("1.21.0") >= 0 {
-		appc.ReadinessProbe = app.Probe(&cr.Spec.ProxySQL.ReadinessProbe, "/opt/percona/proxysql_readiness_check.sh")
-		appc.LivenessProbe = app.Probe(&cr.Spec.ProxySQL.LivenessProbe, "/opt/percona/proxysql_liveness_check.sh")
+		appc.ReadinessProbe = cr.Spec.ProxySQL.ReadinessProbe.DeepCopy()
+		if pb := appc.ReadinessProbe; pb.Exec == nil && pb.HTTPGet == nil && pb.TCPSocket == nil && pb.GRPC == nil {
+			appc.ReadinessProbe = app.Probe(pb, "/opt/percona/proxysql_readiness_check.sh")
+		}
+		appc.LivenessProbe = cr.Spec.ProxySQL.LivenessProbe.DeepCopy()
+		if pb := appc.LivenessProbe; pb.Exec == nil && pb.HTTPGet == nil && pb.TCPSocket == nil && pb.GRPC == nil {
+			appc.LivenessProbe = app.Probe(pb, "/opt/percona/proxysql_liveness_check.sh")
+		}
 
 		appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
 			Name:      naming.MySQLUsersSecretVolumeName,

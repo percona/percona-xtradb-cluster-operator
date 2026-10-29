@@ -93,11 +93,11 @@ proxysql_readiness_cmd=$(kubectl_bin get statefulset "$cluster-proxysql" \
 	-o jsonpath='{.spec.template.spec.containers[?(@.name=="proxysql")].readinessProbe.exec.command[0]}')
 proxysql_liveness_cmd=$(kubectl_bin get statefulset "$cluster-proxysql" \
 	-o jsonpath='{.spec.template.spec.containers[?(@.name=="proxysql")].livenessProbe.exec.command[0]}')
-if [[ "$proxysql_readiness_cmd" != "/opt/percona/proxysql_readiness_check.sh" ]]; then
+if [[ $proxysql_readiness_cmd != "/opt/percona/proxysql_readiness_check.sh" ]]; then
 	echo "proxysql readinessProbe is not configured as expected: $proxysql_readiness_cmd"
 	exit 1
 fi
-if [[ "$proxysql_liveness_cmd" != "/opt/percona/proxysql_liveness_check.sh" ]]; then
+if [[ $proxysql_liveness_cmd != "/opt/percona/proxysql_liveness_check.sh" ]]; then
 	echo "proxysql livenessProbe is not configured as expected: $proxysql_liveness_cmd"
 	exit 1
 fi

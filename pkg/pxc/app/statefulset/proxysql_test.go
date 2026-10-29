@@ -596,6 +596,9 @@ func TestVolumes_ProxySQL(t *testing.T) {
 				assert.NotNil(t, found.Secret)
 				assert.Equal(t, "internal-test-cluster", found.Secret.SecretName)
 				assert.False(t, *found.Secret.Optional)
+				assert.Equal(t, []corev1.KeyToPath{
+					{Key: users.ProxyAdmin, Path: users.ProxyAdmin},
+				}, found.Secret.Items)
 			}
 		})
 	}

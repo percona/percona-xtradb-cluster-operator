@@ -283,6 +283,9 @@ spec:
         - name: mysql-users-secret-file
           secret:
             defaultMode: 420
+            items:
+              - key: proxyadmin
+                path: proxyadmin
             optional: false
             secretName: internal-some-name
   updateStrategy:

@@ -16,7 +16,7 @@ require (
 	github.com/go-openapi/strfmt v0.26.3
 	github.com/go-openapi/swag v0.27.1
 	github.com/go-openapi/validate v0.25.3
-	github.com/go-sql-driver/mysql v1.10.0
+	github.com/go-sql-driver/mysql v1.10.1
 	github.com/google/go-cmp v0.7.0
 	github.com/hashicorp/go-version v1.9.0
 	github.com/kelseyhightower/envconfig v1.4.0

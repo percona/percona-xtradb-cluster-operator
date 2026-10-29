@@ -759,10 +759,8 @@ type ProxySQLSpec struct {
 
 	Scheduler ProxySQLSchedulerSpec `json:"scheduler"`
 
-	// +optional
 	ReadinessProbe corev1.Probe `json:"readinessProbe,omitempty"`
 
-	// +optional
 	LivenessProbe corev1.Probe `json:"livenessProbe,omitempty"`
 }
 

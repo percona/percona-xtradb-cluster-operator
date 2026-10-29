@@ -128,6 +128,8 @@ spec:
               name: ssl-internal
             - mountPath: /opt/percona
               name: bin
+            - mountPath: /etc/mysql/mysql-users-secret
+              name: mysql-users-secret-file
         - args:
             - /opt/percona/peer-list
             - -on-change=/opt/percona/proxysql_add_pxc_nodes.sh
@@ -278,6 +280,11 @@ spec:
             secretName: some-name-ssl
         - emptyDir: {}
           name: bin
+        - name: mysql-users-secret-file
+          secret:
+            defaultMode: 420
+            optional: false
+            secretName: internal-no-requests-no-limits
   updateStrategy:
     rollingUpdate:
       partition: 0

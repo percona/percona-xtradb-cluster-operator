@@ -230,6 +230,10 @@ func (r *ReconcilePerconaXtraDBCluster) handleRootUser(ctx context.Context, cr *
 		return nil
 	}
 
+	if err := r.checkMySQLInitSecret(ctx, cr); err != nil {
+		return errors.Wrap(err, "read mysql init file")
+	}
+
 	log.Info("Password changed, updating user", "user", user.Name)
 
 	err = r.updateUserPassWithRetention(ctx, cr, internalSecrets, user)
@@ -238,7 +242,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleRootUser(ctx context.Context, cr *
 	}
 	log.Info("Password updated", "user", user.Name)
 
-	if err := r.updateMySQLInitFile(ctx, cr, internalSecrets, user); err != nil {
+	if err := r.updateMySQLInitFile(ctx, cr, user); err != nil {
 		return errors.Wrap(err, "update mysql init file")
 	}
 
@@ -307,6 +311,10 @@ func (r *ReconcilePerconaXtraDBCluster) handleOperatorUser(ctx context.Context, 
 		return nil
 	}
 
+	if err := r.checkMySQLInitSecret(ctx, cr); err != nil {
+		return errors.Wrap(err, "read mysql init file")
+	}
+
 	log.Info("Password changed, updating user", "user", user.Name)
 
 	err = r.updateUserPassWithRetention(ctx, cr, internalSecrets, user)
@@ -315,7 +323,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleOperatorUser(ctx context.Context, 
 	}
 	log.Info("Password updated", "user", user.Name)
 
-	if err := r.updateMySQLInitFile(ctx, cr, internalSecrets, user); err != nil {
+	if err := r.updateMySQLInitFile(ctx, cr, user); err != nil {
 		return errors.Wrap(err, "update mysql init file")
 	}
 
@@ -495,6 +503,10 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(ctx context.Context, c
 		return nil
 	}
 
+	if err := r.checkMySQLInitSecret(ctx, cr); err != nil {
+		return errors.Wrap(err, "read mysql init file")
+	}
+
 	log.Info("Password changed, updating user", "user", user.Name)
 
 	err = r.updateUserPassWithRetention(ctx, cr, internalSecrets, user)
@@ -503,7 +515,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(ctx context.Context, c
 	}
 	log.Info("Password updated", "user", user.Name)
 
-	if err := r.updateMySQLInitFile(ctx, cr, internalSecrets, user); err != nil {
+	if err := r.updateMySQLInitFile(ctx, cr, user); err != nil {
 		return errors.Wrap(err, "update mysql init file")
 	}
 
@@ -617,6 +629,10 @@ func (r *ReconcilePerconaXtraDBCluster) handleXtrabackupUser(ctx context.Context
 		return nil
 	}
 
+	if err := r.checkMySQLInitSecret(ctx, cr); err != nil {
+		return errors.Wrap(err, "read mysql init file")
+	}
+
 	log.Info("Password changed, updating user", "user", user.Name)
 
 	err = r.updateUserPassWithRetention(ctx, cr, internalSecrets, user)
@@ -625,7 +641,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleXtrabackupUser(ctx context.Context
 	}
 	log.Info("Password updated", "user", user.Name)
 
-	if err := r.updateMySQLInitFile(ctx, cr, internalSecrets, user); err != nil {
+	if err := r.updateMySQLInitFile(ctx, cr, user); err != nil {
 		return errors.Wrap(err, "update mysql init file")
 	}
 
@@ -731,6 +747,10 @@ func (r *ReconcilePerconaXtraDBCluster) handleReplicationUser(ctx context.Contex
 		return nil
 	}
 
+	if err := r.checkMySQLInitSecret(ctx, cr); err != nil {
+		return errors.Wrap(err, "read mysql init file")
+	}
+
 	log.Info("Password changed, updating user", "user", user.Name)
 
 	err = r.updateUserPassWithRetention(ctx, cr, internalSecrets, user)
@@ -739,7 +759,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleReplicationUser(ctx context.Contex
 	}
 	log.Info("Password updated", "user", user.Name)
 
-	if err := r.updateMySQLInitFile(ctx, cr, internalSecrets, user); err != nil {
+	if err := r.updateMySQLInitFile(ctx, cr, user); err != nil {
 		return errors.Wrap(err, "update mysql init file")
 	}
 
@@ -1278,21 +1298,32 @@ func (r *ReconcilePerconaXtraDBCluster) invalidPasswordApplied(status api.Percon
 	return false
 }
 
-func (r *ReconcilePerconaXtraDBCluster) updateMySQLInitFile(ctx context.Context, cr *api.PerconaXtraDBCluster, internalSecret *corev1.Secret, user *users.SysUser) error {
-	log := logf.FromContext(ctx)
-
-	secret := &corev1.Secret{
+func mysqlInitSecret(cr *api.PerconaXtraDBCluster) *corev1.Secret {
+	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name + "-mysql-init",
 			Namespace: cr.Namespace,
 		},
 	}
-	data := map[string][]byte{
-		"init.sql": []byte("SET SESSION wsrep_on=OFF;\nSET SESSION sql_log_bin=0;\n"),
-	}
-	if err := r.client.Get(ctx, client.ObjectKeyFromObject(secret), secret); err == nil {
-		data = secret.Data
-	}
+}
+
+// checkMySQLInitSecret returns an error if the MySQL init Secret exists but
+// cannot be read. Call it before changing a password: the init file is
+// updated after the change, and failing then would leave the internal
+// Secret behind the database.
+func (r *ReconcilePerconaXtraDBCluster) checkMySQLInitSecret(ctx context.Context, cr *api.PerconaXtraDBCluster) error {
+	secret := mysqlInitSecret(cr)
+	err := r.client.Get(ctx, client.ObjectKeyFromObject(secret), secret)
+	return errors.Wrapf(client.IgnoreNotFound(err), "get secret %s", secret.Name)
+}
+
+// updateMySQLInitFile appends the statements setting the user's password to
+// the MySQL init Secret, as it is when written: a backup deletes it once
+// the statements in it are no longer needed.
+func (r *ReconcilePerconaXtraDBCluster) updateMySQLInitFile(ctx context.Context, cr *api.PerconaXtraDBCluster, user *users.SysUser) error {
+	log := logf.FromContext(ctx)
+
+	secret := mysqlInitSecret(cr)
 
 	statements := make([]string, 0)
 	for _, host := range user.Hosts {
@@ -1300,8 +1331,12 @@ func (r *ReconcilePerconaXtraDBCluster) updateMySQLInitFile(ctx context.Context,
 	}
 
 	opResult, err := controllerutil.CreateOrUpdate(ctx, r.client, secret, func() error {
-		data["init.sql"] = append(data["init.sql"], []byte(strings.Join(statements, ""))...)
-		secret.Data = data
+		if secret.Data == nil {
+			secret.Data = map[string][]byte{
+				"init.sql": []byte("SET SESSION wsrep_on=OFF;\nSET SESSION sql_log_bin=0;\n"),
+			}
+		}
+		secret.Data["init.sql"] = append(secret.Data["init.sql"], []byte(strings.Join(statements, ""))...)
 		return nil
 	})
 

@@ -702,11 +702,6 @@ func (c *Proxy) Volumes(ctx context.Context, podSpec *api.PodSpec, cr *api.Perco
 	}
 
 	if cr.CompareVersionWith("1.21.0") >= 0 {
-		// Mounted as a file so probe scripts can pick up a rotated
-		// proxyadmin password without waiting for a pod restart. Restrict
-		// to the proxyadmin key only - the internal secret also holds
-		// unrelated credentials (e.g. root, PMM) that ProxySQL probes have
-		// no need to see.
 		usersVolume := app.GetSecretVolumes(naming.MySQLUsersSecretVolumeName, "internal-"+cr.Name, false)
 		usersVolume.Secret.Items = []corev1.KeyToPath{
 			{

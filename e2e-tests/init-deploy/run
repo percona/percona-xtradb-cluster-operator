@@ -106,6 +106,20 @@ for pod in $(kubectl_bin get pod -l app.kubernetes.io/component=proxysql --no-he
 	kubectl_bin exec "${pod}" -c proxysql -- /opt/percona/proxysql_liveness_check.sh
 done
 
+desc 'check that proxysql readinessProbe/livenessProbe scripts actually detect a broken admin interface'
+proxysql_pod=$(kubectl_bin get pod -l app.kubernetes.io/component=proxysql --no-headers -o custom-columns=":metadata.name" | head -1)
+if kubectl_bin exec "${proxysql_pod}" -c proxysql -- bash -c 'PROXY_ADMIN_USER=nonexistent-admin /opt/percona/proxysql_readiness_check.sh'; then
+	echo "proxysql_readiness_check.sh should exit non-zero when the admin interface is unreachable"
+	exit 1
+fi
+if kubectl_bin exec "${proxysql_pod}" -c proxysql -- bash -c 'PROXY_ADMIN_USER=nonexistent-admin /opt/percona/proxysql_liveness_check.sh'; then
+	echo "proxysql_liveness_check.sh should exit non-zero when the admin interface is unreachable"
+	exit 1
+fi
+# the scripts must still succeed against the real admin user once the simulated failure is gone
+kubectl_bin exec "${proxysql_pod}" -c proxysql -- /opt/percona/proxysql_readiness_check.sh
+kubectl_bin exec "${proxysql_pod}" -c proxysql -- /opt/percona/proxysql_liveness_check.sh
+
 if [[ ! $IMAGE_PXC =~ 5\.7 ]]; then
 	desc 'check if mysql-state-monitor works as expected'
 	for pod in $(kubectl_bin get pod -l app.kubernetes.io/component=pxc --no-headers | awk '{print $1}'); do

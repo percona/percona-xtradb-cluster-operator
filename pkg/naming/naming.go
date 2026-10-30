@@ -31,6 +31,7 @@ const (
 )
 
 const (
-	DataVolumeName = "datadir"
-	BinVolumeName  = "bin"
+	DataVolumeName             = "datadir"
+	BinVolumeName              = "bin"
+	MySQLUsersSecretVolumeName = "mysql-users-secret-file"
 )

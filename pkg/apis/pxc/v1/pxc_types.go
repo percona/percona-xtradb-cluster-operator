@@ -758,6 +758,10 @@ type ProxySQLSpec struct {
 	Expose ServiceExpose `json:"expose,omitempty"`
 
 	Scheduler ProxySQLSchedulerSpec `json:"scheduler"`
+
+	ReadinessProbe corev1.Probe `json:"readinessProbe,omitempty"`
+
+	LivenessProbe corev1.Probe `json:"livenessProbe,omitempty"`
 }
 
 type ProxySQLSchedulerSpec struct {
@@ -1579,87 +1583,83 @@ const (
 )
 
 func (cr *PerconaXtraDBCluster) setProbesDefaults() {
-	if cr.Spec.PXC.LivenessInitialDelaySeconds != nil {
-		cr.Spec.PXC.LivenessProbes.InitialDelaySeconds = *cr.Spec.PXC.LivenessInitialDelaySeconds
-	} else if cr.Spec.PXC.LivenessProbes.InitialDelaySeconds == 0 {
-		cr.Spec.PXC.LivenessProbes.InitialDelaySeconds = DefaultInitialDelaySeconds
-	}
+	applyProbeDefaults(&cr.Spec.PXC.LivenessProbes, probeDefaults{
+		InitialDelaySeconds: DefaultInitialDelaySeconds,
+		TimeoutSeconds:      5,
+		SuccessThreshold:    1,
+		FailureThreshold:    3,
+	}, cr.Spec.PXC.LivenessInitialDelaySeconds)
 
-	if cr.Spec.PXC.LivenessProbes.TimeoutSeconds == 0 {
-		cr.Spec.PXC.LivenessProbes.TimeoutSeconds = 5
-	}
-
-	if cr.Spec.PXC.LivenessProbes.FailureThreshold == 0 {
-		cr.Spec.PXC.LivenessProbes.FailureThreshold = 3
-	}
-
-	if cr.Spec.PXC.LivenessProbes.SuccessThreshold == 0 {
-		cr.Spec.PXC.LivenessProbes.SuccessThreshold = 1
-	}
-
-	if cr.Spec.PXC.ReadinessInitialDelaySeconds != nil {
-		cr.Spec.PXC.ReadinessProbes.InitialDelaySeconds = *cr.Spec.PXC.ReadinessInitialDelaySeconds
-	} else if cr.Spec.PXC.ReadinessProbes.InitialDelaySeconds == 0 {
-		cr.Spec.PXC.ReadinessProbes.InitialDelaySeconds = 15
-	}
-
-	if cr.Spec.PXC.ReadinessProbes.PeriodSeconds == 0 {
-		cr.Spec.PXC.ReadinessProbes.PeriodSeconds = 30
-	}
-
-	if cr.Spec.PXC.ReadinessProbes.FailureThreshold == 0 {
-		cr.Spec.PXC.ReadinessProbes.FailureThreshold = 5
-	}
-
-	if cr.Spec.PXC.ReadinessProbes.SuccessThreshold == 0 {
-		cr.Spec.PXC.ReadinessProbes.SuccessThreshold = 1
-	}
-
-	if cr.Spec.PXC.ReadinessProbes.TimeoutSeconds == 0 {
-		cr.Spec.PXC.ReadinessProbes.TimeoutSeconds = 15
-	}
+	applyProbeDefaults(&cr.Spec.PXC.ReadinessProbes, probeDefaults{
+		InitialDelaySeconds: 15,
+		PeriodSeconds:       30,
+		TimeoutSeconds:      15,
+		SuccessThreshold:    1,
+		FailureThreshold:    5,
+	}, cr.Spec.PXC.ReadinessInitialDelaySeconds)
 
 	if cr.Spec.HAProxyEnabled() {
-		if cr.Spec.HAProxy.ReadinessInitialDelaySeconds != nil {
-			cr.Spec.HAProxy.ReadinessProbes.InitialDelaySeconds = *cr.Spec.HAProxy.ReadinessInitialDelaySeconds
-		} else if cr.Spec.HAProxy.ReadinessProbes.InitialDelaySeconds == 0 {
-			cr.Spec.HAProxy.ReadinessProbes.InitialDelaySeconds = 15
-		}
-		if cr.Spec.HAProxy.ReadinessProbes.PeriodSeconds == 0 {
-			cr.Spec.HAProxy.ReadinessProbes.PeriodSeconds = 5
-		}
+		applyProbeDefaults(&cr.Spec.HAProxy.ReadinessProbes, probeDefaults{
+			InitialDelaySeconds: 15,
+			PeriodSeconds:       5,
+			TimeoutSeconds:      1,
+			SuccessThreshold:    1,
+			FailureThreshold:    3,
+		}, cr.Spec.HAProxy.ReadinessInitialDelaySeconds)
 
-		if cr.Spec.HAProxy.ReadinessProbes.TimeoutSeconds == 0 {
-			cr.Spec.HAProxy.ReadinessProbes.TimeoutSeconds = 1
-		}
+		applyProbeDefaults(&cr.Spec.HAProxy.LivenessProbes, probeDefaults{
+			InitialDelaySeconds: 60,
+			PeriodSeconds:       30,
+			TimeoutSeconds:      5,
+			SuccessThreshold:    1,
+			FailureThreshold:    4,
+		}, cr.Spec.HAProxy.LivenessInitialDelaySeconds)
+	}
 
-		if cr.Spec.HAProxy.ReadinessProbes.SuccessThreshold == 0 {
-			cr.Spec.HAProxy.ReadinessProbes.SuccessThreshold = 1
-		}
+	if cr.Spec.ProxySQLEnabled() && cr.CompareVersionWith("1.21.0") >= 0 {
+		applyProbeDefaults(&cr.Spec.ProxySQL.ReadinessProbe, probeDefaults{
+			InitialDelaySeconds: 15,
+			PeriodSeconds:       5,
+			TimeoutSeconds:      1,
+			SuccessThreshold:    1,
+			FailureThreshold:    3,
+		}, nil)
 
-		if cr.Spec.HAProxy.ReadinessProbes.FailureThreshold == 0 {
-			cr.Spec.HAProxy.ReadinessProbes.FailureThreshold = 3
-		}
+		applyProbeDefaults(&cr.Spec.ProxySQL.LivenessProbe, probeDefaults{
+			InitialDelaySeconds: 60,
+			PeriodSeconds:       30,
+			TimeoutSeconds:      5,
+			SuccessThreshold:    1,
+			FailureThreshold:    4,
+		}, nil)
+	}
+}
 
-		if cr.Spec.HAProxy.LivenessInitialDelaySeconds != nil {
-			cr.Spec.HAProxy.LivenessProbes.InitialDelaySeconds = *cr.Spec.HAProxy.LivenessInitialDelaySeconds
-		} else if cr.Spec.HAProxy.LivenessProbes.InitialDelaySeconds == 0 {
-			cr.Spec.HAProxy.LivenessProbes.InitialDelaySeconds = 60
-		}
+type probeDefaults struct {
+	InitialDelaySeconds int32
+	PeriodSeconds       int32
+	TimeoutSeconds      int32
+	SuccessThreshold    int32
+	FailureThreshold    int32
+}
 
-		if cr.Spec.HAProxy.LivenessProbes.TimeoutSeconds == 0 {
-			cr.Spec.HAProxy.LivenessProbes.TimeoutSeconds = 5
-		}
-		if cr.Spec.HAProxy.LivenessProbes.FailureThreshold == 0 {
-			cr.Spec.HAProxy.LivenessProbes.FailureThreshold = 4
-		}
-		if cr.Spec.HAProxy.LivenessProbes.PeriodSeconds == 0 {
-			cr.Spec.HAProxy.LivenessProbes.PeriodSeconds = 30
-		}
-
-		if cr.Spec.HAProxy.LivenessProbes.SuccessThreshold == 0 {
-			cr.Spec.HAProxy.LivenessProbes.SuccessThreshold = 1
-		}
+func applyProbeDefaults(probe *corev1.Probe, d probeDefaults, legacyInitialDelaySeconds *int32) {
+	if legacyInitialDelaySeconds != nil {
+		probe.InitialDelaySeconds = *legacyInitialDelaySeconds
+	} else if probe.InitialDelaySeconds == 0 {
+		probe.InitialDelaySeconds = d.InitialDelaySeconds
+	}
+	if probe.PeriodSeconds == 0 {
+		probe.PeriodSeconds = d.PeriodSeconds
+	}
+	if probe.TimeoutSeconds == 0 {
+		probe.TimeoutSeconds = d.TimeoutSeconds
+	}
+	if probe.SuccessThreshold == 0 {
+		probe.SuccessThreshold = d.SuccessThreshold
+	}
+	if probe.FailureThreshold == 0 {
+		probe.FailureThreshold = d.FailureThreshold
 	}
 }
 

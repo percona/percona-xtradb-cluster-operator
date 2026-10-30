@@ -202,6 +202,33 @@ func (c *Proxy) AppContainer(ctx context.Context, _ client.Client, spec *api.Pod
 		})
 	}
 
+	if cr.CompareVersionWith("1.21.0") >= 0 {
+		appc.ReadinessProbe = cr.Spec.ProxySQL.ReadinessProbe.DeepCopy()
+		if pb := appc.ReadinessProbe; pb.Exec == nil && pb.HTTPGet == nil && pb.TCPSocket == nil && pb.GRPC == nil {
+			appc.ReadinessProbe = app.Probe(pb, "/opt/percona/proxysql_readiness_check.sh")
+		}
+		appc.LivenessProbe = cr.Spec.ProxySQL.LivenessProbe.DeepCopy()
+		if pb := appc.LivenessProbe; pb.Exec == nil && pb.HTTPGet == nil && pb.TCPSocket == nil && pb.GRPC == nil {
+			appc.LivenessProbe = app.Probe(pb, "/opt/percona/proxysql_liveness_check.sh")
+		}
+
+		appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
+			Name:      naming.MySQLUsersSecretVolumeName,
+			MountPath: naming.MySQLUsersSecretMountPath,
+		})
+
+		appc.Env = append(appc.Env, []corev1.EnvVar{
+			{
+				Name:  "LIVENESS_CHECK_TIMEOUT",
+				Value: strconv.FormatInt(int64(cr.Spec.ProxySQL.LivenessProbe.TimeoutSeconds), 10),
+			},
+			{
+				Name:  "READINESS_CHECK_TIMEOUT",
+				Value: strconv.FormatInt(int64(cr.Spec.ProxySQL.ReadinessProbe.TimeoutSeconds), 10),
+			},
+		}...)
+	}
+
 	return appc, nil
 }
 
@@ -672,6 +699,17 @@ func (c *Proxy) Volumes(ctx context.Context, podSpec *api.PodSpec, cr *api.Perco
 		for i := range vol.PVCs {
 			vol.PVCs[i].Labels = ls
 		}
+	}
+
+	if cr.CompareVersionWith("1.21.0") >= 0 {
+		usersVolume := app.GetSecretVolumes(naming.MySQLUsersSecretVolumeName, "internal-"+cr.Name, false)
+		usersVolume.Secret.Items = []corev1.KeyToPath{
+			{
+				Key:  users.ProxyAdmin,
+				Path: users.ProxyAdmin,
+			},
+		}
+		vol.Volumes = append(vol.Volumes, usersVolume)
 	}
 
 	return vol, nil

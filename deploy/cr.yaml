@@ -471,6 +471,18 @@ spec:
 #      nodeCheckIntervalMilliseconds: 2000
 #      maxConnections: 1000
 #    schedulerName: mycustom-scheduler
+#    readinessProbe:
+#      initialDelaySeconds: 15
+#      timeoutSeconds: 1
+#      periodSeconds: 5
+#      successThreshold: 1
+#      failureThreshold: 3
+#    livenessProbe:
+#      initialDelaySeconds: 60
+#      timeoutSeconds: 5
+#      periodSeconds: 30
+#      successThreshold: 1
+#      failureThreshold: 4
 #    imagePullSecrets:
 #      - name: private-registry-credentials
 #    annotations:

@@ -14,6 +14,7 @@ const (
 )
 
 const (
-	BinVolumeMountPath = "/opt/percona"
-	BackupLogDir       = "/var/log/xtrabackup"
+	BinVolumeMountPath        = "/opt/percona"
+	BackupLogDir              = "/var/log/xtrabackup"
+	MySQLUsersSecretMountPath = "/etc/mysql/mysql-users-secret"
 )

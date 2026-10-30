@@ -23,11 +23,22 @@ function check_ld_preload() {
 	ld_preload=$(kubectl_bin exec ${cluster}-pxc-0 -- bash -c 'echo ${LD_PRELOAD}')
 	log "LD_PRELOAD is set to ${ld_preload}: OK"
 
-	if ! kubectl_bin exec ${cluster}-pxc-0 -- ldd /usr/sbin/mysqld | grep -q ${ld_preload}; then
-		echo "Allocator is not used by mysqld!"
+	local ldd_output
+	ldd_output=$(kubectl_bin exec ${cluster}-pxc-0 -- ldd /usr/sbin/mysqld)
+
+	local found=0
+	IFS=':' read -ra libs <<< "${ld_preload}"
+	for lib in "${libs[@]}"; do
+		if echo "${ldd_output}" | grep -q "${lib}"; then
+			log "${lib} is used by /usr/sbin/mysqld: OK"
+			found=1
+		fi
+	done
+
+	if [[ ${found} -eq 0 ]]; then
+		echo "None of the LD_PRELOAD libraries (${ld_preload}) are used by mysqld!"
 		exit 1
 	fi
-	log "${ld_preload} is used by /usr/sbin/mysqld: OK"
 }
 
 function check_innodb_numa_interleave() {

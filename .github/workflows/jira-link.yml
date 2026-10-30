@@ -15,13 +15,20 @@ jobs:
         with:
           script: |
             const pr = context.payload.pull_request;
-            const match = pr.head.ref.match(/^([A-Z][A-Z0-9]+-\d+)/);
-            if (!match) return;
-            const key = match[1];
             const body = pr.body || '';
-            if (body.includes(key)) return;
+            const marker = '<!-- jira-ticket -->';
+            const keyPattern = '[A-Z][A-Z0-9]+-\\d+';
+            const fromBranch = pr.head.ref.match(new RegExp(`^(${keyPattern})`));
+            const fromTitle = pr.title.match(new RegExp(`\\b(${keyPattern})\\b`));
+            const key = (fromBranch || fromTitle)?.[1];
+            if (!key) return;
+            const hasMarker = body.includes(marker);
+            if (!hasMarker && body.includes(key)) return;
+            const newBody = hasMarker
+              ? body.replace(marker, key)
+              : `Jira: ${key}\n\n${body}`;
             await github.rest.pulls.update({
               ...context.repo,
               pull_number: pr.number,
-              body: `Jira: ${key}\n\n${body}`,
+              body: newBody,
             });

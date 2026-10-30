@@ -431,6 +431,7 @@ func (r *Recoverer) recover(ctx context.Context) (err error) {
 		cmd.Stdout = binlogStdout
 		cmd.Stderr = os.Stderr
 		err = cmd.Run()
+		binlogObj.Close() //nolint:errcheck
 		if err != nil {
 			return errors.Wrapf(err, "run mysqlbinlog")
 		}

@@ -307,6 +307,7 @@ func (c *Collector) lastGTIDSet(ctx context.Context, suffix string) (pxc.GTIDSet
 		}
 		return pxc.GTIDSet{}, errors.Wrap(err, "get last set content")
 	}
+	defer lastSetObject.Close() //nolint:errcheck
 	lastSet, err := io.ReadAll(lastSetObject)
 	if err != nil {
 		return pxc.GTIDSet{}, errors.Wrap(err, "read last gtid set")

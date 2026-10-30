@@ -1,0 +1,19 @@
+name: "Jira Ticket Link"
+
+on:
+  pull_request:
+    types: [opened, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  link:
+    if: github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: onrunning/jira-pr-action@v2
+        with:
+          jira-account: perconadev
+          ticket-regex: ^ABC-\d+

@@ -1,7 +1,7 @@
 name: Add Jira ticket to PR
 description: Branch names contain Jira ticket names. This workflow adds the ticket name to the PR description and it becomes clickable automatically
 on:
-  pull_request:
+  pull_request_target:
     types: [opened]
 
 permissions:
@@ -22,9 +22,7 @@ jobs:
             const fromTitle = pr.title.match(new RegExp(`\\b(${keyPattern})\\b`));
             const key = (fromBranch || fromTitle)?.[1];
             if (!key) return;
-            const hasMarker = body.includes(marker);
-            if (!hasMarker && body.includes(key)) return;
-            const newBody = hasMarker
+            const newBody = body.includes(marker)
               ? body.replace(marker, key)
               : `Jira: ${key}\n\n${body}`;
             await github.rest.pulls.update({

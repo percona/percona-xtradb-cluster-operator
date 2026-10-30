@@ -224,6 +224,61 @@ escape_special() {
 		| sed 's/"/\\\"/g'
 }
 
+start_temp_mysqld() {
+	SOCKET="$(_get_config 'socket' "$@")"
+	"$@" --skip-networking --socket="${SOCKET}" --wsrep-provider='none' &
+	pid="$!"
+
+	mysql=(mysql --protocol=socket -uroot -hlocalhost --socket="${SOCKET}" --password="")
+	{ set +x; } 2>/dev/null
+	if [ -n "$MYSQL_ROOT_PASSWORD" ]; then
+		mysql+=(-p"${MYSQL_ROOT_PASSWORD}")
+	fi
+	# Keep tracing disabled while callers use the credential-bearing mysql array.
+
+	for i in {120..0}; do
+		if echo 'SELECT 1' | "${mysql[@]}" &>/dev/null; then
+			return 0
+		fi
+		echo >&2 "Temporary MySQL instance is starting..."
+		sleep 1
+	done
+
+	echo >&2 'Failed to start temporary MySQL instance.'
+	exit 1
+}
+
+stop_temp_mysqld() {
+	if ! kill -s TERM "$pid" || ! wait "$pid"; then
+		echo >&2 'Failed to stop temporary MySQL instance.'
+		exit 1
+	fi
+	set -x
+}
+
+install_component() {
+	local component="$1"
+	local installed
+
+	installed=$(echo "SELECT COUNT(1) FROM mysql.component WHERE component_urn = '$(escape_special "${component}")';" | "${mysql[@]}" -N)
+
+	if [ "${installed}" -eq 0 ]; then
+		echo "Installing ${component}"
+		echo "INSTALL COMPONENT '$(escape_special "${component}")';" | "${mysql[@]}"
+	fi
+}
+
+# PXC 8.0 registers the binlog helper functions with CREATE FUNCTION ... SONAME, which
+# leaves three rows in mysql.func. 8.4 ships them as a component instead, so the stale
+# rows have to go before the component is installed, or both registrations end up live
+# at once and the PITR collector fails to resolve the functions.
+drop_legacy_binlog_udf() {
+	echo "Removing legacy binlog_utils_udf functions from mysql.func"
+	"${mysql[@]}" <<-EOSQL
+		DELETE FROM mysql.func WHERE dl = 'binlog_utils_udf.so';
+	EOSQL
+}
+
 MYSQL_VERSION=$(mysqld -V | awk '{print $3}' | awk -F'.' '{print $1"."$2}')
 MYSQL_PATCH_VERSION=$(mysqld -V | awk '{print $3}' | awk -F'.' '{print $3}' | awk -F'-' '{print $1}')
 
@@ -641,34 +696,38 @@ if [ "$1" = 'mysqld' ] && [ -z "$wantHelp" ]; then
 		pxc_version=$(grep 'server_version' "$pxc_version_file" | awk '{print $3}' | tr -d '\n')
 	fi
 
+	prev_major=''
+	if [ -n "$pxc_version" ]; then
+		prev_major=$(echo "$pxc_version" | awk -F'.' '{print $1"."$2}')
+	fi
+
 	if [[ -f $pxc_version_file && -n $pxc_version && $MYSQL_VERSION == '5.7' ]] && [[ $(cat /tmp/version_info) != "$pxc_version" ]]; then
-		SOCKET="$(_get_config 'socket' "$@")"
-		"$@" --skip-networking --socket="${SOCKET}" --wsrep-provider='none' &
-		pid="$!"
-
-		mysql=(mysql --protocol=socket -uroot -hlocalhost --socket="${SOCKET}" --password="")
-		{ set +x; } 2>/dev/null
-		if [ -n "$MYSQL_ROOT_PASSWORD" ]; then
-			mysql+=(-p"${MYSQL_ROOT_PASSWORD}")
-		fi
-		set -x
-
-		for i in {120..0}; do
-			if echo 'SELECT 1' | "${mysql[@]}" &>/dev/null; then
-				break
-			fi
-			echo >&2 "MySQL upgrade process in progress..."
-			sleep 1
-		done
-		if [ "$i" = 0 ]; then
-			echo >&2 'MySQL upgrade process failed.'
-			exit 1
-		fi
+		start_temp_mysqld "$@"
 
 		mysql_upgrade --force "${mysql[@]:1}"
-		if ! kill -s TERM "$pid" || ! wait "$pid"; then
-			echo >&2 'MySQL upgrade process failed.'
-			exit 1
+
+		stop_temp_mysqld
+	fi
+
+	# A major upgrade (e.g. 8.0 -> 8.4) leaves the data directory carrying state that only
+	# the first-time init path knows how to set up: the binlog helper functions that moved
+	# from a plugin to a component, and the audit log component. Re-run those steps once,
+	# on the first boot that sees the new major version. The work happens on a temporary
+	# instance started with wsrep disabled, so nothing replicates and a node still running
+	# the old major version cannot be evicted by a TOI it has no component file for.
+	if [ -n "$prev_major" ] && [ "$prev_major" != "$MYSQL_VERSION" ]; then
+		echo "Major version change detected: ${prev_major} -> ${MYSQL_VERSION}"
+
+		if [ "$MYSQL_VERSION" == '8.4' ]; then
+			start_temp_mysqld "$@"
+
+			drop_legacy_binlog_udf
+			install_component "file://component_binlog_utils_udf"
+
+			echo "Installing file://component_audit_log_filter"
+			"${mysql[@]}" mysql </usr/share/percona-xtradb-cluster/audit_log_filter_linux_install.sql
+
+			stop_temp_mysqld
 		fi
 	fi
 	"$@" --version | sed 's/-ps//' >"$DATADIR/version_info"

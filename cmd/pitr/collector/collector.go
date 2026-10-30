@@ -87,6 +87,7 @@ type Collector struct {
 	pxcPass         string      // password for connection to PXC
 	gtidCacheKey    string      // filename of gtid cache json
 	sourceID        string
+	lastSetWritten  time.Time // when the last-set objects were last written
 }
 
 type Config struct {
@@ -128,6 +129,10 @@ type BackupAzure struct {
 const (
 	lastSetFilePrefix string = "last-binlog-set-" // filename prefix for object where the last binlog set will be stored
 	gtidPostfix       string = "-gtid-set"        // filename postfix for files with GTID set
+
+	// GCS rejects more than about one write per second to the same object
+	// with 429 SlowDown, so the last-set objects are rewritten at most this often.
+	lastSetWriteInterval = time.Second
 )
 
 func New(ctx context.Context, c Config) (*Collector, error) {
@@ -656,8 +661,8 @@ func (c *Collector) CollectBinLogs(ctx context.Context) error {
 		}
 	}
 
-	for _, binlog := range binlogList {
-		err = c.manageBinlog(ctx, binlog)
+	for i, binlog := range binlogList {
+		err = c.manageBinlog(ctx, binlog, i == len(binlogList)-1)
 		if err != nil {
 			return errors.Wrap(err, "manage binlog")
 		}
@@ -699,7 +704,7 @@ func extractIncrementalNumber(binlogName string) (string, error) {
 	return parts[len(parts)-1], nil
 }
 
-func (c *Collector) manageBinlog(ctx context.Context, binlog pxc.Binlog) (err error) {
+func (c *Collector) manageBinlog(ctx context.Context, binlog pxc.Binlog, lastInRun bool) (err error) {
 	binlogTmstmp, err := c.db.GetBinLogFirstTimestamp(ctx, binlog.Name)
 	if err != nil {
 		return errors.Wrapf(err, "get first timestamp for %s", binlog.Name)
@@ -712,11 +717,6 @@ func (c *Collector) manageBinlog(ctx context.Context, binlog pxc.Binlog) (err er
 
 	// Construct internal storage filename with timestamp, incremental number, and GTID md5 hash
 	binlogName := fmt.Sprintf("binlog_%s_%s_%x", binlogTmstmp, incrementalNum, md5.Sum([]byte(binlog.GTIDSet.Raw())))
-
-	var setBuffer bytes.Buffer
-	// no error handling because WriteString() always returns nil error
-	// nolint:errcheck
-	setBuffer.WriteString(binlog.GTIDSet.Raw())
 
 	tmpDir := os.TempDir() + "/"
 
@@ -784,27 +784,49 @@ func (c *Collector) manageBinlog(ctx context.Context, binlog pxc.Binlog) (err er
 		return errors.Wrap(err, "wait mysqlbinlog command error:"+errBuf.String())
 	}
 
-	err = c.storage.PutObject(ctx, binlogName+gtidPostfix, &setBuffer, int64(setBuffer.Len()))
+	setRaw := binlog.GTIDSet.Raw()
+	err = c.storage.PutObject(ctx, binlogName+gtidPostfix, strings.NewReader(setRaw), int64(len(setRaw)))
 	if err != nil {
 		return errors.Wrap(err, "put gtid-set object")
 	}
-	for _, gtidSet := range binlog.GTIDSet.List() {
-		// no error handling because WriteString() always returns nil error
-		// nolint:errcheck
-		setBuffer.WriteString(binlog.GTIDSet.Raw())
 
+	if c.lastSetDue(lastInRun) {
+		if err = c.writeLastSet(ctx, binlog.GTIDSet); err != nil {
+			return err
+		}
+	}
+	c.lastUploadedSet = binlog.GTIDSet
+
+	return nil
+}
+
+// lastSetDue reports whether the last-set objects should be written after the
+// current binlog. The last binlog of a run is always recorded.
+func (c *Collector) lastSetDue(lastInRun bool) bool {
+	return lastInRun || time.Since(c.lastSetWritten) >= lastSetWriteInterval
+}
+
+// writeLastSet stores the GTID set of the last uploaded binlog under each of its
+// source UUIDs, so that the next run knows where to resume. Skipping it for a
+// binlog only means that a restarted collector uploads that binlog again.
+//
+// The objects are uploaded from seekable readers: the storage client retries
+// failed requests (e.g. 429 SlowDown) only when it can rewind the body.
+func (c *Collector) writeLastSet(ctx context.Context, set pxc.GTIDSet) error {
+	setRaw := set.Raw()
+	for _, gtidSet := range set.List() {
 		lastSetName := lastSetFilePrefix + strings.Split(gtidSet, ":")[0]
 
 		// remove any newline characters from the last set name
 		lastSetName = strings.ReplaceAll(lastSetName, "\n", "")
 		lastSetName = strings.ReplaceAll(lastSetName, "\r", "")
 
-		err = c.storage.PutObject(ctx, lastSetName, &setBuffer, int64(setBuffer.Len()))
+		err := c.storage.PutObject(ctx, lastSetName, strings.NewReader(setRaw), int64(len(setRaw)))
 		if err != nil {
 			return errors.Wrap(err, "put last-set object")
 		}
 	}
-	c.lastUploadedSet = binlog.GTIDSet
+	c.lastSetWritten = time.Now()
 
 	return nil
 }

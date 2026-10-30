@@ -9,6 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	goversion "github.com/hashicorp/go-version"
 	"github.com/pkg/errors"
 	"github.com/robfig/cron/v3"
 	corev1 "k8s.io/api/core/v1"
@@ -287,6 +288,27 @@ func (r *ReconcilePerconaXtraDBCluster) getNewVersions(ctx context.Context, cr *
 	return newVersion, nil
 }
 
+// isDowngrade reports whether moving from currentVersion to newVersion is a PXC downgrade.
+func isDowngrade(currentVersion, newVersion string) (bool, error) {
+	next, err := goversion.NewVersion(newVersion)
+	if err != nil {
+		return false, errors.Wrapf(err, "parse new version %s", newVersion)
+	}
+
+	// The cluster hasn't reported its version yet, so there's nothing to
+	// downgrade from.
+	if currentVersion == "" {
+		return false, nil
+	}
+
+	current, err := goversion.NewVersion(currentVersion)
+	if err != nil {
+		return false, errors.Wrapf(err, "parse current version %s", currentVersion)
+	}
+
+	return next.Core().LessThan(current.Core()), nil
+}
+
 func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(ctx context.Context, cr *apiv1.PerconaXtraDBCluster, vs VersionService) error {
 	log := logf.FromContext(ctx)
 
@@ -301,6 +323,19 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(ctx context.Context, cr
 	newVersion, err := r.getNewVersions(ctx, cr, vs)
 	if err != nil {
 		return errors.Wrap(err, "failed to get new versions")
+	}
+
+	downgrade, err := isDowngrade(cr.Status.PXC.Version, newVersion.PXCVersion)
+	if err != nil {
+		log.Error(err, "skipping version update: failed to compare PXC versions",
+			"currentVersion", cr.Status.PXC.Version, "newVersion", newVersion.PXCVersion)
+		return nil
+	}
+	if downgrade {
+		log.Error(nil, "skipping version update: version service returned an older PXC version and downgrades are not supported",
+			"currentVersion", cr.Status.PXC.Version, "newVersion", newVersion.PXCVersion,
+			"apply", cr.Spec.UpgradeOptions.Apply)
+		return nil
 	}
 
 	patch := client.MergeFrom(cr.DeepCopy())

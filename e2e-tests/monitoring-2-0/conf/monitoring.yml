@@ -31,6 +31,22 @@ spec:
     affinity:
       antiAffinityTopologyKey: none
     envVarsSecret: my-env-var-secrets
+  proxysql:
+    enabled: false
+    size: 2
+    image: -proxysql
+    resources:
+      requests:
+        memory: 500M
+        cpu: 300m
+    volumeSpec:
+      persistentVolumeClaim:
+        resources:
+          requests:
+            storage: 2Gi
+    affinity:
+      antiAffinityTopologyKey: none
+    envVarsSecret: my-env-var-secrets
   pmm:
     enabled: true
     image: -pmm

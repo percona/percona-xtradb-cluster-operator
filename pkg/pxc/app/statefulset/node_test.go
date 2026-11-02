@@ -69,7 +69,7 @@ func TestAppContainer(t *testing.T) {
 				c := defaultExpectedContainer()
 				c.Env = append(c.Env, corev1.EnvVar{
 					Name:  "LD_PRELOAD",
-					Value: "/usr/lib64/libjemalloc.so.2",
+					Value: "/usr/lib64/libjemalloc.so.1:/usr/lib64/libjemalloc.so.2",
 				})
 				return c
 			},
@@ -91,7 +91,7 @@ func TestAppContainer(t *testing.T) {
 			expectedContainer: func() corev1.Container {
 				c := defaultExpectedContainer()
 				c.Image = "percona/percona-xtradb-cluster:8.4.32"
-				c.Env = append(c.Env, corev1.EnvVar{Name: "LD_PRELOAD", Value: "/usr/lib64/libjemalloc.so.2"})
+				c.Env = append(c.Env, corev1.EnvVar{Name: "LD_PRELOAD", Value: "/usr/lib64/libjemalloc.so.1:/usr/lib64/libjemalloc.so.2"})
 				return c
 			},
 		},
@@ -112,7 +112,28 @@ func TestAppContainer(t *testing.T) {
 			expectedContainer: func() corev1.Container {
 				c := defaultExpectedContainer()
 				c.Image = "percona/percona-xtradb-cluster:8.0.35"
-				c.Env = append(c.Env, corev1.EnvVar{Name: "LD_PRELOAD", Value: "/usr/lib64/libjemalloc.so.1"})
+				c.Env = append(c.Env, corev1.EnvVar{Name: "LD_PRELOAD", Value: "/usr/lib64/libjemalloc.so.1:/usr/lib64/libjemalloc.so.2"})
+				return c
+			},
+		},
+		"container construction with jemalloc and crVersion < 1.21.0 uses legacy path": {
+			spec: api.PerconaXtraDBClusterSpec{
+				CRVersion: "1.20.0",
+				PXC: &api.PXCSpec{
+					MySQLAllocator: "jemalloc",
+					PodSpec: &api.PodSpec{
+						Image:             "percona/percona-xtradb-cluster:8.4.32",
+						ImagePullPolicy:   corev1.PullIfNotPresent,
+						LivenessProbes:    corev1.Probe{TimeoutSeconds: 5},
+						ReadinessProbes:   corev1.Probe{TimeoutSeconds: 15},
+						EnvVarsSecretName: "test-secret",
+					},
+				},
+			},
+			expectedContainer: func() corev1.Container {
+				c := defaultExpectedContainer()
+				c.Image = "percona/percona-xtradb-cluster:8.4.32"
+				c.Env = append(c.Env, corev1.EnvVar{Name: "LD_PRELOAD", Value: "/usr/lib64/libjemalloc.so.2"})
 				return c
 			},
 		},
@@ -715,6 +736,7 @@ func TestLogCollectorContainer(t *testing.T) {
 		})
 	}
 }
+
 
 func TestJemallocPathForPXCImage(t *testing.T) {
 	tests := []struct {

@@ -108,13 +108,14 @@ _do_major_upgrade_84() {
 
 	# New grants are added in 8.4, so users with ALL need to refresh so the newly added grants are recorded.
 	"${mysql[@]}" <<-EOSQL
+		SET @@SESSION.SQL_LOG_BIN=0;
 		GRANT ALL ON *.* TO 'root'@'localhost' WITH GRANT OPTION ;
 		GRANT ALL ON *.* TO 'operator'@'${MYSQL_ROOT_HOST}' WITH GRANT OPTION ;
 		FLUSH PRIVILEGES ;
 	EOSQL
 
 	stop_temp_mysqld
-	
+
 }
 
 # Fetch value from server config
@@ -741,7 +742,7 @@ if [ "$1" = 'mysqld' ] && [ -z "$wantHelp" ]; then
 		echo "Major version change detected: ${prev_major} -> ${MYSQL_VERSION}"
 
 		if [ "$MYSQL_VERSION" == '8.4' ]; then
-			_do_major_upgrade_84
+			_do_major_upgrade_84 "$@"
 		fi
 	fi
 	"$@" --version | sed 's/-ps//' >"$DATADIR/version_info"

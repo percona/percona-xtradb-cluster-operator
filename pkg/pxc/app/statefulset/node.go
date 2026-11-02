@@ -297,6 +297,9 @@ func (c *Node) AppContainer(ctx context.Context, cl client.Client, spec *api.Pod
 	return appc, nil
 }
 
+// jemallocPathForPXCImage returns the jemalloc shared object path based on
+// the PXC image tag. Used only for crVersion < 1.21.0 to preserve the
+// existing LD_PRELOAD value and avoid unnecessary StatefulSet restarts.
 func jemallocPathForPXCImage(pxcImage string) string {
 	const (
 		libJemallocSo1 = "/usr/lib64/libjemalloc.so.1"
@@ -311,7 +314,6 @@ func jemallocPathForPXCImage(pxcImage string) string {
 	}
 	tag := strings.ToLower(pxcImage[idx+1:])
 
-	// Operator-style tags: main-pxc8.0, main-pxc8.4
 	if strings.Contains(tag, "pxc8.0") {
 		return libJemallocSo1
 	}
@@ -319,7 +321,6 @@ func jemallocPathForPXCImage(pxcImage string) string {
 		return libJemallocSo2
 	}
 
-	// Semantic version in tag (e.g. 8.0.35, 8.4.32, 8.4.32-31)
 	parts := strings.SplitN(tag, ".", 3)
 	if len(parts) < 2 {
 		return libJemallocSo2
@@ -329,7 +330,6 @@ func jemallocPathForPXCImage(pxcImage string) string {
 	if errMajor != nil || errMinor != nil {
 		return libJemallocSo2
 	}
-	// Only 8.0.x uses .so.1; everything else (8.4+, 9.x, unknown) uses .so.2
 	if major == 8 && minor == 0 {
 		return libJemallocSo1
 	}
@@ -345,6 +345,11 @@ func setLDPreloadEnv(
 	const (
 		ldPreloadKey    = "LD_PRELOAD"
 		libTcmallocPath = "/usr/lib64/libtcmalloc.so"
+		// RHEL9 ships jemalloc 3.6.0 (libjemalloc.so.1) on x86_64 and
+		// jemalloc 5.2.1 (libjemalloc.so.2) on aarch64. The operator
+		// cannot know the node architecture at pod-spec time, so we
+		// include both paths; the dynamic linker loads whichever exists.
+		libJemallocPaths = "/usr/lib64/libjemalloc.so.1:/usr/lib64/libjemalloc.so.2"
 	)
 
 	ldPreloadValue := ""
@@ -352,7 +357,11 @@ func setLDPreloadEnv(
 	// Determine the allocator
 	switch strings.ToLower(cr.Spec.PXC.MySQLAllocator) {
 	case "jemalloc":
-		ldPreloadValue += ":" + jemallocPathForPXCImage(cr.Spec.PXC.Image)
+		if cr.CompareVersionWith("1.21.0") >= 0 {
+			ldPreloadValue += ":" + libJemallocPaths
+		} else {
+			ldPreloadValue += ":" + jemallocPathForPXCImage(cr.Spec.PXC.Image)
+		}
 	case "tcmalloc":
 		ldPreloadValue += ":" + libTcmallocPath
 	}

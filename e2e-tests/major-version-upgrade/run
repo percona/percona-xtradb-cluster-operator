@@ -51,7 +51,7 @@ fi
 
 IMAGE_PXC="${INIT_IMAGE_PXC}"
 IMAGE_BACKUP="${INIT_IMAGE_BACKUP}"
-.
+
 wait_pxc_pods_image() {
 	local target=$1
 

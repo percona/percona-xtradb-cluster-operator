@@ -120,6 +120,24 @@ check_binlog_udf_registration() {
 	done
 }
 
+cluster_gtid_executed() {
+	local host=$1
+
+	local gtid_set
+	gtid_set=$(run_mysql \
+		"SELECT GTID_SUBTRACT(@@gtid_executed, CONCAT(@@server_uuid, ':1-9223372036854775806'));" \
+		"-h ${host} -uroot -proot_password")
+
+	local uuids
+	uuids=$(echo "${gtid_set}" | grep -Eo '[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}' | sort -u | wc -l | tr -d ' ')
+	if [[ ${uuids} != "1" ]]; then
+		echo "expected exactly one replicated GTID timeline on ${host}, got ${uuids}: ${gtid_set}" >&2
+		return 1
+	fi
+
+	echo "${gtid_set}" | $sed 's/^\([a-f0-9-]\{36\}\):[0-9]*-\([0-9]*\).*/\1:\2/'
+}
+
 write_test_data() {
 	desc 'write test data'
 
@@ -182,7 +200,7 @@ main() {
             "pxc": { "image": "'"${TARGET_IMAGE_PXC}"'" },
             "backup": { "image": "'"${TARGET_IMAGE_BACKUP}"'" }
         }}'
-	
+
 	IMAGE_PXC="${TARGET_IMAGE_PXC}"
 	IMAGE_BACKUP="${TARGET_IMAGE_BACKUP}"
 
@@ -210,22 +228,20 @@ main() {
 
 	desc 'backup on 8.4'
 	run_backup "${CLUSTER}" "backup-8-4"
-	sleep_with_log 65 # wait for one binlog collection cycle
-	check_latest_restorable_time "backup-8-4"
-	check_binlog_gap "backup-8-4"
 
-	# shellcheck disable=SC2034 # read by get_gtid_executed in ../functions
-	mysql_root_pass=root_password
-	gtid=$(get_gtid_executed "${CLUSTER}-pxc-0.${CLUSTER}-pxc.${namespace}")
-	log "gtid_executed before the post-upgrade writes: ${gtid}"
+	gtid=$(cluster_gtid_executed "${CLUSTER}-pxc-0.${CLUSTER}-pxc.${namespace}") || exit 1
+	log "replicated gtid_executed before the post-upgrade writes: ${gtid}"
 
 	write_data_for_pitr "${CLUSTER}" 100506 3
 	sleep_with_log 65 # wait for one binlog collection cycle
 
+	check_latest_restorable_time "backup-8-4"
+	check_binlog_gap "backup-8-4"
+
 	desc "pitr restore on 8.4 to gtid ${gtid}"
 	run_recovery_check_pitr "${CLUSTER}" "restore-pitr" "backup-8-4" "select-3" "" "" "${gtid}"
 
-	log "gtid_executed after restore: $(get_gtid_executed "${CLUSTER}-pxc-0.${CLUSTER}-pxc.${namespace}")"
+	log "gtid_executed after restore: $(run_mysql "SELECT @@gtid_executed;" "-h ${CLUSTER}-pxc-0.${CLUSTER}-pxc.${namespace} -uroot -proot_password")"
 
 	desc 'backup after the restore'
 	run_backup "${CLUSTER}" "backup-after-restore"

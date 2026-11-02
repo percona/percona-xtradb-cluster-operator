@@ -102,7 +102,10 @@ _do_major_upgrade_84() {
 	install_component "file://component_binlog_utils_udf"
 
 	echo "Installing file://component_audit_log_filter"
-	"${mysql[@]}" mysql </usr/share/percona-xtradb-cluster/audit_log_filter_linux_install.sql
+	(
+		echo "SET @@SESSION.SQL_LOG_BIN=0;"
+		cat /usr/share/percona-xtradb-cluster/audit_log_filter_linux_install.sql
+	) | "${mysql[@]}" mysql
 
 	echo "Refreshing grants"
 
@@ -289,7 +292,10 @@ install_component() {
 
 	if [ "${installed}" -eq 0 ]; then
 		echo "Installing ${component}"
-		echo "INSTALL COMPONENT '$(escape_special "${component}")';" | "${mysql[@]}"
+		(
+			echo "SET @@SESSION.SQL_LOG_BIN=0;"
+			echo "INSTALL COMPONENT '$(escape_special "${component}")';"
+		) | "${mysql[@]}"
 	fi
 }
 
@@ -300,6 +306,7 @@ install_component() {
 drop_legacy_binlog_udf() {
 	echo "Removing legacy binlog_utils_udf functions from mysql.func"
 	"${mysql[@]}" <<-EOSQL
+		SET @@SESSION.SQL_LOG_BIN=0;
 		DELETE FROM mysql.func WHERE dl = 'binlog_utils_udf.so';
 	EOSQL
 }

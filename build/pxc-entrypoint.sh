@@ -106,6 +106,8 @@ _do_major_upgrade_84() {
 
 	echo "Refreshing grants"
 
+	file_env 'MYSQL_ROOT_HOST' '%'
+
 	# New grants are added in 8.4, so users with ALL need to refresh so the newly added grants are recorded.
 	"${mysql[@]}" <<-EOSQL
 		SET @@SESSION.SQL_LOG_BIN=0;

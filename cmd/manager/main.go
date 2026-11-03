@@ -135,6 +135,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	err = configureController(&options, envs)
+	if err != nil {
+		setupLog.Error(err, "failed to configure controller")
+		os.Exit(1)
+	}
+
 	// Add support for MultiNamespace set in WATCH_NAMESPACE
 	if len(namespace) > 0 {
 		namespaces := make(map[string]cache.Config)
@@ -270,6 +276,11 @@ type envConfig struct {
 	RenewDeadline    time.Duration `default:"10s" envconfig:"PXCO_LEADER_ELECTION_RENEW_DEADLINE"`
 	RetryPeriod      time.Duration `default:"2s" envconfig:"PXCO_LEADER_ELECTION_RETRY_PERIOD"`
 
+	// CacheSyncTimeout is the time limit to wait for syncing caches of the
+	// controllers. The controller-runtime default (2 minutes) may not be
+	// enough when the operator watches a large number of namespaces.
+	CacheSyncTimeout time.Duration `default:"2m" envconfig:"PXCO_CACHE_SYNC_TIMEOUT"`
+
 	FeatureGates string `envconfig:"PXCO_FEATURE_GATES"`
 
 	Workers *int `envconfig:"MAX_CONCURRENT_RECONCILES"`
@@ -317,5 +328,13 @@ func configureGroupKindConcurrency(options *ctrl.Options, envs *envConfig) error
 			options.Controller.GroupKindConcurrency[gk] = *envs.Workers
 		}
 	}
+	return nil
+}
+
+func configureController(options *ctrl.Options, envs *envConfig) error {
+	if envs.CacheSyncTimeout <= 0 {
+		return fmt.Errorf("PXCO_CACHE_SYNC_TIMEOUT must be a positive duration: %s", envs.CacheSyncTimeout)
+	}
+	options.Controller.CacheSyncTimeout = envs.CacheSyncTimeout
 	return nil
 }

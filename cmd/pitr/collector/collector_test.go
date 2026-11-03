@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/percona/percona-xtradb-cluster-operator/cmd/pitr/pxc"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage"
 )
 
 func TestReadBinlog(t *testing.T) {
@@ -176,4 +177,40 @@ func TestFindBinlogWithEndMarker(t *testing.T) {
 			assert.Equal(t, tt.want, got)
 		})
 	}
+}
+
+type closeTrackingReader struct {
+	io.Reader
+	closed bool
+}
+
+func (r *closeTrackingReader) Close() error {
+	r.closed = true
+	return nil
+}
+
+type lastSetStorage struct {
+	storage.Storage
+	obj *closeTrackingReader
+}
+
+func (s *lastSetStorage) GetObject(_ context.Context, _ string) (io.ReadCloser, error) {
+	return s.obj, nil
+}
+
+func TestLastGTIDSetClosesObject(t *testing.T) {
+	t.Parallel()
+
+	const gtidSet = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa:1-10"
+
+	obj := &closeTrackingReader{Reader: bytes.NewBufferString(gtidSet)}
+	c := &Collector{storage: &lastSetStorage{obj: obj}}
+
+	set, err := c.lastGTIDSet(context.Background(), "uuid")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	assert.Equal(t, gtidSet, set.Raw())
+	assert.True(t, obj.closed, "last set object must be closed")
 }

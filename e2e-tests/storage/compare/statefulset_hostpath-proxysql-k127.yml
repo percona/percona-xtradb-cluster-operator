@@ -126,7 +126,7 @@ spec:
             initialDelaySeconds: 15
             periodSeconds: 5
             successThreshold: 1
-            timeoutSeconds: 1
+            timeoutSeconds: 5
           resources: {}
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File

@@ -1620,7 +1620,7 @@ func (cr *PerconaXtraDBCluster) setProbesDefaults() {
 		applyProbeDefaults(&cr.Spec.ProxySQL.ReadinessProbe, probeDefaults{
 			InitialDelaySeconds: 15,
 			PeriodSeconds:       5,
-			TimeoutSeconds:      1,
+			TimeoutSeconds:      5,
 			SuccessThreshold:    1,
 			FailureThreshold:    3,
 		}, nil)

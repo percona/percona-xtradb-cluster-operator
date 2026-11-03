@@ -563,7 +563,7 @@ func TestSetProbesDefaults(t *testing.T) {
 			ProbeHandler:        corev1.ProbeHandler{},
 			InitialDelaySeconds: 15,
 			PeriodSeconds:       5,
-			TimeoutSeconds:      1,
+			TimeoutSeconds:      5,
 			SuccessThreshold:    1,
 			FailureThreshold:    3,
 		}, cr.Spec.ProxySQL.ReadinessProbe)
@@ -598,7 +598,7 @@ func TestSetProbesDefaults(t *testing.T) {
 
 		assert.Equal(t, int32(42), cr.Spec.ProxySQL.ReadinessProbe.PeriodSeconds)
 		assert.Equal(t, int32(15), cr.Spec.ProxySQL.ReadinessProbe.InitialDelaySeconds)
-		assert.Equal(t, int32(1), cr.Spec.ProxySQL.ReadinessProbe.TimeoutSeconds)
+		assert.Equal(t, int32(5), cr.Spec.ProxySQL.ReadinessProbe.TimeoutSeconds)
 	})
 
 	t.Run("fully supplied values are preserved as-is", func(t *testing.T) {

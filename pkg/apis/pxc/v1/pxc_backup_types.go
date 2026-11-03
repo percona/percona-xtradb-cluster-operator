@@ -85,6 +85,9 @@ type PXCBackupSpec struct {
 	// Once this threshold is reached, the backup will be marked as failed.
 	// When unspecified, uses the value from the parent cluster's .spec.backup.runningDeadlineSeconds (which defaults to 5m).
 	RunningDeadlineSeconds *int64 `json:"runningDeadlineSeconds,omitempty"`
+	// The source pod from which the backup is taken.
+	// Used only when XTRABACKUP_SIDECAR feature gate is set
+	SourcePod string `json:"sourcePod,omitempty"`
 }
 
 type PXCBackupStatus struct {
@@ -106,6 +109,7 @@ type PXCBackupStatus struct {
 	Conditions            []metav1.Condition                `json:"conditions,omitempty"`
 	VerifyTLS             *bool                             `json:"verifyTLS,omitempty"`
 	LatestRestorableTime  *metav1.Time                      `json:"latestRestorableTime,omitempty"`
+	SourcePod             string                            `json:"sourcePod,omitempty"`
 }
 
 type PXCBackupDestination string
@@ -272,6 +276,10 @@ const (
 	BackupFailed    PXCBackupState = "Failed"
 	BackupSucceeded PXCBackupState = "Succeeded"
 )
+
+func (s PXCBackupState) IsTerminal() bool {
+	return s == BackupSucceeded || s == BackupFailed
+}
 
 // OwnerRef returns OwnerReference to object
 func (cr *PerconaXtraDBClusterBackup) OwnerRef(scheme *runtime.Scheme) (metav1.OwnerReference, error) {

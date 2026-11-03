@@ -283,7 +283,7 @@ type ReplicationSource struct {
 type TLSSpec struct {
 	Enabled    *bool                   `json:"enabled,omitempty"`
 	SANs       []string                `json:"SANs,omitempty"`
-	IssuerConf *cmmeta.ObjectReference `json:"issuerConf,omitempty"`
+	IssuerConf *cmmeta.IssuerReference `json:"issuerConf,omitempty"`
 	Duration   *metav1.Duration        `json:"certValidityDuration,omitempty"`
 	CADuration *metav1.Duration        `json:"caValidityDuration,omitempty"`
 }

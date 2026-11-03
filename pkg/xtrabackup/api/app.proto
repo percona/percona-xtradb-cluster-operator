@@ -9,6 +9,7 @@ service XtrabackupService {
     rpc CreateBackup(CreateBackupRequest) returns (stream CreateBackupResponse);
     rpc DeleteBackup(DeleteBackupRequest) returns (DeleteBackupResponse);
     rpc GetLogs(GetLogsRequest) returns (stream LogChunk);
+    rpc GetBackupInfo(GetBackupInfoRequest) returns (BackupInfo);
 }
 
 message GetLogsRequest {
@@ -35,6 +36,17 @@ message DeleteBackupRequest {
 
 message DeleteBackupResponse {}
 
+message GetBackupInfoRequest {
+    BackupConfig backup_config = 1;
+}
+
+message BackupInfo {
+    string from_lsn = 1;
+    string to_lsn = 2;
+    string last_lsn = 3;
+    string flushed_lsn = 4;
+}
+
 enum BackupStorageType {
     S3 = 0;
     AZURE = 1;
@@ -49,6 +61,8 @@ message BackupConfig {
     optional S3Config s3 = 5;
     optional GCSConfig gcs = 6;
     optional AzureConfig azure = 7;
+    // Set only for incremental backups. Passed to xtrabackup as --incremental-lsn.
+    string incremental_lsn = 8;
 }
 
 message S3Config {

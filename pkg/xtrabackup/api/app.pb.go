@@ -370,6 +370,121 @@ func (*DeleteBackupResponse) Descriptor() ([]byte, []int) {
 	return file_app_proto_rawDescGZIP(), []int{6}
 }
 
+type GetBackupInfoRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	BackupConfig  *BackupConfig          `protobuf:"bytes,1,opt,name=backup_config,json=backupConfig,proto3" json:"backup_config,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetBackupInfoRequest) Reset() {
+	*x = GetBackupInfoRequest{}
+	mi := &file_app_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetBackupInfoRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetBackupInfoRequest) ProtoMessage() {}
+
+func (x *GetBackupInfoRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_app_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetBackupInfoRequest.ProtoReflect.Descriptor instead.
+func (*GetBackupInfoRequest) Descriptor() ([]byte, []int) {
+	return file_app_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *GetBackupInfoRequest) GetBackupConfig() *BackupConfig {
+	if x != nil {
+		return x.BackupConfig
+	}
+	return nil
+}
+
+// BackupInfo carries the LSN values parsed from a finished backup's
+// xtrabackup_checkpoints file. LSNs are kept as strings because MySQL LSN
+// values can exceed what fits in a signed 64-bit integer.
+type BackupInfo struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	FromLsn       string                 `protobuf:"bytes,1,opt,name=from_lsn,json=fromLsn,proto3" json:"from_lsn,omitempty"`
+	ToLsn         string                 `protobuf:"bytes,2,opt,name=to_lsn,json=toLsn,proto3" json:"to_lsn,omitempty"`
+	LastLsn       string                 `protobuf:"bytes,3,opt,name=last_lsn,json=lastLsn,proto3" json:"last_lsn,omitempty"`
+	FlushedLsn    string                 `protobuf:"bytes,4,opt,name=flushed_lsn,json=flushedLsn,proto3" json:"flushed_lsn,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BackupInfo) Reset() {
+	*x = BackupInfo{}
+	mi := &file_app_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BackupInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BackupInfo) ProtoMessage() {}
+
+func (x *BackupInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_app_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BackupInfo.ProtoReflect.Descriptor instead.
+func (*BackupInfo) Descriptor() ([]byte, []int) {
+	return file_app_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *BackupInfo) GetFromLsn() string {
+	if x != nil {
+		return x.FromLsn
+	}
+	return ""
+}
+
+func (x *BackupInfo) GetToLsn() string {
+	if x != nil {
+		return x.ToLsn
+	}
+	return ""
+}
+
+func (x *BackupInfo) GetLastLsn() string {
+	if x != nil {
+		return x.LastLsn
+	}
+	return ""
+}
+
+func (x *BackupInfo) GetFlushedLsn() string {
+	if x != nil {
+		return x.FlushedLsn
+	}
+	return ""
+}
+
 type BackupConfig struct {
 	state            protoimpl.MessageState `protogen:"open.v1"`
 	Destination      string                 `protobuf:"bytes,1,opt,name=destination,proto3" json:"destination,omitempty"`
@@ -379,13 +494,15 @@ type BackupConfig struct {
 	S3               *S3Config              `protobuf:"bytes,5,opt,name=s3,proto3,oneof" json:"s3,omitempty"`
 	Gcs              *GCSConfig             `protobuf:"bytes,6,opt,name=gcs,proto3,oneof" json:"gcs,omitempty"`
 	Azure            *AzureConfig           `protobuf:"bytes,7,opt,name=azure,proto3,oneof" json:"azure,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// Set only for incremental backups. Passed to xtrabackup as --incremental-lsn.
+	IncrementalLsn string `protobuf:"bytes,8,opt,name=incremental_lsn,json=incrementalLsn,proto3" json:"incremental_lsn,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *BackupConfig) Reset() {
 	*x = BackupConfig{}
-	mi := &file_app_proto_msgTypes[7]
+	mi := &file_app_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -397,7 +514,7 @@ func (x *BackupConfig) String() string {
 func (*BackupConfig) ProtoMessage() {}
 
 func (x *BackupConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_app_proto_msgTypes[7]
+	mi := &file_app_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -410,7 +527,7 @@ func (x *BackupConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BackupConfig.ProtoReflect.Descriptor instead.
 func (*BackupConfig) Descriptor() ([]byte, []int) {
-	return file_app_proto_rawDescGZIP(), []int{7}
+	return file_app_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *BackupConfig) GetDestination() string {
@@ -462,6 +579,13 @@ func (x *BackupConfig) GetAzure() *AzureConfig {
 	return nil
 }
 
+func (x *BackupConfig) GetIncrementalLsn() string {
+	if x != nil {
+		return x.IncrementalLsn
+	}
+	return ""
+}
+
 type S3Config struct {
 	state                 protoimpl.MessageState `protogen:"open.v1"`
 	Bucket                string                 `protobuf:"bytes,1,opt,name=bucket,proto3" json:"bucket,omitempty"`
@@ -479,7 +603,7 @@ type S3Config struct {
 
 func (x *S3Config) Reset() {
 	*x = S3Config{}
-	mi := &file_app_proto_msgTypes[8]
+	mi := &file_app_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -491,7 +615,7 @@ func (x *S3Config) String() string {
 func (*S3Config) ProtoMessage() {}
 
 func (x *S3Config) ProtoReflect() protoreflect.Message {
-	mi := &file_app_proto_msgTypes[8]
+	mi := &file_app_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -504,7 +628,7 @@ func (x *S3Config) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use S3Config.ProtoReflect.Descriptor instead.
 func (*S3Config) Descriptor() ([]byte, []int) {
-	return file_app_proto_rawDescGZIP(), []int{8}
+	return file_app_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *S3Config) GetBucket() string {
@@ -583,7 +707,7 @@ type GCSConfig struct {
 
 func (x *GCSConfig) Reset() {
 	*x = GCSConfig{}
-	mi := &file_app_proto_msgTypes[9]
+	mi := &file_app_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -595,7 +719,7 @@ func (x *GCSConfig) String() string {
 func (*GCSConfig) ProtoMessage() {}
 
 func (x *GCSConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_app_proto_msgTypes[9]
+	mi := &file_app_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -608,7 +732,7 @@ func (x *GCSConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GCSConfig.ProtoReflect.Descriptor instead.
 func (*GCSConfig) Descriptor() ([]byte, []int) {
-	return file_app_proto_rawDescGZIP(), []int{9}
+	return file_app_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *GCSConfig) GetBucket() string {
@@ -659,7 +783,7 @@ type AzureConfig struct {
 
 func (x *AzureConfig) Reset() {
 	*x = AzureConfig{}
-	mi := &file_app_proto_msgTypes[10]
+	mi := &file_app_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -671,7 +795,7 @@ func (x *AzureConfig) String() string {
 func (*AzureConfig) ProtoMessage() {}
 
 func (x *AzureConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_app_proto_msgTypes[10]
+	mi := &file_app_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -684,7 +808,7 @@ func (x *AzureConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AzureConfig.ProtoReflect.Descriptor instead.
 func (*AzureConfig) Descriptor() ([]byte, []int) {
-	return file_app_proto_rawDescGZIP(), []int{10}
+	return file_app_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *AzureConfig) GetContainerName() string {
@@ -732,7 +856,7 @@ type EnvVar struct {
 
 func (x *EnvVar) Reset() {
 	*x = EnvVar{}
-	mi := &file_app_proto_msgTypes[11]
+	mi := &file_app_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -744,7 +868,7 @@ func (x *EnvVar) String() string {
 func (*EnvVar) ProtoMessage() {}
 
 func (x *EnvVar) ProtoReflect() protoreflect.Message {
-	mi := &file_app_proto_msgTypes[11]
+	mi := &file_app_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -757,7 +881,7 @@ func (x *EnvVar) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EnvVar.ProtoReflect.Descriptor instead.
 func (*EnvVar) Descriptor() ([]byte, []int) {
-	return file_app_proto_rawDescGZIP(), []int{11}
+	return file_app_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *EnvVar) GetKey() string {
@@ -785,7 +909,7 @@ type BackupContainerArgs struct {
 
 func (x *BackupContainerArgs) Reset() {
 	*x = BackupContainerArgs{}
-	mi := &file_app_proto_msgTypes[12]
+	mi := &file_app_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -797,7 +921,7 @@ func (x *BackupContainerArgs) String() string {
 func (*BackupContainerArgs) ProtoMessage() {}
 
 func (x *BackupContainerArgs) ProtoReflect() protoreflect.Message {
-	mi := &file_app_proto_msgTypes[12]
+	mi := &file_app_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -810,7 +934,7 @@ func (x *BackupContainerArgs) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BackupContainerArgs.ProtoReflect.Descriptor instead.
 func (*BackupContainerArgs) Descriptor() ([]byte, []int) {
-	return file_app_proto_rawDescGZIP(), []int{12}
+	return file_app_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *BackupContainerArgs) GetXtrabackup() []string {
@@ -844,7 +968,7 @@ type ContainerOptions struct {
 
 func (x *ContainerOptions) Reset() {
 	*x = ContainerOptions{}
-	mi := &file_app_proto_msgTypes[13]
+	mi := &file_app_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -856,7 +980,7 @@ func (x *ContainerOptions) String() string {
 func (*ContainerOptions) ProtoMessage() {}
 
 func (x *ContainerOptions) ProtoReflect() protoreflect.Message {
-	mi := &file_app_proto_msgTypes[13]
+	mi := &file_app_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -869,7 +993,7 @@ func (x *ContainerOptions) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ContainerOptions.ProtoReflect.Descriptor instead.
 func (*ContainerOptions) Descriptor() ([]byte, []int) {
-	return file_app_proto_rawDescGZIP(), []int{13}
+	return file_app_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *ContainerOptions) GetEnv() []*EnvVar {
@@ -906,7 +1030,16 @@ const file_app_proto_rawDesc = "" +
 	"\vbackup_name\x18\x01 \x01(\tR\n" +
 	"backupName\x126\n" +
 	"\rbackup_config\x18\x02 \x01(\v2\x11.api.BackupConfigR\fbackupConfig\"\x16\n" +
-	"\x14DeleteBackupResponse\"\xd0\x02\n" +
+	"\x14DeleteBackupResponse\"N\n" +
+	"\x14GetBackupInfoRequest\x126\n" +
+	"\rbackup_config\x18\x01 \x01(\v2\x11.api.BackupConfigR\fbackupConfig\"z\n" +
+	"\n" +
+	"BackupInfo\x12\x19\n" +
+	"\bfrom_lsn\x18\x01 \x01(\tR\afromLsn\x12\x15\n" +
+	"\x06to_lsn\x18\x02 \x01(\tR\x05toLsn\x12\x19\n" +
+	"\blast_lsn\x18\x03 \x01(\tR\alastLsn\x12\x1f\n" +
+	"\vflushed_lsn\x18\x04 \x01(\tR\n" +
+	"flushedLsn\"\xf9\x02\n" +
 	"\fBackupConfig\x12 \n" +
 	"\vdestination\x18\x01 \x01(\tR\vdestination\x12*\n" +
 	"\x04type\x18\x02 \x01(\x0e2\x16.api.BackupStorageTypeR\x04type\x12\x1d\n" +
@@ -915,7 +1048,8 @@ const file_app_proto_rawDesc = "" +
 	"\x11container_options\x18\x04 \x01(\v2\x15.api.ContainerOptionsR\x10containerOptions\x12\"\n" +
 	"\x02s3\x18\x05 \x01(\v2\r.api.S3ConfigH\x00R\x02s3\x88\x01\x01\x12%\n" +
 	"\x03gcs\x18\x06 \x01(\v2\x0e.api.GCSConfigH\x01R\x03gcs\x88\x01\x01\x12+\n" +
-	"\x05azure\x18\a \x01(\v2\x10.api.AzureConfigH\x02R\x05azure\x88\x01\x01B\x05\n" +
+	"\x05azure\x18\a \x01(\v2\x10.api.AzureConfigH\x02R\x05azure\x88\x01\x01\x12'\n" +
+	"\x0fincremental_lsn\x18\b \x01(\tR\x0eincrementalLsnB\x05\n" +
 	"\x03_s3B\x06\n" +
 	"\x04_gcsB\b\n" +
 	"\x06_azure\"\xc8\x02\n" +
@@ -961,12 +1095,13 @@ const file_app_proto_rawDesc = "" +
 	"\x11BackupStorageType\x12\x06\n" +
 	"\x02S3\x10\x00\x12\t\n" +
 	"\x05AZURE\x10\x01\x12\a\n" +
-	"\x03GCS\x10\x022\xa1\x02\n" +
+	"\x03GCS\x10\x022\xde\x02\n" +
 	"\x11XtrabackupService\x12O\n" +
 	"\x16GetCurrentBackupConfig\x12\".api.GetCurrentBackupConfigRequest\x1a\x11.api.BackupConfig\x12E\n" +
 	"\fCreateBackup\x12\x18.api.CreateBackupRequest\x1a\x19.api.CreateBackupResponse0\x01\x12C\n" +
 	"\fDeleteBackup\x12\x18.api.DeleteBackupRequest\x1a\x19.api.DeleteBackupResponse\x12/\n" +
-	"\aGetLogs\x12\x13.api.GetLogsRequest\x1a\r.api.LogChunk0\x01BGZEgithub.com/percona/percona-xtradb-cluster-operator/pkg/xtrabackup/apib\x06proto3"
+	"\aGetLogs\x12\x13.api.GetLogsRequest\x1a\r.api.LogChunk0\x01\x12;\n" +
+	"\rGetBackupInfo\x12\x19.api.GetBackupInfoRequest\x1a\x0f.api.BackupInfoBGZEgithub.com/percona/percona-xtradb-cluster-operator/pkg/xtrabackup/apib\x06proto3"
 
 var (
 	file_app_proto_rawDescOnce sync.Once
@@ -981,7 +1116,7 @@ func file_app_proto_rawDescGZIP() []byte {
 }
 
 var file_app_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_app_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
+var file_app_proto_msgTypes = make([]protoimpl.MessageInfo, 16)
 var file_app_proto_goTypes = []any{
 	(BackupStorageType)(0),                // 0: api.BackupStorageType
 	(*GetLogsRequest)(nil),                // 1: api.GetLogsRequest
@@ -991,37 +1126,42 @@ var file_app_proto_goTypes = []any{
 	(*CreateBackupResponse)(nil),          // 5: api.CreateBackupResponse
 	(*DeleteBackupRequest)(nil),           // 6: api.DeleteBackupRequest
 	(*DeleteBackupResponse)(nil),          // 7: api.DeleteBackupResponse
-	(*BackupConfig)(nil),                  // 8: api.BackupConfig
-	(*S3Config)(nil),                      // 9: api.S3Config
-	(*GCSConfig)(nil),                     // 10: api.GCSConfig
-	(*AzureConfig)(nil),                   // 11: api.AzureConfig
-	(*EnvVar)(nil),                        // 12: api.EnvVar
-	(*BackupContainerArgs)(nil),           // 13: api.BackupContainerArgs
-	(*ContainerOptions)(nil),              // 14: api.ContainerOptions
+	(*GetBackupInfoRequest)(nil),          // 8: api.GetBackupInfoRequest
+	(*BackupInfo)(nil),                    // 9: api.BackupInfo
+	(*BackupConfig)(nil),                  // 10: api.BackupConfig
+	(*S3Config)(nil),                      // 11: api.S3Config
+	(*GCSConfig)(nil),                     // 12: api.GCSConfig
+	(*AzureConfig)(nil),                   // 13: api.AzureConfig
+	(*EnvVar)(nil),                        // 14: api.EnvVar
+	(*BackupContainerArgs)(nil),           // 15: api.BackupContainerArgs
+	(*ContainerOptions)(nil),              // 16: api.ContainerOptions
 }
 var file_app_proto_depIdxs = []int32{
-	8,  // 0: api.CreateBackupRequest.backup_config:type_name -> api.BackupConfig
-	8,  // 1: api.DeleteBackupRequest.backup_config:type_name -> api.BackupConfig
-	0,  // 2: api.BackupConfig.type:type_name -> api.BackupStorageType
-	14, // 3: api.BackupConfig.container_options:type_name -> api.ContainerOptions
-	9,  // 4: api.BackupConfig.s3:type_name -> api.S3Config
-	10, // 5: api.BackupConfig.gcs:type_name -> api.GCSConfig
-	11, // 6: api.BackupConfig.azure:type_name -> api.AzureConfig
-	12, // 7: api.ContainerOptions.env:type_name -> api.EnvVar
-	13, // 8: api.ContainerOptions.args:type_name -> api.BackupContainerArgs
-	3,  // 9: api.XtrabackupService.GetCurrentBackupConfig:input_type -> api.GetCurrentBackupConfigRequest
-	4,  // 10: api.XtrabackupService.CreateBackup:input_type -> api.CreateBackupRequest
-	6,  // 11: api.XtrabackupService.DeleteBackup:input_type -> api.DeleteBackupRequest
-	1,  // 12: api.XtrabackupService.GetLogs:input_type -> api.GetLogsRequest
-	8,  // 13: api.XtrabackupService.GetCurrentBackupConfig:output_type -> api.BackupConfig
-	5,  // 14: api.XtrabackupService.CreateBackup:output_type -> api.CreateBackupResponse
-	7,  // 15: api.XtrabackupService.DeleteBackup:output_type -> api.DeleteBackupResponse
-	2,  // 16: api.XtrabackupService.GetLogs:output_type -> api.LogChunk
-	13, // [13:17] is the sub-list for method output_type
-	9,  // [9:13] is the sub-list for method input_type
-	9,  // [9:9] is the sub-list for extension type_name
-	9,  // [9:9] is the sub-list for extension extendee
-	0,  // [0:9] is the sub-list for field type_name
+	10, // 0: api.CreateBackupRequest.backup_config:type_name -> api.BackupConfig
+	10, // 1: api.DeleteBackupRequest.backup_config:type_name -> api.BackupConfig
+	10, // 2: api.GetBackupInfoRequest.backup_config:type_name -> api.BackupConfig
+	0,  // 3: api.BackupConfig.type:type_name -> api.BackupStorageType
+	16, // 4: api.BackupConfig.container_options:type_name -> api.ContainerOptions
+	11, // 5: api.BackupConfig.s3:type_name -> api.S3Config
+	12, // 6: api.BackupConfig.gcs:type_name -> api.GCSConfig
+	13, // 7: api.BackupConfig.azure:type_name -> api.AzureConfig
+	14, // 8: api.ContainerOptions.env:type_name -> api.EnvVar
+	15, // 9: api.ContainerOptions.args:type_name -> api.BackupContainerArgs
+	3,  // 10: api.XtrabackupService.GetCurrentBackupConfig:input_type -> api.GetCurrentBackupConfigRequest
+	4,  // 11: api.XtrabackupService.CreateBackup:input_type -> api.CreateBackupRequest
+	6,  // 12: api.XtrabackupService.DeleteBackup:input_type -> api.DeleteBackupRequest
+	1,  // 13: api.XtrabackupService.GetLogs:input_type -> api.GetLogsRequest
+	8,  // 14: api.XtrabackupService.GetBackupInfo:input_type -> api.GetBackupInfoRequest
+	10, // 15: api.XtrabackupService.GetCurrentBackupConfig:output_type -> api.BackupConfig
+	5,  // 16: api.XtrabackupService.CreateBackup:output_type -> api.CreateBackupResponse
+	7,  // 17: api.XtrabackupService.DeleteBackup:output_type -> api.DeleteBackupResponse
+	2,  // 18: api.XtrabackupService.GetLogs:output_type -> api.LogChunk
+	9,  // 19: api.XtrabackupService.GetBackupInfo:output_type -> api.BackupInfo
+	15, // [15:20] is the sub-list for method output_type
+	10, // [10:15] is the sub-list for method input_type
+	10, // [10:10] is the sub-list for extension type_name
+	10, // [10:10] is the sub-list for extension extendee
+	0,  // [0:10] is the sub-list for field type_name
 }
 
 func init() { file_app_proto_init() }
@@ -1029,14 +1169,14 @@ func file_app_proto_init() {
 	if File_app_proto != nil {
 		return
 	}
-	file_app_proto_msgTypes[7].OneofWrappers = []any{}
+	file_app_proto_msgTypes[9].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_app_proto_rawDesc), len(file_app_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   14,
+			NumMessages:   16,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

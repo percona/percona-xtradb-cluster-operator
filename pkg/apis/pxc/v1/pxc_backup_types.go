@@ -33,6 +33,7 @@ func (list *PerconaXtraDBClusterBackupList) HasUnfinishedFinalizers() bool {
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:shortName="pxc-backup";"pxc-backups"
 // +kubebuilder:printcolumn:name="Cluster",type="string",JSONPath=".spec.pxcCluster",description="Cluster name"
+// +kubebuilder:printcolumn:name="Type",type="string",JSONPath=".status.type",description="Backup type"
 // +kubebuilder:printcolumn:name="Storage",type="string",JSONPath=".status.storageName",description="Storage name from pxc spec"
 // +kubebuilder:printcolumn:name="Destination",type="string",JSONPath=".status.destination",description="Backup destination"
 // +kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.state",description="Job status"
@@ -47,13 +48,39 @@ type PerconaXtraDBClusterBackup struct {
 	PriorityClassName string          `json:"priorityClassName,omitempty"`
 }
 
+type PXCBackupType string
+
+const (
+	// BackupTypeFull is a standalone backup of the whole dataset, can be restored on its own.
+	BackupTypeFull PXCBackupType = "full"
+	// BackupTypeIncremental holds only the pages changed since the previous
+	// backup in its chain. It can only be restored together with its base
+	// (full) backup and every incremental taken between the two.
+	BackupTypeIncremental PXCBackupType = "incremental"
+)
+
+// +kubebuilder:validation:XValidation:rule="!has(self.incrementalBaseBackupName) || self.incrementalBaseBackupName == \"\" || self.type == 'incremental'",message="Invalid configuration: incrementalBaseBackupName is only allowed for incremental backups"
 type PXCBackupSpec struct {
-	PXCCluster               string                  `json:"pxcCluster"`
-	StorageName              string                  `json:"storageName,omitempty"`
-	ContainerOptions         *BackupContainerOptions `json:"containerOptions,omitempty"`
-	ActiveDeadlineSeconds    *int64                  `json:"activeDeadlineSeconds,omitempty"`
-	StartingDeadlineSeconds  *int64                  `json:"startingDeadlineSeconds,omitempty"`
-	SuspendedDeadlineSeconds *int64                  `json:"suspendedDeadlineSeconds,omitempty"`
+	PXCCluster  string `json:"pxcCluster"`
+	StorageName string `json:"storageName,omitempty"`
+	// Type of the backup: "full" copies the whole dataset,
+	// "incremental" copies only the pages changed since the previous backup in
+	// the chain.
+	// Must be one of "full" or "incremental". Defaults to "full".
+	// +kubebuilder:validation:Enum=full;incremental
+	// +kubebuilder:default:=full
+	Type PXCBackupType `json:"type,omitempty"`
+	// IncrementalBaseBackupName pins this incremental backup to a specific base
+	// (full) backup, by the name of the PerconaXtraDBClusterBackup object.
+	// Only used for incremental backups.
+	// When set, the incremental backup will be deleted if the base backup is deleted.
+	// If unset, the latest full backup in the same storage is used as the base.
+	// +optional
+	IncrementalBaseBackupName *string                 `json:"incrementalBaseBackupName,omitempty"`
+	ContainerOptions          *BackupContainerOptions `json:"containerOptions,omitempty"`
+	ActiveDeadlineSeconds     *int64                  `json:"activeDeadlineSeconds,omitempty"`
+	StartingDeadlineSeconds   *int64                  `json:"startingDeadlineSeconds,omitempty"`
+	SuspendedDeadlineSeconds  *int64                  `json:"suspendedDeadlineSeconds,omitempty"`
 	// RunningDeadlineSeconds is the number of seconds to wait for the backup to transition to the 'Running' state.
 	// Once this threshold is reached, the backup will be marked as failed.
 	// When unspecified, uses the value from the parent cluster's .spec.backup.runningDeadlineSeconds (which defaults to 5m).
@@ -61,6 +88,7 @@ type PXCBackupSpec struct {
 }
 
 type PXCBackupStatus struct {
+	Type                  PXCBackupType                     `json:"type,omitempty"`
 	State                 PXCBackupState                    `json:"state,omitempty"`
 	Error                 string                            `json:"error,omitempty"`
 	CompletedAt           *metav1.Time                      `json:"completed,omitempty"`
@@ -144,6 +172,66 @@ func (dest *PXCBackupDestination) BackupName() string {
 	backupName := strings.TrimPrefix(dest.String(), dest.StorageTypePrefix()+path.Join(bucket, prefix))
 	backupName = strings.TrimPrefix(backupName, "/")
 	return backupName
+}
+
+const (
+	incrementalDirSuffix  = ".incr"
+	incrementalLeafSuffix = "-incr"
+)
+
+// IsIncremental reports whether the destination points at an incremental backup.
+func (dest *PXCBackupDestination) IsIncremental() bool {
+	segments := strings.Split(dest.PathWithoutBucket(), "/")
+	if len(segments) < 2 {
+		return false
+	}
+
+	leaf := segments[len(segments)-1]
+	chainDir := segments[len(segments)-2]
+
+	return strings.HasSuffix(leaf, incrementalLeafSuffix) && strings.HasSuffix(chainDir, incrementalDirSuffix)
+}
+
+// IncrementalBaseDestination returns the full destination of the base (full)
+// backup this incremental backup is chained to. The destination is returned
+// unchanged when it is not an incremental one, so it is safe to call on any
+// destination.
+func (dest *PXCBackupDestination) IncrementalBaseDestination() PXCBackupDestination {
+	if dest == nil {
+		return ""
+	}
+	if !dest.IsIncremental() {
+		return *dest
+	}
+
+	// For an incremental destination the chain directory is the last element of
+	// the prefix, so stripping ".incr" from it yields the base backup's own path.
+	bucket, prefix := dest.BucketAndPrefix()
+	basePath := strings.TrimSuffix(strings.TrimSuffix(prefix, "/"), incrementalDirSuffix)
+
+	return PXCBackupDestination(dest.StorageTypePrefix() + path.Join(bucket, basePath))
+}
+
+// IncrementalsDir returns the directory prefix that holds every incremental
+// backup chained to the same base, with a trailing slash. It returns "" when
+// the destination is not an incremental one.
+func (dest *PXCBackupDestination) IncrementalsDir() string {
+	if !dest.IsIncremental() {
+		return ""
+	}
+
+	// BucketAndPrefix returns everything above the leaf, already slash-terminated,
+	// which for an incremental destination is exactly the chain directory.
+	_, prefix := dest.BucketAndPrefix()
+
+	return prefix
+}
+
+func (cr *PerconaXtraDBClusterBackup) GetType() PXCBackupType {
+	if cr.Status.Type == "" {
+		return BackupTypeFull
+	}
+	return cr.Status.Type
 }
 
 func (status *PXCBackupStatus) GetStorageType(cluster *PerconaXtraDBCluster) BackupStorageType {

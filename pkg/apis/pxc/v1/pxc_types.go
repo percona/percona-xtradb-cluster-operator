@@ -359,6 +359,25 @@ type PXCScheduledBackupSchedule struct {
 	Retention *PXCScheduledBackupRetention `json:"retention,omitempty"`
 	// +kubebuilder:validation:Required
 	StorageName string `json:"storageName,omitempty"`
+	// Type selects what the backups produced by this schedule copy: "full"
+	// copies the whole dataset, "incremental" copies only the pages changed
+	// since the previous backup in the chain.
+	// Must be one of "full" or "incremental". Defaults to "full".
+	// +kubebuilder:validation:Enum=full;incremental
+	// +kubebuilder:default:=full
+	Type PXCBackupType `json:"type,omitempty"`
+}
+
+func (cr *PerconaXtraDBCluster) setScheduledBackupTypeDefaults() {
+	if cr.Spec.Backup == nil || cr.CompareVersionWith("1.21.0") < 0 {
+		return
+	}
+
+	for i := range cr.Spec.Backup.Schedule {
+		if cr.Spec.Backup.Schedule[i].Type == "" {
+			cr.Spec.Backup.Schedule[i].Type = BackupTypeFull
+		}
+	}
 }
 
 type PXCScheduledBackupRetentionType string
@@ -921,6 +940,47 @@ type BackupStorageSpec struct {
 	RuntimeClassName          *string                           `json:"runtimeClassName,omitempty"`
 	VerifyTLS                 *bool                             `json:"verifyTLS,omitempty"`
 	ContainerOptions          *BackupContainerOptions           `json:"containerOptions,omitempty"`
+}
+
+// Equals reports whether two storage specs refer to the same backup destination.
+func (s *BackupStorageSpec) Equals(other *BackupStorageSpec) bool {
+	if s == nil || other == nil {
+		return s == other
+	}
+
+	if s.Type != other.Type {
+		return false
+	}
+
+	switch s.Type {
+	case BackupStorageS3:
+		return s.S3.equals(other.S3)
+	case BackupStorageAzure:
+		return s.Azure.equals(other.Azure)
+	default:
+		return false
+	}
+}
+
+func (b *BackupStorageS3Spec) equals(other *BackupStorageS3Spec) bool {
+	if b == nil || other == nil {
+		return b == other
+	}
+
+	return b.Bucket == other.Bucket &&
+		b.Prefix == other.Prefix &&
+		b.Region == other.Region &&
+		b.EndpointURL == other.EndpointURL
+}
+
+func (b *BackupStorageAzureSpec) equals(other *BackupStorageAzureSpec) bool {
+	if b == nil || other == nil {
+		return b == other
+	}
+
+	return b.ContainerPath == other.ContainerPath &&
+		b.Prefix == other.Prefix &&
+		b.Endpoint == other.Endpoint
 }
 
 type BackupContainerOptions struct {
@@ -1513,6 +1573,8 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 				strg.Volume.reconcileOpts()
 			}
 		}
+
+		cr.setScheduledBackupTypeDefaults()
 	}
 
 	if len(c.Platform) == 0 {

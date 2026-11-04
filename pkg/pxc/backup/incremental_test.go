@@ -706,6 +706,19 @@ func TestResolveIncrementalBase(t *testing.T) {
 			want:    "pinned-full",
 		},
 		{
+			name: "explicit base name from another cluster is rejected",
+			objs: []client.Object{
+				fullBcp("full-elsewhere",
+					withCluster("cluster2"),
+					withS3("bucket-a"),
+					withCompletedAt(10),
+				),
+			},
+			cr:      incrBcp("incr-1", withSpecBase("full-elsewhere"), withS3("bucket-a")),
+			storage: s3Storage("bucket-a"),
+			wantErr: "belongs to cluster",
+		},
+		{
 			name: "explicit base name pointing at an incremental is rejected",
 			objs: []client.Object{
 				fullBcp("full-1", withS3("bucket-a"), withCompletedAt(10)),

@@ -176,6 +176,11 @@ func ResolveIncrementalBase(
 			base.GetNamespace(), base.GetName(), base.Status.StorageName, cr.GetNamespace(), cr.GetName())
 	}
 
+	if base.Spec.PXCCluster != cr.Spec.PXCCluster {
+		return nil, errors.Errorf("base backup %s/%s belongs to cluster %q, which is not the cluster of incremental backup %s/%s",
+			base.GetNamespace(), base.GetName(), base.Spec.PXCCluster, cr.GetNamespace(), cr.GetName())
+	}
+
 	return base, nil
 }
 

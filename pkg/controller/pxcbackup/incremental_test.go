@@ -28,13 +28,12 @@ import (
 )
 
 const (
-	incrNamespace   = "pxc"
-	incrClusterName = "cluster1"
-	incrStorageName = "s3-us-west"
-	// incrBaseLeaf is the object-storage leaf name of the base full backup, i.e.
-	// the value of the percona.com/base-backup-name annotation.
-	incrBaseLeaf = "cluster1-2026-11-03-10:00:00-full"
-	incrBaseDest = "s3://bucket/prefix/" + incrBaseLeaf
+	incrNamespace     = "pxc"
+	incrClusterName   = "cluster1"
+	incrStorageName   = "s3-us-west"
+	incrBaseLeaf      = "cluster1-2026-11-03-10:00:00-full"
+	incrBaseDest      = "s3://bucket/prefix/" + incrBaseLeaf
+	incrBaseSourcePod = "cluster1-pxc-1"
 )
 
 // ---------------------------------------------------------------------------
@@ -106,6 +105,17 @@ func withStorageSpec(stg *api.BackupStorageSpec) backupOption {
 	}
 }
 
+// withSourcePod records the pod a backup was taken from, as the reconciler does
+// once the backup Job is built.
+func withSourcePod(pod string) backupOption {
+	return func(bcp *api.PerconaXtraDBClusterBackup) { bcp.Status.SourcePod = pod }
+}
+
+// withSpecSourcePod pins a backup to a pod the way a user does, via the spec.
+func withSpecSourcePod(pod string) backupOption {
+	return func(bcp *api.PerconaXtraDBClusterBackup) { bcp.Spec.SourcePod = pod }
+}
+
 func withExplicitBase(name string) backupOption {
 	return func(bcp *api.PerconaXtraDBClusterBackup) {
 		bcp.Spec.IncrementalBaseBackupName = ptr.To(name)
@@ -131,14 +141,20 @@ func incrBackup(name string, opts ...backupOption) *api.PerconaXtraDBClusterBack
 }
 
 // fullBackup builds a succeeded full backup that an incremental can chain onto.
-func fullBackup(name, dest string, completedAt int) *api.PerconaXtraDBClusterBackup {
-	return incrBackup(name,
+//
+// It records a source pod because a base without one cannot be chained onto at
+// all: an incremental has to run on the same node as its base, so the
+// reconciler refuses a base whose node it cannot determine.
+func fullBackup(name, dest string, completedAt int, opts ...backupOption) *api.PerconaXtraDBClusterBackup {
+	base := []backupOption{
 		withBackupType(api.BackupTypeFull),
 		withState(api.BackupSucceeded),
 		withDestination(dest),
 		withStorageSpec(incrS3Storage()),
 		withCompletedAt(completedAt),
-	)
+		withSourcePod(incrBaseSourcePod),
+	}
+	return incrBackup(name, append(base, opts...)...)
 }
 
 // incrementalBackup builds an incremental backup already chained to incrBaseLeaf.
@@ -470,6 +486,95 @@ func TestSetIncrementalBaseAnnotationKeepsStatus(t *testing.T) {
 	assert.Equal(t, "percona/percona-xtradb-cluster-operator:backup", cr.Status.Image)
 	assert.Equal(t, "cluster1-ssl", cr.Status.SSLSecretName)
 	assert.Equal(t, api.BackupStorageS3, cr.Status.StorageType)
+}
+
+func TestSetIncrementalBaseAnnotationPinsSourcePod(t *testing.T) {
+	tests := map[string]struct {
+		incremental *api.PerconaXtraDBClusterBackup
+		base        *api.PerconaXtraDBClusterBackup
+		wantPin     string
+		wantErr     string
+	}{
+		"incremental inherits the pod its base was taken from": {
+			incremental: incrBackup("incr-1", withBackupType(api.BackupTypeIncremental)),
+			base:        fullBackup("full-1", incrBaseDest, 1),
+			wantPin:     incrBaseSourcePod,
+		},
+		"a base whose pod was never recorded cannot be chained onto": {
+			incremental: incrBackup("incr-1", withBackupType(api.BackupTypeIncremental)),
+			base:        fullBackup("full-1", incrBaseDest, 1, withSourcePod("")),
+			wantErr:     "source cannot be known",
+		},
+		"an explicit pin is overridden by the pod the base was taken from": {
+			incremental: incrBackup("incr-1",
+				withBackupType(api.BackupTypeIncremental),
+				withSpecSourcePod("cluster1-pxc-2"),
+			),
+			base:    fullBackup("full-1", incrBaseDest, 1),
+			wantPin: incrBaseSourcePod,
+		},
+		"an explicit pin is honoured when the base has no recorded pod": {
+			incremental: incrBackup("incr-1",
+				withBackupType(api.BackupTypeIncremental),
+				withSpecSourcePod("cluster1-pxc-2"),
+			),
+			base:    fullBackup("full-1", incrBaseDest, 1, withSourcePod("")),
+			wantPin: "cluster1-pxc-2",
+		},
+		"a full backup is never pinned to anything": {
+			incremental: incrBackup("full-2", withBackupType(api.BackupTypeFull)),
+			base:        fullBackup("full-1", incrBaseDest, 1),
+			wantPin:     "",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			r := incrReconciler(t, tt.incremental, tt.base)
+
+			err := r.setIncrementalBaseAnnotation(t.Context(), tt.incremental, incrCluster("1.21.0", false), incrS3Storage())
+
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErr)
+				// A backup that cannot be pinned must not be left half-resolved.
+				assert.NotContains(t, tt.incremental.GetAnnotations(), naming.AnnotationBaseBackupName)
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantPin, tt.incremental.Spec.SourcePod,
+				"the pod the backup Job will be sent to")
+		})
+	}
+}
+
+func TestSourcePodReachesTheBackupJob(t *testing.T) {
+	tests := map[string]struct {
+		specSourcePod string
+		wantPod       string
+	}{
+		"pinned to the base's pod":    {specSourcePod: incrBaseSourcePod, wantPod: incrBaseSourcePod},
+		"pinned to a user-chosen pod": {specSourcePod: "cluster1-pxc-2", wantPod: "cluster1-pxc-2"},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			cr := incrBackup("incr-1",
+				withBackupType(api.BackupTypeIncremental),
+				withSpecSourcePod(tt.specSourcePod),
+			)
+			cluster := incrCluster("1.21.0", false)
+
+			pod, host, err := backup.GetHostForSidecarBackup(t.Context(), incrReconciler(t, cr).client, cluster, cr)
+			require.NoError(t, err)
+
+			assert.Equal(t, tt.wantPod, pod)
+			// The host is the pod's FQDN, so a chain cannot silently drift to
+			// another node even when a proxy would have offered one.
+			assert.Contains(t, host, tt.wantPod)
+		})
+	}
 }
 
 // ---------------------------------------------------------------------------

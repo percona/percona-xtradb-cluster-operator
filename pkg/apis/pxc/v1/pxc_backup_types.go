@@ -179,8 +179,8 @@ func (dest *PXCBackupDestination) BackupName() string {
 }
 
 const (
-	incrementalDirSuffix  = ".incr"
-	incrementalLeafSuffix = "-incr"
+	IncrementalDirSuffix  = ".incr"
+	IncrementalLeafSuffix = "-incr"
 )
 
 // IsIncremental reports whether the destination points at an incremental backup.
@@ -193,7 +193,7 @@ func (dest *PXCBackupDestination) IsIncremental() bool {
 	leaf := segments[len(segments)-1]
 	chainDir := segments[len(segments)-2]
 
-	return strings.HasSuffix(leaf, incrementalLeafSuffix) && strings.HasSuffix(chainDir, incrementalDirSuffix)
+	return strings.HasSuffix(leaf, IncrementalLeafSuffix) && strings.HasSuffix(chainDir, IncrementalDirSuffix)
 }
 
 // IncrementalBaseDestination returns the full destination of the base (full)
@@ -211,7 +211,7 @@ func (dest *PXCBackupDestination) IncrementalBaseDestination() PXCBackupDestinat
 	// For an incremental destination the chain directory is the last element of
 	// the prefix, so stripping ".incr" from it yields the base backup's own path.
 	bucket, prefix := dest.BucketAndPrefix()
-	basePath := strings.TrimSuffix(strings.TrimSuffix(prefix, "/"), incrementalDirSuffix)
+	basePath := strings.TrimSuffix(strings.TrimSuffix(prefix, "/"), IncrementalDirSuffix)
 
 	return PXCBackupDestination(dest.StorageTypePrefix() + path.Join(bucket, basePath))
 }

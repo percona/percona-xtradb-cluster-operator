@@ -2,6 +2,7 @@ package pxcrestore
 
 import (
 	"context"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -42,11 +43,11 @@ func (s *s3) Init(context.Context) error { return nil }
 func (s *s3) Finalize(context.Context) error { return nil }
 
 func (s *s3) Job(ctx context.Context) (*batchv1.Job, error) {
-	return backup.RestoreJob(ctx, s.cr, s.bcp, s.cluster, s.initImage, s.scheme, s.bcp.Status.Destination, false)
+	return s.cloudRestoreJob(ctx)
 }
 
 func (s *s3) PITRJob(ctx context.Context) (*batchv1.Job, error) {
-	return backup.RestoreJob(ctx, s.cr, s.bcp, s.cluster, s.initImage, s.scheme, s.bcp.Status.Destination, true)
+	return backup.RestoreJob(ctx, s.cr, s.bcp, s.cluster, s.initImage, s.scheme, s.bcp.Status.Destination, nil, true)
 }
 
 func (s *s3) ValidateJob(ctx context.Context, job *batchv1.Job) error {
@@ -61,6 +62,10 @@ func (s *s3) ValidateJob(ctx context.Context, job *batchv1.Job) error {
 }
 
 func (s *s3) Validate(ctx context.Context) error {
+	if err := s.validateIncrementalRestore(); err != nil {
+		return err
+	}
+
 	opts, err := storage.GetOptionsFromBackup(ctx, s.k8sClient, s.cluster, s.bcp)
 	if err != nil {
 		return errors.Wrap(err, "failed to get storage options")
@@ -69,6 +74,7 @@ func (s *s3) Validate(ctx context.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to create s3 client")
 	}
+	s.setIncrementalValidationPrefix(s3cli)
 
 	backupPath := backupListPath(s3cli.GetPrefix(), s.bcp.Status.Destination)
 	objs, err := s3cli.ListObjects(ctx, backupPath)
@@ -128,7 +134,7 @@ func (s *pvc) Validate(ctx context.Context) error {
 }
 
 func (s *pvc) Job(ctx context.Context) (*batchv1.Job, error) {
-	return backup.RestoreJob(ctx, s.cr, s.bcp, s.cluster, s.initImage, s.scheme, "", false)
+	return backup.RestoreJob(ctx, s.cr, s.bcp, s.cluster, s.initImage, s.scheme, "", nil, false)
 }
 
 func (s *pvc) PITRJob(ctx context.Context) (*batchv1.Job, error) {
@@ -210,14 +216,18 @@ func (s *azure) Init(context.Context) error { return nil }
 func (s *azure) Finalize(context.Context) error { return nil }
 
 func (s *azure) Job(ctx context.Context) (*batchv1.Job, error) {
-	return backup.RestoreJob(ctx, s.cr, s.bcp, s.cluster, s.initImage, s.scheme, s.bcp.Status.Destination, false)
+	return s.cloudRestoreJob(ctx)
 }
 
 func (s *azure) PITRJob(ctx context.Context) (*batchv1.Job, error) {
-	return backup.RestoreJob(ctx, s.cr, s.bcp, s.cluster, s.initImage, s.scheme, s.bcp.Status.Destination, true)
+	return backup.RestoreJob(ctx, s.cr, s.bcp, s.cluster, s.initImage, s.scheme, s.bcp.Status.Destination, nil, true)
 }
 
 func (s *azure) Validate(ctx context.Context) error {
+	if err := s.validateIncrementalRestore(); err != nil {
+		return err
+	}
+
 	opts, err := storage.GetOptionsFromBackup(ctx, s.k8sClient, s.cluster, s.bcp)
 	if err != nil {
 		return errors.Wrap(err, "failed to get storage options")
@@ -226,6 +236,7 @@ func (s *azure) Validate(ctx context.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to create s3 client")
 	}
+	s.setIncrementalValidationPrefix(azurecli)
 
 	backupPath := backupListPath(azurecli.GetPrefix(), s.bcp.Status.Destination)
 	blobs, err := azurecli.ListObjects(ctx, backupPath)
@@ -294,6 +305,134 @@ type restorerOptions struct {
 	scheme           *runtime.Scheme
 	newStorageClient storage.NewClientFunc
 	initImage        string
+}
+
+const incrementalUploadMarkerPrefix = "xtrabackup_info."
+
+// cloudRestoreJob builds the restore job for an object-storage backup.
+func (opts *restorerOptions) cloudRestoreJob(ctx context.Context) (*batchv1.Job, error) {
+	destination := opts.bcp.Status.Destination
+
+	var incrementals []string
+	if opts.bcp.GetType() == api.BackupTypeIncremental {
+		var err error
+		destination, incrementals, err = opts.resolveIncrementalChain(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "resolve incremental chain")
+		}
+	}
+
+	return backup.RestoreJob(ctx, opts.cr, opts.bcp, opts.cluster, opts.initImage, opts.scheme, destination, incrementals, false)
+}
+
+func (opts *restorerOptions) validateIncrementalRestore() error {
+	if opts.bcp.GetType() != api.BackupTypeIncremental {
+		return nil
+	}
+
+	dest := opts.bcp.Status.Destination
+
+	switch dest.StorageTypePrefix() {
+	case api.AwsBlobStoragePrefix, api.AzureBlobStoragePrefix:
+	default:
+		return errors.Errorf(
+			"incremental backups are only supported on s3 and azure storages, backup %s has destination %q",
+			opts.bcp.Name, dest)
+	}
+
+	if !dest.IsIncremental() {
+		return errors.Errorf(
+			"backup %s is an incremental backup but its destination %q is not an incremental path",
+			opts.bcp.Name, dest)
+	}
+
+	return nil
+}
+
+// setIncrementalValidationPrefix scopes a storage client to the incremental
+// backup's own directory before the existence check lists it.
+func (opts *restorerOptions) setIncrementalValidationPrefix(storageClient storage.Storage) {
+	if opts.bcp.GetType() != api.BackupTypeIncremental {
+		return
+	}
+
+	_, prefix := opts.bcp.Status.Destination.BucketAndPrefix()
+	storageClient.SetPrefix(prefix)
+}
+
+// resolveIncrementalChain discovers every incremental backup in the chain up to and
+// including the target backup, and returns the base destination plus the ordered
+// incremental paths (bucket-relative).
+func (opts *restorerOptions) resolveIncrementalChain(ctx context.Context) (api.PXCBackupDestination, []string, error) {
+	dest := opts.bcp.Status.Destination
+	baseDest := dest.IncrementalBaseDestination()
+
+	incrementalsDir := dest.IncrementalsDir()
+	if incrementalsDir == "" {
+		return "", nil, errors.New("could not parse incremental destination path")
+	}
+
+	storageOpts, err := storage.GetOptionsFromBackup(ctx, opts.k8sClient, opts.cluster, opts.bcp)
+	if err != nil {
+		return "", nil, errors.Wrap(err, "failed to get storage options")
+	}
+	storageClient, err := opts.newStorageClient(ctx, storageOpts)
+	if err != nil {
+		return "", nil, errors.Wrap(err, "failed to create storage client")
+	}
+
+	// The storage client is built from the *incremental* destination, so its
+	// prefix is scoped inside the ".incr/" directory (e.g. "pfx/base-full.incr/").
+	// Listing the chain with that prefix still in place finds nothing, and
+	// listing with an empty prefix scans the whole bucket. Reset it to the base
+	// backup's prefix so the chain directory lists as "<base>.incr/".
+	_, basePrefix := baseDest.BucketAndPrefix()
+	storageClient.SetPrefix(basePrefix)
+
+	listPrefix := baseDest.BackupName() + api.IncrementalDirSuffix + "/"
+	objects, err := storageClient.ListObjects(ctx, listPrefix)
+	if err != nil {
+		return "", nil, errors.Wrap(err, "failed to list incremental backups")
+	}
+
+	var names []string
+	for _, obj := range objects {
+		rel, ok := strings.CutPrefix(obj, listPrefix)
+		if !ok {
+			// Belongs to a different base backup.
+			continue
+		}
+
+		name, file, _ := strings.Cut(rel, "/")
+		if name == "" || !strings.HasSuffix(name, api.IncrementalLeafSuffix) {
+			continue
+		}
+		// xtrabackup_info is uploaded last, so its presence is the only
+		// "upload completed" marker available.
+		if !strings.HasPrefix(file, incrementalUploadMarkerPrefix) {
+			continue
+		}
+
+		names = append(names, name)
+	}
+	slices.Sort(names)
+	names = slices.Compact(names)
+
+	var incrementals []string
+	// Leaf names embed a fixed-width timestamp, so lexicographic order is
+	// chronological order within a chain.
+	for _, name := range names {
+		if name > dest.BackupName() {
+			break
+		}
+		incrementals = append(incrementals, incrementalsDir+name)
+	}
+
+	if len(incrementals) == 0 {
+		return "", nil, errors.Errorf("no incremental backups found in chain for %s", dest)
+	}
+
+	return baseDest, incrementals, nil
 }
 
 func (opts *restorerOptions) ValidateJob(ctx context.Context, job *batchv1.Job) error {

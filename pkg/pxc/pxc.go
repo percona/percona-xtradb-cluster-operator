@@ -20,11 +20,19 @@ import (
 
 var NoProxyDetectedError = errors.New("can't detect enabled proxy, please enable HAProxy or ProxySQL")
 
-// waitAndGetFirstReadyPodFQDN waits for all pods to be ready and returns the FQDN of the first ready pod
-func waitAndGetFirstReadyPodFQDN(ctx context.Context, cl client.Client, cr *api.PerconaXtraDBCluster) (string, error) {
+// WaitAndGetFirstReadyPodFQDN waits for all pods to be ready and returns the FQDN of the first ready pod
+func WaitAndGetFirstReadyPodFQDN(ctx context.Context, cl client.Client, cr *api.PerconaXtraDBCluster) (string, error) {
+	pod, err := WaitAndGetFirstReadyPod(ctx, cl, cr)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to get first ready pod")
+	}
 	node := statefulset.NewNode(cr)
 	sts := node.StatefulSet()
+	return PodFQDN(pod, sts), nil
+}
 
+func WaitAndGetFirstReadyPod(ctx context.Context, cl client.Client, cr *api.PerconaXtraDBCluster) (string, error) {
+	node := statefulset.NewNode(cr)
 	podList := new(corev1.PodList)
 	if err := cl.List(ctx, podList, &client.ListOptions{
 		Namespace:     cr.Namespace,
@@ -45,7 +53,7 @@ func waitAndGetFirstReadyPodFQDN(ctx context.Context, cl client.Client, cr *api.
 	if len(readyPods) != int(cr.Spec.PXC.Size) {
 		return "", errors.New("waiting for all pxc pods to be ready")
 	}
-	return PodFQDN(readyPods[0].GetName(), sts), nil
+	return readyPods[0].GetName(), nil
 }
 
 // GetPrimaryPod returns the primary pod
@@ -56,7 +64,7 @@ func GetPrimaryPod(
 ) (string, error) {
 	conn, err := GetProxyConnection(ctx, cr, cl)
 	if errors.Is(err, NoProxyDetectedError) && cr.Spec.PXC.Size == 1 {
-		host, err := waitAndGetFirstReadyPodFQDN(ctx, cl, cr)
+		host, err := WaitAndGetFirstReadyPodFQDN(ctx, cl, cr)
 		if err != nil {
 			return "", errors.Wrap(err, "failed to get first ready pod")
 		}
@@ -83,74 +91,8 @@ func GetPrimaryPod(
 	return host, err
 }
 
-// GetHostForSidecarBackup returns a pod that can be used for performing backups via xtradb sidecar
-func GetHostForSidecarBackup(
-	ctx context.Context,
-	cl client.Client,
-	cr *api.PerconaXtraDBCluster,
-) (string, error) {
-	switch {
-	case cr.HAProxyEnabled():
-		return getNonPrimaryHAProxy(ctx, cl, cr)
-	case cr.ProxySQLEnabled():
-		return getNonPrimaryProxySQL(ctx, cl, cr)
-	}
-	return waitAndGetFirstReadyPodFQDN(ctx, cl, cr)
-}
-
 func PodFQDN(pod string, sts *appsv1.StatefulSet) string {
 	return fmt.Sprintf("%s.%s.%s", pod, sts.Name, sts.Namespace)
-}
-
-func getNonPrimaryHAProxy(ctx context.Context, cl client.Client, cr *api.PerconaXtraDBCluster) (string, error) {
-	conn, err := GetProxyConnection(ctx, cr, cl)
-	if err != nil {
-		return "", errors.Wrap(err, "failed to get proxy connection")
-	}
-	defer conn.Close()
-
-	node := statefulset.NewNode(cr)
-	sts := node.StatefulSet()
-	primaryPod, err := conn.Hostname() // assumes we get a pod name (not FQDN)
-	if err != nil {
-		return "", errors.Wrap(err, "failed to get primary host")
-	}
-
-	podList := new(corev1.PodList)
-	if err := cl.List(ctx, podList, &client.ListOptions{
-		Namespace:     cr.Namespace,
-		LabelSelector: labels.SelectorFromSet(node.Labels()),
-	}); err != nil {
-		return "", errors.Wrap(err, "get pod list")
-	}
-
-	for _, pod := range podList.Items {
-		if pod.GetName() == primaryPod || !k8s.IsPodReady(pod) {
-			continue
-		}
-		return PodFQDN(pod.GetName(), sts), nil
-	}
-	// None of the non-primary pods are reachable, use the primary host
-	return PodFQDN(primaryPod, sts), nil
-}
-
-func getNonPrimaryProxySQL(ctx context.Context, cl client.Client, cr *api.PerconaXtraDBCluster) (string, error) {
-	conn, err := GetProxyConnection(ctx, cr, cl)
-	if err != nil {
-		return "", errors.Wrap(err, "failed to get proxy connection")
-	}
-	defer conn.Close()
-
-	// Try to find a reachable host and return the first one that is reachable
-	hosts, err := conn.NonPrimaryHostsProxySQL() // assumes we get a list of pod FQDNs
-	if err != nil {
-		return "", fmt.Errorf("failed to get non-primary hosts: %w", err)
-	}
-	if len(hosts) == 0 {
-		// No non-primary hosts are reachable, use the primary host
-		return conn.PrimaryHost()
-	}
-	return hosts[0], nil
 }
 
 // GetProxyConnection returns a new connection through the proxy (ProxySQL or HAProxy)

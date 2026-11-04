@@ -43,6 +43,15 @@ destination() {
 	fi
 }
 
+incremental_destination() {
+	local incr_path=$1
+	if [ -n "${S3_BUCKET_URL}" ]; then
+		echo -n "s3://${S3_BUCKET_URL%%/*}/${incr_path}"
+	elif [ -n "${BACKUP_PATH}" ]; then
+		echo -n "${incr_path}"
+	fi
+}
+
 # shellcheck disable=SC2086
 xbcloud get --parallel="$(grep -c processor /proc/cpuinfo)" ${XBCLOUD_ARGS} "$(destination).sst_info" | xbstream -x -C "${tmp}" --parallel="$(grep -c processor /proc/cpuinfo)" $XBSTREAM_EXTRA_ARGS
 
@@ -128,14 +137,85 @@ if [[ ${XTRABACKUP_ENABLED} == "true" ]]; then
 	DEFAULTS_FILE=""
 fi
 
-echo "+ xtrabackup $DEFAULTS_FILE ${XB_USE_MEMORY+--use-memory=$XB_USE_MEMORY} --prepare \
+fetch_incremental() {
+	local incr_path=$1
+	local incrdir=$2
+
+	# shellcheck disable=SC2086
+	xbcloud get --parallel="$(grep -c processor /proc/cpuinfo)" ${XBCLOUD_ARGS} "$(incremental_destination "${incr_path}")" | xbstream -x -C "${incrdir}" --parallel="$(grep -c processor /proc/cpuinfo)" $XBSTREAM_EXTRA_ARGS
+
+	# For xtrabackup < 8.0 the stream is not decompressed by xbstream
+	if ! check_for_version "$XTRABACKUP_VERSION" '8.0.0' \
+		&& ! check_for_version "$XTRABACKUP_VERSION" '8.4.0'; then
+		# shellcheck disable=SC2086
+		innobackupex ${XB_USE_MEMORY+--use-memory=$XB_USE_MEMORY} --parallel="$(grep -c processor /proc/cpuinfo)" $REMAINING_XB_ARGS --decompress "${incrdir}"
+	fi
+}
+
+prepare_incremental_chain() {
+	echo "Restoring incremental chain onto base ${BACKUP_DEST:-$(destination)}"
+	echo "Incrementals: ${BACKUP_INCREMENTALS_DEST}"
+
+	echo "+ xtrabackup $DEFAULTS_FILE ${XB_USE_MEMORY+--use-memory=$XB_USE_MEMORY} --prepare --apply-log-only \
+	$REMAINING_XB_ARGS --xtrabackup-plugin-dir=/usr/lib64/xtrabackup/plugin \
+	--target-dir=$tmp ${PXB_VAULT_PREPARE_ARGS}"
+
+	# shellcheck disable=SC2086
+	xtrabackup $DEFAULTS_FILE ${XB_USE_MEMORY+--use-memory=$XB_USE_MEMORY} --prepare --apply-log-only \
+		$REMAINING_XB_ARGS $transition_option \
+		--xtrabackup-plugin-dir=/usr/lib64/xtrabackup/plugin --target-dir="$tmp" ${PXB_VAULT_PREPARE_ARGS}
+
+	local incrementals
+	IFS=',' read -r -a incrementals <<<"${BACKUP_INCREMENTALS_DEST}"
+	local total=${#incrementals[@]}
+	local count=0
+
+	for incr_path in "${incrementals[@]}"; do
+		count=$((count + 1))
+		echo "Downloading incremental backup ${count}/${total}: ${incr_path}"
+
+		local incrdir
+		incrdir=$(mktemp --directory /datadir/pxc_incr_XXXX)
+		fetch_incremental "${incr_path}" "${incrdir}"
+
+		if [ "${count}" -lt "${total}" ]; then
+			echo "+ xtrabackup $DEFAULTS_FILE ${XB_USE_MEMORY+--use-memory=$XB_USE_MEMORY} --prepare --apply-log-only \
+			$REMAINING_XB_ARGS --xtrabackup-plugin-dir=/usr/lib64/xtrabackup/plugin \
+			--target-dir=$tmp --incremental-dir=$incrdir ${PXB_VAULT_PREPARE_ARGS}"
+
+			# shellcheck disable=SC2086
+			xtrabackup $DEFAULTS_FILE ${XB_USE_MEMORY+--use-memory=$XB_USE_MEMORY} --prepare --apply-log-only \
+				$REMAINING_XB_ARGS $transition_option \
+				--xtrabackup-plugin-dir=/usr/lib64/xtrabackup/plugin --target-dir="$tmp" --incremental-dir="${incrdir}" ${PXB_VAULT_PREPARE_ARGS}
+		else
+			# The LAST incremental is prepared WITHOUT --apply-log-only so that
+			# uncommitted transactions are rolled back and the dataset ends up
+			# consistent.
+			echo "+ xtrabackup $DEFAULTS_FILE ${XB_USE_MEMORY+--use-memory=$XB_USE_MEMORY} --prepare \
+			$REMAINING_XB_ARGS --rollback-prepared-trx --xtrabackup-plugin-dir=/usr/lib64/xtrabackup/plugin \
+			--target-dir=$tmp --incremental-dir=$incrdir ${PXB_VAULT_PREPARE_ARGS}"
+
+			# shellcheck disable=SC2086
+			xtrabackup $DEFAULTS_FILE ${XB_USE_MEMORY+--use-memory=$XB_USE_MEMORY} --prepare \
+				$REMAINING_XB_ARGS $transition_option --rollback-prepared-trx \
+				--xtrabackup-plugin-dir=/usr/lib64/xtrabackup/plugin --target-dir="$tmp" --incremental-dir="${incrdir}" ${PXB_VAULT_PREPARE_ARGS}
+		fi
+		rm -rf "${incrdir}"
+	done
+}
+
+if [ -n "${BACKUP_INCREMENTALS_DEST:-}" ]; then
+	prepare_incremental_chain
+else
+	echo "+ xtrabackup $DEFAULTS_FILE ${XB_USE_MEMORY+--use-memory=$XB_USE_MEMORY} --prepare \
 	$REMAINING_XB_ARGS --rollback-prepared-trx  --xtrabackup-plugin-dir=/usr/lib64/xtrabackup/plugin \
 	--target-dir=$tmp ${PXB_VAULT_PREPARE_ARGS}"
 
-# shellcheck disable=SC2086
-xtrabackup $DEFAULTS_FILE ${XB_USE_MEMORY+--use-memory=$XB_USE_MEMORY} --prepare \
-	$REMAINING_XB_ARGS $transition_option --rollback-prepared-trx \
-	--xtrabackup-plugin-dir=/usr/lib64/xtrabackup/plugin --target-dir="$tmp" ${PXB_VAULT_PREPARE_ARGS}
+	# shellcheck disable=SC2086
+	xtrabackup $DEFAULTS_FILE ${XB_USE_MEMORY+--use-memory=$XB_USE_MEMORY} --prepare \
+		$REMAINING_XB_ARGS $transition_option --rollback-prepared-trx \
+		--xtrabackup-plugin-dir=/usr/lib64/xtrabackup/plugin --target-dir="$tmp" ${PXB_VAULT_PREPARE_ARGS}
+fi
 
 echo "+ xtrabackup $DEFAULTS_FILE --defaults-group=mysqld --datadir=/datadir --move-back \
 	$REMAINING_XB_ARGS --force-non-empty-directories $master_key_options \

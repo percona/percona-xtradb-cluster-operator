@@ -220,7 +220,9 @@ func RestoreJob(
 	cluster *api.PerconaXtraDBCluster,
 	initImage string,
 	scheme *runtime.Scheme,
-	destination api.PXCBackupDestination, pitr bool,
+	destination api.PXCBackupDestination,
+	incrementals []string,
+	pitr bool,
 ) (*batchv1.Job, error) {
 	switch bcp.Status.GetStorageType(cluster) {
 	case api.BackupStorageAzure:
@@ -331,7 +333,7 @@ func RestoreJob(
 		}
 	}
 
-	envs, err := restoreJobEnvs(ctx, bcp, cr, cluster, destination, pitr)
+	envs, err := restoreJobEnvs(ctx, bcp, cr, cluster, destination, incrementals, pitr)
 	if err != nil {
 		return nil, errors.Wrap(err, "restore job envs")
 	}
@@ -419,6 +421,7 @@ func restoreJobEnvs(
 	cr *api.PerconaXtraDBClusterRestore,
 	cluster *api.PerconaXtraDBCluster,
 	destination api.PXCBackupDestination,
+	incrementals []string,
 	pitr bool,
 ) ([]corev1.EnvVar, error) {
 	if bcp.Status.GetStorageType(cluster) == api.BackupStorageFilesystem {
@@ -504,6 +507,13 @@ func restoreJobEnvs(
 		envs = append(envs, corev1.EnvVar{
 			Name:  "XTRABACKUP_ENABLED",
 			Value: "true",
+		})
+	}
+
+	if len(incrementals) > 0 {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "BACKUP_INCREMENTALS_DEST",
+			Value: strings.Join(incrementals, ","),
 		})
 	}
 

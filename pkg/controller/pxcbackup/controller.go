@@ -361,8 +361,11 @@ func (r *ReconcilePerconaXtraDBClusterBackup) createBackupJob(
 	}
 
 	if cr.Status.Destination == "" {
-		if err := setBackupDestination(cr, storage, pvc); err != nil {
+		if err := setBackupDestination(cr, storage, pvc, time.Now()); err != nil {
 			return nil, errors.Wrap(err, "set backup destination")
+		}
+		if err := r.updateStatus(ctx, cr); err != nil {
+			return nil, errors.Wrap(err, "persist backup destination")
 		}
 	}
 
@@ -590,7 +593,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) incrementalPredecessorDestination(
 	return predecessor, nil
 }
 
-func setBackupDestination(cr *api.PerconaXtraDBClusterBackup, storage *api.BackupStorageSpec, pvc *corev1.PersistentVolumeClaim) error {
+func setBackupDestination(cr *api.PerconaXtraDBClusterBackup, storage *api.BackupStorageSpec, pvc *corev1.PersistentVolumeClaim, startedAt time.Time) error {
 	switch storage.Type {
 	case api.BackupStorageFilesystem:
 		if pvc == nil {
@@ -605,7 +608,7 @@ func setBackupDestination(cr *api.PerconaXtraDBClusterBackup, storage *api.Backu
 		if err != nil {
 			return errors.Wrap(err, "failed to get bucket and prefix")
 		}
-		leaf, err := backupLeafName(cr)
+		leaf, err := backupLeafName(cr, startedAt)
 		if err != nil {
 			return err
 		}
@@ -615,7 +618,7 @@ func setBackupDestination(cr *api.PerconaXtraDBClusterBackup, storage *api.Backu
 			return errors.New("azure storage is not specified")
 		}
 		container, prefix := storage.Azure.ContainerAndPrefix()
-		leaf, err := backupLeafName(cr)
+		leaf, err := backupLeafName(cr, startedAt)
 		if err != nil {
 			return err
 		}
@@ -627,13 +630,8 @@ func setBackupDestination(cr *api.PerconaXtraDBClusterBackup, storage *api.Backu
 
 // backupLeafName returns the object-storage path of a backup relative to the
 // bucket and prefix of its storage.
-//
-// A full backup keeps the layout it has always had, "<cluster>-<ts>-full"
-// directly under the storage prefix. An incremental backup nests in a sibling
-// directory of its base, "<base-leaf>.incr/<cluster>-<ts>-incr", so that one
-// chain is one directory and any member's path names its base.
-func backupLeafName(cr *api.PerconaXtraDBClusterBackup) (string, error) {
-	timestamp := cr.CreationTimestamp.Time.Format("2006-01-02-15:04:05")
+func backupLeafName(cr *api.PerconaXtraDBClusterBackup, startedAt time.Time) (string, error) {
+	timestamp := startedAt.Format("2006-01-02-15:04:05")
 
 	if cr.GetType() != api.BackupTypeIncremental {
 		return cr.Spec.PXCCluster + "-" + timestamp + "-full", nil

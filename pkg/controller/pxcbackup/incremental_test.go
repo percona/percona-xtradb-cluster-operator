@@ -36,6 +36,12 @@ const (
 	incrBaseSourcePod = "cluster1-pxc-1"
 )
 
+// incrStartedAt is the moment a backup starts, which is what its destination is
+// named after. It is deliberately LATER than the CreationTimestamp incrBackup
+// gives its CRs (09:00:00), so every expectation below fails if the name is
+// built from the CR's creation time instead of its start time.
+var incrStartedAt = time.Date(2026, 11, 3, 9, 30, 0, 0, time.UTC)
+
 // ---------------------------------------------------------------------------
 // fixtures
 // ---------------------------------------------------------------------------
@@ -682,17 +688,17 @@ func TestSetBackupDestination(t *testing.T) {
 		"full backup on s3 keeps the legacy layout": {
 			cr:       incrBackup("full-1", withBackupType(api.BackupTypeFull)),
 			storage:  incrS3Storage(),
-			expected: "s3://bucket/prefix/cluster1-2026-11-03-09:00:00-full",
+			expected: "s3://bucket/prefix/cluster1-2026-11-03-09:30:00-full",
 		},
 		"backup with an empty status type is a full backup": {
 			cr:       incrBackup("full-1"),
 			storage:  incrS3Storage(),
-			expected: "s3://bucket/prefix/cluster1-2026-11-03-09:00:00-full",
+			expected: "s3://bucket/prefix/cluster1-2026-11-03-09:30:00-full",
 		},
 		"full backup on azure keeps the legacy layout": {
 			cr:       incrBackup("full-1", withBackupType(api.BackupTypeFull)),
 			storage:  azureStorage,
-			expected: "azure://container/prefix/cluster1-2026-11-03-09:00:00-full",
+			expected: "azure://container/prefix/cluster1-2026-11-03-09:30:00-full",
 		},
 		"incremental backup nests under the chain directory of its base": {
 			cr: incrBackup("incr-1",
@@ -700,7 +706,7 @@ func TestSetBackupDestination(t *testing.T) {
 				withBaseAnnotation(incrBaseLeaf),
 			),
 			storage:  incrS3Storage(),
-			expected: "s3://bucket/prefix/" + incrBaseLeaf + ".incr/cluster1-2026-11-03-09:00:00-incr",
+			expected: "s3://bucket/prefix/" + incrBaseLeaf + ".incr/cluster1-2026-11-03-09:30:00-incr",
 		},
 		"incremental backup on azure nests under the chain directory too": {
 			cr: incrBackup("incr-1",
@@ -708,7 +714,7 @@ func TestSetBackupDestination(t *testing.T) {
 				withBaseAnnotation(incrBaseLeaf),
 			),
 			storage:  azureStorage,
-			expected: "azure://container/prefix/" + incrBaseLeaf + ".incr/cluster1-2026-11-03-09:00:00-incr",
+			expected: "azure://container/prefix/" + incrBaseLeaf + ".incr/cluster1-2026-11-03-09:30:00-incr",
 		},
 		"incremental backup without a resolved base is a programming error": {
 			cr:          incrBackup("incr-1", withBackupType(api.BackupTypeIncremental)),
@@ -719,7 +725,7 @@ func TestSetBackupDestination(t *testing.T) {
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			err := setBackupDestination(tt.cr, tt.storage, nil)
+			err := setBackupDestination(tt.cr, tt.storage, nil, incrStartedAt)
 			if tt.expectedErr != "" {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tt.expectedErr)
@@ -763,7 +769,7 @@ func TestBackupDestinationIsComputedOnce(t *testing.T) {
 			// This is the guard createBackupJob applies; a second pass must not
 			// reach setBackupDestination at all.
 			if tt.cr.Status.Destination == "" {
-				require.NoError(t, setBackupDestination(tt.cr, incrS3Storage(), nil))
+				require.NoError(t, setBackupDestination(tt.cr, incrS3Storage(), nil, incrStartedAt))
 			}
 
 			assert.Equal(t, tt.expected, tt.cr.Status.Destination.String())

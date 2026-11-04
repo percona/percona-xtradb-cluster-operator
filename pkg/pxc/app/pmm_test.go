@@ -11,7 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-func TestPMM3Client(t *testing.T) {
+func TestPMMClient(t *testing.T) {
 	tests := map[string]struct {
 		secret         *corev1.Secret
 		envVarsSecret  *corev1.Secret
@@ -47,8 +47,8 @@ func TestPMM3Client(t *testing.T) {
 		"success with custom probes": {
 			secret: &corev1.Secret{
 				Data: map[string][]byte{
-					"pmmserver": []byte("some-token"),
-					"monitor":   []byte("monitor-password"),
+					"pmmservertoken": []byte("some-token"),
+					"monitor":        []byte("monitor-password"),
 				},
 			},
 			envVarsSecret: &corev1.Secret{
@@ -94,7 +94,7 @@ func TestPMM3Client(t *testing.T) {
 				},
 			}
 
-			container, err := PMM3Client(cr, tt.secret, tt.envVarsSecret)
+			container, err := PMMClient(cr, tt.secret, tt.envVarsSecret)
 
 			if tt.expectedErrMsg != "" {
 				assert.Error(t, err)

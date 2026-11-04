@@ -251,7 +251,7 @@ Located in `e2e-tests/`. Each subdirectory is a test suite with a `run` script. 
 - Upgrades: `smart-update1`, `smart-update2`, `upgrade-haproxy`, `upgrade-proxysql`
 - High availability: `self-healing-chaos`, `operator-self-healing-chaos`, `affinity`
 - Security: `security-context`, `tls-issue-cert-manager`, `validation-hook`
-- Monitoring: `monitoring-pmm3`
+- Monitoring: `monitoring`
 - Network: `cross-site`, `proxy-protocol`
 
 E2E tests require:

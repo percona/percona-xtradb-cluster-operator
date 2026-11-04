@@ -452,8 +452,12 @@ func (c *Proxy) LogCollectorContainer(_ *api.PerconaXtraDBCluster, _ string, _ s
 }
 
 func (c *Proxy) PMMContainer(ctx context.Context, cl client.Client, spec *api.PMMSpec, secret *corev1.Secret, cr *api.PerconaXtraDBCluster) (*corev1.Container, error) {
-	if cr.Spec.PMM == nil || !cr.Spec.PMM.Enabled {
+	if spec == nil || !spec.Enabled {
 		return nil, nil
+	}
+
+	if !spec.HasToken(secret) {
+		return nil, errors.New("can't enable PMM: pmmservertoken key is missing or empty in the secrets, or secrets and internal secrets are out of sync")
 	}
 
 	envVarsSecret := &corev1.Secret{}
@@ -462,154 +466,18 @@ func (c *Proxy) PMMContainer(ctx context.Context, cl client.Client, spec *api.PM
 		return nil, errors.Wrap(err, "get env vars secret")
 	}
 
-	if v, exists := secret.Data[users.PMMServerToken]; exists && len(v) != 0 {
-		pmm3Container, err := app.PMM3Client(cr, secret, envVarsSecret)
-		if err != nil {
-			return nil, errors.Wrap(err, "get pmm3 container")
-		}
-
-		pmm3Container.Env = append(pmm3Container.Env, pmm3ProxySQLEnvVars(spec.ProxysqlParams)...)
-
-		return &pmm3Container, nil
+	pmmContainer, err := app.PMMClient(cr, secret, envVarsSecret)
+	if err != nil {
+		return nil, errors.Wrap(err, "get pmm container")
 	}
 
-	clusterName := cr.Name
-	if cr.CompareVersionWith("1.18.0") >= 0 && cr.Spec.PMM.CustomClusterName != "" {
-		clusterName = cr.Spec.PMM.CustomClusterName
-	}
+	pmmContainer.Env = append(pmmContainer.Env, pmmProxySQLEnvVars(spec.ProxysqlParams)...)
 
-	// Checking the secret to determine if the PMM2 container can be constructed.
-	if !cr.Spec.PMM.HasSecret(secret) {
-		return nil, errors.New("can't enable PMM2: either pmmserverkey key doesn't exist in the secrets, or secrets and internal secrets are out of sync")
-	}
-
-	ct := app.PMMClient(cr, spec, secret, envVarsSecret)
-
-	pmmEnvs := []corev1.EnvVar{
-		{
-			Name:  "DB_TYPE",
-			Value: "proxysql",
-		},
-		{
-			Name:  "MONITOR_USER",
-			Value: users.Monitor,
-		},
-		{
-			Name: "MONITOR_PASSWORD",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: app.SecretKeySelector(secret.Name, users.Monitor),
-			},
-		},
-	}
-
-	dbEnvs := []corev1.EnvVar{
-		{
-			Name:  "DB_USER",
-			Value: users.Monitor,
-		},
-		{
-			Name: "DB_PASSWORD",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: app.SecretKeySelector(secret.Name, users.Monitor),
-			},
-		},
-		{
-			Name:  "DB_CLUSTER",
-			Value: naming.ComponentPXC,
-		},
-		{
-			Name:  "DB_HOST",
-			Value: "localhost",
-		},
-		{
-			Name:  "DB_PORT",
-			Value: "6032",
-		},
-	}
-
-	dbArgsEnv := []corev1.EnvVar{
-		{
-			Name:  "DB_ARGS",
-			Value: "--dsn $(MONITOR_USER):$(MONITOR_PASSWORD)@tcp(localhost:6032)/",
-		},
-	}
-
-	ct.Env = append(ct.Env, pmmEnvs...)
-	if cr.CompareVersionWith("1.2.0") >= 0 {
-		ct.Env = append(ct.Env, dbEnvs...)
-		ct.Resources = spec.Resources
-	} else {
-		ct.Env = append(ct.Env, dbArgsEnv...)
-	}
-
-	if cr.CompareVersionWith("1.9.0") >= 0 {
-		fvar := true
-		ct.EnvFrom = []corev1.EnvFromSource{
-			{
-				SecretRef: &corev1.SecretEnvSource{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: cr.Spec.ProxySQL.EnvVarsSecretName,
-					},
-					Optional: &fvar,
-				},
-			},
-		}
-	}
-
-	if cr.CompareVersionWith("1.7.0") >= 0 {
-		PmmProxysqlParams := ""
-		if spec.ProxysqlParams != "" {
-			PmmProxysqlParams = spec.ProxysqlParams
-		}
-		clusterPmmEnvs := []corev1.EnvVar{
-			{
-				Name:  "CLUSTER_NAME",
-				Value: clusterName,
-			},
-			{
-				Name:  "PMM_ADMIN_CUSTOM_PARAMS",
-				Value: PmmProxysqlParams,
-			},
-		}
-		ct.Env = append(ct.Env, clusterPmmEnvs...)
-		pmmAgentScriptEnv := app.PMMAgentScript(cr, "proxysql")
-		ct.Env = append(ct.Env, pmmAgentScriptEnv...)
-	}
-
-	if cr.CompareVersionWith("1.10.0") >= 0 {
-		// PMM team added these flags which allows us to avoid
-		// container crash, but just restart pmm-agent till it recovers
-		// the connection.
-		sidecarEnvs := []corev1.EnvVar{
-			{
-				Name:  "PMM_AGENT_SIDECAR",
-				Value: "true",
-			},
-			{
-				Name:  "PMM_AGENT_SIDECAR_SLEEP",
-				Value: "5",
-			},
-		}
-		ct.Env = append(ct.Env, sidecarEnvs...)
-	}
-
-	if cr.CompareVersionWith("1.14.0") >= 0 {
-		// PMM team moved temp directory to /usr/local/percona/pmm2/tmp
-		// but it doesn't work on OpenShift so we set it back to /tmp
-		sidecarEnvs := []corev1.EnvVar{
-			{
-				Name:  "PMM_AGENT_PATHS_TEMPDIR",
-				Value: "/tmp",
-			},
-		}
-		ct.Env = append(ct.Env, sidecarEnvs...)
-	}
-
-	return &ct, nil
+	return &pmmContainer, nil
 }
 
-// pmm3ProxySQLEnvVars returns a list of environment variables to configure the PMM3 container for monitoring proxysql.
-func pmm3ProxySQLEnvVars(pmmProxysqlParams string) []corev1.EnvVar {
+// pmmProxySQLEnvVars returns a list of environment variables to configure the PMM container for monitoring proxysql.
+func pmmProxySQLEnvVars(pmmProxysqlParams string) []corev1.EnvVar {
 	return []corev1.EnvVar{
 		{
 			Name:  "DB_TYPE",

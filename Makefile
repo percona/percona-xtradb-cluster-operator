@@ -154,7 +154,7 @@ release: manifests
 		-e "/^  logcollector:/,/^    image:/{s#image: .*#image: $(IMAGE_LOGCOLLECTOR)#}" \
 		-e "/^  backup:/,/^    image:/{s#image: .*#image: $(IMAGE_BACKUP84)#}" \
 		-e "/initContainer:/,/image:/{s#image: .*#image: $(IMAGE_OPERATOR)#}" \
-		-e "/^  pmm:/,/^    image:/{s#image: .*#image: $(IMAGE_PMM3_CLIENT)#}" deploy/cr.yaml
+		-e "/^  pmm:/,/^    image:/{s#image: .*#image: $(IMAGE_PMM_CLIENT)#}" deploy/cr.yaml
 
 update-version:
 	echo $(NEXT_VER) > pkg/version/version.txt
@@ -191,10 +191,8 @@ after-release: update-version manifests upgrade-consistency-after-release
 		-e "s#^IMAGE_PROXY3=.*#IMAGE_PROXY3=perconalab/percona-xtradb-cluster-operator:main-proxysql3#" \
 		-e "s#^IMAGE_HAPROXY=.*#IMAGE_HAPROXY=perconalab/percona-xtradb-cluster-operator:main-haproxy#" \
 		-e "s#^IMAGE_LOGCOLLECTOR=.*#IMAGE_LOGCOLLECTOR=perconalab/fluentbit:main-logcollector#" \
-		-e "s#^IMAGE_PMM_CLIENT=.*#IMAGE_PMM_CLIENT=perconalab/pmm-client:dev-latest#" \
-		-e "s#^IMAGE_PMM_SERVER=.*#IMAGE_PMM_SERVER=perconalab/pmm-server:dev-latest#" \
-		-e "s#^IMAGE_PMM3_CLIENT=.*#IMAGE_PMM3_CLIENT=perconalab/pmm-client:3-dev-latest#" \
-		-e "s#^IMAGE_PMM3_SERVER=.*#IMAGE_PMM3_SERVER=perconalab/pmm-server:3-dev-latest#" e2e-tests/release_versions
+		-e "s#^IMAGE_PMM_CLIENT=.*#IMAGE_PMM_CLIENT=perconalab/pmm-client:3-dev-latest#" \
+		-e "s#^IMAGE_PMM_SERVER=.*#IMAGE_PMM_SERVER=perconalab/pmm-server:3-dev-latest#" e2e-tests/release_versions
 
 # Update the upgrade-consistency test window to the next version.
 # Gets the 3 tested versions from the run file, drops the oldest, keeps the two newest, and appends the next development version X.(Y+1).0.

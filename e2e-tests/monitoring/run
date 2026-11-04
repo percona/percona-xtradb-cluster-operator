@@ -229,12 +229,12 @@ create_infra $namespace
 deploy_helm $namespace
 
 desc 'install PMM Server'
-deploy_pmm3_server
+deploy_pmm_server
 
 desc 'create secret'
 kubectl_bin apply -f "$test_dir/conf/secrets.yaml"
 
-desc 'add PMM3 token to secret'
+desc 'add PMM token to secret'
 TOKEN=$(get_pmm_server_token "operator")
 kubectl_bin patch secret my-cluster-secrets --type merge --patch '{"stringData": {"pmmservertoken": "'"$TOKEN"'"}}'
 
@@ -275,12 +275,12 @@ compare_kubectl statefulset/$cluster-haproxy
 
 desc 'check mysql metrics'
 sleep 60
-get_metric_values_pmm3 node_boot_time_seconds pxc-prefix-$namespace-$cluster-pxc-0 $NEW_TOKEN
-get_metric_values_pmm3 mysql_global_status_uptime pxc-prefix-$namespace-$cluster-pxc-0 $NEW_TOKEN
+get_metric_values node_boot_time_seconds pxc-prefix-$namespace-$cluster-pxc-0 $NEW_TOKEN
+get_metric_values mysql_global_status_uptime pxc-prefix-$namespace-$cluster-pxc-0 $NEW_TOKEN
 
 desc 'check haproxy metrics'
-get_metric_values_pmm3 haproxy_backend_status pxc-prefix-$namespace-$cluster-haproxy-0 $NEW_TOKEN
-get_metric_values_pmm3 haproxy_backend_active_servers pxc-prefix-$namespace-$cluster-haproxy-0 $NEW_TOKEN
+get_metric_values haproxy_backend_status pxc-prefix-$namespace-$cluster-haproxy-0 $NEW_TOKEN
+get_metric_values haproxy_backend_active_servers pxc-prefix-$namespace-$cluster-haproxy-0 $NEW_TOKEN
 
 desc 'check QAN data'
 get_qan20_values $cluster-pxc-0 $NEW_TOKEN

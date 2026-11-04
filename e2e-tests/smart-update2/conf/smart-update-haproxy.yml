@@ -65,7 +65,6 @@ spec:
     enabled: false
     image: percona/pmm-client:2.44.1-1
     serverHost: monitoring-service
-    serverUser: pmm
   backup:
     image: -backup
     serviceAccountName: percona-xtradb-cluster-operator

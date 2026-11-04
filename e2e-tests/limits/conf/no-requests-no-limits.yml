@@ -31,4 +31,3 @@ spec:
     enabled: false
     image: -pmm
     serverHost: monitoring-service
-    serverUser: pmm

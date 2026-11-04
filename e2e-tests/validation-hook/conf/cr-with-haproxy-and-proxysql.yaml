@@ -312,7 +312,6 @@ spec:
     enabled: false
     image: percona/percona-xtradb-cluster-operator:1.6.0-pmm
     serverHost: monitoring-service
-    serverUser: pmm
     resources:
       requests:
         memory: 200M

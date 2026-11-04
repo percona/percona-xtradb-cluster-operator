@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -104,21 +105,29 @@ func resolveIncrementalLSN(ctx context.Context, client xbscapi.XtrabackupService
 	return nil
 }
 
+// printLogs streams the sidecar's log for this backup to stdout.
+// This is best effort, if we cannot stream logs, simply print a warning because this can otherwise fail the backup.
 func printLogs(ctx context.Context, backupName string, client xbscapi.XtrabackupServiceClient) {
 	log.Println("Requesting logs for backup", backupName)
+
 	stream, err := client.GetLogs(ctx, &xbscapi.GetLogsRequest{
 		BackupName: backupName,
 	})
 	if err != nil {
-		log.Fatal("Failed to get logs: %w", err)
+		log.Printf("WARNING: could not get logs for backup %s: %v", backupName, err)
+		return
 	}
+
 	for {
 		chunk, err := stream.Recv()
-		if err == io.EOF {
-			break
-		} else if err != nil {
-			log.Fatal("Failed to receive log chunk: %w", err)
+		if errors.Is(err, io.EOF) {
+			return
 		}
+		if err != nil {
+			log.Printf("WARNING: could not receive log chunk for backup %s: %v", backupName, err)
+			return
+		}
+
 		fmt.Fprintln(os.Stdout, chunk.Log)
 	}
 }

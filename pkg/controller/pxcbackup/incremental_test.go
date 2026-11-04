@@ -688,13 +688,13 @@ func TestSourcePodReachesTheBackupJob(t *testing.T) {
 			)
 			cluster := incrCluster("1.21.0", false)
 
-			pod, host, err := backup.GetHostForSidecarBackup(t.Context(), incrReconciler(t, cr).client, cluster, cr)
+			node, err := backup.GetNodeForBackup(t.Context(), incrReconciler(t, cr).client, cluster, cr)
 			require.NoError(t, err)
 
-			assert.Equal(t, tt.wantPod, pod)
+			assert.Equal(t, tt.wantPod, node.Pod)
 			// The host is the pod's FQDN, so a chain cannot silently drift to
 			// another node even when a proxy would have offered one.
-			assert.Contains(t, host, tt.wantPod)
+			assert.Contains(t, node.FQDN, tt.wantPod)
 		})
 	}
 }
@@ -803,67 +803,6 @@ func TestBackupDestinationIsComputedOnce(t *testing.T) {
 			}
 
 			assert.Equal(t, tt.expected, tt.cr.Status.Destination.String())
-		})
-	}
-}
-
-// ---------------------------------------------------------------------------
-// status rebuild
-// ---------------------------------------------------------------------------
-
-// TestUpdateJobStatusKeepsType is the regression test for the status literal in
-// updateJobStatus: it replaces the whole status object, so a field missing from
-// it is wiped on every reconcile.
-func TestUpdateJobStatusKeepsType(t *testing.T) {
-	tests := map[string]struct {
-		backupType api.PXCBackupType
-		// expectedGetType is what GetType() reports, which defaults an empty
-		// status type to full.
-		expectedGetType api.PXCBackupType
-	}{
-		"incremental backup": {
-			backupType:      api.BackupTypeIncremental,
-			expectedGetType: api.BackupTypeIncremental,
-		},
-		"full backup": {
-			backupType:      api.BackupTypeFull,
-			expectedGetType: api.BackupTypeFull,
-		},
-		"legacy backup with an empty type is not given one": {
-			backupType:      "",
-			expectedGetType: api.BackupTypeFull,
-		},
-	}
-
-	for name, tt := range tests {
-		t.Run(name, func(t *testing.T) {
-			cr := incrBackup("backup1",
-				withBackupType(tt.backupType),
-				withState(api.BackupStarting),
-				withDestination(incrBaseDest),
-			)
-			cr.Status.Image = "percona/percona-xtradb-cluster-operator:backup"
-
-			job := &batchv1.Job{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      naming.BackupJobName(cr.Name),
-					Namespace: incrNamespace,
-				},
-				Status: batchv1.JobStatus{Ready: ptr.To[int32](1)},
-			}
-
-			r := incrReconciler(t, cr, job)
-
-			require.NoError(t, r.updateJobStatus(t.Context(), cr, job, incrStorageName, incrS3Storage(), incrCluster("1.21.0", false)))
-
-			// The rebuilt status must still describe the same kind of backup.
-			assert.Equal(t, tt.backupType, cr.Status.Type)
-			assert.Equal(t, tt.expectedGetType, cr.GetType())
-			assert.Equal(t, api.BackupRunning, cr.Status.State)
-
-			persisted := new(api.PerconaXtraDBClusterBackup)
-			require.NoError(t, r.client.Get(t.Context(), client.ObjectKeyFromObject(cr), persisted))
-			assert.Equal(t, tt.backupType, persisted.Status.Type)
 		})
 	}
 }
@@ -1423,4 +1362,109 @@ func TestRunBackupFinalizersChainOrdering(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestWriteStatusRefusesStaleWrites covers the guard that keeps a reconcile
+// working from a stale informer read from overwriting a newer status.
+//
+// r.client reads through the cache, so the CR a reconcile starts from can be
+// behind the API. RetryOnConflict alone makes that worse: it refreshes the
+// object and then writes back values derived from the stale read. That is how a
+// backup ends up recorded at a destination its Job is not writing to.
+func TestWriteStatusRefusesStaleWrites(t *testing.T) {
+	const (
+		storedDest   = "s3://bucket/prefix/cluster1-2026-11-03-10:00:00-full"
+		computedDest = "s3://bucket/prefix/cluster1-2026-11-03-11:00:00-full"
+	)
+
+	tests := map[string]struct {
+		// storedState is what the API holds.
+		storedState api.PXCBackupState
+		// observedState is what this reconcile believes it read.
+		observedState api.PXCBackupState
+		computedDest  string
+		wantErr       error
+		wantStored    string
+	}{
+		"writes when the API still holds what we observed": {
+			storedState:   api.BackupStarting,
+			observedState: api.BackupStarting,
+			computedDest:  computedDest,
+			wantStored:    computedDest,
+		},
+		"refuses when the API moved on": {
+			storedState:   api.BackupRunning,
+			observedState: api.BackupStarting,
+			computedDest:  computedDest,
+			wantErr:       errStaleStatus,
+			wantStored:    storedDest,
+		},
+		"writes nothing when this reconcile changed nothing": {
+			storedState:   api.BackupStarting,
+			observedState: api.BackupStarting,
+			computedDest:  storedDest,
+			wantStored:    storedDest,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			stored := incrBackup("backup-1",
+				withBackupType(api.BackupTypeFull),
+				withState(tt.storedState),
+				withDestination(storedDest),
+			)
+			r := incrReconciler(t, stored)
+
+			// What this reconcile thinks it read, and what it computed from it.
+			observed := &api.PXCBackupStatus{
+				Type:        api.BackupTypeFull,
+				State:       tt.observedState,
+				Destination: api.PXCBackupDestination(storedDest),
+			}
+			cr := incrBackup("backup-1",
+				withBackupType(api.BackupTypeFull),
+				withState(tt.observedState),
+				withDestination(tt.computedDest),
+			)
+
+			err := r.writeStatus(t.Context(), cr, observed)
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+			} else {
+				require.NoError(t, err)
+			}
+
+			persisted := new(api.PerconaXtraDBClusterBackup)
+			require.NoError(t, r.client.Get(t.Context(), client.ObjectKeyFromObject(cr), persisted))
+			assert.Equal(t, tt.wantStored, persisted.Status.Destination.String())
+		})
+	}
+}
+
+// TestWriteStatusAdvancesObserved checks a second write in the same reconcile
+// compares against what the first one wrote, not against what the reconcile
+// originally read - otherwise the controller would reject its own writes.
+func TestWriteStatusAdvancesObserved(t *testing.T) {
+	stored := incrBackup("backup-1",
+		withBackupType(api.BackupTypeFull),
+		withState(api.BackupNew),
+	)
+	r := incrReconciler(t, stored)
+
+	observed := stored.Status.DeepCopy()
+	cr := stored.DeepCopy()
+
+	cr.Status.Destination = "s3://bucket/prefix/cluster1-2026-11-03-10:00:00-full"
+	require.NoError(t, r.writeStatus(t.Context(), cr, observed))
+	assert.Equal(t, cr.Status.Destination, observed.Destination, "observed advances to what was written")
+
+	// A later write in the same reconcile must still be accepted.
+	cr.Status.SourcePod = "cluster1-pxc-1"
+	require.NoError(t, r.writeStatus(t.Context(), cr, observed))
+
+	persisted := new(api.PerconaXtraDBClusterBackup)
+	require.NoError(t, r.client.Get(t.Context(), client.ObjectKeyFromObject(cr), persisted))
+	assert.Equal(t, "cluster1-pxc-1", persisted.Status.SourcePod)
+	assert.Equal(t, cr.Status.Destination, persisted.Status.Destination)
 }

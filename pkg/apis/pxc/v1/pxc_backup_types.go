@@ -7,6 +7,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 )
 
@@ -110,6 +111,27 @@ type PXCBackupStatus struct {
 	VerifyTLS             *bool                             `json:"verifyTLS,omitempty"`
 	LatestRestorableTime  *metav1.Time                      `json:"latestRestorableTime,omitempty"`
 	SourcePod             string                            `json:"sourcePod,omitempty"`
+}
+
+func (status PXCBackupStatus) Equals(other PXCBackupStatus) bool {
+	return status.Type == other.Type &&
+		status.State == other.State &&
+		status.Error == other.Error &&
+		status.CompletedAt.Equal(other.CompletedAt) &&
+		status.LastScheduled.Equal(other.LastScheduled) &&
+		status.Destination == other.Destination &&
+		status.StorageName == other.StorageName &&
+		status.StorageType == other.StorageType &&
+		status.Image == other.Image &&
+		status.SSLSecretName == other.SSLSecretName &&
+		status.SSLInternalSecretName == other.SSLInternalSecretName &&
+		status.VaultSecretName == other.VaultSecretName &&
+		status.LatestRestorableTime.Equal(other.LatestRestorableTime) &&
+		status.SourcePod == other.SourcePod &&
+		ptr.Deref(status.VerifyTLS, false) == ptr.Deref(other.VerifyTLS, false) &&
+		status.Azure.equals(other.Azure) &&
+		status.S3.equals(other.S3)
+	// todo: PVC
 }
 
 type PXCBackupDestination string

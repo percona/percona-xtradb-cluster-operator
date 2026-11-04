@@ -374,6 +374,96 @@ func TestBackupNeedsLease(t *testing.T) {
 	}
 }
 
+// TestBackupLeaseHolderStale covers when the cluster's backup lock may be taken
+// away from whoever currently holds it.
+//
+// The operator releases the lease from its own reconcile loop, so a backup that
+// has finished, is being deleted, or no longer exists will never release it.
+// One missed release would otherwise block every later backup on the cluster
+// forever - and incrementals always take the lease, so the chain stops dead.
+func TestBackupLeaseHolderStale(t *testing.T) {
+	const holderUID = "11111111-1111-1111-1111-111111111111"
+
+	tests := map[string]struct {
+		holderState    api.PXCBackupState
+		holderDeleting bool
+		holderMissing  bool
+		// identityOverride replaces the identity asked about; nil asks about
+		// the holder backup itself.
+		identityOverride *string
+		want             bool
+	}{
+		"a running holder keeps the lease": {
+			holderState: api.BackupRunning,
+			want:        false,
+		},
+		"a starting holder keeps the lease": {
+			holderState: api.BackupStarting,
+			want:        false,
+		},
+		"a suspended holder keeps the lease": {
+			holderState: api.BackupSuspended,
+			want:        false,
+		},
+		"a succeeded holder is stale": {
+			holderState: api.BackupSucceeded,
+			want:        true,
+		},
+		"a failed holder is stale": {
+			holderState: api.BackupFailed,
+			want:        true,
+		},
+		"a holder being deleted is stale": {
+			holderState:    api.BackupRunning,
+			holderDeleting: true,
+			want:           true,
+		},
+		"a holder that no longer exists is stale": {
+			holderState:   api.BackupRunning,
+			holderMissing: true,
+			want:          true,
+		},
+		"an empty holder identity is stale": {
+			holderState:      api.BackupRunning,
+			identityOverride: ptr.To(""),
+			want:             true,
+		},
+		// A backup recreated under an old name gets a fresh UID, so an
+		// identity carrying the old one names an object that is gone.
+		"an identity naming a different UID is stale": {
+			holderState:      api.BackupRunning,
+			identityOverride: ptr.To("holder-99999999-9999-9999-9999-999999999999"),
+			want:             true,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			opts := []backupOption{withState(tt.holderState)}
+			if tt.holderDeleting {
+				opts = append(opts, withDeletionTimestamp())
+			}
+			bcp := incrBackup("holder", opts...)
+			bcp.UID = holderUID
+
+			var objs []client.Object
+			if !tt.holderMissing {
+				objs = append(objs, bcp)
+			}
+			r := incrReconciler(t, objs...)
+
+			identity := naming.BackupHolderId(bcp)
+			if tt.identityOverride != nil {
+				identity = *tt.identityOverride
+			}
+
+			stale, err := r.backupLeaseHolderStale(incrNamespace)(t.Context(), identity)
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, stale)
+		})
+	}
+}
+
 // TestEnsureFinalizersFollowsTheLease checks the release-lock finalizer is
 // added exactly when the lease is taken. Acquiring without the finalizer would
 // orphan the lease when a backup is deleted mid-flight, blocking every later

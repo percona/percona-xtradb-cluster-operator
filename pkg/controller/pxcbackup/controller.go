@@ -140,7 +140,11 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 		return reconcile.Result{}, errors.Wrap(err, "run finalizers")
 	}
 
-	if cr.Status.State == api.BackupSucceeded || cr.Status.State == api.BackupFailed {
+	if cr.Status.State.IsTerminal() {
+		if err := r.releaseBackupLease(ctx, cr); err != nil {
+			return reconcile.Result{}, err
+		}
+
 		if err := r.runJobFinalizers(ctx, cr); err != nil {
 			return reconcile.Result{}, errors.Wrap(err, "run finalizers")
 		}
@@ -287,7 +291,9 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 		"allowParallel", cluster.Spec.Backup.GetAllowParallel(),
 		"type", cr.GetType())
 	if cr.Status.State == api.BackupNew && backupNeedsLease(cr, cluster) {
-		lease, err := k8s.AcquireLease(ctx, r.client, naming.BackupLeaseName(cluster.Name), cr.Namespace, naming.BackupHolderId(cr))
+		lease, err := k8s.AcquireLease(ctx, r.client,
+			naming.BackupLeaseName(cluster.Name), cr.Namespace, naming.BackupHolderId(cr),
+			r.backupLeaseHolderStale(cr.Namespace))
 		if err != nil {
 			return reconcile.Result{}, errors.Wrap(err, "acquire backup lock")
 		}
@@ -814,7 +820,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) runBackupFinalizers(ctx context.Co
 
 			log.Info("backup was removed", "name", cr.Name)
 		case naming.FinalizerReleaseLock:
-			err = r.runReleaseLockFinalizer(ctx, cr)
+			err = r.releaseBackupLease(ctx, cr)
 			if err != nil {
 				log.Error(err, "failed to release backup lock")
 				finalizers = append(finalizers, f)
@@ -905,12 +911,34 @@ func (r *ReconcilePerconaXtraDBClusterBackup) runFilesystemBackupFinalizer(ctx c
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBClusterBackup) runReleaseLockFinalizer(ctx context.Context, cr *api.PerconaXtraDBClusterBackup) error {
+func (r *ReconcilePerconaXtraDBClusterBackup) releaseBackupLease(ctx context.Context, cr *api.PerconaXtraDBClusterBackup) error {
 	err := k8s.ReleaseLease(ctx, r.client, naming.BackupLeaseName(cr.Spec.PXCCluster), cr.Namespace, naming.BackupHolderId(cr))
 	if k8sErrors.IsNotFound(err) || errors.Is(err, k8s.ErrNotTheHolder) {
 		return nil
 	}
 	return errors.Wrap(err, "release backup lock")
+}
+
+func (r *ReconcilePerconaXtraDBClusterBackup) backupLeaseHolderStale(namespace string) k8s.IsHolderStaleFunc {
+	return func(ctx context.Context, holder string) (bool, error) {
+		if holder == "" {
+			return true, nil
+		}
+
+		backups := new(api.PerconaXtraDBClusterBackupList)
+		if err := r.client.List(ctx, backups, client.InNamespace(namespace)); err != nil {
+			return false, errors.Wrap(err, "list backups")
+		}
+
+		for i := range backups.Items {
+			bcp := &backups.Items[i]
+			if naming.BackupHolderId(bcp) != holder {
+				continue
+			}
+			return bcp.Status.State.IsTerminal() || !bcp.DeletionTimestamp.IsZero(), nil
+		}
+		return true, nil
+	}
 }
 
 func removeBackupObjects(ctx context.Context, s storage.Storage, destination string) func() error {

@@ -316,7 +316,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 		cr.Status.VerifyTLS = storage.VerifyTLS
 	}
 
-	if err := r.setIncrementalBaseAnnotation(ctx, cr, cluster, storage); err != nil {
+	if err := r.setIncrementalBase(ctx, cr, cluster, storage); err != nil {
 		err = errors.Wrap(err, "set incremental base backup annotation")
 
 		if err := r.setFailedStatus(ctx, cr, err); err != nil {
@@ -500,7 +500,27 @@ func backupNeedsLease(cr *api.PerconaXtraDBClusterBackup, cluster *api.PerconaXt
 	return cr.GetType() == api.BackupTypeIncremental || !cluster.Spec.Backup.GetAllowParallel()
 }
 
-func (r *ReconcilePerconaXtraDBClusterBackup) setIncrementalBaseAnnotation(
+func (r *ReconcilePerconaXtraDBClusterBackup) resolveBaseForChain(
+	ctx context.Context,
+	cr *api.PerconaXtraDBClusterBackup,
+	cluster *api.PerconaXtraDBCluster,
+	storage *api.BackupStorageSpec,
+) (*api.PerconaXtraDBClusterBackup, error) {
+	leaf := cr.GetAnnotations()[naming.AnnotationBaseBackupName]
+	if leaf == "" {
+		return backup.ResolveIncrementalBase(ctx, r.client, cr, cluster, storage)
+	}
+
+	base, err := backup.GetBackupByDestinationLeaf(ctx, r.client, cluster, leaf)
+	if err != nil {
+		return nil, errors.Wrapf(err, "get the base %q already recorded for backup %s/%s",
+			leaf, cr.GetNamespace(), cr.GetName())
+	}
+
+	return base, nil
+}
+
+func (r *ReconcilePerconaXtraDBClusterBackup) setIncrementalBase(
 	ctx context.Context,
 	cr *api.PerconaXtraDBClusterBackup,
 	cluster *api.PerconaXtraDBCluster,
@@ -510,11 +530,11 @@ func (r *ReconcilePerconaXtraDBClusterBackup) setIncrementalBaseAnnotation(
 		return nil
 	}
 
-	if _, ok := cr.GetAnnotations()[naming.AnnotationBaseBackupName]; ok {
+	if _, ok := cr.GetAnnotations()[naming.AnnotationBaseBackupName]; ok && cr.Status.SourcePod != "" {
 		return nil
 	}
 
-	base, err := backup.ResolveIncrementalBase(ctx, r.client, cr, cluster, storage)
+	base, err := r.resolveBaseForChain(ctx, cr, cluster, storage)
 	if err != nil {
 		return errors.Wrap(err, "resolve incremental base backup")
 	}

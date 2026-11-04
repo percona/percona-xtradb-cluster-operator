@@ -45,6 +45,8 @@ func GetHostForSidecarBackup(
 ) (string, string, error) {
 	pod := ""
 	switch {
+	case backup.Status.SourcePod != "":
+		pod = backup.Status.SourcePod
 	case backup.Spec.SourcePod != "":
 		pod = backup.Spec.SourcePod
 	case cluster.HAProxyEnabled():

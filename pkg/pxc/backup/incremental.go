@@ -16,6 +16,7 @@ import (
 var (
 	ErrNoFullBackupFound        = errors.New("no full backup found in storage")
 	ErrNoIncrementalBackupFound = errors.New("no incremental backup found in chain")
+	ErrBaseBackupNotFound       = errors.New("the base backup recorded for this chain no longer exists")
 )
 
 func StorageSpecFromStatus(status *api.PXCBackupStatus) *api.BackupStorageSpec {
@@ -176,6 +177,36 @@ func ResolveIncrementalBase(
 	}
 
 	return base, nil
+}
+
+// GetBackupByDestinationLeaf returns the cluster's backup whose destination ends
+// in the given object-storage leaf name, or ErrBaseBackupNotFound.
+func GetBackupByDestinationLeaf(
+	ctx context.Context,
+	cl client.Client,
+	cluster *api.PerconaXtraDBCluster,
+	leaf string,
+) (*api.PerconaXtraDBClusterBackup, error) {
+	if leaf == "" {
+		return nil, ErrBaseBackupNotFound
+	}
+
+	bcpList := api.PerconaXtraDBClusterBackupList{}
+	if err := cl.List(ctx, &bcpList,
+		client.InNamespace(cluster.GetNamespace()),
+		client.MatchingFields{PXCClusterBackupField: cluster.GetName()},
+	); err != nil {
+		return nil, errors.Wrapf(err, "list backups of cluster %s/%s", cluster.GetNamespace(), cluster.GetName())
+	}
+
+	for i := range bcpList.Items {
+		bcp := &bcpList.Items[i]
+		if bcp.Status.Destination.BackupName() == leaf {
+			return bcp.DeepCopy(), nil
+		}
+	}
+
+	return nil, ErrBaseBackupNotFound
 }
 
 func resolveBaseCandidate(

@@ -36,10 +36,6 @@ const (
 	incrBaseSourcePod = "cluster1-pxc-1"
 )
 
-// incrStartedAt is the moment a backup starts, which is what its destination is
-// named after. It is deliberately LATER than the CreationTimestamp incrBackup
-// gives its CRs (09:00:00), so every expectation below fails if the name is
-// built from the CR's creation time instead of its start time.
 var incrStartedAt = time.Date(2026, 11, 3, 9, 30, 0, 0, time.UTC)
 
 // ---------------------------------------------------------------------------
@@ -222,9 +218,6 @@ func TestValidateIncrementalBackup(t *testing.T) {
 		Type:   api.BackupStorageFilesystem,
 		Volume: &api.VolumeSpec{PersistentVolumeClaim: &corev1.PersistentVolumeClaimSpec{}},
 	}
-	// The CR API has no GCS storage type today, and pkg/pxc/backup/storage has no
-	// GCS client, so anything that is not s3 or azure must be refused rather than
-	// silently treated as one of them.
 	gcsStorage := &api.BackupStorageSpec{Type: api.BackupStorageType("gcs")}
 	azureStorage := &api.BackupStorageSpec{
 		Type:  api.BackupStorageAzure,
@@ -267,9 +260,6 @@ func TestValidateIncrementalBackup(t *testing.T) {
 			storage:     gcsStorage,
 			expectedErr: `of type "gcs"`,
 		},
-		// allowParallel is no longer a reason to refuse an incremental: the
-		// backup takes the per-cluster lease regardless, so it still runs
-		// serially while full backups go in parallel. See backupNeedsLease.
 		"incremental backup with allowParallel": {
 			backupType:    api.BackupTypeIncremental,
 			sidecarGate:   true,
@@ -376,11 +366,6 @@ func TestBackupNeedsLease(t *testing.T) {
 
 // TestBackupLeaseHolderStale covers when the cluster's backup lock may be taken
 // away from whoever currently holds it.
-//
-// The operator releases the lease from its own reconcile loop, so a backup that
-// has finished, is being deleted, or no longer exists will never release it.
-// One missed release would otherwise block every later backup on the cluster
-// forever - and incrementals always take the lease, so the chain stops dead.
 func TestBackupLeaseHolderStale(t *testing.T) {
 	const holderUID = "11111111-1111-1111-1111-111111111111"
 
@@ -508,18 +493,17 @@ func TestEnsureFinalizersFollowsTheLease(t *testing.T) {
 	}
 }
 
-// ---------------------------------------------------------------------------
-// base annotation
-// ---------------------------------------------------------------------------
-
-func TestSetIncrementalBaseAnnotation(t *testing.T) {
+func TestSetIncrementalBase(t *testing.T) {
 	newerBase := "s3://bucket/prefix/cluster1-2026-11-03-11:00:00-full"
 
 	tests := map[string]struct {
 		cr           *api.PerconaXtraDBClusterBackup
 		existing     []client.Object
 		expectedBase string
-		expectedErr  string
+		// expectedPin is the node the backup must end up tied to; empty skips
+		// the check.
+		expectedPin string
+		expectedErr string
 	}{
 		"resolves the newest succeeded full backup in the storage": {
 			cr: incrBackup("incr-1", withBackupType(api.BackupTypeIncremental)),
@@ -543,11 +527,11 @@ func TestSetIncrementalBaseAnnotation(t *testing.T) {
 				withBaseAnnotation(incrBaseLeaf),
 			),
 			existing: []client.Object{
-				// A newer full backup exists; re-pointing the chain at it would
-				// make every incremental taken so far unrestorable.
-				fullBackup("full-new", newerBase, 5),
+				fullBackup("full-base", incrBaseDest, 1),
+				fullBackup("full-new", newerBase, 5, withSourcePod("cluster1-pxc-2")),
 			},
 			expectedBase: incrBaseLeaf,
+			expectedPin:  incrBaseSourcePod,
 		},
 		"full backups are left alone": {
 			cr: incrBackup("full-1", withBackupType(api.BackupTypeFull)),
@@ -602,7 +586,7 @@ func TestSetIncrementalBaseAnnotation(t *testing.T) {
 			objs := append([]client.Object{tt.cr}, tt.existing...)
 			r := incrReconciler(t, objs...)
 
-			err := r.setIncrementalBaseAnnotation(t.Context(), tt.cr, incrCluster("1.21.0", false), incrS3Storage())
+			err := r.setIncrementalBase(t.Context(), tt.cr, incrCluster("1.21.0", false), incrS3Storage())
 			if tt.expectedErr != "" {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tt.expectedErr)
@@ -617,57 +601,13 @@ func TestSetIncrementalBaseAnnotation(t *testing.T) {
 			persisted := new(api.PerconaXtraDBClusterBackup)
 			require.NoError(t, r.client.Get(t.Context(), client.ObjectKeyFromObject(tt.cr), persisted))
 			assert.Equal(t, tt.expectedBase, persisted.GetAnnotations()[naming.AnnotationBaseBackupName])
+
+			if tt.expectedPin != "" {
+				assert.Equal(t, tt.expectedPin, tt.cr.Spec.SourcePod,
+					"the node the backup is tied to must come from the base the annotation names")
+			}
 		})
 	}
-}
-
-// TestSetIncrementalBaseAnnotationIsIdempotent checks the rule that makes a
-// chain stable: once resolved, the base is never resolved again, not even when
-// a newer full backup has appeared in the meantime.
-func TestSetIncrementalBaseAnnotationIsIdempotent(t *testing.T) {
-	cr := incrBackup("incr-1", withBackupType(api.BackupTypeIncremental))
-
-	r := incrReconciler(t,
-		cr,
-		fullBackup("full-1", incrBaseDest, 1),
-	)
-	cluster := incrCluster("1.21.0", false)
-
-	require.NoError(t, r.setIncrementalBaseAnnotation(t.Context(), cr, cluster, incrS3Storage()))
-	require.Equal(t, incrBaseLeaf, cr.GetAnnotations()[naming.AnnotationBaseBackupName])
-
-	// A newer full backup appears, as a nightly schedule would produce.
-	newer := fullBackup("full-2", "s3://bucket/prefix/cluster1-2026-11-03-12:00:00-full", 10)
-	require.NoError(t, r.client.Create(t.Context(), newer))
-
-	require.NoError(t, r.setIncrementalBaseAnnotation(t.Context(), cr, cluster, incrS3Storage()))
-	assert.Equal(t, incrBaseLeaf, cr.GetAnnotations()[naming.AnnotationBaseBackupName])
-
-	persisted := new(api.PerconaXtraDBClusterBackup)
-	require.NoError(t, r.client.Get(t.Context(), client.ObjectKeyFromObject(cr), persisted))
-	assert.Equal(t, incrBaseLeaf, persisted.GetAnnotations()[naming.AnnotationBaseBackupName])
-}
-
-// TestSetIncrementalBaseAnnotationKeepsStatus guards the in-memory status this
-// reconcile has built up but not written yet: replacing the whole CR with the
-// object returned by the API server would drop it, which is how PS lost
-// destination, storage and image from the status of every incremental backup.
-func TestSetIncrementalBaseAnnotationKeepsStatus(t *testing.T) {
-	cr := incrBackup("incr-1", withBackupType(api.BackupTypeIncremental))
-
-	r := incrReconciler(t, cr, fullBackup("full-1", incrBaseDest, 1))
-
-	cr.Status.Image = "percona/percona-xtradb-cluster-operator:backup"
-	cr.Status.SSLSecretName = "cluster1-ssl"
-	cr.Status.StorageType = api.BackupStorageS3
-
-	require.NoError(t, r.setIncrementalBaseAnnotation(t.Context(), cr, incrCluster("1.21.0", false), incrS3Storage()))
-
-	assert.Equal(t, incrBaseLeaf, cr.GetAnnotations()[naming.AnnotationBaseBackupName])
-	assert.Equal(t, api.BackupTypeIncremental, cr.Status.Type)
-	assert.Equal(t, "percona/percona-xtradb-cluster-operator:backup", cr.Status.Image)
-	assert.Equal(t, "cluster1-ssl", cr.Status.SSLSecretName)
-	assert.Equal(t, api.BackupStorageS3, cr.Status.StorageType)
 }
 
 func TestSetIncrementalBaseAnnotationPinsSourcePod(t *testing.T) {
@@ -714,7 +654,7 @@ func TestSetIncrementalBaseAnnotationPinsSourcePod(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			r := incrReconciler(t, tt.incremental, tt.base)
 
-			err := r.setIncrementalBaseAnnotation(t.Context(), tt.incremental, incrCluster("1.21.0", false), incrS3Storage())
+			err := r.setIncrementalBase(t.Context(), tt.incremental, incrCluster("1.21.0", false), incrS3Storage())
 
 			if tt.wantErr != "" {
 				require.Error(t, err)

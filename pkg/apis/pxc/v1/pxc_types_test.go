@@ -566,7 +566,7 @@ func TestSetProbesDefaults(t *testing.T) {
 			TimeoutSeconds:      5,
 			SuccessThreshold:    1,
 			FailureThreshold:    3,
-		}, cr.Spec.ProxySQL.ReadinessProbe)
+		}, cr.Spec.ProxySQL.ReadinessProbes)
 
 		assert.Equal(t, corev1.Probe{
 			ProbeHandler:        corev1.ProbeHandler{},
@@ -575,14 +575,14 @@ func TestSetProbesDefaults(t *testing.T) {
 			TimeoutSeconds:      5,
 			SuccessThreshold:    1,
 			FailureThreshold:    4,
-		}, cr.Spec.ProxySQL.LivenessProbe)
+		}, cr.Spec.ProxySQL.LivenessProbes)
 	})
 
 	t.Run("partial overrides are preserved and the rest defaulted", func(t *testing.T) {
 		cr := newCR()
 		cr.Spec.PXC.ReadinessProbes.TimeoutSeconds = 99
 		cr.Spec.HAProxy.LivenessProbes.FailureThreshold = 7
-		cr.Spec.ProxySQL.ReadinessProbe.PeriodSeconds = 42
+		cr.Spec.ProxySQL.ReadinessProbes.PeriodSeconds = 42
 
 		cr.setProbesDefaults()
 
@@ -596,9 +596,9 @@ func TestSetProbesDefaults(t *testing.T) {
 		assert.Equal(t, int32(30), cr.Spec.HAProxy.LivenessProbes.PeriodSeconds)
 		assert.Equal(t, int32(5), cr.Spec.HAProxy.LivenessProbes.TimeoutSeconds)
 
-		assert.Equal(t, int32(42), cr.Spec.ProxySQL.ReadinessProbe.PeriodSeconds)
-		assert.Equal(t, int32(15), cr.Spec.ProxySQL.ReadinessProbe.InitialDelaySeconds)
-		assert.Equal(t, int32(5), cr.Spec.ProxySQL.ReadinessProbe.TimeoutSeconds)
+		assert.Equal(t, int32(42), cr.Spec.ProxySQL.ReadinessProbes.PeriodSeconds)
+		assert.Equal(t, int32(15), cr.Spec.ProxySQL.ReadinessProbes.InitialDelaySeconds)
+		assert.Equal(t, int32(5), cr.Spec.ProxySQL.ReadinessProbes.TimeoutSeconds)
 	})
 
 	t.Run("fully supplied values are preserved as-is", func(t *testing.T) {
@@ -614,8 +614,8 @@ func TestSetProbesDefaults(t *testing.T) {
 		cr.Spec.PXC.ReadinessProbes = *full.DeepCopy()
 		cr.Spec.HAProxy.LivenessProbes = *full.DeepCopy()
 		cr.Spec.HAProxy.ReadinessProbes = *full.DeepCopy()
-		cr.Spec.ProxySQL.LivenessProbe = *full.DeepCopy()
-		cr.Spec.ProxySQL.ReadinessProbe = *full.DeepCopy()
+		cr.Spec.ProxySQL.LivenessProbes = *full.DeepCopy()
+		cr.Spec.ProxySQL.ReadinessProbes = *full.DeepCopy()
 
 		cr.setProbesDefaults()
 
@@ -623,8 +623,8 @@ func TestSetProbesDefaults(t *testing.T) {
 		assert.Equal(t, full, cr.Spec.PXC.ReadinessProbes)
 		assert.Equal(t, full, cr.Spec.HAProxy.LivenessProbes)
 		assert.Equal(t, full, cr.Spec.HAProxy.ReadinessProbes)
-		assert.Equal(t, full, cr.Spec.ProxySQL.LivenessProbe)
-		assert.Equal(t, full, cr.Spec.ProxySQL.ReadinessProbe)
+		assert.Equal(t, full, cr.Spec.ProxySQL.LivenessProbes)
+		assert.Equal(t, full, cr.Spec.ProxySQL.ReadinessProbes)
 	})
 
 	t.Run("HAProxy probes are untouched when HAProxy is not enabled", func(t *testing.T) {
@@ -643,8 +643,8 @@ func TestSetProbesDefaults(t *testing.T) {
 
 		cr.setProbesDefaults()
 
-		assert.Equal(t, corev1.Probe{}, cr.Spec.ProxySQL.LivenessProbe)
-		assert.Equal(t, corev1.Probe{}, cr.Spec.ProxySQL.ReadinessProbe)
+		assert.Equal(t, corev1.Probe{}, cr.Spec.ProxySQL.LivenessProbes)
+		assert.Equal(t, corev1.Probe{}, cr.Spec.ProxySQL.ReadinessProbes)
 	})
 
 	t.Run("ProxySQL probes are untouched below the 1.21.0 version gate", func(t *testing.T) {
@@ -653,8 +653,8 @@ func TestSetProbesDefaults(t *testing.T) {
 
 		cr.setProbesDefaults()
 
-		assert.Equal(t, corev1.Probe{}, cr.Spec.ProxySQL.LivenessProbe)
-		assert.Equal(t, corev1.Probe{}, cr.Spec.ProxySQL.ReadinessProbe)
+		assert.Equal(t, corev1.Probe{}, cr.Spec.ProxySQL.LivenessProbes)
+		assert.Equal(t, corev1.Probe{}, cr.Spec.ProxySQL.ReadinessProbes)
 	})
 
 	t.Run("ProxySQL probes get defaults at and above the 1.21.0 version gate", func(t *testing.T) {
@@ -663,8 +663,8 @@ func TestSetProbesDefaults(t *testing.T) {
 
 		cr.setProbesDefaults()
 
-		assert.Equal(t, int32(15), cr.Spec.ProxySQL.ReadinessProbe.InitialDelaySeconds)
-		assert.Equal(t, int32(60), cr.Spec.ProxySQL.LivenessProbe.InitialDelaySeconds)
+		assert.Equal(t, int32(15), cr.Spec.ProxySQL.ReadinessProbes.InitialDelaySeconds)
+		assert.Equal(t, int32(60), cr.Spec.ProxySQL.LivenessProbes.InitialDelaySeconds)
 	})
 
 	t.Run("legacy initial delay fields take precedence over the probe struct", func(t *testing.T) {
@@ -710,13 +710,13 @@ func TestSetProbesDefaults(t *testing.T) {
 		cr := newCR()
 		cr.Spec.PXC.LivenessProbes.InitialDelaySeconds = 77
 		cr.Spec.HAProxy.ReadinessProbes.InitialDelaySeconds = 88
-		cr.Spec.ProxySQL.LivenessProbe.InitialDelaySeconds = 99
+		cr.Spec.ProxySQL.LivenessProbes.InitialDelaySeconds = 99
 
 		cr.setProbesDefaults()
 
 		assert.Equal(t, int32(77), cr.Spec.PXC.LivenessProbes.InitialDelaySeconds)
 		assert.Equal(t, int32(88), cr.Spec.HAProxy.ReadinessProbes.InitialDelaySeconds)
-		assert.Equal(t, int32(99), cr.Spec.ProxySQL.LivenessProbe.InitialDelaySeconds)
+		assert.Equal(t, int32(99), cr.Spec.ProxySQL.LivenessProbes.InitialDelaySeconds)
 	})
 }
 

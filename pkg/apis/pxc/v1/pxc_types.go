@@ -758,10 +758,6 @@ type ProxySQLSpec struct {
 	Expose ServiceExpose `json:"expose,omitempty"`
 
 	Scheduler ProxySQLSchedulerSpec `json:"scheduler"`
-
-	ReadinessProbe corev1.Probe `json:"readinessProbe,omitempty"`
-
-	LivenessProbe corev1.Probe `json:"livenessProbe,omitempty"`
 }
 
 type ProxySQLSchedulerSpec struct {
@@ -1617,7 +1613,7 @@ func (cr *PerconaXtraDBCluster) setProbesDefaults() {
 	}
 
 	if cr.Spec.ProxySQLEnabled() && cr.CompareVersionWith("1.21.0") >= 0 {
-		applyProbeDefaults(&cr.Spec.ProxySQL.ReadinessProbe, probeDefaults{
+		applyProbeDefaults(&cr.Spec.ProxySQL.ReadinessProbes, probeDefaults{
 			InitialDelaySeconds: 15,
 			PeriodSeconds:       5,
 			TimeoutSeconds:      5,
@@ -1625,7 +1621,7 @@ func (cr *PerconaXtraDBCluster) setProbesDefaults() {
 			FailureThreshold:    3,
 		}, nil)
 
-		applyProbeDefaults(&cr.Spec.ProxySQL.LivenessProbe, probeDefaults{
+		applyProbeDefaults(&cr.Spec.ProxySQL.LivenessProbes, probeDefaults{
 			InitialDelaySeconds: 60,
 			PeriodSeconds:       30,
 			TimeoutSeconds:      5,

@@ -203,11 +203,11 @@ func (c *Proxy) AppContainer(ctx context.Context, _ client.Client, spec *api.Pod
 	}
 
 	if cr.CompareVersionWith("1.21.0") >= 0 {
-		appc.ReadinessProbe = cr.Spec.ProxySQL.ReadinessProbe.DeepCopy()
+		appc.ReadinessProbe = cr.Spec.ProxySQL.ReadinessProbes.DeepCopy()
 		if pb := appc.ReadinessProbe; pb.Exec == nil && pb.HTTPGet == nil && pb.TCPSocket == nil && pb.GRPC == nil {
 			appc.ReadinessProbe = app.Probe(pb, "/opt/percona/proxysql_readiness_check.sh")
 		}
-		appc.LivenessProbe = cr.Spec.ProxySQL.LivenessProbe.DeepCopy()
+		appc.LivenessProbe = cr.Spec.ProxySQL.LivenessProbes.DeepCopy()
 		if pb := appc.LivenessProbe; pb.Exec == nil && pb.HTTPGet == nil && pb.TCPSocket == nil && pb.GRPC == nil {
 			appc.LivenessProbe = app.Probe(pb, "/opt/percona/proxysql_liveness_check.sh")
 		}
@@ -220,11 +220,11 @@ func (c *Proxy) AppContainer(ctx context.Context, _ client.Client, spec *api.Pod
 		appc.Env = append(appc.Env, []corev1.EnvVar{
 			{
 				Name:  "LIVENESS_CHECK_TIMEOUT",
-				Value: strconv.FormatInt(int64(cr.Spec.ProxySQL.LivenessProbe.TimeoutSeconds), 10),
+				Value: strconv.FormatInt(int64(cr.Spec.ProxySQL.LivenessProbes.TimeoutSeconds), 10),
 			},
 			{
 				Name:  "READINESS_CHECK_TIMEOUT",
-				Value: strconv.FormatInt(int64(cr.Spec.ProxySQL.ReadinessProbe.TimeoutSeconds), 10),
+				Value: strconv.FormatInt(int64(cr.Spec.ProxySQL.ReadinessProbes.TimeoutSeconds), 10),
 			},
 		}...)
 	}

@@ -140,7 +140,6 @@ func getRequestObject() *xbscapi.CreateBackupRequest {
 	req.BackupName = os.Getenv("BACKUP_NAME")
 	req.BackupConfig.Destination = os.Getenv("BACKUP_DEST")
 	req.BackupConfig.VerifyTls = os.Getenv("VERIFY_TLS") == "true"
-	// Set by the backup controller for incremental backups only; empty otherwise.
 	req.BackupConfig.IncrementalLsn = os.Getenv("INCREMENTAL_LSN")
 	req.BackupConfig.ContainerOptions = &xbscapi.ContainerOptions{
 		Args: &xbscapi.BackupContainerArgs{

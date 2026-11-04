@@ -229,8 +229,6 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 		return reconcile.Result{}, errors.Wrap(err, "ensure finalizers")
 	}
 
-	// we need to defer this before checking deadlines
-	// to properly release the lock if backup fails due to a deadline
 	defer func() {
 		if !backupNeedsLease(cr, cluster) {
 			return
@@ -241,9 +239,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 		}
 
 		log.Info("Releasing backup lock", "lease", naming.BackupLeaseName(cluster.Name), "namespace", cr.Namespace, "name", cr.Name)
-
-		err := k8s.ReleaseLease(ctx, r.client, naming.BackupLeaseName(cluster.Name), cr.Namespace, naming.BackupHolderId(cr))
-		if err != nil && !k8sErrors.IsNotFound(err) && !errors.Is(err, k8s.ErrNotTheHolder) {
+		if err := r.releaseBackupLease(ctx, cr); err != nil {
 			log.Error(err, "failed to release the lock")
 		}
 	}()
@@ -604,17 +600,16 @@ func (r *ReconcilePerconaXtraDBClusterBackup) incrementalPredecessorDestination(
 	predecessor := baseDest.PathWithoutBucket()
 
 	last, err := backup.GetLatestIncrementalBackupInChain(ctx, r.client, cr, true)
-	switch {
-	case err == nil:
-		if last.Status.Destination == "" {
-			return "", errors.Errorf("backup %s/%s succeeded but has no destination recorded", last.GetNamespace(), last.GetName())
-		}
-		predecessor = last.Status.Destination.PathWithoutBucket()
-	case errors.Is(err, backup.ErrNoIncrementalBackupFound):
-		// First incremental of the chain: it chains onto the base itself.
-	default:
+	if errors.Is(err, backup.ErrNoIncrementalBackupFound) {
+		return predecessor, nil
+	} else if err != nil {
 		return "", errors.Wrap(err, "get latest incremental backup in chain")
 	}
+
+	if last.Status.Destination == "" {
+		return "", errors.Errorf("backup %s/%s succeeded but has no destination recorded", last.GetNamespace(), last.GetName())
+	}
+	predecessor = last.Status.Destination.PathWithoutBucket()
 
 	return predecessor, nil
 }
@@ -665,8 +660,7 @@ func backupLeafName(cr *api.PerconaXtraDBClusterBackup, startedAt time.Time) (st
 
 	base := cr.GetAnnotations()[naming.AnnotationBaseBackupName]
 	if base == "" {
-		// A programming error: the annotation is persisted before the
-		// destination is computed, in the same reconcile.
+		// This should never happen because the controller code ensures the annotation is persisted before computing destination
 		return "", errors.Errorf("incremental backup %s/%s has no %s annotation, its base must be resolved before its destination is computed",
 			cr.GetNamespace(), cr.GetName(), naming.AnnotationBaseBackupName)
 	}

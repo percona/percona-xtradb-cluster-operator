@@ -3,6 +3,7 @@ package pxc
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -142,4 +143,105 @@ func GetProxyConnection(ctx context.Context, cr *api.PerconaXtraDBCluster, cl cl
 	}
 
 	return database, nil
+}
+
+// SourceNode names a PXC pod to read from, both as the pod's name and as the
+// DNS name used to reach it. Callers need both: the pod name is what a backup
+// records so later work can be sent to the same node, while the FQDN is what
+// the Job actually connects to.
+type SourceNode struct {
+	Pod  string
+	FQDN string
+}
+
+// NewSourceNode describes a known pod of this cluster.
+func NewSourceNode(cr *api.PerconaXtraDBCluster, pod string) SourceNode {
+	return SourceNode{
+		Pod:  pod,
+		FQDN: PodFQDN(pod, statefulset.NewNode(cr).StatefulSet()),
+	}
+}
+
+// GetNonPrimarySourceNode returns a node other than the cluster's primary,
+// falling back to the primary when no other node can serve.
+func GetNonPrimarySourceNode(
+	ctx context.Context,
+	cl client.Client,
+	cr *api.PerconaXtraDBCluster,
+) (SourceNode, error) {
+	switch {
+	case cr.HAProxyEnabled():
+		return nonPrimaryHAProxyNode(ctx, cl, cr)
+	case cr.ProxySQLEnabled():
+		return nonPrimaryProxySQLNode(ctx, cl, cr)
+	}
+
+	pod, err := WaitAndGetFirstReadyPod(ctx, cl, cr)
+	if err != nil {
+		return SourceNode{}, errors.Wrap(err, "failed to get first ready pod")
+	}
+
+	return NewSourceNode(cr, pod), nil
+}
+
+func nonPrimaryHAProxyNode(ctx context.Context, cl client.Client, cr *api.PerconaXtraDBCluster) (SourceNode, error) {
+	conn, err := GetProxyConnection(ctx, cr, cl)
+	if err != nil {
+		return SourceNode{}, errors.Wrap(err, "failed to get proxy connection")
+	}
+	defer conn.Close()
+
+	primaryPod, err := conn.Hostname() // a pod name, not an FQDN
+	if err != nil {
+		return SourceNode{}, errors.Wrap(err, "failed to get primary host")
+	}
+
+	node := statefulset.NewNode(cr)
+	podList := new(corev1.PodList)
+	if err := cl.List(ctx, podList, &client.ListOptions{
+		Namespace:     cr.Namespace,
+		LabelSelector: labels.SelectorFromSet(node.Labels()),
+	}); err != nil {
+		return SourceNode{}, errors.Wrap(err, "get pod list")
+	}
+
+	for _, pod := range podList.Items {
+		if pod.GetName() == primaryPod || !k8s.IsPodReady(pod) {
+			continue
+		}
+		return NewSourceNode(cr, pod.GetName()), nil
+	}
+
+	// No other pod is ready, so the primary is the only node left.
+	return NewSourceNode(cr, primaryPod), nil
+}
+
+func nonPrimaryProxySQLNode(ctx context.Context, cl client.Client, cr *api.PerconaXtraDBCluster) (SourceNode, error) {
+	conn, err := GetProxyConnection(ctx, cr, cl)
+	if err != nil {
+		return SourceNode{}, errors.Wrap(err, "failed to get proxy connection")
+	}
+	defer conn.Close()
+
+	hosts, err := conn.NonPrimaryHostsProxySQL()
+	if err != nil {
+		return SourceNode{}, errors.Wrap(err, "failed to get non-primary hosts")
+	}
+
+	if len(hosts) > 0 {
+		return NewSourceNode(cr, podNameFromHost(hosts[0])), nil
+	}
+
+	// Every replica is shunned or offline; the primary is all that is left.
+	primary, err := conn.PrimaryHost()
+	if err != nil {
+		return SourceNode{}, errors.Wrap(err, "failed to get primary host")
+	}
+
+	return NewSourceNode(cr, podNameFromHost(primary)), nil
+}
+
+func podNameFromHost(host string) string {
+	pod, _, _ := strings.Cut(host, ".")
+	return pod
 }

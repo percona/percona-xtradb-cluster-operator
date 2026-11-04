@@ -228,7 +228,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 	// we need to defer this before checking deadlines
 	// to properly release the lock if backup fails due to a deadline
 	defer func() {
-		if cluster.Spec.Backup.GetAllowParallel() {
+		if !backupNeedsLease(cr, cluster) {
 			return
 		}
 
@@ -282,8 +282,11 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 
 	log = log.WithValues("storage", cr.Spec.StorageName)
 
-	log.V(1).Info("Check if parallel backups are allowed", "allowed", cluster.Spec.Backup.GetAllowParallel())
-	if cr.Status.State == api.BackupNew && !cluster.Spec.Backup.GetAllowParallel() {
+	log.V(1).Info("Check if this backup must hold the backup lock",
+		"needsLease", backupNeedsLease(cr, cluster),
+		"allowParallel", cluster.Spec.Backup.GetAllowParallel(),
+		"type", cr.GetType())
+	if cr.Status.State == api.BackupNew && backupNeedsLease(cr, cluster) {
 		lease, err := k8s.AcquireLease(ctx, r.client, naming.BackupLeaseName(cluster.Name), cr.Namespace, naming.BackupHolderId(cr))
 		if err != nil {
 			return reconcile.Result{}, errors.Wrap(err, "acquire backup lock")
@@ -481,12 +484,11 @@ func validateIncrementalBackup(
 			cr.Spec.StorageName, storage.Type)
 	}
 
-	if cluster.Spec.Backup.GetAllowParallel() {
-		return errors.New("incremental backups require spec.backup.allowParallel to be false: " +
-			"allowParallel skips the per-cluster backup lease, so concurrent backups all start from the same LSN and produce a chain that cannot be prepared")
-	}
-
 	return nil
+}
+
+func backupNeedsLease(cr *api.PerconaXtraDBClusterBackup, cluster *api.PerconaXtraDBCluster) bool {
+	return cr.GetType() == api.BackupTypeIncremental || !cluster.Spec.Backup.GetAllowParallel()
 }
 
 func (r *ReconcilePerconaXtraDBClusterBackup) setIncrementalBaseAnnotation(
@@ -706,7 +708,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) deleteDependentIncrementalBackups(
 }
 
 func (r *ReconcilePerconaXtraDBClusterBackup) ensureFinalizers(ctx context.Context, cluster *api.PerconaXtraDBCluster, cr *api.PerconaXtraDBClusterBackup) error {
-	if cluster.Spec.Backup.GetAllowParallel() {
+	if !backupNeedsLease(cr, cluster) {
 		return nil
 	}
 

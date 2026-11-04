@@ -261,12 +261,14 @@ func TestValidateIncrementalBackup(t *testing.T) {
 			storage:     gcsStorage,
 			expectedErr: `of type "gcs"`,
 		},
+		// allowParallel is no longer a reason to refuse an incremental: the
+		// backup takes the per-cluster lease regardless, so it still runs
+		// serially while full backups go in parallel. See backupNeedsLease.
 		"incremental backup with allowParallel": {
 			backupType:    api.BackupTypeIncremental,
 			sidecarGate:   true,
 			storage:       incrS3Storage(),
 			allowParallel: true,
-			expectedErr:   "allowParallel",
 		},
 		"incremental backup on a cluster below 1.21.0": {
 			backupType:  api.BackupTypeIncremental,
@@ -322,6 +324,90 @@ func TestValidateIncrementalBackup(t *testing.T) {
 
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), tt.expectedErr)
+		})
+	}
+}
+
+func TestBackupNeedsLease(t *testing.T) {
+	tests := map[string]struct {
+		backupType    api.PXCBackupType
+		allowParallel bool
+		want          bool
+	}{
+		"full backup, parallel disallowed": {
+			backupType: api.BackupTypeFull,
+			want:       true,
+		},
+		"full backup, parallel allowed": {
+			backupType:    api.BackupTypeFull,
+			allowParallel: true,
+			want:          false,
+		},
+		"incremental backup, parallel disallowed": {
+			backupType: api.BackupTypeIncremental,
+			want:       true,
+		},
+		"incremental backup ignores allowParallel": {
+			backupType:    api.BackupTypeIncremental,
+			allowParallel: true,
+			want:          true,
+		},
+		"a legacy backup with no recorded type counts as full": {
+			backupType:    "",
+			allowParallel: true,
+			want:          false,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			cr := incrBackup("backup1", withBackupType(tt.backupType))
+
+			assert.Equal(t, tt.want, backupNeedsLease(cr, incrCluster("1.21.0", tt.allowParallel)))
+		})
+	}
+}
+
+// TestEnsureFinalizersFollowsTheLease checks the release-lock finalizer is
+// added exactly when the lease is taken. Acquiring without the finalizer would
+// orphan the lease when a backup is deleted mid-flight, blocking every later
+// backup on the cluster; adding it without acquiring is dead weight on the
+// object.
+func TestEnsureFinalizersFollowsTheLease(t *testing.T) {
+	tests := map[string]struct {
+		backupType    api.PXCBackupType
+		allowParallel bool
+		wantFinalizer bool
+	}{
+		"full backup, parallel disallowed": {
+			backupType:    api.BackupTypeFull,
+			wantFinalizer: true,
+		},
+		"full backup, parallel allowed": {
+			backupType:    api.BackupTypeFull,
+			allowParallel: true,
+			wantFinalizer: false,
+		},
+		"incremental backup, parallel allowed": {
+			backupType:    api.BackupTypeIncremental,
+			allowParallel: true,
+			wantFinalizer: true,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			cr := incrBackup("backup1", withBackupType(tt.backupType))
+			cluster := incrCluster("1.21.0", tt.allowParallel)
+			r := incrReconciler(t, cr, cluster)
+
+			require.NoError(t, r.ensureFinalizers(t.Context(), cluster, cr))
+
+			if tt.wantFinalizer {
+				assert.Contains(t, cr.GetFinalizers(), naming.FinalizerReleaseLock)
+				return
+			}
+			assert.NotContains(t, cr.GetFinalizers(), naming.FinalizerReleaseLock)
 		})
 	}
 }

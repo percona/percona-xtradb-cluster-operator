@@ -135,9 +135,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	err = configureController(&options, envs)
+	err = configureCacheSyncTimeout(&options, envs)
 	if err != nil {
-		setupLog.Error(err, "failed to configure controller")
+		setupLog.Error(err, "failed to configure cache sync timeout")
 		os.Exit(1)
 	}
 
@@ -331,7 +331,7 @@ func configureGroupKindConcurrency(options *ctrl.Options, envs *envConfig) error
 	return nil
 }
 
-func configureController(options *ctrl.Options, envs *envConfig) error {
+func configureCacheSyncTimeout(options *ctrl.Options, envs *envConfig) error {
 	if envs.CacheSyncTimeout <= 0 {
 		return fmt.Errorf("PXCO_CACHE_SYNC_TIMEOUT must be a positive duration: %s", envs.CacheSyncTimeout)
 	}

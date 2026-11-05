@@ -196,11 +196,11 @@ func TestConfigureGroupKindConcurrency(t *testing.T) {
 	})
 }
 
-func TestConfigureController(t *testing.T) {
+func TestConfigureCacheSyncTimeout(t *testing.T) {
 	t.Run("default cache sync timeout", func(t *testing.T) {
 		envs := parseEnvConfig(t)
 		options := ctrl.Options{}
-		err := configureController(&options, envs)
+		err := configureCacheSyncTimeout(&options, envs)
 		require.NoError(t, err)
 
 		assert.Equal(t, 2*time.Minute, options.Controller.CacheSyncTimeout)
@@ -211,7 +211,7 @@ func TestConfigureController(t *testing.T) {
 
 		envs := parseEnvConfig(t)
 		options := ctrl.Options{}
-		err := configureController(&options, envs)
+		err := configureCacheSyncTimeout(&options, envs)
 		require.NoError(t, err)
 
 		assert.Equal(t, 15*time.Minute, options.Controller.CacheSyncTimeout)
@@ -222,7 +222,7 @@ func TestConfigureController(t *testing.T) {
 
 		envs := parseEnvConfig(t)
 		options := ctrl.Options{}
-		err := configureController(&options, envs)
+		err := configureCacheSyncTimeout(&options, envs)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "PXCO_CACHE_SYNC_TIMEOUT")
 	})
@@ -232,7 +232,7 @@ func TestConfigureController(t *testing.T) {
 
 		envs := parseEnvConfig(t)
 		options := ctrl.Options{}
-		err := configureController(&options, envs)
+		err := configureCacheSyncTimeout(&options, envs)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "PXCO_CACHE_SYNC_TIMEOUT")
 	})

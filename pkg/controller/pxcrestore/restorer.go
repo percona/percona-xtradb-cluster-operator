@@ -432,6 +432,14 @@ func (opts *restorerOptions) resolveIncrementalChain(ctx context.Context) (api.P
 		return "", nil, errors.Errorf("no incremental backups found in chain for %s", dest)
 	}
 
+	// Ensure that the chain we resolved ends at the targeted incremental backup
+	wantLast := incrementalsDir + dest.BackupName()
+	if last := incrementals[len(incrementals)-1]; last != wantLast {
+		return "", nil, errors.Errorf(
+			"backup %s is not a complete member of its chain: the chain resolves only up to %s, so %s was never fully uploaded",
+			dest, last, dest.BackupName())
+	}
+
 	return baseDest, incrementals, nil
 }
 

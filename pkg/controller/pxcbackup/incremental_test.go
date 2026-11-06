@@ -467,30 +467,28 @@ func TestBackupLeaseHolderStale(t *testing.T) {
 	}
 }
 
-// TestEnsureFinalizersFollowsTheLease checks the release-lock finalizer is
-// added exactly when the lease is taken. Acquiring without the finalizer would
-// orphan the lease when a backup is deleted mid-flight, blocking every later
-// backup on the cluster; adding it without acquiring is dead weight on the
-// object.
-func TestEnsureFinalizersFollowsTheLease(t *testing.T) {
+func TestEnsureFinalizers(t *testing.T) {
 	tests := map[string]struct {
 		backupType    api.PXCBackupType
 		allowParallel bool
-		wantFinalizer bool
+		want          []string
 	}{
 		"full backup, parallel disallowed": {
-			backupType:    api.BackupTypeFull,
-			wantFinalizer: true,
+			backupType: api.BackupTypeFull,
+			want:       []string{naming.FinalizerReleaseLock},
 		},
 		"full backup, parallel allowed": {
 			backupType:    api.BackupTypeFull,
 			allowParallel: true,
-			wantFinalizer: false,
 		},
 		"incremental backup, parallel allowed": {
 			backupType:    api.BackupTypeIncremental,
 			allowParallel: true,
-			wantFinalizer: true,
+			want:          []string{naming.FinalizerDeleteBackup, naming.FinalizerReleaseLock},
+		},
+		"incremental backup, parallel disallowed": {
+			backupType: api.BackupTypeIncremental,
+			want:       []string{naming.FinalizerReleaseLock, naming.FinalizerDeleteBackup},
 		},
 	}
 
@@ -501,14 +499,36 @@ func TestEnsureFinalizersFollowsTheLease(t *testing.T) {
 			r := incrReconciler(t, cr, cluster)
 
 			require.NoError(t, r.ensureFinalizers(t.Context(), cluster, cr))
+			assert.ElementsMatch(t, tt.want, cr.GetFinalizers())
 
-			if tt.wantFinalizer {
-				assert.Contains(t, cr.GetFinalizers(), naming.FinalizerReleaseLock)
-				return
-			}
-			assert.NotContains(t, cr.GetFinalizers(), naming.FinalizerReleaseLock)
+			// read back from API and ensure same finalizers
+			stored := new(api.PerconaXtraDBClusterBackup)
+			require.NoError(t, r.client.Get(t.Context(), client.ObjectKeyFromObject(cr), stored))
+			assert.ElementsMatch(t, cr.GetFinalizers(), stored.GetFinalizers())
 		})
 	}
+}
+
+// TestEnsureFinalizersIsIdempotent checks a second pass neither duplicates a
+// finalizer nor issues a write, since it runs on every reconcile.
+func TestEnsureFinalizersIsIdempotent(t *testing.T) {
+	cr := incrBackup("backup1", withBackupType(api.BackupTypeIncremental))
+	cluster := incrCluster("1.21.0", true)
+	r := incrReconciler(t, cr, cluster)
+
+	require.NoError(t, r.ensureFinalizers(t.Context(), cluster, cr))
+	first := append([]string(nil), cr.GetFinalizers()...)
+
+	before := new(api.PerconaXtraDBClusterBackup)
+	require.NoError(t, r.client.Get(t.Context(), client.ObjectKeyFromObject(cr), before))
+
+	require.NoError(t, r.ensureFinalizers(t.Context(), cluster, cr))
+	assert.Equal(t, first, cr.GetFinalizers())
+
+	after := new(api.PerconaXtraDBClusterBackup)
+	require.NoError(t, r.client.Get(t.Context(), client.ObjectKeyFromObject(cr), after))
+	assert.Equal(t, before.GetResourceVersion(), after.GetResourceVersion(),
+		"a pass that changes nothing must not write")
 }
 
 func TestSetIncrementalBase(t *testing.T) {

@@ -6,7 +6,6 @@ import (
 	"os"
 	"path"
 	"reflect"
-	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -743,21 +742,39 @@ func (r *ReconcilePerconaXtraDBClusterBackup) deleteDependentIncrementalBackups(
 	return false, nil
 }
 
-func (r *ReconcilePerconaXtraDBClusterBackup) ensureFinalizers(ctx context.Context, cluster *api.PerconaXtraDBCluster, cr *api.PerconaXtraDBClusterBackup) error {
-	if !backupNeedsLease(cr, cluster) {
-		return nil
+func (r *ReconcilePerconaXtraDBClusterBackup) ensureFinalizers(
+	ctx context.Context,
+	cluster *api.PerconaXtraDBCluster,
+	cr *api.PerconaXtraDBClusterBackup,
+) error {
+	finalizers := []string{}
+
+	if backupNeedsLease(cr, cluster) {
+		finalizers = append(finalizers, naming.FinalizerReleaseLock)
 	}
 
-	if slices.Contains(cr.GetFinalizers(), naming.FinalizerReleaseLock) {
-		return nil
+	// Deleting an incremental backup needs to always delete from the storage as well.
+	// This can otherwise lead to the next incremental skipping one incremental, which will
+	// result in an inconsistent chain on the storage.
+	if cr.GetType() == api.BackupTypeIncremental {
+		finalizers = append(finalizers, naming.FinalizerDeleteBackup)
 	}
 
 	orig := cr.DeepCopy()
-	cr.SetFinalizers(append(cr.GetFinalizers(), naming.FinalizerReleaseLock))
-	if err := r.client.Patch(ctx, cr.DeepCopy(), client.MergeFrom(orig)); err != nil {
-		return errors.Wrap(err, "patch finalizers")
+	updated := false
+	for _, f := range finalizers {
+		if controllerutil.AddFinalizer(cr, f) {
+			updated = true
+		}
 	}
 
+	if !updated {
+		return nil
+	}
+
+	if err := r.client.Patch(ctx, cr, client.MergeFrom(orig)); err != nil {
+		return errors.Wrap(err, "patch finalizers")
+	}
 	return nil
 }
 

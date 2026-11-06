@@ -81,6 +81,10 @@ func (r *ReconcilePerconaXtraDBCluster) handleRootUserWithoutDP(ctx context.Cont
 		return nil
 	}
 
+	if err := r.checkMySQLInitSecret(ctx, cr); err != nil {
+		return errors.Wrap(err, "read mysql init file")
+	}
+
 	log.Info("Password changed, updating user", "user", user.Name)
 
 	err := r.updateUserPassWithoutDP(ctx, cr, internalSecrets, user)
@@ -89,7 +93,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleRootUserWithoutDP(ctx context.Cont
 	}
 	log.Info("User password updated", "user", user.Name)
 
-	if err := r.updateMySQLInitFile(ctx, cr, internalSecrets, user); err != nil {
+	if err := r.updateMySQLInitFile(ctx, cr, user); err != nil {
 		return errors.Wrap(err, "update mysql init file")
 	}
 
@@ -137,6 +141,10 @@ func (r *ReconcilePerconaXtraDBCluster) handleOperatorUserWithoutDP(ctx context.
 		return nil
 	}
 
+	if err := r.checkMySQLInitSecret(ctx, cr); err != nil {
+		return errors.Wrap(err, "read mysql init file")
+	}
+
 	log.Info("Password changed, updating user", "user", user.Name)
 
 	err := r.updateUserPassWithoutDP(ctx, cr, internalSecrets, user)
@@ -145,7 +153,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleOperatorUserWithoutDP(ctx context.
 	}
 	log.Info("User password updated", "user", user.Name)
 
-	if err := r.updateMySQLInitFile(ctx, cr, internalSecrets, user); err != nil {
+	if err := r.updateMySQLInitFile(ctx, cr, user); err != nil {
 		return errors.Wrap(err, "update mysql init file")
 	}
 
@@ -198,6 +206,10 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUserWithoutDP(ctx context.C
 		return nil
 	}
 
+	if err := r.checkMySQLInitSecret(ctx, cr); err != nil {
+		return errors.Wrap(err, "read mysql init file")
+	}
+
 	log.Info("Password changed, updating user", "user", user.Name)
 
 	err := r.updateUserPassWithoutDP(ctx, cr, internalSecrets, user)
@@ -206,7 +218,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUserWithoutDP(ctx context.C
 	}
 	log.Info("User password updated", "user", user.Name)
 
-	if err := r.updateMySQLInitFile(ctx, cr, internalSecrets, user); err != nil {
+	if err := r.updateMySQLInitFile(ctx, cr, user); err != nil {
 		return errors.Wrap(err, "update mysql init file")
 	}
 
@@ -270,6 +282,10 @@ func (r *ReconcilePerconaXtraDBCluster) handleXtrabackupUserWithoutDP(ctx contex
 		return nil
 	}
 
+	if err := r.checkMySQLInitSecret(ctx, cr); err != nil {
+		return errors.Wrap(err, "read mysql init file")
+	}
+
 	log.Info("Password changed, updating user", "user", user.Name)
 
 	err := r.updateUserPassWithoutDP(ctx, cr, internalSecrets, user)
@@ -278,7 +294,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleXtrabackupUserWithoutDP(ctx contex
 	}
 	log.Info("User password updated", "user", user.Name)
 
-	if err := r.updateMySQLInitFile(ctx, cr, internalSecrets, user); err != nil {
+	if err := r.updateMySQLInitFile(ctx, cr, user); err != nil {
 		return errors.Wrap(err, "update mysql init file")
 	}
 
@@ -330,6 +346,10 @@ func (r *ReconcilePerconaXtraDBCluster) handleReplicationUserWithoutDP(ctx conte
 		return nil
 	}
 
+	if err := r.checkMySQLInitSecret(ctx, cr); err != nil {
+		return errors.Wrap(err, "read mysql init file")
+	}
+
 	log.Info("Password changed, updating user", "user", user.Name)
 
 	err := r.updateUserPassWithoutDP(ctx, cr, internalSecrets, user)
@@ -338,7 +358,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleReplicationUserWithoutDP(ctx conte
 	}
 	log.Info("User password updated", "user", user.Name)
 
-	if err := r.updateMySQLInitFile(ctx, cr, internalSecrets, user); err != nil {
+	if err := r.updateMySQLInitFile(ctx, cr, user); err != nil {
 		return errors.Wrap(err, "update mysql init file")
 	}
 

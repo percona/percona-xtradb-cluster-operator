@@ -14,10 +14,12 @@ import (
 	certmgrscheme "github.com/cert-manager/cert-manager/pkg/client/clientset/versioned/scheme"
 	"github.com/go-logr/logr"
 	"github.com/kelseyhightower/envconfig"
+	"github.com/pkg/errors"
 	uzap "go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	eventsv1 "k8s.io/api/events/v1"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/validation"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -46,6 +48,12 @@ var (
 	scheme    = k8sruntime.NewScheme()
 	setupLog  = ctrl.Log.WithName("setup")
 )
+
+// The cache checks its per-object settings against the scheme when the
+// manager is created, so the types must be registered before that.
+func init() {
+	utilruntime.Must(addToScheme(scheme))
+}
 
 func main() {
 	var metricsAddr string
@@ -135,14 +143,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Add support for MultiNamespace set in WATCH_NAMESPACE
-	if len(namespace) > 0 {
-		namespaces := make(map[string]cache.Config)
-		for _, ns := range append(strings.Split(namespace, ","), operatorNamespace) {
-			namespaces[ns] = cache.Config{}
-		}
-		options.Cache.DefaultNamespaces = namespaces
-	}
+	configureCache(&options, namespace, operatorNamespace, features.Enabled(fgCtx, features.SecretMetadataCache))
 
 	// Get a config to talk to the apiserver
 	config, err := ctrl.GetConfig()
@@ -158,24 +159,6 @@ func main() {
 	}
 
 	setupLog.Info("Registering Components.")
-
-	// Setup Scheme for k8s resources
-	if err := clientgoscheme.AddToScheme(mgr.GetScheme()); err != nil {
-		setupLog.Error(err, "")
-		os.Exit(1)
-	}
-
-	// Setup Scheme for PXC resources
-	if err := apis.AddToScheme(mgr.GetScheme()); err != nil {
-		setupLog.Error(err, "")
-		os.Exit(1)
-	}
-
-	// Setup Scheme for cert-manager resources
-	if err := certmgrscheme.AddToScheme(mgr.GetScheme()); err != nil {
-		setupLog.Error(err, "")
-		os.Exit(1)
-	}
 
 	ctx := k8s.StartStopSignalHandler(mgr.GetClient(), strings.Split(namespace, ","))
 	// Setup all Controllers
@@ -273,6 +256,43 @@ type envConfig struct {
 	FeatureGates string `envconfig:"PXCO_FEATURE_GATES"`
 
 	Workers *int `envconfig:"MAX_CONCURRENT_RECONCILES"`
+}
+
+// addToScheme registers the Kubernetes, PXC and cert-manager types the
+// operator uses.
+func addToScheme(s *k8sruntime.Scheme) error {
+	for _, add := range []func(*k8sruntime.Scheme) error{
+		clientgoscheme.AddToScheme,
+		apis.AddToScheme,
+		certmgrscheme.AddToScheme,
+	} {
+		if err := add(s); err != nil {
+			return errors.Wrap(err, "add types to scheme")
+		}
+	}
+	return nil
+}
+
+// configureCache limits the informer cache to the namespaces in
+// WATCH_NAMESPACE, if set. With secretMetadataCache (the SecretMetadataCache
+// feature gate), it keeps Secret data out of the cache: the PXC controller
+// watches Secrets cluster-wide in cluster-wide mode, so caching their data
+// makes the operator's memory grow with every Secret in the cluster, such as
+// Helm release revisions. See k8s.NewSecretCache.
+func configureCache(options *ctrl.Options, watchNamespace, operatorNamespace string, secretMetadataCache bool) {
+	// Add support for MultiNamespace set in WATCH_NAMESPACE
+	if len(watchNamespace) > 0 {
+		namespaces := make(map[string]cache.Config)
+		for _, ns := range append(strings.Split(watchNamespace, ","), operatorNamespace) {
+			namespaces[ns] = cache.Config{}
+		}
+		options.Cache.DefaultNamespaces = namespaces
+	}
+	if !secretMetadataCache {
+		return
+	}
+	options.NewCache = k8s.NewSecretCache()
+	options.NewClient = k8s.NewSecretClient
 }
 
 func configureLeaderElection(options *ctrl.Options, envs *envConfig, operatorNamespace string) error {

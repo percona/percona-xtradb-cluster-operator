@@ -102,6 +102,65 @@ func TestShouldRecreateJob(t *testing.T) {
 			},
 			expected: true,
 		},
+		"type changed from full to incremental": {
+			job: BackupScheduleJob{
+				PXCScheduledBackupSchedule: pxcv1.PXCScheduledBackupSchedule{
+					StorageName: "test-storage",
+					Schedule:    "10 4 * * *",
+					Type:        pxcv1.BackupTypeFull,
+				},
+			},
+			schedule: pxcv1.PXCScheduledBackupSchedule{
+				StorageName: "test-storage",
+				Schedule:    "10 4 * * *",
+				Type:        pxcv1.BackupTypeIncremental,
+			},
+			expected: true,
+		},
+		"type changed from incremental to full": {
+			job: BackupScheduleJob{
+				PXCScheduledBackupSchedule: pxcv1.PXCScheduledBackupSchedule{
+					StorageName: "test-storage",
+					Schedule:    "10 4 * * *",
+					Type:        pxcv1.BackupTypeIncremental,
+				},
+			},
+			schedule: pxcv1.PXCScheduledBackupSchedule{
+				StorageName: "test-storage",
+				Schedule:    "10 4 * * *",
+				Type:        pxcv1.BackupTypeFull,
+			},
+			expected: true,
+		},
+		"type set explicitly where it was unset": {
+			job: BackupScheduleJob{
+				PXCScheduledBackupSchedule: pxcv1.PXCScheduledBackupSchedule{
+					StorageName: "test-storage",
+					Schedule:    "10 4 * * *",
+				},
+			},
+			schedule: pxcv1.PXCScheduledBackupSchedule{
+				StorageName: "test-storage",
+				Schedule:    "10 4 * * *",
+				Type:        pxcv1.BackupTypeIncremental,
+			},
+			expected: true,
+		},
+		"same type is not a change": {
+			job: BackupScheduleJob{
+				PXCScheduledBackupSchedule: pxcv1.PXCScheduledBackupSchedule{
+					StorageName: "test-storage",
+					Schedule:    "10 4 * * *",
+					Type:        pxcv1.BackupTypeIncremental,
+				},
+			},
+			schedule: pxcv1.PXCScheduledBackupSchedule{
+				StorageName: "test-storage",
+				Schedule:    "10 4 * * *",
+				Type:        pxcv1.BackupTypeIncremental,
+			},
+			expected: false,
+		},
 	}
 
 	for name, tt := range tests {

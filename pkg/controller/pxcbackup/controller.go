@@ -1115,7 +1115,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) observeBackupJob(
 	switch state {
 	case api.BackupSucceeded:
 		log.Info("Backup succeeded")
-		if err := r.onBackupSucceeded(ctx, cluster); err != nil {
+		if err := r.onBackupSucceeded(ctx, bcp, cluster); err != nil {
 			return err
 		}
 	case api.BackupFailed:
@@ -1127,9 +1127,10 @@ func (r *ReconcilePerconaXtraDBClusterBackup) observeBackupJob(
 
 func (r *ReconcilePerconaXtraDBClusterBackup) onBackupSucceeded(
 	ctx context.Context,
+	bcp *api.PerconaXtraDBClusterBackup,
 	cluster *api.PerconaXtraDBCluster,
 ) error {
-	if err := r.clearBinlogGapMarkers(ctx, cluster); err != nil {
+	if err := r.clearBinlogGapMarkers(ctx, bcp, cluster); err != nil {
 		return err
 	}
 
@@ -1138,9 +1139,16 @@ func (r *ReconcilePerconaXtraDBClusterBackup) onBackupSucceeded(
 
 func (r *ReconcilePerconaXtraDBClusterBackup) clearBinlogGapMarkers(
 	ctx context.Context,
+	bcp *api.PerconaXtraDBClusterBackup,
 	cluster *api.PerconaXtraDBCluster,
 ) error {
 	if !cluster.PITREnabled() {
+		return nil
+	}
+
+	if bcp.GetType() != api.BackupTypeFull {
+		logf.FromContext(ctx).V(1).Info("Incremental backup, leaving binlog gap markers alone",
+			"backup", bcp.Name)
 		return nil
 	}
 

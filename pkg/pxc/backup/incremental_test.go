@@ -182,6 +182,9 @@ func incrFakeClient(t *testing.T, objs ...client.Object) client.Client {
 
 	scheme := runtime.NewScheme()
 	require.NoError(t, api.SchemeBuilder.AddToScheme(scheme))
+	// Azure storage comparison reads the account name out of the storage's
+	// credentials secret.
+	require.NoError(t, corev1.AddToScheme(scheme))
 
 	return fake.NewClientBuilder().
 		WithScheme(scheme).
@@ -392,20 +395,32 @@ func TestGetLastFullBackup(t *testing.T) {
 		{
 			name: "azure storage selects the azure backup",
 			objs: []client.Object{
+				azureSecret("creds", "account-a"),
 				fullBcp("full-s3", withS3("bucket-a"), withCompletedAt(30)),
-				fullBcp("full-azure", withAzure("container-a"), withCompletedAt(10)),
+				fullBcp("full-azure", withAzureCreds("container-a", "creds"), withCompletedAt(10)),
 			},
-			storage: azureStorage("container-a"),
+			storage: azureStorageWithCreds("container-a", "creds"),
 			want:    "full-azure",
 		},
 		{
-			name: "nil storage matches any storage",
+			name: "an azure backup in another storage account is not a candidate",
+			objs: []client.Object{
+				azureSecret("live-creds", "account-a"),
+				azureSecret("other-creds", "account-b"),
+				fullBcp("full-here", withAzureCreds("container-a", "live-creds"), withCompletedAt(10)),
+				fullBcp("full-elsewhere", withAzureCreds("container-a", "other-creds"), withCompletedAt(30)),
+			},
+			storage: azureStorageWithCreds("container-a", "live-creds"),
+			want:    "full-here",
+		},
+		{
+			name: "nil storage matches no storage",
 			objs: []client.Object{
 				fullBcp("full-s3", withS3("bucket-a"), withCompletedAt(10)),
 				fullBcp("full-azure", withAzure("container-a"), withCompletedAt(30)),
 			},
-			storage: nil,
-			want:    "full-azure",
+			storage:  nil,
+			wantErrs: ErrNoFullBackupFound,
 		},
 		{
 			name: "failed and running full backups are skipped",
@@ -1021,13 +1036,13 @@ func TestResolveIncrementalBase(t *testing.T) {
 			wantErrs: ErrNoFullBackupFound,
 		},
 		{
-			name: "nil storage skips the storage check",
+			name: "nil storage matches no storage",
 			objs: []client.Object{
 				fullBcp("full-azure", withAzure("container-a"), withCompletedAt(10)),
 			},
 			cr:      incrBcp("incr-1", withSpecBase("full-azure"), withS3("bucket-a")),
 			storage: nil,
-			want:    "full-azure",
+			wantErr: "is in storage",
 		},
 	}
 
@@ -1127,7 +1142,7 @@ func TestStorageSpecFromStatus(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := StorageSpecFromStatus(tt.status)
+			got := tt.status.IntoBackupStorageSpec()
 			assert.Equal(t, tt.want, got)
 		})
 	}
@@ -1183,7 +1198,7 @@ func TestStorageSpecFromStatusEquality(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, tt.storage.Equals(StorageSpecFromStatus(tt.status)))
+			assert.Equal(t, tt.want, tt.storage.Equals(tt.status.IntoBackupStorageSpec()))
 		})
 	}
 }
@@ -1292,9 +1307,10 @@ func TestGetBackupByDestinationLeaf(t *testing.T) {
 		{
 			name: "matches an azure destination",
 			objs: []client.Object{
-				fullBcp("full-1", withAzure("container-a"), withDestination("azure://container-a/"+baseLeaf)),
+				azureSecret("creds", "account-a"),
+				fullBcp("full-1", withAzureCreds("container-a", "creds"), withDestination("azure://container-a/"+baseLeaf)),
 			},
-			storage: azureStorage("container-a"),
+			storage: azureStorageWithCreds("container-a", "creds"),
 			leaf:    baseLeaf,
 			want:    "full-1",
 		},
@@ -1369,9 +1385,21 @@ func TestGetBackupByDestinationLeaf(t *testing.T) {
 		{
 			name: "the same leaf in another azure container is not a match",
 			objs: []client.Object{
-				fullBcp("full-elsewhere", withAzure("container-b"), withDestination("azure://container-b/"+baseLeaf)),
+				azureSecret("creds", "account-a"),
+				fullBcp("full-elsewhere", withAzureCreds("container-b", "creds"), withDestination("azure://container-b/"+baseLeaf)),
 			},
-			storage:  azureStorage("container-a"),
+			storage:  azureStorageWithCreds("container-a", "creds"),
+			leaf:     baseLeaf,
+			wantErrs: ErrBaseBackupNotFound,
+		},
+		{
+			name: "the same leaf in the same container of another account is not a match",
+			objs: []client.Object{
+				azureSecret("live-creds", "account-a"),
+				azureSecret("other-creds", "account-b"),
+				fullBcp("full-elsewhere", withAzureCreds("container-a", "other-creds"), withDestination("azure://container-a/"+baseLeaf)),
+			},
+			storage:  azureStorageWithCreds("container-a", "live-creds"),
 			leaf:     baseLeaf,
 			wantErrs: ErrBaseBackupNotFound,
 		},
@@ -1386,13 +1414,13 @@ func TestGetBackupByDestinationLeaf(t *testing.T) {
 			wantErr: "both claim the destination",
 		},
 		{
-			name: "without a storage the leaf alone decides",
+			name: "without a storage nothing matches",
 			objs: []client.Object{
 				fullBcp("full-1", withS3("bucket-b"), withDestination("s3://bucket-b/"+baseLeaf)),
 			},
-			storage: nil,
-			leaf:    baseLeaf,
-			want:    "full-1",
+			storage:  nil,
+			leaf:     baseLeaf,
+			wantErrs: ErrBaseBackupNotFound,
 		},
 	}
 
@@ -1435,4 +1463,168 @@ func TestGetBackupByDestinationLeafReturnsACopy(t *testing.T) {
 	reread, err := GetBackupByDestinationLeaf(t.Context(), cl, testCluster(), storage, baseLeaf)
 	require.NoError(t, err)
 	assert.Empty(t, reread.Status.SourcePod)
+}
+
+// azureSecret builds a credentials secret holding the storage account name,
+// which is the only place that name exists: it is not a field of the CRD.
+func azureSecret(name, account string) *corev1.Secret {
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: incrTestNamespace},
+		Data: map[string][]byte{
+			api.AzureStorageAccountNameKey: []byte(account),
+			"AZURE_STORAGE_ACCOUNT_KEY":    []byte("key"),
+		},
+	}
+}
+
+// azureStorageWithCreds is azureStorage with a credentials secret, so that the
+// storage account behind it can be resolved.
+func azureStorageWithCreds(container, secret string) *api.BackupStorageSpec {
+	stg := azureStorage(container)
+	stg.Azure.CredentialsSecret = secret
+	return stg
+}
+
+// withAzureCreds records a credentials secret alongside the azure storage a
+// backup landed in, mirroring what prepareStatus copies into the status.
+func withAzureCreds(container, secret string) bcpOption {
+	return func(b *api.PerconaXtraDBClusterBackup) {
+		withAzure(container)(b)
+		b.Status.Azure.CredentialsSecret = secret
+	}
+}
+
+func TestIsUsingSameStorage(t *testing.T) {
+	tests := []struct {
+		name    string
+		objs    []client.Object
+		bcp     *api.PerconaXtraDBClusterBackup
+		storage *api.BackupStorageSpec
+		want    bool
+		wantErr string
+	}{
+		{
+			name:    "a nil storage matches nothing",
+			bcp:     fullBcp("x", withS3("bucket-a")),
+			storage: nil,
+			want:    false,
+		},
+		{
+			name:    "a nil backup matches nothing",
+			bcp:     nil,
+			storage: s3Storage("bucket-a"),
+			want:    false,
+		},
+		{
+			name:    "same s3 bucket",
+			bcp:     fullBcp("x", withS3("bucket-a")),
+			storage: s3Storage("bucket-a"),
+			want:    true,
+		},
+		{
+			name:    "different s3 bucket",
+			bcp:     fullBcp("x", withS3("bucket-b")),
+			storage: s3Storage("bucket-a"),
+			want:    false,
+		},
+		{
+			// S3 bucket names are unique within an endpoint, so no secret is
+			// read and a missing one cannot fail the comparison.
+			name:    "s3 never reads a secret",
+			bcp:     fullBcp("x", withS3("bucket-a")),
+			storage: s3Storage("bucket-a"),
+			want:    true,
+		},
+		{
+			name: "same azure container in the same storage account",
+			objs: []client.Object{
+				azureSecret("live-creds", "account-a"),
+				azureSecret("recorded-creds", "account-a"),
+			},
+			bcp:     fullBcp("x", withAzureCreds("container-a", "recorded-creds")),
+			storage: azureStorageWithCreds("container-a", "live-creds"),
+			want:    true,
+		},
+		{
+			name: "same azure container in different storage accounts",
+			objs: []client.Object{
+				azureSecret("live-creds", "account-a"),
+				azureSecret("recorded-creds", "account-b"),
+			},
+			bcp:     fullBcp("x", withAzureCreds("container-a", "recorded-creds")),
+			storage: azureStorageWithCreds("container-a", "live-creds"),
+			want:    false,
+		},
+		{
+			name: "one azure account reached through two different secrets",
+			objs: []client.Object{
+				azureSecret("creds", "account-a"),
+				azureSecret("creds-copy", "account-a"),
+			},
+			bcp:     fullBcp("x", withAzureCreds("container-a", "creds-copy")),
+			storage: azureStorageWithCreds("container-a", "creds"),
+			want:    true,
+		},
+		{
+			name: "different azure containers in one account still differ",
+			objs: []client.Object{
+				azureSecret("creds", "account-a"),
+			},
+			bcp:     fullBcp("x", withAzureCreds("container-b", "creds")),
+			storage: azureStorageWithCreds("container-a", "creds"),
+			want:    false,
+		},
+		{
+			name:    "an azure storage with no credentials secret is an error",
+			bcp:     fullBcp("x", withAzure("container-a")),
+			storage: azureStorage("container-a"),
+			wantErr: "azure storage has no credentialsSecret",
+		},
+		{
+			name: "a missing azure credentials secret is an error",
+			bcp:  fullBcp("x", withAzureCreds("container-a", "absent-creds")),
+
+			storage: azureStorageWithCreds("container-a", "absent-creds"),
+			wantErr: `secrets "absent-creds" not found`,
+		},
+		{
+			name: "an azure credentials secret without the account name is an error",
+			objs: []client.Object{
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{Name: "blank-creds", Namespace: incrTestNamespace},
+					Data:       map[string][]byte{"AZURE_STORAGE_ACCOUNT_KEY": []byte("key")},
+				},
+			},
+			bcp:     fullBcp("x", withAzureCreds("container-a", "blank-creds")),
+			storage: azureStorageWithCreds("container-a", "blank-creds"),
+			wantErr: "azure storage account name is not found in the credentials secret",
+		},
+		{
+			// The types differ, so there is nothing an account could settle.
+			name: "azure storage against an s3 backup reads no secret",
+			objs: []client.Object{
+				azureSecret("live-creds", "account-a"),
+			},
+			bcp:     fullBcp("x", withS3("bucket-a")),
+			storage: azureStorageWithCreds("container-a", "live-creds"),
+			want:    false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cl := incrFakeClient(t, tt.objs...)
+
+			got, err := tt.bcp.IsUsingSameStorage(t.Context(), cl, tt.storage)
+
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				assert.ErrorContains(t, err, tt.wantErr)
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
 }

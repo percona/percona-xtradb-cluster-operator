@@ -1,6 +1,8 @@
 package v1
 
 import (
+	"context"
+	"errors"
 	"path"
 	"strings"
 
@@ -8,6 +10,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 )
 
@@ -332,4 +335,73 @@ func (status *PXCBackupStatus) SetFsPvcFromPVC(pvc *corev1.PersistentVolumeClaim
 	}
 
 	status.PVC = pvc.Spec.DeepCopy()
+}
+
+func (status *PXCBackupStatus) IntoBackupStorageSpec() *BackupStorageSpec {
+	if status == nil {
+		return nil
+	}
+
+	spec := &BackupStorageSpec{
+		Type:  status.StorageType,
+		S3:    status.S3,
+		Azure: status.Azure,
+	}
+	if status.PVC != nil {
+		spec.Volume = &VolumeSpec{PersistentVolumeClaim: status.PVC}
+	}
+
+	return spec
+}
+
+func (bcp *PerconaXtraDBClusterBackup) IsUsingSameStorage(
+	ctx context.Context,
+	cl client.Client,
+	storage *BackupStorageSpec,
+) (bool, error) {
+	if bcp == nil || storage == nil {
+		return false, nil
+	}
+
+	recorded := bcp.Status.IntoBackupStorageSpec()
+	if storage.Type == BackupStorageAzure && recorded.Type == BackupStorageAzure {
+		// Do not modify the originally provided pointers
+		recorded, storage = recorded.DeepCopy(), storage.DeepCopy()
+
+		if err := resolveAzureStorage(ctx, cl, bcp.Namespace, recorded.Azure); err != nil {
+			return false, err
+		}
+		if err := resolveAzureStorage(ctx, cl, bcp.Namespace, storage.Azure); err != nil {
+			return false, err
+		}
+	}
+	return recorded.Equals(storage), nil
+}
+
+func resolveAzureStorage(
+	ctx context.Context,
+	cl client.Client,
+	namespace string,
+	spec *BackupStorageAzureSpec,
+) error {
+	if spec == nil || spec.azureStorageAccount != "" {
+		return nil
+	}
+
+	if spec.CredentialsSecret == "" {
+		return errors.New("azure storage has no credentialsSecret, so its storage account cannot be resolved")
+	}
+
+	secret := &corev1.Secret{}
+	if err := cl.Get(ctx, client.ObjectKey{Namespace: namespace, Name: spec.CredentialsSecret}, secret); err != nil {
+		return err
+	}
+
+	acc := string(secret.Data[AzureStorageAccountNameKey])
+	if acc == "" {
+		return errors.New("azure storage account name is not found in the credentials secret")
+	}
+
+	spec.azureStorageAccount = acc
+	return nil
 }

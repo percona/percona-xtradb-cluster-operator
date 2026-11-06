@@ -391,6 +391,15 @@ func TestBackupStorageSpec_Equals(t *testing.T) {
 		return &BackupStorageSpec{Type: BackupStorageAzure, Azure: azure}
 	}
 
+	// azureWithAccount records the storage account a spec resolves to, the way
+	// resolveAzureStorage does once it has read the credentials secret.
+	azureWithAccount := func(s *BackupStorageSpec, account string) *BackupStorageSpec {
+		if s.Azure != nil {
+			s.Azure.azureStorageAccount = account
+		}
+		return s
+	}
+
 	tests := []struct {
 		name string
 		a    *BackupStorageSpec
@@ -498,6 +507,42 @@ func TestBackupStorageSpec_Equals(t *testing.T) {
 			a:    &BackupStorageSpec{Type: BackupStorageFilesystem, Volume: &VolumeSpec{EmptyDir: &corev1.EmptyDirVolumeSource{}}},
 			b:    &BackupStorageSpec{Type: BackupStorageFilesystem, Volume: &VolumeSpec{EmptyDir: &corev1.EmptyDirVolumeSource{}}},
 			want: false,
+		},
+		{
+			name: "different azure credentials secret alone is not a difference",
+			a:    azureStorage(nil),
+			b:    azureStorage(func(s *BackupStorageAzureSpec) { s.CredentialsSecret = "rotated-credentials" }),
+			want: true,
+		},
+		{
+			name: "same azure container in different storage accounts",
+			a:    azureWithAccount(azureStorage(nil), "account-a"),
+			b:    azureWithAccount(azureStorage(nil), "account-b"),
+			want: false,
+		},
+		{
+			name: "same azure container in the same storage account",
+			a:    azureWithAccount(azureStorage(nil), "account-a"),
+			b:    azureWithAccount(azureStorage(nil), "account-a"),
+			want: true,
+		},
+		{
+			name: "a resolved account does not match an unresolved one",
+			a:    azureWithAccount(azureStorage(nil), "account-a"),
+			b:    azureStorage(nil),
+			want: false,
+		},
+		{
+			name: "different containers in the same account still differ",
+			a:    azureWithAccount(azureStorage(nil), "account-a"),
+			b:    azureWithAccount(azureStorage(func(s *BackupStorageAzureSpec) { s.ContainerPath = "other-container/pfx" }), "account-a"),
+			want: false,
+		},
+		{
+			name: "the account is ignored for s3, where the bucket already identifies the destination",
+			a:    azureWithAccount(s3Storage(nil), "account-a"),
+			b:    s3Storage(nil),
+			want: true,
 		},
 	}
 

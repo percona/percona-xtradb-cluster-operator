@@ -18,23 +18,6 @@ var (
 	ErrBaseBackupNotFound       = errors.New("the base backup recorded for this chain no longer exists")
 )
 
-func StorageSpecFromStatus(status *api.PXCBackupStatus) *api.BackupStorageSpec {
-	if status == nil {
-		return nil
-	}
-
-	spec := &api.BackupStorageSpec{
-		Type:  status.StorageType,
-		S3:    status.S3,
-		Azure: status.Azure,
-	}
-	if status.PVC != nil {
-		spec.Volume = &api.VolumeSpec{PersistentVolumeClaim: status.PVC}
-	}
-
-	return spec
-}
-
 // sortBackupsByCompletion sorts succeeded backups in place, oldest first, by
 // Status.CompletedAt. This should be called only on succeeded backups.
 func sortBackupsByCompletion(backups []api.PerconaXtraDBClusterBackup) {
@@ -67,7 +50,11 @@ func GetLastFullBackup(
 		if bcp.Status.State != api.BackupSucceeded {
 			continue
 		}
-		if storage != nil && !storage.Equals(StorageSpecFromStatus(&bcp.Status)) {
+		match, err := bcp.IsUsingSameStorage(ctx, cl, storage)
+		if err != nil {
+			return nil, errors.Wrapf(err, "compare the storage of backup %s/%s", bcp.GetNamespace(), bcp.GetName())
+		}
+		if !match {
 			continue
 		}
 		if bcp.Status.CompletedAt == nil {
@@ -203,7 +190,11 @@ func ResolveIncrementalBase(
 			base.GetNamespace(), base.GetName(), base.Status.State)
 	}
 
-	if storage != nil && !storage.Equals(StorageSpecFromStatus(&base.Status)) {
+	inSameStorage, err := base.IsUsingSameStorage(ctx, cl, storage)
+	if err != nil {
+		return nil, errors.Wrapf(err, "compare the storage of base backup %s/%s", base.GetNamespace(), base.GetName())
+	}
+	if !inSameStorage {
 		return nil, errors.Errorf("base backup %s/%s is in storage %q, which is not the storage of incremental backup %s/%s",
 			base.GetNamespace(), base.GetName(), base.Status.StorageName, cr.GetNamespace(), cr.GetName())
 	}
@@ -244,7 +235,11 @@ func GetBackupByDestinationLeaf(
 		if bcp.Status.Destination.BackupName() != leaf {
 			continue
 		}
-		if storage != nil && !storage.Equals(StorageSpecFromStatus(&bcp.Status)) {
+		match, err := bcp.IsUsingSameStorage(ctx, cl, storage)
+		if err != nil {
+			return nil, errors.Wrapf(err, "compare the storage of backup %s/%s", bcp.GetNamespace(), bcp.GetName())
+		}
+		if !match {
 			continue
 		}
 		if found != nil {

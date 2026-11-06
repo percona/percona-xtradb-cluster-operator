@@ -943,6 +943,8 @@ type BackupStorageSpec struct {
 }
 
 // Equals reports whether two storage specs refer to the same backup destination.
+// This compares only the CRD fields, if you need to actually resolve the storage accounts,
+// use IsUsingSameStorage instead.
 func (s *BackupStorageSpec) Equals(other *BackupStorageSpec) bool {
 	if s == nil || other == nil {
 		return s == other
@@ -954,6 +956,8 @@ func (s *BackupStorageSpec) Equals(other *BackupStorageSpec) bool {
 
 	switch s.Type {
 	case BackupStorageS3:
+		// Bucket names are unique within an endpoint, so the CRD fields already
+		// identify the destination and no secret has to be read.
 		return s.S3.equals(other.S3)
 	case BackupStorageAzure:
 		return s.Azure.equals(other.Azure)
@@ -980,7 +984,8 @@ func (b *BackupStorageAzureSpec) equals(other *BackupStorageAzureSpec) bool {
 
 	return b.ContainerPath == other.ContainerPath &&
 		b.Prefix == other.Prefix &&
-		b.Endpoint == other.Endpoint
+		b.Endpoint == other.Endpoint &&
+		b.azureStorageAccount == other.azureStorageAccount
 }
 
 type BackupContainerOptions struct {
@@ -1150,7 +1155,15 @@ type BackupStorageAzureSpec struct {
 	StorageClass      string `json:"storageClass"`
 	BlockSize         int64  `json:"blockSize"`
 	Concurrency       int    `json:"concurrency"`
+
+	// Internal fields, used for verification purposes only during runtime.
+	// Not part of the CRD.
+	azureStorageAccount string `json:"-"`
 }
+
+// AzureStorageAccountNameKey is the key the Azure storage account name is held
+// under in a backup storage's credentials secret.
+const AzureStorageAccountNameKey = "AZURE_STORAGE_ACCOUNT_NAME"
 
 const (
 	AzureBlobStoragePrefix string = "azure://"

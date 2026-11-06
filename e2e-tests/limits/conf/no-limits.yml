@@ -42,4 +42,3 @@ spec:
     image: -pmm
     imagePullPolicy: IfNotPresent
     serverHost: monitoring-service
-    serverUser: pmm

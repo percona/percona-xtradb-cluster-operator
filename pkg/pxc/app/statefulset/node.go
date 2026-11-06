@@ -621,8 +621,12 @@ func (c *Node) XtrabackupContainer(ctx context.Context, cr *api.PerconaXtraDBClu
 }
 
 func (c *Node) PMMContainer(ctx context.Context, cl client.Client, spec *api.PMMSpec, secret *corev1.Secret, cr *api.PerconaXtraDBCluster) (*corev1.Container, error) {
-	if cr.Spec.PMM == nil || !cr.Spec.PMM.Enabled {
+	if spec == nil || !spec.Enabled {
 		return nil, nil
+	}
+
+	if !spec.HasToken(secret) {
+		return nil, errors.New("can't enable PMM: pmmservertoken key is missing or empty in the secrets, or secrets and internal secrets are out of sync")
 	}
 
 	envVarsSecret := &corev1.Secret{}
@@ -631,169 +635,37 @@ func (c *Node) PMMContainer(ctx context.Context, cl client.Client, spec *api.PMM
 		return nil, errors.Wrap(err, "get env vars secret")
 	}
 
-	if v, exists := secret.Data[users.PMMServerToken]; exists && len(v) != 0 {
-		pmm3Container, err := app.PMM3Client(cr, secret, envVarsSecret)
-		if err != nil {
-			return nil, errors.Wrap(err, "get pmm3 container")
-		}
-
-		pmm3Container.Env = append(pmm3Container.Env, pmm3PXCNodeEnvVars(cr.Spec.PMM.PxcParams)...)
-
-		pmm3Container.VolumeMounts = []corev1.VolumeMount{
-			{
-				Name:      naming.DataVolumeName,
-				MountPath: "/var/lib/mysql",
-			},
-		}
-
-		pBool := true
-		pmm3Container.EnvFrom = []corev1.EnvFromSource{
-			{
-				SecretRef: &corev1.SecretEnvSource{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: cr.Spec.PXC.EnvVarsSecretName,
-					},
-					Optional: &pBool,
-				},
-			},
-		}
-
-		return &pmm3Container, nil
+	pmmContainer, err := app.PMMClient(cr, secret, envVarsSecret)
+	if err != nil {
+		return nil, errors.Wrap(err, "get pmm container")
 	}
 
-	clusterName := cr.Name
-	if cr.CompareVersionWith("1.18.0") >= 0 && cr.Spec.PMM.CustomClusterName != "" {
-		clusterName = cr.Spec.PMM.CustomClusterName
-	}
+	pmmContainer.Env = append(pmmContainer.Env, pmmPXCNodeEnvVars(spec.PxcParams)...)
 
-	// Checking the secret to determine if the PMM2 container can be constructed.
-	if !cr.Spec.PMM.HasSecret(secret) {
-		return nil, errors.New("can't enable PMM2: either pmmserverkey key doesn't exist in the secrets, or secrets and internal secrets are out of sync")
-	}
-
-	ct := app.PMMClient(cr, spec, secret, envVarsSecret)
-
-	pmmEnvs := []corev1.EnvVar{
-		{
-			Name:  "DB_TYPE",
-			Value: "mysql",
-		},
-		{
-			Name:  "DB_USER",
-			Value: users.Monitor,
-		},
-		{
-			Name: "DB_PASSWORD",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: app.SecretKeySelector(secret.Name, users.Monitor),
-			},
-		},
-		{
-			Name:  "DB_ARGS",
-			Value: "--query-source=perfschema",
-		},
-	}
-
-	ct.Env = append(ct.Env, pmmEnvs...)
-
-	if cr.CompareVersionWith("1.2.0") >= 0 {
-		clusterEnvs := []corev1.EnvVar{
-			{
-				Name:  "DB_CLUSTER",
-				Value: naming.ComponentPXC,
-			},
-			{
-				Name:  "DB_HOST",
-				Value: "localhost",
-			},
-			{
-				Name:  "DB_PORT",
-				Value: "3306",
-			},
-		}
-		ct.Env = append(ct.Env, clusterEnvs...)
-		ct.Resources = spec.Resources
-	}
-	if cr.CompareVersionWith("1.7.0") >= 0 {
-		for k, v := range ct.Env {
-			if v.Name == "DB_PORT" {
-				ct.Env[k].Value = "33062"
-				break
-			}
-		}
-		PmmPxcParams := ""
-		if spec.PxcParams != "" {
-			PmmPxcParams = spec.PxcParams
-		}
-		clusterPmmEnvs := []corev1.EnvVar{
-			{
-				Name:  "CLUSTER_NAME",
-				Value: clusterName,
-			},
-			{
-				Name:  "PMM_ADMIN_CUSTOM_PARAMS",
-				Value: PmmPxcParams,
-			},
-		}
-		ct.Env = append(ct.Env, clusterPmmEnvs...)
-		pmmAgentScriptEnv := app.PMMAgentScript(cr, "mysql")
-		ct.Env = append(ct.Env, pmmAgentScriptEnv...)
-	}
-	if cr.CompareVersionWith("1.9.0") >= 0 {
-		fvar := true
-		ct.EnvFrom = []corev1.EnvFromSource{
-			{
-				SecretRef: &corev1.SecretEnvSource{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: cr.Spec.PXC.EnvVarsSecretName,
-					},
-					Optional: &fvar,
-				},
-			},
-		}
-
-	}
-	if cr.CompareVersionWith("1.10.0") >= 0 {
-		// PMM team added these flags which allows us to avoid
-		// container crash, but just restart pmm-agent till it recovers
-		// the connection.
-		sidecarEnvs := []corev1.EnvVar{
-			{
-				Name:  "PMM_AGENT_SIDECAR",
-				Value: "true",
-			},
-			{
-				Name:  "PMM_AGENT_SIDECAR_SLEEP",
-				Value: "5",
-			},
-		}
-		ct.Env = append(ct.Env, sidecarEnvs...)
-	}
-
-	if cr.CompareVersionWith("1.14.0") >= 0 {
-		// PMM team moved temp directory to /usr/local/percona/pmm2/tmp
-		// but it doesn't work on OpenShift so we set it back to /tmp
-		sidecarEnvs := []corev1.EnvVar{
-			{
-				Name:  "PMM_AGENT_PATHS_TEMPDIR",
-				Value: "/tmp",
-			},
-		}
-		ct.Env = append(ct.Env, sidecarEnvs...)
-	}
-
-	ct.VolumeMounts = []corev1.VolumeMount{
+	pmmContainer.VolumeMounts = []corev1.VolumeMount{
 		{
 			Name:      naming.DataVolumeName,
 			MountPath: "/var/lib/mysql",
 		},
 	}
 
-	return &ct, nil
+	pBool := true
+	pmmContainer.EnvFrom = []corev1.EnvFromSource{
+		{
+			SecretRef: &corev1.SecretEnvSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: cr.Spec.PXC.EnvVarsSecretName,
+				},
+				Optional: &pBool,
+			},
+		},
+	}
+
+	return &pmmContainer, nil
 }
 
-// pmm3PXCNodeEnvVars returns a list of environment variables to configure the PMM3 container for monitoring pxc node.
-func pmm3PXCNodeEnvVars(PmmPxcParams string) []corev1.EnvVar {
+// pmmPXCNodeEnvVars returns a list of environment variables to configure the PMM container for monitoring pxc node.
+func pmmPXCNodeEnvVars(PmmPxcParams string) []corev1.EnvVar {
 	return []corev1.EnvVar{
 		{
 			Name:  "DB_PORT",

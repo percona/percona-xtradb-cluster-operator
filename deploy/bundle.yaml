@@ -6270,8 +6270,6 @@ spec:
                     type: string
                   serverHost:
                     type: string
-                  serverUser:
-                    type: string
                 type: object
               proxysql:
                 properties:

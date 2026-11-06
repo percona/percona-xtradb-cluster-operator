@@ -17,7 +17,7 @@ import (
 
 const productName = "pxc-operator"
 
-func (vs VersionServiceClient) GetExactVersion(cr *api.PerconaXtraDBCluster, endpoint string, vm versionMeta, opts versionOptions) (DepVersion, error) {
+func (vs VersionServiceClient) GetExactVersion(cr *api.PerconaXtraDBCluster, endpoint string, vm versionMeta) (DepVersion, error) {
 	if strings.Contains(endpoint, "https://check.percona.com/versions") {
 		endpoint = api.GetDefaultVersionServiceEndpoint()
 	}
@@ -76,7 +76,7 @@ func (vs VersionServiceClient) GetExactVersion(cr *api.PerconaXtraDBCluster, end
 		return DepVersion{}, errors.Wrapf(err, "get backup version")
 	}
 
-	pmmVersion, err := getPMMVersion(resp.Payload.Versions[0].Matrix.Pmm, opts.PMM3Enabled)
+	pmmVersion, err := getPMMVersion(resp.Payload.Versions[0].Matrix.Pmm)
 	if err != nil {
 		return DepVersion{}, errors.Wrapf(err, "get pmm version")
 	}
@@ -114,36 +114,27 @@ func (vs VersionServiceClient) GetExactVersion(cr *api.PerconaXtraDBCluster, end
 	return dv, nil
 }
 
-func getPMMVersion(versions map[string]models.VersionVersion, isPMM3 bool) (string, error) {
+func getPMMVersion(versions map[string]models.VersionVersion) (string, error) {
 	if len(versions) == 0 {
 		return "", fmt.Errorf("response has zero versions")
 	}
-	// One version for PMM3 and one version for PMM2 should only exist.
-	if len(versions) > 2 {
-		return "", fmt.Errorf("response has more than 2 versions")
-	}
 
-	var pmm2Version, pmm3Version string
+	var pmmVersion string
 	for version := range versions {
-		if strings.HasPrefix(version, "3.") {
-			pmm3Version = version
+		if !strings.HasPrefix(version, "3.") {
+			continue
 		}
-		if strings.HasPrefix(version, "2.") {
-			pmm2Version = version
+		if pmmVersion != "" {
+			return "", fmt.Errorf("response has more than one PMM 3.x version")
 		}
+		pmmVersion = version
 	}
 
-	if isPMM3 && pmm3Version == "" {
-		return "", fmt.Errorf("pmm3 is configured, but no pmm3 version exists")
-	}
-	if isPMM3 && pmm3Version != "" {
-		return pmm3Version, nil
-	}
-	if pmm2Version != "" {
-		return pmm2Version, nil
+	if pmmVersion == "" {
+		return "", fmt.Errorf("no PMM 3.x version found")
 	}
 
-	return "", fmt.Errorf("no recognizable PMM version found")
+	return pmmVersion, nil
 }
 
 func getVersion(versions map[string]models.VersionVersion) (string, error) {
@@ -172,12 +163,8 @@ type DepVersion struct {
 	LogCollectorImage   string `json:"LogCollectorImage,omitempty"`
 }
 
-type versionOptions struct {
-	PMM3Enabled bool
-}
-
 type VersionService interface {
-	GetExactVersion(cr *api.PerconaXtraDBCluster, endpoint string, vm versionMeta, opts versionOptions) (DepVersion, error)
+	GetExactVersion(cr *api.PerconaXtraDBCluster, endpoint string, vm versionMeta) (DepVersion, error)
 }
 
 type VersionServiceClient struct {

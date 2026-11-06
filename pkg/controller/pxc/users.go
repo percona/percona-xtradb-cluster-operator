@@ -180,12 +180,8 @@ func (r *ReconcilePerconaXtraDBCluster) updateUsers(ctx context.Context, cr *api
 			if err := r.handleProxyadminUser(ctx, cr, secrets, internalSecrets, res); err != nil {
 				return res, err
 			}
-		case users.PMMServer, users.PMMServerKey:
-			if err := r.handlePMMUser(ctx, cr, secrets, internalSecrets, res); err != nil {
-				return res, err
-			}
 		case users.PMMServerToken:
-			if err := r.handlePMM3User(ctx, cr, secrets, internalSecrets, res); err != nil {
+			if err := r.handlePMMUser(ctx, cr, secrets, internalSecrets, res); err != nil {
 				return res, err
 			}
 		}
@@ -860,57 +856,6 @@ func (r *ReconcilePerconaXtraDBCluster) handleProxyadminUser(ctx context.Context
 }
 
 func (r *ReconcilePerconaXtraDBCluster) handlePMMUser(ctx context.Context, cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
-	log := logf.FromContext(ctx)
-
-	if cr.Spec.PMM == nil || !cr.Spec.PMM.IsEnabled(secrets) {
-		return nil
-	}
-
-	if key, ok := secrets.Data[users.PMMServerKey]; ok {
-		if _, ok := internalSecrets.Data[users.PMMServerKey]; !ok {
-			internalSecrets.Data[users.PMMServerKey] = key
-
-			err := r.client.Update(ctx, internalSecrets)
-			if err != nil {
-				return errors.Wrap(err, "update internal users secrets pmm user password")
-			}
-			log.Info("Internal secrets updated", "user", users.PMMServerKey)
-
-			return nil
-		}
-	}
-
-	name := users.PMMServerKey
-	if !cr.Spec.PMM.UseAPI(secrets) {
-		name = users.PMMServer
-	}
-
-	if bytes.Equal(secrets.Data[name], internalSecrets.Data[name]) {
-		return nil
-	}
-
-	if cr.Status.Status != api.AppStateReady && !r.invalidPasswordApplied(cr.Status) {
-		return nil
-	}
-
-	log.Info("Password changed, updating user", "user", name)
-
-	orig := internalSecrets.DeepCopy()
-	internalSecrets.Data[name] = secrets.Data[name]
-	err := r.client.Patch(ctx, internalSecrets, client.MergeFrom(orig))
-	if err != nil {
-		return errors.Wrap(err, "update internal users secrets pmm user password")
-	}
-	log.Info("Internal secrets updated", "user", name)
-
-	actions.restartPXC = true
-	actions.restartProxySQL = true
-	actions.restartHAProxy = true
-
-	return nil
-}
-
-func (r *ReconcilePerconaXtraDBCluster) handlePMM3User(ctx context.Context, cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
 	log := logf.FromContext(ctx)
 
 	if cr.Spec.PMM == nil || !cr.Spec.PMM.Enabled {

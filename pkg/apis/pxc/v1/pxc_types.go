@@ -862,11 +862,9 @@ type LogRotateSpec struct {
 }
 
 type PMMSpec struct {
-	Enabled    bool   `json:"enabled,omitempty"`
-	ServerHost string `json:"serverHost,omitempty"`
-	Image      string `json:"image,omitempty"`
-	// Deprecated, ServerUser is used for PMM2. PMM2 is reaching its EOL.
-	ServerUser               string                      `json:"serverUser,omitempty"`
+	Enabled                  bool                        `json:"enabled,omitempty"`
+	ServerHost               string                      `json:"serverHost,omitempty"`
+	Image                    string                      `json:"image,omitempty"`
 	CustomClusterName        string                      `json:"customClusterName,omitempty"`
 	PxcParams                string                      `json:"pxcParams,omitempty"`
 	ProxysqlParams           string                      `json:"proxysqlParams,omitempty"`
@@ -878,28 +876,15 @@ type PMMSpec struct {
 	ReadinessProbes          *corev1.Probe               `json:"readinessProbes,omitempty"`
 }
 
+// IsEnabled reports whether PMM is enabled and the secret holds the PMM
+// server token the pmm-client sidecar needs.
 func (spec *PMMSpec) IsEnabled(secret *corev1.Secret) bool {
-	return spec.Enabled && spec.HasSecret(secret)
+	return spec.Enabled && spec.HasToken(secret)
 }
 
-// HasSecret is used for supporting PMM2.
-func (spec *PMMSpec) HasSecret(secret *corev1.Secret) bool {
-	for _, key := range []string{users.PMMServer, users.PMMServerKey} {
-		if _, ok := secret.Data[key]; ok {
-			return true
-		}
-	}
-	return false
-}
-
-// UseAPI is used for supporting PMM2.
-func (spec *PMMSpec) UseAPI(secret *corev1.Secret) bool {
-	if _, ok := secret.Data[users.PMMServerKey]; !ok {
-		if _, ok := secret.Data[users.PMMServer]; ok {
-			return false
-		}
-	}
-	return true
+// HasToken reports whether the secret holds a non-empty PMM server token.
+func (spec *PMMSpec) HasToken(secret *corev1.Secret) bool {
+	return len(secret.Data[users.PMMServerToken]) > 0
 }
 
 type BackupStorageSpec struct {

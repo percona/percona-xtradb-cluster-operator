@@ -20,6 +20,9 @@ func TestGetLatestSuccessfulBackup(t *testing.T) {
 	tests := []struct {
 		name        string
 		clusterName string
+		// crVersion of the cluster the backups belong to. Empty means 1.21.0,
+		// the version from which incremental backups are skipped.
+		crVersion   string
 		backups     []runtime.Object
 		expected    string
 		expectedErr error
@@ -84,15 +87,56 @@ func TestGetLatestSuccessfulBackup(t *testing.T) {
 			},
 			expected: "succeeded-backup",
 		},
+		{
+			name:        "newer incremental backup is skipped: PITR replays binlogs onto a full backup only",
+			clusterName: "cluster1",
+			backups: []runtime.Object{
+				newBackup("full-backup", "cluster1", api.BackupSucceeded, baseTime.Add(2*time.Minute)),
+				withType(newBackup("incr-backup", "cluster1", api.BackupSucceeded, baseTime.Add(3*time.Minute)), api.BackupTypeIncremental),
+			},
+			expected: "full-backup",
+		},
+		{
+			name:        "a backup with an empty status type counts as full",
+			clusterName: "cluster1",
+			backups: []runtime.Object{
+				newBackup("legacy-backup", "cluster1", api.BackupSucceeded, baseTime.Add(2*time.Minute)),
+			},
+			expected: "legacy-backup",
+		},
+		{
+			name:        "no successful full backup, only incrementals",
+			clusterName: "cluster1",
+			backups: []runtime.Object{
+				withType(newBackup("incr-backup", "cluster1", api.BackupSucceeded, baseTime.Add(3*time.Minute)), api.BackupTypeIncremental),
+			},
+			expectedErr: ErrNoBackups,
+		},
+		{
+			name:        "clusters below 1.21.0 keep selecting the newest backup of any type",
+			clusterName: "cluster1",
+			crVersion:   "1.20.0",
+			backups: []runtime.Object{
+				newBackup("full-backup", "cluster1", api.BackupSucceeded, baseTime.Add(2*time.Minute)),
+				withType(newBackup("incr-backup", "cluster1", api.BackupSucceeded, baseTime.Add(3*time.Minute)), api.BackupTypeIncremental),
+			},
+			expected: "incr-backup",
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			crVersion := tt.crVersion
+			if crVersion == "" {
+				crVersion = "1.21.0"
+			}
+
 			cr := &api.PerconaXtraDBCluster{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      tt.clusterName,
 					Namespace: "test-ns",
 				},
+				Spec: api.PerconaXtraDBClusterSpec{CRVersion: crVersion},
 			}
 
 			backup, err := getLatestSuccessfulBackup(t.Context(), buildBackupFakeClient(t, tt.backups...), cr)
@@ -128,6 +172,12 @@ func buildBackupFakeClient(t *testing.T, backups ...runtime.Object) client.Clien
 			return []string{backup.Spec.PXCCluster}
 		}).
 		Build()
+}
+
+// withType sets the recorded type of a backup, which is what GetType() reads.
+func withType(bcp *api.PerconaXtraDBClusterBackup, backupType api.PXCBackupType) *api.PerconaXtraDBClusterBackup {
+	bcp.Status.Type = backupType
+	return bcp
 }
 
 func newBackup(name, clusterName string, state api.PXCBackupState, createdAt time.Time) *api.PerconaXtraDBClusterBackup {

@@ -1,0 +1,7 @@
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBClusterRestore
+metadata:
+  name: restore-incr-3
+spec:
+  pxcCluster: demand-backup-incr
+  backupName: backup-incr-3

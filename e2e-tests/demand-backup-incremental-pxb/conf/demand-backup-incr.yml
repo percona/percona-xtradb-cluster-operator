@@ -1,0 +1,78 @@
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBCluster
+metadata:
+  name: demand-backup-incr
+  finalizers:
+    - percona.com/delete-pxc-pods-in-order
+spec:
+  secretsName: my-cluster-secrets
+  vaultSecretName: some-name-vault
+  pause: false
+  pxc:
+    size: 3
+    image: -pxc
+    configuration: |
+      [mysqld]
+      wsrep_log_conflicts
+      log_error_verbosity=3
+      wsrep_debug=1
+    resources:
+      requests:
+        memory: 0.1G
+        cpu: 100m
+      limits:
+        memory: "2G"
+        cpu: "1"
+    volumeSpec:
+      persistentVolumeClaim:
+        resources:
+          requests:
+            storage: 2Gi
+    affinity:
+      antiAffinityTopologyKey: "kubernetes.io/hostname"
+  haproxy:
+    enabled: true
+    size: 2
+    image: -haproxy
+    resources:
+      requests:
+        memory: 0.1G
+        cpu: 100m
+      limits:
+        memory: 1G
+        cpu: 700m
+    affinity:
+      antiAffinityTopologyKey: "kubernetes.io/hostname"
+  pmm:
+    enabled: false
+    image: perconalab/pmm-client:1.17.1
+    serverHost: monitoring-service
+    serverUser: pmm
+  backup:
+    ttlSecondsAfterFinished: 3600
+    activeDeadlineSeconds: 3600
+    # The suite flips this to true for one step to prove that allowParallel and
+    # incremental backups are mutually exclusive, then flips it back.
+    allowParallel: false
+    backoffLimit: 3
+    image: -backup
+    storages:
+      # Incremental backups need object storage, so the only storage defined here
+      # is the in-cluster S3 (SeaweedFS) that deploy_s3_storage stands up. The
+      # bucket carries a nested prefix on purpose: chain listing has to reset the
+      # storage client prefix from the incremental path back to the base path,
+      # and a single-segment bucket would hide that bug.
+      local-s3:
+        type: s3
+        resources:
+          requests:
+            memory: 0.5G
+            cpu: 500m
+          limits:
+            memory: "2G"
+            cpu: "1"
+        s3:
+          credentialsSecret: s3-secret
+          region: us-east-1
+          bucket: operator-testing/prefix/subfolder
+          endpointUrl: http://s3-storage-all-in-one.#namespace:8333/

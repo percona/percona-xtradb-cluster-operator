@@ -1,0 +1,450 @@
+#!/usr/bin/env bash
+
+set -o errexit
+
+test_dir=$(realpath $(dirname $0))
+. ${test_dir}/../functions
+
+set_debug
+
+PXCO_FEATURE_GATES="XtrabackupSidecar=true"
+
+cluster="demand-backup-incr"
+
+s3_bucket="operator-testing"
+s3_prefix="prefix/subfolder"
+s3_endpoint="http://s3-storage-all-in-one:8333"
+
+aws_cli_run_id=0
+
+dump_operator_logs() {
+	local operator_ns_args=()
+	if [[ -n ${OPERATOR_NS} ]]; then
+		operator_ns_args=(-n "${OPERATOR_NS}")
+	fi
+
+	kubectl_bin logs "${operator_ns_args[@]}" "$(get_operator_pod)" | tail -n 200 || true
+}
+
+s3_object_keys() {
+	aws_cli_run_id=$((aws_cli_run_id + 1))
+
+	kubectl_bin run -n "${namespace}" -i --rm "aws-cli-${aws_cli_run_id}" \
+		--image=perconalab/awscli --restart=Never -- \
+		/usr/bin/env AWS_ACCESS_KEY_ID=some-access-key AWS_SECRET_ACCESS_KEY=some-secret-key AWS_DEFAULT_REGION=us-east-1 \
+		/usr/bin/aws --endpoint-url "${s3_endpoint}" --no-verify-ssl \
+		s3 ls --recursive "s3://${s3_bucket}/${s3_prefix}/" 2>/dev/null \
+		| grep '^[0-9]' \
+		| awk '{print $4}'
+}
+
+backup_field() {
+	local backup="$1"
+	local field="$2"
+
+	kubectl_bin get pxc-backup "${backup}" -o jsonpath="{${field}}" 2>/dev/null || true
+}
+
+wait_for_rows() {
+	local expected_rows="$1"
+	local timeout="${2:-180}"
+
+	local root_pass
+	root_pass=$(get_password "${cluster}" "root")
+
+	local i
+	for i in 0 1 2; do
+		local node="${cluster}-pxc-${i}.${cluster}-pxc"
+		local deadline=$(($(date +%s) + timeout))
+
+		while [[ "$(run_mysql 'SELECT COUNT(*) FROM myApp.myApp;' "-h ${node} -uroot -p'${root_pass}'" 2>/dev/null)" != "${expected_rows}" ]]; do
+			if [[ $(date +%s) -ge ${deadline} ]]; then
+				log "timeout (${timeout}s): ${node} never reached ${expected_rows} rows in myApp.myApp"
+				exit 1
+			fi
+			sleep 5
+		done
+	done
+}
+
+flush_innodb_dirty_pages() {
+	local root_pass
+	root_pass=$(get_password "${cluster}" "root")
+
+	# Give InnoDB a chance to write pages out on its own before forcing it, so
+	# the forced checkpoint has less to do.
+	sleep 10
+
+	local i
+	for i in 0 1 2; do
+		local node="${cluster}-pxc-${i}.${cluster}-pxc"
+		run_mysql 'SET GLOBAL innodb_max_dirty_pages_pct = 0;' "-h ${node} -uroot -p'${root_pass}'"
+	done
+}
+
+write_row() {
+	local id="$1"
+	local expected_rows="$2"
+
+	log "writing row ${id} (expecting ${expected_rows} rows afterwards)"
+	write_data "${cluster}" "${id}"
+	wait_for_rows "${expected_rows}"
+	flush_innodb_dirty_pages
+}
+
+assert_backup_type() {
+	local backup="$1"
+	local expected="$2"
+
+	local got
+	got=$(backup_field "${backup}" ".status.type")
+	if [[ ${got} != "${expected}" ]]; then
+		log "pxc-backup/${backup}: expected .status.type=${expected}, got '${got}'"
+		kubectl_bin get pxc-backup "${backup}" -o yaml || true
+		exit 1
+	fi
+	log "pxc-backup/${backup}: .status.type=${got} OK"
+}
+
+assert_full_destination() {
+	local backup="$1"
+
+	local dest
+	dest=$(backup_field "${backup}" ".status.destination")
+
+	if [[ ${dest} != "s3://${s3_bucket}/${s3_prefix}/${cluster}-"*"-full" ]]; then
+		log "pxc-backup/${backup}: expected a destination like s3://${s3_bucket}/${s3_prefix}/${cluster}-<ts>-full, got '${dest}'"
+		exit 1
+	fi
+
+	if [[ ${dest} == *".incr"* ]]; then
+		log "pxc-backup/${backup}: a full backup must not live under a chain directory, got '${dest}'"
+		exit 1
+	fi
+
+	log "pxc-backup/${backup}: .status.destination=${dest} OK"
+}
+
+assert_incremental_destination() {
+	local backup="$1"
+	local base_dest="$2"
+
+	local dest
+	dest=$(backup_field "${backup}" ".status.destination")
+
+	if [[ ${dest} != "${base_dest}.incr/${cluster}-"*"-incr" ]]; then
+		log "pxc-backup/${backup}: expected a destination like ${base_dest}.incr/${cluster}-<ts>-incr, got '${dest}'"
+		exit 1
+	fi
+
+	log "pxc-backup/${backup}: .status.destination=${dest} OK"
+}
+
+assert_object_storage_layout() {
+	local full_leaf="$1"
+	shift
+
+	local keys
+	keys=$(s3_object_keys)
+
+	if ! echo "${keys}" | grep -q "^${s3_prefix}/${full_leaf}/"; then
+		log "no objects found for the full backup under ${s3_prefix}/${full_leaf}/"
+		echo "${keys}"
+		exit 1
+	fi
+
+	local incr_leaf
+	for incr_leaf in "$@"; do
+		if ! echo "${keys}" | grep -q "^${s3_prefix}/${full_leaf}\.incr/${incr_leaf}/"; then
+			log "incremental ${incr_leaf} is not stored under ${s3_prefix}/${full_leaf}.incr/"
+			echo "${keys}"
+			exit 1
+		fi
+
+		# The incremental must not also exist as a top-level directory.
+		if echo "${keys}" | grep -q "^${s3_prefix}/${incr_leaf}/"; then
+			log "incremental ${incr_leaf} must not be stored next to the full backup"
+			echo "${keys}"
+			exit 1
+		fi
+
+		if ! echo "${keys}" | grep -q "^${s3_prefix}/${full_leaf}\.incr/${incr_leaf}/.*\.delta"; then
+			log "incremental ${incr_leaf} contains no .delta files, so it captured no changed pages"
+			log "objects in that incremental:"
+			echo "${keys}" | grep "^${s3_prefix}/${full_leaf}\.incr/${incr_leaf}/" || true
+			exit 1
+		fi
+	done
+
+	log "object storage layout OK, and every incremental carries page deltas"
+}
+
+run_incremental_recovery_check() {
+	local restore="$1"
+	local compare="$2"
+	local expected_rows="$3"
+
+	local proxy
+	proxy=$(get_proxy_engine "${cluster}")
+	local proxy_size
+	proxy_size=$(get_proxy_size "${cluster}")
+
+	log "run pxc-restore/${restore}"
+	kubectl_bin apply -f "${test_dir}/conf/${restore}.yaml"
+
+	wait_backup_restore "${restore}"
+	# Dumped for diagnosis only - nothing is asserted on the contents. How the
+	# restore prepares the chain is xtrabackup's business; what this suite cares
+	# about is the data that comes out the other side.
+	kubectl_bin logs "job/restore-job-${restore}-${cluster}" || true
+
+	wait_for_running "${cluster}-${proxy}" "${proxy_size}"
+	wait_for_running "${cluster}-pxc" 3
+	wait_cluster_consistency "${cluster}" 3 "${proxy_size}"
+
+	# A restored chain that is too short or too long shows up as the wrong row
+	# count on every node, so fail here rather than letting the data diff below
+	# race the cluster coming back up.
+	wait_for_rows "${expected_rows}" 120
+
+	log "check data after pxc-restore/${restore}"
+	compare_data "${cluster}" "${compare}"
+}
+
+assert_rejected_by_api() {
+	local manifest="$1"
+	local expected_message="$2"
+
+	local output
+	if output=$(kubectl_bin apply -f "${test_dir}/conf/${manifest}.yml" 2>&1); then
+		log "expected the API server to reject conf/${manifest}.yml, but it was accepted:"
+		echo "${output}"
+		kubectl_bin delete -f "${test_dir}/conf/${manifest}.yml" --ignore-not-found || true
+		exit 1
+	fi
+
+	if ! echo "${output}" | grep -qF "${expected_message}"; then
+		log "conf/${manifest}.yml was rejected, but not with the expected message '${expected_message}':"
+		echo "${output}"
+		exit 1
+	fi
+
+	log "conf/${manifest}.yml rejected as expected"
+}
+
+# assert_backup_deletion_blocked requests deletion of a backup that is NOT the
+# tail of its chain and verifies the operator refuses to complete it: the object
+# stays, keeps the delete-backup finalizer, and carries a deletionTimestamp.
+# Deleting it would leave a hole that makes every later incremental unrestorable.
+assert_backup_deletion_blocked() {
+	local backup="$1"
+	local observe_for="${2:-120}"
+
+	log "deleting pxc-backup/${backup} from the middle of the chain, which must be refused"
+	kubectl_bin delete pxc-backup "${backup}" --wait=false
+
+	local deadline=$(($(date +%s) + observe_for))
+	while [[ $(date +%s) -lt ${deadline} ]]; do
+		if ! kubectl_bin get pxc-backup "${backup}" >/dev/null 2>&1; then
+			log "pxc-backup/${backup} was deleted from the middle of the chain, which breaks every later incremental"
+			dump_operator_logs
+			exit 1
+		fi
+		sleep 5
+	done
+
+	local finalizers
+	finalizers=$(backup_field "${backup}" ".metadata.finalizers")
+	if [[ ${finalizers} != *"percona.com/delete-backup"* ]]; then
+		log "pxc-backup/${backup}: expected the percona.com/delete-backup finalizer to still be set, got '${finalizers}'"
+		kubectl_bin get pxc-backup "${backup}" -o yaml || true
+		exit 1
+	fi
+
+	local deletion_timestamp
+	deletion_timestamp=$(backup_field "${backup}" ".metadata.deletionTimestamp")
+	if [[ -z ${deletion_timestamp} ]]; then
+		log "pxc-backup/${backup}: expected a deletionTimestamp after the delete request"
+		kubectl_bin get pxc-backup "${backup}" -o yaml || true
+		exit 1
+	fi
+
+	log "pxc-backup/${backup} is still held by its finalizer after ${observe_for}s, as expected"
+}
+
+# wait_backup_gone polls until a backup object disappears.
+wait_backup_gone() {
+	local backup="$1"
+	local timeout="${2:-300}"
+
+	local deadline=$(($(date +%s) + timeout))
+
+	log "waiting up to ${timeout}s for pxc-backup/${backup} to be deleted"
+	while [[ $(date +%s) -lt ${deadline} ]]; do
+		if ! kubectl_bin get pxc-backup "${backup}" >/dev/null 2>&1; then
+			log "pxc-backup/${backup} deleted"
+			return 0
+		fi
+		sleep 5
+	done
+
+	log "timeout (${timeout}s) waiting for pxc-backup/${backup} to be deleted"
+	kubectl_bin get pxc-backup -o yaml || true
+	dump_operator_logs
+	exit 1
+}
+
+# wait_all_backups_gone polls until the namespace holds no backup objects at all.
+# Cascading chain deletion unwinds one backup per reconcile, so this is minutes,
+# not seconds.
+wait_all_backups_gone() {
+	local timeout="${1:-600}"
+
+	local deadline=$(($(date +%s) + timeout))
+
+	log "waiting up to ${timeout}s for the whole backup chain to be deleted"
+	while [[ $(date +%s) -lt ${deadline} ]]; do
+		if [[ -z "$(kubectl_bin get pxc-backup -o name --ignore-not-found 2>/dev/null)" ]]; then
+			log "every pxc-backup is gone"
+			return 0
+		fi
+		sleep 10
+	done
+
+	log "timeout (${timeout}s): backups are still present after deleting the base backup"
+	kubectl_bin get pxc-backup -o yaml || true
+	dump_operator_logs
+	exit 1
+}
+
+# assert_bucket_empty verifies the operator removed every object of the chain,
+# the "<full>.incr/" directory included. A base-deletion that lists without an
+# exact directory match would wipe the chain too early; one that lists too
+# narrowly would leave the chain behind. Both show up here.
+assert_bucket_empty() {
+	local timeout="${1:-300}"
+
+	local deadline=$(($(date +%s) + timeout))
+	local keys=""
+
+	log "waiting up to ${timeout}s for the bucket to be cleaned up"
+	while [[ $(date +%s) -lt ${deadline} ]]; do
+		keys=$(s3_object_keys | grep -F "${cluster}" || true)
+		if [[ -z ${keys} ]]; then
+			log "no objects left for ${cluster} in the bucket"
+			return 0
+		fi
+		sleep 10
+	done
+
+	log "timeout (${timeout}s): objects for ${cluster} are still in the bucket after every backup was deleted"
+	echo "${keys}"
+	exit 1
+}
+
+main() {
+	create_infra "${namespace}"
+
+	deploy_s3_storage
+
+	spinup_pxc "${cluster}" "${test_dir}/conf/${cluster}.yml"
+
+	desc 'incrementalBaseBackupName on a full backup must be rejected by the API server'
+	assert_rejected_by_api "backup-invalid-base-on-full" \
+		"incrementalBaseBackupName is only allowed for incremental backups"
+
+	desc 'take a full backup (spec.type omitted, so the CRD default applies)'
+	write_row 100501 2
+	run_backup "${cluster}" "backup-full"
+	assert_backup_type "backup-full" "full"
+	assert_full_destination "backup-full"
+
+	local full_dest
+	full_dest=$(backup_field "backup-full" ".status.destination")
+	local full_leaf="${full_dest##*/}"
+
+	desc 'incremental #1 with an implicit base'
+	write_row 100502 3
+	run_backup "${cluster}" "backup-incr-1"
+	assert_backup_type "backup-incr-1" "incremental"
+	assert_incremental_destination "backup-incr-1" "${full_dest}"
+
+	desc 'incremental #2 with an implicit base'
+	write_row 100503 4
+	run_backup "${cluster}" "backup-incr-2"
+	assert_backup_type "backup-incr-2" "incremental"
+	assert_incremental_destination "backup-incr-2" "${full_dest}"
+
+	desc 'incremental #3 with an explicit base'
+	write_row 100504 5
+	run_backup "${cluster}" "backup-incr-3"
+	assert_backup_type "backup-incr-3" "incremental"
+	assert_incremental_destination "backup-incr-3" "${full_dest}"
+
+	local incr1_dest incr2_dest incr3_dest
+	incr1_dest=$(backup_field "backup-incr-1" ".status.destination")
+	incr2_dest=$(backup_field "backup-incr-2" ".status.destination")
+	incr3_dest=$(backup_field "backup-incr-3" ".status.destination")
+
+	desc 'check the object storage layout'
+	assert_object_storage_layout "${full_leaf}" \
+		"${incr1_dest##*/}" "${incr2_dest##*/}" "${incr3_dest##*/}"
+
+	# Restoring the middle of the chain must stop at incremental #2: the row
+	# written just before incremental #3 has to be absent afterwards. This is
+	# the assertion that catches a chain that was truncated, over-extended or
+	# applied out of order - all of them land the wrong rows.
+	desc 'restore from the middle of the chain (incremental #2)'
+	run_incremental_recovery_check "restore-incr-2" "select-incr-2" 4
+
+	# Restoring the tail replays base + incr-1 + incr-2 + incr-3. This only
+	# prepares cleanly if incremental #3 was chained onto incremental #2 rather
+	# than branched off the full backup it names as its base.
+	desc 'restore from the tail of the chain (incremental #3)'
+	run_incremental_recovery_check "restore-incr-3" "select-incr-3" 5
+
+	# allowParallel used to refuse incremental backups outright. It no longer
+	# does: incrementals serialize on the backup lease regardless of the flag,
+	# so they still work while full backups go in parallel. That an incremental
+	# takes the lease is operator logic covered by unit tests; what matters here
+	# is that turning the flag on does not break incremental backups.
+	desc 'incremental backups still work while spec.backup.allowParallel is true'
+	patch_cluster "${cluster}" '{"spec":{"backup":{"allowParallel":true}}}'
+	wait_cluster_consistency "${cluster}" 3 "$(get_proxy_size "${cluster}")"
+
+	write_row 100505 6
+	run_backup "${cluster}" "backup-incr-parallel"
+	assert_backup_type "backup-incr-parallel" "incremental"
+	assert_incremental_destination "backup-incr-parallel" "${full_dest}"
+
+	# Remove it again before the deletion checks below: it is currently the tail
+	# of the chain, and leaving it there would make backup-incr-3 a middle
+	# member, which must not be deletable.
+	kubectl_bin delete pxc-backup "backup-incr-parallel" --wait=false
+	wait_backup_gone "backup-incr-parallel" 300
+
+	patch_cluster "${cluster}" '{"spec":{"backup":{"allowParallel":false}}}'
+	wait_cluster_consistency "${cluster}" 3 "$(get_proxy_size "${cluster}")"
+
+	desc 'deleting the middle of a chain must be refused'
+	assert_backup_deletion_blocked "backup-incr-2"
+
+	desc 'deleting the tail of a chain must succeed'
+	kubectl_bin delete pxc-backup "backup-incr-3" --wait=false
+	wait_backup_gone "backup-incr-3" 300
+
+	# backup-incr-2 was already marked for deletion above. Once it becomes the
+	# tail the operator is free to finish that deletion, so it may disappear on
+	# its own before the base backup is deleted.
+	desc 'deleting the base backup must cascade through the rest of the chain'
+	kubectl_bin delete pxc-backup "backup-full" --wait=false
+	wait_all_backups_gone 600
+	assert_bucket_empty 300
+
+	destroy "${namespace}"
+	desc "test passed"
+}
+
+main
+
+exit 0

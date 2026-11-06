@@ -1,0 +1,13 @@
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBClusterBackup
+metadata:
+  name: backup-full
+  finalizers:
+    - percona.com/delete-backup
+spec:
+  pxcCluster: demand-backup-incr
+  storageName: local-s3
+  activeDeadlineSeconds: 7200
+  # spec.type is deliberately omitted. The CRD defaults it to "full", and the
+  # suite asserts .status.type == full to prove the default is applied rather
+  # than left empty.

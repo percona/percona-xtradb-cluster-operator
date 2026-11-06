@@ -52,10 +52,36 @@ socat -u "$SOCAT_OPTS" stdio | xbstream -x -C "$tmp" --parallel="$(grep -c proce
 
 PXB_VAULT_PREPARE_ARGS=""
 PXB_VAULT_MOVEBACK_ARGS=""
-VAULT_CONFIG_FILE=/etc/mysql/vault-keyring-secret/keyring_vault.conf
-VAULT_KEYRING_COMPONENT=/opt/percona/component_keyring_vault.cnf
+
+
+VAULT_CONFIG_FILE=""
+VAULT_KEYRING_COMPONENT=/opt/percona/component_keyring.cnf
+
+if [[ -f "/usr/lib64/mysql/plugin/component_keyring_file.cnf" ]]; then
+	VAULT_CONFIG_FILE="/usr/lib64/mysql/plugin/component_keyring_file.cnf"
+elif [[ -f "/etc/mysql/vault-keyring-secret/keyring_vault.conf" ]]; then
+	VAULT_CONFIG_FILE="/etc/mysql/vault-keyring-secret/keyring_vault.conf"
+fi
+
+# Detect if we should use component-based keyring
+# Check for:
+# 1. XtraBackup 8.4.0+ (always uses components)
+# 2. XtraBackup 8.0.25+ with component config (has "path" key in JSON format)
+USE_COMPONENT_KEYRING=0
+
+if check_for_version "$XTRABACKUP_VERSION" '8.4.0'; then
+	# XtraBackup 8.4+ always uses components
+	USE_COMPONENT_KEYRING=1
+elif check_for_version "$XTRABACKUP_VERSION" '8.0.25' && [[ -f ${VAULT_CONFIG_FILE} ]]; then
+	# XtraBackup 8.0.25+ supports components
+	# Check if config is for component (has "path" key) vs plugin (has "vault_url" key)
+	if grep -q '"path"' "${VAULT_CONFIG_FILE}"; then
+		USE_COMPONENT_KEYRING=1
+	fi
+fi
+
 if [[ -f ${VAULT_CONFIG_FILE} ]]; then
-	if check_for_version "$XTRABACKUP_VERSION" '8.4.0'; then
+	if [[ ${USE_COMPONENT_KEYRING} -eq 1 ]]; then
 		cp ${VAULT_CONFIG_FILE} ${VAULT_KEYRING_COMPONENT}
 		PXB_VAULT_MOVEBACK_ARGS="--component-keyring-config=${VAULT_KEYRING_COMPONENT}"
 		PXB_VAULT_PREPARE_ARGS="${PXB_VAULT_MOVEBACK_ARGS}"

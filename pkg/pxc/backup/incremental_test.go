@@ -100,8 +100,6 @@ func withSpecBase(name string) bcpOption {
 	return func(b *api.PerconaXtraDBClusterBackup) { b.Spec.IncrementalBaseBackupName = &name }
 }
 
-// fullBcp builds a succeeded full backup with a destination and a completion
-// time, which is the shape most cases need; options override any of it.
 func fullBcp(name string, opts ...bcpOption) *api.PerconaXtraDBClusterBackup {
 	completed := metav1.NewTime(incrBaseTime)
 	b := &api.PerconaXtraDBClusterBackup{
@@ -121,6 +119,7 @@ func fullBcp(name string, opts ...bcpOption) *api.PerconaXtraDBClusterBackup {
 			Destination: api.PXCBackupDestination("s3://bucket-a/" + baseLeaf),
 		},
 	}
+	withS3("bucket-a")(b)
 	for _, o := range opts {
 		o(b)
 	}
@@ -148,6 +147,7 @@ func incrBcp(name string, opts ...bcpOption) *api.PerconaXtraDBClusterBackup {
 			Destination: api.PXCBackupDestination("s3://bucket-a/" + baseLeaf + ".incr/" + name + "-incr"),
 		},
 	}
+	withS3("bucket-a")(b)
 	for _, o := range opts {
 		o(b)
 	}
@@ -577,6 +577,16 @@ func TestGetLatestIncrementalBackupInChain(t *testing.T) {
 			wantErr: "backup test-ns/incr-2 is succeeded but completedAt is not set",
 		},
 		{
+			name: "a member of a same-keyed chain in another storage is excluded",
+			objs: []client.Object{
+				fullBcp("base"),
+				incrBcp("incr-1", withCompletedAt(10)),
+				incrBcp("incr-elsewhere", withS3("bucket-b"), withCompletedAt(40)),
+			},
+			input: fullBcp("base"),
+			want:  "incr-1",
+		},
+		{
 			name: "incrementals of a different base are excluded",
 			objs: []client.Object{
 				fullBcp("base"),
@@ -714,6 +724,16 @@ func TestNextDeletableDependent(t *testing.T) {
 			},
 			input: fullBcp("base"),
 			want:  "incr-2-failed",
+		},
+		{
+			name: "a member of a same-keyed chain in another storage is not a dependent",
+			objs: []client.Object{
+				fullBcp("base"),
+				incrBcp("incr-1", withCompletedAt(10)),
+				incrBcp("incr-elsewhere", withS3("bucket-b"), withCompletedAt(40)),
+			},
+			input: fullBcp("base"),
+			want:  "incr-1",
 		},
 		{
 			name: "incrementals of another base are excluded",
@@ -873,6 +893,16 @@ func TestHasUnfinishedChainMember(t *testing.T) {
 				fullBcp("base"),
 				incrBcp("incr-1", withCompletedAt(10)),
 				incrBcp("other-running", withBaseAnnotation(otherBaseLeaf), withoutCompletedAt(), withState(api.BackupRunning)),
+			},
+			input: fullBcp("base"),
+			want:  false,
+		},
+		{
+			name: "an unfinished member of a same-keyed chain in another storage does not count",
+			objs: []client.Object{
+				fullBcp("base"),
+				incrBcp("incr-1", withCompletedAt(10)),
+				incrBcp("incr-elsewhere-running", withS3("bucket-b"), withoutCompletedAt(), withState(api.BackupRunning)),
 			},
 			input: fullBcp("base"),
 			want:  false,

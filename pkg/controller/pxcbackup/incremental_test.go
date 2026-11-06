@@ -151,6 +151,9 @@ func incrBackup(name string, opts ...backupOption) *api.PerconaXtraDBClusterBack
 			StorageName: incrStorageName,
 		},
 	}
+	// Every backup that has got as far as having a destination also has its
+	// storage recorded: prepareStatus writes the two together.
+	withStorageSpec(incrS3Storage())(bcp)
 	for _, opt := range opts {
 		opt(bcp)
 	}
@@ -1507,11 +1510,13 @@ func TestWriteStatusRefusesStaleWrites(t *testing.T) {
 			r := incrReconciler(t, stored)
 
 			// What this reconcile thinks it read, and what it computed from it.
-			observed := &api.PXCBackupStatus{
-				Type:        api.BackupTypeFull,
-				State:       tt.observedState,
-				Destination: api.PXCBackupDestination(storedDest),
-			}
+			// Built through the same helper as the stored backup so the two
+			// cannot drift apart on a field the case says nothing about.
+			observed := &incrBackup("backup-1",
+				withBackupType(api.BackupTypeFull),
+				withState(tt.observedState),
+				withDestination(storedDest),
+			).Status
 			cr := incrBackup("backup-1",
 				withBackupType(api.BackupTypeFull),
 				withState(tt.observedState),

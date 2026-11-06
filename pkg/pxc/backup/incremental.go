@@ -328,6 +328,8 @@ func chainMembers(
 		return nil, errors.Wrapf(err, "list backups of cluster %s/%s", owner.GetNamespace(), owner.Spec.PXCCluster)
 	}
 
+	ownerStorage := owner.Status.IntoBackupStorageSpec()
+
 	members := make([]api.PerconaXtraDBClusterBackup, 0, len(bcpList.Items))
 	for _, bcp := range bcpList.Items {
 		if bcp.GetType() != api.BackupTypeIncremental {
@@ -336,6 +338,15 @@ func chainMembers(
 		if bcp.GetAnnotations()[naming.AnnotationBaseBackupName] != key {
 			continue
 		}
+
+		match, err := bcp.IsUsingSameStorage(ctx, cl, ownerStorage)
+		if err != nil {
+			return nil, errors.Wrapf(err, "compare the storage of backup %s/%s", bcp.GetNamespace(), bcp.GetName())
+		}
+		if !match {
+			continue
+		}
+
 		members = append(members, bcp)
 	}
 

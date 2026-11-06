@@ -50,6 +50,10 @@ func GetLastFullBackup(
 		if bcp.Status.State != api.BackupSucceeded {
 			continue
 		}
+
+		if !bcp.DeletionTimestamp.IsZero() {
+			continue
+		}
 		match, err := bcp.IsUsingSameStorage(ctx, cl, storage)
 		if err != nil {
 			return nil, errors.Wrapf(err, "compare the storage of backup %s/%s", bcp.GetNamespace(), bcp.GetName())
@@ -188,6 +192,11 @@ func ResolveIncrementalBase(
 	if base.Status.State != api.BackupSucceeded {
 		return nil, errors.Errorf("base backup %s/%s is not succeeded, its state is %q",
 			base.GetNamespace(), base.GetName(), base.Status.State)
+	}
+
+	if !base.DeletionTimestamp.IsZero() {
+		return nil, errors.Errorf("base backup %s/%s is being deleted, so it cannot be the base of incremental backup %s/%s",
+			base.GetNamespace(), base.GetName(), cr.GetNamespace(), cr.GetName())
 	}
 
 	inSameStorage, err := base.IsUsingSameStorage(ctx, cl, storage)

@@ -59,6 +59,14 @@ func withBaseAnnotation(v string) bcpOption {
 	}
 }
 
+func withDeletionTimestamp() bcpOption {
+	return func(b *api.PerconaXtraDBClusterBackup) {
+		t := metav1.NewTime(incrBaseTime.Add(time.Hour))
+		b.SetDeletionTimestamp(&t)
+		b.SetFinalizers([]string{naming.FinalizerDeleteBackup})
+	}
+}
+
 func withoutAnnotations() bcpOption {
 	return func(b *api.PerconaXtraDBClusterBackup) { b.Annotations = nil }
 }
@@ -420,6 +428,23 @@ func TestGetLastFullBackup(t *testing.T) {
 				fullBcp("full-azure", withAzure("container-a"), withCompletedAt(30)),
 			},
 			storage:  nil,
+			wantErrs: ErrNoFullBackupFound,
+		},
+		{
+			name: "a full backup being deleted is skipped in favour of an older one",
+			objs: []client.Object{
+				fullBcp("full-older", withS3("bucket-a"), withCompletedAt(10)),
+				fullBcp("full-dying", withS3("bucket-a"), withCompletedAt(30), withDeletionTimestamp()),
+			},
+			storage: s3Storage("bucket-a"),
+			want:    "full-older",
+		},
+		{
+			name: "a chain with nothing but a dying full backup has no base",
+			objs: []client.Object{
+				fullBcp("full-dying", withS3("bucket-a"), withCompletedAt(30), withDeletionTimestamp()),
+			},
+			storage:  s3Storage("bucket-a"),
 			wantErrs: ErrNoFullBackupFound,
 		},
 		{
@@ -1015,6 +1040,25 @@ func TestResolveIncrementalBase(t *testing.T) {
 			cr:      incrBcp("incr-1", withSpecBase("failed-full"), withS3("bucket-a")),
 			storage: s3Storage("bucket-a"),
 			wantErr: `base backup test-ns/failed-full is not succeeded, its state is "Failed"`,
+		},
+		{
+			name: "explicit base that is being deleted is rejected",
+			objs: []client.Object{
+				fullBcp("dying-full", withS3("bucket-a"), withCompletedAt(10), withDeletionTimestamp()),
+			},
+			cr:      incrBcp("incr-1", withSpecBase("dying-full"), withS3("bucket-a")),
+			storage: s3Storage("bucket-a"),
+			wantErr: "base backup test-ns/dying-full is being deleted",
+		},
+		{
+			name: "implicit resolution passes over a base being deleted",
+			objs: []client.Object{
+				fullBcp("full-older", withS3("bucket-a"), withCompletedAt(10)),
+				fullBcp("full-dying", withS3("bucket-a"), withCompletedAt(30), withDeletionTimestamp()),
+			},
+			cr:      incrBcp("incr-1", withS3("bucket-a")),
+			storage: s3Storage("bucket-a"),
+			want:    "full-older",
 		},
 		{
 			name: "explicit base in a different storage",

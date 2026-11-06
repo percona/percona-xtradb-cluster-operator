@@ -52,16 +52,27 @@ incremental_destination() {
 	fi
 }
 
-# shellcheck disable=SC2086
-xbcloud get --parallel="$(grep -c processor /proc/cpuinfo)" ${XBCLOUD_ARGS} "$(destination).sst_info" | xbstream -x -C "${tmp}" --parallel="$(grep -c processor /proc/cpuinfo)" $XBSTREAM_EXTRA_ARGS
+# fetch_object streams one object out of object storage into a directory.
+fetch_object() {
+	local src=$1
+	local dest=$2
+
+	# shellcheck disable=SC2086
+	(
+		set -o pipefail
+		xbcloud get --parallel="$(grep -c processor /proc/cpuinfo)" ${XBCLOUD_ARGS} "${src}" \
+			| xbstream -x -C "${dest}" --parallel="$(grep -c processor /proc/cpuinfo)" $XBSTREAM_EXTRA_ARGS
+	)
+}
+
+fetch_object "$(destination).sst_info" "${tmp}"
 
 XTRABACKUP_VERSION=$(get_xtrabackup_version)
 if check_for_version "$XTRABACKUP_VERSION" '8.0.0'; then
 	XBSTREAM_EXTRA_ARGS="$XBSTREAM_EXTRA_ARGS --decompress"
 fi
 
-# shellcheck disable=SC2086
-xbcloud get --parallel="$(grep -c processor /proc/cpuinfo)" ${XBCLOUD_ARGS} "$(destination)" | xbstream -x -C "${tmp}" --parallel="$(grep -c processor /proc/cpuinfo)" $XBSTREAM_EXTRA_ARGS
+fetch_object "$(destination)" "${tmp}"
 
 set +o xtrace
 if [[ -f "${tmp}/sst_info" ]]; then
@@ -141,8 +152,7 @@ fetch_incremental() {
 	local incr_path=$1
 	local incrdir=$2
 
-	# shellcheck disable=SC2086
-	xbcloud get --parallel="$(grep -c processor /proc/cpuinfo)" ${XBCLOUD_ARGS} "$(incremental_destination "${incr_path}")" | xbstream -x -C "${incrdir}" --parallel="$(grep -c processor /proc/cpuinfo)" $XBSTREAM_EXTRA_ARGS
+	fetch_object "$(incremental_destination "${incr_path}")" "${incrdir}"
 
 	# For xtrabackup < 8.0 the stream is not decompressed by xbstream
 	if ! check_for_version "$XTRABACKUP_VERSION" '8.0.0' \

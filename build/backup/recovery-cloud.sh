@@ -65,7 +65,7 @@ fetch_object() {
 	)
 }
 
-fetch_object "$(destination).sst_info" "${tmp}"
+fetch_object "$(destination).sst_info" "${tmp}" || true
 
 XTRABACKUP_VERSION=$(get_xtrabackup_version)
 if check_for_version "$XTRABACKUP_VERSION" '8.0.0'; then

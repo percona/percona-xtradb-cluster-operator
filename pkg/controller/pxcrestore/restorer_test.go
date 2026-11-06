@@ -456,7 +456,7 @@ func TestRestorerValidateIncremental(t *testing.T) {
 		{
 			name: "full backup is unaffected",
 			bcp:  newBackup("s3://my-bucket/pfx/"+baseName, api.BackupTypeFull),
-			// Legacy behaviour: SetPrefix is never called, and the list path comes
+			// Legacy behavior: SetPrefix is never called, and the list path comes
 			// straight from backupListPath.
 			wantSetPrefix:  nil,
 			wantListPrefix: []string{"pfx/" + baseName + "/"},

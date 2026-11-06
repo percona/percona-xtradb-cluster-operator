@@ -551,7 +551,7 @@ func TestSetIncrementalBase(t *testing.T) {
 			},
 			expectedBase: incrBaseLeaf,
 		},
-		"honours an explicitly named base": {
+		"honors an explicitly named base": {
 			cr: incrBackup("incr-1", withBackupType(api.BackupTypeIncremental), withExplicitBase("full-old")),
 			existing: []client.Object{
 				fullBackup("full-old", incrBaseDest, 1),
@@ -673,7 +673,7 @@ func TestSetIncrementalBaseAnnotationPinsSourcePod(t *testing.T) {
 			base:    fullBackup("full-1", incrBaseDest, 1),
 			wantPin: incrBaseSourcePod,
 		},
-		"an explicit pin is honoured when the base has no recorded pod": {
+		"an explicit pin is honored when the base has no recorded pod": {
 			incremental: incrBackup("incr-1",
 				withBackupType(api.BackupTypeIncremental),
 				withSpecSourcePod("cluster1-pxc-2"),
@@ -886,7 +886,7 @@ func TestIncrementalPredecessorDestination(t *testing.T) {
 			},
 			expected: "prefix/" + incrBaseLeaf + ".incr/cluster1-2026-11-03-12:00:00-incr",
 		},
-		"a failed tail is skipped in favour of the newest succeeded member": {
+		"a failed tail is skipped in favor of the newest succeeded member": {
 			cr: incrBackup("incr-3",
 				withBackupType(api.BackupTypeIncremental),
 				withBaseAnnotation(incrBaseLeaf),

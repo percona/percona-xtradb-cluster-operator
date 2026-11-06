@@ -431,7 +431,7 @@ func TestGetLastFullBackup(t *testing.T) {
 			wantErrs: ErrNoFullBackupFound,
 		},
 		{
-			name: "a full backup being deleted is skipped in favour of an older one",
+			name: "a full backup being deleted is skipped in favor of an older one",
 			objs: []client.Object{
 				fullBcp("full-older", withS3("bucket-a"), withCompletedAt(10)),
 				fullBcp("full-dying", withS3("bucket-a"), withCompletedAt(30), withDeletionTimestamp()),

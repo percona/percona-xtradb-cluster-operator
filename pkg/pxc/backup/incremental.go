@@ -5,7 +5,6 @@ import (
 	"sort"
 
 	"github.com/pkg/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -36,21 +35,12 @@ func StorageSpecFromStatus(status *api.PXCBackupStatus) *api.BackupStorageSpec {
 	return spec
 }
 
-// sortBackupsByCompletion sorts backups in place, oldest first, by
-// Status.CompletedAt, falling back to CreationTimestamp when CompletedAt is nil.
+// sortBackupsByCompletion sorts succeeded backups in place, oldest first, by
+// Status.CompletedAt. This should be called only on succeeded backups.
 func sortBackupsByCompletion(backups []api.PerconaXtraDBClusterBackup) {
 	sort.SliceStable(backups, func(i, j int) bool {
-		return completionTime(&backups[i]).Before(completionTime(&backups[j]))
+		return backups[i].Status.CompletedAt.Before(backups[j].Status.CompletedAt)
 	})
-}
-
-// completionTime returns the time a backup finished, or its creation time when
-// it has not finished yet. The result is never nil.
-func completionTime(bcp *api.PerconaXtraDBClusterBackup) *metav1.Time {
-	if bcp.Status.CompletedAt != nil {
-		return bcp.Status.CompletedAt
-	}
-	return &bcp.CreationTimestamp
 }
 
 // GetLastFullBackup returns the newest succeeded full backup of the cluster that
@@ -95,62 +85,104 @@ func GetLastFullBackup(
 	return candidates[len(candidates)-1].DeepCopy(), nil
 }
 
-// GetLatestIncrementalBackupInChain returns the newest incremental backup in the
-// chain that the given backup belongs to, or ErrNoIncrementalBackupFound when
-// the chain is still empty.
+// GetLatestIncrementalBackupInChain returns the newest succeeded incremental
+// backup in the chain that the given backup belongs to, or
+// ErrNoIncrementalBackupFound when no member of the chain has succeeded.
 func GetLatestIncrementalBackupInChain(
 	ctx context.Context,
 	cl client.Client,
 	backup *api.PerconaXtraDBClusterBackup,
-	onlySucceeded bool,
 ) (*api.PerconaXtraDBClusterBackup, error) {
-	key, err := chainKey(backup)
+	members, err := chainMembers(ctx, cl, backup)
 	if err != nil {
 		return nil, err
 	}
-	if key == "" {
-		// A full backup that never recorded a destination owns no chain yet.
+
+	succeeded, err := succeededChainMembers(members)
+	if err != nil {
+		return nil, err
+	}
+	if len(succeeded) == 0 {
 		return nil, ErrNoIncrementalBackupFound
 	}
 
-	members, err := listChainMembers(ctx, cl, backup, key, onlySucceeded)
+	sortBackupsByCompletion(succeeded)
+
+	return succeeded[len(succeeded)-1].DeepCopy(), nil
+}
+
+// HasUnfinishedChainMember reports whether any member of the chain that the
+// given backup belongs to has yet to reach a terminal state.
+func HasUnfinishedChainMember(
+	ctx context.Context,
+	cl client.Client,
+	backup *api.PerconaXtraDBClusterBackup,
+) (bool, error) {
+	members, err := chainMembers(ctx, cl, backup)
+	if err != nil {
+		return false, err
+	}
+
+	for i := range members {
+		if !members[i].Status.State.IsTerminal() {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+// NextDeletableDependent returns the incremental backup to remove next while
+// tearing down the chain of the given full backup, or nil when nothing is
+// chained to it any more.
+func NextDeletableDependent(
+	ctx context.Context,
+	cl client.Client,
+	fullBackup *api.PerconaXtraDBClusterBackup,
+) (*api.PerconaXtraDBClusterBackup, error) {
+	if fullBackup.GetType() != api.BackupTypeFull {
+		return nil, nil
+	}
+
+	members, err := chainMembers(ctx, cl, fullBackup)
 	if err != nil {
 		return nil, err
 	}
 	if len(members) == 0 {
-		return nil, ErrNoIncrementalBackupFound
+		return nil, nil
 	}
 
-	sortBackupsByCompletion(members)
-
-	return members[len(members)-1].DeepCopy(), nil
-}
-
-// ListDependentIncrementalBackups returns every incremental backup chained to
-// the given full backup, oldest first, including unfinished ones.
-func ListDependentIncrementalBackups(
-	ctx context.Context,
-	cl client.Client,
-	fullBackup *api.PerconaXtraDBClusterBackup,
-) ([]api.PerconaXtraDBClusterBackup, error) {
-	if fullBackup.GetType() != api.BackupTypeFull {
-		return []api.PerconaXtraDBClusterBackup{}, nil
+	for i := range members {
+		if members[i].Status.State != api.BackupSucceeded {
+			return members[i].DeepCopy(), nil
+		}
 	}
 
-	key := fullBackup.Status.Destination.BackupName()
-	if key == "" {
-		// Nothing can be chained to a backup that never recorded a destination.
-		return []api.PerconaXtraDBClusterBackup{}, nil
-	}
-
-	members, err := listChainMembers(ctx, cl, fullBackup, key, false)
+	succeeded, err := succeededChainMembers(members)
 	if err != nil {
 		return nil, err
 	}
 
-	sortBackupsByCompletion(members)
+	sortBackupsByCompletion(succeeded)
 
-	return members, nil
+	return succeeded[len(succeeded)-1].DeepCopy(), nil
+}
+
+// succeededChainMembers returns the members that succeeded, in the order they
+// were given.
+func succeededChainMembers(members []api.PerconaXtraDBClusterBackup) ([]api.PerconaXtraDBClusterBackup, error) {
+	succeeded := make([]api.PerconaXtraDBClusterBackup, 0, len(members))
+	for _, m := range members {
+		if m.Status.State != api.BackupSucceeded {
+			continue
+		}
+		if m.Status.CompletedAt == nil {
+			return nil, errors.Errorf("backup %s/%s is succeeded but completedAt is not set", m.GetNamespace(), m.GetName())
+		}
+		succeeded = append(succeeded, m)
+	}
+
+	return succeeded, nil
 }
 
 // ResolveIncrementalBase returns the full backup that cr should be chained to.
@@ -258,16 +290,22 @@ func chainKey(backup *api.PerconaXtraDBClusterBackup) (string, error) {
 	return key, nil
 }
 
-// listChainMembers returns the incremental backups of owner's cluster whose base
-// annotation equals key, unsorted. Passing onlySucceeded restricts the result to
-// backups that finished successfully.
-func listChainMembers(
+// chainMembers returns every incremental backup that belongs to the same chain
+// as owner, whatever state it is in.
+func chainMembers(
 	ctx context.Context,
 	cl client.Client,
 	owner *api.PerconaXtraDBClusterBackup,
-	key string,
-	onlySucceeded bool,
 ) ([]api.PerconaXtraDBClusterBackup, error) {
+	key, err := chainKey(owner)
+	if err != nil {
+		return nil, err
+	}
+	if key == "" {
+		// A backup that never recorded a destination owns no chain yet.
+		return nil, nil
+	}
+
 	bcpList := api.PerconaXtraDBClusterBackupList{}
 	if err := cl.List(ctx, &bcpList,
 		client.InNamespace(owner.GetNamespace()),
@@ -281,14 +319,13 @@ func listChainMembers(
 		if bcp.GetType() != api.BackupTypeIncremental {
 			continue
 		}
-		if onlySucceeded && bcp.Status.State != api.BackupSucceeded {
-			continue
-		}
 		if bcp.GetAnnotations()[naming.AnnotationBaseBackupName] != key {
 			continue
 		}
 		members = append(members, bcp)
 	}
+
+	sort.Slice(members, func(i, j int) bool { return members[i].GetName() < members[j].GetName() })
 
 	return members, nil
 }

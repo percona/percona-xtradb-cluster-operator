@@ -91,6 +91,21 @@ func withCompletedAt(minutes int) backupOption {
 	}
 }
 
+// withoutCompletedAt clears the completion time, which is the real shape of a
+// backup that has not succeeded: the controller only ever records one when the
+// job completes.
+func withoutCompletedAt() backupOption {
+	return func(bcp *api.PerconaXtraDBClusterBackup) {
+		bcp.Status.CompletedAt = nil
+	}
+}
+
+func withCreatedAt(minutes int) backupOption {
+	return func(bcp *api.PerconaXtraDBClusterBackup) {
+		bcp.CreationTimestamp = metav1.NewTime(time.Date(2026, 11, 3, 10, 0, 0, 0, time.UTC).Add(time.Duration(minutes) * time.Minute))
+	}
+}
+
 func withDeletionTimestamp() backupOption {
 	return func(bcp *api.PerconaXtraDBClusterBackup) {
 		t := metav1.NewTime(time.Date(2026, 11, 3, 12, 0, 0, 0, time.UTC))
@@ -959,9 +974,58 @@ func TestCanDeleteIncrementalBackup(t *testing.T) {
 			target: "incr-1",
 			chain: []client.Object{
 				incrementalBackup("incr-1", api.BackupSucceeded, 1),
-				incrementalBackup("incr-2", api.BackupRunning, 2),
+				incrementalBackup("incr-2", api.BackupRunning, 2, withoutCompletedAt(), withCreatedAt(2)),
 			},
 			expected: false,
+		},
+		// The running backup was asked for before the one underneath it
+		// finished, which is what happens whenever a second backup waits on the
+		// backup lease. Judged by creation time it looks like the older of the
+		// two, and the member it is about to be built on looks like the tail.
+		"a backup waiting on the lease blocks the member it will be built on": {
+			target: "incr-1",
+			chain: []client.Object{
+				incrementalBackup("incr-1", api.BackupSucceeded, 50, withCreatedAt(10)),
+				incrementalBackup("incr-2", api.BackupRunning, 0, withoutCompletedAt(), withCreatedAt(20)),
+			},
+			expected: false,
+		},
+		"a backup still waiting on the lease blocks it too": {
+			target: "incr-1",
+			chain: []client.Object{
+				incrementalBackup("incr-1", api.BackupSucceeded, 50, withCreatedAt(10)),
+				incrementalBackup("incr-2", api.BackupNew, 0, withoutCompletedAt(), withCreatedAt(20)),
+			},
+			expected: false,
+		},
+		// A failed backup is terminal: it will never be appended to the chain,
+		// nothing reads an LSN from it, and restore skips it for want of a
+		// completion marker. Letting it block would strand the real tail, since
+		// nothing reaps failed backups on its own.
+		"a failed member does not block the tail": {
+			target: "incr-1",
+			chain: []client.Object{
+				incrementalBackup("incr-1", api.BackupSucceeded, 1),
+				incrementalBackup("incr-2", api.BackupFailed, 0, withoutCompletedAt(), withCreatedAt(2)),
+			},
+			expected: true,
+		},
+		"a failed backup is itself deletable, wherever it sits": {
+			target: "incr-2",
+			chain: []client.Object{
+				incrementalBackup("incr-1", api.BackupSucceeded, 1),
+				incrementalBackup("incr-2", api.BackupFailed, 0, withoutCompletedAt(), withCreatedAt(2)),
+				incrementalBackup("incr-3", api.BackupSucceeded, 3),
+			},
+			expected: true,
+		},
+		"a running backup is itself deletable: nothing is chained onto it yet": {
+			target: "incr-2",
+			chain: []client.Object{
+				incrementalBackup("incr-1", api.BackupSucceeded, 1),
+				incrementalBackup("incr-2", api.BackupRunning, 0, withoutCompletedAt(), withCreatedAt(2)),
+			},
+			expected: true,
 		},
 		"the only member of a chain is deletable": {
 			target: "incr-1",
@@ -969,6 +1033,14 @@ func TestCanDeleteIncrementalBackup(t *testing.T) {
 				incrementalBackup("incr-1", api.BackupSucceeded, 1),
 			},
 			expected: true,
+		},
+		"a succeeded member with no completion time is an error": {
+			target: "incr-1",
+			chain: []client.Object{
+				incrementalBackup("incr-1", api.BackupSucceeded, 1),
+				incrementalBackup("incr-2", api.BackupSucceeded, 0, withoutCompletedAt()),
+			},
+			expectedErr: "is succeeded but completedAt is not set",
 		},
 	}
 
@@ -999,7 +1071,9 @@ func TestDeleteDependentIncrementalBackups(t *testing.T) {
 		// expectedDone reports whether the base's own objects may now be deleted.
 		expectedDone bool
 		// expectedDeleted is the dependent that must have been deleted by this
-		// call: exactly one, the newest, so that it passes its own tail check.
+		// call: exactly one, and always one that canDeleteIncrementalBackup
+		// will let through, or the cascade waits on a deletion its own
+		// finalizer refuses to carry out.
 		expectedDeleted string
 		expectedRemain  []string
 	}{
@@ -1034,7 +1108,23 @@ func TestDeleteDependentIncrementalBackups(t *testing.T) {
 			chain: []client.Object{
 				fullBackup("full-1", incrBaseDest, 1),
 				incrementalBackup("incr-1", api.BackupSucceeded, 2),
-				incrementalBackup("incr-2", api.BackupFailed, 3),
+				incrementalBackup("incr-2", api.BackupFailed, 0, withoutCompletedAt(), withCreatedAt(3)),
+			},
+			expectedDone:    false,
+			expectedDeleted: "incr-2",
+			expectedRemain:  []string{"full-1", "incr-1"},
+		},
+		// Nothing is ever chained onto a backup that did not succeed, so it can
+		// always go, while the succeeded tail underneath it cannot while the
+		// running one is still there to be appended after it. Picking by
+		// completion time alone would reach for the succeeded one first and then
+		// wait on a deletion its finalizer refuses.
+		"a running dependent is taken before the succeeded tail": {
+			target: "full-1",
+			chain: []client.Object{
+				fullBackup("full-1", incrBaseDest, 1),
+				incrementalBackup("incr-1", api.BackupSucceeded, 50, withCreatedAt(10)),
+				incrementalBackup("incr-2", api.BackupRunning, 0, withoutCompletedAt(), withCreatedAt(20)),
 			},
 			expectedDone:    false,
 			expectedDeleted: "incr-2",

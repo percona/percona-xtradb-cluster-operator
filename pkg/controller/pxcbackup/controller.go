@@ -603,7 +603,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) incrementalPredecessorDestination(
 	baseDest := cr.Status.Destination.IncrementalBaseDestination()
 	predecessor := baseDest.PathWithoutBucket()
 
-	last, err := backup.GetLatestIncrementalBackupInChain(ctx, r.client, cr, true)
+	last, err := backup.GetLatestIncrementalBackupInChain(ctx, r.client, cr)
 	if errors.Is(err, backup.ErrNoIncrementalBackupFound) {
 		return predecessor, nil
 	} else if err != nil {
@@ -683,7 +683,12 @@ func (r *ReconcilePerconaXtraDBClusterBackup) canDeleteIncrementalBackup(
 		return true, nil
 	}
 
-	tail, err := backup.GetLatestIncrementalBackupInChain(ctx, r.client, cr, false)
+	// An unfinished incremental backup is not a part of the chain, delete it right away.
+	if cr.Status.State != api.BackupSucceeded {
+		return true, nil
+	}
+
+	tail, err := backup.GetLatestIncrementalBackupInChain(ctx, r.client, cr)
 	if err != nil {
 		if errors.Is(err, backup.ErrNoIncrementalBackupFound) {
 			// Nothing is chained here at all, so nothing can depend on it.
@@ -692,7 +697,17 @@ func (r *ReconcilePerconaXtraDBClusterBackup) canDeleteIncrementalBackup(
 		return false, errors.Wrap(err, "get latest incremental backup in chain")
 	}
 
-	return tail.GetName() == cr.GetName(), nil
+	if tail.GetName() != cr.GetName() {
+		return false, nil
+	}
+
+	// This backup ends the chain, but if there is an on-going backup, wait for it
+	unfinished, err := backup.HasUnfinishedChainMember(ctx, r.client, cr)
+	if err != nil {
+		return false, errors.Wrap(err, "check for unfinished backups in chain")
+	}
+
+	return !unfinished, nil
 }
 
 // deleteDependentIncrementalBackups cascades the deletion of a full backup to
@@ -705,25 +720,24 @@ func (r *ReconcilePerconaXtraDBClusterBackup) deleteDependentIncrementalBackups(
 		return true, nil
 	}
 
-	dependents, err := backup.ListDependentIncrementalBackups(ctx, r.client, cr)
+	next, err := backup.NextDeletableDependent(ctx, r.client, cr)
 	if err != nil {
-		return false, errors.Wrap(err, "list dependent incremental backups")
+		return false, errors.Wrap(err, "find the next deletable dependent incremental backup")
 	}
-	if len(dependents) == 0 {
+	if next == nil {
 		return true, nil
 	}
 
-	newest := dependents[len(dependents)-1]
-	if newest.GetDeletionTimestamp() != nil {
+	if next.GetDeletionTimestamp() != nil {
 		// Already on its way out; wait for it instead of issuing a second delete.
 		return false, nil
 	}
 
 	logf.FromContext(ctx).Info("Deleting an incremental backup that depends on this backup",
-		"namespace", newest.GetNamespace(), "name", newest.GetName(), "base", cr.GetName())
+		"namespace", next.GetNamespace(), "name", next.GetName(), "base", cr.GetName())
 
-	if err := r.client.Delete(ctx, &newest); client.IgnoreNotFound(err) != nil {
-		return false, errors.Wrapf(err, "delete dependent incremental backup %s/%s", newest.GetNamespace(), newest.GetName())
+	if err := r.client.Delete(ctx, next); client.IgnoreNotFound(err) != nil {
+		return false, errors.Wrapf(err, "delete dependent incremental backup %s/%s", next.GetNamespace(), next.GetName())
 	}
 
 	return false, nil

@@ -229,23 +229,12 @@ func TestSortBackupsByCompletion(t *testing.T) {
 			want: []string{"a", "b", "c"},
 		},
 		{
-			name: "none completed falls back to creation timestamp",
+			name: "creation order has no bearing on the result",
 			backups: []api.PerconaXtraDBClusterBackup{
-				*incrBcp("c", withoutCompletedAt(), withCreatedAt(30)),
-				*incrBcp("a", withoutCompletedAt(), withCreatedAt(10)),
-				*incrBcp("b", withoutCompletedAt(), withCreatedAt(20)),
+				*incrBcp("ran-second", withCreatedAt(5), withCompletedAt(30)),
+				*incrBcp("ran-first", withCreatedAt(20), withCompletedAt(10)),
 			},
-			want: []string{"a", "b", "c"},
-		},
-		{
-			name: "mixed nil and non-nil completion times",
-			backups: []api.PerconaXtraDBClusterBackup{
-				*incrBcp("running-latest", withoutCompletedAt(), withCreatedAt(40)),
-				*incrBcp("done-first", withCompletedAt(10), withCreatedAt(5)),
-				*incrBcp("running-middle", withoutCompletedAt(), withCreatedAt(20)),
-				*incrBcp("done-third", withCompletedAt(30), withCreatedAt(5)),
-			},
-			want: []string{"done-first", "running-middle", "done-third", "running-latest"},
+			want: []string{"ran-first", "ran-second"},
 		},
 		{
 			name: "equal timestamps keep input order",
@@ -264,7 +253,7 @@ func TestSortBackupsByCompletion(t *testing.T) {
 		{
 			name: "single element",
 			backups: []api.PerconaXtraDBClusterBackup{
-				*incrBcp("only", withoutCompletedAt()),
+				*incrBcp("only", withCompletedAt(10)),
 			},
 			want: []string{"only"},
 		},
@@ -272,8 +261,78 @@ func TestSortBackupsByCompletion(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			require.NotPanics(t, func() { sortBackupsByCompletion(tt.backups) })
+			sortBackupsByCompletion(tt.backups)
 			assert.Equal(t, tt.want, backupNames(tt.backups))
+		})
+	}
+}
+
+func TestSucceededChainMembers(t *testing.T) {
+	tests := []struct {
+		name    string
+		members []api.PerconaXtraDBClusterBackup
+		want    []string
+		wantErr string
+	}{
+		{
+			name:    "no members",
+			members: []api.PerconaXtraDBClusterBackup{},
+			want:    []string{},
+		},
+		{
+			name: "succeeded members are kept in the order given",
+			members: []api.PerconaXtraDBClusterBackup{
+				*incrBcp("b", withCompletedAt(20)),
+				*incrBcp("a", withCompletedAt(10)),
+			},
+			want: []string{"b", "a"},
+		},
+		{
+			name: "a running member is dropped",
+			members: []api.PerconaXtraDBClusterBackup{
+				*incrBcp("done", withCompletedAt(10)),
+				*incrBcp("running", withoutCompletedAt(), withCreatedAt(20), withState(api.BackupRunning)),
+			},
+			want: []string{"done"},
+		},
+		{
+			name: "a new member is dropped",
+			members: []api.PerconaXtraDBClusterBackup{
+				*incrBcp("done", withCompletedAt(10)),
+				*incrBcp("queued", withoutCompletedAt(), withCreatedAt(20), withState(api.BackupNew)),
+			},
+			want: []string{"done"},
+		},
+		{
+			name: "a failed member is dropped",
+			members: []api.PerconaXtraDBClusterBackup{
+				*incrBcp("done", withCompletedAt(10)),
+				*incrBcp("failed", withoutCompletedAt(), withCreatedAt(20), withState(api.BackupFailed)),
+			},
+			want: []string{"done"},
+		},
+		{
+			name: "a succeeded member with no completion time is an error",
+			members: []api.PerconaXtraDBClusterBackup{
+				*incrBcp("done", withCompletedAt(10)),
+				*incrBcp("impossible", withoutCompletedAt()),
+			},
+			wantErr: "backup test-ns/impossible is succeeded but completedAt is not set",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := succeededChainMembers(tt.members)
+
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				assert.ErrorContains(t, err, tt.wantErr)
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, backupNames(got))
 		})
 	}
 }
@@ -420,13 +479,12 @@ func TestGetLastFullBackup(t *testing.T) {
 
 func TestGetLatestIncrementalBackupInChain(t *testing.T) {
 	tests := []struct {
-		name          string
-		objs          []client.Object
-		input         *api.PerconaXtraDBClusterBackup
-		onlySucceeded bool
-		want          string
-		wantErr       string
-		wantErrs      error
+		name     string
+		objs     []client.Object
+		input    *api.PerconaXtraDBClusterBackup
+		want     string
+		wantErr  string
+		wantErrs error
 	}{
 		{
 			name:     "chain with no members",
@@ -464,37 +522,44 @@ func TestGetLatestIncrementalBackupInChain(t *testing.T) {
 			want:  "incr-3",
 		},
 		{
-			name: "onlySucceeded skips a failed tail",
+			name: "a failed tail is skipped",
 			objs: []client.Object{
 				fullBcp("base"),
 				incrBcp("incr-1", withCompletedAt(10)),
-				incrBcp("incr-2-failed", withCompletedAt(20), withState(api.BackupFailed)),
+				incrBcp("incr-2-failed", withoutCompletedAt(), withCreatedAt(20), withState(api.BackupFailed)),
 			},
-			input:         fullBcp("base"),
-			onlySucceeded: true,
-			want:          "incr-1",
+			input: fullBcp("base"),
+			want:  "incr-1",
 		},
 		{
-			name: "without onlySucceeded the failed tail is returned",
-			objs: []client.Object{
-				fullBcp("base"),
-				incrBcp("incr-1", withCompletedAt(10)),
-				incrBcp("incr-2-failed", withCompletedAt(20), withState(api.BackupFailed)),
-			},
-			input:         fullBcp("base"),
-			onlySucceeded: false,
-			want:          "incr-2-failed",
-		},
-		{
-			name: "without onlySucceeded a running tail is ordered by creation time",
+			name: "a running tail is skipped: it has no LSN to hand over yet",
 			objs: []client.Object{
 				fullBcp("base"),
 				incrBcp("incr-1", withCompletedAt(10)),
 				incrBcp("incr-2-running", withoutCompletedAt(), withCreatedAt(20), withState(api.BackupRunning)),
 			},
-			input:         fullBcp("base"),
-			onlySucceeded: false,
-			want:          "incr-2-running",
+			input: fullBcp("base"),
+			want:  "incr-1",
+		},
+		{
+			name: "a chain of nothing but unfinished members is empty",
+			objs: []client.Object{
+				fullBcp("base"),
+				incrBcp("incr-1-running", withoutCompletedAt(), withCreatedAt(10), withState(api.BackupRunning)),
+				incrBcp("incr-2-failed", withoutCompletedAt(), withCreatedAt(20), withState(api.BackupFailed)),
+			},
+			input:    fullBcp("base"),
+			wantErrs: ErrNoIncrementalBackupFound,
+		},
+		{
+			name: "a succeeded member with no completion time is an error",
+			objs: []client.Object{
+				fullBcp("base"),
+				incrBcp("incr-1", withCompletedAt(10)),
+				incrBcp("incr-2", withoutCompletedAt()),
+			},
+			input:   fullBcp("base"),
+			wantErr: "backup test-ns/incr-2 is succeeded but completedAt is not set",
 		},
 		{
 			name: "incrementals of a different base are excluded",
@@ -560,7 +625,7 @@ func TestGetLatestIncrementalBackupInChain(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			cl := incrFakeClient(t, tt.objs...)
 
-			got, err := GetLatestIncrementalBackupInChain(t.Context(), cl, tt.input, tt.onlySucceeded)
+			got, err := GetLatestIncrementalBackupInChain(t.Context(), cl, tt.input)
 
 			switch {
 			case tt.wantErrs != nil:
@@ -579,22 +644,22 @@ func TestGetLatestIncrementalBackupInChain(t *testing.T) {
 	}
 }
 
-func TestListDependentIncrementalBackups(t *testing.T) {
+func TestNextDeletableDependent(t *testing.T) {
 	tests := []struct {
 		name    string
 		objs    []client.Object
 		input   *api.PerconaXtraDBClusterBackup
-		want    []string
+		want    string
 		wantErr string
 	}{
 		{
-			name:  "no dependents returns an empty non-nil slice",
+			name:  "no dependents",
 			objs:  []client.Object{fullBcp("base")},
 			input: fullBcp("base"),
-			want:  []string{},
+			want:  "",
 		},
 		{
-			name: "dependents are returned oldest first",
+			name: "the tail of a wholly succeeded chain goes first",
 			objs: []client.Object{
 				fullBcp("base"),
 				incrBcp("incr-3", withCompletedAt(30)),
@@ -602,18 +667,38 @@ func TestListDependentIncrementalBackups(t *testing.T) {
 				incrBcp("incr-2", withCompletedAt(20)),
 			},
 			input: fullBcp("base"),
-			want:  []string{"incr-1", "incr-2", "incr-3"},
+			want:  "incr-3",
 		},
 		{
-			name: "unfinished dependents are included and ordered by creation time",
+			name: "a running member goes before the succeeded tail",
 			objs: []client.Object{
 				fullBcp("base"),
-				incrBcp("incr-2-running", withoutCompletedAt(), withCreatedAt(20), withState(api.BackupRunning)),
 				incrBcp("incr-1", withCompletedAt(10)),
-				incrBcp("incr-3-failed", withCompletedAt(30), withState(api.BackupFailed)),
+				incrBcp("incr-2", withCompletedAt(20)),
+				incrBcp("incr-3-running", withoutCompletedAt(), withCreatedAt(30), withState(api.BackupRunning)),
 			},
 			input: fullBcp("base"),
-			want:  []string{"incr-1", "incr-2-running", "incr-3-failed"},
+			want:  "incr-3-running",
+		},
+		{
+			name: "a running member created before the tail completed still goes first",
+			objs: []client.Object{
+				fullBcp("base"),
+				incrBcp("incr-1", withCreatedAt(10), withCompletedAt(50)),
+				incrBcp("incr-2-running", withoutCompletedAt(), withCreatedAt(20), withState(api.BackupRunning)),
+			},
+			input: fullBcp("base"),
+			want:  "incr-2-running",
+		},
+		{
+			name: "a failed member goes before the succeeded tail",
+			objs: []client.Object{
+				fullBcp("base"),
+				incrBcp("incr-1", withCompletedAt(10)),
+				incrBcp("incr-2-failed", withoutCompletedAt(), withCreatedAt(20), withState(api.BackupFailed)),
+			},
+			input: fullBcp("base"),
+			want:  "incr-2-failed",
 		},
 		{
 			name: "incrementals of another base are excluded",
@@ -624,7 +709,7 @@ func TestListDependentIncrementalBackups(t *testing.T) {
 				incrBcp("orphan", withoutAnnotations(), withCompletedAt(30)),
 			},
 			input: fullBcp("base"),
-			want:  []string{"incr-1"},
+			want:  "incr-1",
 		},
 		{
 			name: "full backups are never dependents",
@@ -634,7 +719,7 @@ func TestListDependentIncrementalBackups(t *testing.T) {
 				incrBcp("incr-1", withCompletedAt(10)),
 			},
 			input: fullBcp("base"),
-			want:  []string{"incr-1"},
+			want:  "incr-1",
 		},
 		{
 			name: "an incremental has no dependents",
@@ -644,7 +729,7 @@ func TestListDependentIncrementalBackups(t *testing.T) {
 				incrBcp("incr-2", withCompletedAt(20)),
 			},
 			input: incrBcp("incr-1", withCompletedAt(10)),
-			want:  []string{},
+			want:  "",
 		},
 		{
 			name: "full backup without a destination has no dependents",
@@ -652,7 +737,7 @@ func TestListDependentIncrementalBackups(t *testing.T) {
 				incrBcp("incr-1", withCompletedAt(10)),
 			},
 			input: fullBcp("base", withDestination("")),
-			want:  []string{},
+			want:  "",
 		},
 		{
 			name: "dependents of another cluster are excluded",
@@ -662,7 +747,17 @@ func TestListDependentIncrementalBackups(t *testing.T) {
 				incrBcp("other-cluster-incr", withCluster("cluster2"), withCompletedAt(20)),
 			},
 			input: fullBcp("base"),
-			want:  []string{"incr-1"},
+			want:  "incr-1",
+		},
+		{
+			name: "a succeeded member with no completion time is an error",
+			objs: []client.Object{
+				fullBcp("base"),
+				incrBcp("incr-1", withCompletedAt(10)),
+				incrBcp("incr-2", withoutCompletedAt()),
+			},
+			input:   fullBcp("base"),
+			wantErr: "backup test-ns/incr-2 is succeeded but completedAt is not set",
 		},
 	}
 
@@ -670,7 +765,7 @@ func TestListDependentIncrementalBackups(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			cl := incrFakeClient(t, tt.objs...)
 
-			got, err := ListDependentIncrementalBackups(t.Context(), cl, tt.input)
+			got, err := NextDeletableDependent(t.Context(), cl, tt.input)
 
 			if tt.wantErr != "" {
 				require.Error(t, err)
@@ -679,8 +774,138 @@ func TestListDependentIncrementalBackups(t *testing.T) {
 			}
 
 			require.NoError(t, err)
-			require.NotNil(t, got, "the result must be an empty slice, never nil")
-			assert.Equal(t, tt.want, backupNames(got))
+
+			if tt.want == "" {
+				assert.Nil(t, got)
+				return
+			}
+
+			require.NotNil(t, got)
+			assert.Equal(t, tt.want, got.Name)
+		})
+	}
+}
+
+func TestHasUnfinishedChainMember(t *testing.T) {
+	tests := []struct {
+		name    string
+		objs    []client.Object
+		input   *api.PerconaXtraDBClusterBackup
+		want    bool
+		wantErr string
+	}{
+		{
+			name:  "an empty chain has nothing unfinished",
+			objs:  []client.Object{fullBcp("base")},
+			input: fullBcp("base"),
+			want:  false,
+		},
+		{
+			name: "a wholly succeeded chain has nothing unfinished",
+			objs: []client.Object{
+				fullBcp("base"),
+				incrBcp("incr-1", withCompletedAt(10)),
+				incrBcp("incr-2", withCompletedAt(20)),
+			},
+			input: fullBcp("base"),
+			want:  false,
+		},
+		{
+			name: "a running member is unfinished",
+			objs: []client.Object{
+				fullBcp("base"),
+				incrBcp("incr-1", withCompletedAt(10)),
+				incrBcp("incr-2-running", withoutCompletedAt(), withCreatedAt(20), withState(api.BackupRunning)),
+			},
+			input: fullBcp("base"),
+			want:  true,
+		},
+		{
+			name: "a member still waiting on the lease is unfinished",
+			objs: []client.Object{
+				fullBcp("base"),
+				incrBcp("incr-1", withCompletedAt(10)),
+				incrBcp("incr-2-new", withoutCompletedAt(), withCreatedAt(20), withState(api.BackupNew)),
+			},
+			input: fullBcp("base"),
+			want:  true,
+		},
+		{
+			name: "a suspended member is unfinished: it can still resume",
+			objs: []client.Object{
+				fullBcp("base"),
+				incrBcp("incr-1", withCompletedAt(10)),
+				incrBcp("incr-2-suspended", withoutCompletedAt(), withCreatedAt(20), withState(api.BackupSuspended)),
+			},
+			input: fullBcp("base"),
+			want:  true,
+		},
+		{
+			// Terminal, so it will never be appended to the chain. Treating it
+			// as unfinished would block the real tail from ever being deleted.
+			name: "a failed member is finished",
+			objs: []client.Object{
+				fullBcp("base"),
+				incrBcp("incr-1", withCompletedAt(10)),
+				incrBcp("incr-2-failed", withoutCompletedAt(), withCreatedAt(20), withState(api.BackupFailed)),
+			},
+			input: fullBcp("base"),
+			want:  false,
+		},
+		{
+			name: "an unfinished member of another base does not count",
+			objs: []client.Object{
+				fullBcp("base"),
+				incrBcp("incr-1", withCompletedAt(10)),
+				incrBcp("other-running", withBaseAnnotation(otherBaseLeaf), withoutCompletedAt(), withState(api.BackupRunning)),
+			},
+			input: fullBcp("base"),
+			want:  false,
+		},
+		{
+			name: "an unfinished member of another cluster does not count",
+			objs: []client.Object{
+				fullBcp("base"),
+				incrBcp("incr-1", withCompletedAt(10)),
+				incrBcp("other-cluster-running", withCluster("cluster2"), withoutCompletedAt(), withState(api.BackupRunning)),
+			},
+			input: fullBcp("base"),
+			want:  false,
+		},
+		{
+			name: "an incremental resolves the same chain as its base",
+			objs: []client.Object{
+				fullBcp("base"),
+				incrBcp("incr-1", withCompletedAt(10)),
+				incrBcp("incr-2-running", withoutCompletedAt(), withCreatedAt(20), withState(api.BackupRunning)),
+			},
+			input: incrBcp("incr-1", withCompletedAt(10)),
+			want:  true,
+		},
+		{
+			name: "an incremental without the annotation is an error",
+			objs: []client.Object{
+				fullBcp("base"),
+			},
+			input:   incrBcp("orphan", withoutAnnotations()),
+			wantErr: "incremental backup test-ns/orphan has no percona.com/base-backup-name annotation",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cl := incrFakeClient(t, tt.objs...)
+
+			got, err := HasUnfinishedChainMember(t.Context(), cl, tt.input)
+
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				assert.ErrorContains(t, err, tt.wantErr)
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }

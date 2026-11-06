@@ -165,9 +165,14 @@ func xbstreamDecryptArgs(cfg *api.BackupConfig) []string {
 func flagValue(args []string, flag string) string {
 	prefix := flag + "="
 	value := ""
-	for _, arg := range args {
-		if strings.HasPrefix(arg, prefix) {
+	for i, arg := range args {
+		switch {
+		case strings.HasPrefix(arg, prefix):
 			value = strings.TrimPrefix(arg, prefix)
+		case arg == flag:
+			if i+1 < len(args) && !strings.HasPrefix(args[i+1], "--") {
+				value = args[i+1]
+			}
 		}
 	}
 	return value

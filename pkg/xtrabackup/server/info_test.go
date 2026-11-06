@@ -290,6 +290,40 @@ func TestXbstreamExtractArgs(t *testing.T) {
 			expectedArgs: []string{"-x", "--decompress", "-C", "/tmp/dir"},
 		},
 		{
+			// The form a user gets by copying a command line into the spec as
+			// separate list items rather than joining each flag to its value.
+			name: "encryption configured with separate arguments",
+			backupConfig: &api.BackupConfig{
+				ContainerOptions: &api.ContainerOptions{
+					Args: &api.BackupContainerArgs{
+						Xtrabackup: []string{"--compress", "--encrypt", "AES256", "--encrypt-key-file", "/etc/key"},
+					},
+				},
+			},
+			expectedArgs: []string{
+				"-x", "--decompress",
+				"--decrypt=AES256",
+				"--encrypt-key-file=/etc/key",
+				"-C", "/tmp/dir",
+			},
+		},
+		{
+			name: "encryption configured with the two forms mixed",
+			backupConfig: &api.BackupConfig{
+				ContainerOptions: &api.ContainerOptions{
+					Args: &api.BackupContainerArgs{
+						Xtrabackup: []string{"--encrypt=AES256", "--encrypt-key-file", "/etc/key"},
+					},
+				},
+			},
+			expectedArgs: []string{
+				"-x", "--decompress",
+				"--decrypt=AES256",
+				"--encrypt-key-file=/etc/key",
+				"-C", "/tmp/dir",
+			},
+		},
+		{
 			name: "a repeated algorithm takes the last occurrence",
 			backupConfig: &api.BackupConfig{
 				ContainerOptions: &api.ContainerOptions{
@@ -356,6 +390,58 @@ func TestFlagValue(t *testing.T) {
 			args:          []string{"--encrypt-key=a=b=c"},
 			flag:          "--encrypt-key",
 			expectedValue: "a=b=c",
+		},
+		{
+			name:          "value given as the next argument",
+			args:          []string{"--compress", "--encrypt", "AES256"},
+			flag:          "--encrypt",
+			expectedValue: "AES256",
+		},
+		{
+			name:          "key file path given as the next argument",
+			args:          []string{"--encrypt=AES256", "--encrypt-key-file", "/etc/key"},
+			flag:          "--encrypt-key-file",
+			expectedValue: "/etc/key",
+		},
+		{
+			// --encrypt-key-file is not --encrypt, so the path after it must
+			// not be read as the algorithm.
+			name:          "a longer flag and its separate value are not matched",
+			args:          []string{"--encrypt-key-file", "/etc/key"},
+			flag:          "--encrypt",
+			expectedValue: "",
+		},
+		{
+			name:          "a trailing flag has no value to take",
+			args:          []string{"--compress", "--encrypt"},
+			flag:          "--encrypt",
+			expectedValue: "",
+		},
+		{
+			// Malformed input: --encrypt needs a value. Taking the next flag
+			// would hand XtraBackup an algorithm named --encrypt-key-file.
+			name:          "the following flag is not taken as a value",
+			args:          []string{"--encrypt", "--encrypt-key-file=/etc/key"},
+			flag:          "--encrypt",
+			expectedValue: "",
+		},
+		{
+			name:          "last occurrence wins across both forms",
+			args:          []string{"--encrypt=AES128", "--encrypt", "AES256"},
+			flag:          "--encrypt",
+			expectedValue: "AES256",
+		},
+		{
+			name:          "a separate value is overridden by a later joined one",
+			args:          []string{"--encrypt", "AES128", "--encrypt=AES256"},
+			flag:          "--encrypt",
+			expectedValue: "AES256",
+		},
+		{
+			name:          "a value that is not a flag is not mistaken for one",
+			args:          []string{"--encrypt-key", "-dash-leading-key"},
+			flag:          "--encrypt-key",
+			expectedValue: "-dash-leading-key",
 		},
 	}
 

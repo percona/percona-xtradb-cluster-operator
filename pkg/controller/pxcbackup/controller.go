@@ -207,6 +207,11 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 		return reconcile.Result{}, err
 	}
 
+	err = r.ensureFinalizers(ctx, cluster, cr)
+	if err != nil {
+		return reconcile.Result{}, errors.Wrap(err, "ensure finalizers")
+	}
+
 	if cr.Status.Type == "" {
 		cr.Status.Type = api.BackupTypeFull
 		if cr.Spec.Type != "" {
@@ -218,11 +223,6 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 		setFailedStatus(cr, err)
 
 		return reconcile.Result{}, err
-	}
-
-	err = r.ensureFinalizers(ctx, cluster, cr)
-	if err != nil {
-		return reconcile.Result{}, errors.Wrap(err, "ensure finalizers")
 	}
 
 	if err := r.checkDeadlines(ctx, cluster, cr); err != nil {
@@ -775,6 +775,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) ensureFinalizers(
 	if err := r.client.Patch(ctx, cr, client.MergeFrom(orig)); err != nil {
 		return errors.Wrap(err, "patch finalizers")
 	}
+
 	return nil
 }
 

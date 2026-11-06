@@ -216,12 +216,14 @@ func ResolveIncrementalBase(
 	return base, nil
 }
 
-// GetBackupByDestinationLeaf returns the cluster's backup whose destination ends
-// in the given object-storage leaf name, or ErrBaseBackupNotFound.
+// GetBackupByDestinationLeaf returns the cluster's backup that landed in the
+// given storage under the given object-storage leaf name, or
+// ErrBaseBackupNotFound when there is none.
 func GetBackupByDestinationLeaf(
 	ctx context.Context,
 	cl client.Client,
 	cluster *api.PerconaXtraDBCluster,
+	storage *api.BackupStorageSpec,
 	leaf string,
 ) (*api.PerconaXtraDBClusterBackup, error) {
 	if leaf == "" {
@@ -236,14 +238,31 @@ func GetBackupByDestinationLeaf(
 		return nil, errors.Wrapf(err, "list backups of cluster %s/%s", cluster.GetNamespace(), cluster.GetName())
 	}
 
+	var found *api.PerconaXtraDBClusterBackup
 	for i := range bcpList.Items {
 		bcp := &bcpList.Items[i]
-		if bcp.Status.Destination.BackupName() == leaf {
-			return bcp.DeepCopy(), nil
+		if bcp.Status.Destination.BackupName() != leaf {
+			continue
 		}
+		if storage != nil && !storage.Equals(StorageSpecFromStatus(&bcp.Status)) {
+			continue
+		}
+		if found != nil {
+			// Two backups of one cluster sharing a leaf within one storage share
+			// an object-storage destination too, so one has overwritten the
+			// other. Which of them is being asked for cannot be answered, and
+			// answering anyway picks a base at random.
+			return nil, errors.Errorf("backups %s/%s and %s/%s of cluster %s both claim the destination %q",
+				found.GetNamespace(), found.GetName(), bcp.GetNamespace(), bcp.GetName(), cluster.GetName(), leaf)
+		}
+		found = bcp.DeepCopy()
 	}
 
-	return nil, ErrBaseBackupNotFound
+	if found == nil {
+		return nil, ErrBaseBackupNotFound
+	}
+
+	return found, nil
 }
 
 func resolveBaseCandidate(

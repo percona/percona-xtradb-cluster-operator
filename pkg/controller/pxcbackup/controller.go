@@ -511,7 +511,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) resolveBaseForChain(
 		return backup.ResolveIncrementalBase(ctx, r.client, cr, cluster, storage)
 	}
 
-	base, err := backup.GetBackupByDestinationLeaf(ctx, r.client, cluster, leaf)
+	base, err := backup.GetBackupByDestinationLeaf(ctx, r.client, cluster, storage, leaf)
 	if err != nil {
 		return nil, errors.Wrapf(err, "get the base %q already recorded for backup %s/%s",
 			leaf, cr.GetNamespace(), cr.GetName())

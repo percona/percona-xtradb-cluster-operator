@@ -1254,65 +1254,74 @@ func TestGetBackupByDestinationLeaf(t *testing.T) {
 	tests := []struct {
 		name     string
 		objs     []client.Object
+		storage  *api.BackupStorageSpec
 		leaf     string
 		want     string
+		wantErr  string
 		wantErrs error
 	}{
 		{
 			name: "finds the backup whose destination ends in the leaf",
 			objs: []client.Object{
-				fullBcp("full-1", withDestination("s3://bucket-a/"+baseLeaf)),
+				fullBcp("full-1", withS3("bucket-a"), withDestination("s3://bucket-a/"+baseLeaf)),
 			},
-			leaf: baseLeaf,
-			want: "full-1",
+			storage: s3Storage("bucket-a"),
+			leaf:    baseLeaf,
+			want:    "full-1",
 		},
 		{
 			name: "picks the right one out of several",
 			objs: []client.Object{
-				fullBcp("full-older", withDestination("s3://bucket-a/"+otherBaseLeaf)),
-				fullBcp("full-wanted", withDestination("s3://bucket-a/"+baseLeaf)),
-				incrBcp("incr-1"),
+				fullBcp("full-older", withS3("bucket-a"), withDestination("s3://bucket-a/"+otherBaseLeaf)),
+				fullBcp("full-wanted", withS3("bucket-a"), withDestination("s3://bucket-a/"+baseLeaf)),
+				incrBcp("incr-1", withS3("bucket-a")),
 			},
-			leaf: baseLeaf,
-			want: "full-wanted",
+			storage: s3Storage("bucket-a"),
+			leaf:    baseLeaf,
+			want:    "full-wanted",
 		},
 		{
 			name: "matches through a nested storage prefix",
 			objs: []client.Object{
-				fullBcp("full-1", withDestination("s3://bucket-a/pfx/subdir/"+baseLeaf)),
+				fullBcp("full-1", withS3("bucket-a"), withDestination("s3://bucket-a/pfx/subdir/"+baseLeaf)),
 			},
-			leaf: baseLeaf,
-			want: "full-1",
+			storage: s3Storage("bucket-a"),
+			leaf:    baseLeaf,
+			want:    "full-1",
 		},
 		{
 			name: "matches an azure destination",
 			objs: []client.Object{
 				fullBcp("full-1", withAzure("container-a"), withDestination("azure://container-a/"+baseLeaf)),
 			},
-			leaf: baseLeaf,
-			want: "full-1",
+			storage: azureStorage("container-a"),
+			leaf:    baseLeaf,
+			want:    "full-1",
 		},
 		{
 			name: "no backup carries that leaf",
 			objs: []client.Object{
-				fullBcp("full-1", withDestination("s3://bucket-a/"+otherBaseLeaf)),
+				fullBcp("full-1", withS3("bucket-a"), withDestination("s3://bucket-a/"+otherBaseLeaf)),
 			},
+			storage:  s3Storage("bucket-a"),
 			leaf:     baseLeaf,
 			wantErrs: ErrBaseBackupNotFound,
 		},
 		{
 			name: "an empty leaf matches nothing",
 			objs: []client.Object{
-				fullBcp("full-1", withDestination("s3://bucket-a/"+baseLeaf)),
+				fullBcp("full-1", withS3("bucket-a"), withDestination("s3://bucket-a/"+baseLeaf)),
 			},
+			storage:  s3Storage("bucket-a"),
 			leaf:     "",
 			wantErrs: ErrBaseBackupNotFound,
 		},
 		{
 			name: "a backup with no destination is never a match",
 			objs: []client.Object{
-				fullBcp("full-no-dest", withDestination("")),
+				fullBcp("full-no-dest", withS3("bucket-a"), withDestination("")),
 			},
+			storage:  s3Storage("bucket-a"),
 			leaf:     baseLeaf,
 			wantErrs: ErrBaseBackupNotFound,
 		},
@@ -1321,19 +1330,69 @@ func TestGetBackupByDestinationLeaf(t *testing.T) {
 			objs: []client.Object{
 				fullBcp("full-elsewhere",
 					withCluster("cluster2"),
+					withS3("bucket-a"),
 					withDestination("s3://bucket-a/"+baseLeaf),
 				),
 			},
+			storage:  s3Storage("bucket-a"),
 			leaf:     baseLeaf,
 			wantErrs: ErrBaseBackupNotFound,
 		},
 		{
 			name: "an incremental backup is returned when its leaf matches",
 			objs: []client.Object{
-				incrBcp("incr-1", withDestination("s3://bucket-a/"+baseLeaf+".incr/incr-1-incr")),
+				incrBcp("incr-1", withS3("bucket-a"), withDestination("s3://bucket-a/"+baseLeaf+".incr/incr-1-incr")),
 			},
-			leaf: "incr-1-incr",
-			want: "incr-1",
+			storage: s3Storage("bucket-a"),
+			leaf:    "incr-1-incr",
+			want:    "incr-1",
+		},
+		{
+			name: "the same leaf in another storage is not a match",
+			objs: []client.Object{
+				fullBcp("full-elsewhere", withS3("bucket-b"), withDestination("s3://bucket-b/"+baseLeaf)),
+			},
+			storage:  s3Storage("bucket-a"),
+			leaf:     baseLeaf,
+			wantErrs: ErrBaseBackupNotFound,
+		},
+		{
+			name: "of two backups sharing a leaf the one in this storage is taken",
+			objs: []client.Object{
+				fullBcp("full-here", withS3("bucket-a"), withDestination("s3://bucket-a/"+baseLeaf)),
+				fullBcp("full-elsewhere", withS3("bucket-b"), withDestination("s3://bucket-b/"+baseLeaf)),
+			},
+			storage: s3Storage("bucket-a"),
+			leaf:    baseLeaf,
+			want:    "full-here",
+		},
+		{
+			name: "the same leaf in another azure container is not a match",
+			objs: []client.Object{
+				fullBcp("full-elsewhere", withAzure("container-b"), withDestination("azure://container-b/"+baseLeaf)),
+			},
+			storage:  azureStorage("container-a"),
+			leaf:     baseLeaf,
+			wantErrs: ErrBaseBackupNotFound,
+		},
+		{
+			name: "two backups claiming one destination is an error, not a guess",
+			objs: []client.Object{
+				fullBcp("full-a", withS3("bucket-a"), withDestination("s3://bucket-a/"+baseLeaf)),
+				fullBcp("full-b", withS3("bucket-a"), withDestination("s3://bucket-a/"+baseLeaf)),
+			},
+			storage: s3Storage("bucket-a"),
+			leaf:    baseLeaf,
+			wantErr: "both claim the destination",
+		},
+		{
+			name: "without a storage the leaf alone decides",
+			objs: []client.Object{
+				fullBcp("full-1", withS3("bucket-b"), withDestination("s3://bucket-b/"+baseLeaf)),
+			},
+			storage: nil,
+			leaf:    baseLeaf,
+			want:    "full-1",
 		},
 	}
 
@@ -1341,17 +1400,21 @@ func TestGetBackupByDestinationLeaf(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			cl := incrFakeClient(t, tt.objs...)
 
-			got, err := GetBackupByDestinationLeaf(t.Context(), cl, testCluster(), tt.leaf)
+			got, err := GetBackupByDestinationLeaf(t.Context(), cl, testCluster(), tt.storage, tt.leaf)
 
-			if tt.wantErrs != nil {
+			switch {
+			case tt.wantErrs != nil:
 				require.ErrorIs(t, err, tt.wantErrs)
 				assert.Nil(t, got)
-				return
+			case tt.wantErr != "":
+				require.Error(t, err)
+				assert.ErrorContains(t, err, tt.wantErr)
+				assert.Nil(t, got)
+			default:
+				require.NoError(t, err)
+				require.NotNil(t, got)
+				assert.Equal(t, tt.want, got.Name)
 			}
-
-			require.NoError(t, err)
-			require.NotNil(t, got)
-			assert.Equal(t, tt.want, got.Name)
 		})
 	}
 }
@@ -1360,15 +1423,16 @@ func TestGetBackupByDestinationLeaf(t *testing.T) {
 // back into the lister's result. setIncrementalBase mutates the backup it gets
 // back, and doing that to shared memory would corrupt an unrelated object.
 func TestGetBackupByDestinationLeafReturnsACopy(t *testing.T) {
-	stored := fullBcp("full-1", withDestination("s3://bucket-a/"+baseLeaf))
+	stored := fullBcp("full-1", withS3("bucket-a"), withDestination("s3://bucket-a/"+baseLeaf))
 	cl := incrFakeClient(t, stored)
+	storage := s3Storage("bucket-a")
 
-	got, err := GetBackupByDestinationLeaf(t.Context(), cl, testCluster(), baseLeaf)
+	got, err := GetBackupByDestinationLeaf(t.Context(), cl, testCluster(), storage, baseLeaf)
 	require.NoError(t, err)
 
 	got.Status.SourcePod = "mutated"
 
-	reread, err := GetBackupByDestinationLeaf(t.Context(), cl, testCluster(), baseLeaf)
+	reread, err := GetBackupByDestinationLeaf(t.Context(), cl, testCluster(), storage, baseLeaf)
 	require.NoError(t, err)
 	assert.Empty(t, reread.Status.SourcePod)
 }

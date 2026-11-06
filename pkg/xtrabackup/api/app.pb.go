@@ -414,9 +414,6 @@ func (x *GetBackupInfoRequest) GetBackupConfig() *BackupConfig {
 	return nil
 }
 
-// BackupInfo carries the LSN values parsed from a finished backup's
-// xtrabackup_checkpoints file. LSNs are kept as strings because MySQL LSN
-// values can exceed what fits in a signed 64-bit integer.
 type BackupInfo struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	FromLsn       string                 `protobuf:"bytes,1,opt,name=from_lsn,json=fromLsn,proto3" json:"from_lsn,omitempty"`

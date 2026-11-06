@@ -91,19 +91,8 @@ func (s *appServer) fetchBackupInfoFile(
 		"xbstreamCmd", sanitizeCmd(xbstream),
 	)
 
-	if err := xbcloud.Start(); err != nil {
-		return nil, errors.Wrap(err, "failed to start xbcloud")
-	}
-	if err := xbstream.Start(); err != nil {
-		return nil, errors.Wrap(err, "failed to start xbstream")
-	}
-
-	if err := xbstream.Wait(); err != nil {
-		_ = xbcloud.Wait()
-		return nil, errors.Wrapf(err, "xbstream failed: %s", xbstreamErr.String())
-	}
-	if err := xbcloud.Wait(); err != nil {
-		return nil, errors.Wrapf(err, "xbcloud failed: %s", xbcloudErr.String())
+	if err := streamThrough(xbcloud, xbstream, xbcloudOut, &xbcloudErr, &xbstreamErr); err != nil {
+		return nil, err
 	}
 
 	f, err := os.Open(filepath.Join(tmpDir, extractedFileName(file)))
@@ -137,6 +126,42 @@ func extractedFileName(file string) string {
 		file = strings.TrimSuffix(file, ext)
 	}
 	return file
+}
+
+// streamThrough runs producer with its output piped into consumer and waits for
+// both, reporting whichever failed.
+func streamThrough(
+	producer, consumer *exec.Cmd,
+	producerOut io.Closer,
+	producerErr, consumerErr *bytes.Buffer,
+) error {
+	if err := producer.Start(); err != nil {
+		return errors.Wrapf(err, "failed to start %s", filepath.Base(producer.Path))
+	}
+
+	stopProducer := func() {
+		_ = producerOut.Close()
+		if producer.Process != nil {
+			_ = producer.Process.Kill()
+		}
+		_ = producer.Wait()
+	}
+
+	if err := consumer.Start(); err != nil {
+		stopProducer()
+		return errors.Wrapf(err, "failed to start %s", filepath.Base(consumer.Path))
+	}
+
+	if err := consumer.Wait(); err != nil {
+		stopProducer()
+		return errors.Wrapf(err, "%s failed: %s", filepath.Base(consumer.Path), consumerErr.String())
+	}
+
+	if err := producer.Wait(); err != nil {
+		return errors.Wrapf(err, "%s failed: %s", filepath.Base(producer.Path), producerErr.String())
+	}
+
+	return nil
 }
 
 func xbstreamExtractArgs(cfg *api.BackupConfig, dir string) []string {

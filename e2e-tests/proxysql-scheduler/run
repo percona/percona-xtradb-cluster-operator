@@ -165,14 +165,26 @@ function wait_proxysql_status_ready() {
 	echo ".Ok"
 }
 
+# the message is rewritten on every reconcile, so a stale one from the
+# previous status update is allowed to disappear within a few reconciles
 function check_no_writer_status_message() {
+	local retry=0
 	local messages
-	messages=$(kubectl_bin get pxc "${cluster}" -o jsonpath='{.status.message}')
 
-	if grep -q "writer hostgroup" <<<"${messages}"; then
-		echo "ERROR: unexpected writer hostgroup status message: ${messages}"
-		exit 1
-	fi
+	echo -n "waiting for the writer hostgroup status message to be absent"
+	messages=$(kubectl_bin get pxc "${cluster}" -o jsonpath='{.status.message}')
+	until ! grep -q "writer hostgroup" <<<"${messages}"; do
+		sleep 1
+		messages=$(kubectl_bin get pxc "${cluster}" -o jsonpath='{.status.message}')
+		echo -n .
+		let retry+=1
+		if [[ ${retry} -ge 60 ]]; then
+			echo
+			echo "ERROR: unexpected writer hostgroup status message: ${messages}"
+			exit 1
+		fi
+	done
+	echo ".Ok"
 }
 
 create_infra ${namespace}
@@ -239,9 +251,9 @@ desc 'check ProxySQL recovers when the nodes leave maintenance'
 set_pxc_maint_mode "DISABLED" 3
 wait_proxysql_ready_pods 2
 wait_cluster_consistency "${cluster}" 3 2
-check_no_writer_status_message
 compare_mysql_servers "${cluster}-proxysql-0" "mysql-servers-0"
 compare_mysql_servers "${cluster}-proxysql-1" "mysql-servers-1"
+check_no_writer_status_message
 run_mysql "INSERT myApp.myApp (id) VALUES (100501)" "-h ${cluster}-proxysql -uroot -proot_password"
 log "ProxySQL is Ready and serves writes again: OK"
 

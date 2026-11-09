@@ -140,15 +140,20 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(ctx context.Context, cr *ap
 		}
 	}
 
+	// ProxySQL stays Ready while it can serve reads, so an empty writer
+	// hostgroup is reported here instead. Every pod is checked, they do not
+	// share hostgroup state. A replica cluster has no writer by design.
+	// Checked only while PXC and ProxySQL are ready: otherwise an empty
+	// writer hostgroup is expected and the pods may be unreachable.
 	if cr.ProxySQLEnabled() && cr.CompareVersionWith("1.21.0") >= 0 && !cr.Spec.Pause && !cr.IsReadOnly() &&
 		cr.Status.PXC.Status == api.AppStateReady && cr.Status.ProxySQL.Status == api.AppStateReady {
-		hasWriter, err := pxc.ProxySQLHasOnlineWriter(ctx, r.client, cr)
-		switch {
-		case err != nil:
+		pods, err := pxc.ProxySQLPodsWithoutOnlineWriter(ctx, r.client, cr)
+		if err != nil {
 			logf.FromContext(ctx).Info("Unable to check the ProxySQL writer hostgroup", "error", err.Error())
-		case !hasWriter:
+		}
+		for _, pod := range pods {
 			cr.Status.Messages = append(cr.Status.Messages,
-				fmt.Sprintf("%s: no ONLINE servers in writer hostgroup %d, writes through ProxySQL fail", naming.ComponentProxySQL, queries.WriterHostgroupID))
+				fmt.Sprintf("%s: no ONLINE servers in writer hostgroup %d on %s, writes through it fail", naming.ComponentProxySQL, queries.WriterHostgroupID, pod))
 		}
 	}
 

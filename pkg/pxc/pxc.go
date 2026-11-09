@@ -153,6 +153,25 @@ func getNonPrimaryProxySQL(ctx context.Context, cl client.Client, cr *api.Percon
 	return hosts[0], nil
 }
 
+func ProxySQLHasOnlineWriter(ctx context.Context, cl client.Client, cr *api.PerconaXtraDBCluster) (bool, error) {
+	if !cr.ProxySQLEnabled() {
+		return false, NoProxyDetectedError
+	}
+
+	conn, err := GetProxyConnection(ctx, cr, cl)
+	if err != nil {
+		return false, errors.Wrap(err, "failed to get proxy connection")
+	}
+	defer conn.Close()
+
+	count, err := conn.OnlineServersCount(queries.WriterHostgroupID)
+	if err != nil {
+		return false, errors.Wrap(err, "count online servers in writer hostgroup")
+	}
+
+	return count > 0, nil
+}
+
 // GetProxyConnection returns a new connection through the proxy (ProxySQL or HAProxy)
 func GetProxyConnection(ctx context.Context, cr *api.PerconaXtraDBCluster, cl client.Client) (queries.Database, error) {
 	var database queries.Database

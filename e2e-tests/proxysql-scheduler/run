@@ -12,11 +12,29 @@ cluster="some-name"
 function compare_scheduler() {
 	local pod=$1
 	local compare_file=$2
+	local query='SELECT * FROM runtime_scheduler;'
 
-	compare_mysql_cmd_local ${compare_file} \
-		'SELECT * FROM runtime_scheduler;' \
-		"-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" \
-		${pod}
+	local retry=0
+	echo -n "check runtime_scheduler in ${pod}"
+	until compare_mysql_cmd_local ${compare_file} "${query}" \
+		"-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" ${pod} &>/dev/null; do
+		sleep 10
+		echo -n .
+		let retry+=1
+		if [[ $retry -ge 30 ]]; then
+			echo
+			kubectl get pods
+
+			if ! compare_mysql_cmd_local ${compare_file} "${query}" \
+				"-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" ${pod}; then
+				echo
+				log "max retry count (${retry}) reached.
+				something went wrong with runtime_scheduler in ${pod}"
+				exit 1
+			fi
+		fi
+	done
+	echo
 }
 
 function compare_proxysql_cfg() {
@@ -82,6 +100,81 @@ function stop_keep_pod_down() {
 	wait ${loop_pid} 2>/dev/null || true
 }
 
+function set_pxc_maint_mode() {
+	local mode=$1
+	local size=$2
+
+	for i in $(seq 0 $((size - 1))); do
+		run_mysql_local "SET GLOBAL pxc_maint_mode='${mode}';" "-h127.0.0.1 -P3306 -uroot -proot_password" "${cluster}-pxc-${i}"
+	done
+}
+
+function count_ready_proxysql_pods() {
+	kubectl_bin get pods \
+		-l "app.kubernetes.io/component=proxysql,app.kubernetes.io/instance=${cluster}" \
+		-o jsonpath='{range .items[*]}{.status.conditions[?(@.type=="Ready")].status}{"\n"}{end}' \
+		| grep -c True || :
+}
+
+function count_service_endpoints() {
+	local service=$1
+
+	kubectl_bin get endpoints "${service}" -o jsonpath='{.subsets[*].addresses[*].ip}' | wc -w | tr -d ' '
+}
+
+function wait_proxysql_ready_pods() {
+	local expected=$1
+	local retry=0
+
+	echo -n "waiting for ${expected} Ready ProxySQL pod(s)"
+	until [[ $(count_ready_proxysql_pods) -eq ${expected} ]]; do
+		sleep 1
+		echo -n .
+		let retry+=1
+		if [[ ${retry} -ge 180 ]]; then
+			echo
+			kubectl_bin get pods
+			kubectl_bin get pxc "${cluster}" -o yaml
+			echo "ERROR: expected ${expected} Ready ProxySQL pod(s), got $(count_ready_proxysql_pods)"
+			exit 1
+		fi
+	done
+	echo ".Ok"
+}
+
+function wait_proxysql_status_ready() {
+	local expected=$1
+	local retry=0
+
+	echo -n "waiting for .status.proxysql.ready to become ${expected}"
+	# .status.proxysql.ready is omitted from the output when it is 0
+	local ready
+	ready=$(kubectl_bin get pxc "${cluster}" -o jsonpath='{.status.proxysql.ready}')
+	until [[ ${ready:-0} -eq ${expected} ]]; do
+		sleep 1
+		ready=$(kubectl_bin get pxc "${cluster}" -o jsonpath='{.status.proxysql.ready}')
+		echo -n .
+		let retry+=1
+		if [[ ${retry} -ge 120 ]]; then
+			echo
+			kubectl_bin get pxc "${cluster}" -o yaml
+			echo "ERROR: .status.proxysql.ready did not become ${expected}"
+			exit 1
+		fi
+	done
+	echo ".Ok"
+}
+
+function check_no_writer_status_message() {
+	local messages
+	messages=$(kubectl_bin get pxc "${cluster}" -o jsonpath='{.status.message}')
+
+	if grep -q "writer hostgroup" <<<"${messages}"; then
+		echo "ERROR: unexpected writer hostgroup status message: ${messages}"
+		exit 1
+	fi
+}
+
 create_infra ${namespace}
 
 desc "create PXC cluster: ${cluster}"
@@ -98,10 +191,6 @@ compare_kubectl service/${cluster}-pxc
 compare_kubectl service/${cluster}-proxysql
 compare_kubectl service/${cluster}-proxysql-unready
 
-# give some time for mysql_servers to be populated
-# this won't be needed once we add probes to ProxySQL containers
-sleep 120
-
 desc 'check if scheduler is enabled in all ProxySQL servers'
 
 compare_scheduler "${cluster}-proxysql-0" "scheduler-0"
@@ -115,6 +204,46 @@ compare_mysql_servers "${cluster}-proxysql-0" "mysql-servers-0"
 log "mysql_servers are configured in ${cluster}-proxysql-0: OK"
 compare_mysql_servers "${cluster}-proxysql-1" "mysql-servers-1"
 log "mysql_servers are configured in ${cluster}-proxysql-1: OK"
+
+desc 'check ProxySQL becomes not Ready when it has no ONLINE servers'
+check_no_writer_status_message
+if [[ $(count_service_endpoints "${cluster}-proxysql") -ne 2 ]]; then
+	echo "ERROR: service ${cluster}-proxysql has $(count_service_endpoints "${cluster}-proxysql") endpoints, expected 2"
+	exit 1
+fi
+
+set_pxc_maint_mode "MAINTENANCE" 3
+wait_proxysql_ready_pods 0
+wait_proxysql_status_ready 0
+check_proxysql_hostgroup "${cluster}" 2 10 "empty"
+check_proxysql_hostgroup "${cluster}" 2 11 "empty"
+if [[ $(kubectl_bin get pxc "${cluster}" -o jsonpath='{.status.state}') == "ready" ]]; then
+	echo "ERROR: cluster ${cluster} is still ready while ProxySQL has no ONLINE servers"
+	exit 1
+fi
+if [[ $(count_service_endpoints "${cluster}-proxysql") -ne 0 ]]; then
+	echo "ERROR: service ${cluster}-proxysql still has endpoints"
+	exit 1
+fi
+if [[ $(count_service_endpoints "${cluster}-proxysql-unready") -ne 2 ]]; then
+	echo "ERROR: service ${cluster}-proxysql-unready lost its endpoints"
+	exit 1
+fi
+if [[ $(kubectl_bin get pxc "${cluster}" -o jsonpath='{.status.pxc.ready}') -ne 3 ]]; then
+	echo "ERROR: PXC pods became not Ready in maintenance mode"
+	exit 1
+fi
+log "ProxySQL is not Ready without ONLINE servers: OK"
+
+desc 'check ProxySQL recovers when the nodes leave maintenance'
+set_pxc_maint_mode "DISABLED" 3
+wait_proxysql_ready_pods 2
+wait_cluster_consistency "${cluster}" 3 2
+check_no_writer_status_message
+compare_mysql_servers "${cluster}-proxysql-0" "mysql-servers-0"
+compare_mysql_servers "${cluster}-proxysql-1" "mysql-servers-1"
+run_mysql "INSERT myApp.myApp (id) VALUES (100501)" "-h ${cluster}-proxysql -uroot -proot_password"
+log "ProxySQL is Ready and serves writes again: OK"
 
 desc 'check disabling scheduler'
 kubectl_bin patch pxc ${cluster} --type=merge -p '{"spec": {"proxysql": {"scheduler": {"enabled": false}}}}'
@@ -168,10 +297,6 @@ kubectl_bin patch pxc ${cluster} --type=merge -p '{"spec": {"pxc": {"size": 5}}}
 wait_pod ${cluster}-pxc-3
 wait_pod ${cluster}-pxc-4
 
-# give some time for mysql_servers to be populated
-# this won't be needed once we add probes to ProxySQL containers
-sleep 120
-
 compare_mysql_servers "${cluster}-proxysql-0" "mysql-servers-0-1"
 log "new mysql_servers are configured in ${cluster}-proxysql-0: OK"
 compare_mysql_servers "${cluster}-proxysql-1" "mysql-servers-1-1"
@@ -180,10 +305,6 @@ log "new mysql_servers are configured in ${cluster}-proxysql-1: OK"
 desc 'check scaling ProxySQL up'
 kubectl_bin patch pxc ${cluster} --type=merge -p '{"spec": {"proxysql": {"size": 3}}}'
 wait_pod ${cluster}-proxysql-2
-
-# give some time for mysql_servers to be populated
-# this won't be needed once we add probes to ProxySQL containers
-sleep 120
 
 compare_scheduler "${cluster}-proxysql-2" "scheduler-2"
 log "scheduler is enabled in ${cluster}-proxysql-2: OK"
@@ -199,8 +320,6 @@ kubectl patch pxc ${cluster} --type=merge -p '{"spec": {"proxysql": {"scheduler"
 sleep 10
 wait_cluster_consistency "${cluster}" 5 3
 
-sleep 60
-
 compare_mysql_servers "${cluster}-proxysql-0" "mysql-servers-0-1-writerNotReader"
 log "new mysql_servers are configured in ${cluster}-proxysql-0: OK"
 compare_mysql_servers "${cluster}-proxysql-1" "mysql-servers-1-1-writerNotReader"
@@ -212,10 +331,6 @@ desc 'check scaling PXC down to 3 replicas'
 
 kubectl_bin patch pxc ${cluster} --type=merge -p '{"spec": {"pxc": {"size": 3}}}'
 wait_cluster_consistency "${cluster}" 3 3
-
-# give some time for mysql_servers to be populated
-# this won't be needed once we add probes to ProxySQL containers
-sleep 60
 
 compare_mysql_servers "${cluster}-proxysql-0" "mysql-servers-0-scaledown"
 log "mysql_servers are configured in ${cluster}-proxysql-0: OK"

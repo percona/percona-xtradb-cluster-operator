@@ -2,6 +2,7 @@ package pxc
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 	"time"
 
@@ -15,9 +16,13 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	k8sretry "k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/queries"
 )
 
 func (r *ReconcilePerconaXtraDBCluster) updateStatus(ctx context.Context, cr *api.PerconaXtraDBCluster, inProgress bool, reconcileErr error) (err error) {
@@ -132,6 +137,18 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(ctx context.Context, cr *ap
 			if err != nil {
 				return errors.Wrapf(err, "check %s upgrade progress", a.app.Name())
 			}
+		}
+	}
+
+	if cr.ProxySQLEnabled() && cr.CompareVersionWith("1.21.0") >= 0 && !cr.Spec.Pause && !cr.IsReadOnly() &&
+		cr.Status.PXC.Status == api.AppStateReady && cr.Status.ProxySQL.Status == api.AppStateReady {
+		hasWriter, err := pxc.ProxySQLHasOnlineWriter(ctx, r.client, cr)
+		switch {
+		case err != nil:
+			logf.FromContext(ctx).Info("Unable to check the ProxySQL writer hostgroup", "error", err.Error())
+		case !hasWriter:
+			cr.Status.Messages = append(cr.Status.Messages,
+				fmt.Sprintf("%s: no ONLINE servers in writer hostgroup %d, writes through ProxySQL fail", naming.ComponentProxySQL, queries.WriterHostgroupID))
 		}
 	}
 

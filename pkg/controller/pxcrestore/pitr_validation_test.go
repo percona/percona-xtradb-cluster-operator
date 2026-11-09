@@ -133,3 +133,75 @@ var _ = Describe("PerconaXtraDBClusterRestore PITR CRD validation", Ordered, fun
 		Entry("type skip with malformed gtid", "invalid-skip-malformed", &pxcv1.PITR{Type: "skip", GTID: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"}, "valid MySQL GTID set"),
 	)
 })
+
+var _ = Describe("PerconaXtraDBClusterRestore spec immutability", Ordered, func() {
+	ctx := context.Background()
+	const ns = "restore-immutability"
+	const errMsg = "spec is immutable"
+
+	BeforeAll(func() {
+		Expect(k8sClient.Create(ctx, &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{Name: ns},
+		})).To(Succeed())
+	})
+
+	AfterAll(func() {
+		_ = k8sClient.Delete(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}})
+	})
+
+	createRestore := func(name string) *pxcv1.PerconaXtraDBClusterRestore {
+		restore := &pxcv1.PerconaXtraDBClusterRestore{
+			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns},
+			Spec: pxcv1.PerconaXtraDBClusterRestoreSpec{
+				PXCCluster: "cluster1",
+				BackupName: "backup1",
+				PITR: &pxcv1.PITR{
+					Type:         "latest",
+					BackupSource: &pxcv1.PXCBackupStatus{StorageName: "s3-binlogs"},
+				},
+			},
+		}
+		Expect(k8sClient.Create(ctx, restore)).To(Succeed())
+		return restore
+	}
+
+	DescribeTable("rejects spec changes",
+		func(name string, mutate func(spec *pxcv1.PerconaXtraDBClusterRestoreSpec)) {
+			restore := createRestore(name)
+			mutate(&restore.Spec)
+			err := k8sClient.Update(ctx, restore)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring(errMsg))
+		},
+		Entry("removing pitr", "immutable-remove-pitr", func(spec *pxcv1.PerconaXtraDBClusterRestoreSpec) {
+			spec.PITR = nil
+		}),
+		Entry("changing pitr storage", "immutable-pitr-storage", func(spec *pxcv1.PerconaXtraDBClusterRestoreSpec) {
+			spec.PITR.BackupSource.StorageName = "other-storage"
+		}),
+		Entry("changing backupName", "immutable-backup-name", func(spec *pxcv1.PerconaXtraDBClusterRestoreSpec) {
+			spec.BackupName = "backup2"
+		}),
+		Entry("adding backupSource", "immutable-backup-source", func(spec *pxcv1.PerconaXtraDBClusterRestoreSpec) {
+			spec.BackupSource = &pxcv1.PXCBackupStatus{Destination: "s3://bucket/backup"}
+		}),
+		Entry("changing pxcCluster", "immutable-pxc-cluster", func(spec *pxcv1.PerconaXtraDBClusterRestoreSpec) {
+			spec.PXCCluster = "cluster2"
+		}),
+	)
+
+	It("allows status and metadata updates", func() {
+		restore := createRestore("immutable-allowed-updates")
+
+		restore.Status.State = pxcv1.RestorePITR
+		Expect(k8sClient.Status().Update(ctx, restore)).To(Succeed())
+
+		restore.Annotations = map[string]string{pxcv1.AnnotationUnsafePITR: "true"}
+		Expect(k8sClient.Update(ctx, restore)).To(Succeed())
+	})
+
+	It("allows an update that doesn't change the spec", func() {
+		restore := createRestore("immutable-noop-update")
+		Expect(k8sClient.Update(ctx, restore)).To(Succeed())
+	})
+})

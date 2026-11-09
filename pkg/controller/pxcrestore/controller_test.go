@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -14,6 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage"
@@ -563,5 +566,169 @@ func TestOperatorRestart(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+// TestRestoreJobTracking verifies that in the Restore and PITR states the already-created
+// job is tracked by name, independently of later changes to the restore spec, and that
+// a missing job doesn't crash the operator or fail the restore.
+func TestRestoreJobTracking(t *testing.T) {
+	ctx := t.Context()
+
+	const clusterName = "test-cluster"
+	const namespace = "namespace"
+	const backupName = clusterName + "-backup"
+	const restoreName = clusterName + "-restore"
+	const s3SecretName = "my-cluster-name-backup-s3"
+
+	cluster := readDefaultCR(t, clusterName, namespace)
+	require.NoError(t, cluster.CheckNSetDefaults(new(version.ServerVersion), logf.FromContext(ctx)))
+
+	bcp := updateResource(readDefaultBackup(t, backupName, namespace), func(bcp *api.PerconaXtraDBClusterBackup) {
+		bcp.Status.State = api.BackupSucceeded
+		bcp.Status.Destination.SetS3Destination("some-dest", "dest")
+		bcp.Spec.StorageName = "s3-us-west"
+		bcp.Status.S3 = &api.BackupStorageS3Spec{
+			Bucket:            "some-bucket",
+			CredentialsSecret: s3SecretName,
+		}
+	})
+
+	baseRestore := readDefaultRestore(t, restoreName, namespace)
+	baseRestore.Spec.BackupName = backupName
+	baseRestore.Spec.PXCCluster = clusterName
+
+	completed := []batchv1.JobCondition{
+		{Type: batchv1.JobComplete, Status: corev1.ConditionTrue},
+	}
+
+	tests := []struct {
+		name             string
+		state            api.RestoreState
+		pitr             *api.PITR
+		jobExists        bool
+		jobConditions    []batchv1.JobCondition
+		expectedState    api.RestoreState
+		expectedComments []string
+		expectError      bool
+	}{
+		{
+			name:             "pitr: spec.pitr removed, job running",
+			state:            api.RestorePITR,
+			jobExists:        true,
+			expectedState:    api.RestorePITR,
+			expectedComments: []string{"spec.pitr was removed"},
+		},
+		{
+			name:             "pitr: spec.pitr removed, job completed",
+			state:            api.RestorePITR,
+			jobExists:        true,
+			jobConditions:    completed,
+			expectedState:    api.RestoreStartCluster,
+			expectedComments: []string{"spec.pitr was removed"},
+		},
+		{
+			name:  "pitr: spec.pitr set, job completed",
+			state: api.RestorePITR,
+			pitr: &api.PITR{
+				Type:         "latest",
+				BackupSource: &api.PXCBackupStatus{StorageName: "s3-us-west"},
+			},
+			jobExists:     true,
+			jobConditions: completed,
+			expectedState: api.RestoreStartCluster,
+		},
+		{
+			name:             "pitr: spec.pitr removed, job is missing",
+			state:            api.RestorePITR,
+			expectedState:    api.RestorePITR,
+			expectedComments: []string{"waiting for job", "spec.pitr was removed"},
+		},
+		{
+			name:  "pitr: spec.pitr set, job failed",
+			state: api.RestorePITR,
+			pitr: &api.PITR{
+				Type:         "latest",
+				BackupSource: &api.PXCBackupStatus{StorageName: "s3-us-west"},
+			},
+			jobExists: true,
+			jobConditions: []batchv1.JobCondition{
+				{Type: batchv1.JobFailed, Status: corev1.ConditionTrue, Message: "boom"},
+			},
+			expectedState:    api.RestoreFailed,
+			expectedComments: []string{"failed: boom"},
+			expectError:      true,
+		},
+		{
+			name:             "pitr: job is missing",
+			state:            api.RestorePITR,
+			expectedState:    api.RestorePITR,
+			expectedComments: []string{"waiting for job"},
+		},
+		{
+			name:          "restore: job running",
+			state:         api.RestoreRestore,
+			jobExists:     true,
+			expectedState: api.RestoreRestore,
+		},
+		{
+			name:          "restore: job completed",
+			state:         api.RestoreRestore,
+			jobExists:     true,
+			jobConditions: completed,
+			expectedState: api.RestorePrepareCluster,
+		},
+		{
+			name:             "restore: job is missing",
+			state:            api.RestoreRestore,
+			expectedState:    api.RestoreRestore,
+			expectedComments: []string{"waiting for job"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cr := baseRestore.DeepCopy()
+			cr.Status.State = tt.state
+			cr.Spec.PITR = tt.pitr
+
+			objects := []runtime.Object{
+				cr,
+				cluster.DeepCopy(),
+				bcp.DeepCopy(),
+				readDefaultCRSecret(t, clusterName+"-secrets", namespace),
+				readDefaultS3Secret(t, s3SecretName, namespace),
+			}
+			if tt.jobExists {
+				objects = append(objects, &batchv1.Job{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      naming.RestoreJobName(cr, tt.state == api.RestorePITR),
+						Namespace: namespace,
+					},
+					Status: batchv1.JobStatus{Conditions: tt.jobConditions},
+				})
+			}
+			r := reconciler(buildFakeClient(objects...))
+
+			nn := types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}
+			require.NotPanics(t, func() {
+				_, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
+				if tt.expectError {
+					require.Error(t, err)
+				} else {
+					require.NoError(t, err)
+				}
+			})
+
+			restore := new(api.PerconaXtraDBClusterRestore)
+			require.NoError(t, r.client.Get(ctx, nn, restore))
+			assert.Equal(t, tt.expectedState, restore.Status.State)
+			if len(tt.expectedComments) == 0 {
+				assert.Empty(t, restore.Status.Comments)
+			}
+			for _, comment := range tt.expectedComments {
+				assert.Contains(t, restore.Status.Comments, comment)
+			}
+		})
 	}
 }

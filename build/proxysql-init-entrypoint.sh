@@ -10,5 +10,7 @@ install -o "$(id -u)" -g "$(id -g)" -m 0755 -D /proxysql_add_cluster_nodes.sh /o
 install -o "$(id -u)" -g "$(id -g)" -m 0755 -D /proxysql_add_proxysql_nodes.sh /opt/percona/proxysql_add_proxysql_nodes.sh
 install -o "$(id -u)" -g "$(id -g)" -m 0755 -D /proxysql_add_pxc_nodes.sh /opt/percona/proxysql_add_pxc_nodes.sh
 install -o "$(id -u)" -g "$(id -g)" -m 0755 -D /proxysql_scheduler_config.tmpl /opt/percona/proxysql_scheduler_config.tmpl
+install -o "$(id -u)" -g "$(id -g)" -m 0755 -D /proxysql_readiness_check.sh /opt/percona/proxysql_readiness_check.sh
+install -o "$(id -u)" -g "$(id -g)" -m 0755 -D /proxysql_liveness_check.sh /opt/percona/proxysql_liveness_check.sh
 
 install -o "$(id -u)" -g "$(id -g)" -m 0755 -D /peer-list /opt/percona/peer-list

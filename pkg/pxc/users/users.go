@@ -123,7 +123,11 @@ func (m *Manager) UpdateUserPass(user *SysUser) error {
 	}
 
 	for _, host := range user.Hosts {
-		_, err = tx.Exec("ALTER USER ?@? IDENTIFIED BY ? RETAIN CURRENT PASSWORD", user.Name, host, user.Pass)
+		// Operator-managed users must not be subject to the server's password_history /
+		// password_reuse_interval policy: the operator frequently rotates these passwords
+		// (including reverting to a previously used one), which would otherwise be rejected
+		// with "Error 3638 ... contradict the password history policy".
+		_, err = tx.Exec("ALTER USER ?@? IDENTIFIED BY ? RETAIN CURRENT PASSWORD PASSWORD HISTORY 0 PASSWORD REUSE INTERVAL 0 DAY", user.Name, host, user.Pass)
 		if err != nil {
 			err = errors.Wrap(err, "alter user")
 
@@ -137,6 +141,32 @@ func (m *Manager) UpdateUserPass(user *SysUser) error {
 
 	if err := tx.Commit(); err != nil {
 		return errors.Wrap(err, "commit transaction")
+	}
+
+	return nil
+}
+
+// DisablePasswordReusePolicy removes a user account from the server's password_history /
+// password_reuse_interval policy (available since MySQL 8.0) by overriding it to 0 for the
+// given account. This must be run in its own statement, separate from any password change:
+// per MySQL semantics, policy options specified together with a password change in the same
+// statement only take effect starting with the *next* password change, so the override has
+// to be applied beforehand to be effective immediately.
+//
+// Operator-managed users are rotated/restored by the operator itself and must not be subject
+// to this policy, otherwise password updates can fail with:
+// "Error 3638 (HY000): Cannot use these credentials ... because they contradict the password
+// history policy".
+func (m *Manager) DisablePasswordReusePolicy(user *SysUser) error {
+	if user == nil {
+		return nil
+	}
+
+	for _, host := range user.Hosts {
+		_, err := m.db.Exec("ALTER USER ?@? PASSWORD HISTORY 0 PASSWORD REUSE INTERVAL 0 DAY", user.Name, host)
+		if err != nil {
+			return errors.Wrap(err, "alter user")
+		}
 	}
 
 	return nil

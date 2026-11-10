@@ -144,6 +144,33 @@ func sha256Hash(data []byte) string {
 	return fmt.Sprintf("%x", sha256.Sum256(data))
 }
 
+// mysqlSupportsPasswordHistoryPolicy reports whether the running PXC version supports the
+// password_history / password_reuse_interval policy (MySQL 8.0+). If the version cannot be
+// determined yet, it returns false so callers fall back to not using the related SQL clauses.
+func (r *ReconcilePerconaXtraDBCluster) mysqlSupportsPasswordHistoryPolicy(ctx context.Context, cr *api.PerconaXtraDBCluster) (bool, error) {
+	mysqlVersion := cr.Status.PXC.Version
+	if mysqlVersion == "" {
+		var err error
+		mysqlVersion, err = r.mysqlVersion(ctx, cr, statefulset.NewNode(cr))
+		if err != nil {
+			if errors.Is(err, versionNotReadyErr) {
+				return false, nil
+			}
+			return false, errors.Wrap(err, "retrieving pxc version")
+		}
+	}
+	if mysqlVersion == "" {
+		return false, nil
+	}
+
+	ver, err := version.NewVersion(mysqlVersion)
+	if err != nil {
+		return false, errors.Wrap(err, "invalid pxc version")
+	}
+
+	return ver.GreaterThanOrEqual(mysql80), nil
+}
+
 func (r *ReconcilePerconaXtraDBCluster) updateUsers(ctx context.Context, cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret) (*userUpdateActions, error) {
 	res := &userUpdateActions{}
 
@@ -208,6 +235,10 @@ func (r *ReconcilePerconaXtraDBCluster) handleRootUser(ctx context.Context, cr *
 	}
 
 	if err := r.updateUserPassExpirationPolicy(ctx, cr, internalSecrets, user); err != nil {
+		return err
+	}
+
+	if err := r.updateUserPasswordReusePolicy(ctx, cr, internalSecrets, user); err != nil {
 		return err
 	}
 
@@ -280,6 +311,10 @@ func (r *ReconcilePerconaXtraDBCluster) handleOperatorUser(ctx context.Context, 
 		}
 
 		if err := r.updateUserPassExpirationPolicy(ctx, cr, internalSecrets, user); err != nil {
+			return err
+		}
+
+		if err := r.updateUserPasswordReusePolicy(ctx, cr, internalSecrets, user); err != nil {
 			return err
 		}
 	}
@@ -405,6 +440,10 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(ctx context.Context, c
 
 	if cr.Status.PXC.Ready > 0 {
 		if err := r.updateUserPassExpirationPolicy(ctx, cr, internalSecrets, user); err != nil {
+			return err
+		}
+
+		if err := r.updateUserPasswordReusePolicy(ctx, cr, internalSecrets, user); err != nil {
 			return err
 		}
 
@@ -586,6 +625,10 @@ func (r *ReconcilePerconaXtraDBCluster) handleXtrabackupUser(ctx context.Context
 			return err
 		}
 
+		if err := r.updateUserPasswordReusePolicy(ctx, cr, internalSecrets, user); err != nil {
+			return err
+		}
+
 		if cr.CompareVersionWith("1.15.0") >= 0 {
 			err := r.updateXtrabackupUserGrant(ctx, cr, internalSecrets)
 			if err != nil {
@@ -704,6 +747,10 @@ func (r *ReconcilePerconaXtraDBCluster) handleReplicationUser(ctx context.Contex
 		}
 
 		if err := r.updateUserPassExpirationPolicy(ctx, cr, internalSecrets, user); err != nil {
+			return err
+		}
+
+		if err := r.updateUserPasswordReusePolicy(ctx, cr, internalSecrets, user); err != nil {
 			return err
 		}
 	}
@@ -835,6 +882,10 @@ func (r *ReconcilePerconaXtraDBCluster) handleProxyadminUser(ctx context.Context
 	}
 
 	if err := r.updateUserPassExpirationPolicy(ctx, cr, internalSecrets, user); err != nil {
+		return err
+	}
+
+	if err := r.updateUserPasswordReusePolicy(ctx, cr, internalSecrets, user); err != nil {
 		return err
 	}
 
@@ -1266,6 +1317,57 @@ func (r *ReconcilePerconaXtraDBCluster) updateUserPassExpirationPolicy(ctx conte
 	return nil
 }
 
+// updateUserPasswordReusePolicy exempts an operator-managed user from the server's
+// password_history / password_reuse_interval policy (MySQL 8.0+ only). The operator rotates
+// these users' passwords itself (including reverting to a previously used password during
+// scheduled rotations or restores), so they must not be rejected by that policy. The override
+// is applied once, in a statement separate from any password change, since MySQL only applies
+// password-reuse policy options specified alongside a password change starting from the next
+// password change.
+func (r *ReconcilePerconaXtraDBCluster) updateUserPasswordReusePolicy(ctx context.Context, cr *api.PerconaXtraDBCluster, internalSecrets *corev1.Secret, user *users.SysUser) error {
+	log := logf.FromContext(ctx)
+
+	annotationName := "password-reuse-policy-for-1.20.0-user-" + user.Name
+	if internalSecrets.Annotations[annotationName] == "done" {
+		return nil
+	}
+
+	supportsPasswordHistory, err := r.mysqlSupportsPasswordHistoryPolicy(ctx, cr)
+	if err != nil {
+		return errors.Wrap(err, "check mysql version")
+	}
+	if !supportsPasswordHistory {
+		return nil
+	}
+
+	um, err := getUserManager(cr, internalSecrets)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if derr := um.Close(); derr != nil {
+			log.Error(derr, "failed to close user manager")
+		}
+	}()
+
+	if err := um.DisablePasswordReusePolicy(user); err != nil {
+		return errors.Wrapf(err, "disable password reuse policy for %s user", user.Name)
+	}
+
+	if internalSecrets.Annotations == nil {
+		internalSecrets.Annotations = make(map[string]string)
+	}
+
+	internalSecrets.Annotations[annotationName] = "done"
+	if err = r.client.Update(ctx, internalSecrets); err != nil {
+		return errors.Wrap(err, "update internal sys users secret annotation")
+	}
+
+	log.Info("Password reuse policy disabled", "user", user.Name)
+
+	return nil
+}
+
 func (r *ReconcilePerconaXtraDBCluster) invalidPasswordApplied(status api.PerconaXtraDBClusterStatus) bool {
 	if len(status.Messages) == 0 {
 		return false
@@ -1294,9 +1396,21 @@ func (r *ReconcilePerconaXtraDBCluster) updateMySQLInitFile(ctx context.Context,
 		data = secret.Data
 	}
 
+	// password_history / password_reuse_interval (MySQL 8.0+) must not apply to
+	// operator-managed users: this file is re-applied on every mysqld startup with the
+	// current password, which would otherwise be rejected as a password reuse violation.
+	passwordHistoryClause := ""
+	supportsPasswordHistory, err := r.mysqlSupportsPasswordHistoryPolicy(ctx, cr)
+	if err != nil {
+		return errors.Wrap(err, "check mysql version")
+	}
+	if supportsPasswordHistory {
+		passwordHistoryClause = " PASSWORD HISTORY 0 PASSWORD REUSE INTERVAL 0 DAY"
+	}
+
 	statements := make([]string, 0)
 	for _, host := range user.Hosts {
-		statements = append(statements, fmt.Sprintf("ALTER USER '%s'@'%s' IDENTIFIED BY '%s';\n", user.Name, host, user.Pass))
+		statements = append(statements, fmt.Sprintf("ALTER USER '%s'@'%s' IDENTIFIED BY '%s'%s;\n", user.Name, host, user.Pass, passwordHistoryClause))
 	}
 
 	opResult, err := controllerutil.CreateOrUpdate(ctx, r.client, secret, func() error {

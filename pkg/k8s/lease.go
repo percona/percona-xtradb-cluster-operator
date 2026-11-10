@@ -10,6 +10,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var (
@@ -54,6 +55,9 @@ func AcquireLease(
 	if !stale {
 		return lease, nil
 	}
+
+	logf.FromContext(ctx).Info("Evicting a stale holder from the lease",
+		"lease", name, "namespace", namespace, "staleHolder", current, "newHolder", holder)
 
 	// Delete with preconditions so this cannot remove a lease that somebody
 	// else acquired between the Get above and here.

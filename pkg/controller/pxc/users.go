@@ -168,7 +168,7 @@ func (r *ReconcilePerconaXtraDBCluster) mysqlVersionForPasswordPolicies(ctx cont
 	return ver, nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) mysqlSupportsPasswordHistoryPolicy(ctx context.Context, cr *api.PerconaXtraDBCluster) (bool, error) {
+func (r *ReconcilePerconaXtraDBCluster) mysqlSupportsPasswordPolicyExemptions(ctx context.Context, cr *api.PerconaXtraDBCluster) (bool, error) {
 	ver, err := r.mysqlVersionForPasswordPolicies(ctx, cr)
 	if err != nil || ver == nil {
 		return false, err
@@ -1393,22 +1393,18 @@ func (r *ReconcilePerconaXtraDBCluster) updateMySQLInitFile(ctx context.Context,
 	if err := r.client.Get(ctx, client.ObjectKeyFromObject(secret), secret); err == nil {
 		data = secret.Data
 	}
-
-	// password_history / password_reuse_interval (MySQL 8.0+) must not apply to
-	// operator-managed users: this file is re-applied on every mysqld startup with the
-	// current password, which would otherwise be rejected as a password reuse violation.
-	passwordHistoryClause := ""
-	supportsPasswordHistory, err := r.mysqlSupportsPasswordHistoryPolicy(ctx, cr)
+	passwordPolicyExemptClause := ""
+	supportsPasswordPolicyExemptions, err := r.mysqlSupportsPasswordPolicyExemptions(ctx, cr)
 	if err != nil {
 		return errors.Wrap(err, "check mysql version")
 	}
-	if supportsPasswordHistory {
-		passwordHistoryClause = " PASSWORD HISTORY 0 PASSWORD REUSE INTERVAL 0 DAY"
+	if supportsPasswordPolicyExemptions {
+		passwordPolicyExemptClause = " PASSWORD HISTORY 0 PASSWORD REUSE INTERVAL 0 DAY PASSWORD REQUIRE CURRENT OPTIONAL"
 	}
 
 	statements := make([]string, 0)
 	for _, host := range user.Hosts {
-		statements = append(statements, fmt.Sprintf("ALTER USER '%s'@'%s' IDENTIFIED BY '%s'%s;\n", user.Name, host, user.Pass, passwordHistoryClause))
+		statements = append(statements, fmt.Sprintf("ALTER USER '%s'@'%s' IDENTIFIED BY '%s'%s;\n", user.Name, host, user.Pass, passwordPolicyExemptClause))
 	}
 
 	opResult, err := controllerutil.CreateOrUpdate(ctx, r.client, secret, func() error {

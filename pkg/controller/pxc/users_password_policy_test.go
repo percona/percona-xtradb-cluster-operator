@@ -68,16 +68,16 @@ func TestMysqlVersionForPasswordPolicies(t *testing.T) {
 	}
 }
 
-func TestMysqlSupportsPasswordHistoryPolicy(t *testing.T) {
+func TestMysqlSupportsPasswordPolicyExemptions(t *testing.T) {
 	tests := []struct {
 		name      string
 		statusVer string
 		want      bool
 	}{
-		{name: "mysql 8.0.0 supports password history policy", statusVer: "8.0.0", want: true},
-		{name: "mysql 8.4.0 supports password history policy", statusVer: "8.4.0", want: true},
-		{name: "mysql 5.7 does not support password history policy", statusVer: "5.7.33", want: false},
-		{name: "unknown version does not support password history policy", statusVer: "", want: false},
+		{name: "mysql 8.0.0 supports password policy exemptions", statusVer: "8.0.0", want: true},
+		{name: "mysql 8.4.0 supports password policy exemptions", statusVer: "8.4.0", want: true},
+		{name: "mysql 5.7 does not support password policy exemptions", statusVer: "5.7.33", want: false},
+		{name: "unknown version does not support password policy exemptions", statusVer: "", want: false},
 	}
 
 	for _, tt := range tests {
@@ -87,7 +87,7 @@ func TestMysqlSupportsPasswordHistoryPolicy(t *testing.T) {
 
 			r := buildFakeClient([]runtime.Object{cr})
 
-			got, err := r.mysqlSupportsPasswordHistoryPolicy(context.Background(), cr)
+			got, err := r.mysqlSupportsPasswordPolicyExemptions(context.Background(), cr)
 			require.NoError(t, err)
 			assert.Equal(t, tt.want, got)
 		})
@@ -139,19 +139,19 @@ func TestDisableUserPasswordPolicies_SkipPaths(t *testing.T) {
 	})
 }
 
-// TestUpdateMySQLInitFile_PasswordHistoryClause verifies that the generated
-// mysql-init secret only appends the PASSWORD HISTORY / REUSE INTERVAL clause
-// when the cluster's MySQL version supports it (8.0+), since the init file is
-// re-applied on every mysqld startup and must not trip password reuse checks
-// on older servers that don't understand the clause.
-func TestUpdateMySQLInitFile_PasswordHistoryClause(t *testing.T) {
+// TestUpdateMySQLInitFile_PasswordPolicyExemptClause verifies that the generated
+// mysql-init secret only appends the PASSWORD HISTORY / REUSE INTERVAL / REQUIRE
+// CURRENT exemption clause when the cluster's MySQL version supports it (8.0+),
+// since the init file is re-applied on every mysqld startup and must not trip
+// password policy checks on older servers that don't understand the clause.
+func TestUpdateMySQLInitFile_PasswordPolicyExemptClause(t *testing.T) {
 	tests := []struct {
-		name        string
-		statusVer   string
-		wantHistory bool
+		name             string
+		statusVer        string
+		wantExemptClause bool
 	}{
-		{name: "mysql 8.0+: history clause appended", statusVer: "8.0.20", wantHistory: true},
-		{name: "mysql 5.7: history clause omitted", statusVer: "5.7.33", wantHistory: false},
+		{name: "mysql 8.0+: exempt clause appended", statusVer: "8.0.20", wantExemptClause: true},
+		{name: "mysql 5.7: exempt clause omitted", statusVer: "5.7.33", wantExemptClause: false},
 	}
 
 	for _, tt := range tests {
@@ -175,10 +175,11 @@ func TestUpdateMySQLInitFile_PasswordHistoryClause(t *testing.T) {
 			initSQL := string(secret.Data["init.sql"])
 			assert.Contains(t, initSQL, "ALTER USER 'operator'@'%' IDENTIFIED BY 'secret-pass'")
 
-			if tt.wantHistory {
-				assert.Contains(t, initSQL, "PASSWORD HISTORY 0 PASSWORD REUSE INTERVAL 0 DAY")
+			if tt.wantExemptClause {
+				assert.Contains(t, initSQL, "PASSWORD HISTORY 0 PASSWORD REUSE INTERVAL 0 DAY PASSWORD REQUIRE CURRENT OPTIONAL")
 			} else {
 				assert.NotContains(t, initSQL, "PASSWORD HISTORY")
+				assert.NotContains(t, initSQL, "PASSWORD REQUIRE CURRENT")
 			}
 		})
 	}

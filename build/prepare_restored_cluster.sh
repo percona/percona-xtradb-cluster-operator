@@ -21,7 +21,7 @@ CFG=/etc/mysql/node.cnf
 
 # server-side password policies - password_history, password_reuse_interval, password_require_current
 # should not be applied to operator-managed users
-# The policies are available since MySQL 8.0
+# The policies are available in all Percona MySQL 8.0 builds
 PASSWORD_POLICY_EXEMPT_CLAUSE=""
 if [[ $(echo "$MYSQL_VERSION" | cut -d. -f1) -ge 8 ]]; then
 	PASSWORD_POLICY_EXEMPT_CLAUSE=" PASSWORD HISTORY 0 PASSWORD REUSE INTERVAL 0 DAY PASSWORD REQUIRE CURRENT OPTIONAL"

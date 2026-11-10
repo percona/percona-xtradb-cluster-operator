@@ -1317,13 +1317,13 @@ func (r *ReconcilePerconaXtraDBCluster) updateUserPassExpirationPolicy(ctx conte
 	return nil
 }
 
-// updateUserPasswordReusePolicy exempts an operator-managed user from the server's
-// password_history / password_reuse_interval policy (MySQL 8.0+ only). The operator rotates
-// these users' passwords itself (including reverting to a previously used password during
-// scheduled rotations or restores), so they must not be rejected by that policy. The override
-// is applied once, in a statement separate from any password change, since MySQL only applies
-// password-reuse policy options specified alongside a password change starting from the next
-// password change.
+// updateUserPasswordReusePolicy exempts an operator-managed user from server-side password
+// policies that are not appropriate for accounts whose passwords are rotated by the operator
+// itself (MySQL 8.0+ only): password_history / password_reuse_interval, and
+// password_require_current. See users.Manager.DisablePasswordReusePolicy for details. The
+// override is applied once, in a statement separate from any password change, since MySQL
+// only applies these policy options starting from the next password change when specified
+// alongside the change itself.
 func (r *ReconcilePerconaXtraDBCluster) updateUserPasswordReusePolicy(ctx context.Context, cr *api.PerconaXtraDBCluster, internalSecrets *corev1.Secret, user *users.SysUser) error {
 	log := logf.FromContext(ctx)
 

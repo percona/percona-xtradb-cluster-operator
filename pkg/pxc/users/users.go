@@ -146,24 +146,34 @@ func (m *Manager) UpdateUserPass(user *SysUser) error {
 	return nil
 }
 
-// DisablePasswordReusePolicy removes a user account from the server's password_history /
-// password_reuse_interval policy (available since MySQL 8.0) by overriding it to 0 for the
-// given account. This must be run in its own statement, separate from any password change:
+// DisablePasswordReusePolicy exempts an operator-managed user account from server-side
+// password policies that are not appropriate for accounts whose passwords are rotated by the
+// operator itself:
+//
+//   - password_history / password_reuse_interval (MySQL 8.0+): overridden to 0, otherwise
+//     password updates can fail with "Error 3638 (HY000): Cannot use these credentials ...
+//     because they contradict the password history policy" whenever the operator reuses a
+//     previously-set password (e.g. during scheduled rotations or restores).
+//   - password_require_current (MySQL 8.0.13+): overridden to OPTIONAL, otherwise a self
+//     password change (e.g. root rotating its own password) can require the REPLACE clause
+//     with the current password unless the session holds SUPER/CONNECTION_ADMIN. Operator
+//     accounts normally hold SUPER (via GRANT ALL), but this makes the exemption explicit and
+//     resilient to that privilege ever being revoked.
+//
+// Both overrides must be applied in their own statement, separate from any password change:
 // per MySQL semantics, policy options specified together with a password change in the same
 // statement only take effect starting with the *next* password change, so the override has
 // to be applied beforehand to be effective immediately.
 //
-// Operator-managed users are rotated/restored by the operator itself and must not be subject
-// to this policy, otherwise password updates can fail with:
-// "Error 3638 (HY000): Cannot use these credentials ... because they contradict the password
-// history policy".
+// Note: this does NOT cover validate_password (complexity/length/dictionary) policies, which
+// have no per-account exemption in MySQL and are enforced globally for every account.
 func (m *Manager) DisablePasswordReusePolicy(user *SysUser) error {
 	if user == nil {
 		return nil
 	}
 
 	for _, host := range user.Hosts {
-		_, err := m.db.Exec("ALTER USER ?@? PASSWORD HISTORY 0 PASSWORD REUSE INTERVAL 0 DAY", user.Name, host)
+		_, err := m.db.Exec("ALTER USER ?@? PASSWORD HISTORY 0 PASSWORD REUSE INTERVAL 0 DAY PASSWORD REQUIRE CURRENT OPTIONAL", user.Name, host)
 		if err != nil {
 			return errors.Wrap(err, "alter user")
 		}

@@ -165,8 +165,6 @@ function wait_proxysql_status_ready() {
 	echo ".Ok"
 }
 
-# the message is rewritten on every reconcile, so a stale one from the
-# previous status update is allowed to disappear within a few reconciles
 function check_no_writer_status_message() {
 	local retry=0
 	local messages
@@ -181,6 +179,37 @@ function check_no_writer_status_message() {
 		if [[ ${retry} -ge 60 ]]; then
 			echo
 			echo "ERROR: unexpected writer hostgroup status message: ${messages}"
+			exit 1
+		fi
+	done
+	echo ".Ok"
+}
+
+function set_proxysql_writer_status() {
+	local pod=$1
+	local status=$2
+	local scheduler_active=$3
+
+	run_mysql_local "UPDATE scheduler SET active=${scheduler_active}; LOAD SCHEDULER TO RUNTIME; UPDATE mysql_servers SET status='${status}' WHERE hostgroup_id=11; LOAD MYSQL SERVERS TO RUNTIME;" \
+		"-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "${pod}"
+}
+
+function wait_writer_status_message() {
+	local pod=$1
+	local retry=0
+	local messages
+
+	echo -n "waiting for the writer hostgroup status message for ${pod}"
+	messages=$(kubectl_bin get pxc "${cluster}" -o jsonpath='{.status.message}')
+	until grep -q "writer hostgroup 11 on ${pod}" <<<"${messages}"; do
+		sleep 1
+		messages=$(kubectl_bin get pxc "${cluster}" -o jsonpath='{.status.message}')
+		echo -n .
+		let retry+=1
+		if [[ ${retry} -ge 60 ]]; then
+			echo
+			kubectl_bin get pxc "${cluster}" -o yaml
+			echo "ERROR: no writer hostgroup status message for ${pod}: ${messages}"
 			exit 1
 		fi
 	done
@@ -254,8 +283,36 @@ wait_cluster_consistency "${cluster}" 3 2
 compare_mysql_servers "${cluster}-proxysql-0" "mysql-servers-0"
 compare_mysql_servers "${cluster}-proxysql-1" "mysql-servers-1"
 check_no_writer_status_message
-run_mysql "INSERT myApp.myApp (id) VALUES (100501)" "-h ${cluster}-proxysql -uroot -proot_password"
+client_pod=$(get_client_pod)
+wait_pod "${client_pod}"
+kubectl_bin exec "${client_pod}" -- \
+	mysql -sN -h "${cluster}-proxysql" -uroot -proot_password \
+	-e "INSERT myApp.myApp (id) VALUES (100501)"
 log "ProxySQL is Ready and serves writes again: OK"
+
+desc 'check status message when one ProxySQL pod has no ONLINE writer'
+set_proxysql_writer_status "${cluster}-proxysql-1" "OFFLINE_SOFT" 0
+wait_writer_status_message "${cluster}-proxysql-1"
+messages=$(kubectl_bin get pxc "${cluster}" -o jsonpath='{.status.message}')
+if grep -q "${cluster}-proxysql-0" <<<"${messages}"; then
+	echo "ERROR: ${cluster}-proxysql-0 has an ONLINE writer but is reported: ${messages}"
+	exit 1
+fi
+if [[ $(count_ready_proxysql_pods) -ne 2 ]]; then
+	echo "ERROR: ProxySQL pods must stay Ready while readers are ONLINE"
+	exit 1
+fi
+if [[ $(kubectl_bin get pxc "${cluster}" -o jsonpath='{.status.state}') != "ready" ]]; then
+	echo "ERROR: cluster ${cluster} must stay ready while readers are ONLINE"
+	exit 1
+fi
+log "missing writer on ${cluster}-proxysql-1 is reported in the status: OK"
+
+set_proxysql_writer_status "${cluster}-proxysql-1" "ONLINE" 1
+check_no_writer_status_message
+compare_scheduler "${cluster}-proxysql-1" "scheduler-1"
+compare_mysql_servers "${cluster}-proxysql-1" "mysql-servers-1"
+log "status message is gone when the writer is back: OK"
 
 desc 'check disabling scheduler'
 kubectl_bin patch pxc ${cluster} --type=merge -p '{"spec": {"proxysql": {"scheduler": {"enabled": false}}}}'

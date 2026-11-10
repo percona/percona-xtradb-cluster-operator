@@ -84,21 +84,12 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(
 		return nil, nil
 	}
 
-	mysqlVersion := cr.Status.PXC.Version
-	if mysqlVersion == "" {
-		var err error
-		mysqlVersion, err = r.mysqlVersion(ctx, cr, statefulset.NewNode(cr))
-		if err != nil {
-			if errors.Is(err, versionNotReadyErr) {
-				return nil, nil
-			}
-			return nil, errors.Wrap(err, "retrieving pxc version")
-		}
-	}
-
-	ver, err := version.NewVersion(mysqlVersion)
+	ver, err := r.currentMySQLVersion(ctx, cr)
 	if err != nil {
-		return nil, errors.Wrap(err, "invalid pxc version")
+		return nil, err
+	}
+	if ver == nil {
+		return nil, nil
 	}
 
 	var actions *userUpdateActions
@@ -144,7 +135,7 @@ func sha256Hash(data []byte) string {
 	return fmt.Sprintf("%x", sha256.Sum256(data))
 }
 
-func (r *ReconcilePerconaXtraDBCluster) mysqlVersionForPasswordPolicies(ctx context.Context, cr *api.PerconaXtraDBCluster) (*version.Version, error) {
+func (r *ReconcilePerconaXtraDBCluster) currentMySQLVersion(ctx context.Context, cr *api.PerconaXtraDBCluster) (*version.Version, error) {
 	mysqlVersion := cr.Status.PXC.Version
 	if mysqlVersion == "" {
 		var err error
@@ -169,7 +160,7 @@ func (r *ReconcilePerconaXtraDBCluster) mysqlVersionForPasswordPolicies(ctx cont
 }
 
 func (r *ReconcilePerconaXtraDBCluster) mysqlSupportsPasswordPolicyExemptions(ctx context.Context, cr *api.PerconaXtraDBCluster) (bool, error) {
-	ver, err := r.mysqlVersionForPasswordPolicies(ctx, cr)
+	ver, err := r.currentMySQLVersion(ctx, cr)
 	if err != nil || ver == nil {
 		return false, err
 	}
@@ -467,34 +458,23 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(ctx context.Context, c
 			return errors.Wrap(err, "update monitor user grant")
 		}
 
-		mysqlVersion := cr.Status.PXC.Version
-		if mysqlVersion == "" {
-			var err error
-			mysqlVersion, err = r.mysqlVersion(ctx, cr, statefulset.NewNode(cr))
-			if err != nil {
-				if errors.Is(err, versionNotReadyErr) {
-					return nil
-				}
-				return errors.Wrap(err, "retrieving pxc version")
+		ver, err := r.currentMySQLVersion(ctx, cr)
+		if err != nil {
+			return err
+		}
+		if ver == nil {
+			return nil
+		}
+
+		if !ver.LessThan(privSystemUserAddedIn) {
+			if err := r.grantMonitorUserPrivilege(ctx, cr, internalSecrets, um); err != nil {
+				return errors.Wrap(err, "monitor user grant system privilege")
 			}
 		}
 
-		if mysqlVersion != "" {
-			ver, err := version.NewVersion(mysqlVersion)
-			if err != nil {
-				return errors.Wrap(err, "invalid pxc version")
-			}
-
-			if !ver.LessThan(privSystemUserAddedIn) {
-				if err := r.grantMonitorUserPrivilege(ctx, cr, internalSecrets, um); err != nil {
-					return errors.Wrap(err, "monitor user grant system privilege")
-				}
-			}
-
-			if !ver.LessThan(mysql84) {
-				if err := r.grantMonitorUserAuditAdminPrivilege(ctx, internalSecrets, um); err != nil {
-					return errors.Wrap(err, "monitor user grant audit admin privilege")
-				}
+		if !ver.LessThan(mysql84) {
+			if err := r.grantMonitorUserAuditAdminPrivilege(ctx, internalSecrets, um); err != nil {
+				return errors.Wrap(err, "monitor user grant audit admin privilege")
 			}
 		}
 	}
@@ -1331,11 +1311,11 @@ func (r *ReconcilePerconaXtraDBCluster) disableUserPasswordPolicies(ctx context.
 		return nil
 	}
 
-	ver, err := r.mysqlVersionForPasswordPolicies(ctx, cr)
+	supportsPasswordPolicyExemptions, err := r.mysqlSupportsPasswordPolicyExemptions(ctx, cr)
 	if err != nil {
 		return errors.Wrap(err, "check mysql version")
 	}
-	if ver == nil || !ver.GreaterThanOrEqual(mysql80) {
+	if !supportsPasswordPolicyExemptions {
 		return nil
 	}
 

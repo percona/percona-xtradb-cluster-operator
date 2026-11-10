@@ -15,10 +15,10 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 )
 
-// TestMysqlVersionForPasswordPolicies covers the version resolution helper used
-// to gate the password_history / password_reuse_interval / password_require_current
-// overrides.
-func TestMysqlVersionForPasswordPolicies(t *testing.T) {
+// TestCurrentMySQLVersion covers the version resolution helper used to gate the
+// password_history / password_reuse_interval / password_require_current
+// overrides, as well as monitor-user privilege grants.
+func TestCurrentMySQLVersion(t *testing.T) {
 	tests := []struct {
 		name        string
 		statusVer   string
@@ -51,7 +51,7 @@ func TestMysqlVersionForPasswordPolicies(t *testing.T) {
 
 			r := buildFakeClient([]runtime.Object{cr})
 
-			ver, err := r.mysqlVersionForPasswordPolicies(context.Background(), cr)
+			ver, err := r.currentMySQLVersion(context.Background(), cr)
 
 			if tt.expectError {
 				require.Error(t, err)

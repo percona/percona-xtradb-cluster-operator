@@ -34,10 +34,6 @@ var (
 // https://dev.mysql.com/doc/refman/8.0/en/privileges-provided.html#priv_system-user
 var privSystemUserAddedIn = version.Must(version.NewVersion("8.0.16"))
 
-// https://dev.mysql.com/doc/refman/8.0/en/password-management.html
-// the "PASSWORD REQUIRE CURRENT" introduced in MySQL 8.0.13
-var passwordRequireCurrentAddedIn = version.Must(version.NewVersion("8.0.13"))
-
 var PassNotPropagatedError = errors.New("password not yet propagated")
 
 type userUpdateActions struct {
@@ -248,7 +244,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleRootUser(ctx context.Context, cr *
 		return err
 	}
 
-	if err := r.updateUserPasswordReusePolicy(ctx, cr, internalSecrets, user); err != nil {
+	if err := r.disableUserPasswordPolicies(ctx, cr, internalSecrets, user); err != nil {
 		return err
 	}
 
@@ -324,7 +320,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleOperatorUser(ctx context.Context, 
 			return err
 		}
 
-		if err := r.updateUserPasswordReusePolicy(ctx, cr, internalSecrets, user); err != nil {
+		if err := r.disableUserPasswordPolicies(ctx, cr, internalSecrets, user); err != nil {
 			return err
 		}
 	}
@@ -453,7 +449,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(ctx context.Context, c
 			return err
 		}
 
-		if err := r.updateUserPasswordReusePolicy(ctx, cr, internalSecrets, user); err != nil {
+		if err := r.disableUserPasswordPolicies(ctx, cr, internalSecrets, user); err != nil {
 			return err
 		}
 
@@ -635,7 +631,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleXtrabackupUser(ctx context.Context
 			return err
 		}
 
-		if err := r.updateUserPasswordReusePolicy(ctx, cr, internalSecrets, user); err != nil {
+		if err := r.disableUserPasswordPolicies(ctx, cr, internalSecrets, user); err != nil {
 			return err
 		}
 
@@ -760,7 +756,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleReplicationUser(ctx context.Contex
 			return err
 		}
 
-		if err := r.updateUserPasswordReusePolicy(ctx, cr, internalSecrets, user); err != nil {
+		if err := r.disableUserPasswordPolicies(ctx, cr, internalSecrets, user); err != nil {
 			return err
 		}
 	}
@@ -895,7 +891,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleProxyadminUser(ctx context.Context
 		return err
 	}
 
-	if err := r.updateUserPasswordReusePolicy(ctx, cr, internalSecrets, user); err != nil {
+	if err := r.disableUserPasswordPolicies(ctx, cr, internalSecrets, user); err != nil {
 		return err
 	}
 
@@ -1327,28 +1323,11 @@ func (r *ReconcilePerconaXtraDBCluster) updateUserPassExpirationPolicy(ctx conte
 	return nil
 }
 
-// updateUserPasswordReusePolicy exempts an operator-managed user from server-side password
-// policies that are not appropriate for accounts whose passwords are rotated by the operator
-// itself: password_history / password_reuse_interval (MySQL 8.0.0+), and
-// password_require_current (MySQL 8.0.13+ ONLY). See users.Manager.DisablePasswordHistoryPolicy
-// and DisablePasswordRequireCurrentPolicy for details.
-//
-// The two overrides are tracked and applied independently (separate annotations, separate SQL
-// statements): password_require_current support requires a strictly newer PXC patch version
-// (8.0.13+) than password_history (8.0.0+), so a cluster running an older 8.0.x patch must
-// still get the history override now, and must still pick up the require-current override
-// later if/when it's upgraded to 8.0.13+ — a single shared "done" flag would either block the
-// first override on old patches (if combined in one statement) or permanently skip the second
-// one once marked done on an old patch.
-func (r *ReconcilePerconaXtraDBCluster) updateUserPasswordReusePolicy(ctx context.Context, cr *api.PerconaXtraDBCluster, internalSecrets *corev1.Secret, user *users.SysUser) error {
+func (r *ReconcilePerconaXtraDBCluster) disableUserPasswordPolicies(ctx context.Context, cr *api.PerconaXtraDBCluster, internalSecrets *corev1.Secret, user *users.SysUser) error {
 	log := logf.FromContext(ctx)
 
-	historyAnnotation := "password-history-policy-for-1.20.0-user-" + user.Name
-	requireCurrentAnnotation := "password-require-current-policy-for-1.20.0-user-" + user.Name
-
-	historyDone := internalSecrets.Annotations[historyAnnotation] == "done"
-	requireCurrentDone := internalSecrets.Annotations[requireCurrentAnnotation] == "done"
-	if historyDone && requireCurrentDone {
+	annotation := "password-policy-for-1.20.0-user-" + user.Name
+	if internalSecrets.Annotations[annotation] == "done" {
 		return nil
 	}
 
@@ -1356,13 +1335,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateUserPasswordReusePolicy(ctx contex
 	if err != nil {
 		return errors.Wrap(err, "check mysql version")
 	}
-	if ver == nil {
-		return nil
-	}
-
-	supportsHistory := !historyDone && ver.GreaterThanOrEqual(mysql80)
-	supportsRequireCurrent := !requireCurrentDone && ver.GreaterThanOrEqual(passwordRequireCurrentAddedIn)
-	if !supportsHistory && !supportsRequireCurrent {
+	if ver == nil || !ver.GreaterThanOrEqual(mysql80) {
 		return nil
 	}
 
@@ -1376,29 +1349,19 @@ func (r *ReconcilePerconaXtraDBCluster) updateUserPasswordReusePolicy(ctx contex
 		}
 	}()
 
+	if err := um.DisablePasswordPolicies(user); err != nil {
+		return errors.Wrapf(err, "disable password policies for %s user", user.Name)
+	}
+
 	if internalSecrets.Annotations == nil {
 		internalSecrets.Annotations = make(map[string]string)
 	}
-
-	if supportsHistory {
-		if err := um.DisablePasswordHistoryPolicy(user); err != nil {
-			return errors.Wrapf(err, "disable password history policy for %s user", user.Name)
-		}
-		internalSecrets.Annotations[historyAnnotation] = "done"
-	}
-
-	if supportsRequireCurrent {
-		if err := um.DisablePasswordRequireCurrentPolicy(user); err != nil {
-			return errors.Wrapf(err, "disable password require current policy for %s user", user.Name)
-		}
-		internalSecrets.Annotations[requireCurrentAnnotation] = "done"
-	}
-
+	internalSecrets.Annotations[annotation] = "done"
 	if err = r.client.Update(ctx, internalSecrets); err != nil {
 		return errors.Wrap(err, "update internal sys users secret annotation")
 	}
 
-	log.Info("Password reuse policy disabled", "user", user.Name)
+	log.Info("Password policies disabled", "user", user.Name)
 
 	return nil
 }

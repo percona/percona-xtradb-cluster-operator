@@ -19,16 +19,9 @@ function get_password() {
 MYSQL_VERSION=$(mysqld -V | awk '{print $3}' | awk -F'.' '{print $1"."$2}')
 CFG=/etc/mysql/node.cnf
 
-# Operator-managed users must not be subject to server-side password policies that aren't
-# appropriate for accounts whose passwords are (re-)applied by the restore process itself:
-#   - password_history / password_reuse_interval: restoring a backup re-applies the same
-#     password that was already used (and recorded in the password history), which would
-#     otherwise be rejected with "Error 3638 ... contradict the password history policy".
-#   - password_require_current: would otherwise require the account's current password to be
-#     supplied via a REPLACE clause for self password changes (e.g. root), unless the
-#     connecting session holds SUPER/CONNECTION_ADMIN.
-# Both clauses are only supported starting MySQL 8.0, so use the major version (not an
-# exact-match list) to stay correct for future 8.x/9.x releases too.
+# server-side password policies - password_history, password_reuse_interval, password_require_current
+# should not be applied to operator-managed users
+# The policies are available since MySQL 8.0
 PASSWORD_POLICY_EXEMPT_CLAUSE=""
 if [[ $(echo "$MYSQL_VERSION" | cut -d. -f1) -ge 8 ]]; then
 	PASSWORD_POLICY_EXEMPT_CLAUSE=" PASSWORD HISTORY 0 PASSWORD REUSE INTERVAL 0 DAY PASSWORD REQUIRE CURRENT OPTIONAL"

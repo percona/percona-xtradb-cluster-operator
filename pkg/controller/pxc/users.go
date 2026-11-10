@@ -1306,7 +1306,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateUserPassExpirationPolicy(ctx conte
 func (r *ReconcilePerconaXtraDBCluster) disableUserPasswordPolicies(ctx context.Context, cr *api.PerconaXtraDBCluster, internalSecrets *corev1.Secret, user *users.SysUser) error {
 	log := logf.FromContext(ctx)
 
-	annotation := "password-policy-for-1.20.0-user-" + user.Name
+	annotation := "password-policy-for-1.21.0-user-" + user.Name
 	if internalSecrets.Annotations[annotation] == "done" {
 		return nil
 	}

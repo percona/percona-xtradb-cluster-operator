@@ -108,7 +108,7 @@ func TestDisableUserPasswordPolicies_SkipPaths(t *testing.T) {
 				Name:      "internal-" + cr.Name,
 				Namespace: cr.Namespace,
 				Annotations: map[string]string{
-					"password-policy-for-1.20.0-user-operator": "done",
+					"password-policy-for-1.21.0-user-operator": "done",
 				},
 			},
 		}

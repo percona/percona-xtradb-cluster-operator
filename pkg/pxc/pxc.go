@@ -154,14 +154,6 @@ func getNonPrimaryProxySQL(ctx context.Context, cl client.Client, cr *api.Percon
 	return hosts[0], nil
 }
 
-// ProxySQLPodsWithoutOnlineWriter returns the ProxySQL pods that have no
-// ONLINE server in the writer hostgroup. The pods are not clustered, each one
-// keeps its own runtime_mysql_servers, so every pod is checked separately.
-// Rows with other statuses do not count: the scheduler keeps nodes in
-// maintenance or mid-failover in the hostgroup as OFFLINE_SOFT, and ProxySQL
-// marks unreachable ones SHUNNED. A replica cluster has no writer by design, so
-// the caller is expected to check cr.IsReadOnly(). A pod that cannot be queried
-// is skipped and reported in the returned error alongside the result.
 func ProxySQLPodsWithoutOnlineWriter(ctx context.Context, cl client.Client, cr *api.PerconaXtraDBCluster) ([]string, error) {
 	if !cr.ProxySQLEnabled() {
 		return nil, NoProxyDetectedError
@@ -173,9 +165,6 @@ func ProxySQLPodsWithoutOnlineWriter(ctx context.Context, cl client.Client, cr *
 		pod := fmt.Sprintf("%s-proxysql-%d", cr.Name, i)
 		host := fmt.Sprintf("%s.%s-proxysql-unready.%s", pod, cr.Name, cr.Namespace)
 
-		// The same budget the pod's own readiness probe has for the same query
-		// on the same port. The field is defaulted only for CR >= 1.21.0, which
-		// the caller is expected to check: 0 would mean no timeout at all.
 		conn, err := queries.New(ctx, cl, cr.Namespace, "internal-"+cr.Name, users.ProxyAdmin, host, 6032, cr.Spec.ProxySQL.ReadinessProbes.TimeoutSeconds)
 		if err != nil {
 			errs = append(errs, errors.Wrapf(err, "connect to %s", pod))

@@ -34,6 +34,10 @@ var (
 // https://dev.mysql.com/doc/refman/8.0/en/privileges-provided.html#priv_system-user
 var privSystemUserAddedIn = version.Must(version.NewVersion("8.0.16"))
 
+// https://dev.mysql.com/doc/refman/8.0/en/password-management.html
+// the "PASSWORD REQUIRE CURRENT" introduced in MySQL 8.0.13
+var passwordRequireCurrentAddedIn = version.Must(version.NewVersion("8.0.13"))
+
 var PassNotPropagatedError = errors.New("password not yet propagated")
 
 type userUpdateActions struct {
@@ -144,28 +148,34 @@ func sha256Hash(data []byte) string {
 	return fmt.Sprintf("%x", sha256.Sum256(data))
 }
 
-// mysqlSupportsPasswordHistoryPolicy reports whether the running PXC version supports the
-// password_history / password_reuse_interval policy (MySQL 8.0+). If the version cannot be
-// determined yet, it returns false so callers fall back to not using the related SQL clauses.
-func (r *ReconcilePerconaXtraDBCluster) mysqlSupportsPasswordHistoryPolicy(ctx context.Context, cr *api.PerconaXtraDBCluster) (bool, error) {
+func (r *ReconcilePerconaXtraDBCluster) mysqlVersionForPasswordPolicies(ctx context.Context, cr *api.PerconaXtraDBCluster) (*version.Version, error) {
 	mysqlVersion := cr.Status.PXC.Version
 	if mysqlVersion == "" {
 		var err error
 		mysqlVersion, err = r.mysqlVersion(ctx, cr, statefulset.NewNode(cr))
 		if err != nil {
 			if errors.Is(err, versionNotReadyErr) {
-				return false, nil
+				return nil, nil
 			}
-			return false, errors.Wrap(err, "retrieving pxc version")
+			return nil, errors.Wrap(err, "retrieving pxc version")
 		}
 	}
 	if mysqlVersion == "" {
-		return false, nil
+		return nil, nil
 	}
 
 	ver, err := version.NewVersion(mysqlVersion)
 	if err != nil {
-		return false, errors.Wrap(err, "invalid pxc version")
+		return nil, errors.Wrap(err, "invalid pxc version")
+	}
+
+	return ver, nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) mysqlSupportsPasswordHistoryPolicy(ctx context.Context, cr *api.PerconaXtraDBCluster) (bool, error) {
+	ver, err := r.mysqlVersionForPasswordPolicies(ctx, cr)
+	if err != nil || ver == nil {
+		return false, err
 	}
 
 	return ver.GreaterThanOrEqual(mysql80), nil
@@ -1319,24 +1329,40 @@ func (r *ReconcilePerconaXtraDBCluster) updateUserPassExpirationPolicy(ctx conte
 
 // updateUserPasswordReusePolicy exempts an operator-managed user from server-side password
 // policies that are not appropriate for accounts whose passwords are rotated by the operator
-// itself (MySQL 8.0+ only): password_history / password_reuse_interval, and
-// password_require_current. See users.Manager.DisablePasswordReusePolicy for details. The
-// override is applied once, in a statement separate from any password change, since MySQL
-// only applies these policy options starting from the next password change when specified
-// alongside the change itself.
+// itself: password_history / password_reuse_interval (MySQL 8.0.0+), and
+// password_require_current (MySQL 8.0.13+ ONLY). See users.Manager.DisablePasswordHistoryPolicy
+// and DisablePasswordRequireCurrentPolicy for details.
+//
+// The two overrides are tracked and applied independently (separate annotations, separate SQL
+// statements): password_require_current support requires a strictly newer PXC patch version
+// (8.0.13+) than password_history (8.0.0+), so a cluster running an older 8.0.x patch must
+// still get the history override now, and must still pick up the require-current override
+// later if/when it's upgraded to 8.0.13+ — a single shared "done" flag would either block the
+// first override on old patches (if combined in one statement) or permanently skip the second
+// one once marked done on an old patch.
 func (r *ReconcilePerconaXtraDBCluster) updateUserPasswordReusePolicy(ctx context.Context, cr *api.PerconaXtraDBCluster, internalSecrets *corev1.Secret, user *users.SysUser) error {
 	log := logf.FromContext(ctx)
 
-	annotationName := "password-reuse-policy-for-1.20.0-user-" + user.Name
-	if internalSecrets.Annotations[annotationName] == "done" {
+	historyAnnotation := "password-history-policy-for-1.20.0-user-" + user.Name
+	requireCurrentAnnotation := "password-require-current-policy-for-1.20.0-user-" + user.Name
+
+	historyDone := internalSecrets.Annotations[historyAnnotation] == "done"
+	requireCurrentDone := internalSecrets.Annotations[requireCurrentAnnotation] == "done"
+	if historyDone && requireCurrentDone {
 		return nil
 	}
 
-	supportsPasswordHistory, err := r.mysqlSupportsPasswordHistoryPolicy(ctx, cr)
+	ver, err := r.mysqlVersionForPasswordPolicies(ctx, cr)
 	if err != nil {
 		return errors.Wrap(err, "check mysql version")
 	}
-	if !supportsPasswordHistory {
+	if ver == nil {
+		return nil
+	}
+
+	supportsHistory := !historyDone && ver.GreaterThanOrEqual(mysql80)
+	supportsRequireCurrent := !requireCurrentDone && ver.GreaterThanOrEqual(passwordRequireCurrentAddedIn)
+	if !supportsHistory && !supportsRequireCurrent {
 		return nil
 	}
 
@@ -1350,15 +1376,24 @@ func (r *ReconcilePerconaXtraDBCluster) updateUserPasswordReusePolicy(ctx contex
 		}
 	}()
 
-	if err := um.DisablePasswordReusePolicy(user); err != nil {
-		return errors.Wrapf(err, "disable password reuse policy for %s user", user.Name)
-	}
-
 	if internalSecrets.Annotations == nil {
 		internalSecrets.Annotations = make(map[string]string)
 	}
 
-	internalSecrets.Annotations[annotationName] = "done"
+	if supportsHistory {
+		if err := um.DisablePasswordHistoryPolicy(user); err != nil {
+			return errors.Wrapf(err, "disable password history policy for %s user", user.Name)
+		}
+		internalSecrets.Annotations[historyAnnotation] = "done"
+	}
+
+	if supportsRequireCurrent {
+		if err := um.DisablePasswordRequireCurrentPolicy(user); err != nil {
+			return errors.Wrapf(err, "disable password require current policy for %s user", user.Name)
+		}
+		internalSecrets.Annotations[requireCurrentAnnotation] = "done"
+	}
+
 	if err = r.client.Update(ctx, internalSecrets); err != nil {
 		return errors.Wrap(err, "update internal sys users secret annotation")
 	}

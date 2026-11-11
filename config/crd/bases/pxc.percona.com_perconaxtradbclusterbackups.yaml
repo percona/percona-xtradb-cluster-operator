@@ -26,6 +26,10 @@ spec:
       jsonPath: .status.storageName
       name: Storage
       type: string
+    - description: Backup type
+      jsonPath: .status.type
+      name: Type
+      type: string
     - description: Backup destination
       jsonPath: .status.destination
       name: Destination
@@ -64,6 +68,14 @@ spec:
                 properties:
                   args:
                     properties:
+                      mydumper:
+                        items:
+                          type: string
+                        type: array
+                      myloader:
+                        items:
+                          type: string
+                        type: array
                       xbcloud:
                         items:
                           type: string
@@ -174,6 +186,12 @@ spec:
               suspendedDeadlineSeconds:
                 format: int64
                 type: integer
+              type:
+                default: full
+                enum:
+                - full
+                - logical
+                type: string
             type: object
           status:
             properties:
@@ -373,6 +391,9 @@ spec:
                   skipBucketExistsCheck:
                     type: boolean
                 type: object
+              size:
+                format: int64
+                type: integer
               sslInternalSecretName:
                 type: string
               sslSecretName:
@@ -382,6 +403,11 @@ spec:
               storage_type:
                 type: string
               storageName:
+                type: string
+              type:
+                enum:
+                - full
+                - logical
                 type: string
               vaultSecretName:
                 type: string

@@ -1114,3 +1114,45 @@ func TestExecuteConfigurationTemplate(t *testing.T) {
 		})
 	}
 }
+
+func TestBackupContainerArgsEnv(t *testing.T) {
+	tests := map[string]struct {
+		args     BackupContainerArgs
+		expected []corev1.EnvVar
+	}{
+		"no args": {
+			args:     BackupContainerArgs{},
+			expected: []corev1.EnvVar{},
+		},
+		"mydumper args": {
+			args: BackupContainerArgs{Mydumper: []string{"--threads=8", `--regex=^shop\.`}},
+			expected: []corev1.EnvVar{
+				{Name: "MYDUMPER_EXTRA_ARGS", Value: `--threads=8 --regex=^shop\.`},
+			},
+		},
+		"myloader args": {
+			args: BackupContainerArgs{Myloader: []string{"--threads=2"}},
+			expected: []corev1.EnvVar{
+				{Name: "MYLOADER_EXTRA_ARGS", Value: "--threads=2"},
+			},
+		},
+		"physical and logical args together": {
+			args: BackupContainerArgs{
+				Xtrabackup: []string{"--parallel=2"},
+				Mydumper:   []string{"--threads=8"},
+				Myloader:   []string{"--threads=2"},
+			},
+			expected: []corev1.EnvVar{
+				{Name: "XB_EXTRA_ARGS", Value: "--parallel=2"},
+				{Name: "MYDUMPER_EXTRA_ARGS", Value: "--threads=8"},
+				{Name: "MYLOADER_EXTRA_ARGS", Value: "--threads=2"},
+			},
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, tt.args.Env())
+		})
+	}
+}

@@ -359,6 +359,14 @@ type PXCScheduledBackupSchedule struct {
 	Retention *PXCScheduledBackupRetention `json:"retention,omitempty"`
 	// +kubebuilder:validation:Required
 	StorageName string `json:"storageName,omitempty"`
+	// Type of the backups this schedule creates: "full" is a physical backup
+	// taken with xtrabackup, "logical" is a SQL-level dump taken with mydumper.
+	// Must be one of "full" or "logical". Defaults to "full".
+	// Logical backups are supported only on s3 storage.
+	// +optional
+	// +kubebuilder:validation:Enum=full;logical
+	// +kubebuilder:default:=full
+	Type PXCBackupType `json:"type,omitempty"`
 }
 
 type PXCScheduledBackupRetentionType string
@@ -952,6 +960,12 @@ type BackupContainerArgs struct {
 	Xtrabackup []string `json:"xtrabackup,omitempty"`
 	Xbcloud    []string `json:"xbcloud,omitempty"`
 	Xbstream   []string `json:"xbstream,omitempty"`
+	// Mydumper holds extra arguments for mydumper. Used by logical backups only.
+	// +optional
+	Mydumper []string `json:"mydumper,omitempty"`
+	// Myloader holds extra arguments for myloader. Used by restores of logical backups only.
+	// +optional
+	Myloader []string `json:"myloader,omitempty"`
 }
 
 func (b *BackupContainerArgs) Env() []corev1.EnvVar {
@@ -972,6 +986,18 @@ func (b *BackupContainerArgs) Env() []corev1.EnvVar {
 		envs = append(envs, corev1.EnvVar{
 			Name:  "XBSTREAM_EXTRA_ARGS",
 			Value: strings.Join(b.Xbstream, " "),
+		})
+	}
+	if len(b.Mydumper) > 0 {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "MYDUMPER_EXTRA_ARGS",
+			Value: strings.Join(b.Mydumper, " "),
+		})
+	}
+	if len(b.Myloader) > 0 {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "MYLOADER_EXTRA_ARGS",
+			Value: strings.Join(b.Myloader, " "),
 		})
 	}
 	return envs

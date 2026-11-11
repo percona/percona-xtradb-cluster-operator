@@ -155,7 +155,7 @@ fi
 desc 'password_history/password_reuse_interval/password_require_current/default_password_lifetime must not break operator-managed users'
 if kubectl_bin logs ${OPERATOR_NS:+-n $OPERATOR_NS} "$(get_operator_pod)" \
 	| grep "$cluster" \
-	| grep -iE "contradict the password (history|reuse) policy|needs to be specified in the REPLACE clause|does not satisfy the current policy"; then
+	| grep -iE "contradict the password (history|reuse) policy|does not satisfy the current policy|disable password policies for"; then
 	echo "ERROR: operator-managed user password rotation hit a MySQL password policy error, see log line(s) above"
 	exit 1
 fi

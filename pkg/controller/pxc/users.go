@@ -1247,12 +1247,6 @@ func getUserManager(cr *api.PerconaXtraDBCluster, secrets *corev1.Secret) (*user
 	return &um, nil
 }
 
-// exemptUserFromPasswordPolicies exempts an operator-managed user from server-side
-// password policies that could otherwise break the operator's own password rotation:
-// PASSWORD EXPIRE NEVER, and, on MySQL 8.0+, password_history, password_reuse_interval
-// and password_require_current. Applied via a single ALTER USER statement per host,
-// tracked by one annotation. Used for both the dual-password (8.0+) and non-dual-password
-// (pre-8.0) reconcile paths; on pre-8.0 servers only the PASSWORD EXPIRE NEVER clause applies.
 func (r *ReconcilePerconaXtraDBCluster) exemptUserFromPasswordPolicies(ctx context.Context, cr *api.PerconaXtraDBCluster, internalSecrets *corev1.Secret, user *users.SysUser) error {
 	log := logf.FromContext(ctx)
 

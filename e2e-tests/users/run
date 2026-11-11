@@ -17,6 +17,14 @@ newpassencrypted=$(echo -n "$newpass" | base64)
 cluster="some-name"
 spinup_pxc "$cluster" "$conf_dir/$cluster.yml" "" "" "$conf_dir/secrets_one_pass.yml"
 
+PXC_MAJOR_VER=$(echo "$IMAGE_PXC" | grep -oE '[0-9]+\.[0-9]+' | head -1 | cut -d. -f1)
+if [[ ${PXC_MAJOR_VER:-0} -ge 8 ]]; then
+	desc 'enable password_history/password_reuse_interval/password_require_current/default_password_lifetime (8.0+ only) and make sure operator-managed users are exempt from them'
+	kubectl_bin patch pxc "$cluster" --type=merge -p='{"spec":{"pxc":{"configuration":"[mysqld]\npassword_history=5\npassword_reuse_interval=365\npassword_require_current=ON\ndefault_password_lifetime=90\n"}}}'
+	sleep 15
+	wait_cluster_consistency "$cluster" 3 2
+fi
+
 PROXYSQL_VER=$(kubectl exec -it $cluster-proxysql-0 -- sh -c 'proxysql --version 2>/dev/null' | awk '{print $3}' | cut -d. -f1)
 tables_cmp_file="select-2-proxysql3"
 if [[ $PROXYSQL_VER == 2 ]]; then
@@ -142,6 +150,14 @@ if [[ $IMAGE_PXC =~ 5\.7 ]]; then
 	check_generation "3" "haproxy" "${cluster}"
 else
 	check_generation "1" "haproxy" "${cluster}"
+fi
+
+desc 'password_history/password_reuse_interval/password_require_current/default_password_lifetime must not break operator-managed users'
+if kubectl_bin logs ${OPERATOR_NS:+-n $OPERATOR_NS} "$(get_operator_pod)" \
+	| grep "$cluster" \
+	| grep -iE "contradict the password (history|reuse) policy|needs to be specified in the REPLACE clause|does not satisfy the current policy"; then
+	echo "ERROR: operator-managed user password rotation hit a MySQL password policy error, see log line(s) above"
+	exit 1
 fi
 
 destroy "${namespace}"

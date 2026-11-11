@@ -1247,42 +1247,6 @@ func getUserManager(cr *api.PerconaXtraDBCluster, secrets *corev1.Secret) (*user
 	return &um, nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) updateUserPassExpirationPolicy(ctx context.Context, cr *api.PerconaXtraDBCluster, internalSecrets *corev1.Secret, user *users.SysUser) error {
-	log := logf.FromContext(ctx)
-
-	annotationName := "pass-expire-policy-for-1.13.0-user-" + user.Name
-	if internalSecrets.Annotations[annotationName] == "done" {
-		return nil
-	}
-
-	um, err := getUserManager(cr, internalSecrets)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if derr := um.Close(); derr != nil {
-			log.Error(derr, "failed to close user manager")
-		}
-	}()
-
-	if err := um.UpdatePassExpirationPolicy(user); err != nil {
-		return errors.Wrapf(err, "update %s user password expiration policy", user.Name)
-	}
-
-	if internalSecrets.Annotations == nil {
-		internalSecrets.Annotations = make(map[string]string)
-	}
-
-	internalSecrets.Annotations[annotationName] = "done"
-	if err = r.client.Update(ctx, internalSecrets); err != nil {
-		return errors.Wrap(err, "update internal sys users secret annotation")
-	}
-
-	log.Info("Password expiration policy updated", "user", user.Name)
-
-	return nil
-}
-
 // applyUserPasswordPolicies exempts an operator-managed user from password policies
 // that could otherwise break the operator's own password rotation: PASSWORD EXPIRE NEVER,
 // and, on MySQL 8.0+, password_history, password_reuse_interval and password_require_current.

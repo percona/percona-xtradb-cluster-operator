@@ -73,7 +73,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleRootUserWithoutDP(ctx context.Cont
 		Hosts: []string{"localhost", "%"},
 	}
 
-	if err := r.updateUserPassExpirationPolicy(ctx, cr, internalSecrets, user); err != nil {
+	if err := r.applyUserPasswordPolicies(ctx, cr, internalSecrets, user); err != nil {
 		return err
 	}
 
@@ -124,7 +124,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleOperatorUserWithoutDP(ctx context.
 			return errors.Wrap(err, "manage operator admin user")
 		}
 
-		if err := r.updateUserPassExpirationPolicy(ctx, cr, internalSecrets, user); err != nil {
+		if err := r.applyUserPasswordPolicies(ctx, cr, internalSecrets, user); err != nil {
 			return err
 		}
 	}
@@ -171,7 +171,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUserWithoutDP(ctx context.C
 	}
 
 	if cr.Status.PXC.Ready > 0 {
-		if err := r.updateUserPassExpirationPolicy(ctx, cr, internalSecrets, user); err != nil {
+		if err := r.applyUserPasswordPolicies(ctx, cr, internalSecrets, user); err != nil {
 			return err
 		}
 
@@ -250,7 +250,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleXtrabackupUserWithoutDP(ctx contex
 	}
 
 	if cr.Status.PXC.Ready > 0 {
-		if err := r.updateUserPassExpirationPolicy(ctx, cr, internalSecrets, user); err != nil {
+		if err := r.applyUserPasswordPolicies(ctx, cr, internalSecrets, user); err != nil {
 			return err
 		}
 
@@ -317,7 +317,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleReplicationUserWithoutDP(ctx conte
 			return errors.Wrap(err, "manage replication user")
 		}
 
-		if err := r.updateUserPassExpirationPolicy(ctx, cr, internalSecrets, user); err != nil {
+		if err := r.applyUserPasswordPolicies(ctx, cr, internalSecrets, user); err != nil {
 			return err
 		}
 	}
@@ -374,7 +374,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleProxyadminUserWithoutDP(ctx contex
 		return nil
 	}
 
-	if err := r.updateUserPassExpirationPolicy(ctx, cr, internalSecrets, user); err != nil {
+	if err := r.applyUserPasswordPolicies(ctx, cr, internalSecrets, user); err != nil {
 		return err
 	}
 

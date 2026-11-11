@@ -12,8 +12,9 @@ function escape_special() {
 
 function get_password() {
 	local user=$1
+	local secret_file="/etc/mysql/mysql-users-secret/${user}"
 
-	escape_special $(</etc/mysql/mysql-users-secret/${user})
+	escape_special "$(<"$secret_file")"
 }
 
 MYSQL_VERSION=$(mysqld -V | awk '{print $3}' | awk -F'.' '{print $1"."$2}')

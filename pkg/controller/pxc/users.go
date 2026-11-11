@@ -235,11 +235,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleRootUser(ctx context.Context, cr *
 		return nil
 	}
 
-	if err := r.updateUserPassExpirationPolicy(ctx, cr, internalSecrets, user); err != nil {
-		return err
-	}
-
-	if err := r.disableUserPasswordPolicies(ctx, cr, internalSecrets, user); err != nil {
+	if err := r.applyUserPasswordPolicies(ctx, cr, internalSecrets, user); err != nil {
 		return err
 	}
 
@@ -311,11 +307,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleOperatorUser(ctx context.Context, 
 			return errors.Wrap(err, "manage operator admin user")
 		}
 
-		if err := r.updateUserPassExpirationPolicy(ctx, cr, internalSecrets, user); err != nil {
-			return err
-		}
-
-		if err := r.disableUserPasswordPolicies(ctx, cr, internalSecrets, user); err != nil {
+		if err := r.applyUserPasswordPolicies(ctx, cr, internalSecrets, user); err != nil {
 			return err
 		}
 	}
@@ -440,11 +432,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(ctx context.Context, c
 	}
 
 	if cr.Status.PXC.Ready > 0 {
-		if err := r.updateUserPassExpirationPolicy(ctx, cr, internalSecrets, user); err != nil {
-			return err
-		}
-
-		if err := r.disableUserPasswordPolicies(ctx, cr, internalSecrets, user); err != nil {
+		if err := r.applyUserPasswordPolicies(ctx, cr, internalSecrets, user); err != nil {
 			return err
 		}
 
@@ -611,11 +599,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleXtrabackupUser(ctx context.Context
 	}
 
 	if cr.Status.PXC.Ready > 0 {
-		if err := r.updateUserPassExpirationPolicy(ctx, cr, internalSecrets, user); err != nil {
-			return err
-		}
-
-		if err := r.disableUserPasswordPolicies(ctx, cr, internalSecrets, user); err != nil {
+		if err := r.applyUserPasswordPolicies(ctx, cr, internalSecrets, user); err != nil {
 			return err
 		}
 
@@ -736,11 +720,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleReplicationUser(ctx context.Contex
 			return errors.Wrap(err, "manage replication user")
 		}
 
-		if err := r.updateUserPassExpirationPolicy(ctx, cr, internalSecrets, user); err != nil {
-			return err
-		}
-
-		if err := r.disableUserPasswordPolicies(ctx, cr, internalSecrets, user); err != nil {
+		if err := r.applyUserPasswordPolicies(ctx, cr, internalSecrets, user); err != nil {
 			return err
 		}
 	}
@@ -871,11 +851,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleProxyadminUser(ctx context.Context
 		return nil
 	}
 
-	if err := r.updateUserPassExpirationPolicy(ctx, cr, internalSecrets, user); err != nil {
-		return err
-	}
-
-	if err := r.disableUserPasswordPolicies(ctx, cr, internalSecrets, user); err != nil {
+	if err := r.applyUserPasswordPolicies(ctx, cr, internalSecrets, user); err != nil {
 		return err
 	}
 
@@ -1348,6 +1324,19 @@ func (r *ReconcilePerconaXtraDBCluster) disableUserPasswordPolicies(ctx context.
 	log.Info("Password policies disabled", "user", user.Name)
 
 	return nil
+}
+
+// applyUserPasswordPolicies applies the password-related policies operator-managed
+// users must have: no expiration (since 1.13.0) and, on MySQL 8.0+, exemption from
+// password_history/password_reuse_interval/password_require_current (since 1.21.0).
+// Each policy is tracked by its own annotation/version gate; this is just a shared
+// entry point to avoid repeating both calls at every user handler call site.
+func (r *ReconcilePerconaXtraDBCluster) applyUserPasswordPolicies(ctx context.Context, cr *api.PerconaXtraDBCluster, internalSecrets *corev1.Secret, user *users.SysUser) error {
+	if err := r.updateUserPassExpirationPolicy(ctx, cr, internalSecrets, user); err != nil {
+		return err
+	}
+
+	return r.disableUserPasswordPolicies(ctx, cr, internalSecrets, user)
 }
 
 func (r *ReconcilePerconaXtraDBCluster) invalidPasswordApplied(status api.PerconaXtraDBClusterStatus) bool {

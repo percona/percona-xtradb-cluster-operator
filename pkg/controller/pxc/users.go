@@ -1283,7 +1283,11 @@ func (r *ReconcilePerconaXtraDBCluster) updateUserPassExpirationPolicy(ctx conte
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) disableUserPasswordPolicies(ctx context.Context, cr *api.PerconaXtraDBCluster, internalSecrets *corev1.Secret, user *users.SysUser) error {
+// applyUserPasswordPolicies exempts an operator-managed user from password policies
+// that could otherwise break the operator's own password rotation: PASSWORD EXPIRE NEVER,
+// and, on MySQL 8.0+, password_history, password_reuse_interval and password_require_current.
+// Applied via a single ALTER USER statement per host, tracked by one annotation.
+func (r *ReconcilePerconaXtraDBCluster) applyUserPasswordPolicies(ctx context.Context, cr *api.PerconaXtraDBCluster, internalSecrets *corev1.Secret, user *users.SysUser) error {
 	log := logf.FromContext(ctx)
 
 	annotation := "password-policy-for-1.21.0-user-" + user.Name
@@ -1291,11 +1295,11 @@ func (r *ReconcilePerconaXtraDBCluster) disableUserPasswordPolicies(ctx context.
 		return nil
 	}
 
-	supportsPasswordPolicyExemptions, err := r.mysqlSupportsPasswordPolicyExemptions(ctx, cr)
+	ver, err := r.currentMySQLVersion(ctx, cr)
 	if err != nil {
 		return errors.Wrap(err, "check mysql version")
 	}
-	if !supportsPasswordPolicyExemptions {
+	if ver == nil {
 		return nil
 	}
 
@@ -1309,8 +1313,8 @@ func (r *ReconcilePerconaXtraDBCluster) disableUserPasswordPolicies(ctx context.
 		}
 	}()
 
-	if err := um.DisablePasswordPolicies(user); err != nil {
-		return errors.Wrapf(err, "disable password policies for %s user", user.Name)
+	if err := um.ExemptFromPasswordPolicies(user, ver.GreaterThanOrEqual(mysql80)); err != nil {
+		return errors.Wrapf(err, "exempt %s user from password policies", user.Name)
 	}
 
 	if internalSecrets.Annotations == nil {
@@ -1321,22 +1325,9 @@ func (r *ReconcilePerconaXtraDBCluster) disableUserPasswordPolicies(ctx context.
 		return errors.Wrap(err, "update internal sys users secret annotation")
 	}
 
-	log.Info("Password policies disabled", "user", user.Name)
+	log.Info("Password policies applied", "user", user.Name)
 
 	return nil
-}
-
-// applyUserPasswordPolicies applies the password-related policies operator-managed
-// users must have: no expiration (since 1.13.0) and, on MySQL 8.0+, exemption from
-// password_history/password_reuse_interval/password_require_current (since 1.21.0).
-// Each policy is tracked by its own annotation/version gate; this is just a shared
-// entry point to avoid repeating both calls at every user handler call site.
-func (r *ReconcilePerconaXtraDBCluster) applyUserPasswordPolicies(ctx context.Context, cr *api.PerconaXtraDBCluster, internalSecrets *corev1.Secret, user *users.SysUser) error {
-	if err := r.updateUserPassExpirationPolicy(ctx, cr, internalSecrets, user); err != nil {
-		return err
-	}
-
-	return r.disableUserPasswordPolicies(ctx, cr, internalSecrets, user)
 }
 
 func (r *ReconcilePerconaXtraDBCluster) invalidPasswordApplied(status api.PerconaXtraDBClusterStatus) bool {

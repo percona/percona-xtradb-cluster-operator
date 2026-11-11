@@ -94,11 +94,11 @@ func TestMysqlSupportsPasswordPolicyExemptions(t *testing.T) {
 	}
 }
 
-// TestDisableUserPasswordPolicies_SkipPaths covers the cases where the
+// TestApplyUserPasswordPolicies_SkipPaths covers the cases where the
 // override must be skipped without ever reaching for a user manager / DB
 // connection: the annotation already applied, and the PXC version not yet
 // known/ready.
-func TestDisableUserPasswordPolicies_SkipPaths(t *testing.T) {
+func TestApplyUserPasswordPolicies_SkipPaths(t *testing.T) {
 	user := &users.SysUser{Name: "operator", Hosts: []string{"%"}}
 
 	t.Run("annotation already done: no-op", func(t *testing.T) {
@@ -115,7 +115,7 @@ func TestDisableUserPasswordPolicies_SkipPaths(t *testing.T) {
 
 		r := buildFakeClient([]runtime.Object{cr, secret})
 
-		err := r.disableUserPasswordPolicies(context.Background(), cr, secret, user)
+		err := r.applyUserPasswordPolicies(context.Background(), cr, secret, user)
 		require.NoError(t, err)
 	})
 
@@ -133,7 +133,7 @@ func TestDisableUserPasswordPolicies_SkipPaths(t *testing.T) {
 
 		r := buildFakeClient([]runtime.Object{cr, secret})
 
-		err := r.disableUserPasswordPolicies(context.Background(), cr, secret, user)
+		err := r.applyUserPasswordPolicies(context.Background(), cr, secret, user)
 		require.NoError(t, err)
 		assert.Empty(t, secret.Annotations)
 	})

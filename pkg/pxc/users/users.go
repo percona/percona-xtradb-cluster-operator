@@ -142,15 +142,22 @@ func (m *Manager) UpdateUserPass(user *SysUser) error {
 	return nil
 }
 
-// DisablePasswordPolicies disables password_history, password_reuse_interval, password_require_current
-// which should not be applied to operator-managed users
-func (m *Manager) DisablePasswordPolicies(user *SysUser) error {
+// ExemptFromPasswordPolicies exempts an operator-managed user from the password expiration
+// policy and, if exemptFromHistory is true (MySQL 8.0+), from password_history,
+// password_reuse_interval and password_require_current - all of which could otherwise
+// break the operator's own password rotation.
+func (m *Manager) ExemptFromPasswordPolicies(user *SysUser, exemptFromHistory bool) error {
 	if user == nil {
 		return nil
 	}
 
+	clause := "PASSWORD EXPIRE NEVER"
+	if exemptFromHistory {
+		clause += " PASSWORD HISTORY 0 PASSWORD REUSE INTERVAL 0 DAY PASSWORD REQUIRE CURRENT OPTIONAL"
+	}
+
 	for _, host := range user.Hosts {
-		_, err := m.db.Exec("ALTER USER ?@? PASSWORD HISTORY 0 PASSWORD REUSE INTERVAL 0 DAY PASSWORD REQUIRE CURRENT OPTIONAL", user.Name, host)
+		_, err := m.db.Exec("ALTER USER ?@? "+clause, user.Name, host)
 		if err != nil {
 			return errors.Wrap(err, "alter user")
 		}

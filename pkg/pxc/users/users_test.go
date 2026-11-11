@@ -70,25 +70,37 @@ func TestUpdateUserPass_RollbackOnError(t *testing.T) {
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestDisablePasswordPolicies(t *testing.T) {
+func TestExemptFromPasswordPolicies_WithHistoryExemption(t *testing.T) {
 	m, mock := newMockManager(t)
 
-	mock.ExpectExec("ALTER USER ?@? PASSWORD HISTORY 0 PASSWORD REUSE INTERVAL 0 DAY PASSWORD REQUIRE CURRENT OPTIONAL").
+	mock.ExpectExec("ALTER USER ?@? PASSWORD EXPIRE NEVER PASSWORD HISTORY 0 PASSWORD REUSE INTERVAL 0 DAY PASSWORD REQUIRE CURRENT OPTIONAL").
 		WithArgs("test", "host1").
 		WillReturnResult(sqlmock.NewResult(0, 1))
-	mock.ExpectExec("ALTER USER ?@? PASSWORD HISTORY 0 PASSWORD REUSE INTERVAL 0 DAY PASSWORD REQUIRE CURRENT OPTIONAL").
+	mock.ExpectExec("ALTER USER ?@? PASSWORD EXPIRE NEVER PASSWORD HISTORY 0 PASSWORD REUSE INTERVAL 0 DAY PASSWORD REQUIRE CURRENT OPTIONAL").
 		WithArgs("test", "host2").
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
-	err := m.DisablePasswordPolicies(&SysUser{Name: "test", Hosts: []string{"host1", "host2"}})
+	err := m.ExemptFromPasswordPolicies(&SysUser{Name: "test", Hosts: []string{"host1", "host2"}}, true)
 	require.NoError(t, err)
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestDisablePasswordPolicies_NilUser(t *testing.T) {
+func TestExemptFromPasswordPolicies_WithoutHistoryExemption(t *testing.T) {
 	m, mock := newMockManager(t)
 
-	require.NoError(t, m.DisablePasswordPolicies(nil))
+	mock.ExpectExec("ALTER USER ?@? PASSWORD EXPIRE NEVER").
+		WithArgs("test", "host1").
+		WillReturnResult(sqlmock.NewResult(0, 1))
+
+	err := m.ExemptFromPasswordPolicies(&SysUser{Name: "test", Hosts: []string{"host1"}}, false)
+	require.NoError(t, err)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestExemptFromPasswordPolicies_NilUser(t *testing.T) {
+	m, mock := newMockManager(t)
+
+	require.NoError(t, m.ExemptFromPasswordPolicies(nil, true))
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 

@@ -159,6 +159,10 @@ func (r *ReconcilePerconaXtraDBCluster) currentMySQLVersion(ctx context.Context,
 	return ver, nil
 }
 
+// mysqlSupportsPasswordPolicyExemptions reports whether the PXC node supports
+// exempting operator-managed users from password_history, password_reuse_interval
+// and password_require_current (the latter needs 8.0.13+); gated at 8.0.0 since
+// Percona 8.0 images start at 8.0.18.
 func (r *ReconcilePerconaXtraDBCluster) mysqlSupportsPasswordPolicyExemptions(ctx context.Context, cr *api.PerconaXtraDBCluster) (bool, error) {
 	ver, err := r.currentMySQLVersion(ctx, cr)
 	if err != nil || ver == nil {

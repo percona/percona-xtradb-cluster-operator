@@ -28,7 +28,25 @@ func TestCreateOperatorUser(t *testing.T) {
 	mock.ExpectExec("GRANT ALL ON *.* TO 'operator'@'%' WITH GRANT OPTION").
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
-	require.NoError(t, m.CreateOperatorUser("pass1"))
+	require.NoError(t, m.CreateOperatorUser("pass1", false))
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestCreateOperatorUser_WithHistoryExemption(t *testing.T) {
+	m, mock := newMockManager(t)
+
+	// On MySQL 8.0+ the operator user must also be exempted from
+	// password_history / password_reuse_interval / password_require_current
+	// at creation time, in case this CREATE is the only thing that ever
+	// touches this account (e.g. the password-policy annotation was already
+	// marked done when the account didn't actually exist).
+	mock.ExpectExec("CREATE USER IF NOT EXISTS 'operator'@'%' IDENTIFIED BY ? PASSWORD EXPIRE NEVER PASSWORD HISTORY 0 PASSWORD REUSE INTERVAL 0 DAY PASSWORD REQUIRE CURRENT OPTIONAL").
+		WithArgs("pass1").
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectExec("GRANT ALL ON *.* TO 'operator'@'%' WITH GRANT OPTION").
+		WillReturnResult(sqlmock.NewResult(0, 1))
+
+	require.NoError(t, m.CreateOperatorUser("pass1", true))
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
@@ -115,7 +133,22 @@ func TestUpdate160MonitorUserGrant(t *testing.T) {
 	mock.ExpectExec("ALTER USER 'monitor'@'%' WITH MAX_USER_CONNECTIONS 100").
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
-	require.NoError(t, m.Update160MonitorUserGrant("pass1"))
+	require.NoError(t, m.Update160MonitorUserGrant("pass1", false))
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestUpdate160MonitorUserGrant_WithHistoryExemption(t *testing.T) {
+	m, mock := newMockManager(t)
+
+	mock.ExpectExec("CREATE USER IF NOT EXISTS 'monitor'@'%' IDENTIFIED BY ? PASSWORD EXPIRE NEVER PASSWORD HISTORY 0 PASSWORD REUSE INTERVAL 0 DAY PASSWORD REQUIRE CURRENT OPTIONAL").
+		WithArgs("pass1").
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectExec("/*!80015 GRANT SERVICE_CONNECTION_ADMIN ON *.* TO 'monitor'@'%' */").
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectExec("ALTER USER 'monitor'@'%' WITH MAX_USER_CONNECTIONS 100").
+		WillReturnResult(sqlmock.NewResult(0, 1))
+
+	require.NoError(t, m.Update160MonitorUserGrant("pass1", true))
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
@@ -128,7 +161,20 @@ func TestUpdate1150XtrabackupUser(t *testing.T) {
 	mock.ExpectExec("GRANT ALL ON *.* TO 'xtrabackup'@'%' WITH GRANT OPTION").
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
-	require.NoError(t, m.Update1150XtrabackupUser("pass1"))
+	require.NoError(t, m.Update1150XtrabackupUser("pass1", false))
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestUpdate1150XtrabackupUser_WithHistoryExemption(t *testing.T) {
+	m, mock := newMockManager(t)
+
+	mock.ExpectExec("CREATE USER IF NOT EXISTS 'xtrabackup'@'%' IDENTIFIED BY ? PASSWORD EXPIRE NEVER PASSWORD HISTORY 0 PASSWORD REUSE INTERVAL 0 DAY PASSWORD REQUIRE CURRENT OPTIONAL").
+		WithArgs("pass1").
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectExec("GRANT ALL ON *.* TO 'xtrabackup'@'%' WITH GRANT OPTION").
+		WillReturnResult(sqlmock.NewResult(0, 1))
+
+	require.NoError(t, m.Update1150XtrabackupUser("pass1", true))
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
@@ -141,7 +187,20 @@ func TestCreateReplicationUser(t *testing.T) {
 	mock.ExpectExec("GRANT REPLICATION SLAVE ON *.* to 'replication'@'%'").
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
-	require.NoError(t, m.CreateReplicationUser("pass1"))
+	require.NoError(t, m.CreateReplicationUser("pass1", false))
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestCreateReplicationUser_WithHistoryExemption(t *testing.T) {
+	m, mock := newMockManager(t)
+
+	mock.ExpectExec("CREATE USER IF NOT EXISTS 'replication'@'%' IDENTIFIED BY ? PASSWORD EXPIRE NEVER PASSWORD HISTORY 0 PASSWORD REUSE INTERVAL 0 DAY PASSWORD REQUIRE CURRENT OPTIONAL").
+		WithArgs("pass1").
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectExec("GRANT REPLICATION SLAVE ON *.* to 'replication'@'%'").
+		WillReturnResult(sqlmock.NewResult(0, 1))
+
+	require.NoError(t, m.CreateReplicationUser("pass1", true))
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 

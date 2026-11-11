@@ -401,7 +401,12 @@ func (r *ReconcilePerconaXtraDBCluster) manageOperatorAdminUser(ctx context.Cont
 		}
 	}()
 
-	err = um.CreateOperatorUser(string(pass))
+	exemptFromMySQLPolicies, err := r.mysqlSupportsPasswordPolicyExemptions(ctx, cr)
+	if err != nil {
+		return errors.Wrap(err, "check mysql version")
+	}
+
+	err = um.CreateOperatorUser(string(pass), exemptFromMySQLPolicies)
 	if err != nil {
 		return errors.Wrap(err, "create operator user")
 	}
@@ -570,7 +575,12 @@ func (r *ReconcilePerconaXtraDBCluster) updateMonitorUserGrant(ctx context.Conte
 		return nil
 	}
 
-	err := um.Update160MonitorUserGrant(string(internalSysSecretObj.Data[users.Monitor]))
+	exemptFromMySQLPolicies, err := r.mysqlSupportsPasswordPolicyExemptions(ctx, cr)
+	if err != nil {
+		return errors.Wrap(err, "check mysql version")
+	}
+
+	err = um.Update160MonitorUserGrant(string(internalSysSecretObj.Data[users.Monitor]), exemptFromMySQLPolicies)
 	if err != nil {
 		return errors.Wrap(err, "update monitor grant")
 	}
@@ -682,7 +692,12 @@ func (r *ReconcilePerconaXtraDBCluster) updateXtrabackupUserGrant(ctx context.Co
 		}
 	}()
 
-	err = um.Update1150XtrabackupUser(string(secrets.Data[users.Xtrabackup]))
+	exemptFromMySQLPolicies, err := r.mysqlSupportsPasswordPolicyExemptions(ctx, cr)
+	if err != nil {
+		return errors.Wrap(err, "check mysql version")
+	}
+
+	err = um.Update1150XtrabackupUser(string(secrets.Data[users.Xtrabackup]), exemptFromMySQLPolicies)
 	if err != nil {
 		return errors.Wrap(err, "update xtrabackup grant")
 	}
@@ -810,7 +825,12 @@ func (r *ReconcilePerconaXtraDBCluster) manageReplicationUser(ctx context.Contex
 		return errors.Wrap(err, "generate password")
 	}
 
-	err = um.CreateReplicationUser(string(pass))
+	exemptFromMySQLPolicies, err := r.mysqlSupportsPasswordPolicyExemptions(ctx, cr)
+	if err != nil {
+		return errors.Wrap(err, "check mysql version")
+	}
+
+	err = um.CreateReplicationUser(string(pass), exemptFromMySQLPolicies)
 	if err != nil {
 		return errors.Wrap(err, "create replication user")
 	}

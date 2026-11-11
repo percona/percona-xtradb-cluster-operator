@@ -79,8 +79,16 @@ func (u *Manager) Close() error {
 	return u.db.Close()
 }
 
-func (u *Manager) CreateOperatorUser(pass string) error {
-	_, err := u.db.Exec("CREATE USER IF NOT EXISTS 'operator'@'%' IDENTIFIED BY ? PASSWORD EXPIRE NEVER", pass)
+func passwordExpireClause(exemptFromMySQLPolicies bool) string {
+	clause := "PASSWORD EXPIRE NEVER"
+	if exemptFromMySQLPolicies {
+		clause += " PASSWORD HISTORY 0 PASSWORD REUSE INTERVAL 0 DAY PASSWORD REQUIRE CURRENT OPTIONAL"
+	}
+	return clause
+}
+
+func (u *Manager) CreateOperatorUser(pass string, exemptFromMySQLPolicies bool) error {
+	_, err := u.db.Exec("CREATE USER IF NOT EXISTS 'operator'@'%' IDENTIFIED BY ? "+passwordExpireClause(exemptFromMySQLPolicies), pass)
 	if err != nil {
 		return errors.Wrap(err, "create operator user")
 	}
@@ -143,18 +151,15 @@ func (m *Manager) UpdateUserPass(user *SysUser) error {
 }
 
 // ExemptFromPasswordPolicies exempts an operator-managed user from the password expiration
-// policy and, if exemptFromHistory is true (MySQL 8.0+), from password_history,
+// policy and, if exemptFromMySQLPolicies is true, from the MySQL 8.0+ password_history,
 // password_reuse_interval and password_require_current - all of which could otherwise
 // break the operator's own password rotation.
-func (m *Manager) ExemptFromPasswordPolicies(user *SysUser, exemptFromHistory bool) error {
+func (m *Manager) ExemptFromPasswordPolicies(user *SysUser, exemptFromMySQLPolicies bool) error {
 	if user == nil {
 		return nil
 	}
 
-	clause := "PASSWORD EXPIRE NEVER"
-	if exemptFromHistory {
-		clause += " PASSWORD HISTORY 0 PASSWORD REUSE INTERVAL 0 DAY PASSWORD REQUIRE CURRENT OPTIONAL"
-	}
+	clause := passwordExpireClause(exemptFromMySQLPolicies)
 
 	for _, host := range user.Hosts {
 		_, err := m.db.Exec("ALTER USER ?@? "+clause, user.Name, host)
@@ -258,8 +263,8 @@ func (u *Manager) UpdateProxyUser(user *SysUser) error {
 
 // Update160MonitorUserGrant grants SERVICE_CONNECTION_ADMIN rights to the monitor user
 // if pxc version is 8 or more and sets the MAX_USER_CONNECTIONS parameter to 100 (empirically determined)
-func (u *Manager) Update160MonitorUserGrant(pass string) (err error) {
-	_, err = u.db.Exec("CREATE USER IF NOT EXISTS 'monitor'@'%' IDENTIFIED BY ? PASSWORD EXPIRE NEVER", pass)
+func (u *Manager) Update160MonitorUserGrant(pass string, exemptFromMySQLPolicies bool) (err error) {
+	_, err = u.db.Exec("CREATE USER IF NOT EXISTS 'monitor'@'%' IDENTIFIED BY ? "+passwordExpireClause(exemptFromMySQLPolicies), pass)
 	if err != nil {
 		return errors.Wrap(err, "create operator user")
 	}
@@ -278,8 +283,8 @@ func (u *Manager) Update160MonitorUserGrant(pass string) (err error) {
 }
 
 // Update1150XtrabackupUser grants all needed rights to the xtrabackup user
-func (u *Manager) Update1150XtrabackupUser(pass string) (err error) {
-	_, err = u.db.Exec("CREATE USER IF NOT EXISTS 'xtrabackup'@'%' IDENTIFIED BY ? PASSWORD EXPIRE NEVER", pass)
+func (u *Manager) Update1150XtrabackupUser(pass string, exemptFromMySQLPolicies bool) (err error) {
+	_, err = u.db.Exec("CREATE USER IF NOT EXISTS 'xtrabackup'@'%' IDENTIFIED BY ? "+passwordExpireClause(exemptFromMySQLPolicies), pass)
 	if err != nil {
 		return errors.Wrap(err, "create operator user")
 	}
@@ -310,8 +315,8 @@ func (u *Manager) Update1200MonitorUserPrivilege(ctx context.Context) error {
 	return nil
 }
 
-func (u *Manager) CreateReplicationUser(password string) error {
-	_, err := u.db.Exec("CREATE USER IF NOT EXISTS 'replication'@'%' IDENTIFIED BY ? PASSWORD EXPIRE NEVER", password)
+func (u *Manager) CreateReplicationUser(password string, exemptFromMySQLPolicies bool) error {
+	_, err := u.db.Exec("CREATE USER IF NOT EXISTS 'replication'@'%' IDENTIFIED BY ? "+passwordExpireClause(exemptFromMySQLPolicies), password)
 	if err != nil {
 		return errors.Wrap(err, "create replication user")
 	}

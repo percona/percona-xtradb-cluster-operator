@@ -107,7 +107,7 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(ctx context.Conte
 				SecretName: naming.CACertificateName(cr),
 				CommonName: cr.Name + "-ca",
 				IsCA:       true,
-				IssuerRef: cmmeta.ObjectReference{
+				IssuerRef: cmmeta.IssuerReference{
 					Name:  caIssuerName,
 					Kind:  issuerKind,
 					Group: issuerGroup,
@@ -158,7 +158,7 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(ctx context.Conte
 				"*." + cr.Name + "-pxc",
 				"*." + cr.Name + "-proxysql",
 			},
-			IssuerRef: cmmeta.ObjectReference{
+			IssuerRef: cmmeta.IssuerReference{
 				Name:  issuerName,
 				Kind:  issuerKind,
 				Group: issuerGroup,
@@ -207,7 +207,7 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(ctx context.Conte
 				cr.Name + "-haproxy." + cr.Namespace,
 				cr.Name + "-haproxy",
 			},
-			IssuerRef: cmmeta.ObjectReference{
+			IssuerRef: cmmeta.IssuerReference{
 				Name:  issuerName,
 				Kind:  issuerKind,
 				Group: issuerGroup,

@@ -1,6 +1,7 @@
 package statefulset
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -40,6 +41,10 @@ func TestAppContainer_ProxySQL(t *testing.T) {
 				c := defaultExpectedProxySQLContainer()
 				// 1.18 doesn't have scheduler env vars
 				c.Env = c.Env[:5]
+				// probes & mounted volume were added in 1.21.0
+				c.LivenessProbe = nil
+				c.ReadinessProbe = nil
+				c.VolumeMounts = c.VolumeMounts[:len(c.VolumeMounts)-1]
 				return c
 			},
 		},
@@ -99,6 +104,8 @@ func TestAppContainer_ProxySQL(t *testing.T) {
 					{Name: "PERCONA_SCHEDULER_CFG", Value: "/tmp/scheduler-config.toml"},
 					{Name: "SCHEDULER_ENABLED", Value: "true"},
 					{Name: "PXC_READ_ONLY", Value: "false"},
+					{Name: "LIVENESS_CHECK_TIMEOUT", Value: "0"},
+					{Name: "READINESS_CHECK_TIMEOUT", Value: "0"},
 				}...)
 				return c
 			},
@@ -146,6 +153,8 @@ func TestAppContainer_ProxySQL(t *testing.T) {
 					{Name: "PERCONA_SCHEDULER_CFG", Value: "/tmp/scheduler-config.toml"},
 					{Name: "SCHEDULER_ENABLED", Value: "true"},
 					{Name: "PXC_READ_ONLY", Value: "true"},
+					{Name: "LIVENESS_CHECK_TIMEOUT", Value: "0"},
+					{Name: "READINESS_CHECK_TIMEOUT", Value: "0"},
 				}...)
 				return c
 			},
@@ -179,7 +188,10 @@ func TestAppContainer_ProxySQL(t *testing.T) {
 			},
 			expectedContainer: func() corev1.Container {
 				c := defaultExpectedProxySQLContainer()
-				c.VolumeMounts = append(c.VolumeMounts,
+				// extra PVC mounts are appended before the
+				// mysql-users-secret-file mount in AppContainer
+				last := c.VolumeMounts[len(c.VolumeMounts)-1]
+				c.VolumeMounts = append(c.VolumeMounts[:len(c.VolumeMounts)-1],
 					corev1.VolumeMount{
 						Name:      "extra-data-volume",
 						MountPath: "/var/lib/proxysql-extra",
@@ -189,6 +201,7 @@ func TestAppContainer_ProxySQL(t *testing.T) {
 						MountPath: "/backups",
 						SubPath:   "proxysql",
 					},
+					last,
 				)
 				return c
 			},
@@ -232,6 +245,7 @@ func defaultExpectedProxySQLContainer() corev1.Container {
 			{Name: "ssl", MountPath: "/etc/proxysql/ssl"},
 			{Name: "ssl-internal", MountPath: "/etc/proxysql/ssl-internal"},
 			{Name: naming.BinVolumeName, MountPath: naming.BinVolumeMountPath},
+			{Name: naming.MySQLUsersSecretVolumeName, MountPath: naming.MySQLUsersSecretMountPath},
 		},
 		Env: []corev1.EnvVar{
 			{Name: "PXC_SERVICE", Value: "test-cluster-pxc"},
@@ -254,6 +268,8 @@ func defaultExpectedProxySQLContainer() corev1.Container {
 			{Name: "SCHEDULER_MAXCONNECTIONS", Value: "0"},
 			{Name: "PERCONA_SCHEDULER_CFG", Value: "/tmp/scheduler-config.toml"},
 			{Name: "PXC_READ_ONLY", Value: "false"},
+			{Name: "LIVENESS_CHECK_TIMEOUT", Value: "0"},
+			{Name: "READINESS_CHECK_TIMEOUT", Value: "0"},
 		},
 		EnvFrom: []corev1.EnvFromSource{
 			{
@@ -262,6 +278,20 @@ func defaultExpectedProxySQLContainer() corev1.Container {
 						Name: "test-secret",
 					},
 					Optional: pointerToTrue(),
+				},
+			},
+		},
+		LivenessProbe: &corev1.Probe{
+			ProbeHandler: corev1.ProbeHandler{
+				Exec: &corev1.ExecAction{
+					Command: []string{"/opt/percona/proxysql_liveness_check.sh"},
+				},
+			},
+		},
+		ReadinessProbe: &corev1.Probe{
+			ProbeHandler: corev1.ProbeHandler{
+				Exec: &corev1.ExecAction{
+					Command: []string{"/opt/percona/proxysql_readiness_check.sh"},
 				},
 			},
 		},
@@ -504,5 +534,72 @@ func defaultExpectedProxySQLSidecarContainers() []corev1.Container {
 				{Name: "bin", MountPath: "/opt/percona"},
 			},
 		},
+	}
+}
+
+func TestVolumes_ProxySQL(t *testing.T) {
+	noCustomVolume := func(ctx context.Context, nsName, cvName, cmName string, useDefaultVolume bool) (corev1.Volume, error) {
+		return corev1.Volume{}, api.NoCustomVolumeErr
+	}
+
+	tests := map[string]struct {
+		crVersion              string
+		expectMysqlUsersSecret bool
+	}{
+		"cr 1.18 doesn't mount mysql-users-secret-file": {
+			crVersion:              "1.18.0",
+			expectMysqlUsersSecret: false,
+		},
+		"cr 1.21.0 mounts mysql-users-secret-file": {
+			crVersion:              "1.21.0",
+			expectMysqlUsersSecret: true,
+		},
+		"latest cr mounts mysql-users-secret-file": {
+			crVersion:              version.Version(),
+			expectMysqlUsersSecret: true,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			cr := &api.PerconaXtraDBCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-cluster",
+				},
+				Spec: api.PerconaXtraDBClusterSpec{
+					CRVersion: tt.crVersion,
+					ProxySQL: &api.ProxySQLSpec{
+						PodSpec: api.PodSpec{},
+					},
+				},
+			}
+			proxySQL := &Proxy{cr: cr}
+
+			vol, err := proxySQL.Volumes(t.Context(), &cr.Spec.ProxySQL.PodSpec, cr, noCustomVolume)
+			assert.NoError(t, err)
+
+			var found *corev1.Volume
+			for i := range vol.Volumes {
+				if vol.Volumes[i].Name == naming.MySQLUsersSecretVolumeName {
+					found = &vol.Volumes[i]
+					break
+				}
+			}
+
+			if !tt.expectMysqlUsersSecret {
+				assert.Nil(t, found)
+				return
+			}
+
+			if assert.NotNil(t, found) {
+				assert.Equal(t, naming.MySQLUsersSecretVolumeName, found.Name)
+				assert.NotNil(t, found.Secret)
+				assert.Equal(t, "internal-test-cluster", found.Secret.SecretName)
+				assert.False(t, *found.Secret.Optional)
+				assert.Equal(t, []corev1.KeyToPath{
+					{Key: users.ProxyAdmin, Path: users.ProxyAdmin},
+				}, found.Secret.Items)
+			}
+		})
 	}
 }

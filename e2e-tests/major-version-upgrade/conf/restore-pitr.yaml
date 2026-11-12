@@ -1,0 +1,12 @@
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBClusterRestore
+metadata:
+  name: restore-pitr
+spec:
+  pxcCluster: major-upgrade
+  backupName: backup-8-4
+  pitr:
+    type: transaction
+    gtid: <gtid>
+    backupSource:
+      storageName: "local-s3-binlogs"

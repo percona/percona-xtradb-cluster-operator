@@ -466,3 +466,78 @@ func TestUpdateJobStatusLogical(t *testing.T) {
 		})
 	}
 }
+
+// TestUpdateJobStatusPITRBookkeeping checks which succeeded backups reset the
+// binlog collector's gap tracking. The cluster has PITR enabled and no binlog
+// collector pod, so a backup that takes part in the bookkeeping fails when it
+// looks the pod up, and one that is skipped does not.
+func TestUpdateJobStatusPITRBookkeeping(t *testing.T) {
+	tests := map[string]struct {
+		pitrEnabled bool
+		backupType  pxcv1.PXCBackupType
+		expectedErr string
+	}{
+		"full backup with pitr enabled resets gap tracking": {
+			pitrEnabled: true,
+			backupType:  pxcv1.BackupTypeFull,
+			expectedErr: "get binlog collector pod: no binlog collector pods",
+		},
+		"backup without a type with pitr enabled resets gap tracking": {
+			pitrEnabled: true,
+			backupType:  "",
+			expectedErr: "get binlog collector pod: no binlog collector pods",
+		},
+		"logical backup with pitr enabled leaves gap tracking alone": {
+			pitrEnabled: true,
+			backupType:  pxcv1.BackupTypeLogical,
+		},
+		"full backup with pitr disabled leaves gap tracking alone": {
+			pitrEnabled: false,
+			backupType:  pxcv1.BackupTypeFull,
+		},
+		"logical backup with pitr disabled leaves gap tracking alone": {
+			pitrEnabled: false,
+			backupType:  pxcv1.BackupTypeLogical,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			ctx := context.Background()
+
+			cluster := newLogicalTestCluster(t, version.Version())
+			cluster.Spec.Backup.PITR.Enabled = tt.pitrEnabled
+			storageSpec := cluster.Spec.Backup.Storages["s3-us-west"]
+
+			cr := newLogicalTestBackup("s3-us-west", tt.backupType)
+			cr.Status.Type = tt.backupType
+			cr.Status.Destination = "s3://operator-testing/prefix/backup1"
+			cr.Status.S3 = storageSpec.S3
+			cr.Status.StorageType = storageSpec.Type
+
+			job := &batchv1.Job{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      naming.BackupJobName(cr.Name),
+					Namespace: testNamespace,
+				},
+				Status: batchv1.JobStatus{
+					Conditions: []batchv1.JobCondition{{Type: batchv1.JobComplete, Status: corev1.ConditionTrue}},
+				},
+			}
+
+			cl := buildLogicalTestClient(cluster, cr, job)
+			r := newLogicalTestReconciler(cl, nil)
+
+			err := r.updateJobStatus(ctx, cr, job, cr.Spec.StorageName, storageSpec, cluster)
+			if tt.expectedErr != "" {
+				require.EqualError(t, err, tt.expectedErr)
+				return
+			}
+			require.NoError(t, err)
+
+			updated := new(pxcv1.PerconaXtraDBClusterBackup)
+			require.NoError(t, cl.Get(ctx, client.ObjectKeyFromObject(cr), updated))
+			assert.Equal(t, pxcv1.BackupSucceeded, updated.Status.State)
+		})
+	}
+}

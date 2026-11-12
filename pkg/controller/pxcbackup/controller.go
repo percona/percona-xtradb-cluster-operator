@@ -787,7 +787,9 @@ func (r *ReconcilePerconaXtraDBClusterBackup) updateJobStatus(
 	case api.BackupSucceeded:
 		log.Info("Backup succeeded")
 
-		if cluster.PITREnabled() {
+		// A logical backup is not a point-in-time recovery base, so it must not
+		// reset the binlog gap tracking that belongs to the latest full backup.
+		if cluster.PITREnabled() && !bcp.Status.IsLogical() {
 			collectorPod, err := binlogcollector.GetPod(ctx, r.client, cluster)
 			if err != nil {
 				return errors.Wrap(err, "get binlog collector pod")

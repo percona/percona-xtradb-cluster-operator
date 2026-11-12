@@ -1156,3 +1156,29 @@ func TestBackupContainerArgsEnv(t *testing.T) {
 		})
 	}
 }
+
+func TestScheduledBackupGetType(t *testing.T) {
+	tests := map[string]struct {
+		schedule PXCScheduledBackupSchedule
+		expected PXCBackupType
+	}{
+		"type is not set": {
+			schedule: PXCScheduledBackupSchedule{},
+			expected: BackupTypeFull,
+		},
+		"full": {
+			schedule: PXCScheduledBackupSchedule{Type: BackupTypeFull},
+			expected: BackupTypeFull,
+		},
+		"logical": {
+			schedule: PXCScheduledBackupSchedule{Type: BackupTypeLogical},
+			expected: BackupTypeLogical,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, tt.schedule.GetType())
+		})
+	}
+}

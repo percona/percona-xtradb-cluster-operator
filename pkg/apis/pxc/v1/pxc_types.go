@@ -403,6 +403,15 @@ func (s PXCScheduledBackupSchedule) GetRetention() PXCScheduledBackupRetention {
 	}
 }
 
+// GetType returns the type of the backups the schedule creates.
+// A schedule without a type creates full backups.
+func (s PXCScheduledBackupSchedule) GetType() PXCBackupType {
+	if s.Type == "" {
+		return BackupTypeFull
+	}
+	return s.Type
+}
+
 // IsValidCountRetention checks if the retention is of type count and the count has a non-zero value.
 func (s PXCScheduledBackupRetention) IsValidCountRetention() bool {
 	return s.Type == pxcScheduledBackupRetentionCount && s.Count > 0

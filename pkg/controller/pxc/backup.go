@@ -120,7 +120,8 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(ctx context.Context, cr
 // shouldRecreateBackupJob determines whether the existing backup job needs to be recreated.
 func shouldRecreateBackupJob(expected api.PXCScheduledBackupSchedule, existing BackupScheduleJob) bool {
 	recreate := existing.PXCScheduledBackupSchedule.Schedule != expected.Schedule ||
-		existing.PXCScheduledBackupSchedule.StorageName != expected.StorageName
+		existing.PXCScheduledBackupSchedule.StorageName != expected.StorageName ||
+		existing.PXCScheduledBackupSchedule.GetType() != expected.GetType()
 
 	if recreate {
 		return true
@@ -207,23 +208,29 @@ func (r *ReconcilePerconaXtraDBCluster) createBackupJob(ctx context.Context, cr 
 			return
 		}
 
-		bcp := &api.PerconaXtraDBClusterBackup{
-			ObjectMeta: metav1.ObjectMeta{
-				Finalizers: finalizers,
-				Namespace:  cr.Namespace,
-				Name:       naming.ScheduledBackupName(cr.Name, backupJob.StorageName, backupJob.Schedule),
-				Labels:     naming.LabelsScheduledBackup(cr, backupJob.Name),
-			},
-			Spec: api.PXCBackupSpec{
-				PXCCluster:              cr.Name,
-				StorageName:             backupJob.StorageName,
-				StartingDeadlineSeconds: cr.Spec.Backup.StartingDeadlineSeconds,
-			},
-		}
+		bcp := newScheduledBackup(cr, backupJob, finalizers)
 		err = r.client.Create(ctx, bcp)
 		if err != nil {
 			log.Error(err, "failed to create backup")
 		}
+	}
+}
+
+// newScheduledBackup returns the backup object a schedule creates on each run.
+func newScheduledBackup(cr *api.PerconaXtraDBCluster, backupJob api.PXCScheduledBackupSchedule, finalizers []string) *api.PerconaXtraDBClusterBackup {
+	return &api.PerconaXtraDBClusterBackup{
+		ObjectMeta: metav1.ObjectMeta{
+			Finalizers: finalizers,
+			Namespace:  cr.Namespace,
+			Name:       naming.ScheduledBackupName(cr.Name, backupJob.StorageName, backupJob.Schedule),
+			Labels:     naming.LabelsScheduledBackup(cr, backupJob.Name),
+		},
+		Spec: api.PXCBackupSpec{
+			PXCCluster:              cr.Name,
+			StorageName:             backupJob.StorageName,
+			Type:                    backupJob.GetType(),
+			StartingDeadlineSeconds: cr.Spec.Backup.StartingDeadlineSeconds,
+		},
 	}
 }
 

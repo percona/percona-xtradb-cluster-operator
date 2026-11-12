@@ -16,11 +16,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	admissionregistration "k8s.io/api/admissionregistration/v1"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake" //nolint
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/naming"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxctls"
@@ -165,6 +168,102 @@ func TestCreateWebhook_CreatesAndUpdatesCABundle(t *testing.T) {
 	require.NoError(t, h.createWebhook(context.Background(), ownerRef, []byte("ca-v2")))
 	require.NoError(t, cl.Get(context.Background(), client.ObjectKey{Name: webhookConfigName}, wh))
 	assert.Equal(t, []byte("ca-v2"), wh.Webhooks[0].ClientConfig.CABundle)
+}
+
+// newOperatorDeployment returns the Deployment that hook.operatorDeployment looks up
+// (by the default name, since OPERATOR_NAME is unset in tests), needed to compute the
+// owner reference for the Secret/ValidatingWebhookConfiguration.
+func newOperatorDeployment() *appsv1.Deployment {
+	return &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "percona-xtradb-cluster-operator",
+			Namespace: testNamespace,
+			UID:       "operator-deployment-uid",
+		},
+	}
+}
+
+func TestCertReconciler_ReissuesExpiredCertificateAndSyncsCABundle(t *testing.T) {
+	expiredCA, expiredCrt, expiredKey := buildCertWithNotAfter(t, time.Now().Add(-time.Hour))
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: testNamespace,
+			Name:      naming.OperatorWebhookTLSSecretName,
+		},
+		Data: map[string][]byte{
+			"ca.crt":  expiredCA,
+			"tls.crt": expiredCrt,
+			"tls.key": expiredKey,
+		},
+	}
+
+	cl := newFakeClient(secret, newOperatorDeployment())
+	h := &hook{cl: cl, scheme: scheme.Scheme, namespace: testNamespace, log: logr.Discard()}
+	r := &certReconciler{hook: h, namespace: testNamespace, log: logr.Discard()}
+
+	res, err := r.Reconcile(context.Background(), reconcile.Request{})
+	require.NoError(t, err)
+
+	// The secret should now hold a freshly issued, non-expired certificate.
+	stored := &corev1.Secret{}
+	require.NoError(t, cl.Get(context.Background(), client.ObjectKeyFromObject(secret), stored))
+	assert.False(t, bytes.Equal(expiredCrt, stored.Data["tls.crt"]), "expired certificate should have been reissued")
+
+	storedNotAfter, err := certNotAfter(stored.Data["tls.crt"])
+	require.NoError(t, err)
+	assert.True(t, time.Until(storedNotAfter) > certRenewalThreshold)
+
+	// The ValidatingWebhookConfiguration's CABundle should be updated to match the new CA.
+	wh := &admissionregistration.ValidatingWebhookConfiguration{}
+	require.NoError(t, cl.Get(context.Background(), types.NamespacedName{Name: webhookConfigName}, wh))
+	require.Len(t, wh.Webhooks, 1)
+	assert.Equal(t, stored.Data["ca.crt"], wh.Webhooks[0].ClientConfig.CABundle)
+
+	// RequeueAfter should reflect the new certificate's fresh expiry, not the floor.
+	assert.Greater(t, res.RequeueAfter, minCertRenewalRequeueAfter)
+}
+
+func TestCertReconciler_ValidCertificateIsNotTouchedButCABundleIsSynced(t *testing.T) {
+	ca, crt, key, err := pxctls.Issue([]string{"percona-xtradb-cluster-operator." + testNamespace + ".svc"}, true, true)
+	require.NoError(t, err)
+
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: testNamespace,
+			Name:      naming.OperatorWebhookTLSSecretName,
+		},
+		Data: map[string][]byte{
+			"ca.crt":  ca,
+			"tls.crt": crt,
+			"tls.key": key,
+		},
+	}
+
+	// Simulate a webhook config that still points at a stale/different CA
+	// (e.g. left over from before the secret was last rotated).
+	existingWebhook := &admissionregistration.ValidatingWebhookConfiguration{
+		ObjectMeta: metav1.ObjectMeta{Name: webhookConfigName},
+		Webhooks: []admissionregistration.ValidatingWebhook{
+			{ClientConfig: admissionregistration.WebhookClientConfig{CABundle: []byte("stale-ca")}},
+		},
+	}
+
+	cl := newFakeClient(secret, newOperatorDeployment(), existingWebhook)
+	h := &hook{cl: cl, scheme: scheme.Scheme, namespace: testNamespace, log: logr.Discard()}
+	r := &certReconciler{hook: h, namespace: testNamespace, log: logr.Discard()}
+
+	_, err = r.Reconcile(context.Background(), reconcile.Request{})
+	require.NoError(t, err)
+
+	// The valid certificate should not have been reissued.
+	stored := &corev1.Secret{}
+	require.NoError(t, cl.Get(context.Background(), client.ObjectKeyFromObject(secret), stored))
+	assert.Equal(t, crt, stored.Data["tls.crt"], "valid certificate should be left untouched")
+
+	// But the webhook's CABundle should now be synced to match it.
+	wh := &admissionregistration.ValidatingWebhookConfiguration{}
+	require.NoError(t, cl.Get(context.Background(), types.NamespacedName{Name: webhookConfigName}, wh))
+	assert.Equal(t, ca, wh.Webhooks[0].ClientConfig.CABundle)
 }
 
 func TestCertNotAfter(t *testing.T) {

@@ -182,8 +182,7 @@ func (h *hook) createWebhook(ctx context.Context, ownerRef metav1.OwnerReference
 			return err
 		}
 
-		// Avoid unnecessary spec churn: skip the update if the CABundle already
-		// matches (e.g. the webhook was already reconciled by another replica).
+		// skip if the webhook was already reconciled by another replica
 		if len(existing.Webhooks) > 0 && bytes.Equal(existing.Webhooks[0].ClientConfig.CABundle, caBundle) {
 			return nil
 		}
@@ -247,11 +246,7 @@ func SetupWebhook(ctx context.Context, mgr manager.Manager) error {
 	return nil
 }
 
-// certReconciler watches the webhook TLS secret (pxc-webhook-ssl) and makes sure a
-// valid certificate is always present, renewing it before it expires, rewriting the
-// certificate files served by the webhook's HTTPS listener (automatically reloaded by
-// controller-runtime's certwatcher), and keeping the ValidatingWebhookConfiguration's
-// CABundle in sync.
+// certReconciler watches the webhook TLS secret pxc-webhook-ssl to renew cert it before it expires
 type certReconciler struct {
 	hook      *hook
 	namespace string
@@ -281,11 +276,6 @@ func (r *certReconciler) Reconcile(ctx context.Context, _ reconcile.Request) (re
 	return reconcile.Result{RequeueAfter: certRenewalRequeueAfter(notAfter)}, nil
 }
 
-// setupCertRenewalController registers a controller that watches the webhook TLS
-// secret (filtered to only that one Secret, by name/namespace, so unrelated Secret
-// churn in the cluster never triggers a reconcile) and keeps its certificate valid.
-// Being a regular controller-runtime Controller, it automatically only runs on the
-// leader when leader election is enabled, just like the operator's other reconcilers.
 func setupCertRenewalController(mgr manager.Manager, h *hook, namespace string, log logr.Logger) error {
 	r := &certReconciler{
 		hook:      h,
@@ -303,11 +293,6 @@ func setupCertRenewalController(mgr manager.Manager, h *hook, namespace string, 
 		Complete(r)
 }
 
-// certRenewalRequeueAfter computes how long to wait before checking again whether the
-// webhook TLS certificate (with the given notAfter) needs to be renewed, i.e. roughly
-// when it is expected to enter its renewal window. This is a backstop: in practice,
-// renewal mutates the Secret, which re-triggers the watch immediately regardless of
-// this schedule.
 func certRenewalRequeueAfter(notAfter time.Time) time.Duration {
 	d := time.Until(notAfter) - certRenewalThreshold
 	if d < minCertRenewalRequeueAfter {
@@ -407,10 +392,6 @@ func setupCertificates(
 	return ca, notAfter, nil
 }
 
-// issueAndStoreCertificates issues a new CA/TLS certificate pair, stores it in certSecret
-// (creating the secret if it doesn't exist yet, or updating it in place otherwise so the
-// secret's UID, labels and owner references set by the user/cluster are preserved), and
-// writes the new certificate files to disk for the webhook server to pick up.
 func issueAndStoreCertificates(
 	ctx context.Context,
 	cl client.Client,

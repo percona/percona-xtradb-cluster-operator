@@ -41,7 +41,10 @@ esac
 if [[ $STATUS == "joiner" ]]; then
 	PITR_HOST="${CLUSTER_NAME}-pitr.${CLUSTER_FQDN}"
 	if getent hosts "${PITR_HOST}" >/dev/null 2>&1; then
-		curl -d "hostname=$(hostname -f)" "http://${PITR_HOST}:8080/invalidate-cache/"
+		if ! curl --connect-timeout 5 --max-time 10 --fail --silent --show-error \
+			-d "hostname=$(hostname -f)" "http://${PITR_HOST}:8080/invalidate-cache/"; then
+			echo "WARNING: failed to invalidate PITR cache on ${PITR_HOST}" >&2
+		fi
 	fi
 fi
 

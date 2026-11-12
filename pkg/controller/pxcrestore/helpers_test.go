@@ -1,138 +1,20 @@
 package pxcrestore
 
 import (
-	"os"
-	"path/filepath"
+	"context"
 	"testing"
 
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/yaml"
-	"k8s.io/client-go/kubernetes/scheme"
+	"github.com/pkg/errors"
+	"github.com/stretchr/testify/require"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake" //nolint
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/controller/pxcrestore/testutil"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage"
 	fakestorage "github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage/fake"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/version"
 )
-
-func readDefaultCR(t *testing.T, name, namespace string) *api.PerconaXtraDBCluster {
-	t.Helper()
-
-	data, err := os.ReadFile(filepath.Join("..", "..", "..", "deploy", "cr.yaml"))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	cr := &api.PerconaXtraDBCluster{}
-
-	if err := yaml.Unmarshal(data, cr); err != nil {
-		t.Fatal(err)
-	}
-
-	cr.Name = name
-	cr.Namespace = namespace
-	cr.Spec.InitImage = "perconalab/percona-xtradb-cluster-operator:main"
-	b := false
-	cr.Spec.PXC.AutoRecovery = &b
-	return cr
-}
-
-func readDefaultCRSecret(t *testing.T, name, namespace string) *corev1.Secret {
-	t.Helper()
-
-	data, err := os.ReadFile(filepath.Join("..", "..", "..", "deploy", "secrets.yaml"))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	secret := new(corev1.Secret)
-
-	if err := yaml.Unmarshal(data, secret); err != nil {
-		t.Fatal(err)
-	}
-
-	secret.Name = name
-	secret.Namespace = namespace
-	return secret
-}
-
-func readDefaultBackup(t *testing.T, name, namespace string) *api.PerconaXtraDBClusterBackup {
-	t.Helper()
-
-	data, err := os.ReadFile(filepath.Join("..", "..", "..", "deploy", "backup", "backup.yaml"))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	cr := &api.PerconaXtraDBClusterBackup{}
-
-	if err := yaml.Unmarshal(data, cr); err != nil {
-		t.Fatal(err)
-	}
-
-	cr.Name = name
-	cr.Namespace = namespace
-	return cr
-}
-
-func readDefaultS3Secret(t *testing.T, name, namespace string) *corev1.Secret {
-	t.Helper()
-
-	data, err := os.ReadFile(filepath.Join("..", "..", "..", "deploy", "backup", "backup-secret-s3.yaml"))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	secret := new(corev1.Secret)
-
-	if err := yaml.Unmarshal(data, secret); err != nil {
-		t.Fatal(err)
-	}
-
-	secret.Name = name
-	secret.Namespace = namespace
-	return secret
-}
-
-func readDefaultAzureSecret(t *testing.T, name, namespace string) *corev1.Secret {
-	t.Helper()
-
-	data, err := os.ReadFile(filepath.Join("..", "..", "..", "deploy", "backup", "backup-secret-azure.yaml"))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	secret := new(corev1.Secret)
-
-	if err := yaml.Unmarshal(data, secret); err != nil {
-		t.Fatal(err)
-	}
-
-	secret.Name = name
-	secret.Namespace = namespace
-	return secret
-}
-
-func readDefaultRestore(t *testing.T, name, namespace string) *api.PerconaXtraDBClusterRestore {
-	t.Helper()
-
-	data, err := os.ReadFile(filepath.Join("..", "..", "..", "deploy", "backup", "restore.yaml"))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	cr := &api.PerconaXtraDBClusterRestore{}
-
-	if err := yaml.Unmarshal(data, cr); err != nil {
-		t.Fatal(err)
-	}
-
-	cr.Name = name
-	cr.Namespace = namespace
-	return cr
-}
 
 func reconciler(cl client.Client) *ReconcilePerconaXtraDBClusterRestore {
 	return &ReconcilePerconaXtraDBClusterRestore{
@@ -145,41 +27,109 @@ func reconciler(cl client.Client) *ReconcilePerconaXtraDBClusterRestore {
 	}
 }
 
-// buildFakeClient creates a fake client to mock API calls with the mock objects
-func buildFakeClient(objs ...runtime.Object) client.Client {
-	s := scheme.Scheme
+const (
+	logicalTestCluster   = "test-cluster"
+	logicalTestNamespace = "namespace"
+	logicalTestBackup    = "test-backup"
+	logicalTestRestore   = "test-restore"
+	logicalTestS3Secret  = "my-cluster-name-backup-s3"
 
-	types := []runtime.Object{
-		new(api.PerconaXtraDBClusterRestore),
-		new(api.PerconaXtraDBClusterRestoreList),
-		new(api.PerconaXtraDBClusterBackup),
-		new(api.PerconaXtraDBCluster),
-	}
+	logicalTestDestination = api.PXCBackupDestination("s3://some-bucket/test-cluster-2026-11-10-10:00:00-logical")
+	// logicalTestListPath is the path the storage is listed with for logicalTestDestination.
+	logicalTestListPath = "test-cluster-2026-11-10-10:00:00-logical/"
 
-	s.AddKnownTypes(api.SchemeGroupVersion, types...)
+	gi = int64(1) << 30
+)
 
-	toClientObj := func(objs []runtime.Object) []client.Object {
-		cliObjs := make([]client.Object, 0, len(objs))
-		for _, obj := range objs {
-			cliObj, ok := obj.(client.Object)
-			if ok {
-				cliObjs = append(cliObjs, cliObj)
-			}
-		}
-		return cliObjs
-	}
+// logicalFakeStorage is a storage that holds a fixed list of objects.
+type logicalFakeStorage struct {
+	storage.Storage
 
-	cl := fake.NewClientBuilder().
-		WithScheme(s).
-		WithRuntimeObjects(objs...).
-		WithStatusSubresource(toClientObj(types)...).
-		Build()
-
-	return cl
+	objects []storage.ObjectInfo
+	listErr error
+	// listCalls counts the listings, when set
+	listCalls *int
 }
 
-func updateResource[T runtime.Object](res runtime.Object, f func(T)) T {
-	obj := res.DeepCopyObject().(T)
-	f(obj)
-	return obj
+func (s *logicalFakeStorage) ListObjectInfos(_ context.Context, prefix string) ([]storage.ObjectInfo, error) {
+	if s.listCalls != nil {
+		*s.listCalls++
+	}
+	if s.listErr != nil {
+		return nil, s.listErr
+	}
+	if prefix != logicalTestListPath {
+		return nil, errors.Errorf("unexpected list path: got %s want %s", prefix, logicalTestListPath)
+	}
+	return s.objects, nil
+}
+
+func (s *logicalFakeStorage) ListObjects(ctx context.Context, prefix string) ([]string, error) {
+	objects, err := s.ListObjectInfos(ctx, prefix)
+	if err != nil {
+		return nil, err
+	}
+	names := make([]string, 0, len(objects))
+	for _, object := range objects {
+		names = append(names, object.Name)
+	}
+	return names, nil
+}
+
+func (s *logicalFakeStorage) GetPrefix() string { return "" }
+
+func newLogicalFakeStorageFunc(s *logicalFakeStorage) storage.NewClientFunc {
+	return func(context.Context, storage.Options) (storage.Storage, error) {
+		return s, nil
+	}
+}
+
+// logicalDumpObjects returns the objects of a complete logical backup of the given size.
+func logicalDumpObjects(size int64) []storage.ObjectInfo {
+	return []storage.ObjectInfo{
+		{Name: logicalTestListPath + "metadata", Size: 1024},
+		{Name: logicalTestListPath + "shop.orders.00000.sql", Size: size - 1024},
+	}
+}
+
+func newLogicalRestoreTestCluster(t *testing.T) *api.PerconaXtraDBCluster {
+	t.Helper()
+
+	cluster := testutil.ReadDefaultCR(t, logicalTestCluster, logicalTestNamespace)
+	require.NoError(t, cluster.CheckNSetDefaults(new(version.ServerVersion), logf.FromContext(t.Context())))
+	cluster.Status.Status = api.AppStateReady
+	cluster.Status.PXC.Status = api.AppStateReady
+
+	return cluster
+}
+
+func newLogicalRestoreTestBackup(t *testing.T, backupType api.PXCBackupType, size int64) *api.PerconaXtraDBClusterBackup {
+	t.Helper()
+
+	bcp := testutil.ReadDefaultBackup(t, logicalTestBackup, logicalTestNamespace)
+	bcp.Spec.PXCCluster = logicalTestCluster
+	bcp.Spec.StorageName = "s3-us-west"
+	bcp.Spec.Type = backupType
+	bcp.Status.Type = backupType
+	bcp.Status.Size = size
+	bcp.Status.State = api.BackupSucceeded
+	bcp.Status.StorageName = "s3-us-west"
+	bcp.Status.StorageType = api.BackupStorageS3
+	bcp.Status.Destination = logicalTestDestination
+	bcp.Status.S3 = &api.BackupStorageS3Spec{
+		Bucket:            "some-bucket",
+		CredentialsSecret: logicalTestS3Secret,
+	}
+
+	return bcp
+}
+
+func newLogicalRestoreTestRestore(t *testing.T) *api.PerconaXtraDBClusterRestore {
+	t.Helper()
+
+	cr := testutil.ReadDefaultRestore(t, logicalTestRestore, logicalTestNamespace)
+	cr.Spec.PXCCluster = logicalTestCluster
+	cr.Spec.BackupName = logicalTestBackup
+
+	return cr
 }

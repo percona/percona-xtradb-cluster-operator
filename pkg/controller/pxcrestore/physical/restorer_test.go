@@ -1,4 +1,4 @@
-package pxcrestore
+package physical
 
 import (
 	"testing"

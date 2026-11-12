@@ -528,7 +528,9 @@ compare_kubectl() {
 		expected_result=${expected_result//.yml/-eks.yml}
 	fi
 
-	if [[ $IMAGE_PXC =~ 8\.0 ]] && [ -f ${expected_result//.yml/-80.yml} ]; then
+	if [[ $IMAGE_PXC =~ 5\.7 ]] && [ -f ${expected_result//.yml/-57.yml} ]; then
+		expected_result=${expected_result//.yml/-57.yml}
+	elif [[ $IMAGE_PXC =~ 8\.0 ]] && [ -f ${expected_result//.yml/-80.yml} ]; then
 		expected_result=${expected_result//.yml/-80.yml}
 	elif [[ $IMAGE_PXC =~ 8\.4 ]] && [ -f ${expected_result//.yml/-84.yml} ]; then
 		expected_result=${expected_result//.yml/-84.yml}

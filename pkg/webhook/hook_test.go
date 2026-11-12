@@ -183,7 +183,16 @@ func newOperatorDeployment() *appsv1.Deployment {
 	}
 }
 
-func TestCertReconciler_ReissuesExpiredCertificateAndSyncsCABundle(t *testing.T) {
+// closedChan returns an already-closed channel, simulating a replica that holds
+// (or always held, since leader election is disabled) leadership - see
+// manager.Manager.Elected().
+func closedChan() <-chan struct{} {
+	ch := make(chan struct{})
+	close(ch)
+	return ch
+}
+
+func TestCertSyncer_Leader_ReissuesExpiredCertificateAndSyncsCABundle(t *testing.T) {
 	expiredCA, expiredCrt, expiredKey := buildCertWithNotAfter(t, time.Now().Add(-time.Hour))
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -199,9 +208,9 @@ func TestCertReconciler_ReissuesExpiredCertificateAndSyncsCABundle(t *testing.T)
 
 	cl := newFakeClient(secret, newOperatorDeployment())
 	h := &hook{cl: cl, scheme: scheme.Scheme, namespace: testNamespace, log: logr.Discard()}
-	r := &certReconciler{hook: h, namespace: testNamespace, log: logr.Discard()}
+	s := &certSyncer{hook: h, namespace: testNamespace, log: logr.Discard(), elected: closedChan()}
 
-	res, err := r.Reconcile(context.Background(), reconcile.Request{})
+	res, err := s.Reconcile(context.Background(), reconcile.Request{})
 	require.NoError(t, err)
 
 	// The secret should now hold a freshly issued, non-expired certificate.
@@ -223,7 +232,7 @@ func TestCertReconciler_ReissuesExpiredCertificateAndSyncsCABundle(t *testing.T)
 	assert.Greater(t, res.RequeueAfter, minCertRenewalRequeueAfter)
 }
 
-func TestCertReconciler_ValidCertificateIsNotTouchedButCABundleIsSynced(t *testing.T) {
+func TestCertSyncer_Leader_ValidCertificateIsNotTouchedButCABundleIsSynced(t *testing.T) {
 	ca, crt, key, err := pxctls.Issue([]string{"percona-xtradb-cluster-operator." + testNamespace + ".svc"}, true, true)
 	require.NoError(t, err)
 
@@ -250,9 +259,9 @@ func TestCertReconciler_ValidCertificateIsNotTouchedButCABundleIsSynced(t *testi
 
 	cl := newFakeClient(secret, newOperatorDeployment(), existingWebhook)
 	h := &hook{cl: cl, scheme: scheme.Scheme, namespace: testNamespace, log: logr.Discard()}
-	r := &certReconciler{hook: h, namespace: testNamespace, log: logr.Discard()}
+	s := &certSyncer{hook: h, namespace: testNamespace, log: logr.Discard(), elected: closedChan()}
 
-	_, err = r.Reconcile(context.Background(), reconcile.Request{})
+	_, err = s.Reconcile(context.Background(), reconcile.Request{})
 	require.NoError(t, err)
 
 	// The valid certificate should not have been reissued.
@@ -264,6 +273,41 @@ func TestCertReconciler_ValidCertificateIsNotTouchedButCABundleIsSynced(t *testi
 	wh := &admissionregistration.ValidatingWebhookConfiguration{}
 	require.NoError(t, cl.Get(context.Background(), types.NamespacedName{Name: webhookConfigName}, wh))
 	assert.Equal(t, ca, wh.Webhooks[0].ClientConfig.CABundle)
+}
+
+func TestCertSyncer_NonLeader_OnlySyncsLocalFilesAndSkipsRenewalAndCABundle(t *testing.T) {
+	ca, crt, key, err := pxctls.Issue([]string{"percona-xtradb-cluster-operator." + testNamespace + ".svc"}, true, true)
+	require.NoError(t, err)
+
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: testNamespace,
+			Name:      naming.OperatorWebhookTLSSecretName,
+		},
+		Data: map[string][]byte{
+			"ca.crt":  ca,
+			"tls.crt": crt,
+			"tls.key": key,
+		},
+	}
+
+	cl := newFakeClient(secret, newOperatorDeployment())
+	h := &hook{cl: cl, scheme: scheme.Scheme, namespace: testNamespace, log: logr.Discard()}
+	// Never-closed channel: this replica is not (yet) the leader.
+	s := &certSyncer{hook: h, namespace: testNamespace, log: logr.Discard(), elected: make(chan struct{})}
+
+	res, err := s.Reconcile(context.Background(), reconcile.Request{})
+	require.NoError(t, err)
+	assert.Zero(t, res.RequeueAfter, "non-leader should not schedule a renewal requeue")
+
+	// Non-leader must not touch the Secret or create the ValidatingWebhookConfiguration.
+	stored := &corev1.Secret{}
+	require.NoError(t, cl.Get(context.Background(), client.ObjectKeyFromObject(secret), stored))
+	assert.Equal(t, crt, stored.Data["tls.crt"])
+
+	wh := &admissionregistration.ValidatingWebhookConfiguration{}
+	err = cl.Get(context.Background(), types.NamespacedName{Name: webhookConfigName}, wh)
+	assert.Error(t, err, "non-leader must not create/update the ValidatingWebhookConfiguration")
 }
 
 func TestCertNotAfter(t *testing.T) {

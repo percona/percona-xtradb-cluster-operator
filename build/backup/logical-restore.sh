@@ -17,21 +17,7 @@ LIB_PATH='/opt/percona/backup/lib/pxc'
 
 SCRATCH_DIR=${SCRATCH_DIR:-/scratch}
 DUMP_DIR="${SCRATCH_DIR}/dump"
-DEFAULTS_FILE='/tmp/myloader.cnf'
 SOURCE="s3://${S3_BUCKET_URL}"
-
-write_defaults_file() {
-	{ set +x; } 2>/dev/null
-	(
-		umask 077
-		cat >"${DEFAULTS_FILE}" <<-EOF
-			[myloader]
-			user=xtrabackup
-			password=${PXC_PASS}
-		EOF
-	)
-	set -x
-}
 
 download_dump() {
 	rm -rf "${DUMP_DIR}"
@@ -73,7 +59,7 @@ add_view_placeholder_keys() {
 
 run_myloader() {
 	local args=(
-		"--defaults-extra-file=${DEFAULTS_FILE}"
+		--user=xtrabackup
 		"--host=${PXC_HOST}"
 		"--directory=${DUMP_DIR}"
 	)
@@ -106,7 +92,7 @@ if [[ ! -f "${DUMP_DIR}/metadata" ]]; then
 fi
 
 add_view_placeholder_keys
-write_defaults_file
+export_mysql_password
 
 set +o errexit
 run_myloader

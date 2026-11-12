@@ -20,7 +20,6 @@ UPLOAD_SCRIPT='/opt/percona/backup/logical-upload.sh'
 SCRATCH_DIR=${SCRATCH_DIR:-/scratch}
 DUMP_DIR="${SCRATCH_DIR}/dump"
 UPLOAD_FAILED_MARKER="${SCRATCH_DIR}/upload-failed"
-DEFAULTS_FILE='/tmp/mydumper.cnf'
 DESTINATION="s3://${S3_BUCKET}/${S3_BUCKET_PATH}"
 
 DEFAULT_CHUNK_FILESIZE=64
@@ -35,19 +34,6 @@ DEFAULT_LOCK_MODE='GTID'
 
 export SCRATCH_DIR
 
-write_defaults_file() {
-	{ set +x; } 2>/dev/null
-	(
-		umask 077
-		cat >"${DEFAULTS_FILE}" <<-EOF
-			[mydumper]
-			user=xtrabackup
-			password=${PXC_PASS}
-		EOF
-	)
-	set -x
-}
-
 clean_destination() {
 	# shellcheck disable=SC2086
 	aws $AWS_S3_NO_VERIFY_SSL s3 rm --only-show-errors --recursive "${DESTINATION}/"
@@ -58,7 +44,7 @@ clean_destination() {
 run_mydumper() {
 	local node=$1
 	local args=(
-		"--defaults-extra-file=${DEFAULTS_FILE}"
+		--user=xtrabackup
 		"--host=${node}.${PXC_SERVICE}"
 		"--outputdir=${DUMP_DIR}"
 		"--chunk-filesize=${DEFAULT_CHUNK_FILESIZE}"
@@ -115,7 +101,7 @@ if [ -z "${NODE_NAME}" ]; then
 fi
 
 clean_destination
-write_defaults_file
+export_mysql_password
 
 log 'INFO' "Logical backup of ${NODE_NAME} to ${DESTINATION} was started"
 

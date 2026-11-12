@@ -29,3 +29,9 @@ use_s3_path_style() {
 		aws configure set default.s3.addressing_style path
 	fi
 }
+
+export_mysql_password() {
+	{ set +x; } 2>/dev/null
+	export MYSQL_PWD="${PXC_PASS}"
+	set -x
+}

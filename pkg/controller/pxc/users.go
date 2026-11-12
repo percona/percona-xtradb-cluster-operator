@@ -1270,16 +1270,21 @@ func getUserManager(cr *api.PerconaXtraDBCluster, secrets *corev1.Secret) (*user
 func (r *ReconcilePerconaXtraDBCluster) exemptUserFromPasswordPolicies(ctx context.Context, cr *api.PerconaXtraDBCluster, internalSecrets *corev1.Secret, user *users.SysUser) error {
 	log := logf.FromContext(ctx)
 
-	annotation := "password-policy-for-1.21.0-user-" + user.Name
-	if internalSecrets.Annotations[annotation] == "done" {
-		return nil
-	}
-
 	ver, err := r.currentMySQLVersion(ctx, cr)
 	if err != nil {
 		return errors.Wrap(err, "check mysql version")
 	}
 	if ver == nil {
+		return nil
+	}
+
+	exemptFromMySQLPolicies := ver.GreaterThanOrEqual(mysql80)
+
+	annotation := "password-policy-for-1.21.0-user-" + user.Name
+	if ver.LessThan(mysql80) {
+		annotation = "pass-expire-policy-for-1.13.0-user-" + user.Name
+	}
+	if internalSecrets.Annotations[annotation] == "done" {
 		return nil
 	}
 
@@ -1293,7 +1298,7 @@ func (r *ReconcilePerconaXtraDBCluster) exemptUserFromPasswordPolicies(ctx conte
 		}
 	}()
 
-	if err := um.ExemptFromPasswordPolicies(user, ver.GreaterThanOrEqual(mysql80)); err != nil {
+	if err := um.ExemptFromPasswordPolicies(user, exemptFromMySQLPolicies); err != nil {
 		return errors.Wrapf(err, "exempt %s user from password policies", user.Name)
 	}
 

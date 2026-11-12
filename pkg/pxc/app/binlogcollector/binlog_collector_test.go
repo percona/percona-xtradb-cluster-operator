@@ -159,3 +159,52 @@ func TestGetDeployment(t *testing.T) {
 		})
 	}
 }
+
+func TestGetStorageEnvsS3Prefix(t *testing.T) {
+	tests := map[string]struct {
+		s3       api.BackupStorageS3Spec
+		expected string
+	}{
+		"no prefix": {
+			s3:       api.BackupStorageS3Spec{Bucket: "pxc", Region: "us-east-1", CredentialsSecret: "s"},
+			expected: "pxc",
+		},
+		"prefix is appended to the bucket": {
+			s3:       api.BackupStorageS3Spec{Bucket: "pxc", Prefix: "p3", Region: "us-east-1", CredentialsSecret: "s"},
+			expected: "pxc/p3",
+		},
+		"prefix is appended to the bucket path": {
+			s3:       api.BackupStorageS3Spec{Bucket: "pxc/data", Prefix: "p3/", Region: "us-east-1", CredentialsSecret: "s"},
+			expected: "pxc/data/p3",
+		},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			s3 := tt.s3
+			cr := &api.PerconaXtraDBCluster{
+				Spec: api.PerconaXtraDBClusterSpec{
+					CRVersion: version.Version(),
+					Backup: &api.BackupSpec{
+						PITR: api.PITRSpec{StorageName: "st"},
+						Storages: map[string]*api.BackupStorageSpec{
+							"st": {Type: api.BackupStorageS3, S3: &s3},
+						},
+					},
+				},
+			}
+			envs, err := getStorageEnvs(cr)
+			if err != nil {
+				t.Fatal(err)
+			}
+			got := ""
+			for _, e := range envs {
+				if e.Name == "S3_BUCKET_URL" {
+					got = e.Value
+				}
+			}
+			if got != tt.expected {
+				t.Fatalf("S3_BUCKET_URL = %q, want %q", got, tt.expected)
+			}
+		})
+	}
+}

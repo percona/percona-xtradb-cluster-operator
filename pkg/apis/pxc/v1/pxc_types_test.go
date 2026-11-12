@@ -1114,3 +1114,26 @@ func TestExecuteConfigurationTemplate(t *testing.T) {
 		})
 	}
 }
+
+func TestBackupStorageS3SpecBucketURLWithPrefix(t *testing.T) {
+	tests := map[string]struct {
+		spec     BackupStorageS3Spec
+		expected string
+	}{
+		"no prefix":              {spec: BackupStorageS3Spec{Bucket: "my-bucket"}, expected: "my-bucket"},
+		"prefix":                 {spec: BackupStorageS3Spec{Bucket: "my-bucket", Prefix: "p3"}, expected: "my-bucket/p3"},
+		"prefix with slashes":    {spec: BackupStorageS3Spec{Bucket: "my-bucket/", Prefix: "/p3/"}, expected: "my-bucket/p3"},
+		"bucket path and prefix": {spec: BackupStorageS3Spec{Bucket: "my-bucket/data", Prefix: "p3"}, expected: "my-bucket/data/p3"},
+		"endpoint path with force path style": {
+			spec:     BackupStorageS3Spec{Bucket: "ignored", Prefix: "p3", EndpointURL: "https://s3.example.com/my-bucket/data", ForcePathStyle: true},
+			expected: "my-bucket/data/p3",
+		},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			got, err := tt.spec.BucketURLWithPrefix()
+			assert.NoError(t, err)
+			assert.Equal(t, tt.expected, got)
+		})
+	}
+}

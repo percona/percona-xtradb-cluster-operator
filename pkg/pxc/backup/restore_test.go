@@ -185,3 +185,40 @@ func TestPrepareJob(t *testing.T) {
 	}
 	assert.ElementsMatch(t, job.Spec.Template.Spec.Containers[0].VolumeMounts, expectedVolumeMounts)
 }
+
+func TestS3EnvsPITRBinlogBucketPrefix(t *testing.T) {
+	tests := map[string]struct {
+		bucket, prefix, expected string
+	}{
+		"no prefix":               {"pxc", "", "pxc"},
+		"prefix is appended":      {"pxc", "p3", "pxc/p3"},
+		"prefix with bucket path": {"pxc/data", "p3/", "pxc/data/p3"},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			s3 := &pxcv1.BackupStorageS3Spec{Bucket: tt.bucket, Prefix: tt.prefix, Region: "us-east-1", CredentialsSecret: "s"}
+			cluster := &pxcv1.PerconaXtraDBCluster{
+				Spec: pxcv1.PerconaXtraDBClusterSpec{
+					Backup: &pxcv1.BackupSpec{
+						Storages: map[string]*pxcv1.BackupStorageSpec{"st": {Type: pxcv1.BackupStorageS3, S3: s3}},
+					},
+				},
+			}
+			cr := &pxcv1.PerconaXtraDBClusterRestore{
+				Spec: pxcv1.PerconaXtraDBClusterRestoreSpec{
+					PITR: &pxcv1.PITR{BackupSource: &pxcv1.PXCBackupStatus{StorageName: "st"}},
+				},
+			}
+			bcp := &pxcv1.PerconaXtraDBClusterBackup{Status: pxcv1.PXCBackupStatus{S3: s3}}
+			envs, err := s3Envs(cr, bcp, cluster, pxcv1.PXCBackupDestination("s3://pxc/backup"), true)
+			assert.NoError(t, err)
+			got := ""
+			for _, e := range envs {
+				if e.Name == "BINLOG_S3_BUCKET_URL" {
+					got = e.Value
+				}
+			}
+			assert.Equal(t, tt.expected, got)
+		})
+	}
+}

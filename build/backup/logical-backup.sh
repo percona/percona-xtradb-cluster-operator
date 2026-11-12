@@ -13,6 +13,8 @@ LIB_PATH='/opt/percona/backup/lib/pxc'
 . ${LIB_PATH}/aws.sh
 # shellcheck source=build/backup/lib/pxc/backup-source.sh
 . ${LIB_PATH}/backup-source.sh
+# shellcheck source=build/backup/lib/pxc/logical.sh
+. ${LIB_PATH}/logical.sh
 
 UPLOAD_SCRIPT='/opt/percona/backup/logical-upload.sh'
 SCRATCH_DIR=${SCRATCH_DIR:-/scratch}
@@ -32,21 +34,6 @@ DEFAULT_REGEX='^(?!(mysql|sys)(\.|$))'
 DEFAULT_LOCK_MODE='GTID'
 
 export SCRATCH_DIR
-
-# has_user_arg reports whether the user-supplied mydumper arguments contain any
-# of the given options.
-has_user_arg() {
-	local arg option
-	# shellcheck disable=SC2086
-	for arg in ${MYDUMPER_EXTRA_ARGS}; do
-		for option in "$@"; do
-			if [[ ${arg} == "${option}" || ${arg} == "${option}="* ]]; then
-				return 0
-			fi
-		done
-	done
-	return 1
-}
 
 write_defaults_file() {
 	{ set +x; } 2>/dev/null
@@ -84,10 +71,10 @@ run_mydumper() {
 
 	# A repeated --regex does not replace the first one, so the defaults are only
 	# added when the user did not set these options.
-	if ! has_user_arg --regex -x; then
+	if ! has_arg "${MYDUMPER_EXTRA_ARGS}" --regex -x; then
 		args+=("--regex=${DEFAULT_REGEX}")
 	fi
-	if ! has_user_arg --sync-thread-lock-mode; then
+	if ! has_arg "${MYDUMPER_EXTRA_ARGS}" --sync-thread-lock-mode; then
 		args+=("--sync-thread-lock-mode=${DEFAULT_LOCK_MODE}")
 	fi
 
@@ -116,9 +103,7 @@ if ! command -v mydumper >/dev/null; then
 	exit 1
 fi
 
-if [[ ${S3_FORCE_PATH} == 'true' ]]; then
-	aws configure set default.s3.addressing_style path
-fi
+use_s3_path_style
 s3_add_bucket_dest
 
 NODE_NAME=$(get_backup_source)

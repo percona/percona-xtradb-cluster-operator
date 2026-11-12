@@ -14,67 +14,69 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/version"
 )
 
-func TestLogicalJobSpec(t *testing.T) {
-	const storageName = "test-storage"
+const logicalTestStorageName = "test-storage"
 
-	newCluster := func(t *testing.T, storageOptions *pxcv1.BackupContainerOptions) *pxcv1.PerconaXtraDBCluster {
-		t.Helper()
+// newLogicalTestCluster returns a cluster with defaults applied and one s3
+// storage, whose container options are the given ones.
+func newLogicalTestCluster(t *testing.T, storageOptions *pxcv1.BackupContainerOptions) *pxcv1.PerconaXtraDBCluster {
+	t.Helper()
 
-		cluster := &pxcv1.PerconaXtraDBCluster{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-cluster",
-				Namespace: "test-ns",
-			},
-			Spec: pxcv1.PerconaXtraDBClusterSpec{
-				CRVersion: version.Version(),
-				Backup: &pxcv1.BackupSpec{
-					Image: "percona/percona-xtrabackup:8.4",
-					Storages: map[string]*pxcv1.BackupStorageSpec{
-						storageName: {
-							Type: pxcv1.BackupStorageS3,
-							S3: &pxcv1.BackupStorageS3Spec{
-								Bucket:            "operator-testing",
-								Region:            "us-west-1",
-								CredentialsSecret: "test-secret",
+	cluster := &pxcv1.PerconaXtraDBCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-cluster",
+			Namespace: "test-ns",
+		},
+		Spec: pxcv1.PerconaXtraDBClusterSpec{
+			CRVersion: version.Version(),
+			Backup: &pxcv1.BackupSpec{
+				Image: "percona/percona-xtrabackup:8.4",
+				Storages: map[string]*pxcv1.BackupStorageSpec{
+					logicalTestStorageName: {
+						Type: pxcv1.BackupStorageS3,
+						S3: &pxcv1.BackupStorageS3Spec{
+							Bucket:            "operator-testing",
+							Region:            "us-west-1",
+							CredentialsSecret: "test-secret",
+						},
+						Resources: corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceMemory: resource.MustParse("1Gi"),
 							},
-							Resources: corev1.ResourceRequirements{
+						},
+						NodeSelector:     map[string]string{"disk": "fast"},
+						ContainerOptions: storageOptions,
+					},
+				},
+			},
+			PXC: &pxcv1.PXCSpec{
+				PodSpec: &pxcv1.PodSpec{
+					Size:     3,
+					Image:    "percona/percona-xtradb-cluster:8.4",
+					Affinity: &pxcv1.PodAffinity{},
+					VolumeSpec: &pxcv1.VolumeSpec{
+						PersistentVolumeClaim: &corev1.PersistentVolumeClaimSpec{
+							Resources: corev1.VolumeResourceRequirements{
 								Requests: corev1.ResourceList{
-									corev1.ResourceMemory: resource.MustParse("1Gi"),
-								},
-							},
-							NodeSelector:     map[string]string{"disk": "fast"},
-							ContainerOptions: storageOptions,
-						},
-					},
-				},
-				PXC: &pxcv1.PXCSpec{
-					PodSpec: &pxcv1.PodSpec{
-						Size:     3,
-						Image:    "percona/percona-xtradb-cluster:8.4",
-						Affinity: &pxcv1.PodAffinity{},
-						VolumeSpec: &pxcv1.VolumeSpec{
-							PersistentVolumeClaim: &corev1.PersistentVolumeClaimSpec{
-								Resources: corev1.VolumeResourceRequirements{
-									Requests: corev1.ResourceList{
-										corev1.ResourceStorage: resource.MustParse("1Gi"),
-									},
+									corev1.ResourceStorage: resource.MustParse("1Gi"),
 								},
 							},
 						},
 					},
 				},
 			},
-		}
-
-		sv := &version.ServerVersion{
-			Platform: version.PlatformKubernetes,
-			Info:     k8sversion.Info{},
-		}
-		require.NoError(t, cluster.CheckNSetDefaults(sv, log))
-
-		return cluster
+		},
 	}
 
+	sv := &version.ServerVersion{
+		Platform: version.PlatformKubernetes,
+		Info:     k8sversion.Info{},
+	}
+	require.NoError(t, cluster.CheckNSetDefaults(sv, log))
+
+	return cluster
+}
+
+func TestLogicalJobSpec(t *testing.T) {
 	tests := map[string]struct {
 		storageOptions *pxcv1.BackupContainerOptions
 		backupOptions  *pxcv1.BackupContainerOptions
@@ -108,7 +110,7 @@ func TestLogicalJobSpec(t *testing.T) {
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			cluster := newCluster(t, tt.storageOptions)
+			cluster := newLogicalTestCluster(t, tt.storageOptions)
 			cr := &pxcv1.PerconaXtraDBClusterBackup{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-backup",
@@ -116,7 +118,7 @@ func TestLogicalJobSpec(t *testing.T) {
 				},
 				Spec: pxcv1.PXCBackupSpec{
 					PXCCluster:       "test-cluster",
-					StorageName:      storageName,
+					StorageName:      logicalTestStorageName,
 					Type:             pxcv1.BackupTypeLogical,
 					ContainerOptions: tt.backupOptions,
 				},

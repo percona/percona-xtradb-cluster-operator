@@ -4,7 +4,9 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
@@ -156,6 +158,59 @@ func TestGetDeployment(t *testing.T) {
 					t.Errorf("Deployment labels = %v, want empty", depl.Labels)
 				}
 			}
+		})
+	}
+}
+
+func TestGetBufferSize(t *testing.T) {
+	tests := []struct {
+		name      string
+		resources corev1.ResourceRequirements
+		expected  int64
+	}{
+		{
+			name:     "no resources",
+			expected: 0,
+		},
+		{
+			name: "cpu only",
+			resources: corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("100m")},
+			},
+			expected: 0,
+		},
+		{
+			name: "memory request only",
+			resources: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("1000")},
+			},
+			expected: 750,
+		},
+		{
+			name: "memory limit only",
+			resources: corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("2000")},
+			},
+			expected: 1500,
+		},
+		{
+			name: "limit takes precedence over request",
+			resources: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("1000")},
+				Limits:   corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("2000")},
+			},
+			expected: 1500,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			spec := api.PerconaXtraDBClusterSpec{
+				Backup: &api.BackupSpec{
+					PITR: api.PITRSpec{Resources: tt.resources},
+				},
+			}
+			assert.Equal(t, tt.expected, getBufferSize(spec))
 		})
 	}
 }

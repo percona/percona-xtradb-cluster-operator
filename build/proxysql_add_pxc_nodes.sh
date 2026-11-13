@@ -5,7 +5,7 @@ set -o xtrace
 
 function log() {
 	set +o xtrace
-	echo "[$(date +%Y-%m-%dT%H:%M:%S%z)]" $*
+	echo "[$(date +%Y-%m-%dT%H:%M:%S%z)]" "$*"
 	set -o xtrace
 }
 
@@ -26,7 +26,7 @@ function wait_for_mysql() {
 		log "[retry ${retry}] MySQL is not up yet... sleeping..."
 		sleep 1
 
-		let retry+=1
+		((retry += 1))
 		if [[ $retry -ge 30 ]]; then
 			log "${h} is not up after ${retry} attempts!"
 			return 1
@@ -53,7 +53,7 @@ function wait_for_proxy() {
 		log "[retry ${retry}] ProxySQL is not up yet... sleeping..."
 		sleep 1
 
-		let retry+=1
+		((retry += 1))
 		if [[ $retry -ge 30 ]]; then
 			log "ProxySQL is not up after ${retry} attempts!"
 			return 1
@@ -73,16 +73,16 @@ function main() {
 
 	sleep 15s # wait for evs.inactive_timeout
 
-	while read host; do
+	while read -r host; do
 		if [[ -z ${host} ]]; then
 			log "No host provided via stdin."
 			exit 0
 		fi
 
-		service=$(echo $host | cut -d . -f 2-)
-		pod_name=$(echo $host | cut -d . -f -1)
-		pod_zero=$(echo $pod_name | sed "s/-[0-9]*$/-0/")
-		pod_id=$(echo $pod_name | awk -F'-' '{print $NF}')
+		service=$(echo "$host" | cut -d . -f 2-)
+		pod_name=$(echo "$host" | cut -d . -f -1)
+		pod_zero="${pod_name%-*}-0"
+		pod_id=$(echo "$pod_name" | awk -F'-' '{print $NF}')
 
 		wait_for_mysql "${host}"
 
@@ -135,7 +135,7 @@ function main() {
 		fi
 
 		# don't remove and re-add servers if not necessary
-		if [[ "$(proxysql_admin_exec 127.0.0.1 'SELECT COUNT(DISTINCT(hostname)) FROM mysql_servers;')" != ${hosts} ]]; then
+		if [[ "$(proxysql_admin_exec 127.0.0.1 'SELECT COUNT(DISTINCT(hostname)) FROM mysql_servers;')" != "${hosts}" ]]; then
 			percona-scheduler-admin \
 				--config-file="${PERCONA_SCHEDULER_CFG}" \
 				--write-node="${pod_zero}.${service}:3306" \
@@ -157,7 +157,7 @@ function main() {
 		fi
 
 		# update weights if ProxySQL is restarted
-		if [[ "$(proxysql_admin_exec 127.0.0.1 'SELECT COUNT(DISTINCT(hostname)) FROM mysql_servers WHERE weight=1000;')" > 0 ]]; then
+		if [[ "$(proxysql_admin_exec 127.0.0.1 'SELECT COUNT(DISTINCT(hostname)) FROM mysql_servers WHERE weight=1000;')" -gt 0 ]]; then
 			proxysql_admin_exec "127.0.0.1" "${update_weights}; LOAD MYSQL SERVERS TO RUNTIME;"
 		fi
 

@@ -129,10 +129,8 @@ function main() {
 		fi
 
 		if [ "$(proxysql_admin_exec "127.0.0.1" 'SELECT count(*) FROM runtime_scheduler')" -eq 0 ]; then
-			if percona-scheduler-admin --config-file="${PERCONA_SCHEDULER_CFG}" --is-enabled >/dev/null 2>&1; then
-				log "Cleaning stale scheduler setup before re-enabling..."
-				percona-scheduler-admin --config-file="${PERCONA_SCHEDULER_CFG}" --disable || true
-			fi
+			log "Cleaning stale scheduler setup before re-enabling..."
+			percona-scheduler-admin --config-file="${PERCONA_SCHEDULER_CFG}" --disable || true
 			percona-scheduler-admin --config-file="${PERCONA_SCHEDULER_CFG}" --enable --force
 		fi
 

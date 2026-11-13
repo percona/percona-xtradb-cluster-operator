@@ -16,6 +16,12 @@ const (
 )
 
 const (
+	// AnnotationBaseBackupName records the object-storage leaf name of the full
+	// backup an incremental backup is chained to.
+	AnnotationBaseBackupName = annotationPrefix + "base-backup-name"
+)
+
+const (
 	OperatorController           = "pxc-controller"
 	OperatorWebhookTLSSecretName = "pxc-webhook-ssl"
 )

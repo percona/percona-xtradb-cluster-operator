@@ -21,6 +21,7 @@ func JobSpec(
 	job *batchv1.Job,
 	initImage string,
 	primaryPodHost string,
+	incrementalBaseDest string,
 ) (batchv1.JobSpec, error) {
 	var volumeMounts []corev1.VolumeMount
 	var volumes []corev1.Volume
@@ -44,7 +45,7 @@ func JobSpec(
 	var initContainers []corev1.Container
 	initContainers = append(initContainers, statefulset.BackupInitContainer(cluster, initImage, storage.ContainerSecurityContext))
 
-	envs, err := xtrabackupJobEnvVars(cluster, backup, storage, primaryPodHost)
+	envs, err := xtrabackupJobEnvVars(cluster, backup, storage, primaryPodHost, incrementalBaseDest)
 	if err != nil {
 		return batchv1.JobSpec{}, errors.Wrap(err, "failed to get xtrabackup job env vars")
 	}
@@ -100,6 +101,7 @@ func xtrabackupJobEnvVars(
 	backup *pxcv1.PerconaXtraDBClusterBackup,
 	storage *pxcv1.BackupStorageSpec,
 	primaryPodHost string,
+	incrementalBaseDest string,
 ) ([]corev1.EnvVar, error) {
 	envs := []corev1.EnvVar{
 		{
@@ -122,6 +124,16 @@ func xtrabackupJobEnvVars(
 
 	if cluster.CompareVersionWith("1.20.0") >= 0 {
 		envs = append(envs, backup.Spec.ContainerOptions.GetEnvVar(cluster, backup.Spec.StorageName)...)
+	}
+
+	if backup.GetType() == pxcv1.BackupTypeIncremental && cluster.CompareVersionWith("1.21.0") >= 0 {
+		if incrementalBaseDest == "" {
+			return nil, errors.Errorf("incremental backup %s/%s has no predecessor destination", backup.GetNamespace(), backup.GetName())
+		}
+		envs = append(envs, corev1.EnvVar{
+			Name:  "INCREMENTAL_BASE_DEST",
+			Value: incrementalBaseDest,
+		})
 	}
 
 	return envs, nil

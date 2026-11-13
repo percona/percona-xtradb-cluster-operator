@@ -84,21 +84,12 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(
 		return nil, nil
 	}
 
-	mysqlVersion := cr.Status.PXC.Version
-	if mysqlVersion == "" {
-		var err error
-		mysqlVersion, err = r.mysqlVersion(ctx, cr, statefulset.NewNode(cr))
-		if err != nil {
-			if errors.Is(err, versionNotReadyErr) {
-				return nil, nil
-			}
-			return nil, errors.Wrap(err, "retrieving pxc version")
-		}
-	}
-
-	ver, err := version.NewVersion(mysqlVersion)
+	ver, err := r.currentMySQLVersion(ctx, cr)
 	if err != nil {
-		return nil, errors.Wrap(err, "invalid pxc version")
+		return nil, err
+	}
+	if ver == nil {
+		return nil, nil
 	}
 
 	var actions *userUpdateActions
@@ -142,6 +133,43 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(
 
 func sha256Hash(data []byte) string {
 	return fmt.Sprintf("%x", sha256.Sum256(data))
+}
+
+func (r *ReconcilePerconaXtraDBCluster) currentMySQLVersion(ctx context.Context, cr *api.PerconaXtraDBCluster) (*version.Version, error) {
+	mysqlVersion := cr.Status.PXC.Version
+	if mysqlVersion == "" {
+		var err error
+		mysqlVersion, err = r.mysqlVersion(ctx, cr, statefulset.NewNode(cr))
+		if err != nil {
+			if errors.Is(err, versionNotReadyErr) {
+				return nil, nil
+			}
+			return nil, errors.Wrap(err, "retrieving pxc version")
+		}
+	}
+	if mysqlVersion == "" {
+		return nil, nil
+	}
+
+	ver, err := version.NewVersion(mysqlVersion)
+	if err != nil {
+		return nil, errors.Wrap(err, "invalid pxc version")
+	}
+
+	return ver, nil
+}
+
+// mysqlSupportsPasswordPolicyExemptions reports whether the PXC node supports
+// exempting operator-managed users from password_history, password_reuse_interval
+// and password_require_current (the latter needs 8.0.13+); gated at 8.0.0 since
+// Percona 8.0 images start at 8.0.18.
+func (r *ReconcilePerconaXtraDBCluster) mysqlSupportsPasswordPolicyExemptions(ctx context.Context, cr *api.PerconaXtraDBCluster) (bool, error) {
+	ver, err := r.currentMySQLVersion(ctx, cr)
+	if err != nil || ver == nil {
+		return false, err
+	}
+
+	return ver.GreaterThanOrEqual(mysql80), nil
 }
 
 func (r *ReconcilePerconaXtraDBCluster) updateUsers(ctx context.Context, cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret) (*userUpdateActions, error) {
@@ -207,7 +235,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleRootUser(ctx context.Context, cr *
 		return nil
 	}
 
-	if err := r.updateUserPassExpirationPolicy(ctx, cr, internalSecrets, user); err != nil {
+	if err := r.exemptUserFromPasswordPolicies(ctx, cr, internalSecrets, user); err != nil {
 		return err
 	}
 
@@ -279,7 +307,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleOperatorUser(ctx context.Context, 
 			return errors.Wrap(err, "manage operator admin user")
 		}
 
-		if err := r.updateUserPassExpirationPolicy(ctx, cr, internalSecrets, user); err != nil {
+		if err := r.exemptUserFromPasswordPolicies(ctx, cr, internalSecrets, user); err != nil {
 			return err
 		}
 	}
@@ -373,7 +401,12 @@ func (r *ReconcilePerconaXtraDBCluster) manageOperatorAdminUser(ctx context.Cont
 		}
 	}()
 
-	err = um.CreateOperatorUser(string(pass))
+	exemptFromMySQLPolicies, err := r.mysqlSupportsPasswordPolicyExemptions(ctx, cr)
+	if err != nil {
+		return errors.Wrap(err, "check mysql version")
+	}
+
+	err = um.CreateOperatorUser(string(pass), exemptFromMySQLPolicies)
 	if err != nil {
 		return errors.Wrap(err, "create operator user")
 	}
@@ -404,7 +437,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(ctx context.Context, c
 	}
 
 	if cr.Status.PXC.Ready > 0 {
-		if err := r.updateUserPassExpirationPolicy(ctx, cr, internalSecrets, user); err != nil {
+		if err := r.exemptUserFromPasswordPolicies(ctx, cr, internalSecrets, user); err != nil {
 			return err
 		}
 
@@ -422,34 +455,23 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(ctx context.Context, c
 			return errors.Wrap(err, "update monitor user grant")
 		}
 
-		mysqlVersion := cr.Status.PXC.Version
-		if mysqlVersion == "" {
-			var err error
-			mysqlVersion, err = r.mysqlVersion(ctx, cr, statefulset.NewNode(cr))
-			if err != nil {
-				if errors.Is(err, versionNotReadyErr) {
-					return nil
-				}
-				return errors.Wrap(err, "retrieving pxc version")
+		ver, err := r.currentMySQLVersion(ctx, cr)
+		if err != nil {
+			return err
+		}
+		if ver == nil {
+			return nil
+		}
+
+		if !ver.LessThan(privSystemUserAddedIn) {
+			if err := r.grantMonitorUserPrivilege(ctx, cr, internalSecrets, um); err != nil {
+				return errors.Wrap(err, "monitor user grant system privilege")
 			}
 		}
 
-		if mysqlVersion != "" {
-			ver, err := version.NewVersion(mysqlVersion)
-			if err != nil {
-				return errors.Wrap(err, "invalid pxc version")
-			}
-
-			if !ver.LessThan(privSystemUserAddedIn) {
-				if err := r.grantMonitorUserPrivilege(ctx, cr, internalSecrets, um); err != nil {
-					return errors.Wrap(err, "monitor user grant system privilege")
-				}
-			}
-
-			if !ver.LessThan(mysql84) {
-				if err := r.grantMonitorUserAuditAdminPrivilege(ctx, internalSecrets, um); err != nil {
-					return errors.Wrap(err, "monitor user grant audit admin privilege")
-				}
+		if !ver.LessThan(mysql84) {
+			if err := r.grantMonitorUserAuditAdminPrivilege(ctx, internalSecrets, um); err != nil {
+				return errors.Wrap(err, "monitor user grant audit admin privilege")
 			}
 		}
 	}
@@ -553,7 +575,12 @@ func (r *ReconcilePerconaXtraDBCluster) updateMonitorUserGrant(ctx context.Conte
 		return nil
 	}
 
-	err := um.Update160MonitorUserGrant(string(internalSysSecretObj.Data[users.Monitor]))
+	exemptFromMySQLPolicies, err := r.mysqlSupportsPasswordPolicyExemptions(ctx, cr)
+	if err != nil {
+		return errors.Wrap(err, "check mysql version")
+	}
+
+	err = um.Update160MonitorUserGrant(string(internalSysSecretObj.Data[users.Monitor]), exemptFromMySQLPolicies)
 	if err != nil {
 		return errors.Wrap(err, "update monitor grant")
 	}
@@ -582,7 +609,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleXtrabackupUser(ctx context.Context
 	}
 
 	if cr.Status.PXC.Ready > 0 {
-		if err := r.updateUserPassExpirationPolicy(ctx, cr, internalSecrets, user); err != nil {
+		if err := r.exemptUserFromPasswordPolicies(ctx, cr, internalSecrets, user); err != nil {
 			return err
 		}
 
@@ -665,7 +692,12 @@ func (r *ReconcilePerconaXtraDBCluster) updateXtrabackupUserGrant(ctx context.Co
 		}
 	}()
 
-	err = um.Update1150XtrabackupUser(string(secrets.Data[users.Xtrabackup]))
+	exemptFromMySQLPolicies, err := r.mysqlSupportsPasswordPolicyExemptions(ctx, cr)
+	if err != nil {
+		return errors.Wrap(err, "check mysql version")
+	}
+
+	err = um.Update1150XtrabackupUser(string(secrets.Data[users.Xtrabackup]), exemptFromMySQLPolicies)
 	if err != nil {
 		return errors.Wrap(err, "update xtrabackup grant")
 	}
@@ -703,7 +735,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleReplicationUser(ctx context.Contex
 			return errors.Wrap(err, "manage replication user")
 		}
 
-		if err := r.updateUserPassExpirationPolicy(ctx, cr, internalSecrets, user); err != nil {
+		if err := r.exemptUserFromPasswordPolicies(ctx, cr, internalSecrets, user); err != nil {
 			return err
 		}
 	}
@@ -793,7 +825,12 @@ func (r *ReconcilePerconaXtraDBCluster) manageReplicationUser(ctx context.Contex
 		return errors.Wrap(err, "generate password")
 	}
 
-	err = um.CreateReplicationUser(string(pass))
+	exemptFromMySQLPolicies, err := r.mysqlSupportsPasswordPolicyExemptions(ctx, cr)
+	if err != nil {
+		return errors.Wrap(err, "check mysql version")
+	}
+
+	err = um.CreateReplicationUser(string(pass), exemptFromMySQLPolicies)
 	if err != nil {
 		return errors.Wrap(err, "create replication user")
 	}
@@ -834,7 +871,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleProxyadminUser(ctx context.Context
 		return nil
 	}
 
-	if err := r.updateUserPassExpirationPolicy(ctx, cr, internalSecrets, user); err != nil {
+	if err := r.exemptUserFromPasswordPolicies(ctx, cr, internalSecrets, user); err != nil {
 		return err
 	}
 
@@ -1230,11 +1267,24 @@ func getUserManager(cr *api.PerconaXtraDBCluster, secrets *corev1.Secret) (*user
 	return &um, nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) updateUserPassExpirationPolicy(ctx context.Context, cr *api.PerconaXtraDBCluster, internalSecrets *corev1.Secret, user *users.SysUser) error {
+func (r *ReconcilePerconaXtraDBCluster) exemptUserFromPasswordPolicies(ctx context.Context, cr *api.PerconaXtraDBCluster, internalSecrets *corev1.Secret, user *users.SysUser) error {
 	log := logf.FromContext(ctx)
 
-	annotationName := "pass-expire-policy-for-1.13.0-user-" + user.Name
-	if internalSecrets.Annotations[annotationName] == "done" {
+	ver, err := r.currentMySQLVersion(ctx, cr)
+	if err != nil {
+		return errors.Wrap(err, "check mysql version")
+	}
+	if ver == nil {
+		return nil
+	}
+
+	exemptFromMySQLPolicies := ver.GreaterThanOrEqual(mysql80)
+
+	annotation := "password-policy-for-1.21.0-user-" + user.Name
+	if ver.LessThan(mysql80) {
+		annotation = "pass-expire-policy-for-1.13.0-user-" + user.Name
+	}
+	if internalSecrets.Annotations[annotation] == "done" {
 		return nil
 	}
 
@@ -1248,20 +1298,19 @@ func (r *ReconcilePerconaXtraDBCluster) updateUserPassExpirationPolicy(ctx conte
 		}
 	}()
 
-	if err := um.UpdatePassExpirationPolicy(user); err != nil {
-		return errors.Wrapf(err, "update %s user password expiration policy", user.Name)
+	if err := um.ExemptFromPasswordPolicies(user, exemptFromMySQLPolicies); err != nil {
+		return errors.Wrapf(err, "exempt %s user from password policies", user.Name)
 	}
 
 	if internalSecrets.Annotations == nil {
 		internalSecrets.Annotations = make(map[string]string)
 	}
-
-	internalSecrets.Annotations[annotationName] = "done"
+	internalSecrets.Annotations[annotation] = "done"
 	if err = r.client.Update(ctx, internalSecrets); err != nil {
 		return errors.Wrap(err, "update internal sys users secret annotation")
 	}
 
-	log.Info("Password expiration policy updated", "user", user.Name)
+	log.Info("User exempted from password policies", "user", user.Name)
 
 	return nil
 }
@@ -1293,10 +1342,18 @@ func (r *ReconcilePerconaXtraDBCluster) updateMySQLInitFile(ctx context.Context,
 	if err := r.client.Get(ctx, client.ObjectKeyFromObject(secret), secret); err == nil {
 		data = secret.Data
 	}
+	passwordPolicyExemptClause := ""
+	supportsPasswordPolicyExemptions, err := r.mysqlSupportsPasswordPolicyExemptions(ctx, cr)
+	if err != nil {
+		return errors.Wrap(err, "check mysql version")
+	}
+	if supportsPasswordPolicyExemptions {
+		passwordPolicyExemptClause = " PASSWORD HISTORY 0 PASSWORD REUSE INTERVAL 0 DAY PASSWORD REQUIRE CURRENT OPTIONAL"
+	}
 
 	statements := make([]string, 0)
 	for _, host := range user.Hosts {
-		statements = append(statements, fmt.Sprintf("ALTER USER '%s'@'%s' IDENTIFIED BY '%s';\n", user.Name, host, user.Pass))
+		statements = append(statements, fmt.Sprintf("ALTER USER '%s'@'%s' IDENTIFIED BY '%s'%s;\n", user.Name, host, user.Pass, passwordPolicyExemptClause))
 	}
 
 	opResult, err := controllerutil.CreateOrUpdate(ctx, r.client, secret, func() error {

@@ -6,6 +6,7 @@ package logical
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/pkg/errors"
 	batchv1 "k8s.io/api/batch/v1"
@@ -85,7 +86,7 @@ func listBackupObjects(ctx context.Context, opts common.Options) ([]storage.Obje
 func hasMetadata(objects []storage.ObjectInfo, bcp *api.PerconaXtraDBClusterBackup) bool {
 	metadata := bcp.Status.Destination.BackupName() + "/" + metadataObject
 	for _, object := range objects {
-		if object.Name == metadata {
+		if strings.TrimPrefix(object.Name, "/") == metadata {
 			return true
 		}
 	}

@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -15,6 +16,30 @@ type PerconaXtraDBClusterRestoreSpec struct {
 	BackupSource     *PXCBackupStatus            `json:"backupSource,omitempty"`
 	PITR             *PITR                       `json:"pitr,omitempty"`
 	Resources        corev1.ResourceRequirements `json:"resources,omitempty"`
+	// Job configures the restore job. It is only allowed for restores of
+	// logical backups.
+	// +optional
+	Job *RestoreJobSpec `json:"job,omitempty"`
+}
+
+// RestoreJobSpec holds settings of the restore job.
+type RestoreJobSpec struct {
+	// Volume configures the temporary volume a restore of a logical backup
+	// downloads the dump to.
+	// +optional
+	Volume *RestoreJobVolume `json:"volume,omitempty"`
+}
+
+// RestoreJobVolume overrides the temporary volume of a logical restore.
+type RestoreJobVolume struct {
+	// Size of the volume. When unset, the size is the backup size plus 10%,
+	// with a minimum of 1Gi.
+	// +optional
+	Size *resource.Quantity `json:"size,omitempty"`
+	// StorageClassName of the volume. When unset, the cluster's default
+	// storage class is used.
+	// +optional
+	StorageClassName *string `json:"storageClassName,omitempty"`
 }
 
 // PerconaXtraDBClusterRestoreStatus defines the observed state of PerconaXtraDBClusterRestore
@@ -27,6 +52,11 @@ type PerconaXtraDBClusterRestoreStatus struct {
 	HAProxySize   int32        `json:"haproxySize,omitempty"`
 	ProxySQLSize  int32        `json:"proxysqlSize,omitempty"`
 	Unsafe        UnsafeFlags  `json:"unsafeFlags,omitempty"`
+	// BackupType is the type of the backup being restored, resolved once when
+	// the restore starts. Empty means "full".
+	// +optional
+	// +kubebuilder:validation:Enum=full;logical
+	BackupType PXCBackupType `json:"backupType,omitempty"`
 }
 
 const (

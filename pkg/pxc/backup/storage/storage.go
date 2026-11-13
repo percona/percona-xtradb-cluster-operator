@@ -28,9 +28,37 @@ type Storage interface {
 	GetObject(ctx context.Context, objectName string) (io.ReadCloser, error)
 	PutObject(ctx context.Context, name string, data io.Reader, size int64) error
 	ListObjects(ctx context.Context, prefix string) ([]string, error)
+	// ListObjectInfos lists the same objects as ListObjects, with their sizes.
+	ListObjectInfos(ctx context.Context, prefix string) ([]ObjectInfo, error)
 	DeleteObject(ctx context.Context, objectName string) error
 	SetPrefix(prefix string)
 	GetPrefix() string
+}
+
+// ObjectInfo describes an object in the storage.
+type ObjectInfo struct {
+	// Name is the object's name without the storage prefix.
+	Name string
+	// Size is the object's size in bytes.
+	Size int64
+}
+
+// TotalSize returns the sum of the sizes of the given objects, in bytes.
+func TotalSize(objects []ObjectInfo) int64 {
+	var total int64
+	for _, object := range objects {
+		total += object.Size
+	}
+	return total
+}
+
+// objectNames returns the names of the given objects, in the same order.
+func objectNames(objects []ObjectInfo) []string {
+	names := make([]string, 0, len(objects))
+	for _, object := range objects {
+		names = append(names, object.Name)
+	}
+	return names
 }
 
 type NewClientFunc func(context.Context, Options) (Storage, error)
@@ -193,6 +221,15 @@ func minioPutObjectOptions(size int64, algorithm api.S3ChecksumAlgorithmType) mi
 }
 
 func (s *S3) ListObjects(ctx context.Context, prefix string) ([]string, error) {
+	objects, err := s.ListObjectInfos(ctx, prefix)
+	if err != nil {
+		return nil, err
+	}
+
+	return objectNames(objects), nil
+}
+
+func (s *S3) ListObjectInfos(ctx context.Context, prefix string) ([]ObjectInfo, error) {
 	opts := minio.ListObjectsOptions{
 		UseV1:     true,
 		Recursive: true,
@@ -203,7 +240,7 @@ func (s *S3) ListObjects(ctx context.Context, prefix string) ([]string, error) {
 		opts.Prefix += "/"
 	}
 
-	list := []string{}
+	list := []ObjectInfo{}
 
 	var err error
 	for object := range s.client.ListObjects(ctx, s.bucketName, opts) {
@@ -217,7 +254,10 @@ func (s *S3) ListObjects(ctx context.Context, prefix string) ([]string, error) {
 		if object.Err != nil {
 			err = errors.Wrapf(object.Err, "list object %s", object.Key)
 		}
-		list = append(list, strings.TrimPrefix(object.Key, s.prefix))
+		list = append(list, ObjectInfo{
+			Name: strings.TrimPrefix(object.Key, s.prefix),
+			Size: object.Size,
+		})
 	}
 	if err != nil {
 		return nil, err
@@ -316,6 +356,18 @@ func (a *Azure) PutObject(ctx context.Context, name string, data io.Reader, _ in
 }
 
 func (a *Azure) ListObjects(ctx context.Context, prefix string) ([]string, error) {
+	blobs, err := a.ListObjectInfos(ctx, prefix)
+	if err != nil {
+		return nil, err
+	}
+	if len(blobs) == 0 {
+		return nil, nil
+	}
+
+	return objectNames(blobs), nil
+}
+
+func (a *Azure) ListObjectInfos(ctx context.Context, prefix string) ([]ObjectInfo, error) {
 	listPrefix := path.Join(a.prefix, prefix)
 	if strings.HasSuffix(prefix, "/") && !strings.HasSuffix(listPrefix, "/") {
 		listPrefix += "/"
@@ -323,7 +375,7 @@ func (a *Azure) ListObjects(ctx context.Context, prefix string) ([]string, error
 	pg := a.client.NewListBlobsFlatPager(a.container, &container.ListBlobsFlatOptions{
 		Prefix: &listPrefix,
 	})
-	var blobs []string
+	var blobs []ObjectInfo
 	for pg.More() {
 		resp, err := pg.NextPage(ctx)
 		if err != nil {
@@ -332,8 +384,11 @@ func (a *Azure) ListObjects(ctx context.Context, prefix string) ([]string, error
 		if resp.Segment != nil {
 			for _, item := range resp.Segment.BlobItems {
 				if item != nil && item.Name != nil {
-					name := strings.TrimPrefix(*item.Name, a.prefix)
-					blobs = append(blobs, name)
+					blob := ObjectInfo{Name: strings.TrimPrefix(*item.Name, a.prefix)}
+					if item.Properties != nil && item.Properties.ContentLength != nil {
+						blob.Size = *item.Properties.ContentLength
+					}
+					blobs = append(blobs, blob)
 				}
 			}
 		}

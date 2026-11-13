@@ -38,6 +38,10 @@ func (c *Storage) ListObjects(_ context.Context, _ string) ([]string, error) {
 	return nil, nil
 }
 
+func (c *Storage) ListObjectInfos(_ context.Context, _ string) ([]storage.ObjectInfo, error) {
+	return nil, nil
+}
+
 func (c *Storage) DeleteObject(_ context.Context, _ string) error {
 	return nil
 }

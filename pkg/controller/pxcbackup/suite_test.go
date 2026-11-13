@@ -21,6 +21,7 @@ import (
 
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/apis"
 	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	fakestorage "github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage/fake"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/version"
 )
 
@@ -120,8 +121,9 @@ func readDefaultBackup(name, namespace string) (*pxcv1.PerconaXtraDBClusterBacku
 
 func reconciler(cl client.Client) *ReconcilePerconaXtraDBClusterBackup {
 	return &ReconcilePerconaXtraDBClusterBackup{
-		client: cl,
-		scheme: cl.Scheme(),
+		client:               cl,
+		scheme:               cl.Scheme(),
+		newStorageClientFunc: fakestorage.NewStorage,
 	}
 }
 

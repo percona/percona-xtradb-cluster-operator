@@ -1,0 +1,15 @@
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBClusterBackup
+metadata:
+  name: on-demand-backup-logical
+  finalizers:
+    - percona.com/delete-backup
+spec:
+  pxcCluster: demand-backup-logical
+  storageName: local-s3
+  type: logical
+  activeDeadlineSeconds: 7200
+  containerOptions:
+    args:
+      mydumper:
+      - '--threads=2'

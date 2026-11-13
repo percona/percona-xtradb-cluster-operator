@@ -1,0 +1,285 @@
+#!/bin/bash
+
+# Logical (mydumper/myloader) backup and restore.
+#
+
+# TODO: remove this, it is the image with mydumper/myloader
+export IMAGE_BACKUP=asia-south1-docker.pkg.dev/cloud-dev-112233/mayankshah/pxb
+
+set -o errexit
+
+test_dir=$(realpath "$(dirname "$0")")
+# shellcheck source=e2e-tests/functions
+. "${test_dir}"/../functions
+
+set_debug
+
+cluster="demand-backup-logical"
+backup_name="on-demand-backup-logical"
+restore_job_name="restore-job-${backup_name}-${cluster}"
+
+# sql runs a query on the first PXC pod as root and prints the result.
+sql() {
+	local query=$1
+	local root_pass
+	root_pass=$(get_password "${cluster}" "root")
+
+	run_mysql "${query}" "-h ${cluster}-pxc-0.${cluster}-pxc -uroot -p'${root_pass}'"
+}
+
+# assert_sql fails the test unless the query returns the expected result.
+assert_sql() {
+	local description=$1
+	local query=$2
+	local expected=$3
+	local actual
+
+	actual=$(sql "${query}")
+	if [[ ${actual} != "${expected}" ]]; then
+		echo "${description}: expected '${expected}', got '${actual}'"
+		exit 1
+	fi
+	log "${description}: ok"
+}
+
+# s3_ls prints the objects under the given path of the local S3 storage.
+s3_ls() {
+	local path=$1
+
+	# kubectl run --rm also prints 'pod "aws-cli" deleted' to stdout, so keep only
+	# the listing lines, which start with a date.
+	kubectl_bin run -n "${namespace}" -i --rm aws-cli --image=perconalab/awscli --restart=Never -- \
+		/usr/bin/env AWS_ACCESS_KEY_ID=some-access-key AWS_SECRET_ACCESS_KEY=some-secret-key AWS_DEFAULT_REGION=us-east-1 \
+		/usr/bin/aws --endpoint-url https://s3-storage-all-in-one:8443 --no-verify-ssl s3 ls --recursive "${path}" 2>/dev/null \
+		| grep '^[0-9]' || true
+}
+
+# pxc_pods_identity prints the UID and restart counts of every PXC pod.
+pxc_pods_identity() {
+	kubectl_bin get pods -l "app.kubernetes.io/instance=${cluster},app.kubernetes.io/component=pxc" \
+		-o jsonpath='{range .items[*]}{.metadata.name} {.metadata.uid} {.status.containerStatuses[*].restartCount}{"\n"}{end}'
+}
+
+# count_objects_query counts the triggers, routines and views of myApp.
+count_objects_query="SELECT CONCAT_WS(',', (SELECT COUNT(*) FROM information_schema.triggers WHERE trigger_schema='myApp'), (SELECT COUNT(*) FROM information_schema.routines WHERE routine_schema='myApp'), (SELECT COUNT(*) FROM information_schema.views WHERE table_schema='myApp'))"
+
+create_test_objects() {
+	desc 'create a trigger, a stored procedure and a view'
+	sql "CREATE TABLE myApp.audit (id int AUTO_INCREMENT PRIMARY KEY, app_id int)"
+	sql "CREATE TRIGGER myApp.myApp_ai AFTER INSERT ON myApp.myApp FOR EACH ROW INSERT INTO myApp.audit (app_id) VALUES (NEW.id)"
+	sql "CREATE PROCEDURE myApp.count_rows() SELECT COUNT(*) FROM myApp.myApp"
+	sql "CREATE VIEW myApp.big_ids AS SELECT id FROM myApp.myApp WHERE id > 100000"
+	assert_sql 'trigger, procedure and view exist' "${count_objects_query}" '1,1,1'
+}
+
+check_backup() {
+	desc 'check the logical backup'
+
+	local backup_type size destination listing
+	backup_type=$(kubectl_bin get pxc-backup "${backup_name}" -o jsonpath='{.status.type}')
+	if [[ ${backup_type} != 'logical' ]]; then
+		echo "backup status.type: expected 'logical', got '${backup_type}'"
+		exit 1
+	fi
+
+	size=$(kubectl_bin get pxc-backup "${backup_name}" -o jsonpath='{.status.size}')
+	if [[ -z ${size} || ${size} -le 0 ]]; then
+		echo "backup status.size: expected a positive size, got '${size}'"
+		exit 1
+	fi
+
+	destination=$(kubectl_bin get pxc-backup "${backup_name}" -o jsonpath='{.status.destination}')
+	if [[ ${destination} != *-logical ]]; then
+		echo "backup destination: expected a name ending with -logical, got '${destination}'"
+		exit 1
+	fi
+
+	listing=$(s3_ls "${destination#s3://}/")
+	for object in metadata myApp-schema-create.sql myApp.myApp-schema.sql; do
+		if ! echo "${listing}" | grep -q "/${object}\$"; then
+			echo "backup objects: ${object} is missing in ${destination}"
+			echo "${listing}"
+			exit 1
+		fi
+	done
+	if echo "${listing}" | grep -q -E '/(mysql|sys)[.-]'; then
+		echo 'backup objects: system schemas must not be dumped'
+		echo "${listing}"
+		exit 1
+	fi
+
+	local backup_pod
+	backup_pod=$(kubectl_bin get pod -l "percona.com/backup-job-name=xb-${backup_name}" -o jsonpath='{.items[].metadata.name}')
+	# the backup's own mydumper args must win over the storage's ones
+	if ! kubectl_bin logs "${backup_pod}" -c mydumper | grep -E -- '\+ mydumper .*--sync-thread-lock-mode=GTID --threads=2$'; then
+		echo "mydumper was not run with the expected arguments in ${backup_pod}"
+		exit 1
+	fi
+}
+
+damage_data() {
+	desc 'damage the data'
+	sql "DELETE FROM myApp.myApp"
+	sql "DROP TRIGGER myApp.myApp_ai"
+	sql "DROP PROCEDURE myApp.count_rows"
+	sql "DROP VIEW myApp.big_ids"
+	sql "CREATE TABLE myApp.untouched (id int PRIMARY KEY)"
+	sql "INSERT INTO myApp.untouched VALUES (1)"
+	assert_sql 'rows are gone' "SELECT COUNT(*) FROM myApp.myApp" '0'
+	assert_sql 'trigger, procedure and view are gone' "${count_objects_query}" '0,0,0'
+}
+
+run_logical_restore() {
+	desc 'restore the logical backup'
+
+	local pods_before pods_after pause
+	pods_before=$(pxc_pods_identity)
+
+	kubectl_bin apply -f "${test_dir}/conf/restore-${backup_name}.yaml"
+	wait_backup_restore "${backup_name}"
+	kubectl_bin logs "job/${restore_job_name}" -c myloader
+
+	local restore_type
+	restore_type=$(kubectl_bin get pxc-restore "${backup_name}" -o jsonpath='{.status.backupType}')
+	if [[ ${restore_type} != 'logical' ]]; then
+		echo "restore status.backupType: expected 'logical', got '${restore_type}'"
+		exit 1
+	fi
+
+	# a logical restore loads the dump into the running cluster
+	pods_after=$(pxc_pods_identity)
+	if [[ ${pods_before} != "${pods_after}" ]]; then
+		echo 'PXC pods were recreated or restarted by a logical restore'
+		echo "before: ${pods_before}"
+		echo "after:  ${pods_after}"
+		exit 1
+	fi
+	pause=$(kubectl_bin get pxc "${cluster}" -o jsonpath='{.spec.pause}')
+	if [[ ${pause} == 'true' ]]; then
+		echo 'cluster was paused by a logical restore'
+		exit 1
+	fi
+
+	local restore_pod
+	restore_pod=$(kubectl_bin get pod -l "percona.com/restore-job-name=${restore_job_name}" -o jsonpath='{.items[].metadata.name}')
+	if ! kubectl_bin logs "${restore_pod}" -c myloader | grep -E -- '\+ myloader .*--drop-table --threads=2$'; then
+		echo "myloader was not run with the expected arguments in ${restore_pod}"
+		exit 1
+	fi
+
+	# every node must have the restored data
+	sleep 10
+	compare_data "${cluster}" 'select-1'
+	assert_sql 'trigger, procedure and view are back' "${count_objects_query}" '1,1,1'
+	assert_sql 'view works' "SELECT COUNT(*) FROM myApp.big_ids" '1'
+	assert_sql 'table created after the backup is untouched' "SELECT id FROM myApp.untouched" '1'
+}
+
+check_scratch_volume_cleanup() {
+	desc 'check the restore volume is removed with the restore job'
+
+	if ! kubectl_bin get pvc -o name | grep -q 'logical-scratch'; then
+		echo 'the restore job has no logical-scratch volume claim'
+		kubectl_bin get pvc
+		exit 1
+	fi
+
+	kubectl_bin delete job "${restore_job_name}"
+
+	local removed=0
+	for _ in $(seq 1 24); do
+		if ! kubectl_bin get pvc -o name | grep -q 'logical-scratch'; then
+			removed=1
+			break
+		fi
+		sleep 5
+	done
+	if [[ ${removed} -ne 1 ]]; then
+		echo 'the logical-scratch volume claim was not removed'
+		kubectl_bin get pvc
+		exit 1
+	fi
+}
+
+check_scheduled_backup() {
+	desc 'check a schedule creates logical backups'
+
+	kubectl_bin patch pxc "${cluster}" --type=merge \
+		-p '{"spec":{"backup":{"schedule":[{"name":"logical","schedule":"* * * * *","storageName":"local-s3","type":"logical","retention":{"type":"count","count":1,"deleteFromStorage":true}}]}}}'
+
+	local scheduled_backup=''
+	for _ in $(seq 1 36); do
+		scheduled_backup=$(kubectl_bin get pxc-backup -l percona.com/backup-type=cron -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
+		if [[ -n ${scheduled_backup} ]]; then
+			break
+		fi
+		sleep 5
+	done
+	if [[ -z ${scheduled_backup} ]]; then
+		echo 'the schedule did not create a backup'
+		exit 1
+	fi
+
+	# stop the schedule, one backup is enough
+	kubectl_bin patch pxc "${cluster}" --type=merge -p '{"spec":{"backup":{"schedule":[]}}}'
+
+	wait_backup "${scheduled_backup}"
+
+	local backup_type
+	backup_type=$(kubectl_bin get pxc-backup "${scheduled_backup}" -o jsonpath='{.status.type}')
+	if [[ ${backup_type} != 'logical' ]]; then
+		echo "scheduled backup status.type: expected 'logical', got '${backup_type}'"
+		exit 1
+	fi
+}
+
+check_backup_deletion() {
+	desc 'check the backup is removed from the storage'
+
+	local destination path
+	destination=$(kubectl_bin get pxc-backup "${backup_name}" -o jsonpath='{.status.destination}')
+	path="${destination#s3://}/"
+
+	kubectl_bin delete pxc-backup "${backup_name}"
+
+	local removed=0 listing=''
+	for i in $(seq 1 12); do
+		listing=$(s3_ls "${path}")
+		if [[ -z ${listing} ]]; then
+			removed=1
+			break
+		fi
+		log "backup still exists in the bucket, retrying (${i}/12)..."
+		sleep 5
+	done
+	if [[ ${removed} -ne 1 ]]; then
+		echo 'backup was not removed from the bucket:'
+		echo "${listing}"
+		exit 1
+	fi
+}
+
+main() {
+	create_infra "${namespace}"
+
+	spinup_pxc "${cluster}" "${test_dir}/conf/${cluster}.yml"
+
+	deploy_s3_storage "${cluster}-ssl"
+
+	create_test_objects
+
+	run_backup "${cluster}" "${backup_name}"
+	check_backup
+
+	damage_data
+	run_logical_restore
+	check_scratch_volume_cleanup
+
+	check_scheduled_backup
+	check_backup_deletion
+
+	destroy "${namespace}"
+	desc 'test passed'
+}
+
+main

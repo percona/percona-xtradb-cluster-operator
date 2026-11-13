@@ -1,0 +1,21 @@
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBClusterRestore
+metadata:
+  name: on-demand-backup-logical
+spec:
+  pxcCluster: demand-backup-logical
+  backupName: on-demand-backup-logical
+  containerOptions:
+    args:
+      myloader:
+      - '--threads=2'
+  job:
+    volume:
+      size: 2Gi
+  resources:
+    requests:
+      memory: 0.5G
+      cpu: 500m
+    limits:
+      memory: "2G"
+      cpu: "1"

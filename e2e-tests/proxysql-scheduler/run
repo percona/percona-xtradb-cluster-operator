@@ -127,7 +127,7 @@ wait_pod "${cluster}-proxysql-0"
 restart_count_after=$(kubectl_bin get pod "${cluster}-proxysql-0" \
 	-o jsonpath='{.status.containerStatuses[?(@.name=="pxc-monit")].restartCount}')
 
-if [[ "${restart_count_after}" -gt "${restart_count_before}" ]]; then
+if [[ ${restart_count_after} -gt ${restart_count_before} ]]; then
 	echo "ERROR: pxc-monit container in ${cluster}-proxysql-0 restarted (before: ${restart_count_before}, after: ${restart_count_after})."
 	echo "This likely means the init script crashed on a UNIQUE constraint violation against the persisted ProxySQL state."
 	kubectl_bin logs "${cluster}-proxysql-0" -c pxc-monit --previous || true

@@ -113,7 +113,7 @@ function main() {
 	if [ "$(proxysql_admin_exec "127.0.0.1" 'SELECT variable_value FROM global_variables WHERE variable_name="mysql-have_ssl"')" = "true" ]; then
 		SSL_ARG="--use-ssl=yes"
 		if [ "${SCHEDULER_ENABLED}" == "true" ]; then
-			sed -i "s/^useSSL.*=.*$/useSSL=1/" ${PERCONA_SCHEDULER_CFG}
+			sed -i "s/^useSSL.*=.*$/useSSL=1/" "${PERCONA_SCHEDULER_CFG}"
 		else
 			SSL_ARG="--use-ssl=yes"
 		fi
@@ -129,17 +129,17 @@ function main() {
 		fi
 
 		if [ "$(proxysql_admin_exec "127.0.0.1" 'SELECT count(*) FROM runtime_scheduler')" -eq 0 ]; then
-			if percona-scheduler-admin --config-file=${PERCONA_SCHEDULER_CFG} --is-enabled >/dev/null 2>&1; then
+			if percona-scheduler-admin --config-file="${PERCONA_SCHEDULER_CFG}" --is-enabled >/dev/null 2>&1; then
 				log "Cleaning stale scheduler setup before re-enabling..."
-				percona-scheduler-admin --config-file=${PERCONA_SCHEDULER_CFG} --disable || true
+				percona-scheduler-admin --config-file="${PERCONA_SCHEDULER_CFG}" --disable || true
 			fi
-			percona-scheduler-admin --config-file=${PERCONA_SCHEDULER_CFG} --enable --force
+			percona-scheduler-admin --config-file="${PERCONA_SCHEDULER_CFG}" --enable --force
 		fi
 
 		# don't remove and re-add servers if not necessary
 		if [[ "$(proxysql_admin_exec 127.0.0.1 'SELECT COUNT(DISTINCT(hostname)) FROM mysql_servers;')" != ${hosts} ]]; then
 			percona-scheduler-admin \
-				--config-file=${PERCONA_SCHEDULER_CFG} \
+				--config-file="${PERCONA_SCHEDULER_CFG}" \
 				--write-node="${pod_zero}.${service}:3306" \
 				--update-cluster \
 				--remove-all-servers \
@@ -147,16 +147,16 @@ function main() {
 			proxysql_admin_exec "127.0.0.1" "${update_weights}; LOAD MYSQL SERVERS TO RUNTIME;"
 		fi
 
-	  # if PXC_READ_ONLY=false and there is no writer, we need to update the cluster
-	  if [[ ${PXC_READ_ONLY} == "false" && "$(proxysql_admin_exec 127.0.0.1 'SELECT COUNT(DISTINCT(hostname)) FROM mysql_servers WHERE hostgroup_id=11;')" == 0 ]]; then
+		# if PXC_READ_ONLY=false and there is no writer, we need to update the cluster
+		if [[ ${PXC_READ_ONLY} == "false" && "$(proxysql_admin_exec 127.0.0.1 'SELECT COUNT(DISTINCT(hostname)) FROM mysql_servers WHERE hostgroup_id=11;')" == 0 ]]; then
 			percona-scheduler-admin \
-				--config-file=${PERCONA_SCHEDULER_CFG} \
+				--config-file="${PERCONA_SCHEDULER_CFG}" \
 				--write-node="${pod_zero}.${service}:3306" \
 				--update-cluster \
 				--remove-all-servers \
 				--force
 			proxysql_admin_exec "127.0.0.1" "${update_weights}; LOAD MYSQL SERVERS TO RUNTIME;"
-  	fi
+		fi
 
 		# update weights if ProxySQL is restarted
 		if [[ "$(proxysql_admin_exec 127.0.0.1 'SELECT COUNT(DISTINCT(hostname)) FROM mysql_servers WHERE weight=1000;')" > 0 ]]; then
@@ -164,17 +164,17 @@ function main() {
 		fi
 
 		percona-scheduler-admin \
-			--config-file=${PERCONA_SCHEDULER_CFG} \
+			--config-file="${PERCONA_SCHEDULER_CFG}" \
 			--sync-multi-cluster-users \
 			--add-query-rule
 
 		percona-scheduler-admin \
-			--config-file=${PERCONA_SCHEDULER_CFG} \
+			--config-file="${PERCONA_SCHEDULER_CFG}" \
 			--update-mysql-version
 	else
-		if percona-scheduler-admin --config-file=${PERCONA_SCHEDULER_CFG} --is-enabled >/dev/null 2>&1; then
+		if percona-scheduler-admin --config-file="${PERCONA_SCHEDULER_CFG}" --is-enabled >/dev/null 2>&1; then
 			log "Cleaning setup from percona-scheduler-admin..."
-			percona-scheduler-admin --config-file=${PERCONA_SCHEDULER_CFG} --disable
+			percona-scheduler-admin --config-file="${PERCONA_SCHEDULER_CFG}" --disable
 		fi
 
 		proxysql-admin \

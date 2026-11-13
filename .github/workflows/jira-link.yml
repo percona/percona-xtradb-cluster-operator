@@ -17,10 +17,21 @@ jobs:
             const pr = context.payload.pull_request;
             const body = pr.body || '';
             const marker = '<!-- jira-ticket -->';
-            const keyPattern = '[A-Z][A-Z0-9]+-\\d+';
-            const fromBranch = pr.head.ref.match(new RegExp(`^(${keyPattern})`));
-            const fromTitle = pr.title.match(new RegExp(`\\b(${keyPattern})\\b`));
-            const key = (fromBranch || fromTitle)?.[1];
+            const prefixes = ['K8SPXC', 'CLOUD'];
+            const findKey = () => {
+              const sources = [
+                [pr.head.ref, true],
+                [pr.title, false],
+              ];
+              for (const prefix of prefixes) {
+                for (const [value, anchored] of sources) {
+                  const source = anchored ? `^(${prefix}-\\d+)` : `\\b(${prefix}-\\d+)\\b`;
+                  const match = (value || '').match(new RegExp(source));
+                  if (match) return match[1];
+                }
+              }
+            };
+            const key = findKey();
             if (!key) return;
             const newBody = body.includes(marker)
               ? body.replace(marker, key)

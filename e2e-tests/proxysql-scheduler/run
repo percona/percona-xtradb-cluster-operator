@@ -121,6 +121,18 @@ desc 'check ProxySQL pod restart does not crash pxc-monit (regression test for U
 kubectl_bin delete pod "${cluster}-proxysql-0"
 wait_pod "${cluster}-proxysql-0"
 
+retry=0
+until kubectl_bin logs "${cluster}-proxysql-0" -c pxc-monit --request-timeout=10s 2>/dev/null \
+	| grep -q '^\[[^]]*\] All done!$'; do
+	if [[ ${retry} -ge 60 ]]; then
+		echo "ERROR: timed out waiting for pxc-monit initialization in ${cluster}-proxysql-0."
+		kubectl_bin logs "${cluster}-proxysql-0" -c pxc-monit || true
+		exit 1
+	fi
+	sleep 5
+	((retry += 1))
+done
+
 restart_count_after=$(kubectl_bin get pod "${cluster}-proxysql-0" \
 	-o jsonpath='{.status.containerStatuses[?(@.name=="pxc-monit")].restartCount}')
 

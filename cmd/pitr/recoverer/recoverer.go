@@ -197,12 +197,14 @@ func New(ctx context.Context, c Config) (*Recoverer, error) {
 		return nil, errors.Wrap(err, "new binlog storage manager")
 	}
 
+	log.Println("reading backup GTID set from backup storage")
 	startGTID, err := getStartGTIDSet(ctx, storage)
 	if err != nil {
 		return nil, errors.Wrap(err, "get start GTID")
 	}
 	log.Printf("backup GTID executed: %s", startGTID)
 
+	log.Println("reading backup timeline UUID from backup storage")
 	timelineUUID, err := getBackupTimelineUUID(ctx, storage)
 	if err != nil {
 		return nil, errors.Wrap(err, "get backup timeline UUID")
@@ -314,6 +316,7 @@ const (
 )
 
 func (r *Recoverer) Run(ctx context.Context) error {
+	log.Println("searching for a ready PXC node")
 	host, err := pxc.GetPXCFirstHost(ctx, r.pxcServiceName)
 	if err != nil {
 		return errors.Wrap(err, "get host")
@@ -375,11 +378,13 @@ func (r *Recoverer) recover(ctx context.Context) (err error) {
 
 	switch {
 	case strings.HasPrefix(version, "8.0"):
+		log.Println("dropping binlog collector functions")
 		err = r.db.DropCollectorFunctions(ctx)
 		if err != nil {
 			return errors.Wrap(err, "drop collector funcs")
 		}
 	case strings.HasPrefix(version, "8.4"):
+		log.Println("uninstalling binlog UDF component")
 		if err := r.db.UninstallBinlogUDFComponent(ctx); err != nil {
 			return errors.Wrap(err, "uninstall component")
 		}
@@ -489,17 +494,33 @@ type binlog struct {
 	gtidSet    *gtid.GTIDSet
 }
 
+const (
+	scanProgressEvery    = 100
+	scanProgressInterval = 30 * time.Second
+)
+
 func (r *Recoverer) selectBinlogCandidates(ctx context.Context) ([]binlog, error) {
 	candidates := []binlog{}
 
+	log.Println("listing binlog objects in binlog storage")
 	list, err := r.storage.ListObjects(ctx, "binlog_")
 	if err != nil {
 		return nil, errors.Wrap(err, "list objects with prefix 'binlog_'")
 	}
 
+	binlogs := make([]string, 0, len(list))
 	for _, objectName := range list {
-		if strings.Contains(objectName, "-gtid-set") {
-			continue
+		if !strings.Contains(objectName, "-gtid-set") {
+			binlogs = append(binlogs, objectName)
+		}
+	}
+	log.Printf("found %d binlogs, reading their GTID sets", len(binlogs))
+
+	lastReport := time.Now()
+	for i, objectName := range binlogs {
+		if i > 0 && (i%scanProgressEvery == 0 || time.Since(lastReport) >= scanProgressInterval) {
+			log.Printf("scanned %d of %d binlogs, %d candidates", i, len(binlogs), len(candidates))
+			lastReport = time.Now()
 		}
 
 		infoObj, err := r.storage.GetObject(ctx, objectName+"-gtid-set")
@@ -528,6 +549,8 @@ func (r *Recoverer) selectBinlogCandidates(ctx context.Context) ([]binlog, error
 			gtidSet:    binlogGTIDSet,
 		})
 	}
+
+	log.Printf("binlog scan finished: %d of %d binlogs are candidates for timeline %s", len(candidates), len(binlogs), r.timelineUUID)
 
 	// Sort descending by end-sequence. Tiebreak by object name descending.
 	sort.Slice(candidates, func(x, y int) bool {
@@ -599,6 +622,8 @@ func (r *Recoverer) setBinlogs(ctx context.Context) error {
 			break
 		}
 	}
+
+	log.Printf("%d binlogs selected for recovery", len(binlogs))
 
 	reverse(binlogs)
 	r.binlogs = binlogs

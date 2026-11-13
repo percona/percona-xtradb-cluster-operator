@@ -25,10 +25,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/util/cert"
 	k8sretry "k8s.io/client-go/util/retry"
-	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -241,100 +239,58 @@ func SetupWebhook(ctx context.Context, mgr manager.Manager) error {
 		return errors.Wrap(err, "add webhook creator to manager")
 	}
 
-	if err := setupCertSyncController(mgr, h, namespace, log); err != nil {
-		return errors.Wrap(err, "setup webhook cert sync controller")
+	if err := setupCertRenewalController(mgr, h, namespace, log); err != nil {
+		return errors.Wrap(err, "setup webhook cert renewal controller")
 	}
 
 	return nil
 }
 
-func isWebhookTLSSecret(namespace string) func(obj client.Object) bool {
-	return func(obj client.Object) bool {
-		return obj.GetNamespace() == namespace && obj.GetName() == naming.OperatorWebhookTLSSecretName
-	}
-}
-
-// certSyncer watches the webhook TLS secret and runs on every operator
-// replica, keeps cert files in sync with the Secret. Only the elected leader renews the
-// certificate and keeps the ValidatingWebhookConfiguration's CABundle in sync.
-// elected is the channel returned by manager.Manager.Elected(), closed once this
-// replica becomes leader or immediately, if leader election is disabled
-type certSyncer struct {
+// certReconciler watches the webhook TLS secret pxc-webhook-ssl to renew cert it before it expires
+type certReconciler struct {
 	hook      *hook
 	namespace string
 	log       logr.Logger
-	elected   <-chan struct{}
 }
 
-func (s *certSyncer) Reconcile(ctx context.Context, _ reconcile.Request) (reconcile.Result, error) {
-	certSecret := &corev1.Secret{}
-	err := s.hook.cl.Get(ctx, types.NamespacedName{Namespace: s.namespace, Name: naming.OperatorWebhookTLSSecretName}, certSecret)
-	switch {
-	case k8serrors.IsNotFound(err):
-		// Nothing to sync yet; the leader hasn't issued the certificate yet.
-	case err != nil:
-		return reconcile.Result{}, errors.Wrap(err, "get cert secret")
-	default:
-		crt, ok := certSecret.Data["tls.crt"]
-		if !ok {
-			return reconcile.Result{}, errors.New("tls.crt not found in cert secret")
-		}
-		key, ok := certSecret.Data["tls.key"]
-		if !ok {
-			return reconcile.Result{}, errors.New("tls.key not found in cert secret")
-		}
-		if err := writeCerts(crt, key); err != nil {
-			return reconcile.Result{}, errors.Wrap(err, "sync local webhook tls cert files")
-		}
-	}
-
-	select {
-	case <-s.elected:
-		// We're the leader: fall through to renew/sync below.
-	default:
-		// Not the leader (yet): only the file sync above applies to us.
-		return reconcile.Result{}, nil
-	}
-
-	ca, notAfter, err := ensureCertificates(ctx, s.hook.cl, s.hook.cl, s.namespace, s.log)
+func (r *certReconciler) Reconcile(ctx context.Context, _ reconcile.Request) (reconcile.Result, error) {
+	ca, notAfter, err := ensureCertificates(ctx, r.hook.cl, r.hook.cl, r.namespace, r.log)
 	if err != nil {
 		return reconcile.Result{}, errors.Wrap(err, "ensure webhook tls certificates")
 	}
 
-	operatorDeployment, err := s.hook.operatorDeployment(ctx)
+	operatorDeployment, err := r.hook.operatorDeployment(ctx)
 	if err != nil {
 		return reconcile.Result{}, errors.Wrap(err, "get operator deployment")
 	}
 
-	ref, err := k8s.OwnerRef(operatorDeployment, s.hook.scheme)
+	ref, err := k8s.OwnerRef(operatorDeployment, r.hook.scheme)
 	if err != nil {
 		return reconcile.Result{}, errors.Wrap(err, "get deployment owner ref")
 	}
 
-	if err := s.hook.createWebhook(ctx, ref, ca); err != nil {
+	if err := r.hook.createWebhook(ctx, ref, ca); err != nil {
 		return reconcile.Result{}, errors.Wrap(err, "update ValidatingWebhookConfiguration CABundle")
 	}
 
 	return reconcile.Result{RequeueAfter: certRenewalRequeueAfter(notAfter)}, nil
 }
 
-func (s *certSyncer) NeedLeaderElection() bool {
-	return false
-}
-
-func setupCertSyncController(mgr manager.Manager, h *hook, namespace string, log logr.Logger) error {
-	s := &certSyncer{
+func setupCertRenewalController(mgr manager.Manager, h *hook, namespace string, log logr.Logger) error {
+	r := &certReconciler{
 		hook:      h,
 		namespace: namespace,
 		log:       log,
-		elected:   mgr.Elected(),
+	}
+
+	isWebhookSecret := func(obj client.Object) bool {
+		return obj.GetNamespace() == namespace && obj.GetName() == naming.OperatorWebhookTLSSecretName
 	}
 
 	return builder.ControllerManagedBy(mgr).
-		Named("webhook-cert-sync").
-		For(&corev1.Secret{}, builder.WithPredicates(predicate.NewPredicateFuncs(isWebhookTLSSecret(namespace)))).
-		WithOptions(controller.Options{NeedLeaderElection: ptr.To(false)}).
-		Complete(s)
+		Named("webhook-cert-renewal").
+		For(&corev1.Secret{}, builder.WithPredicates(predicate.NewPredicateFuncs(isWebhookSecret))).
+		Complete(r)
 }
 
 func certRenewalRequeueAfter(notAfter time.Time) time.Duration {

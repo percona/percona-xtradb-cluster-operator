@@ -138,6 +138,8 @@ func TestLogicalJobSpec(t *testing.T) {
 			physicalContainer := physical.Template.Spec.Containers[0]
 
 			// what a logical backup job changes
+			assert.Equal(t, "mydumper", container.Name)
+			assert.Equal(t, "xtrabackup", physicalContainer.Name)
 			assert.Equal(t, []string{"bash", "/opt/percona/backup/logical-backup.sh"}, container.Command)
 			assert.Contains(t, container.Env, corev1.EnvVar{Name: "SCRATCH_DIR", Value: "/scratch"})
 			assert.Contains(t, container.VolumeMounts, corev1.VolumeMount{Name: "logical-scratch", MountPath: "/scratch"})
@@ -158,7 +160,6 @@ func TestLogicalJobSpec(t *testing.T) {
 			assert.Subset(t, container.Env, physicalContainer.Env)
 			assert.Subset(t, container.VolumeMounts, physicalContainer.VolumeMounts)
 			assert.Subset(t, logical.Template.Spec.Volumes, physical.Template.Spec.Volumes)
-			assert.Equal(t, physicalContainer.Name, container.Name)
 			assert.Equal(t, physicalContainer.Image, container.Image)
 			assert.Equal(t, physicalContainer.Resources, container.Resources)
 			assert.Equal(t, physicalContainer.SecurityContext, container.SecurityContext)

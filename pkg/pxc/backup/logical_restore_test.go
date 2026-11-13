@@ -181,7 +181,13 @@ func TestLogicalRestoreJob(t *testing.T) {
 			podSpec := job.Spec.Template.Spec
 			require.Len(t, podSpec.Containers, 1)
 			container := podSpec.Containers[0]
+			assert.Equal(t, "myloader", container.Name)
 			assert.Equal(t, []string{"bash", "/opt/percona/backup/logical-restore.sh"}, container.Command)
+			assert.Equal(t, cluster.Spec.Backup.ImagePullPolicy, container.ImagePullPolicy)
+			assert.Equal(t, cluster.Spec.PXC.ContainerSecurityContext, container.SecurityContext)
+			for _, env := range container.Env {
+				assert.NotEqual(t, "XB_USE_MEMORY", env.Name, "XB_USE_MEMORY is an xtrabackup setting")
+			}
 			assert.Equal(t, cluster.Spec.Backup.Image, container.Image)
 			assert.Equal(t, tt.restoreSpec.Resources, container.Resources)
 			assert.Equal(t, corev1.RestartPolicyNever, podSpec.RestartPolicy)

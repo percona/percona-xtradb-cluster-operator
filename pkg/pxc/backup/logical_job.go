@@ -15,13 +15,16 @@ const (
 	// LogicalScratchMountPath is where the scratch volume is mounted.
 	LogicalScratchMountPath = "/scratch"
 
+	// logicalBackupContainerName is the name of the container of a logical backup job.
+	logicalBackupContainerName = "mydumper"
+
 	logicalBackupScript = "/opt/percona/backup/logical-backup.sh"
 )
 
 // LogicalJobSpec returns the spec of a job that takes a logical backup with
-// mydumper. It is the physical backup job spec with a different command and
-// a scratch volume for the dump files, so that pod settings stay the same
-// for both backup types.
+// mydumper. It is the physical backup job spec with a different container
+// name and command, and a scratch volume for the dump files, so that pod
+// settings stay the same for both backup types.
 func (bcp *Backup) LogicalJobSpec(
 	spec api.PXCBackupSpec,
 	cluster *api.PerconaXtraDBCluster,
@@ -38,6 +41,7 @@ func (bcp *Backup) LogicalJobSpec(
 	}
 
 	container := &jobSpec.Template.Spec.Containers[0]
+	container.Name = logicalBackupContainerName
 	container.Command = []string{"bash", logicalBackupScript}
 	container.Env = append(container.Env, corev1.EnvVar{
 		Name:  "SCRATCH_DIR",

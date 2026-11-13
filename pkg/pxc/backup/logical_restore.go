@@ -18,6 +18,9 @@ import (
 )
 
 const (
+	// logicalRestoreContainerName is the name of the container of a logical restore job.
+	logicalRestoreContainerName = "myloader"
+
 	logicalRestoreScript = "/opt/percona/backup/logical-restore.sh"
 
 	// logicalRestoreMinVolumeSize is the smallest volume a logical restore gets.
@@ -130,7 +133,16 @@ func LogicalRestoreJob(
 						statefulset.BackupInitContainer(cluster, initImage, cluster.Spec.PXC.ContainerSecurityContext),
 					},
 					Containers: []corev1.Container{
-						xtrabackupContainer(cr, cluster, []string{"bash", logicalRestoreScript}, volumeMounts, envs),
+						{
+							Name:            logicalRestoreContainerName,
+							Image:           cluster.Spec.Backup.Image,
+							ImagePullPolicy: cluster.Spec.Backup.ImagePullPolicy,
+							Command:         []string{"bash", logicalRestoreScript},
+							SecurityContext: cluster.Spec.PXC.ContainerSecurityContext,
+							VolumeMounts:    volumeMounts,
+							Env:             envs,
+							Resources:       *cr.Spec.Resources.DeepCopy(),
+						},
 					},
 					RestartPolicy:             corev1.RestartPolicyNever,
 					Volumes:                   volumes,

@@ -18,6 +18,12 @@ spec:
 #      - "--someflag=abc"
 #      xbstream:
 #      - "--someflag=abc"
+#      myloader: # used by restores of logical backups only
+#      - "--threads=8"
+#  job: # used by restores of logical backups only
+#    volume: # the temporary volume the dump is downloaded to; by default its size is the backup size plus 10%
+#      size: 10Gi
+#      storageClassName: standard
 #  resources:
 #    requests:
 #      memory: 100M
@@ -26,6 +32,7 @@ spec:
 #      memory: 200M
 #      cpu: 200m
 #  backupSource:
+#    type: full # set to "logical" when the destination holds a logical backup
 #    verifyTLS: true
 #    destination: s3://S3-BUCKET-NAME/BACKUP-NAME or destination: azure://CONTAINER-NAME/BACKUP-NAME
 #    s3:

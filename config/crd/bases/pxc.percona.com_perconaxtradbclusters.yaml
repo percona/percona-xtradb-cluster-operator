@@ -155,6 +155,12 @@ spec:
                           type: string
                         storageName:
                           type: string
+                        type:
+                          default: full
+                          enum:
+                          - full
+                          - logical
+                          type: string
                       required:
                       - name
                       - schedule
@@ -634,6 +640,14 @@ spec:
                           properties:
                             args:
                               properties:
+                                mydumper:
+                                  items:
+                                    type: string
+                                  type: array
+                                myloader:
+                                  items:
+                                    type: string
+                                  type: array
                                 xbcloud:
                                   items:
                                     type: string

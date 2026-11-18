@@ -1,9 +1,7 @@
-package pxcrestore
+package physical
 
 import (
 	"context"
-	"sort"
-	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -16,6 +14,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/controller/pxcrestore/common"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage"
@@ -70,7 +69,7 @@ func (s *s3) Validate(ctx context.Context) error {
 		return errors.Wrap(err, "failed to create s3 client")
 	}
 
-	backupPath := backupListPath(s3cli.GetPrefix(), s.bcp.Status.Destination)
+	backupPath := common.BackupListPath(s3cli.GetPrefix(), s.bcp.Status.Destination)
 	objs, err := s3cli.ListObjects(ctx, backupPath)
 	if err != nil {
 		return errors.Wrap(err, "failed to list objects")
@@ -227,7 +226,7 @@ func (s *azure) Validate(ctx context.Context) error {
 		return errors.Wrap(err, "failed to create s3 client")
 	}
 
-	backupPath := backupListPath(azurecli.GetPrefix(), s.bcp.Status.Destination)
+	backupPath := common.BackupListPath(azurecli.GetPrefix(), s.bcp.Status.Destination)
 	blobs, err := azurecli.ListObjects(ctx, backupPath)
 	if err != nil {
 		return errors.Wrap(err, "list blobs")
@@ -243,30 +242,17 @@ func (s *azure) Validate(ctx context.Context) error {
 	return nil
 }
 
-func backupListPath(storagePrefix string, destination api.PXCBackupDestination) string {
-	backupPath := destination.PathWithoutBucket()
-	storagePrefix = strings.TrimSuffix(storagePrefix, "/")
-	if storagePrefix != "" {
-		backupPath = strings.TrimPrefix(backupPath, storagePrefix+"/")
-	}
-	return strings.TrimSuffix(backupPath, "/") + "/"
-}
-
-func (r *ReconcilePerconaXtraDBClusterRestore) getRestorer(
-	ctx context.Context,
-	cr *api.PerconaXtraDBClusterRestore,
-	bcp *api.PerconaXtraDBClusterBackup,
-	cluster *api.PerconaXtraDBCluster,
-) (Restorer, error) {
+// getRestorer returns the restorer for the storage the backup is on.
+func getRestorer(ctx context.Context, opts common.Options) (Restorer, error) {
 	s := restorerOptions{
-		cr:               cr,
-		bcp:              bcp,
-		cluster:          cluster,
-		k8sClient:        r.client,
-		scheme:           r.scheme,
-		newStorageClient: r.newStorageClientFunc,
+		cr:               opts.CR,
+		bcp:              opts.Backup,
+		cluster:          opts.Cluster,
+		k8sClient:        opts.Client,
+		scheme:           opts.Scheme,
+		newStorageClient: opts.NewStorageClient,
 	}
-	initImage, err := k8s.GetInitImage(ctx, cluster, r.client)
+	initImage, err := k8s.GetInitImage(ctx, opts.Cluster, opts.Client)
 	if err != nil {
 		return nil, errors.New("failed to get init image")
 	}
@@ -297,41 +283,7 @@ type restorerOptions struct {
 }
 
 func (opts *restorerOptions) ValidateJob(ctx context.Context, job *batchv1.Job) error {
-	cl := opts.k8sClient
-
-	secrets := []string{}
-	for _, container := range job.Spec.Template.Spec.Containers {
-		for _, env := range container.Env {
-			if env.ValueFrom != nil && env.ValueFrom.SecretKeyRef != nil && env.ValueFrom.SecretKeyRef.Name != "" {
-				secrets = append(secrets, env.ValueFrom.SecretKeyRef.Name)
-			}
-		}
-	}
-
-	notExistingSecrets := make(map[string]struct{})
-	for _, secret := range secrets {
-		err := cl.Get(ctx, types.NamespacedName{
-			Name:      secret,
-			Namespace: job.Namespace,
-		}, new(corev1.Secret))
-		if err != nil {
-			if k8serrors.IsNotFound(err) {
-				notExistingSecrets[secret] = struct{}{}
-				continue
-			}
-			return err
-		}
-	}
-	if len(notExistingSecrets) > 0 {
-		secrets := make([]string, 0, len(notExistingSecrets))
-		for k := range notExistingSecrets {
-			secrets = append(secrets, k)
-		}
-		sort.StringSlice(secrets).Sort()
-		return errors.Errorf("secrets %s not found", strings.Join(secrets, ", "))
-	}
-
-	return nil
+	return common.ValidateJobSecrets(ctx, opts.k8sClient, job)
 }
 
 func validatePITRTarget(

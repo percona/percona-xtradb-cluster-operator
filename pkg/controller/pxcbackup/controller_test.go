@@ -17,6 +17,7 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/clientcmd"
 	pxcv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup"
+	fakestorage "github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage/fake"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/version"
 )
 
@@ -269,6 +270,8 @@ func newTestReconciler() *ReconcilePerconaXtraDBClusterBackup {
 		clientcmd:           cli,
 		chLimit:             make(chan struct{}, 10),
 		bcpDeleteInProgress: new(sync.Map),
+
+		newStorageClientFunc: fakestorage.NewStorage,
 	}
 }
 

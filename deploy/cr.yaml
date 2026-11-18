@@ -750,6 +750,10 @@ spec:
 #            - "--someflag=abc"
 #            xbstream:
 #            - "--someflag=abc"
+#            mydumper: # used by logical backups only
+#            - "--threads=8"
+#            myloader: # used by restores of logical backups only
+#            - "--threads=8"
         s3:
           bucket: S3-BACKUP-BUCKET-NAME-HERE
           credentialsSecret: my-cluster-name-backup-s3
@@ -820,6 +824,14 @@ spec:
     schedule:
 #      - name: "sat-night-backup"
 #        schedule: "0 0 * * 6"
+#        retention:
+#          type: "count"
+#          count: 5
+#          deleteFromStorage: true
+#        storageName: s3-us-west
+#      - name: "daily-logical-backup"
+#        schedule: "0 2 * * *"
+#        type: logical
 #        retention:
 #          type: "count"
 #          count: 5

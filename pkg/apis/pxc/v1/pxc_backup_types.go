@@ -34,6 +34,7 @@ func (list *PerconaXtraDBClusterBackupList) HasUnfinishedFinalizers() bool {
 // +kubebuilder:resource:shortName="pxc-backup";"pxc-backups"
 // +kubebuilder:printcolumn:name="Cluster",type="string",JSONPath=".spec.pxcCluster",description="Cluster name"
 // +kubebuilder:printcolumn:name="Storage",type="string",JSONPath=".status.storageName",description="Storage name from pxc spec"
+// +kubebuilder:printcolumn:name="Type",type="string",JSONPath=".status.type",description="Backup type"
 // +kubebuilder:printcolumn:name="Destination",type="string",JSONPath=".status.destination",description="Backup destination"
 // +kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.state",description="Job status"
 // +kubebuilder:printcolumn:name="Completed",type="date",JSONPath=".status.completed",description="Completed time"
@@ -47,9 +48,28 @@ type PerconaXtraDBClusterBackup struct {
 	PriorityClassName string          `json:"priorityClassName,omitempty"`
 }
 
+// PXCBackupType is the kind of backup taken.
+type PXCBackupType string
+
+const (
+	// BackupTypeFull is a physical backup of the whole dataset, taken with xtrabackup.
+	BackupTypeFull PXCBackupType = "full"
+	// BackupTypeLogical is a SQL-level dump of the user schemas, taken with mydumper
+	// and restored with myloader into a running cluster.
+	BackupTypeLogical PXCBackupType = "logical"
+)
+
 type PXCBackupSpec struct {
-	PXCCluster               string                  `json:"pxcCluster"`
-	StorageName              string                  `json:"storageName,omitempty"`
+	PXCCluster  string `json:"pxcCluster"`
+	StorageName string `json:"storageName,omitempty"`
+	// Type of the backup: "full" is a physical backup taken with xtrabackup,
+	// "logical" is a SQL-level dump taken with mydumper.
+	// Must be one of "full" or "logical". Defaults to "full".
+	// Logical backups are supported only on s3 storage.
+	// +optional
+	// +kubebuilder:validation:Enum=full;logical
+	// +kubebuilder:default:=full
+	Type                     PXCBackupType           `json:"type,omitempty"`
 	ContainerOptions         *BackupContainerOptions `json:"containerOptions,omitempty"`
 	ActiveDeadlineSeconds    *int64                  `json:"activeDeadlineSeconds,omitempty"`
 	StartingDeadlineSeconds  *int64                  `json:"startingDeadlineSeconds,omitempty"`
@@ -61,6 +81,14 @@ type PXCBackupSpec struct {
 }
 
 type PXCBackupStatus struct {
+	// Type is the kind of backup that was taken. Empty means "full".
+	// +optional
+	// +kubebuilder:validation:Enum=full;logical
+	Type PXCBackupType `json:"type,omitempty"`
+	// Size is the total size of the backup's objects in the storage, in bytes.
+	// It is set for logical backups only, and is 0 when it could not be determined.
+	// +optional
+	Size                  int64                             `json:"size,omitempty"`
 	State                 PXCBackupState                    `json:"state,omitempty"`
 	Error                 string                            `json:"error,omitempty"`
 	CompletedAt           *metav1.Time                      `json:"completed,omitempty"`
@@ -78,6 +106,12 @@ type PXCBackupStatus struct {
 	Conditions            []metav1.Condition                `json:"conditions,omitempty"`
 	VerifyTLS             *bool                             `json:"verifyTLS,omitempty"`
 	LatestRestorableTime  *metav1.Time                      `json:"latestRestorableTime,omitempty"`
+}
+
+// IsLogical reports whether the backup is a logical one.
+// A nil status and an empty type are not logical.
+func (status *PXCBackupStatus) IsLogical() bool {
+	return status != nil && status.Type == BackupTypeLogical
 }
 
 type PXCBackupDestination string

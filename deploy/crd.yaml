@@ -30,6 +30,10 @@ spec:
       jsonPath: .status.storageName
       name: Storage
       type: string
+    - description: Backup type
+      jsonPath: .status.type
+      name: Type
+      type: string
     - description: Backup destination
       jsonPath: .status.destination
       name: Destination
@@ -68,6 +72,14 @@ spec:
                 properties:
                   args:
                     properties:
+                      mydumper:
+                        items:
+                          type: string
+                        type: array
+                      myloader:
+                        items:
+                          type: string
+                        type: array
                       xbcloud:
                         items:
                           type: string
@@ -178,6 +190,12 @@ spec:
               suspendedDeadlineSeconds:
                 format: int64
                 type: integer
+              type:
+                default: full
+                enum:
+                - full
+                - logical
+                type: string
             type: object
           status:
             properties:
@@ -377,6 +395,9 @@ spec:
                   skipBucketExistsCheck:
                     type: boolean
                 type: object
+              size:
+                format: int64
+                type: integer
               sslInternalSecretName:
                 type: string
               sslSecretName:
@@ -386,6 +407,11 @@ spec:
               storage_type:
                 type: string
               storageName:
+                type: string
+              type:
+                enum:
+                - full
+                - logical
                 type: string
               vaultSecretName:
                 type: string
@@ -649,6 +675,9 @@ spec:
                       skipBucketExistsCheck:
                         type: boolean
                     type: object
+                  size:
+                    format: int64
+                    type: integer
                   sslInternalSecretName:
                     type: string
                   sslSecretName:
@@ -659,6 +688,11 @@ spec:
                     type: string
                   storageName:
                     type: string
+                  type:
+                    enum:
+                    - full
+                    - logical
+                    type: string
                   vaultSecretName:
                     type: string
                   verifyTLS:
@@ -668,6 +702,14 @@ spec:
                 properties:
                   args:
                     properties:
+                      mydumper:
+                        items:
+                          type: string
+                        type: array
+                      myloader:
+                        items:
+                          type: string
+                        type: array
                       xbcloud:
                         items:
                           type: string
@@ -764,6 +806,20 @@ spec:
                       - name
                       type: object
                     type: array
+                type: object
+              job:
+                properties:
+                  volume:
+                    properties:
+                      size:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                        x-kubernetes-int-or-string: true
+                      storageClassName:
+                        type: string
+                    type: object
                 type: object
               pitr:
                 properties:
@@ -965,6 +1021,9 @@ spec:
                           skipBucketExistsCheck:
                             type: boolean
                         type: object
+                      size:
+                        format: int64
+                        type: integer
                       sslInternalSecretName:
                         type: string
                       sslSecretName:
@@ -974,6 +1033,11 @@ spec:
                       storage_type:
                         type: string
                       storageName:
+                        type: string
+                      type:
+                        enum:
+                        - full
+                        - logical
                         type: string
                       vaultSecretName:
                         type: string
@@ -1050,6 +1114,11 @@ spec:
             type: object
           status:
             properties:
+              backupType:
+                enum:
+                - full
+                - logical
+                type: string
               clusterSize:
                 format: int32
                 type: integer
@@ -1538,6 +1607,12 @@ spec:
                           type: string
                         storageName:
                           type: string
+                        type:
+                          default: full
+                          enum:
+                          - full
+                          - logical
+                          type: string
                       required:
                       - name
                       - schedule
@@ -2017,6 +2092,14 @@ spec:
                           properties:
                             args:
                               properties:
+                                mydumper:
+                                  items:
+                                    type: string
+                                  type: array
+                                myloader:
+                                  items:
+                                    type: string
+                                  type: array
                                 xbcloud:
                                   items:
                                     type: string

@@ -12,6 +12,11 @@ import (
 const (
 	// XtrabackupSidecar is a feature flag for the XtrabackupSidecar feature
 	XtrabackupSidecar featuregate.Feature = "XtrabackupSidecar"
+
+	// SecretMetadataCache keeps Secret data out of the informer cache: the
+	// operator watches Secret metadata only and reads Secret data from the
+	// API server. See k8s.NewSecretCache.
+	SecretMetadataCache featuregate.Feature = "SecretMetadataCache"
 )
 
 // NewGate returns a new FeatureGate.
@@ -19,7 +24,8 @@ func NewGate() featuregate.MutableFeatureGate {
 	gate := featuregate.NewFeatureGate()
 
 	if err := gate.Add(map[featuregate.Feature]featuregate.FeatureSpec{
-		XtrabackupSidecar: {Default: false, PreRelease: featuregate.Alpha},
+		XtrabackupSidecar:   {Default: false, PreRelease: featuregate.Alpha},
+		SecretMetadataCache: {Default: false, PreRelease: featuregate.Alpha},
 	}); err != nil {
 		panic(err)
 	}

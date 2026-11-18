@@ -12,6 +12,7 @@ func TestDefaults(t *testing.T) {
 	gate := NewGate()
 
 	assert.Assert(t, false == gate.Enabled(XtrabackupSidecar))
+	assert.Assert(t, false == gate.Enabled(SecretMetadataCache))
 }
 
 func TestStringFormat(t *testing.T) {
@@ -22,6 +23,8 @@ func TestStringFormat(t *testing.T) {
 	assert.NilError(t, gate.Set("XtrabackupSidecar=true"))
 	assert.Assert(t, true == gate.Enabled(XtrabackupSidecar))
 
+	assert.NilError(t, gate.Set("SecretMetadataCache=true"))
+	assert.Assert(t, true == gate.Enabled(SecretMetadataCache))
 }
 
 func TestContext(t *testing.T) {

@@ -7,12 +7,16 @@ import (
 	"os"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
+	tmock "github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 
 	"github.com/percona/percona-xtradb-cluster-operator/cmd/pitr/pxc"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage"
+	storagemock "github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage/mock"
 )
 
 func TestReadBinlog(t *testing.T) {
@@ -213,4 +217,49 @@ func TestLastGTIDSetClosesObject(t *testing.T) {
 
 	assert.Equal(t, gtidSet, set.Raw())
 	assert.True(t, obj.closed, "last set object must be closed")
+}
+
+func TestWriteLastSet(t *testing.T) {
+	t.Parallel()
+
+	const uuidA = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+	const uuidB = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
+	// MySQL separates the sources of a multi-source set with ",\n".
+	set := uuidA + ":1-100,\n" + uuidB + ":1-5"
+
+	// The storage client can only retry a request (e.g. on 429 SlowDown)
+	// with the full body if it can rewind the reader.
+	seekableBody := tmock.MatchedBy(func(r io.Reader) bool {
+		rs, ok := r.(io.ReadSeeker)
+		if !ok {
+			return false
+		}
+		if _, err := rs.Seek(0, io.SeekStart); err != nil {
+			return false
+		}
+		data, err := io.ReadAll(rs)
+		return err == nil && string(data) == set
+	})
+
+	s := storagemock.NewStorage(t)
+	s.On("PutObject", tmock.Anything, lastSetFilePrefix+uuidA, seekableBody, int64(len(set))).Return(nil).Once()
+	s.On("PutObject", tmock.Anything, lastSetFilePrefix+uuidB, seekableBody, int64(len(set))).Return(nil).Once()
+
+	c := &Collector{storage: s}
+	require.NoError(t, c.writeLastSet(context.Background(), pxc.NewGTIDSet(set)))
+	assert.False(t, c.lastSetWritten.IsZero())
+}
+
+func TestLastSetDue(t *testing.T) {
+	t.Parallel()
+
+	c := &Collector{}
+	assert.True(t, c.lastSetDue(false), "never written")
+
+	c.lastSetWritten = time.Now()
+	assert.False(t, c.lastSetDue(false), "written within the interval")
+	assert.True(t, c.lastSetDue(true), "last binlog of a run")
+
+	c.lastSetWritten = time.Now().Add(-lastSetWriteInterval)
+	assert.True(t, c.lastSetDue(false), "interval elapsed")
 }

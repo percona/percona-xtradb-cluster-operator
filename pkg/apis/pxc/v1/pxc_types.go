@@ -1060,6 +1060,22 @@ func (b *BackupStorageS3Spec) BucketURL() (string, error) {
 	return b.Bucket, nil
 }
 
+// BucketURLWithPrefix returns BucketURL with the storage Prefix appended, in the
+// format `<bucket-name>[/<path>]/<prefix>`. It is the location used by everything
+// that writes next to the backups (for example PITR binlogs).
+func (b *BackupStorageS3Spec) BucketURLWithPrefix() (string, error) {
+	url, err := b.BucketURL()
+	if err != nil {
+		return "", err
+	}
+	prefix := strings.Trim(b.Prefix, "/")
+	if prefix == "" {
+		return url, nil
+	}
+
+	return strings.TrimSuffix(url, "/") + "/" + prefix, nil
+}
+
 // BucketAndPrefix returns bucket name and backup prefix from Bucket or EndpointURL if ForcePathStyle is set to true.
 // BackupStorageS3Spec.Bucket can contain backup path in format `<bucket-name>/<backup-prefix>`.
 func (b *BackupStorageS3Spec) BucketAndPrefix() (string, string, error) {

@@ -258,7 +258,7 @@ func getStorageEnvs(cr *api.PerconaXtraDBCluster) ([]corev1.EnvVar, error) {
 		if storage.S3 == nil {
 			return nil, errors.New("s3 storage is not specified")
 		}
-		bucketURL, err := storage.S3.BucketURL()
+		bucketURL, err := storage.S3.BucketURLWithPrefix()
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get bucket url")
 		}

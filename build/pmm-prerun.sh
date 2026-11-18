@@ -34,7 +34,7 @@ fi
 
 SECONDS=0
 last_report=-60
-until pmm-admin status --json --wait=10s | grep -q '"connected": *true'; do
+until [[ $(pmm-admin status --json --wait=10s) == *'"connected":true'* ]]; do
 	if ((SECONDS - last_report >= 60)); then
 		msg="pmm-agent is not connected to PMM Server yet, retrying... (waiting for ${SECONDS}s)"
 		if ((SECONDS >= 300)); then

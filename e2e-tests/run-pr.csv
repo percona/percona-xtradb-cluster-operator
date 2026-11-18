@@ -37,6 +37,7 @@ haproxy,8.4
 init-deploy,5.7
 init-deploy,8.0
 limits,8.0
+major-version-upgrade,8.0
 monitoring-2-0,8.0
 monitoring-pmm3,8.0
 monitoring-pmm3,8.4

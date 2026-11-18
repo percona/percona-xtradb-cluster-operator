@@ -68,6 +68,7 @@ func TestGetDeployment(t *testing.T) {
 		existingMatchLabels map[string]string
 		expectedLabels      map[string]string
 		expectedMatchLabels map[string]string
+		expectedEnvNames    []string
 	}{
 		{
 			name:                "Default labels and matchLabels",
@@ -131,6 +132,58 @@ func TestGetDeployment(t *testing.T) {
 				"app.kubernetes.io/part-of":    "percona-xtradb-cluster",
 			},
 		},
+		{
+			name: "Version 1.20.0 keeps BUFFER_SIZE env",
+			cr: func() *api.PerconaXtraDBCluster {
+				cr := createCR()
+				cr.Spec.CRVersion = "1.20.0"
+				return cr
+			}(),
+			expectedLabels: map[string]string{
+				"app.kubernetes.io/component":  "pitr",
+				"app.kubernetes.io/instance":   "test-cluster",
+				"app.kubernetes.io/managed-by": "percona-xtradb-cluster-operator",
+				"app.kubernetes.io/name":       "percona-xtradb-cluster",
+				"app.kubernetes.io/part-of":    "percona-xtradb-cluster",
+				"storage-type":                 "s3",
+			},
+			expectedMatchLabels: map[string]string{
+				"app.kubernetes.io/component":  "pitr",
+				"app.kubernetes.io/instance":   "test-cluster",
+				"app.kubernetes.io/managed-by": "percona-xtradb-cluster-operator",
+				"app.kubernetes.io/name":       "percona-xtradb-cluster",
+				"app.kubernetes.io/part-of":    "percona-xtradb-cluster",
+			},
+			expectedEnvNames: []string{
+				"SECRET_ACCESS_KEY", "ACCESS_KEY_ID", "S3_SESSION_TOKEN", "S3_BUCKET_URL", "DEFAULT_REGION",
+				"S3_CHECKSUM_ALGORITHM", "STORAGE_TYPE", "ENDPOINT", "VERIFY_TLS", "PXC_SERVICE", "PXC_USER",
+				"PXC_PASS", "COLLECT_SPAN_SEC", "BUFFER_SIZE", "TIMEOUT_SECONDS", "GTID_CACHE_KEY",
+			},
+		},
+		{
+			name: "Current version has no BUFFER_SIZE env",
+			cr:   createCR(),
+			expectedLabels: map[string]string{
+				"app.kubernetes.io/component":  "pitr",
+				"app.kubernetes.io/instance":   "test-cluster",
+				"app.kubernetes.io/managed-by": "percona-xtradb-cluster-operator",
+				"app.kubernetes.io/name":       "percona-xtradb-cluster",
+				"app.kubernetes.io/part-of":    "percona-xtradb-cluster",
+				"storage-type":                 "s3",
+			},
+			expectedMatchLabels: map[string]string{
+				"app.kubernetes.io/component":  "pitr",
+				"app.kubernetes.io/instance":   "test-cluster",
+				"app.kubernetes.io/managed-by": "percona-xtradb-cluster-operator",
+				"app.kubernetes.io/name":       "percona-xtradb-cluster",
+				"app.kubernetes.io/part-of":    "percona-xtradb-cluster",
+			},
+			expectedEnvNames: []string{
+				"SECRET_ACCESS_KEY", "ACCESS_KEY_ID", "S3_SESSION_TOKEN", "S3_BUCKET_URL", "DEFAULT_REGION",
+				"S3_CHECKSUM_ALGORITHM", "STORAGE_TYPE", "ENDPOINT", "VERIFY_TLS", "PXC_SERVICE", "PXC_USER",
+				"PXC_PASS", "COLLECT_SPAN_SEC", "TIMEOUT_SECONDS", "GTID_CACHE_KEY",
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -147,6 +200,14 @@ func TestGetDeployment(t *testing.T) {
 
 			if !reflect.DeepEqual(depl.Spec.Selector.MatchLabels, tt.expectedMatchLabels) {
 				t.Errorf("Selector matchLabels = %v, want %v", depl.Spec.Selector.MatchLabels, tt.expectedMatchLabels)
+			}
+
+			if tt.expectedEnvNames != nil {
+				var envNames []string
+				for _, env := range depl.Spec.Template.Spec.Containers[0].Env {
+					envNames = append(envNames, env.Name)
+				}
+				assert.Equal(t, tt.expectedEnvNames, envNames)
 			}
 
 			if tt.cr.CompareVersionWith("1.16.0") >= 0 && tt.cr.CompareVersionWith("1.18.0") < 0 {

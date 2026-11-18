@@ -16,7 +16,9 @@ import (
 	"github.com/kelseyhightower/envconfig"
 	uzap "go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	corev1 "k8s.io/api/core/v1"
 	eventsv1 "k8s.io/api/events/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -38,6 +40,9 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/version"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/webhook"
 )
+
+// helmReleaseSecretType is the type Helm gives the Secrets that store release revisions.
+const helmReleaseSecretType = "helm.sh/release.v1"
 
 var (
 	GitCommit string
@@ -109,6 +114,13 @@ func main() {
 		"enabled", features.ShowEnabled(fgCtx),
 	)
 
+	// Setup Scheme for k8s resources. The cache options reference corev1.Secret,
+	// so core types must be in the scheme before the manager is created.
+	if err := clientgoscheme.AddToScheme(scheme); err != nil {
+		setupLog.Error(err, "")
+		os.Exit(1)
+	}
+
 	options := ctrl.Options{
 		Scheme: scheme,
 		Metrics: metricsServer.Options{
@@ -135,14 +147,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Add support for MultiNamespace set in WATCH_NAMESPACE
-	if len(namespace) > 0 {
-		namespaces := make(map[string]cache.Config)
-		for _, ns := range append(strings.Split(namespace, ","), operatorNamespace) {
-			namespaces[ns] = cache.Config{}
-		}
-		options.Cache.DefaultNamespaces = namespaces
-	}
+	configureCache(&options, namespace, operatorNamespace)
 
 	// Get a config to talk to the apiserver
 	config, err := ctrl.GetConfig()
@@ -158,12 +163,6 @@ func main() {
 	}
 
 	setupLog.Info("Registering Components.")
-
-	// Setup Scheme for k8s resources
-	if err := clientgoscheme.AddToScheme(mgr.GetScheme()); err != nil {
-		setupLog.Error(err, "")
-		os.Exit(1)
-	}
 
 	// Setup Scheme for PXC resources
 	if err := apis.AddToScheme(mgr.GetScheme()); err != nil {
@@ -294,6 +293,29 @@ func configureLeaderElection(options *ctrl.Options, envs *envConfig, operatorNam
 	}
 
 	return nil
+}
+
+// configureCache limits the informer cache to the namespaces in
+// WATCH_NAMESPACE, if set, and keeps Helm release Secrets out of it. The PXC
+// controller watches Secrets, cluster-wide in cluster-wide mode, so the cache
+// otherwise grows with every Helm release revision in the cluster, which the
+// operator never reads.
+func configureCache(options *ctrl.Options, watchNamespace, operatorNamespace string) {
+	// Add support for MultiNamespace set in WATCH_NAMESPACE
+	if len(watchNamespace) > 0 {
+		namespaces := make(map[string]cache.Config)
+		for _, ns := range append(strings.Split(watchNamespace, ","), operatorNamespace) {
+			namespaces[ns] = cache.Config{}
+		}
+		options.Cache.DefaultNamespaces = namespaces
+	}
+
+	options.Cache.ByObject = map[client.Object]cache.ByObject{
+		&corev1.Secret{}: {
+			Field: fields.OneTermNotEqualSelector("type", helmReleaseSecretType),
+		},
+	}
+	setupLog.Info("Excluding Helm release Secrets from the cache", "secretType", helmReleaseSecretType)
 }
 
 func configureGroupKindConcurrency(options *ctrl.Options, envs *envConfig) error {

@@ -55,8 +55,6 @@ func GetDeployment(cr *api.PerconaXtraDBCluster, initImage string, existingMatch
 	pxcUser := users.Xtrabackup
 	sleepTime := fmt.Sprintf("%.2f", cr.Spec.Backup.PITR.TimeBetweenUploads)
 
-	bufferSize := getBufferSize(cr.Spec)
-
 	labels := naming.LabelsPITR(cr)
 	if stg, ok := cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName]; ok {
 		maps.Copy(labels, stg.Labels)
@@ -91,15 +89,19 @@ func GetDeployment(cr *api.PerconaXtraDBCluster, initImage string, existingMatch
 			Name:  "COLLECT_SPAN_SEC",
 			Value: sleepTime,
 		},
-		{
-			Name:  "BUFFER_SIZE",
-			Value: strconv.FormatInt(bufferSize, 10),
-		},
-		{
-			Name:  "TIMEOUT_SECONDS",
-			Value: timeout,
-		},
 	}...)
+
+	if cr.CompareVersionWith("1.21.0") < 0 {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "BUFFER_SIZE",
+			Value: strconv.FormatInt(getBufferSize(cr.Spec), 10),
+		})
+	}
+
+	envs = append(envs, corev1.EnvVar{
+		Name:  "TIMEOUT_SECONDS",
+		Value: timeout,
+	})
 
 	if cr.CompareVersionWith("1.17.0") >= 0 {
 		envs = append(envs, corev1.EnvVar{

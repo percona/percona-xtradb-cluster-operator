@@ -1,0 +1,9 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: tls-s3
+spec:
+  commonName: s3-storage-all-in-one
+  secretName: tls-s3
+  issuerRef:
+    name: selfsigning-issuer

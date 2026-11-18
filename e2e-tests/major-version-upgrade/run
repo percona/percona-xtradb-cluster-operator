@@ -1,0 +1,255 @@
+#!/bin/bash
+
+set -o errexit
+
+test_dir=$(realpath $(dirname $0))
+. ${test_dir}/../functions
+
+set_debug
+
+CLUSTER="major-upgrade"
+CLUSTER_SIZE=3
+PROXY_SIZE=2
+VS_URL="https://check.percona.com/versions/v1/pxc-operator"
+
+vs_images() {
+	local channel=$1
+
+	local images
+	images=$(curl -s "${VS_URL}/${VS_OPERATOR_VER}/${channel}")
+
+	local pxc backup
+	pxc=$(echo "${images}" | jq -r '.versions[].matrix.pxc[].imagePath')
+	backup=$(echo "${images}" | jq -r '.versions[].matrix.backup[].imagePath')
+
+	if [[ -z ${pxc} || ${pxc} == "null" || -z ${backup} || ${backup} == "null" ]]; then
+		echo "Version service returned no pxc/backup image for ${VS_OPERATOR_VER}/${channel}" >&2
+		echo "${images}" >&2
+		# Not exit: this runs in a command substitution, so only the subshell
+		# would die. The caller turns the non-zero status into an exit.
+		return 1
+	fi
+
+	echo "${pxc} ${backup}"
+}
+
+VS_OPERATOR_VER="${OPERATOR_VERSION}"
+if ! curl -sf "${VS_URL}/${VS_OPERATOR_VER}/8.4-recommended" >/dev/null; then
+	VS_OPERATOR_VER=$(curl -s "${VS_URL}" | jq -r '.versions[].operator' | sort -V | tail -n1)
+	echo "operator ${OPERATOR_VERSION} is not on the version service, reading images for ${VS_OPERATOR_VER}"
+fi
+
+init_images=$(vs_images 8.0-recommended) || exit 1
+target_images=$(vs_images 8.4-recommended) || exit 1
+read -r INIT_IMAGE_PXC INIT_IMAGE_BACKUP <<<"${init_images}"
+read -r TARGET_IMAGE_PXC TARGET_IMAGE_BACKUP <<<"${target_images}"
+
+if [[ ${INIT_IMAGE_PXC} == "${TARGET_IMAGE_PXC}" ]]; then
+	echo "8.0-recommended and 8.4-recommended resolve to the same PXC image: ${INIT_IMAGE_PXC}"
+	exit 1
+fi
+
+IMAGE_PXC="${INIT_IMAGE_PXC}"
+IMAGE_BACKUP="${INIT_IMAGE_BACKUP}"
+
+wait_pxc_pods_image() {
+	local target=$1
+
+	echo -n "waiting for all ${CLUSTER_SIZE} PXC pods to run ${target}"
+	set +o xtrace
+	local retry=0
+	until [[ $(kubectl_bin get pods \
+		-l "app.kubernetes.io/instance=${CLUSTER},app.kubernetes.io/component=pxc" \
+		-o jsonpath='{range .items[*]}{.spec.containers[?(@.name == "pxc")].image}{"\n"}{end}' \
+		| grep -Fxc "${target}") -eq ${CLUSTER_SIZE} ]]; do
+		if [[ ${retry} -ge 480 ]]; then
+			echo
+			kubectl_bin get pods -l "app.kubernetes.io/instance=${CLUSTER},app.kubernetes.io/component=pxc" \
+				-o custom-columns='NAME:.metadata.name,IMAGE:.spec.containers[0].image'
+			echo "PXC pods did not move to ${target} in time"
+			exit 1
+		fi
+		echo -n .
+		sleep 5
+		retry=$((retry + 1))
+	done
+	echo
+	set_debug
+}
+
+check_pxc_version() {
+	local expected=$1
+
+	for i in $(seq 0 $((CLUSTER_SIZE - 1))); do
+		local version
+		version=$(run_mysql "SELECT @@version;" \
+			"-h ${CLUSTER}-pxc-${i}.${CLUSTER}-pxc -uroot -proot_password")
+
+		if [[ ${version} != ${expected}.* ]]; then
+			echo "${CLUSTER}-pxc-${i} runs ${version}, expected ${expected}.x"
+			exit 1
+		fi
+		echo "${CLUSTER}-pxc-${i} runs ${version}: OK"
+	done
+}
+
+check_binlog_udf_registration() {
+	for i in $(seq 0 $((CLUSTER_SIZE - 1))); do
+		local host="${CLUSTER}-pxc-${i}.${CLUSTER}-pxc"
+
+		local stale
+		stale=$(run_mysql "SELECT COUNT(*) FROM mysql.func WHERE dl = 'binlog_utils_udf.so';" \
+			"-h ${host} -uroot -proot_password")
+		if [[ ${stale} != "0" ]]; then
+			echo "${CLUSTER}-pxc-${i} still has ${stale} legacy binlog_utils_udf rows in mysql.func"
+			run_mysql "SELECT name, dl FROM mysql.func;" "-h ${host} -uroot -proot_password"
+			exit 1
+		fi
+
+		local installed
+		installed=$(run_mysql \
+			"SELECT COUNT(*) FROM mysql.component WHERE component_urn = 'file://component_binlog_utils_udf';" \
+			"-h ${host} -uroot -proot_password")
+		if [[ ${installed} != "1" ]]; then
+			echo "${CLUSTER}-pxc-${i} has no component_binlog_utils_udf installed"
+			run_mysql "SELECT component_urn FROM mysql.component;" "-h ${host} -uroot -proot_password"
+			exit 1
+		fi
+
+		echo "${CLUSTER}-pxc-${i} binlog_utils_udf is registered as a component only: OK"
+	done
+}
+
+cluster_gtid_executed() {
+	local host=$1
+
+	local gtid_set
+	gtid_set=$(run_mysql \
+		"SELECT GTID_SUBTRACT(@@gtid_executed, CONCAT(@@server_uuid, ':1-9223372036854775806'));" \
+		"-h ${host} -uroot -proot_password")
+
+	local uuids
+	uuids=$(echo "${gtid_set}" | grep -Eo '[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}' | sort -u | wc -l | tr -d ' ')
+	if [[ ${uuids} != "1" ]]; then
+		echo "expected exactly one replicated GTID timeline on ${host}, got ${uuids}: ${gtid_set}" >&2
+		return 1
+	fi
+
+	echo "${gtid_set}" | $sed 's/^\([a-f0-9-]\{36\}\):[0-9]*-\([0-9]*\).*/\1:\2/'
+}
+
+write_test_data() {
+	desc 'write test data'
+
+	local proxy
+	proxy=$(get_proxy "${CLUSTER}")
+
+	run_mysql \
+		"CREATE DATABASE IF NOT EXISTS test; use test; CREATE TABLE IF NOT EXISTS test (id int PRIMARY KEY);" \
+		"-h ${proxy} -uroot -proot_password"
+	run_mysql \
+		'INSERT test.test (id) VALUES (100500); INSERT test.test (id) VALUES (100501); INSERT test.test (id) VALUES (100502);' \
+		"-h ${proxy} -uroot -proot_password"
+
+	for i in $(seq 0 $((CLUSTER_SIZE - 1))); do
+		local node="${CLUSTER}-pxc-${i}.${CLUSTER}-pxc"
+		local retry=0
+		until [[ "$(run_mysql 'SELECT COUNT(*) FROM test.test;' \
+			"-h ${node} -uroot -proot_password" 2>/dev/null)" == "3" ]]; do
+			[ ${retry} -ge 12 ] && echo "Rows not propagated to ${node} after 1 min" && exit 1
+			sleep 5
+			retry=$((retry + 1))
+		done
+	done
+
+	compare_data "${CLUSTER}" "select-2" "no-proxy" "-P 3306" "test" "test"
+}
+
+main() {
+	desc "8.0-recommended: ${INIT_IMAGE_PXC} / ${INIT_IMAGE_BACKUP}"
+	desc "8.4-recommended: ${TARGET_IMAGE_PXC} / ${TARGET_IMAGE_BACKUP}"
+
+	create_infra "${namespace}"
+
+	deploy_cert_manager
+	kubectl_bin apply -f "${test_dir}/conf/issuer.yml"
+	kubectl_bin apply -f "${test_dir}/conf/cert.yml"
+	kubectl_bin wait certificate/tls-s3 --for=condition=Ready --timeout=120s
+	deploy_s3_storage "tls-s3"
+
+	desc 'create PXC cluster on 8.0-recommended'
+	spinup_pxc "${CLUSTER}" "${test_dir}/conf/${CLUSTER}.yml" "${CLUSTER_SIZE}"
+	check_pxc_version "8.0"
+	wait_pitr_pod_ready
+
+	write_test_data
+
+	desc 'backup on 8.0'
+	run_backup "${CLUSTER}" "backup-8-0"
+
+	desc 'write data for pitr before the upgrade'
+	write_data_for_pitr "${CLUSTER}" 100503 3
+	sleep_with_log 65 # wait for one binlog collection cycle
+	check_binlog_collection
+	check_latest_restorable_time "backup-8-0"
+	check_binlog_gap "backup-8-0"
+
+	desc 'upgrade to 8.4-recommended'
+	kubectl_bin patch pxc "${CLUSTER}" --type=merge --patch '{
+        "spec": {
+            "pxc": { "image": "'"${TARGET_IMAGE_PXC}"'" },
+            "backup": { "image": "'"${TARGET_IMAGE_BACKUP}"'" }
+        }}'
+
+	IMAGE_PXC="${TARGET_IMAGE_PXC}"
+	IMAGE_BACKUP="${TARGET_IMAGE_BACKUP}"
+
+	desc 'wait for the cluster to come up on 8.4'
+	wait_pxc_pods_image "${IMAGE_PXC}"
+	wait_cluster_consistency "${CLUSTER}" "${CLUSTER_SIZE}" "${PROXY_SIZE}"
+	check_pxc_liveness "${CLUSTER}" "${CLUSTER_SIZE}"
+
+	if [[ ${IMAGE_PXC} != $(kubectl_bin get pxc "${CLUSTER}" -o jsonpath='{.spec.pxc.image}') ||
+	${IMAGE_BACKUP} != $(kubectl_bin get pxc "${CLUSTER}" -o jsonpath='{.spec.backup.image}') ]]; then
+		echo 'Cluster images have not been updated'
+		exit 1
+	fi
+
+	check_pxc_version "8.4"
+	check_binlog_udf_registration
+
+	desc 'check data survived the upgrade'
+	compare_data "${CLUSTER}" "select-3" "no-proxy" "-P 3306" "test" "test"
+
+	desc 'check binlog collection resumed on 8.4'
+	wait_pitr_pod_ready
+	sleep_with_log 65 # wait for one binlog collection cycle
+	check_binlog_collection
+
+	desc 'backup on 8.4'
+	run_backup "${CLUSTER}" "backup-8-4"
+
+	gtid=$(cluster_gtid_executed "${CLUSTER}-pxc-0.${CLUSTER}-pxc.${namespace}") || exit 1
+	log "replicated gtid_executed before the post-upgrade writes: ${gtid}"
+
+	write_data_for_pitr "${CLUSTER}" 100506 3
+	sleep_with_log 65 # wait for one binlog collection cycle
+
+	check_latest_restorable_time "backup-8-4"
+	check_binlog_gap "backup-8-4"
+
+	desc "pitr restore on 8.4 to gtid ${gtid}"
+	run_recovery_check_pitr "${CLUSTER}" "restore-pitr" "backup-8-4" "select-3" "" "" "${gtid}"
+
+	log "gtid_executed after restore: $(run_mysql "SELECT @@gtid_executed;" "-h ${CLUSTER}-pxc-0.${CLUSTER}-pxc.${namespace} -uroot -proot_password")"
+
+	desc 'backup after the restore'
+	run_backup "${CLUSTER}" "backup-after-restore"
+	sleep_with_log 65 # wait for one binlog collection cycle
+	check_binlog_gap "backup-after-restore"
+
+	destroy "${namespace}"
+	desc "test passed"
+}
+
+main

@@ -185,3 +185,16 @@ func TestPrepareJob(t *testing.T) {
 	}
 	assert.ElementsMatch(t, job.Spec.Template.Spec.Containers[0].VolumeMounts, expectedVolumeMounts)
 }
+
+func TestRestoreJobPITRWithoutPITRSpec(t *testing.T) {
+	cr := &pxcv1.PerconaXtraDBClusterRestore{
+		ObjectMeta: metav1.ObjectMeta{Name: "restore", Namespace: "test-ns"},
+		Spec:       pxcv1.PerconaXtraDBClusterRestoreSpec{PXCCluster: "test-cluster"},
+	}
+
+	assert.NotPanics(t, func() {
+		job, err := RestoreJob(t.Context(), cr, &pxcv1.PerconaXtraDBClusterBackup{}, &pxcv1.PerconaXtraDBCluster{}, "", nil, pxcv1.PXCBackupDestination(""), true)
+		assert.Nil(t, job)
+		assert.ErrorContains(t, err, "spec.pitr is not set")
+	})
+}

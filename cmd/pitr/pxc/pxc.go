@@ -193,12 +193,13 @@ func (p *PXC) GetVersion(ctx context.Context) (string, error) {
 	return version, nil
 }
 
-// GetBinLogList return binary log files list
-func (p *PXC) GetBinLogList(ctx context.Context) ([]Binlog, error) {
+// ShowBinaryLogs returns the binary log files list without rotating the log.
+func (p *PXC) ShowBinaryLogs(ctx context.Context) ([]Binlog, error) {
 	rows, err := p.db.QueryContext(ctx, "SHOW BINARY LOGS")
 	if err != nil {
 		return nil, errors.Wrap(err, "show binary logs")
 	}
+	defer rows.Close()
 
 	var binlogs []Binlog
 	for rows.Next() {
@@ -209,6 +210,17 @@ func (p *PXC) GetBinLogList(ctx context.Context) ([]Binlog, error) {
 		binlogs = append(binlogs, b)
 	}
 
+	return binlogs, errors.Wrap(rows.Err(), "iterate binlogs")
+}
+
+// GetBinLogList returns the binary log files list and then rotates the log,
+// so every returned file is closed by the time it is read.
+func (p *PXC) GetBinLogList(ctx context.Context) ([]Binlog, error) {
+	binlogs, err := p.ShowBinaryLogs(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	_, err = p.db.ExecContext(ctx, "FLUSH BINARY LOGS")
 	if err != nil {
 		return nil, errors.Wrap(err, "flush binary logs")
@@ -217,24 +229,18 @@ func (p *PXC) GetBinLogList(ctx context.Context) ([]Binlog, error) {
 	return binlogs, nil
 }
 
-// GetBinLogList return binary log files list
+// GetBinLogNamesList returns the binary log file names
 func (p *PXC) GetBinLogNamesList(ctx context.Context) ([]string, error) {
-	rows, err := p.db.QueryContext(ctx, "SHOW BINARY LOGS")
+	binlogs, err := p.ShowBinaryLogs(ctx)
 	if err != nil {
-		return nil, errors.Wrap(err, "show binary logs")
-	}
-	defer rows.Close()
-
-	var binlogs []string
-	for rows.Next() {
-		var b Binlog
-		if err := rows.Scan(&b.Name, &b.Size, &b.Encrypted); err != nil {
-			return nil, errors.Wrap(err, "scan binlogs")
-		}
-		binlogs = append(binlogs, b.Name)
+		return nil, err
 	}
 
-	return binlogs, nil
+	names := make([]string, 0, len(binlogs))
+	for _, b := range binlogs {
+		names = append(names, b.Name)
+	}
+	return names, nil
 }
 
 func (p *PXC) WsrepClusterStateUUID() (string, error) {

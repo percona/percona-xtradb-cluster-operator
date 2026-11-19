@@ -459,7 +459,7 @@ func TestForEachBinlogWithGTIDs(t *testing.T) {
 			loc := &fakeLocator{binlogs: tt.binlogs, invalid: tt.invalid, failing: tt.failing}
 
 			var gotFn []string
-			err := forEachBinlogWithGTIDs(context.Background(), loc, tt.binlogs, func(b pxc.Binlog) error {
+			err := forEachBinlogWithGTIDs(context.Background(), loc, tt.binlogs, &emptyBinlogs{}, func(b pxc.Binlog) error {
 				gotFn = append(gotFn, b.Name+"="+b.GTIDSet.Raw())
 				if b.Name == tt.failFnOn {
 					return errBoom
@@ -474,6 +474,208 @@ func TestForEachBinlogWithGTIDs(t *testing.T) {
 			}
 			assert.Equal(t, tt.wantFn, gotFn)
 			assert.Equal(t, tt.wantFetched, loc.fetched)
+		})
+	}
+}
+
+func TestEmptyBinlogsAreNotAskedAgain(t *testing.T) {
+	t.Parallel()
+
+	const uuidA = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+
+	binlog := func(name string, size int64, gtidSet string) pxc.Binlog {
+		return pxc.Binlog{Name: name, Size: size, GTIDSet: pxc.NewGTIDSet(gtidSet)}
+	}
+
+	// every run mirrors one collector run: the host in use, the binlog list the
+	// server returned, and which binlogs are expected to be asked about.
+	type run struct {
+		host        string
+		binlogs     []pxc.Binlog
+		invalid     map[string]bool
+		wantFetched []string
+	}
+
+	tests := []struct {
+		name string
+		runs []run
+	}{
+		{
+			name: "idle cluster only asks about new binlogs",
+			runs: []run{
+				{
+					host: "pxc-0",
+					binlogs: []pxc.Binlog{
+						binlog("binlog.000001", 100, uuidA+":1-50"),
+						binlog("binlog.000002", 50, ""),
+						binlog("binlog.000003", 50, ""),
+					},
+					wantFetched: []string{"binlog.000001", "binlog.000002", "binlog.000003"},
+				},
+				{
+					host: "pxc-0",
+					binlogs: []pxc.Binlog{
+						binlog("binlog.000001", 100, uuidA+":1-50"),
+						binlog("binlog.000002", 50, ""),
+						binlog("binlog.000003", 50, ""),
+						binlog("binlog.000004", 50, ""),
+					},
+					wantFetched: []string{"binlog.000001", "binlog.000004"},
+				},
+			},
+		},
+		{
+			name: "binlog with transactions is always asked about",
+			runs: []run{
+				{
+					host:        "pxc-0",
+					binlogs:     []pxc.Binlog{binlog("binlog.000001", 100, uuidA+":1-50")},
+					wantFetched: []string{"binlog.000001"},
+				},
+				{
+					host:        "pxc-0",
+					binlogs:     []pxc.Binlog{binlog("binlog.000001", 100, uuidA+":1-50")},
+					wantFetched: []string{"binlog.000001"},
+				},
+			},
+		},
+		{
+			name: "binlog whose size changed is asked about again",
+			runs: []run{
+				{
+					host:        "pxc-0",
+					binlogs:     []pxc.Binlog{binlog("binlog.000001", 50, "")},
+					wantFetched: []string{"binlog.000001"},
+				},
+				{
+					host:        "pxc-0",
+					binlogs:     []pxc.Binlog{binlog("binlog.000001", 200, uuidA+":1-5")},
+					wantFetched: []string{"binlog.000001"},
+				},
+			},
+		},
+		{
+			name: "everything is asked about again after the host changes",
+			runs: []run{
+				{
+					host:        "pxc-0",
+					binlogs:     []pxc.Binlog{binlog("binlog.000001", 50, "")},
+					wantFetched: []string{"binlog.000001"},
+				},
+				{
+					host:        "pxc-1",
+					binlogs:     []pxc.Binlog{binlog("binlog.000001", 50, "")},
+					wantFetched: []string{"binlog.000001"},
+				},
+			},
+		},
+		{
+			name: "purged binlogs are forgotten",
+			runs: []run{
+				{
+					host: "pxc-0",
+					binlogs: []pxc.Binlog{
+						binlog("binlog.000001", 50, ""),
+						binlog("binlog.000002", 50, ""),
+					},
+					wantFetched: []string{"binlog.000001", "binlog.000002"},
+				},
+				{
+					host:        "pxc-0",
+					binlogs:     []pxc.Binlog{binlog("binlog.000002", 50, "")},
+					wantFetched: nil,
+				},
+				{
+					host: "pxc-0",
+					binlogs: []pxc.Binlog{
+						binlog("binlog.000001", 50, ""),
+						binlog("binlog.000002", 50, ""),
+					},
+					wantFetched: []string{"binlog.000001"},
+				},
+			},
+		},
+		{
+			name: "invalid binlogs are asked about again",
+			runs: []run{
+				{
+					host:        "pxc-0",
+					binlogs:     []pxc.Binlog{binlog("binlog.000001", 50, uuidA+":1-5")},
+					invalid:     map[string]bool{"binlog.000001": true},
+					wantFetched: []string{"binlog.000001"},
+				},
+				{
+					host:        "pxc-0",
+					binlogs:     []pxc.Binlog{binlog("binlog.000001", 50, uuidA+":1-5")},
+					invalid:     map[string]bool{"binlog.000001": true},
+					wantFetched: []string{"binlog.000001"},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			empties := &emptyBinlogs{}
+			for i, r := range tt.runs {
+				empties.use(r.host)
+				empties.retain(r.binlogs)
+
+				loc := &fakeLocator{binlogs: r.binlogs, invalid: r.invalid}
+				err := forEachBinlogWithGTIDs(context.Background(), loc, r.binlogs, empties, func(pxc.Binlog) error { return nil })
+				require.NoError(t, err)
+				assert.Equal(t, r.wantFetched, loc.fetched, "run %d", i+1)
+			}
+		})
+	}
+}
+
+func TestFindResumePointOnIdleCluster(t *testing.T) {
+	t.Parallel()
+
+	const uuidA = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+
+	withTx := pxc.Binlog{Name: "binlog.000001", Size: 100, GTIDSet: pxc.NewGTIDSet(uuidA + ":1-50")}
+	empty := func(n string) pxc.Binlog { return pxc.Binlog{Name: "binlog." + n, Size: 50} }
+
+	tests := []struct {
+		name       string
+		binlogs    []pxc.Binlog
+		wantFirst  []string
+		wantSecond []string
+	}{
+		{
+			name:       "no empty binlogs behind the last upload",
+			binlogs:    []pxc.Binlog{withTx},
+			wantFirst:  []string{"binlog.000001"},
+			wantSecond: []string{"binlog.000001"},
+		},
+		{
+			name:       "empty binlogs are only walked once",
+			binlogs:    []pxc.Binlog{withTx, empty("000002"), empty("000003"), empty("000004")},
+			wantFirst:  []string{"binlog.000004", "binlog.000003", "binlog.000002", "binlog.000001"},
+			wantSecond: []string{"binlog.000001"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			c := &Collector{storage: &fakeStorage{objects: map[string]string{
+				lastSetFilePrefix + uuidA: uuidA + ":1-50",
+			}}}
+			c.emptyBinlogs.use("pxc-0")
+
+			for i, wantFetched := range [][]string{tt.wantFirst, tt.wantSecond} {
+				loc := &fakeLocator{binlogs: tt.binlogs}
+				rp, err := c.findResumePoint(context.Background(), loc, uuidA, tt.binlogs)
+				require.NoError(t, err)
+				assert.Equal(t, resumePoint{lastUploaded: pxc.NewGTIDSet(uuidA + ":1-50"), start: 0}, rp)
+				assert.Equal(t, wantFetched, loc.fetched, "run %d", i+1)
+			}
 		})
 	}
 }

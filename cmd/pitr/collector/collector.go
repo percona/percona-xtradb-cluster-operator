@@ -68,6 +68,13 @@ var (
 			Help: "Total number of times the gap was detected in binlog",
 		},
 	)
+	pxcBinlogCollectorSourceHost = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "pxc_binlog_collector_source_host",
+			Help: "PXC host the collector reads binlogs from. The series of the host in use has the value 1, there is only one at a time",
+		},
+		[]string{"host"},
+	)
 )
 
 func init() {
@@ -77,6 +84,7 @@ func init() {
 	prometheus.MustRegister(pxcBinlogCollectorLastUploadTime)
 	prometheus.MustRegister(pxcBinlogCollectorGapDetected)
 	prometheus.MustRegister(pxcBinlogCollectorUploadedTotal)
+	prometheus.MustRegister(pxcBinlogCollectorSourceHost)
 }
 
 type Collector struct {
@@ -338,6 +346,7 @@ func (c *Collector) pickHost(ctx context.Context) (*uploadPlan, error) {
 		if ok {
 			log.Println("reading binlogs from the same pxc host as the previous run, hostname=", prevHost)
 			c.db = db
+			c.promTrackHost(db.GetHost())
 			return plan, nil
 		}
 	}
@@ -363,7 +372,13 @@ func (c *Collector) pickHost(ctx context.Context) (*uploadPlan, error) {
 	}
 
 	c.db = db
+	c.promTrackHost(db.GetHost())
 	return plan, nil
+}
+
+func (c *Collector) promTrackHost(host string) {
+	pxcBinlogCollectorSourceHost.Reset()
+	pxcBinlogCollectorSourceHost.WithLabelValues(host).Set(1)
 }
 
 // reusePreviousHost connects to the host used by the previous run and returns the

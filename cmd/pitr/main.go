@@ -137,12 +137,8 @@ func runCollector(ctx context.Context) {
 
 	log.Println("running binlog collector")
 	for {
-		timeout, cancel := context.WithTimeout(ctx, time.Duration(config.TimeoutSeconds)*time.Second)
-		defer cancel()
-
-		err := c.Run(timeout)
-		if err != nil {
-			log.Fatalln("ERROR:", err)
+		if err := collectOnce(ctx, c, config.TimeoutSeconds); err != nil {
+			log.Fatalln("ERROR: ", err)
 		}
 
 		t := time.NewTimer(time.Duration(config.CollectSpanSec) * time.Second)
@@ -150,9 +146,14 @@ func runCollector(ctx context.Context) {
 		case <-ctx.Done():
 			log.Fatalln("ERROR:", ctx.Err().Error())
 		case <-t.C:
-			break
 		}
 	}
+}
+
+func collectOnce(ctx context.Context, c *collector.Collector, timeoutSec float64) error {
+	ctx, cancel := context.WithTimeout(ctx, time.Duration(timeoutSec)*time.Second)
+	defer cancel()
+	return c.Run(ctx)
 }
 
 func runRecoverer(ctx context.Context) {

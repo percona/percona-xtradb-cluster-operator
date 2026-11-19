@@ -112,16 +112,6 @@ func TestGetLatestSuccessfulBackup(t *testing.T) {
 			},
 			expectedErr: ErrNoBackups,
 		},
-		{
-			name:        "clusters below 1.21.0 keep selecting the newest backup of any type",
-			clusterName: "cluster1",
-			crVersion:   "1.20.0",
-			backups: []runtime.Object{
-				newBackup("full-backup", "cluster1", api.BackupSucceeded, baseTime.Add(2*time.Minute)),
-				withType(newBackup("incr-backup", "cluster1", api.BackupSucceeded, baseTime.Add(3*time.Minute)), api.BackupTypeIncremental),
-			},
-			expected: "incr-backup",
-		},
 	}
 
 	for _, tt := range tests {

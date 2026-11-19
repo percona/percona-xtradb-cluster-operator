@@ -302,14 +302,19 @@ if [[ $(count_ready_proxysql_pods) -ne 2 ]]; then
 	echo "ERROR: ProxySQL pods must stay Ready while readers are ONLINE"
 	exit 1
 fi
-if [[ $(kubectl_bin get pxc "${cluster}" -o jsonpath='{.status.state}') != "ready" ]]; then
-	echo "ERROR: cluster ${cluster} must stay ready while readers are ONLINE"
+if [[ $(kubectl_bin get pxc "${cluster}" -o jsonpath='{.status.proxysql.status}') != "initializing" ]]; then
+	echo "ERROR: ProxySQL status must be initializing while ${cluster}-proxysql-1 has no ONLINE writer"
+	exit 1
+fi
+if [[ $(kubectl_bin get pxc "${cluster}" -o jsonpath='{.status.state}') != "initializing" ]]; then
+	echo "ERROR: cluster ${cluster} must be initializing while ${cluster}-proxysql-1 has no ONLINE writer"
 	exit 1
 fi
 log "missing writer on ${cluster}-proxysql-1 is reported in the status: OK"
 
 set_proxysql_writer_status "${cluster}-proxysql-1" "ONLINE" 1
 check_no_writer_status_message
+wait_cluster_consistency "${cluster}" 3 2
 compare_scheduler "${cluster}-proxysql-1" "scheduler-1"
 compare_mysql_servers "${cluster}-proxysql-1" "mysql-servers-1"
 log "status message is gone when the writer is back: OK"
@@ -448,4 +453,4 @@ log "mysql_servers are configured in ${cluster}-proxysql-2 when 2 pods are down:
 
 desc "test passed"
 
-destroy ${namespace}
+#destroy ${namespace}

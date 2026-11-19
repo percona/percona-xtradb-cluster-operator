@@ -150,6 +150,9 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(ctx context.Context, cr *ap
 			cr.Status.Messages = append(cr.Status.Messages,
 				fmt.Sprintf("%s: no ONLINE servers in writer hostgroup %d on %s, writes through it fail", naming.ComponentProxySQL, queries.WriterHostgroupID, pod))
 		}
+		if len(pods) > 0 {
+			cr.Status.ProxySQL.Status = api.AppStateInit
+		}
 	}
 
 	cr.Status.Status = cr.Status.ClusterStatus(inProgress, cr.ObjectMeta.DeletionTimestamp != nil)

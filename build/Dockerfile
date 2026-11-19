@@ -1,4 +1,4 @@
-FROM --platform=${BUILDPLATFORM} golang:1.26 AS go_builder
+FROM --platform=${BUILDPLATFORM} golang:1.27 AS go_builder
 WORKDIR /go/src/github.com/percona/percona-xtradb-cluster-operator
 
 COPY go.mod go.sum ./

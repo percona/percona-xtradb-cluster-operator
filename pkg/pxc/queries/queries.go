@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/go-sql-driver/mysql"
@@ -463,6 +464,29 @@ func (p *Database) ReadVariable(variable string) (string, error) {
 	}
 
 	return value, nil
+}
+
+var variableNameRegex = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
+
+// SetGlobalVariable runs SET GLOBAL name = value. value must already be a SQL
+// literal.
+func (p *Database) SetGlobalVariable(name, value string) error {
+	if !variableNameRegex.MatchString(name) {
+		return errors.Errorf("invalid global variable name: %q", name)
+	}
+	_, err := p.db.Exec(fmt.Sprintf("SET GLOBAL %s = %s", name, value))
+	return err
+}
+
+func (p *Database) GlobalVariable(name string) (string, error) {
+	if !variableNameRegex.MatchString(name) {
+		return "", errors.Errorf("invalid global variable name: %q", name)
+	}
+	var value sql.NullString
+	if err := p.db.QueryRow(fmt.Sprintf("SELECT @@GLOBAL.%s", name)).Scan(&value); err != nil {
+		return "", err
+	}
+	return value.String, nil
 }
 
 func (p *Database) Close() error {

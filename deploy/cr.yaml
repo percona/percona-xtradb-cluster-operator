@@ -70,6 +70,9 @@ spec:
     size: 3
     image: perconalab/percona-xtradb-cluster-operator:main-pxc8.4
     autoRecovery: true
+#    autoConfig:
+#      enabled: true
+#      loadType: someWrites
 #    extraPVCs:
 #      - name: extra-data-volume
 #        claimName: kech-extra-storage

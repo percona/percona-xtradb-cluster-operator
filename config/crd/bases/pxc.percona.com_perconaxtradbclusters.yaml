@@ -8457,6 +8457,18 @@ spec:
                     additionalProperties:
                       type: string
                     type: object
+                  autoConfig:
+                    properties:
+                      enabled:
+                        type: boolean
+                      loadType:
+                        enum:
+                        - mostlyReads
+                        - someWrites
+                        - equalReadsWrites
+                        - heavyWrites
+                        type: string
+                    type: object
                   autoRecovery:
                     type: boolean
                   configuration:
@@ -11136,6 +11148,25 @@ spec:
                         type: object
                     type: object
                 type: object
+                x-kubernetes-validations:
+                - message: pxc.resources must set cpu and memory (via limits or requests)
+                    when pxc.autoConfig.enabled is true
+                  rule: '!(self.?autoConfig.?enabled.orValue(false)) || (has(self.resources)
+                    && ((has(self.resources.limits) && ''cpu'' in self.resources.limits)
+                    || (has(self.resources.requests) && ''cpu'' in self.resources.requests))
+                    && ((has(self.resources.limits) && ''memory'' in self.resources.limits)
+                    || (has(self.resources.requests) && ''memory'' in self.resources.requests)))'
+                - message: pxc.resources cpu must be greater than 0 when pxc.autoConfig.enabled
+                    is true
+                  rule: '!(self.?autoConfig.?enabled.orValue(false)) || sign(quantity(has(self.resources.limits)
+                    && ''cpu'' in self.resources.limits ? self.resources.limits[''cpu'']
+                    : self.resources.requests[''cpu''])) == 1'
+                - message: pxc.resources memory must be at least 12Mi when pxc.autoConfig.enabled
+                    is true
+                  rule: '!(self.?autoConfig.?enabled.orValue(false)) || quantity(has(self.resources.limits)
+                    && ''memory'' in self.resources.limits ? self.resources.limits[''memory'']
+                    : self.resources.requests[''memory'']).compareTo(quantity(''12Mi''))
+                    >= 0'
               secretsName:
                 type: string
               sslInternalSecretName:

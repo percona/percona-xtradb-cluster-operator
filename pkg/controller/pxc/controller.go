@@ -75,6 +75,7 @@ func newReconciler(ctx context.Context, mgr manager.Manager) (reconcile.Reconcil
 
 	return &ReconcilePerconaXtraDBCluster{
 		client:        mgr.GetClient(),
+		apiReader:     mgr.GetAPIReader(),
 		scheme:        mgr.GetScheme(),
 		crons:         NewCronRegistry(),
 		serverVersion: sv,
@@ -156,6 +157,7 @@ type ReconcilePerconaXtraDBCluster struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
 	client         client.Client
+	apiReader      client.Reader
 	scheme         *runtime.Scheme
 	crons          CronRegistry
 	clientcmd      clientcmd.Client
@@ -398,6 +400,10 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 	err = r.updatePod(ctx, pxcSet, o.Spec.PXC.PodSpec, o, userReconcileResult.pxcAnnotations, true)
 	if err != nil {
 		return reconcile.Result{}, errors.Wrap(err, "pxc upgrade error")
+	}
+
+	if err := r.reconcileMySQLConfig(ctx, o); err != nil {
+		return reconcile.Result{}, errors.Wrap(err, "reconcile mysql config")
 	}
 
 	saveOldSvcMeta := true

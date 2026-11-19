@@ -8,11 +8,14 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/go-sql-driver/mysql"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/percona/percona-xtradb-cluster-operator/cmd/pitr/pxc"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/util/gtid"
 )
 
 func TestReadBinlog(t *testing.T) {
@@ -64,121 +67,6 @@ func TestReadBinlog(t *testing.T) {
 	}
 }
 
-func TestFindBinlogWithEndMarker(t *testing.T) {
-	t.Parallel()
-
-	const uuidA = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
-	const uuidB = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
-
-	binlog := func(name, gtidSet string) pxc.Binlog {
-		return pxc.Binlog{Name: name, GTIDSet: pxc.NewGTIDSet(gtidSet)}
-	}
-
-	tests := []struct {
-		name         string
-		binlogs      []pxc.Binlog
-		lastUploaded string
-		want         string
-	}{
-		{
-			// The scenario from #2286: another node's binlogs split the GTID
-			// range that one node uploaded as a single entry. The end marker
-			// (100) lives in the second of two binlogs.
-			name: "end marker in later of two split binlogs",
-			binlogs: []pxc.Binlog{
-				binlog("binlog.000001", uuidA+":1-50"),
-				binlog("binlog.000002", uuidA+":51-100"),
-				binlog("binlog.000003", uuidA+":101-150"),
-			},
-			lastUploaded: uuidA + ":1-100",
-			want:         "binlog.000002",
-		},
-		{
-			name: "end marker in most recent binlog",
-			binlogs: []pxc.Binlog{
-				binlog("binlog.000001", uuidA+":1-50"),
-				binlog("binlog.000002", uuidA+":51-100"),
-			},
-			lastUploaded: uuidA + ":1-50",
-			want:         "binlog.000001",
-		},
-		{
-			name: "end marker missing means gap",
-			binlogs: []pxc.Binlog{
-				binlog("binlog.000001", uuidA+":1-50"),
-				binlog("binlog.000002", uuidA+":51-99"),
-				binlog("binlog.000003", uuidA+":101-150"),
-			},
-			lastUploaded: uuidA + ":1-100",
-			want:         "",
-		},
-		{
-			name: "binlog with non-contiguous intervals contains end marker",
-			binlogs: []pxc.Binlog{
-				binlog("binlog.000001", uuidA+":1-50:80-100"),
-				binlog("binlog.000002", uuidA+":101-150"),
-			},
-			lastUploaded: uuidA + ":1-100",
-			want:         "binlog.000001",
-		},
-		{
-			// After a restore the cluster gets a new UUID, so the last uploaded
-			// set may carry both old and new UUID ranges. The match should be
-			// found via whichever UUID's end marker exists in a binlog.
-			name: "matches via second uuid in lastUploadedSet",
-			binlogs: []pxc.Binlog{
-				binlog("binlog.000001", uuidA+":1-50"),
-				binlog("binlog.000002", uuidB+":1-25"),
-			},
-			lastUploaded: uuidA + ":1-200," + uuidB + ":1-25",
-			want:         "binlog.000002",
-		},
-		{
-			name: "binlog carrying multiple uuids matches on the relevant one",
-			binlogs: []pxc.Binlog{
-				binlog("binlog.000001", uuidA+":1-50,"+uuidB+":1-10"),
-				binlog("binlog.000002", uuidB+":11-30"),
-			},
-			lastUploaded: uuidB + ":1-10",
-			want:         "binlog.000001",
-		},
-		{
-			// Most-recent-first iteration: when more than one binlog contains
-			// the end marker, the most recent one wins.
-			name: "most recent binlog wins when multiple contain the end marker",
-			binlogs: []pxc.Binlog{
-				binlog("binlog.000001", uuidA+":1-100"),
-				binlog("binlog.000002", uuidA+":50-150"),
-			},
-			lastUploaded: uuidA + ":1-100",
-			want:         "binlog.000002",
-		},
-		{
-			name:         "empty binlog list returns empty",
-			binlogs:      nil,
-			lastUploaded: uuidA + ":1-100",
-			want:         "",
-		},
-		{
-			name: "malformed lastUploaded entry is skipped, valid one still matches",
-			binlogs: []pxc.Binlog{
-				binlog("binlog.000001", uuidA+":1-50"),
-			},
-			lastUploaded: "not-a-gtid," + uuidA + ":1-50",
-			want:         "binlog.000001",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			got := findBinlogWithEndMarker(tt.binlogs, pxc.NewGTIDSet(tt.lastUploaded))
-			assert.Equal(t, tt.want, got)
-		})
-	}
-}
-
 type closeTrackingReader struct {
 	io.Reader
 	closed bool
@@ -215,53 +103,191 @@ func TestLastGTIDSetClosesObject(t *testing.T) {
 	assert.True(t, obj.closed, "last set object must be closed")
 }
 
-func TestHasBinlogGap(t *testing.T) {
+// fakeLocator mimics the binlog UDFs on a host: binlogs hold per-file GTID sets
+// and a GTID is found in the first binlog containing it.
+type fakeLocator struct {
+	binlogs []pxc.Binlog
+	invalid map[string]bool // binlogs failing with MySQL error 3200
+}
+
+func (f *fakeLocator) GetGTIDSet(_ context.Context, name string) (string, error) {
+	if f.invalid[name] {
+		return "", &mysql.MySQLError{Number: 3200, Message: "invalid binlog"}
+	}
+	for _, b := range f.binlogs {
+		if b.Name == name {
+			return b.GTIDSet.Raw(), nil
+		}
+	}
+	return "", errors.New("Binary log does not exist")
+}
+
+func (f *fakeLocator) GetBinlogByGTID(_ context.Context, gtidText string) (string, error) {
+	parsed, err := gtid.New(gtidText)
+	if err != nil {
+		return "", err
+	}
+	uuid, seq := parsed.End()
+	for _, b := range f.binlogs {
+		set, err := gtid.New(b.GTIDSet.Raw())
+		if err != nil {
+			continue
+		}
+		if set.ContainsSeq(uuid, seq) {
+			return b.Name, nil
+		}
+	}
+	return "", nil
+}
+
+type fakeStorage struct {
+	storage.Storage
+	objects map[string]string
+}
+
+func (s *fakeStorage) GetObject(_ context.Context, name string) (io.ReadCloser, error) {
+	content, ok := s.objects[name]
+	if !ok {
+		return nil, storage.ErrObjectNotFound
+	}
+	return io.NopCloser(bytes.NewBufferString(content)), nil
+}
+
+func TestFindResumePoint(t *testing.T) {
 	t.Parallel()
 
 	const uuidA = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+	const uuidB = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
 
 	binlog := func(name, gtidSet string) pxc.Binlog {
 		return pxc.Binlog{Name: name, GTIDSet: pxc.NewGTIDSet(gtidSet)}
 	}
 
 	tests := []struct {
-		name         string
-		binlogs      []pxc.Binlog
-		lastUploaded string
-		want         bool
+		name     string
+		binlogs  []pxc.Binlog
+		invalid  map[string]bool
+		stored   map[string]string // object name -> content
+		sourceID string
+		want     resumePoint
 	}{
 		{
-			name:         "nothing uploaded yet is not a gap",
-			binlogs:      []pxc.Binlog{binlog("binlog.000001", uuidA+":1-50")},
-			lastUploaded: "",
-			want:         false,
+			name:     "nothing uploaded yet starts from the first binlog",
+			binlogs:  []pxc.Binlog{binlog("binlog.000001", uuidA+":1-50")},
+			sourceID: uuidA,
+			want:     resumePoint{},
 		},
 		{
-			name: "end marker present in the host binlogs",
+			name: "no binlog has transactions",
+			binlogs: []pxc.Binlog{
+				binlog("binlog.000001", ""),
+				binlog("binlog.000002", ""),
+			},
+			sourceID: uuidA,
+			want:     resumePoint{empty: true},
+		},
+		{
+			name:     "no binlogs",
+			binlogs:  nil,
+			sourceID: uuidA,
+			want:     resumePoint{empty: true},
+		},
+		{
+			// The scenario from #2286: another node's binlogs split the GTID
+			// range that one node uploaded as a single entry. The end marker
+			// (100) lives in the second of two binlogs.
+			name: "end marker in later of two split binlogs",
+			binlogs: []pxc.Binlog{
+				binlog("binlog.000001", uuidA+":1-50"),
+				binlog("binlog.000002", uuidA+":51-100"),
+				binlog("binlog.000003", uuidA+":101-150"),
+			},
+			stored:   map[string]string{lastSetFilePrefix + uuidA: uuidA + ":1-100"},
+			sourceID: uuidA,
+			want:     resumePoint{lastUploaded: pxc.NewGTIDSet(uuidA + ":1-100"), start: 1},
+		},
+		{
+			name: "end marker in the most recent binlog",
 			binlogs: []pxc.Binlog{
 				binlog("binlog.000001", uuidA+":1-50"),
 				binlog("binlog.000002", uuidA+":51-100"),
 			},
-			lastUploaded: uuidA + ":1-60",
-			want:         false,
+			stored:   map[string]string{lastSetFilePrefix + uuidA: uuidA + ":51-100"},
+			sourceID: uuidA,
+			want:     resumePoint{lastUploaded: pxc.NewGTIDSet(uuidA + ":51-100"), start: 1},
 		},
 		{
-			name: "end marker already purged from the host",
+			name: "latest binlogs without transactions are skipped",
+			binlogs: []pxc.Binlog{
+				binlog("binlog.000001", uuidA+":1-50"),
+				binlog("binlog.000002", uuidA+":51-100"),
+				binlog("binlog.000003", ""),
+			},
+			stored:   map[string]string{lastSetFilePrefix + uuidA: uuidA + ":51-100"},
+			sourceID: uuidA,
+			want:     resumePoint{lastUploaded: pxc.NewGTIDSet(uuidA + ":51-100"), start: 1},
+		},
+		{
+			name: "invalid latest binlog is skipped",
+			binlogs: []pxc.Binlog{
+				binlog("binlog.000001", uuidA+":1-50"),
+				binlog("binlog.000002", uuidA+":51-100"),
+			},
+			invalid:  map[string]bool{"binlog.000002": true},
+			stored:   map[string]string{lastSetFilePrefix + uuidA: uuidA + ":1-50"},
+			sourceID: uuidA,
+			want:     resumePoint{lastUploaded: pxc.NewGTIDSet(uuidA + ":1-50"), start: 0},
+		},
+		{
+			name: "end marker already purged from the host is a gap",
 			binlogs: []pxc.Binlog{
 				binlog("binlog.000005", uuidA+":101-150"),
 				binlog("binlog.000006", uuidA+":151-200"),
 			},
-			lastUploaded: uuidA + ":1-60",
-			want:         true,
+			stored:   map[string]string{lastSetFilePrefix + uuidA: uuidA + ":1-60"},
+			sourceID: uuidA,
+			want:     resumePoint{lastUploaded: pxc.NewGTIDSet(uuidA + ":1-60"), gap: true},
 		},
 		{
-			name: "end marker falls between binlogs",
+			name: "end marker missing between binlogs is a gap",
 			binlogs: []pxc.Binlog{
 				binlog("binlog.000001", uuidA+":1-50"),
-				binlog("binlog.000002", uuidA+":61-100"),
+				binlog("binlog.000002", uuidA+":101-150"),
 			},
-			lastUploaded: uuidA + ":1-60",
-			want:         true,
+			stored:   map[string]string{lastSetFilePrefix + uuidA: uuidA + ":1-100"},
+			sourceID: uuidA,
+			want:     resumePoint{lastUploaded: pxc.NewGTIDSet(uuidA + ":1-100"), gap: true},
+		},
+		{
+			// After a restore the last uploaded set can carry both old and new
+			// UUID ranges. The match is found via whichever end marker exists.
+			name: "matches via second uuid in the last uploaded set",
+			binlogs: []pxc.Binlog{
+				binlog("binlog.000001", uuidA+":1-50"),
+				binlog("binlog.000002", uuidB+":1-25"),
+			},
+			stored:   map[string]string{lastSetFilePrefix + uuidB: uuidA + ":1-200," + uuidB + ":1-25"},
+			sourceID: uuidB,
+			want:     resumePoint{lastUploaded: pxc.NewGTIDSet(uuidA + ":1-200," + uuidB + ":1-25"), start: 1},
+		},
+		{
+			name: "most recent binlog wins when several uuids match",
+			binlogs: []pxc.Binlog{
+				binlog("binlog.000001", uuidA+":1-50"),
+				binlog("binlog.000002", uuidB+":1-25"),
+			},
+			stored:   map[string]string{lastSetFilePrefix + uuidB: uuidA + ":1-50," + uuidB + ":1-25"},
+			sourceID: uuidB,
+			want:     resumePoint{lastUploaded: pxc.NewGTIDSet(uuidA + ":1-50," + uuidB + ":1-25"), start: 1},
+		},
+		{
+			name: "malformed last uploaded entry is skipped, valid one still matches",
+			binlogs: []pxc.Binlog{
+				binlog("binlog.000001", uuidA+":1-50"),
+			},
+			stored:   map[string]string{lastSetFilePrefix + uuidA: "not-a-gtid," + uuidA + ":1-50"},
+			sourceID: uuidA,
+			want:     resumePoint{lastUploaded: pxc.NewGTIDSet("not-a-gtid," + uuidA + ":1-50"), start: 0},
 		},
 	}
 
@@ -269,42 +295,69 @@ func TestHasBinlogGap(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got := hasBinlogGap(tt.binlogs, pxc.NewGTIDSet(tt.lastUploaded))
+			c := &Collector{storage: &fakeStorage{objects: tt.stored}}
+			loc := &fakeLocator{binlogs: tt.binlogs, invalid: tt.invalid}
+
+			got, err := c.findResumePoint(context.Background(), loc, tt.sourceID, tt.binlogs)
+			require.NoError(t, err)
 			assert.Equal(t, tt.want, got)
 		})
 	}
 }
 
-func TestLatestGTIDSets(t *testing.T) {
+func TestHasNewTransactions(t *testing.T) {
 	t.Parallel()
 
 	const uuidA = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+	const uuidB = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
 
 	tests := []struct {
-		name    string
-		binlogs []pxc.Binlog
-		want    []string
+		name         string
+		lastGTID     string
+		lastUploaded string
+		want         bool
 	}{
 		{
-			name:    "no binlogs",
-			binlogs: nil,
-			want:    nil,
+			name:         "last gtid is the end of the uploaded set",
+			lastGTID:     uuidA + ":100",
+			lastUploaded: uuidA + ":51-100",
+			want:         false,
 		},
 		{
-			name: "skips trailing binlogs without gtids",
-			binlogs: []pxc.Binlog{
-				{Name: "binlog.000001", GTIDSet: pxc.NewGTIDSet(uuidA + ":1-50")},
-				{Name: "binlog.000002", GTIDSet: pxc.NewGTIDSet("")},
-			},
-			want: []string{uuidA + ":1-50"},
+			name:         "last gtid is inside the uploaded set",
+			lastGTID:     uuidA + ":75",
+			lastUploaded: uuidA + ":51-100",
+			want:         false,
 		},
 		{
-			name: "uses the most recent binlog",
-			binlogs: []pxc.Binlog{
-				{Name: "binlog.000001", GTIDSet: pxc.NewGTIDSet(uuidA + ":1-50")},
-				{Name: "binlog.000002", GTIDSet: pxc.NewGTIDSet(uuidA + ":51-100")},
-			},
-			want: []string{uuidA + ":51-100"},
+			name:         "binlog goes beyond the uploaded set",
+			lastGTID:     uuidA + ":120",
+			lastUploaded: uuidA + ":51-100",
+			want:         true,
+		},
+		{
+			name:         "last gtid from another uuid",
+			lastGTID:     uuidB + ":10",
+			lastUploaded: uuidA + ":1-100",
+			want:         true,
+		},
+		{
+			name:         "contained in any uuid of a multi uuid set",
+			lastGTID:     uuidB + ":10",
+			lastUploaded: uuidA + ":1-100," + uuidB + ":1-25",
+			want:         false,
+		},
+		{
+			name:         "binlog without gtids is uploaded",
+			lastGTID:     "",
+			lastUploaded: uuidA + ":1-100",
+			want:         true,
+		},
+		{
+			name:         "unparsable last gtid is uploaded",
+			lastGTID:     "garbage",
+			lastUploaded: uuidA + ":1-100",
+			want:         true,
 		},
 	}
 
@@ -312,7 +365,8 @@ func TestLatestGTIDSets(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			assert.Equal(t, tt.want, latestGTIDSets(tt.binlogs))
+			got := hasNewTransactions(tt.lastGTID, pxc.NewGTIDSet(tt.lastUploaded))
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }

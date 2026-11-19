@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"slices"
 	"strings"
 	"syscall"
 	"time"
@@ -85,7 +86,6 @@ type Collector struct {
 	pxcServiceName  string      // k8s service name for PXC, its for get correct host for connection
 	pxcUser         string      // user for connection to PXC
 	pxcPass         string      // password for connection to PXC
-	gtidCacheKey    string      // filename of gtid cache json
 	sourceID        string
 }
 
@@ -100,7 +100,7 @@ type Config struct {
 	CollectSpanSec     float64 `env:"COLLECT_SPAN_SEC" envDefault:"60"`
 	VerifyTLS          bool    `env:"VERIFY_TLS" envDefault:"true"`
 	TimeoutSeconds     float64 `env:"TIMEOUT_SECONDS" envDefault:"60"`
-	GTIDCacheKey       string  `env:"GTID_CACHE_KEY,required"`
+	GTIDCacheKey       string  `env:"GTID_CACHE_KEY"` // deprecated, the GTID cache is not used anymore
 }
 
 type BackupS3 struct {
@@ -196,16 +196,7 @@ func New(ctx context.Context, c Config) (*Collector, error) {
 		pxcUser:        c.PXCUser,
 		pxcPass:        string(pxcPass),
 		pxcServiceName: c.PXCServiceName,
-		gtidCacheKey:   c.GTIDCacheKey,
 	}, nil
-}
-
-func (c *Collector) GetStorage() storage.Storage {
-	return c.storage
-}
-
-func (c *Collector) GetGTIDCacheKey() string {
-	return c.gtidCacheKey
 }
 
 func (c *Collector) Init(ctx context.Context) error {
@@ -380,54 +371,156 @@ func (c *Collector) reusePreviousHost(ctx context.Context, host string) (*pxc.PX
 }
 
 // hasNoBinlogGap reports whether the binlogs on db still contain the end of the
-// last uploaded GTID set. It never populates the GTID cache of a host from
-// scratch, since that is the expensive operation we want to avoid.
+// last uploaded GTID set. It doesn't flush binary logs.
 func (c *Collector) hasNoBinlogGap(ctx context.Context, db *pxc.PXC) (bool, error) {
-	cache, err := loadCache(ctx, c.storage, c.gtidCacheKey)
-	if err != nil {
-		return false, errors.Wrap(err, "load binlog cache")
-	}
-	if _, ok := cache.Entries[db.GetHost()]; !ok {
-		log.Printf("no binlog cache for host %s, can't check gaps cheaply", db.GetHost())
-		return false, nil
-	}
-
-	binlogList, err := db.GetBinLogList(ctx)
+	names, err := db.GetBinLogNamesList(ctx)
 	if err != nil {
 		return false, errors.Wrap(err, "get binlog list")
 	}
-	if err := c.addGTIDSets(ctx, db, cache, binlogList); err != nil {
-		return false, errors.Wrap(err, "get GTID sets")
-	}
-
-	gtidSets := latestGTIDSets(binlogList)
-	if len(gtidSets) == 0 {
-		return false, nil
+	binlogs := make([]pxc.Binlog, 0, len(names))
+	for _, name := range names {
+		binlogs = append(binlogs, pxc.Binlog{Name: name})
 	}
 
 	sourceID, err := db.WsrepClusterStateUUID()
 	if err != nil {
 		return false, errors.Wrap(err, "get cluster state uuid")
 	}
-	lastUploaded, err := c.resolveLastUploadedSet(ctx, gtidSets, sourceID)
+
+	rp, err := c.findResumePoint(ctx, db, sourceID, binlogs)
 	if err != nil {
-		return false, errors.Wrap(err, "get last uploaded gtid set")
+		return false, errors.Wrap(err, "find resume point")
 	}
 
-	return !hasBinlogGap(binlogList, lastUploaded), nil
+	return !rp.empty && !rp.gap, nil
 }
 
-// hasBinlogGap reports whether lastUploaded is known but no binlog contains its end marker.
-func hasBinlogGap(binlogs []pxc.Binlog, lastUploaded pxc.GTIDSet) bool {
-	return !lastUploaded.IsEmpty() && findBinlogWithEndMarker(binlogs, lastUploaded) == ""
+// binlogLocator is the subset of *pxc.PXC used to decide where to resume uploading.
+type binlogLocator interface {
+	GetGTIDSet(ctx context.Context, binlogName string) (string, error)
+	GetBinlogByGTID(ctx context.Context, gtid string) (string, error)
+}
+
+// resumePoint describes which binlogs on a host still need to be uploaded.
+type resumePoint struct {
+	lastUploaded pxc.GTIDSet
+	// start is the index of the first binlog that may contain not yet uploaded
+	// transactions. It's 0 when nothing was uploaded yet or when there is a gap.
+	start int
+	// gap is true when the last uploaded GTID set can't be found on the host.
+	gap bool
+	// empty is true when the host has no binlogs with transactions.
+	empty bool
+}
+
+// findResumePoint locates the binlog containing the end of the last uploaded
+// GTID set. It only reads binlog headers, so it's cheap on any host.
+func (c *Collector) findResumePoint(ctx context.Context, loc binlogLocator, sourceID string, binlogs []pxc.Binlog) (resumePoint, error) {
+	gtidSets, err := latestGTIDSets(ctx, loc, binlogs)
+	if err != nil {
+		return resumePoint{}, errors.Wrap(err, "get latest GTID sets")
+	}
+	if len(gtidSets) == 0 {
+		return resumePoint{empty: true}, nil
+	}
+
+	lastUploaded, err := c.resolveLastUploadedSet(ctx, gtidSets, sourceID)
+	if err != nil {
+		return resumePoint{}, errors.Wrap(err, "get last uploaded gtid set")
+	}
+	if lastUploaded.IsEmpty() {
+		return resumePoint{}, nil
+	}
+
+	log.Printf("last uploaded GTID set: %s", lastUploaded.Raw())
+
+	// Sets can hold more than one UUID (e.g. after a restore). The most recent
+	// binlog containing the end of any of them is where we resume.
+	start := -1
+	for _, entry := range lastUploaded.List() {
+		parsed, err := gtid.New(entry)
+		if err != nil {
+			log.Printf("failed to parse last uploaded gtid %s: %v", entry, err)
+			continue
+		}
+		uuid, endSeq := parsed.End()
+
+		name, err := loc.GetBinlogByGTID(ctx, fmt.Sprintf("%s:%d", uuid, endSeq))
+		if err != nil {
+			return resumePoint{}, err
+		}
+		if name == "" {
+			continue
+		}
+
+		if i := slices.IndexFunc(binlogs, func(b pxc.Binlog) bool { return b.Name == name }); i > start {
+			start = i
+		}
+	}
+
+	if start < 0 {
+		return resumePoint{lastUploaded: lastUploaded, gap: true}, nil
+	}
+	return resumePoint{lastUploaded: lastUploaded, start: start}, nil
+}
+
+// hasNewTransactions reports whether a binlog whose last GTID is lastGTID holds
+// transactions that are not part of lastUploaded.
+func hasNewTransactions(lastGTID string, lastUploaded pxc.GTIDSet) bool {
+	if lastGTID == "" {
+		return true
+	}
+	last, err := gtid.New(lastGTID)
+	if err != nil {
+		log.Printf("failed to parse last gtid %s: %v", lastGTID, err)
+		return true
+	}
+	uuid, seq := last.End()
+
+	for _, entry := range lastUploaded.List() {
+		uploaded, err := gtid.New(entry)
+		if err != nil {
+			continue
+		}
+		if uploaded.ContainsSeq(uuid, seq) {
+			return false
+		}
+	}
+	return true
 }
 
 // latestGTIDSets returns the GTID sets of the most recent binlog that has any.
-func latestGTIDSets(binlogs []pxc.Binlog) []string {
+func latestGTIDSets(ctx context.Context, loc binlogLocator, binlogs []pxc.Binlog) ([]string, error) {
 	for i := len(binlogs) - 1; i >= 0; i-- {
-		if sets := binlogs[i].GTIDSet.List(); len(sets) != 0 {
-			return sets
+		set, err := loc.GetGTIDSet(ctx, binlogs[i].Name)
+		if err != nil {
+			if errors.Is(err, &mysql.MySQLError{Number: 3200}) {
+				log.Printf("ERROR: Binlog file %s is invalid: %s\n", binlogs[i].Name, err.Error())
+				continue
+			}
+			return nil, errors.Wrapf(err, "get GTID set of %s", binlogs[i].Name)
 		}
+		gtidSet := pxc.NewGTIDSet(set)
+		if list := gtidSet.List(); len(list) != 0 {
+			return list, nil
+		}
+	}
+	return nil, nil
+}
+
+// fillGTIDSets assigns GTID sets to binlogs. Invalid binlogs are left with an empty set.
+func fillGTIDSets(ctx context.Context, loc binlogLocator, binlogs []pxc.Binlog) error {
+	for i := range binlogs {
+		set, err := loc.GetGTIDSet(ctx, binlogs[i].Name)
+		if err != nil {
+			if errors.Is(err, &mysql.MySQLError{Number: 3200}) {
+				log.Printf("ERROR: Binlog file %s is invalid: %s\n", binlogs[i].Name, err.Error())
+				continue
+			}
+			return errors.Wrapf(err, "get GTID set of %s", binlogs[i].Name)
+		}
+		binlogs[i].GTIDSet = pxc.NewGTIDSet(set)
+		log.Println(binlogs[i])
 	}
 	return nil
 }
@@ -474,36 +567,6 @@ func (c *Collector) removeEmptyBinlogs(logs []pxc.Binlog) ([]pxc.Binlog, error) 
 		}
 	}
 	return result, nil
-}
-
-func (c *Collector) filterBinLogs(ctx context.Context, logs []pxc.Binlog, lastBinlogName string) ([]pxc.Binlog, error) {
-	if lastBinlogName == "" {
-		return c.removeEmptyBinlogs(logs)
-	}
-
-	logsLen := len(logs)
-
-	startIndex := 0
-	for logs[startIndex].Name != lastBinlogName && startIndex < logsLen {
-		startIndex++
-	}
-
-	if startIndex == logsLen {
-		return nil, nil
-	}
-
-	set, err := c.db.GetGTIDSet(ctx, logs[startIndex].Name)
-	if err != nil {
-		return nil, errors.Wrap(err, "get gtid set of last uploaded binlog")
-	}
-
-	// we don't need to reupload last file
-	// if gtid set is not changed
-	if set == c.lastUploadedSet.Raw() {
-		startIndex++
-	}
-
-	return c.removeEmptyBinlogs(logs[startIndex:])
 }
 
 func createGapFile(gtidSet pxc.GTIDSet) error {
@@ -587,155 +650,51 @@ func updateTimelineFile(lastTs string) error {
 	return nil
 }
 
-func (c *Collector) addGTIDSets(ctx context.Context, db *pxc.PXC, cache *HostBinlogCache, binlogs []pxc.Binlog) error {
-	hostCache, ok := cache.Entries[db.GetHost()]
-	if ok {
-		cacheNeedsUpdate := false
-
-		for i, binlog := range binlogs {
-			gtidSet, ok := hostCache.Get(binlog.Name)
-			if !ok {
-				log.Printf("no cache entry for %s", binlog.Name)
-
-				set, err := db.GetGTIDSet(ctx, binlog.Name)
-				if errors.Is(err, &mysql.MySQLError{Number: 3200}) {
-					log.Printf("ERROR: Binlog file %s is invalid on host %s: %s\n", binlog.Name, db.GetHost(), err.Error())
-					continue
-				}
-
-				gtidSet = set
-				hostCache.Set(binlog.Name, gtidSet)
-				cacheNeedsUpdate = true
-			}
-
-			binlogs[i].GTIDSet = pxc.NewGTIDSet(gtidSet)
-
-			log.Println(binlogs[i])
-		}
-
-		if cacheNeedsUpdate {
-			if err := saveCache(ctx, c.storage, cache, c.gtidCacheKey); err != nil {
-				return errors.Wrap(err, "update binlog cache")
-			}
-		}
-
-		return nil
-	}
-
-	// cache not found
-	hostCache = &BinlogCacheEntry{
-		Binlogs: make(map[string]string),
-	}
-	cache.Entries[db.GetHost()] = hostCache
-
-	for i, binlog := range binlogs {
-		set, err := db.GetGTIDSet(ctx, binlog.Name)
-		if err != nil {
-			if errors.Is(err, &mysql.MySQLError{Number: 3200}) {
-				log.Printf("ERROR: Binlog file %s is invalid on host %s: %s\n", binlog.Name, db.GetHost(), err.Error())
-				continue
-			}
-			return errors.Wrap(err, "get GTID set")
-		}
-
-		binlogs[i].GTIDSet = pxc.NewGTIDSet(set)
-		hostCache.Set(binlog.Name, binlogs[i].GTIDSet.Raw())
-
-		log.Println(binlogs[i])
-	}
-
-	if err := saveCache(ctx, c.storage, cache, c.gtidCacheKey); err != nil {
-		return errors.Wrap(err, "update binlog cache")
-	}
-
-	return nil
-}
-
-// findBinlogWithEndMarker walks binlogs from most recent to oldest and returns the
-// name of the first binlog whose GTID set contains the end (highest) sequence of any
-// GTID entry in lastUploadedSet. Returns "" when no binlog matches, indicating a gap.
-func findBinlogWithEndMarker(binlogs []pxc.Binlog, lastUploadedSet pxc.GTIDSet) string {
-	for i := len(binlogs) - 1; i >= 0; i-- {
-		log.Printf("checking %s (%s) against last uploaded set", binlogs[i].Name, binlogs[i].GTIDSet.Raw())
-
-		for _, lastUploaded := range lastUploadedSet.List() {
-			lastUploadedGTID, err := gtid.New(lastUploaded)
-			if err != nil {
-				log.Printf("failed to parse last uploaded gtid: %v", err)
-				continue
-			}
-
-			uuid, endSeq := lastUploadedGTID.End()
-
-			for _, gtidSet := range binlogs[i].GTIDSet.List() {
-				parsedGtidSet, err := gtid.New(gtidSet)
-				if err != nil {
-					log.Printf("failed to parse gtid set: %v", err)
-					continue
-				}
-
-				if parsedGtidSet.ContainsSeq(uuid, endSeq) {
-					log.Printf("last uploaded end marker %s:%d found in %s (%s)", uuid, endSeq, binlogs[i].Name, gtidSet)
-					return binlogs[i].Name
-				}
-			}
-		}
-	}
-	return ""
-}
-
 func (c *Collector) CollectBinLogs(ctx context.Context) error {
-	cache, err := loadCache(ctx, c.storage, c.gtidCacheKey)
-	if err != nil {
-		return errors.Wrap(err, "load binlog cache")
-	}
-
-	if _, ok := cache.Entries[c.db.GetHost()]; !ok {
-		log.Println("WARNING: ignoring timeout to populate the cache, this might take some time...")
-		ctx = context.Background()
-	}
-
 	binlogList, err := c.db.GetBinLogList(ctx)
 	if err != nil {
 		return errors.Wrap(err, "get binlog list")
 	}
 
-	err = c.addGTIDSets(ctx, c.db, cache, binlogList)
+	rp, err := c.findResumePoint(ctx, c.db, c.sourceID, binlogList)
 	if err != nil {
-		return errors.Wrap(err, "get GTID sets")
+		return errors.Wrap(err, "find resume point")
 	}
-
-	lastGTIDSetList := latestGTIDSets(binlogList)
-	if len(lastGTIDSetList) == 0 {
+	if rp.empty {
 		log.Println("no binlogs to upload")
 		return nil
 	}
+	c.lastUploadedSet = rp.lastUploaded
 
-	c.lastUploadedSet, err = c.resolveLastUploadedSet(ctx, lastGTIDSetList, c.sourceID)
-	if err != nil {
-		return errors.Wrap(err, "get last uploaded gtid set")
-	}
+	start := rp.start
+	switch {
+	case rp.gap:
+		log.Println("ERROR: Couldn't find the binlog that contains GTID set:", rp.lastUploaded.Raw())
+		log.Println("ERROR: Gap detected in the binary logs. Binary logs will be uploaded anyway, but full backup needed for consistent recovery.")
+		pxcBinlogCollectorGapDetected.Inc()
+		if err := createGapFile(rp.lastUploaded); err != nil {
+			return errors.Wrap(err, "create gap file")
+		}
+	case !rp.lastUploaded.IsEmpty():
+		resumeBinlog := binlogList[start].Name
+		log.Printf("last uploaded binlog: %s", resumeBinlog)
 
-	lastUploadedBinlogName := ""
-
-	if !c.lastUploadedSet.IsEmpty() {
-		log.Printf("last uploaded GTID set: %s", c.lastUploadedSet.Raw())
-
-		lastUploadedBinlogName = findBinlogWithEndMarker(binlogList, c.lastUploadedSet)
-
-		if lastUploadedBinlogName == "" {
-			log.Println("ERROR: Couldn't find the binlog that contains GTID set:", c.lastUploadedSet.Raw())
-			log.Println("ERROR: Gap detected in the binary logs. Binary logs will be uploaded anyway, but full backup needed for consistent recovery.")
-			pxcBinlogCollectorGapDetected.Inc()
-			if err := createGapFile(c.lastUploadedSet); err != nil {
-				return errors.Wrap(err, "create gap file")
-			}
+		// we don't need to reupload the binlog if it has nothing new
+		last, err := c.db.GetLastGTIDFromBinlog(ctx, resumeBinlog)
+		if err != nil {
+			return errors.Wrap(err, "get last gtid of last uploaded binlog")
+		}
+		if !hasNewTransactions(last, rp.lastUploaded) {
+			start++
 		}
 	}
 
-	log.Printf("last uploaded binlog: %s", lastUploadedBinlogName)
+	binlogList = binlogList[start:]
+	if err := fillGTIDSets(ctx, c.db, binlogList); err != nil {
+		return errors.Wrap(err, "get GTID sets")
+	}
 
-	binlogList, err = c.filterBinLogs(ctx, binlogList, lastUploadedBinlogName)
+	binlogList, err = c.removeEmptyBinlogs(binlogList)
 	if err != nil {
 		return errors.Wrap(err, "filter empty binlogs")
 	}

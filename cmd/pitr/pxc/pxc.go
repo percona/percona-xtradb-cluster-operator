@@ -95,6 +95,58 @@ func (p *PXC) GetGTIDSet(ctx context.Context, binlogName string) (string, error)
 	return binlogSet, nil
 }
 
+// GetBinlogByGTID returns the name of the binary log containing the given GTID
+// (in "uuid:seq" form). It returns an empty string when no binary log on the
+// host contains it, e.g. because it was purged.
+func (p *PXC) GetBinlogByGTID(ctx context.Context, gtid string) (string, error) {
+	name, err := p.queryNullString(ctx, "SELECT CAST(get_binlog_by_gtid(?) AS CHAR)", gtid)
+	return name, errors.Wrapf(err, "get binlog by gtid %s", gtid)
+}
+
+// GetLastGTIDFromBinlog returns the last GTID ("uuid:seq") found in the binary log.
+// It returns an empty string when the binary log has no transactions.
+// The function reads the whole file, so call it for a single binary log at a time.
+func (p *PXC) GetLastGTIDFromBinlog(ctx context.Context, binlogName string) (string, error) {
+	gtid, err := p.queryNullString(ctx, "SELECT CAST(get_last_gtid_from_binlog(?) AS CHAR)", binlogName)
+	return gtid, errors.Wrapf(err, "get last gtid from binlog %s", binlogName)
+}
+
+// queryNullString runs a query returning a single, possibly NULL, string.
+// If the binlog UDFs are not available yet, they are created and the query is retried once.
+func (p *PXC) queryNullString(ctx context.Context, query string, args ...any) (string, error) {
+	scan := func() (string, error) {
+		var value sql.NullString
+		if err := p.db.QueryRowContext(ctx, query, args...).Scan(&value); err != nil {
+			return "", err
+		}
+		return value.String, nil
+	}
+
+	value, err := scan()
+	if err != nil && strings.Contains(err.Error(), "does not exist") {
+		if ierr := p.ensureBinlogUDFs(ctx); ierr != nil {
+			return "", stderrors.Join(err, ierr)
+		}
+		value, err = scan()
+	}
+	return value, err
+}
+
+func (p *PXC) ensureBinlogUDFs(ctx context.Context) error {
+	version, err := p.GetVersion(ctx)
+	if err != nil {
+		return errors.Wrap(err, "get version")
+	}
+
+	switch {
+	case strings.HasPrefix(version, "8.0"):
+		return p.CreateCollectorFunctions(ctx)
+	case strings.HasPrefix(version, "8.4"):
+		return p.InstallBinlogUDFComponent(ctx)
+	}
+	return nil
+}
+
 type Binlog struct {
 	Name      string
 	Size      int64
@@ -470,6 +522,8 @@ func collectorFunctions() map[string]string {
 		"get_last_record_timestamp_by_binlog":  "INTEGER",
 		"get_gtid_set_by_binlog":               "STRING",
 		"get_first_record_timestamp_by_binlog": "INTEGER",
+		"get_binlog_by_gtid":                   "STRING",
+		"get_last_gtid_from_binlog":            "STRING",
 	}
 }
 

@@ -214,3 +214,105 @@ func TestLastGTIDSetClosesObject(t *testing.T) {
 	assert.Equal(t, gtidSet, set.Raw())
 	assert.True(t, obj.closed, "last set object must be closed")
 }
+
+func TestHasBinlogGap(t *testing.T) {
+	t.Parallel()
+
+	const uuidA = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+
+	binlog := func(name, gtidSet string) pxc.Binlog {
+		return pxc.Binlog{Name: name, GTIDSet: pxc.NewGTIDSet(gtidSet)}
+	}
+
+	tests := []struct {
+		name         string
+		binlogs      []pxc.Binlog
+		lastUploaded string
+		want         bool
+	}{
+		{
+			name:         "nothing uploaded yet is not a gap",
+			binlogs:      []pxc.Binlog{binlog("binlog.000001", uuidA+":1-50")},
+			lastUploaded: "",
+			want:         false,
+		},
+		{
+			name: "end marker present in the host binlogs",
+			binlogs: []pxc.Binlog{
+				binlog("binlog.000001", uuidA+":1-50"),
+				binlog("binlog.000002", uuidA+":51-100"),
+			},
+			lastUploaded: uuidA + ":1-60",
+			want:         false,
+		},
+		{
+			name: "end marker already purged from the host",
+			binlogs: []pxc.Binlog{
+				binlog("binlog.000005", uuidA+":101-150"),
+				binlog("binlog.000006", uuidA+":151-200"),
+			},
+			lastUploaded: uuidA + ":1-60",
+			want:         true,
+		},
+		{
+			name: "end marker falls between binlogs",
+			binlogs: []pxc.Binlog{
+				binlog("binlog.000001", uuidA+":1-50"),
+				binlog("binlog.000002", uuidA+":61-100"),
+			},
+			lastUploaded: uuidA + ":1-60",
+			want:         true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := hasBinlogGap(tt.binlogs, pxc.NewGTIDSet(tt.lastUploaded))
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestLatestGTIDSets(t *testing.T) {
+	t.Parallel()
+
+	const uuidA = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+
+	tests := []struct {
+		name    string
+		binlogs []pxc.Binlog
+		want    []string
+	}{
+		{
+			name:    "no binlogs",
+			binlogs: nil,
+			want:    nil,
+		},
+		{
+			name: "skips trailing binlogs without gtids",
+			binlogs: []pxc.Binlog{
+				{Name: "binlog.000001", GTIDSet: pxc.NewGTIDSet(uuidA + ":1-50")},
+				{Name: "binlog.000002", GTIDSet: pxc.NewGTIDSet("")},
+			},
+			want: []string{uuidA + ":1-50"},
+		},
+		{
+			name: "uses the most recent binlog",
+			binlogs: []pxc.Binlog{
+				{Name: "binlog.000001", GTIDSet: pxc.NewGTIDSet(uuidA + ":1-50")},
+				{Name: "binlog.000002", GTIDSet: pxc.NewGTIDSet(uuidA + ":51-100")},
+			},
+			want: []string{uuidA + ":51-100"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			assert.Equal(t, tt.want, latestGTIDSets(tt.binlogs))
+		})
+	}
+}

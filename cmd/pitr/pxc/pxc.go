@@ -284,6 +284,29 @@ func (p *PXC) SubtractGTIDSet(ctx context.Context, set, subSet string) (string, 
 	return result, nil
 }
 
+const syncedPrimaryState = "wsrep_ready:ON:wsrep_connected:ON:wsrep_local_state_comment:Synced:wsrep_cluster_status:Primary"
+
+// IsSyncedPrimary reports whether a node entry returned by GetNodesByServiceName
+// describes a node that is Synced and part of the Primary component.
+func IsSyncedPrimary(node string) bool {
+	return strings.Contains(node, syncedPrimaryState)
+}
+
+// IsHostSyncedPrimary reports whether the given host is currently listed by the
+// PXC service as Synced and Primary. A host that is not listed is not healthy.
+func IsHostSyncedPrimary(ctx context.Context, pxcServiceName, host string) (bool, error) {
+	nodes, err := GetNodesByServiceName(ctx, pxcServiceName)
+	if err != nil {
+		return false, errors.Wrap(err, "get nodes by service name")
+	}
+	for _, node := range nodes {
+		if strings.Split(node, ":")[0] == host {
+			return IsSyncedPrimary(node), nil
+		}
+	}
+	return false, nil
+}
+
 func GetNodesByServiceName(ctx context.Context, pxcServiceName string) ([]string, error) {
 	cmd := exec.CommandContext(ctx, "/opt/percona/peer-list", "-on-start=/opt/percona/get-pxc-state.sh", "-service="+pxcServiceName)
 	out, err := cmd.CombinedOutput()
@@ -302,7 +325,7 @@ func GetPXCFirstHost(ctx context.Context, pxcServiceName string) (string, error)
 	lastHost := ""
 	for _, node := range nodes {
 		log.Printf("PXC Node: %s", node)
-		if strings.Contains(node, "wsrep_ready:ON:wsrep_connected:ON:wsrep_local_state_comment:Synced:wsrep_cluster_status:Primary") {
+		if IsSyncedPrimary(node) {
 			nodeArr := strings.Split(node, ":")
 			lastHost = nodeArr[0]
 			break
@@ -331,7 +354,7 @@ func GetPXCOldestBinlogHost(ctx context.Context, pxcServiceName, user, pass, pre
 		if prevHost != "" && nodeArr[0] == prevHost {
 			prevNode = node
 		}
-		if strings.Contains(node, "wsrep_ready:ON:wsrep_connected:ON:wsrep_local_state_comment:Synced:wsrep_cluster_status:Primary") {
+		if IsSyncedPrimary(node) {
 			binlogTime, err := getBinlogTime(ctx, nodeArr[0], user, pass)
 			if err != nil {
 				log.Printf("ERROR: get binlog time: %v", err)
@@ -349,7 +372,7 @@ func GetPXCOldestBinlogHost(ctx context.Context, pxcServiceName, user, pass, pre
 	}
 
 	if prevHost != "" && prevHost != oldestHost {
-		if !strings.Contains(prevNode, "wsrep_ready:ON:wsrep_connected:ON:wsrep_local_state_comment:Synced:wsrep_cluster_status:Primary") {
+		if !IsSyncedPrimary(prevNode) {
 			log.Printf("switching PITR binlog source from %s to %s because current source host %s is not healthy (not Synced/Primary)", prevHost, oldestHost, prevHost)
 		} else {
 			log.Printf("switching PITR binlog source from %s to %s because host %s has the oldest available binlog", prevHost, oldestHost, oldestHost)

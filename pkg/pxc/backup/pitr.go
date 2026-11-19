@@ -218,6 +218,10 @@ func getLatestSuccessfulBackup(ctx context.Context, cl client.Client, cr *api.Pe
 			continue
 		}
 
+		if bcp.GetType() != api.BackupTypeFull {
+			continue
+		}
+
 		if latest == nil || latest.ObjectMeta.CreationTimestamp.Before(&bcp.ObjectMeta.CreationTimestamp) {
 			latest = bcp.DeepCopy()
 		}

@@ -174,6 +174,13 @@ func (s *appServer) checkBackupMD5Size(ctx context.Context, cfg *api.BackupConfi
 		return errors.Wrap(err, "read all")
 	}
 
+	if cfg.IncrementalLsn != "" {
+		if len(data) == 0 {
+			return errors.New("backup was finished unsuccessful: empty md5 file")
+		}
+		return nil
+	}
+
 	// Q: what value we should use here?
 	// size of the `demand-backup` test md5 file is 4575
 	minSize := 3000
@@ -252,7 +259,7 @@ func (s *appServer) deleteBackup(ctx context.Context, cfg *api.BackupConfig, bac
 }
 
 func sanitizeCmd(cmd *exec.Cmd) string {
-	sensitiveFlags := regexp.MustCompile("--password=(.*)|--.*-access-key=(.*)|--.*secret-key=(.*)")
+	sensitiveFlags := regexp.MustCompile("--password=(.*)|--.*-access-key=(.*)|--.*secret-key=(.*)|--encrypt-key=(.*)")
 	c := []string{cmd.Path}
 
 	for _, arg := range cmd.Args[1:] {

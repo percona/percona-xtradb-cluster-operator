@@ -120,7 +120,8 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(ctx context.Context, cr
 // shouldRecreateBackupJob determines whether the existing backup job needs to be recreated.
 func shouldRecreateBackupJob(expected api.PXCScheduledBackupSchedule, existing BackupScheduleJob) bool {
 	recreate := existing.PXCScheduledBackupSchedule.Schedule != expected.Schedule ||
-		existing.PXCScheduledBackupSchedule.StorageName != expected.StorageName
+		existing.PXCScheduledBackupSchedule.StorageName != expected.StorageName ||
+		existing.PXCScheduledBackupSchedule.Type != expected.Type
 
 	if recreate {
 		return true
@@ -169,9 +170,14 @@ func (r *ReconcilePerconaXtraDBCluster) oldScheduledBackups(ctx context.Context,
 	h := &minHeap{}
 	heap.Init(h)
 	for _, bcp := range bcpList.Items {
-		if bcp.Status.State == api.BackupSucceeded {
-			heap.Push(h, bcp)
+		if bcp.Status.State != api.BackupSucceeded {
+			continue
 		}
+		// Only full backups count against `keep`
+		if cr.CompareVersionWith("1.21.0") >= 0 && bcp.GetType() != api.BackupTypeFull {
+			continue
+		}
+		heap.Push(h, bcp)
 	}
 
 	if h.Len() <= keep {
@@ -217,6 +223,7 @@ func (r *ReconcilePerconaXtraDBCluster) createBackupJob(ctx context.Context, cr 
 			Spec: api.PXCBackupSpec{
 				PXCCluster:              cr.Name,
 				StorageName:             backupJob.StorageName,
+				Type:                    backupJob.Type,
 				StartingDeadlineSeconds: cr.Spec.Backup.StartingDeadlineSeconds,
 			},
 		}

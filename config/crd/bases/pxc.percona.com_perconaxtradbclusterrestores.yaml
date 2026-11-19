@@ -245,6 +245,8 @@ spec:
                       skipBucketExistsCheck:
                         type: boolean
                     type: object
+                  sourcePod:
+                    type: string
                   sslInternalSecretName:
                     type: string
                   sslSecretName:
@@ -254,6 +256,8 @@ spec:
                   storage_type:
                     type: string
                   storageName:
+                    type: string
+                  type:
                     type: string
                   vaultSecretName:
                     type: string
@@ -561,6 +565,8 @@ spec:
                           skipBucketExistsCheck:
                             type: boolean
                         type: object
+                      sourcePod:
+                        type: string
                       sslInternalSecretName:
                         type: string
                       sslSecretName:
@@ -570,6 +576,8 @@ spec:
                       storage_type:
                         type: string
                       storageName:
+                        type: string
+                      type:
                         type: string
                       vaultSecretName:
                         type: string

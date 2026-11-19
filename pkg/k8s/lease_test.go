@@ -24,7 +24,7 @@ var _ = Describe("Lease", func() {
 		namespace := "test"
 		holder := "backup1-a96b4d1c-c0ea-424a-b13c-2e1f351c6e61"
 
-		lease, err := k8s.AcquireLease(ctx, cl, name, namespace, holder)
+		lease, err := k8s.AcquireLease(ctx, cl, name, namespace, holder, nil)
 		Expect(err).ToNot(HaveOccurred())
 
 		freshLease := new(coordv1.Lease)

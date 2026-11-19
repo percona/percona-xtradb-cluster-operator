@@ -22,6 +22,10 @@ spec:
       jsonPath: .spec.pxcCluster
       name: Cluster
       type: string
+    - description: Backup type
+      jsonPath: .status.type
+      name: Type
+      type: string
     - description: Storage name from pxc spec
       jsonPath: .status.storageName
       name: Storage
@@ -161,11 +165,15 @@ spec:
                       type: object
                     type: array
                 type: object
+              incrementalBaseBackupName:
+                type: string
               pxcCluster:
                 type: string
               runningDeadlineSeconds:
                 format: int64
                 type: integer
+              sourcePod:
+                type: string
               startingDeadlineSeconds:
                 format: int64
                 type: integer
@@ -174,7 +182,18 @@ spec:
               suspendedDeadlineSeconds:
                 format: int64
                 type: integer
+              type:
+                default: full
+                enum:
+                - full
+                - incremental
+                type: string
             type: object
+            x-kubernetes-validations:
+            - message: 'Invalid configuration: incrementalBaseBackupName is only allowed
+                for incremental backups'
+              rule: '!has(self.incrementalBaseBackupName) || self.incrementalBaseBackupName
+                == "" || self.type == ''incremental'''
           status:
             properties:
               azure:
@@ -373,6 +392,8 @@ spec:
                   skipBucketExistsCheck:
                     type: boolean
                 type: object
+              sourcePod:
+                type: string
               sslInternalSecretName:
                 type: string
               sslSecretName:
@@ -382,6 +403,8 @@ spec:
               storage_type:
                 type: string
               storageName:
+                type: string
+              type:
                 type: string
               vaultSecretName:
                 type: string

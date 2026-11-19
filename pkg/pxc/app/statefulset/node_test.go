@@ -737,7 +737,6 @@ func TestLogCollectorContainer(t *testing.T) {
 	}
 }
 
-
 func TestJemallocPathForPXCImage(t *testing.T) {
 	tests := []struct {
 		image string

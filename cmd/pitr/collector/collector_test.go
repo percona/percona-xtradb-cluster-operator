@@ -3,6 +3,7 @@ package collector
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"strconv"
@@ -616,6 +617,23 @@ func TestFindResumePointOnIdleCluster(t *testing.T) {
 	withTx := pxc.Binlog{Name: "binlog.000001", Size: 100, GTIDSet: pxc.NewGTIDSet(uuidA + ":1-50")}
 	empty := func(n string) pxc.Binlog { return pxc.Binlog{Name: "binlog." + n, Size: 50} }
 
+	// n empty binlogs numbered after the first one
+	emptyTail := func(n int) []pxc.Binlog {
+		var tail []pxc.Binlog
+		for i := 2; i < n+2; i++ {
+			tail = append(tail, empty(fmt.Sprintf("%06d", i)))
+		}
+		return tail
+	}
+	// names of the first n binlogs, newest first
+	walkedNewestFirst := func(n int) []string {
+		var names []string
+		for i := n; i >= 1; i-- {
+			names = append(names, fmt.Sprintf("binlog.%06d", i))
+		}
+		return names
+	}
+
 	tests := []struct {
 		name       string
 		binlogs    []pxc.Binlog
@@ -632,6 +650,13 @@ func TestFindResumePointOnIdleCluster(t *testing.T) {
 			name:       "empty binlogs are only walked once",
 			binlogs:    []pxc.Binlog{withTx, empty("000002"), empty("000003"), empty("000004")},
 			wantFirst:  []string{"binlog.000004", "binlog.000003", "binlog.000002", "binlog.000001"},
+			wantSecond: []string{"binlog.000001"},
+		},
+		{
+			// A day without traffic with a binlog rotation every minute.
+			name:       "a long empty tail is walked once",
+			binlogs:    append([]pxc.Binlog{withTx}, emptyTail(1440)...),
+			wantFirst:  walkedNewestFirst(1441),
 			wantSecond: []string{"binlog.000001"},
 		},
 	}
@@ -905,6 +930,287 @@ func TestPlanUpload(t *testing.T) {
 			assert.Equal(t, 1, host.listCalls, "binlog list calls")
 			assert.Equal(t, 1, host.sourceIDCalls, "cluster uuid calls")
 			assert.Equal(t, "pxc-0", c.emptyBinlogs.host)
+		})
+	}
+}
+
+// fakeConn is a connection to a PXC host, tracking whether it was closed.
+type fakeConn struct {
+	*fakeHost
+	closed bool
+}
+
+func (c *fakeConn) GetBinLogFirstTimestamp(context.Context, string) (string, error) { return "", nil }
+func (c *fakeConn) GetBinLogLastTimestamp(context.Context, string) (string, error)  { return "", nil }
+
+func (c *fakeConn) Close() error {
+	c.closed = true
+	return nil
+}
+
+func TestPickHost(t *testing.T) {
+	t.Parallel()
+
+	const uuidA = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+	const prevHost = "pxc-0"
+	const otherHost = "pxc-1"
+
+	binlog := func(name, gtidSet string) pxc.Binlog {
+		return pxc.Binlog{Name: name, GTIDSet: pxc.NewGTIDSet(gtidSet)}
+	}
+	errBoom := errors.New("boom")
+
+	// the last uploaded set in storage is uuidA:51-100
+	type hostSpec struct {
+		binlogs    []pxc.Binlog
+		listErr    error
+		connectErr error
+	}
+	caughtUp := hostSpec{binlogs: []pxc.Binlog{binlog("binlog.000001", uuidA+":1-50"), binlog("binlog.000002", uuidA+":51-100")}}
+	purged := hostSpec{binlogs: []pxc.Binlog{binlog("binlog.000005", uuidA+":101-150")}}
+	noTransactions := hostSpec{binlogs: []pxc.Binlog{binlog("binlog.000001", ""), binlog("binlog.000002", "")}}
+	other := hostSpec{binlogs: []pxc.Binlog{binlog("binlog.000001", uuidA+":1-100")}}
+
+	tests := []struct {
+		name       string
+		prevHost   string // host of the previous run, empty on the first run
+		prev       hostSpec
+		other      hostSpec
+		unhealthy  bool
+		probeErr   error
+		oldestHost string
+		oldestErr  error
+
+		wantErr      bool
+		wantHost     string // host the plan was made on, or the host kept on error
+		wantProbes   int
+		wantOldest   int
+		wantConnects map[string]int
+		wantClosed   map[string]int // connections closed during selection
+	}{
+		{
+			name:         "first run picks the oldest host",
+			prevHost:     "",
+			other:        other,
+			oldestHost:   otherHost,
+			wantHost:     otherHost,
+			wantProbes:   0,
+			wantOldest:   1,
+			wantConnects: map[string]int{otherHost: 1},
+		},
+		{
+			name:         "healthy previous host with the marker is kept",
+			prevHost:     prevHost,
+			prev:         caughtUp,
+			other:        other,
+			oldestHost:   otherHost,
+			wantHost:     prevHost,
+			wantProbes:   1,
+			wantOldest:   0,
+			wantConnects: map[string]int{prevHost: 1},
+		},
+		{
+			name:         "unhealthy previous host is not even connected to",
+			prevHost:     prevHost,
+			prev:         caughtUp,
+			other:        other,
+			unhealthy:    true,
+			oldestHost:   otherHost,
+			wantHost:     otherHost,
+			wantProbes:   1,
+			wantOldest:   1,
+			wantConnects: map[string]int{otherHost: 1},
+		},
+		{
+			name:         "failed health probe falls back",
+			prevHost:     prevHost,
+			prev:         caughtUp,
+			other:        other,
+			probeErr:     errBoom,
+			oldestHost:   otherHost,
+			wantHost:     otherHost,
+			wantProbes:   1,
+			wantOldest:   1,
+			wantConnects: map[string]int{otherHost: 1},
+		},
+		{
+			name:         "failed connection to the previous host falls back",
+			prevHost:     prevHost,
+			prev:         hostSpec{binlogs: caughtUp.binlogs, connectErr: errBoom},
+			other:        other,
+			oldestHost:   otherHost,
+			wantHost:     otherHost,
+			wantProbes:   1,
+			wantOldest:   1,
+			wantConnects: map[string]int{prevHost: 1, otherHost: 1},
+		},
+		{
+			name:         "previous host that purged the marker falls back and is closed",
+			prevHost:     prevHost,
+			prev:         purged,
+			other:        other,
+			oldestHost:   otherHost,
+			wantHost:     otherHost,
+			wantProbes:   1,
+			wantOldest:   1,
+			wantConnects: map[string]int{prevHost: 1, otherHost: 1},
+			wantClosed:   map[string]int{prevHost: 1},
+		},
+		{
+			name:         "previous host without transactions falls back and is closed",
+			prevHost:     prevHost,
+			prev:         noTransactions,
+			other:        other,
+			oldestHost:   otherHost,
+			wantHost:     otherHost,
+			wantProbes:   1,
+			wantOldest:   1,
+			wantConnects: map[string]int{prevHost: 1, otherHost: 1},
+			wantClosed:   map[string]int{prevHost: 1},
+		},
+		{
+			name:         "failure listing binlogs on the previous host falls back and is closed",
+			prevHost:     prevHost,
+			prev:         hostSpec{binlogs: caughtUp.binlogs, listErr: errBoom},
+			other:        other,
+			oldestHost:   otherHost,
+			wantHost:     otherHost,
+			wantProbes:   1,
+			wantOldest:   1,
+			wantConnects: map[string]int{prevHost: 1, otherHost: 1},
+			wantClosed:   map[string]int{prevHost: 1},
+		},
+		{
+			// The usual selection is not bound by the check that just failed.
+			name:         "oldest host can be the previous host again",
+			prevHost:     prevHost,
+			prev:         purged,
+			oldestHost:   prevHost,
+			wantHost:     prevHost,
+			wantProbes:   1,
+			wantOldest:   1,
+			wantConnects: map[string]int{prevHost: 2},
+			wantClosed:   map[string]int{prevHost: 1},
+		},
+		{
+			name:         "no host found",
+			prevHost:     "",
+			oldestErr:    errBoom,
+			wantErr:      true,
+			wantHost:     "",
+			wantProbes:   0,
+			wantOldest:   1,
+			wantConnects: map[string]int{},
+		},
+		{
+			name:         "cannot connect to the oldest host",
+			prevHost:     prevHost,
+			prev:         caughtUp,
+			other:        hostSpec{connectErr: errBoom},
+			unhealthy:    true,
+			oldestHost:   otherHost,
+			wantErr:      true,
+			wantHost:     prevHost,
+			wantProbes:   1,
+			wantOldest:   1,
+			wantConnects: map[string]int{otherHost: 1},
+		},
+		{
+			name:         "failure listing binlogs on the oldest host closes it",
+			prevHost:     prevHost,
+			prev:         caughtUp,
+			other:        hostSpec{binlogs: other.binlogs, listErr: errBoom},
+			unhealthy:    true,
+			oldestHost:   otherHost,
+			wantErr:      true,
+			wantHost:     prevHost,
+			wantProbes:   1,
+			wantOldest:   1,
+			wantConnects: map[string]int{otherHost: 1},
+			wantClosed:   map[string]int{otherHost: 1},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			specs := map[string]hostSpec{prevHost: tt.prev, otherHost: tt.other}
+			created := map[string][]*fakeConn{}
+			connects := map[string]int{}
+			var probes, oldestCalls int
+			var oldestPrevHost string
+
+			c := &Collector{storage: &fakeStorage{objects: map[string]string{
+				lastSetFilePrefix + uuidA: uuidA + ":51-100",
+			}}}
+			c.hosts = hostFuncs{
+				isHealthy: func(context.Context, string) (bool, error) {
+					probes++
+					return !tt.unhealthy, tt.probeErr
+				},
+				connect: func(host string) (hostConn, error) {
+					connects[host]++
+					spec := specs[host]
+					if spec.connectErr != nil {
+						return nil, spec.connectErr
+					}
+					conn := &fakeConn{fakeHost: &fakeHost{
+						fakeLocator: &fakeLocator{binlogs: spec.binlogs},
+						name:        host,
+						sourceID:    uuidA,
+						listErr:     spec.listErr,
+					}}
+					created[host] = append(created[host], conn)
+					return conn, nil
+				},
+				oldest: func(_ context.Context, prev string) (string, error) {
+					oldestCalls++
+					oldestPrevHost = prev
+					return tt.oldestHost, tt.oldestErr
+				},
+			}
+
+			// the connection of the previous run, already closed by Run
+			var previous hostConn
+			if tt.prevHost != "" {
+				previous = &fakeConn{fakeHost: &fakeHost{fakeLocator: &fakeLocator{}, name: tt.prevHost}}
+				c.db = previous
+			}
+
+			plan, err := c.pickHost(t.Context())
+
+			if tt.wantErr {
+				require.Error(t, err)
+				assert.Nil(t, plan)
+				assert.Equal(t, previous, c.db, "the connection is left as it was")
+			} else {
+				require.NoError(t, err)
+				require.NotNil(t, plan)
+				assert.Equal(t, specs[tt.wantHost].binlogs, plan.binlogs, "plan is made on the picked host")
+				assert.Equal(t, tt.wantHost, c.db.GetHost())
+			}
+
+			assert.Equal(t, tt.wantProbes, probes, "health probes")
+			assert.Equal(t, tt.wantOldest, oldestCalls, "oldest host lookups")
+			if oldestCalls > 0 {
+				assert.Equal(t, tt.prevHost, oldestPrevHost, "oldest host lookup is told the previous host")
+			}
+			assert.Equal(t, tt.wantConnects, connects, "connections opened")
+
+			closed := map[string]int{}
+			for host, conns := range created {
+				for _, conn := range conns {
+					if conn.closed {
+						closed[host]++
+					}
+				}
+			}
+			wantClosed := tt.wantClosed
+			if wantClosed == nil {
+				wantClosed = map[string]int{}
+			}
+			assert.Equal(t, wantClosed, closed, "connections closed")
 		})
 	}
 }

@@ -80,7 +80,8 @@ func init() {
 }
 
 type Collector struct {
-	db              *pxc.PXC
+	db              hostConn
+	hosts           hostFuncs
 	storage         storage.Storage
 	lastUploadedSet pxc.GTIDSet  // last uploaded binary logs set
 	pxcServiceName  string       // k8s service name for PXC, its for get correct host for connection
@@ -191,12 +192,34 @@ func New(ctx context.Context, c Config) (*Collector, error) {
 		return nil, errors.Wrap(err, "read password")
 	}
 
-	return &Collector{
+	collector := &Collector{
 		storage:        s,
 		pxcUser:        c.PXCUser,
 		pxcPass:        string(pxcPass),
 		pxcServiceName: c.PXCServiceName,
-	}, nil
+	}
+	collector.hosts = collector.pxcHosts()
+
+	return collector, nil
+}
+
+// pxcHosts returns the real implementation of the host calls.
+func (c *Collector) pxcHosts() hostFuncs {
+	return hostFuncs{
+		isHealthy: func(ctx context.Context, host string) (bool, error) {
+			return pxc.IsHostSyncedPrimary(ctx, c.pxcServiceName, host)
+		},
+		connect: func(host string) (hostConn, error) {
+			db, err := pxc.NewPXC(host, c.pxcUser, c.pxcPass)
+			if err != nil {
+				return nil, err
+			}
+			return db, nil
+		},
+		oldest: func(ctx context.Context, prevHost string) (string, error) {
+			return pxc.GetPXCOldestBinlogHost(ctx, c.pxcServiceName, c.pxcUser, c.pxcPass, prevHost)
+		},
+	}
 }
 
 func (c *Collector) Init(ctx context.Context) error {
@@ -319,14 +342,14 @@ func (c *Collector) pickHost(ctx context.Context) (*uploadPlan, error) {
 		}
 	}
 
-	host, err := pxc.GetPXCOldestBinlogHost(ctx, c.pxcServiceName, c.pxcUser, c.pxcPass, prevHost)
+	host, err := c.hosts.oldest(ctx, prevHost)
 	if err != nil {
 		return nil, errors.Wrap(err, "get host")
 	}
 
 	log.Println("reading binlogs from pxc with hostname=", host)
 
-	db, err := pxc.NewPXC(host, c.pxcUser, c.pxcPass)
+	db, err := c.hosts.connect(host)
 	if err != nil {
 		return nil, errors.Wrapf(err, "new manager with host %s", host)
 	}
@@ -349,8 +372,8 @@ func (c *Collector) pickHost(ctx context.Context) (*uploadPlan, error) {
 // set (no gap). Switching hosts makes the collector re-upload overlapping
 // binlogs, so we only do that when we have to.
 // The last return value is false when the caller should pick a host the usual way.
-func (c *Collector) reusePreviousHost(ctx context.Context, host string) (*pxc.PXC, *uploadPlan, bool) {
-	healthy, err := pxc.IsHostSyncedPrimary(ctx, c.pxcServiceName, host)
+func (c *Collector) reusePreviousHost(ctx context.Context, host string) (hostConn, *uploadPlan, bool) {
+	healthy, err := c.hosts.isHealthy(ctx, host)
 	if err != nil {
 		log.Printf("WARNING: can't check state of previous host %s: %v", host, err)
 		return nil, nil, false
@@ -360,7 +383,7 @@ func (c *Collector) reusePreviousHost(ctx context.Context, host string) (*pxc.PX
 		return nil, nil, false
 	}
 
-	db, err := pxc.NewPXC(host, c.pxcUser, c.pxcPass)
+	db, err := c.hosts.connect(host)
 	if err != nil {
 		log.Printf("WARNING: can't connect to previous host %s: %v", host, err)
 		return nil, nil, false
@@ -378,6 +401,25 @@ func (c *Collector) reusePreviousHost(ctx context.Context, host string) (*pxc.PX
 	}
 
 	return db, plan, true
+}
+
+// hostConn is a connection to a PXC host the collector reads binlogs from.
+type hostConn interface {
+	binlogHost
+	GetBinLogFirstTimestamp(ctx context.Context, binlog string) (string, error)
+	GetBinLogLastTimestamp(ctx context.Context, binlog string) (string, error)
+	Close() error
+}
+
+// hostFuncs are the calls the collector makes to find and reach PXC hosts.
+// They are fields so that host selection can be tested without a cluster.
+type hostFuncs struct {
+	// isHealthy reports whether the host is Synced and Primary.
+	isHealthy func(ctx context.Context, host string) (bool, error)
+	// connect opens a connection to the host.
+	connect func(host string) (hostConn, error)
+	// oldest returns the host with the oldest binlog.
+	oldest func(ctx context.Context, prevHost string) (string, error)
 }
 
 // binlogHost is a PXC host the collector can read binlogs from.

@@ -489,18 +489,27 @@ func hasNewTransactions(lastGTID string, lastUploaded pxc.GTIDSet) bool {
 	return true
 }
 
+// gtidSetOrEmpty returns the GTID set of a binlog. Invalid binlogs (MySQL error 3200)
+// are logged and reported as an empty set so that callers skip them.
+func gtidSetOrEmpty(ctx context.Context, loc binlogLocator, binlogName string) (pxc.GTIDSet, error) {
+	set, err := loc.GetGTIDSet(ctx, binlogName)
+	if err != nil {
+		if errors.Is(err, &mysql.MySQLError{Number: 3200}) {
+			log.Printf("ERROR: Binlog file %s is invalid: %s\n", binlogName, err.Error())
+			return pxc.GTIDSet{}, nil
+		}
+		return pxc.GTIDSet{}, errors.Wrapf(err, "get GTID set of %s", binlogName)
+	}
+	return pxc.NewGTIDSet(set), nil
+}
+
 // latestGTIDSets returns the GTID sets of the most recent binlog that has any.
 func latestGTIDSets(ctx context.Context, loc binlogLocator, binlogs []pxc.Binlog) ([]string, error) {
 	for i := len(binlogs) - 1; i >= 0; i-- {
-		set, err := loc.GetGTIDSet(ctx, binlogs[i].Name)
+		gtidSet, err := gtidSetOrEmpty(ctx, loc, binlogs[i].Name)
 		if err != nil {
-			if errors.Is(err, &mysql.MySQLError{Number: 3200}) {
-				log.Printf("ERROR: Binlog file %s is invalid: %s\n", binlogs[i].Name, err.Error())
-				continue
-			}
-			return nil, errors.Wrapf(err, "get GTID set of %s", binlogs[i].Name)
+			return nil, err
 		}
-		gtidSet := pxc.NewGTIDSet(set)
 		if list := gtidSet.List(); len(list) != 0 {
 			return list, nil
 		}
@@ -508,19 +517,25 @@ func latestGTIDSets(ctx context.Context, loc binlogLocator, binlogs []pxc.Binlog
 	return nil, nil
 }
 
-// fillGTIDSets assigns GTID sets to binlogs. Invalid binlogs are left with an empty set.
-func fillGTIDSets(ctx context.Context, loc binlogLocator, binlogs []pxc.Binlog) error {
-	for i := range binlogs {
-		set, err := loc.GetGTIDSet(ctx, binlogs[i].Name)
+// forEachBinlogWithGTIDs calls fn, in order, for every binlog that has transactions.
+// GTID sets are fetched one binlog at a time, right before fn runs, instead of for
+// the whole list up front.
+func forEachBinlogWithGTIDs(ctx context.Context, loc binlogLocator, binlogs []pxc.Binlog, fn func(pxc.Binlog) error) error {
+	for _, binlog := range binlogs {
+		gtidSet, err := gtidSetOrEmpty(ctx, loc, binlog.Name)
 		if err != nil {
-			if errors.Is(err, &mysql.MySQLError{Number: 3200}) {
-				log.Printf("ERROR: Binlog file %s is invalid: %s\n", binlogs[i].Name, err.Error())
-				continue
-			}
-			return errors.Wrapf(err, "get GTID set of %s", binlogs[i].Name)
+			return err
 		}
-		binlogs[i].GTIDSet = pxc.NewGTIDSet(set)
-		log.Println(binlogs[i])
+		if gtidSet.IsEmpty() {
+			continue
+		}
+
+		binlog.GTIDSet = gtidSet
+		log.Println(binlog)
+
+		if err := fn(binlog); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -557,16 +572,6 @@ func (c *Collector) resolveLastUploadedSet(ctx context.Context, gtidSets []strin
 
 func (c *Collector) close() error {
 	return c.db.Close()
-}
-
-func (c *Collector) removeEmptyBinlogs(logs []pxc.Binlog) ([]pxc.Binlog, error) {
-	result := make([]pxc.Binlog, 0)
-	for _, v := range logs {
-		if !v.GTIDSet.IsEmpty() {
-			result = append(result, v)
-		}
-	}
-	return result, nil
 }
 
 func createGapFile(gtidSet pxc.GTIDSet) error {
@@ -689,38 +694,16 @@ func (c *Collector) CollectBinLogs(ctx context.Context) error {
 		}
 	}
 
-	binlogList = binlogList[start:]
-	if err := fillGTIDSets(ctx, c.db, binlogList); err != nil {
-		return errors.Wrap(err, "get GTID sets")
-	}
-
-	binlogList, err = c.removeEmptyBinlogs(binlogList)
-	if err != nil {
-		return errors.Wrap(err, "filter empty binlogs")
-	}
-
-	if len(binlogList) == 0 {
-		log.Println("no binlogs to upload after filter")
-		pxcBinlogCollectorLastProcessingTime.SetToCurrentTime()
-		return nil
-	}
-
-	if exists, err := fileExists(naming.TimelinePath); !exists && err == nil {
-		firstTs, err := c.db.GetBinLogFirstTimestamp(ctx, binlogList[0].Name)
-		if err != nil {
-			return errors.Wrap(err, "get first timestamp")
+	uploaded := 0
+	err = forEachBinlogWithGTIDs(ctx, c.db, binlogList[start:], func(binlog pxc.Binlog) error {
+		if err := c.ensureTimelineFile(ctx, binlog.Name); err != nil {
+			return err
 		}
 
-		if err := createTimelineFile(firstTs); err != nil {
-			return errors.Wrap(err, "create timeline file")
-		}
-	}
-
-	for _, binlog := range binlogList {
-		err = c.manageBinlog(ctx, binlog)
-		if err != nil {
+		if err := c.manageBinlog(ctx, binlog); err != nil {
 			return errors.Wrap(err, "manage binlog")
 		}
+		uploaded++
 
 		pxcBinlogCollectorUploadedTotal.Inc()
 		pxcBinlogCollectorLastUploadTime.SetToCurrentTime()
@@ -730,14 +713,34 @@ func (c *Collector) CollectBinLogs(ctx context.Context) error {
 			return errors.Wrap(err, "get last timestamp")
 		}
 
-		if err := updateTimelineFile(lastTs); err != nil {
-			return errors.Wrap(err, "update timeline file")
-		}
+		return errors.Wrap(updateTimelineFile(lastTs), "update timeline file")
+	})
+	if err != nil {
+		return errors.Wrap(err, "upload binlogs")
 	}
 
+	if uploaded == 0 {
+		log.Println("no binlogs to upload after filter")
+	}
 	pxcBinlogCollectorLastProcessingTime.SetToCurrentTime()
 
 	return nil
+}
+
+// ensureTimelineFile creates the timeline file, starting at the first timestamp
+// of firstBinlog, if it doesn't exist yet.
+func (c *Collector) ensureTimelineFile(ctx context.Context, firstBinlog string) error {
+	exists, err := fileExists(naming.TimelinePath)
+	if err != nil || exists {
+		return nil
+	}
+
+	firstTs, err := c.db.GetBinLogFirstTimestamp(ctx, firstBinlog)
+	if err != nil {
+		return errors.Wrap(err, "get first timestamp")
+	}
+
+	return errors.Wrap(createTimelineFile(firstTs), "create timeline file")
 }
 
 func mergeErrors(a, b error) error {

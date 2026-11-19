@@ -107,10 +107,16 @@ func TestLastGTIDSetClosesObject(t *testing.T) {
 // and a GTID is found in the first binlog containing it.
 type fakeLocator struct {
 	binlogs []pxc.Binlog
-	invalid map[string]bool // binlogs failing with MySQL error 3200
+	invalid map[string]bool  // binlogs failing with MySQL error 3200
+	failing map[string]error // binlogs failing with the given error
+	fetched []string         // binlogs GetGTIDSet was called for, in order
 }
 
 func (f *fakeLocator) GetGTIDSet(_ context.Context, name string) (string, error) {
+	f.fetched = append(f.fetched, name)
+	if err := f.failing[name]; err != nil {
+		return "", err
+	}
 	if f.invalid[name] {
 		return "", &mysql.MySQLError{Number: 3200, Message: "invalid binlog"}
 	}
@@ -367,6 +373,107 @@ func TestHasNewTransactions(t *testing.T) {
 
 			got := hasNewTransactions(tt.lastGTID, pxc.NewGTIDSet(tt.lastUploaded))
 			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestForEachBinlogWithGTIDs(t *testing.T) {
+	t.Parallel()
+
+	const uuidA = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+
+	binlog := func(name, gtidSet string) pxc.Binlog {
+		return pxc.Binlog{Name: name, GTIDSet: pxc.NewGTIDSet(gtidSet)}
+	}
+	errBoom := errors.New("boom")
+
+	tests := []struct {
+		name        string
+		binlogs     []pxc.Binlog
+		invalid     map[string]bool
+		failing     map[string]error
+		failFnOn    string // fn returns an error for this binlog
+		wantFn      []string
+		wantFetched []string
+		wantErr     bool
+	}{
+		{
+			name:        "no binlogs",
+			binlogs:     nil,
+			wantFn:      nil,
+			wantFetched: nil,
+		},
+		{
+			name: "calls fn in order with the GTID set filled in",
+			binlogs: []pxc.Binlog{
+				binlog("binlog.000001", uuidA+":1-50"),
+				binlog("binlog.000002", uuidA+":51-100"),
+			},
+			wantFn:      []string{"binlog.000001=" + uuidA + ":1-50", "binlog.000002=" + uuidA + ":51-100"},
+			wantFetched: []string{"binlog.000001", "binlog.000002"},
+		},
+		{
+			name: "skips empty and invalid binlogs",
+			binlogs: []pxc.Binlog{
+				binlog("binlog.000001", ""),
+				binlog("binlog.000002", uuidA+":1-50"),
+				binlog("binlog.000003", uuidA+":51-60"),
+				binlog("binlog.000004", ""),
+			},
+			invalid:     map[string]bool{"binlog.000003": true},
+			wantFn:      []string{"binlog.000002=" + uuidA + ":1-50"},
+			wantFetched: []string{"binlog.000001", "binlog.000002", "binlog.000003", "binlog.000004"},
+		},
+		{
+			// Binlogs handled before the failure were already uploaded and
+			// recorded, and the ones after it must not even be looked at.
+			name: "failure while fetching a set keeps earlier work and stops",
+			binlogs: []pxc.Binlog{
+				binlog("binlog.000001", uuidA+":1-50"),
+				binlog("binlog.000002", uuidA+":51-100"),
+				binlog("binlog.000003", uuidA+":101-150"),
+			},
+			failing:     map[string]error{"binlog.000002": errBoom},
+			wantFn:      []string{"binlog.000001=" + uuidA + ":1-50"},
+			wantFetched: []string{"binlog.000001", "binlog.000002"},
+			wantErr:     true,
+		},
+		{
+			name: "failure in fn stops without fetching the remaining sets",
+			binlogs: []pxc.Binlog{
+				binlog("binlog.000001", uuidA+":1-50"),
+				binlog("binlog.000002", uuidA+":51-100"),
+				binlog("binlog.000003", uuidA+":101-150"),
+			},
+			failFnOn:    "binlog.000002",
+			wantFn:      []string{"binlog.000001=" + uuidA + ":1-50", "binlog.000002=" + uuidA + ":51-100"},
+			wantFetched: []string{"binlog.000001", "binlog.000002"},
+			wantErr:     true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			loc := &fakeLocator{binlogs: tt.binlogs, invalid: tt.invalid, failing: tt.failing}
+
+			var gotFn []string
+			err := forEachBinlogWithGTIDs(context.Background(), loc, tt.binlogs, func(b pxc.Binlog) error {
+				gotFn = append(gotFn, b.Name+"="+b.GTIDSet.Raw())
+				if b.Name == tt.failFnOn {
+					return errBoom
+				}
+				return nil
+			})
+
+			if tt.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+			assert.Equal(t, tt.wantFn, gotFn)
+			assert.Equal(t, tt.wantFetched, loc.fetched)
 		})
 	}
 }

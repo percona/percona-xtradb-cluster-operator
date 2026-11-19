@@ -82,11 +82,10 @@ func init() {
 type Collector struct {
 	db              *pxc.PXC
 	storage         storage.Storage
-	lastUploadedSet pxc.GTIDSet // last uploaded binary logs set
-	pxcServiceName  string      // k8s service name for PXC, its for get correct host for connection
-	pxcUser         string      // user for connection to PXC
-	pxcPass         string      // password for connection to PXC
-	sourceID        string
+	lastUploadedSet pxc.GTIDSet  // last uploaded binary logs set
+	pxcServiceName  string       // k8s service name for PXC, its for get correct host for connection
+	pxcUser         string       // user for connection to PXC
+	pxcPass         string       // password for connection to PXC
 	emptyBinlogs    emptyBinlogs // closed binlogs known to have no transactions
 }
 
@@ -265,22 +264,18 @@ func (c *Collector) CreateCollectorFunctions(ctx context.Context) error {
 }
 
 func (c *Collector) Run(ctx context.Context) error {
-	err := c.newDB(ctx)
+	plan, err := c.pickHost(ctx)
 	if err != nil {
 		pxcBinlogCollectorBackupFailure.Inc()
-		return errors.Wrap(err, "new db connection")
+		return errors.Wrap(err, "pick host")
 	}
 	defer c.close()
 
 	// remove last set because we always
 	// read it from aws file
 	c.lastUploadedSet = pxc.NewGTIDSet("")
-	c.sourceID, err = c.db.WsrepClusterStateUUID()
-	if err != nil {
-		return errors.Wrap(err, "get cluster state uuid")
-	}
 
-	err = c.CollectBinLogs(ctx)
+	err = c.CollectBinLogs(ctx, plan)
 	if err != nil {
 		pxcBinlogCollectorBackupFailure.Inc()
 		return errors.Wrap(err, "collect binlog files")
@@ -307,92 +302,127 @@ func (c *Collector) lastGTIDSet(ctx context.Context, suffix string) (pxc.GTIDSet
 	return pxc.NewGTIDSet(string(lastSet)), nil
 }
 
-func (c *Collector) newDB(ctx context.Context) error {
+// pickHost selects the PXC host to read binlogs from, connects c.db to it and
+// works out what needs to be uploaded from it.
+func (c *Collector) pickHost(ctx context.Context) (*uploadPlan, error) {
 	prevHost := ""
 	if c.db != nil {
 		prevHost = c.db.GetHost()
 	}
 
 	if prevHost != "" {
-		db, ok := c.reusePreviousHost(ctx, prevHost)
+		db, plan, ok := c.reusePreviousHost(ctx, prevHost)
 		if ok {
 			log.Println("reading binlogs from the same pxc host as the previous run, hostname=", prevHost)
 			c.db = db
-			c.emptyBinlogs.use(prevHost)
-			return nil
+			return plan, nil
 		}
 	}
 
 	host, err := pxc.GetPXCOldestBinlogHost(ctx, c.pxcServiceName, c.pxcUser, c.pxcPass, prevHost)
 	if err != nil {
-		return errors.Wrap(err, "get host")
+		return nil, errors.Wrap(err, "get host")
 	}
 
 	log.Println("reading binlogs from pxc with hostname=", host)
 
-	c.db, err = pxc.NewPXC(host, c.pxcUser, c.pxcPass)
+	db, err := pxc.NewPXC(host, c.pxcUser, c.pxcPass)
 	if err != nil {
-		return errors.Wrapf(err, "new manager with host %s", host)
+		return nil, errors.Wrapf(err, "new manager with host %s", host)
 	}
-	c.emptyBinlogs.use(host)
 
-	return nil
+	plan, err := c.planUpload(ctx, db)
+	if err != nil {
+		if cerr := db.Close(); cerr != nil {
+			log.Printf("WARNING: close connection to host %s: %v", host, cerr)
+		}
+		return nil, errors.Wrapf(err, "plan upload from host %s", host)
+	}
+
+	c.db = db
+	return plan, nil
 }
 
-// reusePreviousHost returns a connection to the host used by the previous run if
-// it is still safe to keep collecting from it: the host is Synced/Primary and its
-// binlogs still contain the end of the last uploaded GTID set (no gap).
-func (c *Collector) reusePreviousHost(ctx context.Context, host string) (*pxc.PXC, bool) {
+// reusePreviousHost connects to the host used by the previous run and returns the
+// upload plan for it if it is still safe to keep collecting from it: the host is
+// Synced/Primary and its binlogs still contain the end of the last uploaded GTID
+// set (no gap). Switching hosts makes the collector re-upload overlapping
+// binlogs, so we only do that when we have to.
+// The last return value is false when the caller should pick a host the usual way.
+func (c *Collector) reusePreviousHost(ctx context.Context, host string) (*pxc.PXC, *uploadPlan, bool) {
 	healthy, err := pxc.IsHostSyncedPrimary(ctx, c.pxcServiceName, host)
 	if err != nil {
 		log.Printf("WARNING: can't check state of previous host %s: %v", host, err)
-		return nil, false
+		return nil, nil, false
 	}
 	if !healthy {
 		log.Printf("previous host %s is not Synced/Primary, selecting a new host", host)
-		return nil, false
+		return nil, nil, false
 	}
 
 	db, err := pxc.NewPXC(host, c.pxcUser, c.pxcPass)
 	if err != nil {
 		log.Printf("WARNING: can't connect to previous host %s: %v", host, err)
-		return nil, false
+		return nil, nil, false
 	}
 
-	noGap, err := c.hasNoBinlogGap(ctx, db)
+	plan, err := c.planUpload(ctx, db)
 	if err != nil {
-		log.Printf("WARNING: can't check binlog gap on previous host %s: %v", host, err)
+		log.Printf("WARNING: can't plan upload from previous host %s: %v", host, err)
 	}
-	if err != nil || !noGap {
+	if err != nil || !plan.safeToKeepHost() {
 		if cerr := db.Close(); cerr != nil {
 			log.Printf("WARNING: close connection to host %s: %v", host, cerr)
 		}
-		return nil, false
+		return nil, nil, false
 	}
 
-	return db, true
+	return db, plan, true
 }
 
-// hasNoBinlogGap reports whether the binlogs on db still contain the end of the
-// last uploaded GTID set. It doesn't flush binary logs.
-func (c *Collector) hasNoBinlogGap(ctx context.Context, db *pxc.PXC) (bool, error) {
-	binlogs, err := db.ShowBinaryLogs(ctx)
-	if err != nil {
-		return false, errors.Wrap(err, "get binlog list")
-	}
-	c.emptyBinlogs.use(db.GetHost())
+// binlogHost is a PXC host the collector can read binlogs from.
+type binlogHost interface {
+	binlogLocator
+	GetHost() string
+	WsrepClusterStateUUID() (string, error)
+	GetBinLogList(ctx context.Context) ([]pxc.Binlog, error)
+}
 
-	sourceID, err := db.WsrepClusterStateUUID()
+// uploadPlan is what the collector found out about a host before uploading from it.
+type uploadPlan struct {
+	binlogs []pxc.Binlog // closed binlogs on the host, oldest first
+	resume  resumePoint
+}
+
+// safeToKeepHost reports whether the host has binlogs with transactions and
+// they continue from what was already uploaded.
+func (p *uploadPlan) safeToKeepHost() bool {
+	return !p.resume.empty && !p.resume.gap
+}
+
+// planUpload lists the binlogs on the host, rotating the log so that all of them
+// are closed, and finds where to resume uploading. It's done once per run, and
+// the same plan is used both to decide if the host can be kept and to upload.
+func (c *Collector) planUpload(ctx context.Context, host binlogHost) (*uploadPlan, error) {
+	c.emptyBinlogs.use(host.GetHost())
+
+	sourceID, err := host.WsrepClusterStateUUID()
 	if err != nil {
-		return false, errors.Wrap(err, "get cluster state uuid")
+		return nil, errors.Wrap(err, "get cluster state uuid")
 	}
 
-	rp, err := c.findResumePoint(ctx, db, sourceID, binlogs)
+	binlogs, err := host.GetBinLogList(ctx)
 	if err != nil {
-		return false, errors.Wrap(err, "find resume point")
+		return nil, errors.Wrap(err, "get binlog list")
+	}
+	c.emptyBinlogs.retain(binlogs)
+
+	rp, err := c.findResumePoint(ctx, host, sourceID, binlogs)
+	if err != nil {
+		return nil, errors.Wrap(err, "find resume point")
 	}
 
-	return !rp.empty && !rp.gap, nil
+	return &uploadPlan{binlogs: binlogs, resume: rp}, nil
 }
 
 // binlogLocator is the subset of *pxc.PXC used to decide where to resume uploading.
@@ -732,18 +762,8 @@ func updateTimelineFile(lastTs string) error {
 	return nil
 }
 
-func (c *Collector) CollectBinLogs(ctx context.Context) error {
-	binlogList, err := c.db.GetBinLogList(ctx)
-	if err != nil {
-		return errors.Wrap(err, "get binlog list")
-	}
-
-	c.emptyBinlogs.retain(binlogList)
-
-	rp, err := c.findResumePoint(ctx, c.db, c.sourceID, binlogList)
-	if err != nil {
-		return errors.Wrap(err, "find resume point")
-	}
+func (c *Collector) CollectBinLogs(ctx context.Context, plan *uploadPlan) error {
+	binlogList, rp := plan.binlogs, plan.resume
 	if rp.empty {
 		log.Println("no binlogs to upload")
 		return nil
@@ -774,7 +794,7 @@ func (c *Collector) CollectBinLogs(ctx context.Context) error {
 	}
 
 	uploaded := 0
-	err = forEachBinlogWithGTIDs(ctx, c.db, binlogList[start:], &c.emptyBinlogs, func(binlog pxc.Binlog) error {
+	err := forEachBinlogWithGTIDs(ctx, c.db, binlogList[start:], &c.emptyBinlogs, func(binlog pxc.Binlog) error {
 		if err := c.ensureTimelineFile(ctx, binlog.Name); err != nil {
 			return err
 		}

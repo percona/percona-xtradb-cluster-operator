@@ -779,3 +779,132 @@ func TestHasNewTransactions(t *testing.T) {
 		})
 	}
 }
+
+// fakeHost is a PXC host: the binlog UDFs of fakeLocator plus the calls needed to plan an upload.
+type fakeHost struct {
+	*fakeLocator
+	name        string
+	sourceID    string
+	sourceIDErr error
+	listErr     error
+
+	sourceIDCalls int
+	listCalls     int
+}
+
+func (h *fakeHost) GetHost() string { return h.name }
+
+func (h *fakeHost) WsrepClusterStateUUID() (string, error) {
+	h.sourceIDCalls++
+	return h.sourceID, h.sourceIDErr
+}
+
+func (h *fakeHost) GetBinLogList(context.Context) ([]pxc.Binlog, error) {
+	h.listCalls++
+	if h.listErr != nil {
+		return nil, h.listErr
+	}
+	return h.binlogs, nil
+}
+
+func TestPlanUpload(t *testing.T) {
+	t.Parallel()
+
+	const uuidA = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+
+	binlog := func(name, gtidSet string) pxc.Binlog {
+		return pxc.Binlog{Name: name, GTIDSet: pxc.NewGTIDSet(gtidSet)}
+	}
+	errBoom := errors.New("boom")
+
+	tests := []struct {
+		name        string
+		binlogs     []pxc.Binlog
+		stored      map[string]string
+		sourceIDErr error
+		listErr     error
+		want        resumePoint
+		wantSafe    bool
+		wantErr     bool
+	}{
+		{
+			name: "caught up on the host",
+			binlogs: []pxc.Binlog{
+				binlog("binlog.000001", uuidA+":1-50"),
+				binlog("binlog.000002", uuidA+":51-100"),
+				binlog("binlog.000003", ""),
+			},
+			stored:   map[string]string{lastSetFilePrefix + uuidA: uuidA + ":51-100"},
+			want:     resumePoint{lastUploaded: pxc.NewGTIDSet(uuidA + ":51-100"), start: 1},
+			wantSafe: true,
+		},
+		{
+			name:     "nothing uploaded yet",
+			binlogs:  []pxc.Binlog{binlog("binlog.000001", uuidA+":1-50")},
+			want:     resumePoint{},
+			wantSafe: true,
+		},
+		{
+			name: "last uploaded GTID is gone from the host",
+			binlogs: []pxc.Binlog{
+				binlog("binlog.000005", uuidA+":101-150"),
+				binlog("binlog.000006", uuidA+":151-200"),
+			},
+			stored:   map[string]string{lastSetFilePrefix + uuidA: uuidA + ":1-60"},
+			want:     resumePoint{lastUploaded: pxc.NewGTIDSet(uuidA + ":1-60"), gap: true},
+			wantSafe: false,
+		},
+		{
+			name:     "host has no binlogs with transactions",
+			binlogs:  []pxc.Binlog{binlog("binlog.000001", ""), binlog("binlog.000002", "")},
+			stored:   map[string]string{lastSetFilePrefix + uuidA: uuidA + ":1-60"},
+			want:     resumePoint{empty: true},
+			wantSafe: false,
+		},
+		{
+			name:    "failure listing binlogs",
+			binlogs: []pxc.Binlog{binlog("binlog.000001", uuidA+":1-50")},
+			listErr: errBoom,
+			wantErr: true,
+		},
+		{
+			name:        "failure getting the cluster uuid",
+			binlogs:     []pxc.Binlog{binlog("binlog.000001", uuidA+":1-50")},
+			sourceIDErr: errBoom,
+			wantErr:     true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			c := &Collector{storage: &fakeStorage{objects: tt.stored}}
+			host := &fakeHost{
+				fakeLocator: &fakeLocator{binlogs: tt.binlogs},
+				name:        "pxc-0",
+				sourceID:    uuidA,
+				sourceIDErr: tt.sourceIDErr,
+				listErr:     tt.listErr,
+			}
+
+			plan, err := c.planUpload(context.Background(), host)
+			if tt.wantErr {
+				require.Error(t, err)
+				assert.Nil(t, plan)
+				return
+			}
+			require.NoError(t, err)
+
+			assert.Equal(t, tt.binlogs, plan.binlogs)
+			assert.Equal(t, tt.want, plan.resume)
+			assert.Equal(t, tt.wantSafe, plan.safeToKeepHost())
+
+			// the point of planning once: the host is listed, and asked for its
+			// cluster uuid, a single time, and that's all the upload needs
+			assert.Equal(t, 1, host.listCalls, "binlog list calls")
+			assert.Equal(t, 1, host.sourceIDCalls, "cluster uuid calls")
+			assert.Equal(t, "pxc-0", c.emptyBinlogs.host)
+		})
+	}
+}

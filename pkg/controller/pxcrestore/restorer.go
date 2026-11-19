@@ -47,7 +47,10 @@ func (s *s3) Job(ctx context.Context) (*batchv1.Job, error) {
 }
 
 func (s *s3) PITRJob(ctx context.Context) (*batchv1.Job, error) {
-	return backup.RestoreJob(ctx, s.cr, s.bcp, s.cluster, s.initImage, s.scheme, s.bcp.Status.Destination, nil, true)
+	return backup.RestoreJob(ctx, s.cr, s.bcp, s.cluster, s.initImage, s.scheme, s.bcp.Status.Destination,
+		nil,  // no incrementals
+		true, // pitr
+	)
 }
 
 func (s *s3) ValidateJob(ctx context.Context, job *batchv1.Job) error {

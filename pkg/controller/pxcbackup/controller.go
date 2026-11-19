@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -1233,7 +1232,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) writeStatus(
 	cr *api.PerconaXtraDBClusterBackup,
 	observed *api.PXCBackupStatus,
 ) error {
-	if reflect.DeepEqual(*observed, cr.Status) {
+	if observed.Equals(cr.Status) {
 		return nil
 	}
 

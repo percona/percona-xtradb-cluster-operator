@@ -2,7 +2,11 @@ package pxc
 
 import (
 	"context"
+	"fmt"
+	"maps"
 	"reflect"
+	"slices"
+	"strings"
 
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -80,16 +84,20 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMaps(ctx context.Context,
 func (r *ReconcilePerconaXtraDBCluster) reconcileAutotuneConfigMap(ctx context.Context, cr *api.PerconaXtraDBCluster) (controllerutil.OperationResult, error) {
 	autotuneCm := config.AutoTuneConfigMapName(cr.Name, naming.ComponentPXC)
 
-	_, ok := cr.Spec.PXC.Resources.Limits[corev1.ResourceMemory]
-	if !ok {
+	params, err := r.autoConfigParams(ctx, cr)
+	if errors.Is(err, config.ErrInsufficientStorage) {
+		r.recorder.Event(cr, corev1.EventTypeWarning, "AutoConfigInsufficientStorage", err.Error())
+	}
+	if err != nil {
+		return controllerutil.OperationResultNone, errors.Wrap(err, "calculate auto config")
+	}
+
+	if params == nil {
 		err := deleteConfigMapIfExists(ctx, r.client, cr, autotuneCm)
 		return controllerutil.OperationResultNone, errors.Wrap(err, "delete configmap")
 	}
 
-	configMap, err := config.NewAutoTuneConfigMap(cr, cr.Spec.PXC.Resources.Limits.Memory(), autotuneCm)
-	if err != nil {
-		return controllerutil.OperationResultNone, errors.Wrap(err, "new configmap")
-	}
+	configMap := config.NewAutoConfigMap(cr, autotuneCm, params.content)
 
 	err = k8s.SetControllerReference(cr, configMap, r.scheme)
 	if err != nil {
@@ -101,7 +109,114 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileAutotuneConfigMap(ctx context.C
 		return res, errors.Wrap(err, "create or update configmap")
 	}
 
+	if res != controllerutil.OperationResultNone && params.fallbackReason != "" {
+		r.recorder.Event(cr, corev1.EventTypeWarning, "AutoConfigFallback",
+			fmt.Sprintf("falling back to autotune: %s", params.fallbackReason))
+	}
+
 	return res, nil
+}
+
+type autoConfigParams struct {
+	content        string
+	fallbackReason string
+}
+
+func (r *ReconcilePerconaXtraDBCluster) autoConfigParams(ctx context.Context, cr *api.PerconaXtraDBCluster) (*autoConfigParams, error) {
+	res := cr.Spec.PXC.Resources
+
+	if !cr.Spec.PXC.AutoConfig.IsEnabled() || cr.CompareVersionWith(liveConfigVersion) < 0 {
+		memory, ok := res.Limits[corev1.ResourceMemory]
+		if !ok {
+			return nil, nil
+		}
+		content, err := config.AutoTuneParams(cr, &memory)
+		if err != nil {
+			return nil, errors.Wrap(err, "autotune")
+		}
+		return &autoConfigParams{content: content}, nil
+	}
+
+	userConf, err := r.userMySQLConfig(ctx, cr)
+	if err != nil {
+		return nil, errors.Wrap(err, "get user configuration")
+	}
+	user, err := config.ParseMySQLd(userConf...)
+	if err != nil {
+		return nil, errors.Wrap(err, "parse user configuration")
+	}
+
+	storage, err := r.dataVolumeCapacity(ctx, cr)
+	if err != nil {
+		return nil, errors.Wrap(err, "get data volume capacity")
+	}
+
+	memory := config.EffectiveResource(res, corev1.ResourceMemory)
+	calculated, err := config.AutoConfigParams(config.AutoConfigRequest{
+		Version:  config.AutoConfigVersion(cr),
+		CPU:      config.EffectiveResource(res, corev1.ResourceCPU),
+		Memory:   memory,
+		Storage:  storage,
+		LoadType: cr.Spec.PXC.AutoConfig.LoadType,
+		User:     user,
+	})
+	if errors.Is(err, config.ErrInsufficientStorage) {
+		return nil, err
+	}
+	if err != nil {
+		if memory == nil {
+			return nil, err
+		}
+		content, tuneErr := config.AutoTuneParams(cr, memory)
+		if tuneErr != nil {
+			return nil, errors.Wrap(tuneErr, "autotune")
+		}
+		return &autoConfigParams{content: content, fallbackReason: err.Error()}, nil
+	}
+
+	return &autoConfigParams{content: calculated.String()}, nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) userMySQLConfig(ctx context.Context, cr *api.PerconaXtraDBCluster) ([]string, error) {
+	nn := types.NamespacedName{Namespace: cr.Namespace, Name: config.CustomConfigMapName(cr.Name, naming.ComponentPXC)}
+
+	secret := new(corev1.Secret)
+	err := r.client.Get(ctx, nn, secret)
+	if err == nil {
+		data := make(map[string]string, len(secret.Data))
+		for k, v := range secret.Data {
+			data[k] = string(v)
+		}
+		return cnfFiles(data), nil
+	}
+	if !k8serrors.IsNotFound(err) {
+		return nil, errors.Wrap(err, "get secret")
+	}
+
+	// rendered from the cr: the cache can still hold the ConfigMap revision
+	// from before this reconcile wrote it
+	if cr.Spec.PXC.Configuration != "" {
+		return []string{cr.Spec.PXC.Configuration}, nil
+	}
+
+	cm := new(corev1.ConfigMap)
+	if err := r.client.Get(ctx, nn, cm); err != nil {
+		return nil, errors.Wrap(client.IgnoreNotFound(err), "get configmap")
+	}
+	if metav1.IsControlledBy(cm, cr) {
+		return nil, nil
+	}
+	return cnfFiles(cm.Data), nil
+}
+
+func cnfFiles(data map[string]string) []string {
+	var files []string
+	for _, name := range slices.Sorted(maps.Keys(data)) {
+		if strings.HasSuffix(name, ".cnf") {
+			files = append(files, data[name])
+		}
+	}
+	return files
 }
 
 func (r *ReconcilePerconaXtraDBCluster) reconcileCustomConfigMap(ctx context.Context, cr *api.PerconaXtraDBCluster) (controllerutil.OperationResult, error) {

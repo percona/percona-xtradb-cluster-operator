@@ -383,6 +383,32 @@ func TestCheckNSetDefaults(t *testing.T) {
 			},
 		},
 	}
+	t.Run("autoConfig load type", func(t *testing.T) {
+		tests := map[string]struct {
+			autoConfig AutoConfigSpec
+			want       AutoConfigLoadType
+		}{
+			"disabled keeps it unset": {},
+			"enabled defaults it": {
+				autoConfig: AutoConfigSpec{Enabled: new(true)},
+				want:       AutoConfigLoadTypeSomeWrites,
+			},
+			"enabled keeps the configured one": {
+				autoConfig: AutoConfigSpec{Enabled: new(true), LoadType: AutoConfigLoadTypeHeavyWrites},
+				want:       AutoConfigLoadTypeHeavyWrites,
+			},
+		}
+
+		for name, tc := range tests {
+			t.Run(name, func(t *testing.T) {
+				cr := minimalCr.DeepCopy()
+				cr.Spec.PXC.AutoConfig = tc.autoConfig
+
+				require.NoError(t, cr.CheckNSetDefaults(nil, logf.FromContext(t.Context())))
+				assert.Equal(t, tc.want, cr.Spec.PXC.AutoConfig.LoadType)
+			})
+		}
+	})
 	t.Run("tls", func(t *testing.T) {
 		ctx := t.Context()
 		cr := minimalCr.DeepCopy()

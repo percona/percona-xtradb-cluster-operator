@@ -14,7 +14,7 @@ const (
 	chunkSizeDefault int64 = 134217728
 )
 
-func getAutoTuneParams(cr *api.PerconaXtraDBCluster, q *res.Quantity) (string, error) {
+func AutoTuneParams(cr *api.PerconaXtraDBCluster, q *res.Quantity) (string, error) {
 	autotuneParams := ""
 
 	bufferConfigured, err := cr.ConfigHasKey("mysqld", "innodb_buffer_pool_size")

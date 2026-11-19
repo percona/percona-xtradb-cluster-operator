@@ -216,8 +216,12 @@ type InitContainerSpec struct {
 	ContainerSecurityContext *corev1.SecurityContext      `json:"containerSecurityContext,omitempty"`
 }
 
+// +kubebuilder:validation:XValidation:rule="!(self.?autoConfig.?enabled.orValue(false)) || (has(self.resources) && ((has(self.resources.limits) && 'cpu' in self.resources.limits) || (has(self.resources.requests) && 'cpu' in self.resources.requests)) && ((has(self.resources.limits) && 'memory' in self.resources.limits) || (has(self.resources.requests) && 'memory' in self.resources.requests)))",message="pxc.resources must set cpu and memory (via limits or requests) when pxc.autoConfig.enabled is true"
+// +kubebuilder:validation:XValidation:rule="!(self.?autoConfig.?enabled.orValue(false)) || sign(quantity(has(self.resources.limits) && 'cpu' in self.resources.limits ? self.resources.limits['cpu'] : self.resources.requests['cpu'])) == 1",message="pxc.resources cpu must be greater than 0 when pxc.autoConfig.enabled is true"
+// +kubebuilder:validation:XValidation:rule="!(self.?autoConfig.?enabled.orValue(false)) || quantity(has(self.resources.limits) && 'memory' in self.resources.limits ? self.resources.limits['memory'] : self.resources.requests['memory']).compareTo(quantity('12Mi')) >= 0",message="pxc.resources memory must be at least 12Mi when pxc.autoConfig.enabled is true"
 type PXCSpec struct {
 	AutoRecovery        *bool                `json:"autoRecovery,omitempty"`
+	AutoConfig          AutoConfigSpec       `json:"autoConfig,omitempty"`
 	ReplicationChannels []ReplicationChannel `json:"replicationChannels,omitempty"`
 	Expose              ServiceExpose        `json:"expose,omitempty"`
 	// +kubebuilder:validation:Minimum=1
@@ -227,6 +231,25 @@ type PXCSpec struct {
 	MySQLAllocator string `json:"mysqlAllocator,omitempty"`
 
 	*PodSpec `json:",inline"`
+}
+
+type AutoConfigLoadType string
+
+const (
+	AutoConfigLoadTypeMostlyReads      AutoConfigLoadType = "mostlyReads"
+	AutoConfigLoadTypeSomeWrites       AutoConfigLoadType = "someWrites"
+	AutoConfigLoadTypeEqualReadsWrites AutoConfigLoadType = "equalReadsWrites"
+	AutoConfigLoadTypeHeavyWrites      AutoConfigLoadType = "heavyWrites"
+)
+
+type AutoConfigSpec struct {
+	Enabled *bool `json:"enabled,omitempty"`
+	// +kubebuilder:validation:Enum=mostlyReads;someWrites;equalReadsWrites;heavyWrites
+	LoadType AutoConfigLoadType `json:"loadType,omitempty"`
+}
+
+func (s AutoConfigSpec) IsEnabled() bool {
+	return s.Enabled != nil && *s.Enabled
 }
 
 // ServiceExpose defines the configuration options for exposing a k8s Service.
@@ -1259,6 +1282,10 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 
 		if len(c.PXC.ImagePullPolicy) == 0 {
 			c.PXC.ImagePullPolicy = corev1.PullAlways
+		}
+
+		if c.PXC.AutoConfig.IsEnabled() && c.PXC.AutoConfig.LoadType == "" {
+			c.PXC.AutoConfig.LoadType = AutoConfigLoadTypeSomeWrites
 		}
 
 		c.PXC.VaultSecretName = c.VaultSecretName

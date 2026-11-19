@@ -15,6 +15,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
@@ -2110,6 +2111,74 @@ var _ = Describe("CR validations", Ordered, func() {
 			It("should create the cluster", func() {
 				Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
 			})
+		})
+	})
+
+	Context("pxc autoConfig", Ordered, func() {
+		autoConfigCR := func(name string, res corev1.ResourceRequirements) *api.PerconaXtraDBCluster {
+			cr, err := readDefaultCR(name, ns)
+			Expect(err).NotTo(HaveOccurred())
+			cr.Spec.PXC.AutoConfig = api.AutoConfigSpec{Enabled: new(true), LoadType: api.AutoConfigLoadTypeHeavyWrites}
+			cr.Spec.PXC.Resources = res
+			return cr
+		}
+
+		It("accepts cpu and memory from requests", func() {
+			cr := autoConfigCR("autoconfig-requests", corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("1"), corev1.ResourceMemory: resource.MustParse("2Gi")},
+			})
+			Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
+		})
+
+		It("accepts cpu from limits and memory from requests", func() {
+			cr := autoConfigCR("autoconfig-mixed", corev1.ResourceRequirements{
+				Limits:   corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("1")},
+				Requests: corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("2Gi")},
+			})
+			Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
+		})
+
+		It("accepts no resources while disabled", func() {
+			cr := autoConfigCR("autoconfig-disabled", corev1.ResourceRequirements{})
+			cr.Spec.PXC.AutoConfig.Enabled = new(false)
+			Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
+		})
+
+		It("rejects missing cpu", func() {
+			cr := autoConfigCR("autoconfig-no-cpu", corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("2Gi")},
+			})
+			err := k8sClient.Create(ctx, cr)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("pxc.resources must set cpu and memory"))
+		})
+
+		It("rejects zero cpu", func() {
+			cr := autoConfigCR("autoconfig-zero-cpu", corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("0"), corev1.ResourceMemory: resource.MustParse("2Gi")},
+			})
+			err := k8sClient.Create(ctx, cr)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("pxc.resources cpu must be greater than 0"))
+		})
+
+		It("rejects too little memory", func() {
+			cr := autoConfigCR("autoconfig-low-memory", corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("1"), corev1.ResourceMemory: resource.MustParse("1Mi")},
+			})
+			err := k8sClient.Create(ctx, cr)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("pxc.resources memory must be at least 12Mi"))
+		})
+
+		It("rejects an unknown load type", func() {
+			cr := autoConfigCR("autoconfig-load-type", corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("1"), corev1.ResourceMemory: resource.MustParse("2Gi")},
+			})
+			cr.Spec.PXC.AutoConfig.LoadType = "mostlyWrites"
+			err := k8sClient.Create(ctx, cr)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("spec.pxc.autoConfig.loadType"))
 		})
 	})
 })

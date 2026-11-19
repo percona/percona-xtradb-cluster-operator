@@ -5,6 +5,8 @@ import (
 	"context"
 	"io"
 	"os"
+	"strconv"
+	"strings"
 	"sync"
 	"testing"
 
@@ -110,6 +112,9 @@ type fakeLocator struct {
 	invalid map[string]bool  // binlogs failing with MySQL error 3200
 	failing map[string]error // binlogs failing with the given error
 	fetched []string         // binlogs GetGTIDSet was called for, in order
+
+	subsetErr   error // returned by GTIDSubset
+	subsetCalls int
 }
 
 func (f *fakeLocator) GetGTIDSet(_ context.Context, name string) (string, error) {
@@ -126,6 +131,43 @@ func (f *fakeLocator) GetGTIDSet(_ context.Context, name string) (string, error)
 		}
 	}
 	return "", errors.New("Binary log does not exist")
+}
+
+// GTIDSubset mimics GTID_SUBSET() for sets made of "uuid:from-to" entries.
+func (f *fakeLocator) GTIDSubset(_ context.Context, set1, set2 string) (bool, error) {
+	f.subsetCalls++
+	if f.subsetErr != nil {
+		return false, f.subsetErr
+	}
+
+	other, err := gtid.New(set2)
+	if err != nil {
+		return false, err
+	}
+
+	for _, entry := range strings.Split(set1, ",") {
+		parts := strings.Split(strings.TrimSpace(entry), ":")
+		for _, interval := range parts[1:] {
+			from, to, found := strings.Cut(interval, "-")
+			if !found {
+				to = from
+			}
+			lo, err := strconv.ParseInt(from, 10, 64)
+			if err != nil {
+				return false, err
+			}
+			hi, err := strconv.ParseInt(to, 10, 64)
+			if err != nil {
+				return false, err
+			}
+			for seq := lo; seq <= hi; seq++ {
+				if !other.ContainsSeq(parts[0], seq) {
+					return false, nil
+				}
+			}
+		}
+	}
+	return true, nil
 }
 
 func (f *fakeLocator) GetBinlogByGTID(_ context.Context, gtidText string) (string, error) {
@@ -306,72 +348,6 @@ func TestFindResumePoint(t *testing.T) {
 
 			got, err := c.findResumePoint(context.Background(), loc, tt.sourceID, tt.binlogs)
 			require.NoError(t, err)
-			assert.Equal(t, tt.want, got)
-		})
-	}
-}
-
-func TestHasNewTransactions(t *testing.T) {
-	t.Parallel()
-
-	const uuidA = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
-	const uuidB = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
-
-	tests := []struct {
-		name         string
-		lastGTID     string
-		lastUploaded string
-		want         bool
-	}{
-		{
-			name:         "last gtid is the end of the uploaded set",
-			lastGTID:     uuidA + ":100",
-			lastUploaded: uuidA + ":51-100",
-			want:         false,
-		},
-		{
-			name:         "last gtid is inside the uploaded set",
-			lastGTID:     uuidA + ":75",
-			lastUploaded: uuidA + ":51-100",
-			want:         false,
-		},
-		{
-			name:         "binlog goes beyond the uploaded set",
-			lastGTID:     uuidA + ":120",
-			lastUploaded: uuidA + ":51-100",
-			want:         true,
-		},
-		{
-			name:         "last gtid from another uuid",
-			lastGTID:     uuidB + ":10",
-			lastUploaded: uuidA + ":1-100",
-			want:         true,
-		},
-		{
-			name:         "contained in any uuid of a multi uuid set",
-			lastGTID:     uuidB + ":10",
-			lastUploaded: uuidA + ":1-100," + uuidB + ":1-25",
-			want:         false,
-		},
-		{
-			name:         "binlog without gtids is uploaded",
-			lastGTID:     "",
-			lastUploaded: uuidA + ":1-100",
-			want:         true,
-		},
-		{
-			name:         "unparsable last gtid is uploaded",
-			lastGTID:     "garbage",
-			lastUploaded: uuidA + ":1-100",
-			want:         true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			got := hasNewTransactions(tt.lastGTID, pxc.NewGTIDSet(tt.lastUploaded))
 			assert.Equal(t, tt.want, got)
 		})
 	}
@@ -676,6 +652,130 @@ func TestFindResumePointOnIdleCluster(t *testing.T) {
 				assert.Equal(t, resumePoint{lastUploaded: pxc.NewGTIDSet(uuidA + ":1-50"), start: 0}, rp)
 				assert.Equal(t, wantFetched, loc.fetched, "run %d", i+1)
 			}
+		})
+	}
+}
+
+func TestHasNewTransactions(t *testing.T) {
+	t.Parallel()
+
+	const uuidA = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+	const uuidB = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
+
+	errBoom := errors.New("boom")
+
+	tests := []struct {
+		name         string
+		binlogSet    string
+		lastUploaded string
+		invalid      bool
+		setErr       error
+		subsetErr    error
+		want         bool
+		wantErr      bool
+		wantSubset   bool // GTIDSubset is expected to be asked
+	}{
+		{
+			name:         "binlog is exactly the uploaded set",
+			binlogSet:    uuidA + ":51-100",
+			lastUploaded: uuidA + ":51-100",
+			want:         false,
+			wantSubset:   true,
+		},
+		{
+			// Another node's binlogs split the range differently.
+			name:         "binlog is inside the uploaded set",
+			binlogSet:    uuidA + ":76-100",
+			lastUploaded: uuidA + ":51-100",
+			want:         false,
+			wantSubset:   true,
+		},
+		{
+			// The last GTID (100) is uploaded but 40-50 are not. Looking only at
+			// the last GTID of the binlog would wrongly skip it.
+			name:         "binlog starts before the uploaded range",
+			binlogSet:    uuidA + ":40-100",
+			lastUploaded: uuidA + ":51-100",
+			want:         true,
+			wantSubset:   true,
+		},
+		{
+			name:         "binlog goes beyond the uploaded set",
+			binlogSet:    uuidA + ":51-120",
+			lastUploaded: uuidA + ":51-100",
+			want:         true,
+			wantSubset:   true,
+		},
+		{
+			name:         "binlog from another uuid",
+			binlogSet:    uuidB + ":1-10",
+			lastUploaded: uuidA + ":1-100",
+			want:         true,
+			wantSubset:   true,
+		},
+		{
+			name:         "binlog covered by several uuids of the uploaded set",
+			binlogSet:    uuidB + ":1-10",
+			lastUploaded: uuidA + ":1-100," + uuidB + ":1-25",
+			want:         false,
+			wantSubset:   true,
+		},
+		{
+			name:         "binlog without transactions has nothing new",
+			binlogSet:    "",
+			lastUploaded: uuidA + ":1-100",
+			want:         false,
+			wantSubset:   false,
+		},
+		{
+			name:         "invalid binlog is skipped",
+			binlogSet:    uuidA + ":1-5",
+			lastUploaded: uuidA + ":1-100",
+			invalid:      true,
+			want:         false,
+			wantSubset:   false,
+		},
+		{
+			name:         "failure getting the binlog set",
+			binlogSet:    uuidA + ":1-5",
+			lastUploaded: uuidA + ":1-100",
+			setErr:       errBoom,
+			wantErr:      true,
+			wantSubset:   false,
+		},
+		{
+			name:         "failure comparing the sets",
+			binlogSet:    uuidA + ":1-5",
+			lastUploaded: uuidA + ":1-100",
+			subsetErr:    errBoom,
+			wantErr:      true,
+			wantSubset:   true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			binlog := pxc.Binlog{Name: "binlog.000002", GTIDSet: pxc.NewGTIDSet(tt.binlogSet)}
+			loc := &fakeLocator{
+				binlogs:   []pxc.Binlog{binlog},
+				failing:   map[string]error{binlog.Name: tt.setErr},
+				subsetErr: tt.subsetErr,
+			}
+			if tt.invalid {
+				loc.invalid = map[string]bool{binlog.Name: true}
+			}
+
+			got, err := hasNewTransactions(context.Background(), loc, binlog, pxc.NewGTIDSet(tt.lastUploaded), &emptyBinlogs{})
+			if tt.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+			assert.Equal(t, tt.want, got)
+			assert.Equal(t, tt.wantSubset, loc.subsetCalls > 0, "GTIDSubset called")
+			assert.Equal(t, []string{binlog.Name}, loc.fetched, "only the binlog headers are read")
 		})
 	}
 }

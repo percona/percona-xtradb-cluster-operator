@@ -399,6 +399,7 @@ func (c *Collector) hasNoBinlogGap(ctx context.Context, db *pxc.PXC) (bool, erro
 type binlogLocator interface {
 	GetGTIDSet(ctx context.Context, binlogName string) (string, error)
 	GetBinlogByGTID(ctx context.Context, gtid string) (string, error)
+	GTIDSubset(ctx context.Context, set1, set2 string) (bool, error)
 }
 
 // resumePoint describes which binlogs on a host still need to be uploaded.
@@ -469,29 +470,30 @@ func (c *Collector) findResumePoint(
 	return resumePoint{lastUploaded: lastUploaded, start: start}, nil
 }
 
-// hasNewTransactions reports whether a binlog whose last GTID is lastGTID holds
-// transactions that are not part of lastUploaded.
-func hasNewTransactions(lastGTID string, lastUploaded pxc.GTIDSet) bool {
-	if lastGTID == "" {
-		return true
-	}
-	last, err := gtid.New(lastGTID)
+// hasNewTransactions reports whether the binlog holds transactions that are not
+// part of lastUploaded. It only reads the binlog headers: the set of GTIDs in the
+// binlog is compared with lastUploaded by the server, so nothing is lost when the
+// binlog starts before, or ends after, the uploaded range.
+func hasNewTransactions(
+	ctx context.Context,
+	loc binlogLocator,
+	binlog pxc.Binlog,
+	lastUploaded pxc.GTIDSet,
+	empties *emptyBinlogs,
+) (bool, error) {
+	gtidSet, err := gtidSetUnlessEmpty(ctx, loc, binlog, empties)
 	if err != nil {
-		log.Printf("failed to parse last gtid %s: %v", lastGTID, err)
-		return true
+		return false, err
 	}
-	uuid, seq := last.End()
+	if gtidSet.IsEmpty() {
+		return false, nil
+	}
 
-	for _, entry := range lastUploaded.List() {
-		uploaded, err := gtid.New(entry)
-		if err != nil {
-			continue
-		}
-		if uploaded.ContainsSeq(uuid, seq) {
-			return false
-		}
+	uploaded, err := loc.GTIDSubset(ctx, gtidSet.Raw(), lastUploaded.Raw())
+	if err != nil {
+		return false, errors.Wrapf(err, "check if %s is already uploaded", binlog.Name)
 	}
-	return true
+	return !uploaded, nil
 }
 
 // emptyBinlogs remembers closed binlogs that have no transactions, so that the
@@ -762,11 +764,11 @@ func (c *Collector) CollectBinLogs(ctx context.Context) error {
 		log.Printf("last uploaded binlog: %s", resumeBinlog)
 
 		// we don't need to reupload the binlog if it has nothing new
-		last, err := c.db.GetLastGTIDFromBinlog(ctx, resumeBinlog)
+		hasNew, err := hasNewTransactions(ctx, c.db, binlogList[start], rp.lastUploaded, &c.emptyBinlogs)
 		if err != nil {
-			return errors.Wrap(err, "get last gtid of last uploaded binlog")
+			return errors.Wrap(err, "check last uploaded binlog")
 		}
-		if !hasNewTransactions(last, rp.lastUploaded) {
+		if !hasNew {
 			start++
 		}
 	}

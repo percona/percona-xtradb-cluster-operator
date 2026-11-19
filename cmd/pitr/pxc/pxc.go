@@ -103,14 +103,6 @@ func (p *PXC) GetBinlogByGTID(ctx context.Context, gtid string) (string, error) 
 	return name, errors.Wrapf(err, "get binlog by gtid %s", gtid)
 }
 
-// GetLastGTIDFromBinlog returns the last GTID ("uuid:seq") found in the binary log.
-// It returns an empty string when the binary log has no transactions.
-// The function reads the whole file, so call it for a single binary log at a time.
-func (p *PXC) GetLastGTIDFromBinlog(ctx context.Context, binlogName string) (string, error) {
-	gtid, err := p.queryNullString(ctx, "SELECT CAST(get_last_gtid_from_binlog(?) AS CHAR)", binlogName)
-	return gtid, errors.Wrapf(err, "get last gtid from binlog %s", binlogName)
-}
-
 // queryNullString runs a query returning a single, possibly NULL, string.
 // If the binlog UDFs are not available yet, they are created and the query is retried once.
 func (p *PXC) queryNullString(ctx context.Context, query string, args ...any) (string, error) {
@@ -529,7 +521,6 @@ func collectorFunctions() map[string]string {
 		"get_gtid_set_by_binlog":               "STRING",
 		"get_first_record_timestamp_by_binlog": "INTEGER",
 		"get_binlog_by_gtid":                   "STRING",
-		"get_last_gtid_from_binlog":            "STRING",
 	}
 }
 

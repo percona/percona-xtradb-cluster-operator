@@ -96,7 +96,6 @@ type Config struct {
 	StorageType        string `env:"STORAGE_TYPE,required"`
 	BackupStorageS3    BackupS3
 	BackupStorageAzure BackupAzure
-	BufferSize         int64   `env:"BUFFER_SIZE"`
 	CollectSpanSec     float64 `env:"COLLECT_SPAN_SEC" envDefault:"60"`
 	VerifyTLS          bool    `env:"VERIFY_TLS" envDefault:"true"`
 	TimeoutSeconds     float64 `env:"TIMEOUT_SECONDS" envDefault:"60"`

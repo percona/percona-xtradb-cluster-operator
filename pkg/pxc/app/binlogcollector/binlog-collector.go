@@ -12,7 +12,6 @@ import (
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -56,11 +55,6 @@ func GetDeployment(cr *api.PerconaXtraDBCluster, initImage string, existingMatch
 	pxcUser := users.Xtrabackup
 	sleepTime := fmt.Sprintf("%.2f", cr.Spec.Backup.PITR.TimeBetweenUploads)
 
-	bufferSize, err := getBufferSize(cr.Spec)
-	if err != nil {
-		return appsv1.Deployment{}, errors.Wrap(err, "get buffer size")
-	}
-
 	labels := naming.LabelsPITR(cr)
 	if stg, ok := cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName]; ok {
 		maps.Copy(labels, stg.Labels)
@@ -95,15 +89,19 @@ func GetDeployment(cr *api.PerconaXtraDBCluster, initImage string, existingMatch
 			Name:  "COLLECT_SPAN_SEC",
 			Value: sleepTime,
 		},
-		{
-			Name:  "BUFFER_SIZE",
-			Value: strconv.FormatInt(bufferSize, 10),
-		},
-		{
-			Name:  "TIMEOUT_SECONDS",
-			Value: timeout,
-		},
 	}...)
+
+	if cr.CompareVersionWith("1.21.0") < 0 {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "BUFFER_SIZE",
+			Value: strconv.FormatInt(getBufferSize(cr.Spec), 10),
+		})
+	}
+
+	envs = append(envs, corev1.EnvVar{
+		Name:  "TIMEOUT_SECONDS",
+		Value: timeout,
+	})
 
 	if cr.CompareVersionWith("1.17.0") >= 0 {
 		envs = append(envs, corev1.EnvVar{
@@ -368,23 +366,15 @@ func getStorageEnvs(cr *api.PerconaXtraDBCluster) ([]corev1.EnvVar, error) {
 	return envs, nil
 }
 
-func getBufferSize(cluster api.PerconaXtraDBClusterSpec) (mem int64, err error) {
+func getBufferSize(cluster api.PerconaXtraDBClusterSpec) int64 {
 	res := cluster.Backup.PITR.Resources
-	if res.Size() == 0 {
-		return 0, nil
-	}
 
-	var memory *resource.Quantity
-
-	if _, ok := res.Requests[corev1.ResourceMemory]; ok {
-		memory = res.Requests.Memory()
-	}
-
+	memory := res.Requests.Memory()
 	if _, ok := res.Limits[corev1.ResourceMemory]; ok {
 		memory = res.Limits.Memory()
 	}
 
-	return memory.Value() / int64(100) * int64(75), nil
+	return memory.Value() / int64(100) * int64(75)
 }
 
 func GetPod(ctx context.Context, c client.Client, cr *api.PerconaXtraDBCluster) (*corev1.Pod, error) {

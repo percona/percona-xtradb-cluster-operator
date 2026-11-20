@@ -318,10 +318,6 @@ func (s *certSyncer) Reconcile(ctx context.Context, _ reconcile.Request) (reconc
 	return reconcile.Result{RequeueAfter: certRenewalRequeueAfter(notAfter)}, nil
 }
 
-func (s *certSyncer) NeedLeaderElection() bool {
-	return false
-}
-
 func setupCertSyncController(mgr manager.Manager, h *hook, namespace string, log logr.Logger) error {
 	s := &certSyncer{
 		hook:      h,

@@ -486,6 +486,7 @@ func (c *Collector) planUpload(ctx context.Context, host binlogHost) (*uploadPla
 type binlogLocator interface {
 	GetGTIDSet(ctx context.Context, binlogName string) (string, error)
 	GetBinlogByGTID(ctx context.Context, gtid string) (string, error)
+	GetPreviousGTIDs(ctx context.Context, binlogName string) (string, error)
 	GTIDSubset(ctx context.Context, set1, set2 string) (bool, error)
 }
 
@@ -658,18 +659,62 @@ func gtidSetUnlessEmpty(ctx context.Context, loc binlogLocator, binlog pxc.Binlo
 	return gtidSet, nil
 }
 
-// latestGTIDSets returns the GTID sets of the most recent binlog that has any.
+// latestGTIDSets returns one GTID set per UUID that has transactions in the
+// most recent binlog that has any. Only the UUIDs are meant to be used: when
+// that binlog isn't the last one, the sets also cover earlier binlogs.
 func latestGTIDSets(ctx context.Context, loc binlogLocator, binlogs []pxc.Binlog, empties *emptyBinlogs) ([]string, error) {
-	for i := len(binlogs) - 1; i >= 0; i-- {
-		gtidSet, err := gtidSetUnlessEmpty(ctx, loc, binlogs[i], empties)
+	if len(binlogs) == 0 {
+		return nil, nil
+	}
+
+	last := binlogs[len(binlogs)-1]
+	gtidSet, err := gtidSetUnlessEmpty(ctx, loc, last, empties)
+	if err != nil {
+		return nil, err
+	}
+	if list := gtidSet.List(); len(list) != 0 {
+		return list, nil
+	}
+
+	// There can be lots of empty binlogs at the end, e.g. on an idle cluster,
+	// and asking about each of them takes too long. Previous_gtids of the last
+	// binlog holds every UUID executed so far. The binlog holding the last
+	// transaction of a UUID is the most recent one with that UUID, so the most
+	// recent of those binlogs is the one we are looking for, and the UUIDs
+	// ending in it are the ones it has transactions for.
+	prev, err := loc.GetPreviousGTIDs(ctx, last.Name)
+	if err != nil {
+		return nil, errors.Wrapf(err, "get previous GTIDs of %s", last.Name)
+	}
+	prevSet := pxc.NewGTIDSet(prev)
+
+	newest := -1
+	var sets []string
+	for _, entry := range prevSet.List() {
+		entry = strings.TrimSpace(entry)
+		parsed, err := gtid.New(entry)
+		if err != nil {
+			return nil, errors.Wrapf(err, "parse previous GTIDs of %s", last.Name)
+		}
+		uuid, endSeq := parsed.End()
+
+		name, err := loc.GetBinlogByGTID(ctx, fmt.Sprintf("%s:%d", uuid, endSeq))
 		if err != nil {
 			return nil, err
 		}
-		if list := gtidSet.List(); len(list) != 0 {
-			return list, nil
+
+		// Not found when the binlog was purged, e.g. GTIDs received with SST.
+		i := slices.IndexFunc(binlogs, func(b pxc.Binlog) bool { return b.Name == name })
+		switch {
+		case i < 0 || i < newest:
+		case i > newest:
+			newest = i
+			sets = []string{entry}
+		default:
+			sets = append(sets, entry)
 		}
 	}
-	return nil, nil
+	return sets, nil
 }
 
 // forEachBinlogWithGTIDs calls fn, in order, for every binlog that has transactions.

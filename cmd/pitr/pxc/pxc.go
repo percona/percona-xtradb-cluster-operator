@@ -103,6 +103,24 @@ func (p *PXC) GetBinlogByGTID(ctx context.Context, gtid string) (string, error) 
 	return name, errors.Wrapf(err, "get binlog by gtid %s", gtid)
 }
 
+// GetPreviousGTIDs returns the GTID set of the Previous_gtids event of the
+// binary log: every GTID executed before the binary log was opened. It only
+// reads the binary log header.
+func (p *PXC) GetPreviousGTIDs(ctx context.Context, binlogName string) (string, error) {
+	// SHOW BINLOG EVENTS can't be prepared server side, so the placeholder
+	// relies on interpolateParams being enabled for the connection.
+	var logName, pos, eventType, serverID, endPos, info string
+	err := p.db.QueryRowContext(ctx, "SHOW BINLOG EVENTS IN ? LIMIT 1, 1", binlogName).
+		Scan(&logName, &pos, &eventType, &serverID, &endPos, &info)
+	if err != nil {
+		return "", errors.Wrapf(err, "show binlog events in %s", binlogName)
+	}
+	if eventType != "Previous_gtids" {
+		return "", errors.Errorf("second event of %s is %s, not Previous_gtids", binlogName, eventType)
+	}
+	return info, nil
+}
+
 // queryNullString runs a query returning a single, possibly NULL, string.
 // If the binlog UDFs are not available yet, they are created and the query is retried once.
 func (p *PXC) queryNullString(ctx context.Context, query string, args ...any) (string, error) {

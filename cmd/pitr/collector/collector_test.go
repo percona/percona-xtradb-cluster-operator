@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -114,6 +115,9 @@ type fakeLocator struct {
 	failing map[string]error // binlogs failing with the given error
 	fetched []string         // binlogs GetGTIDSet was called for, in order
 
+	purged  string // GTIDs executed before the first binlog, like gtid_purged
+	prevErr error  // returned by GetPreviousGTIDs
+
 	subsetErr   error // returned by GTIDSubset
 	subsetCalls int
 }
@@ -187,6 +191,41 @@ func (f *fakeLocator) GetBinlogByGTID(_ context.Context, gtidText string) (strin
 		}
 	}
 	return "", nil
+}
+
+// GetPreviousGTIDs mimics the Previous_gtids event: the purged GTIDs plus the
+// sets of all earlier binlogs, with the intervals of a UUID in a single entry.
+func (f *fakeLocator) GetPreviousGTIDs(_ context.Context, name string) (string, error) {
+	if f.prevErr != nil {
+		return "", f.prevErr
+	}
+
+	i := slices.IndexFunc(f.binlogs, func(b pxc.Binlog) bool { return b.Name == name })
+	if i < 0 {
+		return "", errors.New("Binary log does not exist")
+	}
+
+	sets := []string{f.purged}
+	for _, b := range f.binlogs[:i] {
+		sets = append(sets, b.GTIDSet.Raw())
+	}
+
+	intervals := map[string][]string{}
+	for _, set := range sets {
+		for entry := range strings.SplitSeq(set, ",") {
+			uuid, rest, found := strings.Cut(strings.TrimSpace(entry), ":")
+			if found {
+				intervals[uuid] = append(intervals[uuid], rest)
+			}
+		}
+	}
+
+	var entries []string
+	for uuid, list := range intervals {
+		entries = append(entries, uuid+":"+strings.Join(list, ":"))
+	}
+	slices.Sort(entries)
+	return strings.Join(entries, ","), nil
 }
 
 type fakeStorage struct {
@@ -609,6 +648,154 @@ func TestEmptyBinlogsAreNotAskedAgain(t *testing.T) {
 	}
 }
 
+func TestLatestGTIDSets(t *testing.T) {
+	t.Parallel()
+
+	const uuidA = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+	const uuidB = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
+
+	binlog := func(name, gtidSet string) pxc.Binlog {
+		return pxc.Binlog{Name: name, GTIDSet: pxc.NewGTIDSet(gtidSet)}
+	}
+
+	tests := []struct {
+		name        string
+		binlogs     []pxc.Binlog
+		purged      string
+		invalid     map[string]bool
+		failing     map[string]error
+		prevErr     error
+		want        []string
+		wantFetched []string
+		wantErr     string
+	}{
+		{
+			name: "no binlogs",
+		},
+		{
+			name: "last binlog has transactions",
+			binlogs: []pxc.Binlog{
+				binlog("binlog.000001", uuidA+":1-50"),
+				binlog("binlog.000002", uuidA+":51-100"),
+			},
+			want:        []string{uuidA + ":51-100"},
+			wantFetched: []string{"binlog.000002"},
+		},
+		{
+			name: "empty binlogs at the end are not walked",
+			binlogs: []pxc.Binlog{
+				binlog("binlog.000001", uuidA+":1-50"),
+				binlog("binlog.000002", uuidA+":51-100"),
+				binlog("binlog.000003", ""),
+				binlog("binlog.000004", ""),
+			},
+			want:        []string{uuidA + ":1-50:51-100"},
+			wantFetched: []string{"binlog.000004"},
+		},
+		{
+			name: "only purged transactions",
+			binlogs: []pxc.Binlog{
+				binlog("binlog.000005", ""),
+				binlog("binlog.000006", ""),
+			},
+			purged:      uuidA + ":1-50",
+			wantFetched: []string{"binlog.000006"},
+		},
+		{
+			name: "no transactions at all",
+			binlogs: []pxc.Binlog{
+				binlog("binlog.000001", ""),
+				binlog("binlog.000002", ""),
+			},
+			wantFetched: []string{"binlog.000002"},
+		},
+		{
+			name: "uuid of an older binlog is left out",
+			binlogs: []pxc.Binlog{
+				binlog("binlog.000001", uuidA+":1-50"),
+				binlog("binlog.000002", uuidB+":1-25"),
+				binlog("binlog.000003", ""),
+			},
+			want:        []string{uuidB + ":1-25"},
+			wantFetched: []string{"binlog.000003"},
+		},
+		{
+			name: "every uuid of the most recent binlog with transactions",
+			binlogs: []pxc.Binlog{
+				binlog("binlog.000001", uuidA+":1-50"),
+				binlog("binlog.000002", uuidA+":51-60,"+uuidB+":1-25"),
+				binlog("binlog.000003", ""),
+			},
+			want:        []string{uuidA + ":1-50:51-60", uuidB + ":1-25"},
+			wantFetched: []string{"binlog.000003"},
+		},
+		{
+			name: "purged uuid is left out",
+			binlogs: []pxc.Binlog{
+				binlog("binlog.000005", uuidB+":1-25"),
+				binlog("binlog.000006", ""),
+			},
+			purged:      uuidA + ":1-50",
+			want:        []string{uuidB + ":1-25"},
+			wantFetched: []string{"binlog.000006"},
+		},
+		{
+			name: "invalid last binlog is treated as empty",
+			binlogs: []pxc.Binlog{
+				binlog("binlog.000001", uuidA+":1-50"),
+				binlog("binlog.000002", uuidA+":51-100"),
+			},
+			invalid:     map[string]bool{"binlog.000002": true},
+			want:        []string{uuidA + ":1-50"},
+			wantFetched: []string{"binlog.000002"},
+		},
+		{
+			name: "previous GTIDs can't be read",
+			binlogs: []pxc.Binlog{
+				binlog("binlog.000001", uuidA+":1-50"),
+				binlog("binlog.000002", ""),
+			},
+			prevErr:     errors.New("connection lost"),
+			wantFetched: []string{"binlog.000002"},
+			wantErr:     "get previous GTIDs of binlog.000002: connection lost",
+		},
+		{
+			name: "GTID set of the last binlog can't be read",
+			binlogs: []pxc.Binlog{
+				binlog("binlog.000001", ""),
+			},
+			failing:     map[string]error{"binlog.000001": errors.New("connection lost")},
+			wantFetched: []string{"binlog.000001"},
+			wantErr:     "get GTID set of binlog.000001: connection lost",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			loc := &fakeLocator{
+				binlogs: tt.binlogs,
+				purged:  tt.purged,
+				invalid: tt.invalid,
+				failing: tt.failing,
+				prevErr: tt.prevErr,
+			}
+			empties := &emptyBinlogs{}
+			empties.use("pxc-0")
+
+			got, err := latestGTIDSets(context.Background(), loc, tt.binlogs, empties)
+			if tt.wantErr != "" {
+				require.EqualError(t, err, tt.wantErr)
+			} else {
+				require.NoError(t, err)
+			}
+			assert.Equal(t, tt.want, got)
+			assert.Equal(t, tt.wantFetched, loc.fetched)
+		})
+	}
+}
+
 func TestFindResumePointOnIdleCluster(t *testing.T) {
 	t.Parallel()
 
@@ -625,14 +812,6 @@ func TestFindResumePointOnIdleCluster(t *testing.T) {
 		}
 		return tail
 	}
-	// names of the first n binlogs, newest first
-	walkedNewestFirst := func(n int) []string {
-		var names []string
-		for i := n; i >= 1; i-- {
-			names = append(names, fmt.Sprintf("binlog.%06d", i))
-		}
-		return names
-	}
 
 	tests := []struct {
 		name       string
@@ -647,17 +826,17 @@ func TestFindResumePointOnIdleCluster(t *testing.T) {
 			wantSecond: []string{"binlog.000001"},
 		},
 		{
-			name:       "empty binlogs are only walked once",
+			name:       "empty binlogs are not walked",
 			binlogs:    []pxc.Binlog{withTx, empty("000002"), empty("000003"), empty("000004")},
-			wantFirst:  []string{"binlog.000004", "binlog.000003", "binlog.000002", "binlog.000001"},
-			wantSecond: []string{"binlog.000001"},
+			wantFirst:  []string{"binlog.000004"},
+			wantSecond: nil,
 		},
 		{
 			// A day without traffic with a binlog rotation every minute.
-			name:       "a long empty tail is walked once",
+			name:       "a long empty tail is not walked",
 			binlogs:    append([]pxc.Binlog{withTx}, emptyTail(1440)...),
-			wantFirst:  walkedNewestFirst(1441),
-			wantSecond: []string{"binlog.000001"},
+			wantFirst:  []string{"binlog.001441"},
+			wantSecond: nil,
 		},
 	}
 

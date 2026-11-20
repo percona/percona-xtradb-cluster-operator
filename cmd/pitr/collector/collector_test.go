@@ -67,105 +67,55 @@ func TestReadBinlog(t *testing.T) {
 func TestFindBinlogWithEndMarker(t *testing.T) {
 	t.Parallel()
 
-	const uuidA = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
-	const uuidB = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
-
-	binlog := func(name, gtidSet string) pxc.Binlog {
-		return pxc.Binlog{Name: name, GTIDSet: pxc.NewGTIDSet(gtidSet)}
+	binlogs := []pxc.Binlog{
+		{Name: "binlog.000001"},
+		{Name: "binlog.000002"},
+		{Name: "binlog.000003"},
 	}
 
 	tests := []struct {
-		name         string
-		binlogs      []pxc.Binlog
-		lastUploaded string
-		want         string
+		name    string
+		binlogs []pxc.Binlog
+		names   []string
+		want    string
 	}{
 		{
-			// The scenario from #2286: another node's binlogs split the GTID
-			// range that one node uploaded as a single entry. The end marker
-			// (100) lives in the second of two binlogs.
-			name: "end marker in later of two split binlogs",
-			binlogs: []pxc.Binlog{
-				binlog("binlog.000001", uuidA+":1-50"),
-				binlog("binlog.000002", uuidA+":51-100"),
-				binlog("binlog.000003", uuidA+":101-150"),
-			},
-			lastUploaded: uuidA + ":1-100",
-			want:         "binlog.000002",
+			name:    "single match",
+			binlogs: binlogs,
+			names:   []string{"binlog.000002"},
+			want:    "binlog.000002",
 		},
 		{
-			name: "end marker in most recent binlog",
-			binlogs: []pxc.Binlog{
-				binlog("binlog.000001", uuidA+":1-50"),
-				binlog("binlog.000002", uuidA+":51-100"),
-			},
-			lastUploaded: uuidA + ":1-50",
-			want:         "binlog.000001",
+			// After a restore the last uploaded set may carry both old and new UUID
+			// ranges, whose end markers can be in different binlogs.
+			name:    "most recent binlog wins when several match",
+			binlogs: binlogs,
+			names:   []string{"binlog.000001", "binlog.000003"},
+			want:    "binlog.000003",
 		},
 		{
-			name: "end marker missing means gap",
-			binlogs: []pxc.Binlog{
-				binlog("binlog.000001", uuidA+":1-50"),
-				binlog("binlog.000002", uuidA+":51-99"),
-				binlog("binlog.000003", uuidA+":101-150"),
-			},
-			lastUploaded: uuidA + ":1-100",
-			want:         "",
+			name:    "order of names doesn't matter",
+			binlogs: binlogs,
+			names:   []string{"binlog.000003", "binlog.000001"},
+			want:    "binlog.000003",
 		},
 		{
-			name: "binlog with non-contiguous intervals contains end marker",
-			binlogs: []pxc.Binlog{
-				binlog("binlog.000001", uuidA+":1-50:80-100"),
-				binlog("binlog.000002", uuidA+":101-150"),
-			},
-			lastUploaded: uuidA + ":1-100",
-			want:         "binlog.000001",
+			name:    "no match means gap",
+			binlogs: binlogs,
+			names:   nil,
+			want:    "",
 		},
 		{
-			// After a restore the cluster gets a new UUID, so the last uploaded
-			// set may carry both old and new UUID ranges. The match should be
-			// found via whichever UUID's end marker exists in a binlog.
-			name: "matches via second uuid in lastUploadedSet",
-			binlogs: []pxc.Binlog{
-				binlog("binlog.000001", uuidA+":1-50"),
-				binlog("binlog.000002", uuidB+":1-25"),
-			},
-			lastUploaded: uuidA + ":1-200," + uuidB + ":1-25",
-			want:         "binlog.000002",
+			name:    "binlog that is not in the list means gap",
+			binlogs: binlogs,
+			names:   []string{"binlog.000009"},
+			want:    "",
 		},
 		{
-			name: "binlog carrying multiple uuids matches on the relevant one",
-			binlogs: []pxc.Binlog{
-				binlog("binlog.000001", uuidA+":1-50,"+uuidB+":1-10"),
-				binlog("binlog.000002", uuidB+":11-30"),
-			},
-			lastUploaded: uuidB + ":1-10",
-			want:         "binlog.000001",
-		},
-		{
-			// Most-recent-first iteration: when more than one binlog contains
-			// the end marker, the most recent one wins.
-			name: "most recent binlog wins when multiple contain the end marker",
-			binlogs: []pxc.Binlog{
-				binlog("binlog.000001", uuidA+":1-100"),
-				binlog("binlog.000002", uuidA+":50-150"),
-			},
-			lastUploaded: uuidA + ":1-100",
-			want:         "binlog.000002",
-		},
-		{
-			name:         "empty binlog list returns empty",
-			binlogs:      nil,
-			lastUploaded: uuidA + ":1-100",
-			want:         "",
-		},
-		{
-			name: "malformed lastUploaded entry is skipped, valid one still matches",
-			binlogs: []pxc.Binlog{
-				binlog("binlog.000001", uuidA+":1-50"),
-			},
-			lastUploaded: "not-a-gtid," + uuidA + ":1-50",
-			want:         "binlog.000001",
+			name:    "empty binlog list",
+			binlogs: nil,
+			names:   []string{"binlog.000001"},
+			want:    "",
 		},
 	}
 
@@ -173,8 +123,7 @@ func TestFindBinlogWithEndMarker(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got := findBinlogWithEndMarker(tt.binlogs, pxc.NewGTIDSet(tt.lastUploaded))
-			assert.Equal(t, tt.want, got)
+			assert.Equal(t, tt.want, findBinlogWithEndMarker(tt.binlogs, tt.names))
 		})
 	}
 }

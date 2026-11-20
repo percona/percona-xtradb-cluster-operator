@@ -95,6 +95,53 @@ func (p *PXC) GetGTIDSet(ctx context.Context, binlogName string) (string, error)
 	return binlogSet, nil
 }
 
+// GetBinlogByGTID returns the name of the binlog that contains the GTID.
+// It returns an empty string if there is no such binlog.
+func (p *PXC) GetBinlogByGTID(ctx context.Context, gtid string) (string, error) {
+	return p.callBinlogUDF(ctx, "get_binlog_by_gtid", gtid)
+}
+
+// GetLastGTIDFromBinlog returns the last GTID of the binary log file.
+func (p *PXC) GetLastGTIDFromBinlog(ctx context.Context, binlogName string) (string, error) {
+	return p.callBinlogUDF(ctx, "get_last_gtid_from_binlog", binlogName)
+}
+
+// callBinlogUDF calls a function that takes one argument and returns a string,
+// NULL is returned as an empty string. The functions are created if the node doesn't have them yet.
+func (p *PXC) callBinlogUDF(ctx context.Context, function, arg string) (string, error) {
+	query := fmt.Sprintf("SELECT CAST(%s(?) AS CHAR)", function)
+
+	call := func() (string, error) {
+		var result sql.NullString
+		if err := p.db.QueryRowContext(ctx, query, arg).Scan(&result); err != nil {
+			return "", err
+		}
+		return result.String, nil
+	}
+
+	result, err := call()
+	if err == nil || !strings.Contains(err.Error(), "does not exist") {
+		return result, errors.Wrapf(err, "call %s", function)
+	}
+
+	version, err := p.GetVersion(ctx)
+	if err != nil {
+		return "", errors.Wrap(err, "get version")
+	}
+	switch {
+	case strings.HasPrefix(version, "8.0"):
+		err = p.CreateCollectorFunctions(ctx)
+	case strings.HasPrefix(version, "8.4"):
+		err = p.InstallBinlogUDFComponent(ctx)
+	}
+	if err != nil {
+		return "", errors.Wrap(err, "create collector functions")
+	}
+
+	result, err = call()
+	return result, errors.Wrapf(err, "call %s", function)
+}
+
 type Binlog struct {
 	Name      string
 	Size      int64
@@ -317,6 +364,26 @@ func GetPXCFirstHost(ctx context.Context, pxcServiceName string) (string, error)
 	return lastHost, nil
 }
 
+// IsHostSyncedPrimary reports whether the host is Synced and in the Primary component.
+func IsHostSyncedPrimary(ctx context.Context, pxcServiceName, host string) (bool, error) {
+	nodes, err := GetNodesByServiceName(ctx, pxcServiceName)
+	if err != nil {
+		return false, errors.Wrap(err, "get nodes by service name")
+	}
+
+	for _, node := range nodes {
+		if strings.Split(node, ":")[0] == host {
+			return isSyncedPrimary(node), nil
+		}
+	}
+
+	return false, nil
+}
+
+func isSyncedPrimary(node string) bool {
+	return strings.Contains(node, "wsrep_ready:ON:wsrep_connected:ON:wsrep_local_state_comment:Synced:wsrep_cluster_status:Primary")
+}
+
 func GetPXCOldestBinlogHost(ctx context.Context, pxcServiceName, user, pass, prevHost string) (string, error) {
 	nodes, err := GetNodesByServiceName(ctx, pxcServiceName)
 	if err != nil {
@@ -447,6 +514,8 @@ func collectorFunctions() map[string]string {
 		"get_last_record_timestamp_by_binlog":  "INTEGER",
 		"get_gtid_set_by_binlog":               "STRING",
 		"get_first_record_timestamp_by_binlog": "INTEGER",
+		"get_binlog_by_gtid":                   "STRING",
+		"get_last_gtid_from_binlog":            "STRING",
 	}
 }
 

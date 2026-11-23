@@ -135,30 +135,6 @@ func sha256Hash(data []byte) string {
 	return fmt.Sprintf("%x", sha256.Sum256(data))
 }
 
-func (r *ReconcilePerconaXtraDBCluster) currentMySQLVersion(ctx context.Context, cr *api.PerconaXtraDBCluster) (*version.Version, error) {
-	mysqlVersion := cr.Status.PXC.Version
-	if mysqlVersion == "" {
-		var err error
-		mysqlVersion, err = r.mysqlVersion(ctx, cr, statefulset.NewNode(cr))
-		if err != nil {
-			if errors.Is(err, versionNotReadyErr) {
-				return nil, nil
-			}
-			return nil, errors.Wrap(err, "retrieving pxc version")
-		}
-	}
-	if mysqlVersion == "" {
-		return nil, nil
-	}
-
-	ver, err := version.NewVersion(mysqlVersion)
-	if err != nil {
-		return nil, errors.Wrap(err, "invalid pxc version")
-	}
-
-	return ver, nil
-}
-
 // mysqlSupportsPasswordPolicyExemptions reports whether the PXC node supports
 // exempting operator-managed users from password_history, password_reuse_interval
 // and password_require_current (the latter needs 8.0.13+); gated at 8.0.0 since

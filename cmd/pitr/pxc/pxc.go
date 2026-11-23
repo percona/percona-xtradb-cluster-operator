@@ -374,12 +374,18 @@ func IsHostSyncedPrimary(ctx context.Context, pxcServiceName, host string) (bool
 	if err != nil {
 		return false, errors.Wrap(err, "get nodes by service name")
 	}
+	return hostSyncedPrimary(nodes, host), nil
+}
+
+// hostSyncedPrimary reports whether host is in nodes, the entries returned by
+// GetNodesByServiceName, as Synced and Primary.
+func hostSyncedPrimary(nodes []string, host string) bool {
 	for _, node := range nodes {
 		if strings.Split(node, ":")[0] == host {
-			return IsSyncedPrimary(node), nil
+			return IsSyncedPrimary(node)
 		}
 	}
-	return false, nil
+	return false
 }
 
 func GetNodesByServiceName(ctx context.Context, pxcServiceName string) ([]string, error) {

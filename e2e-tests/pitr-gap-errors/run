@@ -159,6 +159,28 @@ purge_binlogs() {
 	run_mysql_local 'PURGE BINARY LOGS BEFORE now();' "-h127.0.0.1 -P3306 -uroot -proot_password" "${pod}"
 }
 
+count_binlogs() {
+	local pod=$1
+
+	run_mysql_local 'SHOW BINARY LOGS;' "-h127.0.0.1 -P3306 -uroot -proot_password" "${pod}" | wc -l
+}
+
+# When nothing is written, the collector skips its runs and doesn't rotate the
+# binlogs, so no empty binlogs pile up on the host it reads from.
+check_no_binlogs_rotated_when_idle() {
+	local pod=$1
+	local before after
+
+	desc "PiTR collector doesn't rotate binlogs on ${pod} while nothing is written"
+	before=$(count_binlogs "$pod")
+	sleep_with_log $((cycle * 2 + 10))
+	after=$(count_binlogs "$pod")
+	if [[ $before != "$after" ]]; then
+		echo "ERROR: binlogs on ${pod} went from ${before} to ${after} while nothing was written"
+		exit 1
+	fi
+}
+
 write_stickiness_data() {
 	local cluster=$1
 	local start=$2
@@ -208,9 +230,13 @@ check_source_host_stickiness() {
 	set_wsrep_desync "$host" OFF
 	wait_for_pxc_synced "$host"
 	check_pitr_source_host_stays "$cluster" "$next_host" $((cycle * 2 + 10))
+	check_no_binlogs_rotated_when_idle "$next_host"
 
 	desc "PiTR collector leaves ${next_host} when the binlogs it needs are purged there"
 	purge_binlogs "$next_host"
+	# purging doesn't change gtid_executed, so until something is written the
+	# collector skips its runs and doesn't look at the binlogs of ${next_host}
+	write_stickiness_data "$cluster" 30 3
 	local last_host
 	last_host=$(wait_for_pitr_source_host_change "$cluster" "$next_host" $((cycle * 6)))
 	check_pitr_no_binlog_gap "$cluster"

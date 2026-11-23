@@ -107,8 +107,6 @@ func (p *PXC) GetBinlogByGTID(ctx context.Context, gtid string) (string, error) 
 // binary log: every GTID executed before the binary log was opened. It only
 // reads the binary log header.
 func (p *PXC) GetPreviousGTIDs(ctx context.Context, binlogName string) (string, error) {
-	// SHOW BINLOG EVENTS can't be prepared server side, so the placeholder
-	// relies on interpolateParams being enabled for the connection.
 	var logName, pos, eventType, serverID, endPos, info string
 	err := p.db.QueryRowContext(ctx, "SHOW BINLOG EVENTS IN ? LIMIT 1, 1", binlogName).
 		Scan(&logName, &pos, &eventType, &serverID, &endPos, &info)

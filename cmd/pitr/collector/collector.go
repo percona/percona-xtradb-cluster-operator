@@ -663,10 +663,12 @@ func gtidSetUnlessEmpty(ctx context.Context, loc binlogLocator, binlog pxc.Binlo
 // most recent binlog that has any. Only the UUIDs are meant to be used: when
 // that binlog isn't the last one, the sets also cover earlier binlogs.
 func latestGTIDSets(ctx context.Context, loc binlogLocator, binlogs []pxc.Binlog, empties *emptyBinlogs) ([]string, error) {
+	// No binlogs, early return
 	if len(binlogs) == 0 {
 		return nil, nil
 	}
 
+	// Get the GTID set of the last closed binlog
 	last := binlogs[len(binlogs)-1]
 	gtidSet, err := gtidSetUnlessEmpty(ctx, loc, last, empties)
 	if err != nil {
@@ -676,18 +678,14 @@ func latestGTIDSets(ctx context.Context, loc binlogLocator, binlogs []pxc.Binlog
 		return list, nil
 	}
 
-	// There can be lots of empty binlogs at the end, e.g. on an idle cluster,
-	// and asking about each of them takes too long. Previous_gtids of the last
-	// binlog holds every UUID executed so far. The binlog holding the last
-	// transaction of a UUID is the most recent one with that UUID, so the most
-	// recent of those binlogs is the one we are looking for, and the UUIDs
-	// ending in it are the ones it has transactions for.
+	// Last binlog doesn't have any GTID set, check the Previous_gtids event
 	prev, err := loc.GetPreviousGTIDs(ctx, last.Name)
 	if err != nil {
 		return nil, errors.Wrapf(err, "get previous GTIDs of %s", last.Name)
 	}
 	prevSet := pxc.NewGTIDSet(prev)
 
+	// Find the UUIDs with transactions in the newest non-empty binlog
 	newest := -1
 	var sets []string
 	for _, entry := range prevSet.List() {

@@ -13,10 +13,12 @@ import (
 	"github.com/pkg/errors"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/resourceversion"
 	"k8s.io/client-go/util/retry"
 	k8sretry "k8s.io/client-go/util/retry"
 	"k8s.io/utils/ptr"
@@ -133,7 +135,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 		return reconcile.Result{}, err
 	}
 
-	observed := cr.Status.DeepCopy() // capture the initial status to detect stale cache before writing back status
+	observed := cr.DeepCopy()
 	defer func() {
 		if err := r.writeStatus(ctx, cr, observed); err != nil {
 			log.Error(err, "failed to update backup status")
@@ -309,7 +311,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) prepareStatus(
 	cr *api.PerconaXtraDBClusterBackup,
 	cluster *api.PerconaXtraDBCluster,
 	storage *api.BackupStorageSpec,
-	observed *api.PXCBackupStatus,
+	observed *api.PerconaXtraDBClusterBackup,
 ) error {
 	if err := r.setIncrementalBase(ctx, cr, cluster, storage); err != nil {
 		return errors.Wrap(err, "set incremental base backup annotation")
@@ -1230,9 +1232,9 @@ var errStaleStatus = errors.New("the backup's status changed since this reconcil
 func (r *ReconcilePerconaXtraDBClusterBackup) writeStatus(
 	ctx context.Context,
 	cr *api.PerconaXtraDBClusterBackup,
-	observed *api.PXCBackupStatus,
+	observed *api.PerconaXtraDBClusterBackup,
 ) error {
-	if observed.Equals(cr.Status) {
+	if equality.Semantic.DeepEqual(cr.Status, observed.Status) {
 		return nil
 	}
 
@@ -1242,23 +1244,22 @@ func (r *ReconcilePerconaXtraDBClusterBackup) writeStatus(
 			return err
 		}
 
-		// The kube API contains a status that was different from what the reconciler
-		// initially observed, that means we might be overwriting changes made previously that
-		// the controller did not yet act on.
-		if !actual.Status.Equals(*observed) {
+		// Before we force update the status, make sure that this reconcile
+		// observed the same object initially.
+		if cmp, err := resourceversion.CompareResourceVersion(cr.GetResourceVersion(), observed.GetResourceVersion()); err != nil {
+			return errors.Wrap(err, "failed to compare resource version")
+		} else if cmp != 0 {
 			return errStaleStatus
 		}
 
 		actual.Status = cr.Status
-
 		return r.client.Status().Update(ctx, actual)
 	})
 	if err != nil {
 		return err
 	}
 
-	*observed = *cr.Status.DeepCopy()
-
+	observed.Status = *cr.Status.DeepCopy()
 	return nil
 }
 

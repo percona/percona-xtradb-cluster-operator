@@ -266,6 +266,15 @@ func (p *PXC) WsrepClusterStateUUID() (string, error) {
 	return value, nil
 }
 
+// GetGTIDExecuted returns the GTIDs of all transactions executed on the host.
+func (p *PXC) GetGTIDExecuted(ctx context.Context) (string, error) {
+	var executed string
+	if err := p.db.QueryRowContext(ctx, "SELECT @@GLOBAL.gtid_executed").Scan(&executed); err != nil {
+		return "", errors.Wrap(err, "select gtid_executed")
+	}
+	return executed, nil
+}
+
 func (p *PXC) GTIDSubset(ctx context.Context, set1, set2 string) (bool, error) {
 	row := p.db.QueryRowContext(ctx, "SELECT GTID_SUBSET(?,?)", set1, set2)
 	var result int

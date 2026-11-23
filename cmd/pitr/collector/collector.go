@@ -91,11 +91,19 @@ type Collector struct {
 	db              hostConn
 	hosts           hostFuncs
 	storage         storage.Storage
-	lastUploadedSet pxc.GTIDSet  // last uploaded binary logs set
-	pxcServiceName  string       // k8s service name for PXC, its for get correct host for connection
-	pxcUser         string       // user for connection to PXC
-	pxcPass         string       // password for connection to PXC
-	emptyBinlogs    emptyBinlogs // in-memory cache of closed binlogs known to have no transactions
+	lastUploadedSet pxc.GTIDSet // last uploaded binary logs set
+	pxcServiceName  string      // k8s service name for PXC, its for get correct host for connection
+	pxcUser         string      // user for connection to PXC
+	pxcPass         string      // password for connection to PXC
+	lastRun         lastRun     // what the last successful run read, to skip runs with nothing new
+}
+
+// lastRun is the host the last successful run read binlogs from, and the
+// gtid_executed of that host before the run rotated its binlogs. Everything in
+// gtidExecuted was in the binlogs that run uploaded.
+type lastRun struct {
+	host         string
+	gtidExecuted string
 }
 
 type Config struct {
@@ -211,7 +219,6 @@ func New(ctx context.Context, c Config) (*Collector, error) {
 	return collector, nil
 }
 
-// pxcHosts returns the real implementation of the host calls.
 func (c *Collector) pxcHosts() hostFuncs {
 	return hostFuncs{
 		isHealthy: func(ctx context.Context, host string) (bool, error) {
@@ -302,16 +309,25 @@ func (c *Collector) Run(ctx context.Context) error {
 	}
 	defer c.close()
 
+	if plan.nothingNew {
+		log.Printf("no new transactions on host %s since the last run, skipping", c.db.GetHost())
+		pxcBinlogCollectorLastProcessingTime.SetToCurrentTime()
+		pxcBinlogCollectorBackupSuccess.Inc()
+		return nil
+	}
+
 	// remove last set because we always
 	// read it from aws file
 	c.lastUploadedSet = pxc.NewGTIDSet("")
 
 	err = c.CollectBinLogs(ctx, plan)
 	if err != nil {
+		c.lastRun = lastRun{}
 		pxcBinlogCollectorBackupFailure.Inc()
 		return errors.Wrap(err, "collect binlog files")
 	}
 
+	c.lastRun = lastRun{host: c.db.GetHost(), gtidExecuted: plan.gtidExecuted}
 	pxcBinlogCollectorBackupSuccess.Inc()
 	return nil
 }
@@ -404,6 +420,10 @@ func (c *Collector) reusePreviousHost(ctx context.Context, host string) (hostCon
 		return nil, nil, false
 	}
 
+	if c.nothingNewOn(ctx, db) {
+		return db, &uploadPlan{nothingNew: true}, true
+	}
+
 	plan, err := c.planUpload(ctx, db)
 	if err != nil {
 		log.Printf("WARNING: can't plan upload from previous host %s: %v", host, err)
@@ -416,6 +436,32 @@ func (c *Collector) reusePreviousHost(ctx context.Context, host string) (hostCon
 	}
 
 	return db, plan, true
+}
+
+// nothingNewOn reports whether no transactions were executed on the host since
+// the last successful run read from it. Then there is nothing to upload, and the
+// run can be skipped without rotating the binlogs, which would leave an empty
+// binlog behind on every run of an idle cluster.
+// It's only reliable on a Synced/Primary host: the gtid_executed of a host that
+// isn't one may stay the same while the rest of the cluster takes writes.
+// A failed check reports false, so that the run goes on as usual.
+func (c *Collector) nothingNewOn(ctx context.Context, host binlogHost) bool {
+	if c.lastRun.host != host.GetHost() {
+		return false
+	}
+
+	executed, err := host.GetGTIDExecuted(ctx)
+	if err != nil {
+		log.Printf("WARNING: can't get gtid_executed of host %s: %v", host.GetHost(), err)
+		return false
+	}
+
+	nothingNew, err := host.GTIDSubset(ctx, executed, c.lastRun.gtidExecuted)
+	if err != nil {
+		log.Printf("WARNING: can't compare gtid_executed of host %s with the last run: %v", host.GetHost(), err)
+		return false
+	}
+	return nothingNew
 }
 
 // hostConn is a connection to a PXC host the collector reads binlogs from.
@@ -442,13 +488,16 @@ type binlogHost interface {
 	binlogLocator
 	GetHost() string
 	WsrepClusterStateUUID() (string, error)
+	GetGTIDExecuted(ctx context.Context) (string, error)
 	GetBinLogList(ctx context.Context) ([]pxc.Binlog, error)
 }
 
 // uploadPlan is what the collector found out about a host before uploading from it.
 type uploadPlan struct {
-	binlogs []pxc.Binlog // closed binlogs on the host, oldest first
-	resume  resumePoint
+	binlogs      []pxc.Binlog // closed binlogs on the host, oldest first
+	resume       resumePoint
+	gtidExecuted string // gtid_executed of the host before its binlogs were rotated
+	nothingNew   bool   // true if nothing was executed on the host since the last run, so the run is skipped
 }
 
 // safeToKeepHost reports whether the host has binlogs with transactions and
@@ -461,25 +510,27 @@ func (p *uploadPlan) safeToKeepHost() bool {
 // are closed, and finds where to resume uploading. It's done once per run, and
 // the same plan is used both to decide if the host can be kept and to upload.
 func (c *Collector) planUpload(ctx context.Context, host binlogHost) (*uploadPlan, error) {
-	c.emptyBinlogs.use(host.GetHost())
-
 	sourceID, err := host.WsrepClusterStateUUID()
 	if err != nil {
 		return nil, errors.Wrap(err, "get cluster state uuid")
+	}
+
+	gtidExecuted, err := host.GetGTIDExecuted(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "get gtid_executed")
 	}
 
 	binlogs, err := host.GetBinLogList(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "get binlog list")
 	}
-	c.emptyBinlogs.retain(binlogs)
 
 	rp, err := c.findResumePoint(ctx, host, sourceID, binlogs)
 	if err != nil {
 		return nil, errors.Wrap(err, "find resume point")
 	}
 
-	return &uploadPlan{binlogs: binlogs, resume: rp}, nil
+	return &uploadPlan{binlogs: binlogs, resume: rp, gtidExecuted: gtidExecuted}, nil
 }
 
 // binlogLocator is the subset of *pxc.PXC used to decide where to resume uploading.
@@ -506,7 +557,7 @@ func (c *Collector) findResumePoint(
 	sourceID string,
 	binlogs []pxc.Binlog,
 ) (resumePoint, error) {
-	gtidSets, err := latestGTIDSets(ctx, loc, binlogs, &c.emptyBinlogs)
+	gtidSets, err := latestGTIDSets(ctx, loc, binlogs)
 	if err != nil {
 		return resumePoint{}, errors.Wrap(err, "get latest GTID sets")
 	}
@@ -563,9 +614,8 @@ func hasNewTransactions(
 	loc binlogLocator,
 	binlog pxc.Binlog,
 	lastUploaded pxc.GTIDSet,
-	empties *emptyBinlogs,
 ) (bool, error) {
-	gtidSet, err := gtidSetUnlessEmpty(ctx, loc, binlog, empties)
+	gtidSet, err := gtidSetUnlessEmpty(ctx, loc, binlog)
 	if err != nil {
 		return false, err
 	}
@@ -580,65 +630,10 @@ func hasNewTransactions(
 	return !uploaded, nil
 }
 
-// emptyBinlogs remembers closed binlogs that have no transactions, so that the
-// collector doesn't ask the server about the same ones on every run. On an idle
-// cluster the periodic binlog rotation adds an empty file every minute, and they
-// all pile up behind the last binlog that has transactions.
-//
-// It is kept in memory only. A binlog is identified by name and size, and is
-// forgotten when the host changes or the file is purged, so a recreated or
-// modified file is always checked again and there is nothing to invalidate.
-type emptyBinlogs struct {
-	host  string
-	known map[string]struct{}
-}
-
-func (e *emptyBinlogs) key(b pxc.Binlog) string {
-	return fmt.Sprintf("%s:%d", b.Name, b.Size)
-}
-
-// use scopes the memory to host, forgetting everything learned about another host.
-func (e *emptyBinlogs) use(host string) {
-	if e.host != host {
-		e.host = host
-		e.known = nil
-	}
-}
-
-func (e *emptyBinlogs) has(b pxc.Binlog) bool {
-	_, ok := e.known[e.key(b)]
-	return ok
-}
-
-func (e *emptyBinlogs) add(b pxc.Binlog) {
-	if e.known == nil {
-		e.known = make(map[string]struct{})
-	}
-	e.known[e.key(b)] = struct{}{}
-}
-
-// retain forgets binlogs that are no longer in binlogs, e.g. because they were purged.
-func (e *emptyBinlogs) retain(binlogs []pxc.Binlog) {
-	current := make(map[string]struct{}, len(binlogs))
-	for _, b := range binlogs {
-		current[e.key(b)] = struct{}{}
-	}
-	for key := range e.known {
-		if _, ok := current[key]; !ok {
-			delete(e.known, key)
-		}
-	}
-}
-
-// gtidSetUnlessEmpty returns the GTID set of a binlog. It returns an empty set,
-// without asking the server, for binlogs already known to have no transactions.
-// Invalid binlogs (MySQL error 3200) are logged and reported as an empty set so
-// that callers skip them. They are not remembered, so they are checked again.
-func gtidSetUnlessEmpty(ctx context.Context, loc binlogLocator, binlog pxc.Binlog, empties *emptyBinlogs) (pxc.GTIDSet, error) {
-	if empties.has(binlog) {
-		return pxc.GTIDSet{}, nil
-	}
-
+// gtidSetUnlessEmpty returns the GTID set of a binlog, or an empty set for a
+// binlog without transactions. Invalid binlogs (MySQL error 3200) are logged and
+// reported as an empty set so that callers skip them.
+func gtidSetUnlessEmpty(ctx context.Context, loc binlogLocator, binlog pxc.Binlog) (pxc.GTIDSet, error) {
 	set, err := loc.GetGTIDSet(ctx, binlog.Name)
 	if err != nil {
 		if errors.Is(err, &mysql.MySQLError{Number: 3200}) {
@@ -648,17 +643,13 @@ func gtidSetUnlessEmpty(ctx context.Context, loc binlogLocator, binlog pxc.Binlo
 		return pxc.GTIDSet{}, errors.Wrapf(err, "get GTID set of %s", binlog.Name)
 	}
 
-	gtidSet := pxc.NewGTIDSet(set)
-	if gtidSet.IsEmpty() {
-		empties.add(binlog)
-	}
-	return gtidSet, nil
+	return pxc.NewGTIDSet(set), nil
 }
 
 // latestGTIDSets returns one GTID set per UUID that has transactions in the
 // most recent binlog that has any. Only the UUIDs are meant to be used: when
 // that binlog isn't the last one, the sets also cover earlier binlogs.
-func latestGTIDSets(ctx context.Context, loc binlogLocator, binlogs []pxc.Binlog, empties *emptyBinlogs) ([]string, error) {
+func latestGTIDSets(ctx context.Context, loc binlogLocator, binlogs []pxc.Binlog) ([]string, error) {
 	// No binlogs, early return
 	if len(binlogs) == 0 {
 		return nil, nil
@@ -666,7 +657,7 @@ func latestGTIDSets(ctx context.Context, loc binlogLocator, binlogs []pxc.Binlog
 
 	// Get the GTID set of the last closed binlog
 	last := binlogs[len(binlogs)-1]
-	gtidSet, err := gtidSetUnlessEmpty(ctx, loc, last, empties)
+	gtidSet, err := gtidSetUnlessEmpty(ctx, loc, last)
 	if err != nil {
 		return nil, err
 	}
@@ -721,11 +712,10 @@ func forEachBinlogWithGTIDs(
 	ctx context.Context,
 	loc binlogLocator,
 	binlogs []pxc.Binlog,
-	empties *emptyBinlogs,
 	fn func(pxc.Binlog) error,
 ) error {
 	for _, binlog := range binlogs {
-		gtidSet, err := gtidSetUnlessEmpty(ctx, loc, binlog, empties)
+		gtidSet, err := gtidSetUnlessEmpty(ctx, loc, binlog)
 		if err != nil {
 			return err
 		}
@@ -880,7 +870,7 @@ func (c *Collector) CollectBinLogs(ctx context.Context, plan *uploadPlan) error 
 		log.Printf("last uploaded binlog: %s", resumeBinlog)
 
 		// we don't need to reupload the binlog if it has nothing new
-		hasNew, err := hasNewTransactions(ctx, c.db, binlogList[start], rp.lastUploaded, &c.emptyBinlogs)
+		hasNew, err := hasNewTransactions(ctx, c.db, binlogList[start], rp.lastUploaded)
 		if err != nil {
 			return errors.Wrap(err, "check last uploaded binlog")
 		}
@@ -890,7 +880,7 @@ func (c *Collector) CollectBinLogs(ctx context.Context, plan *uploadPlan) error 
 	}
 
 	uploaded := 0
-	err := forEachBinlogWithGTIDs(ctx, c.db, binlogList[start:], &c.emptyBinlogs, func(binlog pxc.Binlog) error {
+	err := forEachBinlogWithGTIDs(ctx, c.db, binlogList[start:], func(binlog pxc.Binlog) error {
 		if err := c.ensureTimelineFile(ctx, binlog.Name); err != nil {
 			return err
 		}

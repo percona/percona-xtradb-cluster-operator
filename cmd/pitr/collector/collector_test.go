@@ -475,7 +475,7 @@ func TestForEachBinlogWithGTIDs(t *testing.T) {
 			loc := &fakeLocator{binlogs: tt.binlogs, invalid: tt.invalid, failing: tt.failing}
 
 			var gotFn []string
-			err := forEachBinlogWithGTIDs(context.Background(), loc, tt.binlogs, &emptyBinlogs{}, func(b pxc.Binlog) error {
+			err := forEachBinlogWithGTIDs(context.Background(), loc, tt.binlogs, func(b pxc.Binlog) error {
 				gotFn = append(gotFn, b.Name+"="+b.GTIDSet.Raw())
 				if b.Name == tt.failFnOn {
 					return errBoom
@@ -490,160 +490,6 @@ func TestForEachBinlogWithGTIDs(t *testing.T) {
 			}
 			assert.Equal(t, tt.wantFn, gotFn)
 			assert.Equal(t, tt.wantFetched, loc.fetched)
-		})
-	}
-}
-
-func TestEmptyBinlogsAreNotAskedAgain(t *testing.T) {
-	t.Parallel()
-
-	const uuidA = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
-
-	binlog := func(name string, size int64, gtidSet string) pxc.Binlog {
-		return pxc.Binlog{Name: name, Size: size, GTIDSet: pxc.NewGTIDSet(gtidSet)}
-	}
-
-	// every run mirrors one collector run: the host in use, the binlog list the
-	// server returned, and which binlogs are expected to be asked about.
-	type run struct {
-		host        string
-		binlogs     []pxc.Binlog
-		invalid     map[string]bool
-		wantFetched []string
-	}
-
-	tests := []struct {
-		name string
-		runs []run
-	}{
-		{
-			name: "idle cluster only asks about new binlogs",
-			runs: []run{
-				{
-					host: "pxc-0",
-					binlogs: []pxc.Binlog{
-						binlog("binlog.000001", 100, uuidA+":1-50"),
-						binlog("binlog.000002", 50, ""),
-						binlog("binlog.000003", 50, ""),
-					},
-					wantFetched: []string{"binlog.000001", "binlog.000002", "binlog.000003"},
-				},
-				{
-					host: "pxc-0",
-					binlogs: []pxc.Binlog{
-						binlog("binlog.000001", 100, uuidA+":1-50"),
-						binlog("binlog.000002", 50, ""),
-						binlog("binlog.000003", 50, ""),
-						binlog("binlog.000004", 50, ""),
-					},
-					wantFetched: []string{"binlog.000001", "binlog.000004"},
-				},
-			},
-		},
-		{
-			name: "binlog with transactions is always asked about",
-			runs: []run{
-				{
-					host:        "pxc-0",
-					binlogs:     []pxc.Binlog{binlog("binlog.000001", 100, uuidA+":1-50")},
-					wantFetched: []string{"binlog.000001"},
-				},
-				{
-					host:        "pxc-0",
-					binlogs:     []pxc.Binlog{binlog("binlog.000001", 100, uuidA+":1-50")},
-					wantFetched: []string{"binlog.000001"},
-				},
-			},
-		},
-		{
-			name: "binlog whose size changed is asked about again",
-			runs: []run{
-				{
-					host:        "pxc-0",
-					binlogs:     []pxc.Binlog{binlog("binlog.000001", 50, "")},
-					wantFetched: []string{"binlog.000001"},
-				},
-				{
-					host:        "pxc-0",
-					binlogs:     []pxc.Binlog{binlog("binlog.000001", 200, uuidA+":1-5")},
-					wantFetched: []string{"binlog.000001"},
-				},
-			},
-		},
-		{
-			name: "everything is asked about again after the host changes",
-			runs: []run{
-				{
-					host:        "pxc-0",
-					binlogs:     []pxc.Binlog{binlog("binlog.000001", 50, "")},
-					wantFetched: []string{"binlog.000001"},
-				},
-				{
-					host:        "pxc-1",
-					binlogs:     []pxc.Binlog{binlog("binlog.000001", 50, "")},
-					wantFetched: []string{"binlog.000001"},
-				},
-			},
-		},
-		{
-			name: "purged binlogs are forgotten",
-			runs: []run{
-				{
-					host: "pxc-0",
-					binlogs: []pxc.Binlog{
-						binlog("binlog.000001", 50, ""),
-						binlog("binlog.000002", 50, ""),
-					},
-					wantFetched: []string{"binlog.000001", "binlog.000002"},
-				},
-				{
-					host:        "pxc-0",
-					binlogs:     []pxc.Binlog{binlog("binlog.000002", 50, "")},
-					wantFetched: nil,
-				},
-				{
-					host: "pxc-0",
-					binlogs: []pxc.Binlog{
-						binlog("binlog.000001", 50, ""),
-						binlog("binlog.000002", 50, ""),
-					},
-					wantFetched: []string{"binlog.000001"},
-				},
-			},
-		},
-		{
-			name: "invalid binlogs are asked about again",
-			runs: []run{
-				{
-					host:        "pxc-0",
-					binlogs:     []pxc.Binlog{binlog("binlog.000001", 50, uuidA+":1-5")},
-					invalid:     map[string]bool{"binlog.000001": true},
-					wantFetched: []string{"binlog.000001"},
-				},
-				{
-					host:        "pxc-0",
-					binlogs:     []pxc.Binlog{binlog("binlog.000001", 50, uuidA+":1-5")},
-					invalid:     map[string]bool{"binlog.000001": true},
-					wantFetched: []string{"binlog.000001"},
-				},
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			empties := &emptyBinlogs{}
-			for i, r := range tt.runs {
-				empties.use(r.host)
-				empties.retain(r.binlogs)
-
-				loc := &fakeLocator{binlogs: r.binlogs, invalid: r.invalid}
-				err := forEachBinlogWithGTIDs(context.Background(), loc, r.binlogs, empties, func(pxc.Binlog) error { return nil })
-				require.NoError(t, err)
-				assert.Equal(t, r.wantFetched, loc.fetched, "run %d", i+1)
-			}
 		})
 	}
 }
@@ -781,10 +627,7 @@ func TestLatestGTIDSets(t *testing.T) {
 				failing: tt.failing,
 				prevErr: tt.prevErr,
 			}
-			empties := &emptyBinlogs{}
-			empties.use("pxc-0")
-
-			got, err := latestGTIDSets(context.Background(), loc, tt.binlogs, empties)
+			got, err := latestGTIDSets(context.Background(), loc, tt.binlogs)
 			if tt.wantErr != "" {
 				require.EqualError(t, err, tt.wantErr)
 			} else {
@@ -814,29 +657,25 @@ func TestFindResumePointOnIdleCluster(t *testing.T) {
 	}
 
 	tests := []struct {
-		name       string
-		binlogs    []pxc.Binlog
-		wantFirst  []string
-		wantSecond []string
+		name        string
+		binlogs     []pxc.Binlog
+		wantFetched []string
 	}{
 		{
-			name:       "no empty binlogs behind the last upload",
-			binlogs:    []pxc.Binlog{withTx},
-			wantFirst:  []string{"binlog.000001"},
-			wantSecond: []string{"binlog.000001"},
+			name:        "no empty binlogs behind the last upload",
+			binlogs:     []pxc.Binlog{withTx},
+			wantFetched: []string{"binlog.000001"},
 		},
 		{
-			name:       "empty binlogs are not walked",
-			binlogs:    []pxc.Binlog{withTx, empty("000002"), empty("000003"), empty("000004")},
-			wantFirst:  []string{"binlog.000004"},
-			wantSecond: nil,
+			name:        "empty binlogs are not walked",
+			binlogs:     []pxc.Binlog{withTx, empty("000002"), empty("000003"), empty("000004")},
+			wantFetched: []string{"binlog.000004"},
 		},
 		{
 			// A day without traffic with a binlog rotation every minute.
-			name:       "a long empty tail is not walked",
-			binlogs:    append([]pxc.Binlog{withTx}, emptyTail(1440)...),
-			wantFirst:  []string{"binlog.001441"},
-			wantSecond: nil,
+			name:        "a long empty tail is not walked",
+			binlogs:     append([]pxc.Binlog{withTx}, emptyTail(1440)...),
+			wantFetched: []string{"binlog.001441"},
 		},
 	}
 
@@ -847,15 +686,12 @@ func TestFindResumePointOnIdleCluster(t *testing.T) {
 			c := &Collector{storage: &fakeStorage{objects: map[string]string{
 				lastSetFilePrefix + uuidA: uuidA + ":1-50",
 			}}}
-			c.emptyBinlogs.use("pxc-0")
 
-			for i, wantFetched := range [][]string{tt.wantFirst, tt.wantSecond} {
-				loc := &fakeLocator{binlogs: tt.binlogs}
-				rp, err := c.findResumePoint(context.Background(), loc, uuidA, tt.binlogs)
-				require.NoError(t, err)
-				assert.Equal(t, resumePoint{lastUploaded: pxc.NewGTIDSet(uuidA + ":1-50"), start: 0}, rp)
-				assert.Equal(t, wantFetched, loc.fetched, "run %d", i+1)
-			}
+			loc := &fakeLocator{binlogs: tt.binlogs}
+			rp, err := c.findResumePoint(context.Background(), loc, uuidA, tt.binlogs)
+			require.NoError(t, err)
+			assert.Equal(t, resumePoint{lastUploaded: pxc.NewGTIDSet(uuidA + ":1-50"), start: 0}, rp)
+			assert.Equal(t, tt.wantFetched, loc.fetched)
 		})
 	}
 }
@@ -971,7 +807,7 @@ func TestHasNewTransactions(t *testing.T) {
 				loc.invalid = map[string]bool{binlog.Name: true}
 			}
 
-			got, err := hasNewTransactions(context.Background(), loc, binlog, pxc.NewGTIDSet(tt.lastUploaded), &emptyBinlogs{})
+			got, err := hasNewTransactions(context.Background(), loc, binlog, pxc.NewGTIDSet(tt.lastUploaded))
 			if tt.wantErr {
 				require.Error(t, err)
 			} else {
@@ -992,8 +828,12 @@ type fakeHost struct {
 	sourceIDErr error
 	listErr     error
 
+	gtidExecuted string
+	executedErr  error
+
 	sourceIDCalls int
 	listCalls     int
+	calls         []string // gtid_executed reads and binlog lists, in order
 }
 
 func (h *fakeHost) GetHost() string { return h.name }
@@ -1003,8 +843,14 @@ func (h *fakeHost) WsrepClusterStateUUID() (string, error) {
 	return h.sourceID, h.sourceIDErr
 }
 
+func (h *fakeHost) GetGTIDExecuted(context.Context) (string, error) {
+	h.calls = append(h.calls, "gtid_executed")
+	return h.gtidExecuted, h.executedErr
+}
+
 func (h *fakeHost) GetBinLogList(context.Context) ([]pxc.Binlog, error) {
 	h.listCalls++
+	h.calls = append(h.calls, "list")
 	if h.listErr != nil {
 		return nil, h.listErr
 	}
@@ -1027,6 +873,7 @@ func TestPlanUpload(t *testing.T) {
 		stored      map[string]string
 		sourceIDErr error
 		listErr     error
+		executedErr error
 		want        resumePoint
 		wantSafe    bool
 		wantErr     bool
@@ -1077,6 +924,12 @@ func TestPlanUpload(t *testing.T) {
 			sourceIDErr: errBoom,
 			wantErr:     true,
 		},
+		{
+			name:        "failure getting gtid_executed",
+			binlogs:     []pxc.Binlog{binlog("binlog.000001", uuidA+":1-50")},
+			executedErr: errBoom,
+			wantErr:     true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -1090,6 +943,9 @@ func TestPlanUpload(t *testing.T) {
 				sourceID:    uuidA,
 				sourceIDErr: tt.sourceIDErr,
 				listErr:     tt.listErr,
+
+				gtidExecuted: uuidA + ":1-100",
+				executedErr:  tt.executedErr,
 			}
 
 			plan, err := c.planUpload(context.Background(), host)
@@ -1103,12 +959,15 @@ func TestPlanUpload(t *testing.T) {
 			assert.Equal(t, tt.binlogs, plan.binlogs)
 			assert.Equal(t, tt.want, plan.resume)
 			assert.Equal(t, tt.wantSafe, plan.safeToKeepHost())
+			assert.Equal(t, uuidA+":1-100", plan.gtidExecuted)
+			assert.False(t, plan.nothingNew)
+			// gtid_executed is read before the list rotates the binlogs
+			assert.Equal(t, []string{"gtid_executed", "list"}, host.calls)
 
 			// the point of planning once: the host is listed, and asked for its
 			// cluster uuid, a single time, and that's all the upload needs
 			assert.Equal(t, 1, host.listCalls, "binlog list calls")
 			assert.Equal(t, 1, host.sourceIDCalls, "cluster uuid calls")
-			assert.Equal(t, "pxc-0", c.emptyBinlogs.host)
 		})
 	}
 }
@@ -1141,18 +1000,26 @@ func TestPickHost(t *testing.T) {
 
 	// the last uploaded set in storage is uuidA:51-100
 	type hostSpec struct {
-		binlogs    []pxc.Binlog
-		listErr    error
-		connectErr error
+		binlogs      []pxc.Binlog
+		listErr      error
+		connectErr   error
+		gtidExecuted string
+		executedErr  error
 	}
-	caughtUp := hostSpec{binlogs: []pxc.Binlog{binlog("binlog.000001", uuidA+":1-50"), binlog("binlog.000002", uuidA+":51-100")}}
+	caughtUp := hostSpec{
+		binlogs:      []pxc.Binlog{binlog("binlog.000001", uuidA+":1-50"), binlog("binlog.000002", uuidA+":51-100")},
+		gtidExecuted: uuidA + ":1-100",
+	}
+	caughtUpWithNewWrites := hostSpec{binlogs: caughtUp.binlogs, gtidExecuted: uuidA + ":1-101"}
+	idleRun := lastRun{host: prevHost, gtidExecuted: uuidA + ":1-100"}
 	purged := hostSpec{binlogs: []pxc.Binlog{binlog("binlog.000005", uuidA+":101-150")}}
 	noTransactions := hostSpec{binlogs: []pxc.Binlog{binlog("binlog.000001", ""), binlog("binlog.000002", "")}}
 	other := hostSpec{binlogs: []pxc.Binlog{binlog("binlog.000001", uuidA+":1-100")}}
 
 	tests := []struct {
 		name       string
-		prevHost   string // host of the previous run, empty on the first run
+		prevHost   string  // host of the previous run, empty on the first run
+		lastRun    lastRun // what the last successful run read
 		prev       hostSpec
 		other      hostSpec
 		unhealthy  bool
@@ -1160,12 +1027,13 @@ func TestPickHost(t *testing.T) {
 		oldestHost string
 		oldestErr  error
 
-		wantErr      bool
-		wantHost     string // host the plan was made on, or the host kept on error
-		wantProbes   int
-		wantOldest   int
-		wantConnects map[string]int
-		wantClosed   map[string]int // connections closed during selection
+		wantErr        bool
+		wantNothingNew bool   // the run is skipped, without listing (and rotating) binlogs
+		wantHost       string // host the plan was made on, or the host kept on error
+		wantProbes     int
+		wantOldest     int
+		wantConnects   map[string]int
+		wantClosed     map[string]int // connections closed during selection
 	}{
 		{
 			name:         "first run picks the oldest host",
@@ -1272,6 +1140,70 @@ func TestPickHost(t *testing.T) {
 			wantClosed:   map[string]int{prevHost: 1},
 		},
 		{
+			name:           "nothing new on the previous host skips the run",
+			prevHost:       prevHost,
+			lastRun:        idleRun,
+			prev:           caughtUp,
+			other:          other,
+			oldestHost:     otherHost,
+			wantNothingNew: true,
+			wantHost:       prevHost,
+			wantProbes:     1,
+			wantOldest:     0,
+			wantConnects:   map[string]int{prevHost: 1},
+		},
+		{
+			name:         "new transactions on the previous host are planned as usual",
+			prevHost:     prevHost,
+			lastRun:      idleRun,
+			prev:         caughtUpWithNewWrites,
+			other:        other,
+			oldestHost:   otherHost,
+			wantHost:     prevHost,
+			wantProbes:   1,
+			wantOldest:   0,
+			wantConnects: map[string]int{prevHost: 1},
+		},
+		{
+			name:         "last run on another host is not compared",
+			prevHost:     prevHost,
+			lastRun:      lastRun{host: otherHost, gtidExecuted: uuidA + ":1-100"},
+			prev:         caughtUp,
+			other:        other,
+			oldestHost:   otherHost,
+			wantHost:     prevHost,
+			wantProbes:   1,
+			wantOldest:   0,
+			wantConnects: map[string]int{prevHost: 1},
+		},
+		{
+			// its gtid_executed may not move while the rest of the cluster takes writes
+			name:         "unhealthy previous host with nothing new is not skipped",
+			prevHost:     prevHost,
+			lastRun:      idleRun,
+			prev:         caughtUp,
+			other:        other,
+			unhealthy:    true,
+			oldestHost:   otherHost,
+			wantHost:     otherHost,
+			wantProbes:   1,
+			wantOldest:   1,
+			wantConnects: map[string]int{otherHost: 1},
+		},
+		{
+			name:         "failure getting gtid_executed on the previous host falls back and is closed",
+			prevHost:     prevHost,
+			lastRun:      idleRun,
+			prev:         hostSpec{binlogs: caughtUp.binlogs, executedErr: errBoom},
+			other:        other,
+			oldestHost:   otherHost,
+			wantHost:     otherHost,
+			wantProbes:   1,
+			wantOldest:   1,
+			wantConnects: map[string]int{prevHost: 1, otherHost: 1},
+			wantClosed:   map[string]int{prevHost: 1},
+		},
+		{
 			name:         "no host found",
 			prevHost:     "",
 			oldestErr:    errBoom,
@@ -1320,9 +1252,12 @@ func TestPickHost(t *testing.T) {
 			var probes, oldestCalls int
 			var oldestPrevHost string
 
-			c := &Collector{storage: &fakeStorage{objects: map[string]string{
-				lastSetFilePrefix + uuidA: uuidA + ":51-100",
-			}}}
+			c := &Collector{
+				storage: &fakeStorage{objects: map[string]string{
+					lastSetFilePrefix + uuidA: uuidA + ":51-100",
+				}},
+				lastRun: tt.lastRun,
+			}
 			c.hosts = hostFuncs{
 				isHealthy: func(context.Context, string) (bool, error) {
 					probes++
@@ -1339,6 +1274,9 @@ func TestPickHost(t *testing.T) {
 						name:        host,
 						sourceID:    uuidA,
 						listErr:     spec.listErr,
+
+						gtidExecuted: spec.gtidExecuted,
+						executedErr:  spec.executedErr,
 					}}
 					created[host] = append(created[host], conn)
 					return conn, nil
@@ -1366,8 +1304,15 @@ func TestPickHost(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 				require.NotNil(t, plan)
-				assert.Equal(t, specs[tt.wantHost].binlogs, plan.binlogs, "plan is made on the picked host")
 				assert.Equal(t, tt.wantHost, c.db.GetHost())
+				assert.Equal(t, tt.wantNothingNew, plan.nothingNew)
+				if tt.wantNothingNew {
+					assert.Empty(t, plan.binlogs)
+					assert.Zero(t, created[tt.wantHost][0].listCalls, "binlogs are not listed, so not rotated")
+				} else {
+					assert.Equal(t, specs[tt.wantHost].binlogs, plan.binlogs, "plan is made on the picked host")
+					assert.Equal(t, specs[tt.wantHost].gtidExecuted, plan.gtidExecuted)
+				}
 			}
 
 			assert.Equal(t, tt.wantProbes, probes, "health probes")
@@ -1390,6 +1335,83 @@ func TestPickHost(t *testing.T) {
 				wantClosed = map[string]int{}
 			}
 			assert.Equal(t, wantClosed, closed, "connections closed")
+		})
+	}
+}
+
+func TestRunSkipsWhenNothingNew(t *testing.T) {
+	t.Parallel()
+
+	const uuidA = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+	const host = "pxc-0"
+
+	// everything on the host was already uploaded, so a run uploads nothing
+	binlogs := []pxc.Binlog{
+		{Name: "binlog.000001", GTIDSet: pxc.NewGTIDSet(uuidA + ":1-50")},
+		{Name: "binlog.000002", GTIDSet: pxc.NewGTIDSet(uuidA + ":51-100")},
+	}
+
+	tests := []struct {
+		name           string
+		firstExecuted  string // gtid_executed during the first run
+		secondExecuted string // gtid_executed during the second run
+		wantSecondList int    // binlog lists (and rotations) in the second run
+	}{
+		{
+			name:           "idle cluster",
+			firstExecuted:  uuidA + ":1-100",
+			secondExecuted: uuidA + ":1-100",
+			wantSecondList: 0,
+		},
+		{
+			name:           "transactions after the first run",
+			firstExecuted:  uuidA + ":1-100",
+			secondExecuted: uuidA + ":1-101",
+			wantSecondList: 1,
+		},
+		{
+			name:           "transactions of another uuid after the first run",
+			firstExecuted:  uuidA + ":1-100",
+			secondExecuted: uuidA + ":1-100,bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb:1",
+			wantSecondList: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			executed := tt.firstExecuted
+			var conns []*fakeConn
+			c := &Collector{storage: &fakeStorage{objects: map[string]string{
+				lastSetFilePrefix + uuidA: uuidA + ":51-100",
+			}}}
+			c.hosts = hostFuncs{
+				isHealthy: func(context.Context, string) (bool, error) { return true, nil },
+				connect: func(name string) (hostConn, error) {
+					conn := &fakeConn{fakeHost: &fakeHost{
+						fakeLocator:  &fakeLocator{binlogs: binlogs},
+						name:         name,
+						sourceID:     uuidA,
+						gtidExecuted: executed,
+					}}
+					conns = append(conns, conn)
+					return conn, nil
+				},
+				oldest: func(context.Context, string) (string, error) { return host, nil },
+			}
+
+			require.NoError(t, c.Run(t.Context()))
+			require.Len(t, conns, 1)
+			assert.Equal(t, 1, conns[0].listCalls, "the first run is never skipped")
+			assert.Equal(t, lastRun{host: host, gtidExecuted: tt.firstExecuted}, c.lastRun)
+
+			executed = tt.secondExecuted
+			require.NoError(t, c.Run(t.Context()))
+			require.Len(t, conns, 2)
+			assert.Equal(t, tt.wantSecondList, conns[1].listCalls)
+			assert.True(t, conns[1].closed, "the connection is closed after the run")
+			assert.Equal(t, host, c.lastRun.host)
 		})
 	}
 }

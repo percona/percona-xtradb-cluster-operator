@@ -1,0 +1,86 @@
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBCluster
+metadata:
+  name: major-upgrade
+  finalizers:
+    - percona.com/delete-pxc-pods-in-order
+    - percona.com/delete-proxysql-pvc
+    - percona.com/delete-pxc-pvc
+spec:
+  secretsName: my-cluster-secrets
+  vaultSecretName: some-name-vault
+  pause: false
+  # SmartUpdate keeps the writer on the lower version until last, which is
+  # what makes the mixed-version window during a major upgrade safe.
+  updateStrategy: SmartUpdate
+  # The version service must not patch spec.pxc.image back to 8.0 after the
+  # upgrade. The test drives the images by hand.
+  upgradeOptions:
+    apply: Never
+    schedule: "0 4 * * *"
+  pxc:
+    size: 3
+    image: -pxc
+    resources:
+      requests:
+        memory: 0.1G
+        cpu: 100m
+      limits:
+        memory: "2G"
+        cpu: "1"
+    volumeSpec:
+      persistentVolumeClaim:
+        resources:
+          requests:
+            storage: 2Gi
+    affinity:
+      antiAffinityTopologyKey: "kubernetes.io/hostname"
+  proxysql:
+    enabled: true
+    size: 2
+    image: -proxysql
+    resources:
+      requests:
+        memory: 0.1G
+        cpu: 100m
+      limits:
+        memory: 1G
+        cpu: 700m
+    volumeSpec:
+      persistentVolumeClaim:
+        resources:
+          requests:
+            storage: 2Gi
+    affinity:
+      antiAffinityTopologyKey: "kubernetes.io/hostname"
+  pmm:
+    enabled: false
+    image: -pmm
+    serverHost: monitoring-service
+    serverUser: pmm
+  backup:
+    image: -backup
+    imagePullPolicy: Always
+    pitr:
+      enabled: true
+      storageName: local-s3-binlogs
+      timeBetweenUploads: 55
+    storages:
+      local-s3:
+        type: s3
+        verifyTLS: false
+        s3:
+          credentialsSecret: s3-secret
+          region: us-east-1
+          bucket: operator-testing
+          endpointUrl: https://s3-storage-all-in-one.#namespace:8443/
+          checksumAlgorithm: SHA256
+      local-s3-binlogs:
+        type: s3
+        verifyTLS: false
+        s3:
+          credentialsSecret: s3-secret
+          region: us-east-1
+          bucket: operator-testing/binlogs
+          endpointUrl: https://s3-storage-all-in-one.#namespace:8443/
+          checksumAlgorithm: SHA256

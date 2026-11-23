@@ -95,7 +95,7 @@ type Collector struct {
 	pxcServiceName  string       // k8s service name for PXC, its for get correct host for connection
 	pxcUser         string       // user for connection to PXC
 	pxcPass         string       // password for connection to PXC
-	emptyBinlogs    emptyBinlogs // closed binlogs known to have no transactions
+	emptyBinlogs    emptyBinlogs // in-memory cache of closed binlogs known to have no transactions
 }
 
 type Config struct {
@@ -493,13 +493,9 @@ type binlogLocator interface {
 // resumePoint describes which binlogs on a host still need to be uploaded.
 type resumePoint struct {
 	lastUploaded pxc.GTIDSet
-	// start is the index of the first binlog that may contain not yet uploaded
-	// transactions. It's 0 when nothing was uploaded yet or when there is a gap.
-	start int
-	// gap is true when the last uploaded GTID set can't be found on the host.
-	gap bool
-	// empty is true when the host has no binlogs with transactions.
-	empty bool
+	start        int  // starting index of the first binlog that may have transactions not yet uploaded
+	gap          bool // true if the last uploaded GTID set can't be found
+	empty        bool // true if the host has no binlogs with transactions
 }
 
 // findResumePoint locates the binlog containing the end of the last uploaded

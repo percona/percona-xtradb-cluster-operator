@@ -47,6 +47,33 @@ check_haproxy_writer() {
 	done
 }
 
+# Compares the backends each HAProxy pod generated with the expected ones: the
+# replicas in galera-admin-nodes and galera-mysqlx-nodes track the same server in
+# galera-nodes instead of running their own checks. Server addresses are reduced
+# to the pod name and whitespace is collapsed, so the comparison doesn't depend
+# on the namespace.
+check_haproxy_backends() {
+	local expected="$test_dir/compare/haproxy-backends.cfg"
+
+	for i in $(seq 0 2); do
+		local generated="$tmp_dir/haproxy-backends-$i.cfg"
+		local retry=0
+		# the config is regenerated whenever the peer list changes, so give a
+		# pending update time to land before failing
+		until kubectl_bin exec "$cluster-haproxy-$i" -c haproxy -- cat /etc/haproxy/pxc/haproxy.cfg \
+			| sed -E 's/^ +//; s/ +/ /g; s/ ([^ .]+)\.[^ :]+:([0-9]+) / \1:\2 /' >"$generated" \
+			&& diff -u "$expected" "$generated" >/dev/null; do
+			if [ $retry -ge 12 ]; then
+				diff -u "$expected" "$generated" || :
+				echo "$cluster-haproxy-$i: generated HAProxy backends do not match $expected"
+				exit 1
+			fi
+			retry=$((retry + 1))
+			sleep 5
+		done
+	done
+}
+
 main() {
 	create_infra $namespace
 	deploy_chaos_mesh $namespace
@@ -67,6 +94,9 @@ main() {
 	wait_for_running "$cluster-pxc" 3
 	wait_cluster_consistency "$cluster" 3 3
 	check_haproxy_writer
+
+	desc 'check admin and mysqlx replicas track galera-nodes instead of running their own checks'
+	check_haproxy_backends
 
 	# Temporarily skipping this check
 	#desc 'check for passwords leak'

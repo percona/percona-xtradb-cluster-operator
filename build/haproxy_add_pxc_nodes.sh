@@ -29,7 +29,7 @@ function main() {
 		send_proxy='send-proxy-v2'
 	fi
 
-	while read pxc_host; do
+	while read -r pxc_host; do
 		if [ -z "$pxc_host" ]; then
 			log 'Could not find PEERS ...'
 			exit 0
@@ -51,6 +51,21 @@ function main() {
 		NODE_LIST_ADMIN+=("server $node_name $pxc_host:33062 $SERVER_OPTIONS backup")
 		NODE_LIST_MYSQLX+=("server $node_name $pxc_host:33060 $send_proxy $SERVER_OPTIONS backup")
 	done
+
+	# Every backend runs haproxy_check_pxc.sh against port 33062 of the same host,
+	# so the backup servers in galera-admin-nodes and galera-mysqlx-nodes mirror
+	# the corresponding server in galera-nodes instead of running duplicate checks.
+	# 'track' needs a checked server, so skip this if HA_SERVER_OPTIONS has no check.
+	if [[ " $SERVER_OPTIONS " == *" check "* ]]; then
+		for i in "${!NODE_LIST_ADMIN[@]}"; do
+			node_name=$(echo "${NODE_LIST_ADMIN[i]}" | cut -d ' ' -f 2)
+			NODE_LIST_ADMIN[i]="${NODE_LIST_ADMIN[i]// check / } track galera-nodes/${node_name}"
+		done
+		for i in "${!NODE_LIST_MYSQLX[@]}"; do
+			node_name=$(echo "${NODE_LIST_MYSQLX[i]}" | cut -d ' ' -f 2)
+			NODE_LIST_MYSQLX[i]="${NODE_LIST_MYSQLX[i]// check / } track galera-nodes/${node_name}"
+		done
+	fi
 
 	if [ -n "$firs_node" ]; then
 		if [[ "${#NODE_LIST[@]}" -ne 0 ]]; then

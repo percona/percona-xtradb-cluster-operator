@@ -95,6 +95,34 @@ _check_config() {
 	fi
 }
 
+_do_major_upgrade_84() {
+	start_temp_mysqld "$@"
+
+	drop_legacy_binlog_udf
+	install_component "file://component_binlog_utils_udf"
+
+	echo "Installing file://component_audit_log_filter"
+	(
+		echo "SET @@SESSION.SQL_LOG_BIN=0;"
+		cat /usr/share/percona-xtradb-cluster/audit_log_filter_linux_install.sql
+	) | "${mysql[@]}" mysql
+
+	echo "Refreshing grants"
+
+	file_env 'MYSQL_ROOT_HOST' '%'
+
+	# New grants are added in 8.4, so users with ALL need to refresh so the newly added grants are recorded.
+	"${mysql[@]}" <<-EOSQL
+		SET @@SESSION.SQL_LOG_BIN=0;
+		GRANT ALL ON *.* TO 'root'@'localhost' WITH GRANT OPTION ;
+		GRANT ALL ON *.* TO 'operator'@'${MYSQL_ROOT_HOST}' WITH GRANT OPTION ;
+		FLUSH PRIVILEGES ;
+	EOSQL
+
+	stop_temp_mysqld
+
+}
+
 # Fetch value from server config
 # We use mysqld --verbose --help instead of my_print_defaults because the
 # latter only show values present in config files, and not server defaults
@@ -264,7 +292,10 @@ install_component() {
 
 	if [ "${installed}" -eq 0 ]; then
 		echo "Installing ${component}"
-		echo "INSTALL COMPONENT '$(escape_special "${component}")';" | "${mysql[@]}"
+		(
+			echo "SET @@SESSION.SQL_LOG_BIN=0;"
+			echo "INSTALL COMPONENT '$(escape_special "${component}")';"
+		) | "${mysql[@]}"
 	fi
 }
 
@@ -275,6 +306,7 @@ install_component() {
 drop_legacy_binlog_udf() {
 	echo "Removing legacy binlog_utils_udf functions from mysql.func"
 	"${mysql[@]}" <<-EOSQL
+		SET @@SESSION.SQL_LOG_BIN=0;
 		DELETE FROM mysql.func WHERE dl = 'binlog_utils_udf.so';
 	EOSQL
 }
@@ -719,15 +751,7 @@ if [ "$1" = 'mysqld' ] && [ -z "$wantHelp" ]; then
 		echo "Major version change detected: ${prev_major} -> ${MYSQL_VERSION}"
 
 		if [ "$MYSQL_VERSION" == '8.4' ]; then
-			start_temp_mysqld "$@"
-
-			drop_legacy_binlog_udf
-			install_component "file://component_binlog_utils_udf"
-
-			echo "Installing file://component_audit_log_filter"
-			"${mysql[@]}" mysql </usr/share/percona-xtradb-cluster/audit_log_filter_linux_install.sql
-
-			stop_temp_mysqld
+			_do_major_upgrade_84 "$@"
 		fi
 	fi
 	"$@" --version | sed 's/-ps//' >"$DATADIR/version_info"

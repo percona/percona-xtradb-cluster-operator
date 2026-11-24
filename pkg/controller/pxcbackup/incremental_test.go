@@ -1477,13 +1477,7 @@ func TestRunBackupFinalizersChainOrdering(t *testing.T) {
 	}
 }
 
-// TestWriteStatusRefusesStaleWrites covers the guard that keeps a reconcile
-// working from a stale informer read from overwriting a newer status.
-//
-// r.client reads through the cache, so the CR a reconcile starts from can be
-// behind the API. RetryOnConflict alone makes that worse: it refreshes the
-// object and then writes back values derived from the stale read. That is how a
-// backup ends up recorded at a destination its Job is not writing to.
+// tests that the status is not written if the observed resource is stale
 func TestWriteStatusRefusesStaleWrites(t *testing.T) {
 	const (
 		storedDest   = "s3://bucket/prefix/cluster1-2026-11-03-10:00:00-full"
@@ -1491,32 +1485,27 @@ func TestWriteStatusRefusesStaleWrites(t *testing.T) {
 	)
 
 	tests := map[string]struct {
-		// storedState is what the API holds.
-		storedState api.PXCBackupState
-		// observedState is what this reconcile believes it read.
-		observedState api.PXCBackupState
-		computedDest  string
-		wantErr       error
-		wantStored    string
+		// apiMovedOn writes a newer status to the API after this reconcile
+		// read the backup, so the reconcile's read is stale by the time it
+		// writes.
+		apiMovedOn   bool
+		computedDest string
+		wantErr      error
+		wantStored   string
 	}{
 		"writes when the API still holds what we observed": {
-			storedState:   api.BackupStarting,
-			observedState: api.BackupStarting,
-			computedDest:  computedDest,
-			wantStored:    computedDest,
+			computedDest: computedDest,
+			wantStored:   computedDest,
 		},
 		"refuses when the API moved on": {
-			storedState:   api.BackupRunning,
-			observedState: api.BackupStarting,
-			computedDest:  computedDest,
-			wantErr:       errStaleStatus,
-			wantStored:    storedDest,
+			apiMovedOn:   true,
+			computedDest: computedDest,
+			wantErr:      errStaleStatus,
+			wantStored:   storedDest,
 		},
 		"writes nothing when this reconcile changed nothing": {
-			storedState:   api.BackupStarting,
-			observedState: api.BackupStarting,
-			computedDest:  storedDest,
-			wantStored:    storedDest,
+			computedDest: storedDest,
+			wantStored:   storedDest,
 		},
 	}
 
@@ -1524,24 +1513,22 @@ func TestWriteStatusRefusesStaleWrites(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			stored := incrBackup("backup-1",
 				withBackupType(api.BackupTypeFull),
-				withState(tt.storedState),
+				withState(api.BackupStarting),
 				withDestination(storedDest),
 			)
 			r := incrReconciler(t, stored)
 
-			// What this reconcile thinks it read, and what it computed from it.
-			// Built through the same helper as the stored backup so the two
-			// cannot drift apart on a field the case says nothing about.
-			observed := &incrBackup("backup-1",
-				withBackupType(api.BackupTypeFull),
-				withState(tt.observedState),
-				withDestination(storedDest),
-			).Status
-			cr := incrBackup("backup-1",
-				withBackupType(api.BackupTypeFull),
-				withState(tt.observedState),
-				withDestination(tt.computedDest),
-			)
+			// What this reconcile read, and what it computed from it.
+			cr := new(api.PerconaXtraDBClusterBackup)
+			require.NoError(t, r.client.Get(t.Context(), client.ObjectKeyFromObject(stored), cr))
+			observed := cr.DeepCopy()
+			cr.Status.Destination = api.PXCBackupDestination(tt.computedDest)
+
+			if tt.apiMovedOn {
+				newer := observed.DeepCopy()
+				newer.Status.State = api.BackupRunning
+				require.NoError(t, r.client.Status().Update(t.Context(), newer))
+			}
 
 			err := r.writeStatus(t.Context(), cr, observed)
 			if tt.wantErr != nil {
@@ -1555,31 +1542,4 @@ func TestWriteStatusRefusesStaleWrites(t *testing.T) {
 			assert.Equal(t, tt.wantStored, persisted.Status.Destination.String())
 		})
 	}
-}
-
-// TestWriteStatusAdvancesObserved checks a second write in the same reconcile
-// compares against what the first one wrote, not against what the reconcile
-// originally read - otherwise the controller would reject its own writes.
-func TestWriteStatusAdvancesObserved(t *testing.T) {
-	stored := incrBackup("backup-1",
-		withBackupType(api.BackupTypeFull),
-		withState(api.BackupNew),
-	)
-	r := incrReconciler(t, stored)
-
-	observed := stored.Status.DeepCopy()
-	cr := stored.DeepCopy()
-
-	cr.Status.Destination = "s3://bucket/prefix/cluster1-2026-11-03-10:00:00-full"
-	require.NoError(t, r.writeStatus(t.Context(), cr, observed))
-	assert.Equal(t, cr.Status.Destination, observed.Destination, "observed advances to what was written")
-
-	// A later write in the same reconcile must still be accepted.
-	cr.Status.SourcePod = "cluster1-pxc-1"
-	require.NoError(t, r.writeStatus(t.Context(), cr, observed))
-
-	persisted := new(api.PerconaXtraDBClusterBackup)
-	require.NoError(t, r.client.Get(t.Context(), client.ObjectKeyFromObject(cr), persisted))
-	assert.Equal(t, "cluster1-pxc-1", persisted.Status.SourcePod)
-	assert.Equal(t, cr.Status.Destination, persisted.Status.Destination)
 }

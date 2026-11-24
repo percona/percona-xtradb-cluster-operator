@@ -1244,8 +1244,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) writeStatus(
 			return err
 		}
 
-		// Before we force update the status, make sure that this reconcile
-		// observed the same object initially.
+		// Before retrying the conflict, make sure that the reconcile observed an up-to-date resource from kube API
 		if cmp, err := resourceversion.CompareResourceVersion(cr.GetResourceVersion(), observed.GetResourceVersion()); err != nil {
 			return errors.Wrap(err, "failed to compare resource version")
 		} else if cmp != 0 {

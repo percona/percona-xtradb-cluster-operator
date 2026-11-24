@@ -18,7 +18,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/resourceversion"
 	"k8s.io/client-go/util/retry"
 	k8sretry "k8s.io/client-go/util/retry"
 	"k8s.io/utils/ptr"
@@ -114,16 +113,18 @@ type ReconcilePerconaXtraDBClusterBackup struct {
 // Note:
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
-func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
+func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(
+	ctx context.Context,
+	request reconcile.Request) (rr reconcile.Result, err error) {
 	log := logf.FromContext(ctx)
 
-	rr := reconcile.Result{
+	rr = reconcile.Result{
 		RequeueAfter: time.Second * 5,
 	}
 
 	// Fetch the PerconaXtraDBClusterBackup instance
 	cr := &api.PerconaXtraDBClusterBackup{}
-	err := r.client.Get(ctx, request.NamespacedName, cr)
+	err = r.client.Get(ctx, request.NamespacedName, cr)
 	if err != nil {
 		if k8sErrors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
@@ -135,10 +136,10 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 		return reconcile.Result{}, err
 	}
 
-	observed := cr.DeepCopy()
+	observed := cr.Status.DeepCopy() // capture status before reconcile, so writeStatus can be skipped when it doesn't change
 	defer func() {
-		if err := r.writeStatus(ctx, cr, observed); err != nil {
-			log.Error(err, "failed to update backup status")
+		if wErr := r.writeStatus(ctx, cr, observed); wErr != nil && err == nil {
+			err = wErr
 		}
 	}()
 
@@ -311,7 +312,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) prepareStatus(
 	cr *api.PerconaXtraDBClusterBackup,
 	cluster *api.PerconaXtraDBCluster,
 	storage *api.BackupStorageSpec,
-	observed *api.PerconaXtraDBClusterBackup,
+	observed *api.PXCBackupStatus,
 ) error {
 	if err := r.setIncrementalBase(ctx, cr, cluster, storage); err != nil {
 		return errors.Wrap(err, "set incremental base backup annotation")
@@ -1227,38 +1228,24 @@ func (r *ReconcilePerconaXtraDBClusterBackup) deleteMySQLInitSecret(
 	return nil
 }
 
-var errStaleStatus = errors.New("the backup's status changed since this reconcile read it")
-
 func (r *ReconcilePerconaXtraDBClusterBackup) writeStatus(
 	ctx context.Context,
 	cr *api.PerconaXtraDBClusterBackup,
-	observed *api.PerconaXtraDBClusterBackup,
+	observed *api.PXCBackupStatus,
 ) error {
-	if equality.Semantic.DeepEqual(cr.Status, observed.Status) {
+	if equality.Semantic.DeepEqual(*observed, cr.Status) {
 		return nil
 	}
 
-	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		actual := new(api.PerconaXtraDBClusterBackup)
-		if err := r.client.Get(ctx, client.ObjectKeyFromObject(cr), actual); err != nil {
-			return err
-		}
-
-		// Before retrying the conflict, make sure that the reconcile observed an up-to-date resource from kube API
-		if cmp, err := resourceversion.CompareResourceVersion(actual.GetResourceVersion(), observed.GetResourceVersion()); err != nil {
-			return errors.Wrap(err, "failed to compare resource version")
-		} else if cmp != 0 {
-			return errStaleStatus
-		}
-
-		actual.Status = cr.Status
-		return r.client.Status().Update(ctx, actual)
-	})
-	if err != nil {
-		return err
+	// do not retry here, if we have a conflict, it should
+	// return back to Reconcile and re-run again
+	log := logf.FromContext(ctx)
+	if err := r.client.Status().Update(ctx, cr); err != nil {
+		log.Error(err, "failed to update backup status")
+		return errors.Wrap(err, "update backup status")
 	}
 
-	observed.Status = *cr.Status.DeepCopy()
+	*observed = *cr.Status.DeepCopy()
 	return nil
 }
 

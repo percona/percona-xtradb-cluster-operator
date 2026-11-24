@@ -140,7 +140,8 @@ var _ = Describe("Error checking deadlines", Ordered, func() {
 		err = k8sClient.Create(ctx, pxcBackup)
 		Expect(err).To(Not(HaveOccurred()))
 
-		runReconcile(ctx, reconciler, pxcBackupReq)
+		_, err = reconciler.Reconcile(ctx, pxcBackupReq)
+		Expect(err).To(Succeed())
 
 		err = k8sClient.Get(ctx, pxcBackupReq.NamespacedName, pxcBackup)
 		Expect(err).To(Not(HaveOccurred()))
@@ -219,7 +220,8 @@ var _ = Describe("Backup Job deleted when running deadline is exceeded", Ordered
 		err = k8sClient.Create(ctx, pxcBackup)
 		Expect(err).To(Not(HaveOccurred()))
 
-		runReconcile(ctx, reconciler, pxcBackupReq)
+		_, err = reconciler.Reconcile(ctx, pxcBackupReq)
+		Expect(err).To(Succeed())
 
 		err = k8sClient.Get(ctx, pxcBackupReq.NamespacedName, pxcBackup)
 		Expect(err).To(Not(HaveOccurred()))
@@ -275,17 +277,4 @@ func mockPXCReadyStatus(ctx context.Context, cluster *pxcv1.PerconaXtraDBCluster
 	cluster.Status.PXC.Ready = cluster.Spec.PXC.Size
 	err := k8sClient.Status().Update(ctx, cluster)
 	Expect(err).To(Not(HaveOccurred()))
-}
-
-func runReconcile(
-	ctx context.Context,
-	reconciler *ReconcilePerconaXtraDBClusterBackup,
-	pxcBackupReq reconcile.Request,
-) {
-	// first reconcile almost always rejects status update because
-	// it writes new finalizers that bumps the resourceVersion
-	for range 2 {
-		_, err := reconciler.Reconcile(ctx, pxcBackupReq)
-		Expect(err).To(Succeed())
-	}
 }

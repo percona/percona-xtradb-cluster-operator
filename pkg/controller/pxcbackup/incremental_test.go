@@ -19,6 +19,7 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/features"
@@ -1477,35 +1478,103 @@ func TestRunBackupFinalizersChainOrdering(t *testing.T) {
 	}
 }
 
-// tests that the status is not written if the observed resource is stale
-func TestWriteStatusRefusesStaleWrites(t *testing.T) {
+// TestWriteStatus covers how writeStatus guards against stale reads. The
+// status update carries the resourceVersion this reconcile last saw, so the API
+// server refuses it if anyone else wrote the backup since, while writes made by
+// this reconcile itself keep the version current and do not trip the check.
+func TestWriteStatus(t *testing.T) {
 	const (
 		storedDest   = "s3://bucket/prefix/cluster1-2026-11-03-10:00:00-full"
 		computedDest = "s3://bucket/prefix/cluster1-2026-11-03-11:00:00-full"
+		sourcePod    = "cluster1-pxc-1"
 	)
 
+	type reconcileStep func(t *testing.T, r *ReconcilePerconaXtraDBClusterBackup, cr *api.PerconaXtraDBClusterBackup, observed *api.PXCBackupStatus)
+
+	addFinalizer := func(t *testing.T, r *ReconcilePerconaXtraDBClusterBackup, cr *api.PerconaXtraDBClusterBackup, _ *api.PXCBackupStatus) {
+		orig := cr.DeepCopy()
+		controllerutil.AddFinalizer(cr, naming.FinalizerReleaseLock)
+		require.NoError(t, r.client.Patch(t.Context(), cr, client.MergeFrom(orig)))
+	}
+	writeSourcePod := func(t *testing.T, r *ReconcilePerconaXtraDBClusterBackup, cr *api.PerconaXtraDBClusterBackup, observed *api.PXCBackupStatus) {
+		cr.Status.SourcePod = sourcePod
+		require.NoError(t, r.writeStatus(t.Context(), cr, observed))
+	}
+
+	setRunning := func(bcp *api.PerconaXtraDBClusterBackup) {
+		bcp.Status.State = api.BackupRunning
+	}
+	addPITRCondition := func(bcp *api.PerconaXtraDBClusterBackup) {
+		bcp.Status.Conditions = append(bcp.Status.Conditions, metav1.Condition{
+			Type:               api.BackupConditionPITRReady,
+			Status:             metav1.ConditionFalse,
+			Reason:             "BinlogGapDetected",
+			LastTransitionTime: metav1.Now(),
+		})
+	}
+
 	tests := map[string]struct {
-		// apiMovedOn writes a newer status to the API after this reconcile
-		// read the backup, so the reconcile's read is stale by the time it
-		// writes.
-		apiMovedOn   bool
-		computedDest string
-		wantErr      error
-		wantStored   string
+		// earlierStep is something this reconcile wrote before the write under test.
+		earlierStep reconcileStep
+		// concurrentWrite is applied to the backup by another client after this
+		// reconcile read it and before the write under test. nil means nobody else wrote.
+		concurrentWrite func(bcp *api.PerconaXtraDBClusterBackup)
+		computedDest    string
+
+		wantConflict   bool
+		wantNoWrite    bool
+		wantStoredDest string
+		wantState      api.PXCBackupState
+		wantConditions int
+		wantSourcePod  string
 	}{
-		"writes when the API still holds what we observed": {
-			computedDest: computedDest,
-			wantStored:   computedDest,
+		"writes when nobody wrote since the read": {
+			computedDest:   computedDest,
+			wantStoredDest: computedDest,
+			wantState:      api.BackupStarting,
 		},
-		"refuses when the API moved on": {
-			apiMovedOn:   true,
-			computedDest: computedDest,
-			wantErr:      errStaleStatus,
-			wantStored:   storedDest,
+		"refuses when another reconcile moved the state on": {
+			concurrentWrite: setRunning,
+			computedDest:    computedDest,
+			wantConflict:    true,
+			wantStoredDest:  storedDest,
+			wantState:       api.BackupRunning,
+		},
+		"refuses when another controller added a condition": {
+			concurrentWrite: addPITRCondition,
+			computedDest:    computedDest,
+			wantConflict:    true,
+			wantStoredDest:  storedDest,
+			wantState:       api.BackupStarting,
+			wantConditions:  1,
 		},
 		"writes nothing when this reconcile changed nothing": {
-			computedDest: storedDest,
-			wantStored:   storedDest,
+			computedDest:   storedDest,
+			wantNoWrite:    true,
+			wantStoredDest: storedDest,
+			wantState:      api.BackupStarting,
+		},
+		"accepts the write after this reconcile patched the backup's metadata": {
+			earlierStep:    addFinalizer,
+			computedDest:   computedDest,
+			wantStoredDest: computedDest,
+			wantState:      api.BackupStarting,
+		},
+		"accepts a second status write in the same reconcile": {
+			earlierStep:    writeSourcePod,
+			computedDest:   computedDest,
+			wantStoredDest: computedDest,
+			wantState:      api.BackupStarting,
+			wantSourcePod:  sourcePod,
+		},
+		"refuses a second status write when another client wrote in between": {
+			earlierStep:     writeSourcePod,
+			concurrentWrite: setRunning,
+			computedDest:    computedDest,
+			wantConflict:    true,
+			wantStoredDest:  storedDest,
+			wantState:       api.BackupRunning,
+			wantSourcePod:   sourcePod,
 		},
 	}
 
@@ -1518,28 +1587,45 @@ func TestWriteStatusRefusesStaleWrites(t *testing.T) {
 			)
 			r := incrReconciler(t, stored)
 
-			// What this reconcile read, and what it computed from it.
+			// What this reconcile read.
 			cr := new(api.PerconaXtraDBClusterBackup)
 			require.NoError(t, r.client.Get(t.Context(), client.ObjectKeyFromObject(stored), cr))
-			observed := cr.DeepCopy()
-			cr.Status.Destination = api.PXCBackupDestination(tt.computedDest)
+			observed := cr.Status.DeepCopy()
 
-			if tt.apiMovedOn {
-				newer := observed.DeepCopy()
-				newer.Status.State = api.BackupRunning
-				require.NoError(t, r.client.Status().Update(t.Context(), newer))
+			if tt.earlierStep != nil {
+				tt.earlierStep(t, r, cr, observed)
 			}
 
+			if tt.concurrentWrite != nil {
+				other := new(api.PerconaXtraDBClusterBackup)
+				require.NoError(t, r.client.Get(t.Context(), client.ObjectKeyFromObject(stored), other))
+				tt.concurrentWrite(other)
+				require.NoError(t, r.client.Status().Update(t.Context(), other))
+			}
+
+			versionBeforeWrite := new(api.PerconaXtraDBClusterBackup)
+			require.NoError(t, r.client.Get(t.Context(), client.ObjectKeyFromObject(stored), versionBeforeWrite))
+
+			// What this reconcile computed from its read.
+			cr.Status.Destination = api.PXCBackupDestination(tt.computedDest)
+
 			err := r.writeStatus(t.Context(), cr, observed)
-			if tt.wantErr != nil {
-				require.ErrorIs(t, err, tt.wantErr)
+			if tt.wantConflict {
+				require.True(t, k8sErrors.IsConflict(err), "want a conflict, got %v", err)
 			} else {
 				require.NoError(t, err)
+				assert.Equal(t, cr.Status, *observed, "observed must advance to what was written")
 			}
 
 			persisted := new(api.PerconaXtraDBClusterBackup)
-			require.NoError(t, r.client.Get(t.Context(), client.ObjectKeyFromObject(cr), persisted))
-			assert.Equal(t, tt.wantStored, persisted.Status.Destination.String())
+			require.NoError(t, r.client.Get(t.Context(), client.ObjectKeyFromObject(stored), persisted))
+			assert.Equal(t, tt.wantStoredDest, persisted.Status.Destination.String())
+			assert.Equal(t, tt.wantState, persisted.Status.State)
+			assert.Len(t, persisted.Status.Conditions, tt.wantConditions)
+			assert.Equal(t, tt.wantSourcePod, persisted.Status.SourcePod)
+			if tt.wantNoWrite {
+				assert.Equal(t, versionBeforeWrite.ResourceVersion, persisted.ResourceVersion, "a no-op must not touch the API")
+			}
 		})
 	}
 }

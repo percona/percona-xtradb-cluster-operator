@@ -18,7 +18,15 @@ all: build
 help: ## Display this help.
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
-generate: controller-gen protoc  ## Generate CRDs and RBAC files
+.PHONY: example-certs
+example-certs: ## Regenerate the example certificates in deploy/ssl-secrets.yaml
+	./hack/example-certs.sh
+
+.PHONY: example-certs-if-needed
+example-certs-if-needed: ## Regenerate deploy/ssl-secrets.yaml only if its certificates are invalid or about to expire
+	./hack/example-certs.sh --if-needed
+
+generate: controller-gen protoc example-certs-if-needed  ## Generate CRDs and RBAC files
 	go generate ./...
 	$(CONTROLLER_GEN) crd:maxDescLen=0,allowDangerousTypes=true,generateEmbeddedObjectMeta=true rbac:roleName=$(NAME) webhook paths="./..." output:crd:artifacts:config=config/crd/bases  ## Generate WebhookConfiguration, Role and CustomResourceDefinition objects.
 	$(CONTROLLER_GEN) object paths="./..." ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.

@@ -434,7 +434,7 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(ctx context.Context, cr
 // querying a live PXC pod via mysqlVersion when the status field is not yet populated.
 // It returns (nil, nil) if the version cannot be determined yet (e.g. the cluster is not
 // ready to be queried), which callers should treat as "try again later" rather than an error.
-func (r *ReconcilePerconaXtraDBCluster) currentMySQLVersion(ctx context.Context, cr *apiv1.PerconaXtraDBCluster) (*hcversion.Version, error) {
+func (r *ReconcilePerconaXtraDBCluster) currentMySQLVersion(ctx context.Context, cr *apiv1.PerconaXtraDBCluster) (*goversion.Version, error) {
 	mysqlVersion := cr.Status.PXC.Version
 	if mysqlVersion == "" {
 		var err error
@@ -450,7 +450,7 @@ func (r *ReconcilePerconaXtraDBCluster) currentMySQLVersion(ctx context.Context,
 		return nil, nil
 	}
 
-	ver, err := hcversion.NewVersion(mysqlVersion)
+	ver, err := goversion.NewVersion(mysqlVersion)
 	if err != nil {
 		return nil, errors.Wrap(err, "invalid pxc version")
 	}

@@ -48,8 +48,9 @@ check_haproxy_writer() {
 }
 
 # Compares the backends each HAProxy pod generated with the expected ones: the
-# replicas in galera-admin-nodes and galera-mysqlx-nodes track the same server in
-# galera-nodes instead of running their own checks. Server addresses are reduced
+# servers in galera-replica-nodes and the replicas in galera-admin-nodes and
+# galera-mysqlx-nodes track the same server in galera-nodes instead of running
+# their own checks. Server addresses are reduced
 # to the pod name and whitespace is collapsed, so the comparison doesn't depend
 # on the namespace.
 check_haproxy_backends() {
@@ -95,7 +96,7 @@ main() {
 	wait_cluster_consistency "$cluster" 3 3
 	check_haproxy_writer
 
-	desc 'check admin and mysqlx replicas track galera-nodes instead of running their own checks'
+	desc 'check replica, admin and mysqlx servers track galera-nodes instead of running their own checks'
 	check_haproxy_backends
 
 	# Temporarily skipping this check

@@ -53,8 +53,9 @@ function main() {
 	done
 
 	# Every backend runs haproxy_check_pxc.sh against port 33062 of the same host,
-	# so the backup servers in galera-admin-nodes and galera-mysqlx-nodes mirror
-	# the corresponding server in galera-nodes instead of running duplicate checks.
+	# so the servers in galera-replica-nodes and the backup servers in
+	# galera-admin-nodes and galera-mysqlx-nodes mirror the corresponding server
+	# in galera-nodes, which lists every node, instead of running duplicate checks.
 	# 'track' needs a checked server, so skip this if HA_SERVER_OPTIONS has no check.
 	if [[ " $SERVER_OPTIONS " == *" check "* ]]; then
 		for i in "${!NODE_LIST_ADMIN[@]}"; do
@@ -64,6 +65,10 @@ function main() {
 		for i in "${!NODE_LIST_MYSQLX[@]}"; do
 			node_name=$(echo "${NODE_LIST_MYSQLX[i]}" | cut -d ' ' -f 2)
 			NODE_LIST_MYSQLX[i]="${NODE_LIST_MYSQLX[i]// check / } track galera-nodes/${node_name}"
+		done
+		for i in "${!NODE_LIST_REPL[@]}"; do
+			node_name=$(echo "${NODE_LIST_REPL[i]}" | cut -d ' ' -f 2)
+			NODE_LIST_REPL[i]="${NODE_LIST_REPL[i]// check / } track galera-nodes/${node_name}"
 		done
 	fi
 

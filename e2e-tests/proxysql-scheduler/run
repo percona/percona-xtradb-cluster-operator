@@ -116,6 +116,42 @@ log "mysql_servers are configured in ${cluster}-proxysql-0: OK"
 compare_mysql_servers "${cluster}-proxysql-1" "mysql-servers-1"
 log "mysql_servers are configured in ${cluster}-proxysql-1: OK"
 
+desc 'check ProxySQL pod restart does not crash pxc-monit (regression test for UNIQUE constraint on persisted scheduler/mysql_servers state)'
+
+kubectl_bin delete pod "${cluster}-proxysql-0"
+wait_pod "${cluster}-proxysql-0"
+
+retry=0
+until kubectl_bin logs "${cluster}-proxysql-0" -c pxc-monit --request-timeout=10s 2>/dev/null \
+	| grep -q '^\[[^]]*\] All done!$'; do
+	if [[ ${retry} -ge 60 ]]; then
+		echo "ERROR: timed out waiting for pxc-monit initialization in ${cluster}-proxysql-0."
+		kubectl_bin logs "${cluster}-proxysql-0" -c pxc-monit || true
+		exit 1
+	fi
+	sleep 5
+	((retry += 1))
+done
+
+restart_count_after=$(kubectl_bin get pod "${cluster}-proxysql-0" \
+	-o jsonpath='{.status.containerStatuses[?(@.name=="pxc-monit")].restartCount}')
+
+if [[ ${restart_count_after} -gt 0 ]]; then
+	echo "ERROR: pxc-monit container in ${cluster}-proxysql-0 restarted ${restart_count_after} time(s) after pod recreation."
+	echo "This likely means the init script crashed on a UNIQUE constraint violation against the persisted ProxySQL state."
+	kubectl_bin logs "${cluster}-proxysql-0" -c pxc-monit --previous || true
+	exit 1
+fi
+log "pxc-monit did not restart after ${cluster}-proxysql-0 was recreated: OK"
+
+wait_cluster_consistency "${cluster}" 3 2
+
+compare_scheduler "${cluster}-proxysql-0" "scheduler-0"
+log "scheduler is still correctly configured in ${cluster}-proxysql-0 after restart: OK"
+
+compare_mysql_servers "${cluster}-proxysql-0" "mysql-servers-0"
+log "mysql_servers are still correctly configured in ${cluster}-proxysql-0 after restart: OK"
+
 desc 'check disabling scheduler'
 kubectl_bin patch pxc ${cluster} --type=merge -p '{"spec": {"proxysql": {"scheduler": {"enabled": false}}}}'
 sleep_with_log 90

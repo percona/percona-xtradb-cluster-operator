@@ -239,6 +239,26 @@ func (r *ReconcilePerconaXtraDBClusterRestore) reconcileStateStartCluster(ctx co
 	return rr, nil
 }
 
+// secretUnavailableRetryTimeout is how long a restore step is retried when
+// a Secret could not be read from the API server: validation from the
+// restore's creation, and the binlog collector cache invalidation from the
+// end of the restore job.
+const secretUnavailableRetryTimeout = 5 * time.Minute
+
+// failUnlessRetryable marks the restore failed with comment, unless err is
+// a Secret read that failed to reach the API server and the restore is
+// younger than secretUnavailableRetryTimeout: the restore then stays in its
+// state, and failUnlessRetryable reports that it is to be retried.
+func failUnlessRetryable(cr *api.PerconaXtraDBClusterRestore, comment string, err error) (retry bool) {
+	if !k8s.IsSecretUnavailable(err) || time.Since(cr.CreationTimestamp.Time) >= secretUnavailableRetryTimeout {
+		cr.Status.State = api.RestoreFailed
+		cr.Status.Comments = comment
+		return false
+	}
+	cr.Status.Comments = "retrying: " + comment
+	return true
+}
+
 func validate(ctx context.Context, restorer Restorer, cr *api.PerconaXtraDBClusterRestore) error {
 	job, err := restorer.Job(ctx)
 	if err != nil {
@@ -294,8 +314,10 @@ func (r *ReconcilePerconaXtraDBClusterRestore) reconcileStateNew(ctx context.Con
 		if errors.Is(err, errWaitValidate) {
 			return rr, nil
 		}
-		cr.Status.Comments = fmt.Sprintf("failed to validate restore job: %s", err.Error())
-		cr.Status.State = api.RestoreFailed
+		if failUnlessRetryable(cr, fmt.Sprintf("failed to validate restore job: %s", err.Error()), err) {
+			// Retry steadily with RequeueAfter, not the error backoff.
+			return rr, nil
+		}
 		return rr, err
 	}
 	cr.Status.PXCSize = cluster.Spec.PXC.Size
@@ -344,6 +366,12 @@ func (r *ReconcilePerconaXtraDBClusterRestore) reconcileStateRestore(ctx context
 
 	if cluster.Spec.Backup.PITR.Enabled {
 		if err := binlogcollector.InvalidateCache(ctx, r.client, cluster); err != nil {
+			if k8s.IsSecretUnavailable(err) && job.Status.CompletionTime != nil &&
+				time.Since(job.Status.CompletionTime.Time) < secretUnavailableRetryTimeout {
+				cr.Status.Comments = fmt.Sprintf("retrying binlog collector cache invalidation: %s", err)
+				// Retry steadily with RequeueAfter, not the error backoff.
+				return rr, nil
+			}
 			log.Error(err, "failed to invalidate binlog collector cache")
 		}
 	}

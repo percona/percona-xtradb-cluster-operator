@@ -91,6 +91,7 @@ func New(ctx context.Context, client client.Client, namespace, secretName, user,
 
 	err = db.Ping()
 	if err != nil {
+		_ = db.Close()
 		return Database{}, err
 	}
 
@@ -357,6 +358,16 @@ func (p *Database) PresentInHostgroup(host string, hostgroup int) (bool, error) 
 		return false, nil
 	}
 	return true, nil
+}
+
+func (p *Database) OnlineServersCount(hostgroup int) (int, error) {
+	var count int
+	err := p.db.QueryRow("SELECT COUNT(*) FROM runtime_mysql_servers WHERE hostgroup_id = ? AND status = 'ONLINE'", hostgroup).Scan(&count)
+	if err != nil {
+		return 0, err
+	}
+
+	return count, nil
 }
 
 func (p *Database) PrimaryHost() (string, error) {

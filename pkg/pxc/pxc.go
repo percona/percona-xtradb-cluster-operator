@@ -2,6 +2,7 @@ package pxc
 
 import (
 	"context"
+	stderrors "errors"
 	"fmt"
 	"time"
 
@@ -151,6 +152,38 @@ func getNonPrimaryProxySQL(ctx context.Context, cl client.Client, cr *api.Percon
 		return conn.PrimaryHost()
 	}
 	return hosts[0], nil
+}
+
+func ProxySQLPodsWithoutOnlineWriter(ctx context.Context, cl client.Client, cr *api.PerconaXtraDBCluster) ([]string, error) {
+	if !cr.ProxySQLEnabled() {
+		return nil, NoProxyDetectedError
+	}
+
+	var pods []string
+	var errs []error
+	for i := range cr.Spec.ProxySQL.Size {
+		pod := fmt.Sprintf("%s-proxysql-%d", cr.Name, i)
+		host := fmt.Sprintf("%s.%s-proxysql-unready.%s", pod, cr.Name, cr.Namespace)
+
+		conn, err := queries.New(ctx, cl, cr.Namespace, "internal-"+cr.Name, users.ProxyAdmin, host, 6032, cr.Spec.ProxySQL.ReadinessProbes.TimeoutSeconds)
+		if err != nil {
+			errs = append(errs, errors.Wrapf(err, "connect to %s", pod))
+			continue
+		}
+
+		count, err := conn.OnlineServersCount(queries.WriterHostgroupID)
+		_ = conn.Close()
+		if err != nil {
+			errs = append(errs, errors.Wrapf(err, "count online servers in writer hostgroup on %s", pod))
+			continue
+		}
+
+		if count == 0 {
+			pods = append(pods, pod)
+		}
+	}
+
+	return pods, stderrors.Join(errs...)
 }
 
 // GetProxyConnection returns a new connection through the proxy (ProxySQL or HAProxy)

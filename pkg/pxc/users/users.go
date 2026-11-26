@@ -18,14 +18,12 @@ const (
 	Xtrabackup     = "xtrabackup"
 	Replication    = "replication"
 	ProxyAdmin     = "proxyadmin"
-	PMMServer      = "pmmserver"
-	PMMServerKey   = "pmmserverkey"
 	PMMServerToken = "pmmservertoken"
 )
 
 var UserNames = []string{
 	Root, Operator, Monitor, Xtrabackup,
-	Replication, ProxyAdmin, PMMServer, PMMServerKey, PMMServerToken,
+	Replication, ProxyAdmin, PMMServerToken,
 }
 
 type Manager struct {

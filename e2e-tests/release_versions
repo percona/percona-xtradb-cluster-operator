@@ -10,10 +10,8 @@ IMAGE_PROXY=perconalab/percona-xtradb-cluster-operator:main-proxysql
 IMAGE_PROXY3=perconalab/percona-xtradb-cluster-operator:main-proxysql3
 IMAGE_HAPROXY=perconalab/percona-xtradb-cluster-operator:main-haproxy
 IMAGE_LOGCOLLECTOR=perconalab/fluentbit:main-logcollector
-IMAGE_PMM_CLIENT=perconalab/pmm-client:dev-latest
-IMAGE_PMM_SERVER=perconalab/pmm-server:dev-latest
-IMAGE_PMM3_CLIENT=perconalab/pmm-client:3-dev-latest
-IMAGE_PMM3_SERVER=perconalab/pmm-server:3-dev-latest
+IMAGE_PMM_CLIENT=perconalab/pmm-client:3-dev-latest
+IMAGE_PMM_SERVER=perconalab/pmm-server:3-dev-latest
 
 # Supported k8s versions
 GKE_MIN=1.33

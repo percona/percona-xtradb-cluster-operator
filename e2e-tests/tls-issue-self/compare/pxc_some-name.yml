@@ -41,7 +41,6 @@ spec:
   pmm:
     enabled: false
     serverHost: monitoring-service
-    serverUser: pmm
   proxysql:
     affinity:
       antiAffinityTopologyKey: kubernetes.io/hostname

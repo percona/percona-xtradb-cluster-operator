@@ -24,8 +24,7 @@ extra-pvc
 haproxy
 init-deploy
 limits
-monitoring-2-0
-monitoring-pmm3
+monitoring
 one-pod
 operator-self-healing-chaos
 pitr

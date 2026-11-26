@@ -1,0 +1,13 @@
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBClusterBackup
+metadata:
+  name: backup-incr-1
+  finalizers:
+    - percona.com/delete-backup
+spec:
+  pxcCluster: demand-backup-incr
+  storageName: local-s3
+  type: incremental
+  activeDeadlineSeconds: 7200
+  # spec.incrementalBaseBackupName is deliberately omitted: the operator has to
+  # resolve the latest succeeded full backup in this same storage as the base.

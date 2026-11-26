@@ -53,8 +53,9 @@ desc "CASE 1: startingDeadlineSeconds"
 log "setting startingDeadlineSeconds to 20"
 kubectl_bin patch pxc ${cluster} --type=merge -p '{"spec": {"backup": {"startingDeadlineSeconds": 20}}}'
 
-log "create dummy lock to block backup"
-kubectl_bin apply -f ${test_dir}/conf/lease.yaml
+log "creating pxc-backup/backup0 to hold the backup lock"
+run_backup backup0
+wait_backup backup0 Running
 
 log "creating pxc-backup/backup1"
 run_backup backup1
@@ -65,7 +66,8 @@ check_backup_error backup1 "starting deadline seconds exceeded"
 
 log "operator successfully failed the backup job"
 
-kubectl_bin delete -f ${test_dir}/conf/lease.yaml
+log "waiting for pxc-backup/backup0 to release the lock"
+wait_backup backup0 Succeeded
 
 desc "CASE 1: startingDeadlineSeconds PASSED"
 

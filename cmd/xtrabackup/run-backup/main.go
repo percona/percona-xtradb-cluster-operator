@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -15,6 +16,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/xtrabackup/api"
 	xbscapi "github.com/percona/percona-xtradb-cluster-operator/pkg/xtrabackup/api"
@@ -45,6 +47,10 @@ func main() {
 	defer cancel()
 	client := xbscapi.NewXtrabackupServiceClient(conn)
 
+	if err := resolveIncrementalLSN(ctx, client, req); err != nil {
+		log.Fatalf("Failed to resolve the LSN of the previous backup: %v", err)
+	}
+
 	defer printLogs(ctx, req.BackupName, client)
 
 	stream, err := client.CreateBackup(ctx, req)
@@ -68,21 +74,60 @@ func main() {
 	log.Println("Backup created successfully")
 }
 
+func resolveIncrementalLSN(ctx context.Context, client xbscapi.XtrabackupServiceClient, req *xbscapi.CreateBackupRequest) error {
+	baseDest := os.Getenv("INCREMENTAL_BASE_DEST")
+	if baseDest == "" {
+		return nil
+	}
+
+	if req.BackupConfig.IncrementalLsn != "" {
+		log.Printf("INCREMENTAL_LSN is set explicitly, not reading it from %s", baseDest)
+		return nil
+	}
+
+	cfg, ok := proto.Clone(req.BackupConfig).(*xbscapi.BackupConfig)
+	if !ok {
+		return fmt.Errorf("failed to copy the backup config")
+	}
+	cfg.Destination = baseDest
+
+	info, err := client.GetBackupInfo(ctx, &xbscapi.GetBackupInfoRequest{BackupConfig: cfg})
+	if err != nil {
+		return fmt.Errorf("get backup info of %s: %w", baseDest, err)
+	}
+	if info.GetToLsn() == "" {
+		return fmt.Errorf("backup %s reported an empty to_lsn", baseDest)
+	}
+
+	log.Printf("Incremental backup starts from LSN %s of %s", info.GetToLsn(), baseDest)
+	req.BackupConfig.IncrementalLsn = info.GetToLsn()
+
+	return nil
+}
+
+// printLogs streams the sidecar's log for this backup to stdout.
+// This is best effort, if we cannot stream logs, simply print a warning because this can otherwise fail the backup.
 func printLogs(ctx context.Context, backupName string, client xbscapi.XtrabackupServiceClient) {
 	log.Println("Requesting logs for backup", backupName)
+
 	stream, err := client.GetLogs(ctx, &xbscapi.GetLogsRequest{
 		BackupName: backupName,
 	})
 	if err != nil {
-		log.Fatal("Failed to get logs: %w", err)
+		log.Printf("WARNING: could not get logs for backup %s: %v", backupName, err)
+		return
 	}
+
 	for {
 		chunk, err := stream.Recv()
-		if err == io.EOF {
-			break
-		} else if err != nil {
-			log.Fatal("Failed to receive log chunk: %w", err)
+		if errors.Is(err, io.EOF) {
+			return
 		}
+		if err != nil {
+			log.Printf("WARNING: could not receive log chunk for backup %s: %v", backupName, err)
+			return
+		}
+
 		fmt.Fprintln(os.Stdout, chunk.Log)
 	}
 }
@@ -95,6 +140,7 @@ func getRequestObject() *xbscapi.CreateBackupRequest {
 	req.BackupName = os.Getenv("BACKUP_NAME")
 	req.BackupConfig.Destination = os.Getenv("BACKUP_DEST")
 	req.BackupConfig.VerifyTls = os.Getenv("VERIFY_TLS") == "true"
+	req.BackupConfig.IncrementalLsn = os.Getenv("INCREMENTAL_LSN")
 	req.BackupConfig.ContainerOptions = &xbscapi.ContainerOptions{
 		Args: &xbscapi.BackupContainerArgs{
 			Xtrabackup: strings.Fields(os.Getenv("XB_EXTRA_ARGS")),

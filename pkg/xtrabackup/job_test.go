@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -162,7 +163,7 @@ func TestJobSpec(t *testing.T) {
 	backup := &pxcv1.PerconaXtraDBClusterBackup{
 		Spec: *spec,
 	}
-	jobSpec, err := JobSpec(backup, cluster, job, initImage, primaryPodHost)
+	jobSpec, err := JobSpec(backup, cluster, job, initImage, primaryPodHost, "")
 	assert.NoError(t, err)
 
 	// Assert JobSpec fields
@@ -235,4 +236,102 @@ func TestJobSpec(t *testing.T) {
 	assert.Equal(t, "--parallel=10", envMap["XBCLOUD_EXTRA_ARGS"])
 	assert.Equal(t, "--parallel=10", envMap["XBSTREAM_EXTRA_ARGS"])
 	assert.Equal(t, "custom-value", envMap["CUSTOM_ENV"])
+}
+
+// TestXtrabackupJobEnvVarsIncremental covers INCREMENTAL_BASE_DEST, the only
+// thing that tells the backup Job to take an incremental backup: run-backup
+// reads the predecessor's to_lsn from that destination and passes it to
+// xtrabackup as --incremental-lsn. A full backup's environment must be
+// untouched.
+func TestXtrabackupJobEnvVarsIncremental(t *testing.T) {
+	const storageName = "s3-storage"
+
+	storage := &pxcv1.BackupStorageSpec{
+		Type: pxcv1.BackupStorageS3,
+		S3:   &pxcv1.BackupStorageS3Spec{Bucket: "bucket/prefix"},
+	}
+
+	cluster := func(crVersion string) *pxcv1.PerconaXtraDBCluster {
+		return &pxcv1.PerconaXtraDBCluster{
+			Spec: pxcv1.PerconaXtraDBClusterSpec{
+				CRVersion: crVersion,
+				Backup: &pxcv1.BackupSpec{
+					Storages: map[string]*pxcv1.BackupStorageSpec{storageName: storage},
+				},
+			},
+		}
+	}
+
+	backup := func(backupType pxcv1.PXCBackupType) *pxcv1.PerconaXtraDBClusterBackup {
+		return &pxcv1.PerconaXtraDBClusterBackup{
+			ObjectMeta: metav1.ObjectMeta{Name: "backup1", Namespace: "pxc"},
+			Spec:       pxcv1.PXCBackupSpec{StorageName: storageName},
+			Status:     pxcv1.PXCBackupStatus{Type: backupType},
+		}
+	}
+
+	tests := map[string]struct {
+		crVersion   string
+		backupType  pxcv1.PXCBackupType
+		baseDest    string
+		expectedEnv string
+		expectedErr string
+	}{
+		"incremental backup carries the predecessor destination": {
+			backupType:  pxcv1.BackupTypeIncremental,
+			baseDest:    "prefix/cluster1-2026-11-03-10:00:00-full",
+			expectedEnv: "prefix/cluster1-2026-11-03-10:00:00-full",
+		},
+		"incremental backup chained onto another incremental": {
+			backupType:  pxcv1.BackupTypeIncremental,
+			baseDest:    "prefix/cluster1-2026-11-03-10:00:00-full.incr/cluster1-2026-11-03-11:00:00-incr",
+			expectedEnv: "prefix/cluster1-2026-11-03-10:00:00-full.incr/cluster1-2026-11-03-11:00:00-incr",
+		},
+		"full backup gets no incremental env even when a destination is passed": {
+			backupType: pxcv1.BackupTypeFull,
+			baseDest:   "prefix/cluster1-2026-11-03-10:00:00-full",
+		},
+		"backup with an empty status type is a full backup": {
+			backupType: "",
+			baseDest:   "prefix/cluster1-2026-11-03-10:00:00-full",
+		},
+		"incremental backup without a predecessor is an error": {
+			backupType:  pxcv1.BackupTypeIncremental,
+			baseDest:    "",
+			expectedErr: "no predecessor destination",
+		},
+		"clusters below 1.21.0 get no incremental env": {
+			crVersion:  "1.20.0",
+			backupType: pxcv1.BackupTypeIncremental,
+			baseDest:   "prefix/cluster1-2026-11-03-10:00:00-full",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			crVersion := tt.crVersion
+			if crVersion == "" {
+				crVersion = version.Version()
+			}
+
+			envs, err := xtrabackupJobEnvVars(cluster(crVersion), backup(tt.backupType), storage, "cluster1-pxc-0", tt.baseDest)
+			if tt.expectedErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.expectedErr)
+				return
+			}
+			require.NoError(t, err)
+
+			envMap := make(map[string]string, len(envs))
+			for _, env := range envs {
+				envMap[env.Name] = env.Value
+			}
+
+			if tt.expectedEnv == "" {
+				assert.NotContains(t, envMap, "INCREMENTAL_BASE_DEST")
+				return
+			}
+			assert.Equal(t, tt.expectedEnv, envMap["INCREMENTAL_BASE_DEST"])
+		})
+	}
 }

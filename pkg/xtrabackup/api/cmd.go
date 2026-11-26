@@ -20,6 +20,7 @@ type XBCloudAction string
 const (
 	XBCloudActionPut    XBCloudAction = "put"
 	XBCloudActionDelete XBCloudAction = "delete"
+	XBCloudActionGet    XBCloudAction = "get"
 )
 
 // NewXtrabackupCmd creates a new xtrabackup command
@@ -34,15 +35,17 @@ func (cfg *BackupConfig) NewXtrabackupCmd(
 	return cmd
 }
 
-// NewXbcloudCmd creates a new xbcloud command
-func (cfg *BackupConfig) NewXbcloudCmd(ctx context.Context, action XBCloudAction, in io.Reader) *exec.Cmd {
-	cmd := exec.CommandContext(ctx, xbcloudCmd, cfg.xbcloudArgs(action)...)
+// NewXbcloudCmd creates a new xbcloud command. Optional files are appended after
+// the destination; they are only meaningful for XBCloudActionGet, which fetches
+// individual files out of an already uploaded backup.
+func (cfg *BackupConfig) NewXbcloudCmd(ctx context.Context, action XBCloudAction, in io.Reader, files ...string) *exec.Cmd {
+	cmd := exec.CommandContext(ctx, xbcloudCmd, cfg.xbcloudArgs(action, files...)...)
 	cmd.Env = cfg.envs()
 	cmd.Stdin = in
 	return cmd
 }
 
-func (cfg *BackupConfig) xbcloudArgs(action XBCloudAction) []string {
+func (cfg *BackupConfig) xbcloudArgs(action XBCloudAction, files ...string) []string {
 	args := []string{string(action), "--parallel=10", "--curl-retriable-errors=7"}
 
 	if !cfg.VerifyTls {
@@ -105,6 +108,7 @@ func (cfg *BackupConfig) xbcloudArgs(action XBCloudAction) []string {
 	}
 
 	args = append(args, cfg.Destination)
+	args = append(args, files...)
 
 	return args
 }
@@ -131,6 +135,9 @@ func (cfg *BackupConfig) xtrabackupArgs(user, pass string, mysqlVersion *goversi
 	}
 	if cfg != nil && cfg.ContainerOptions != nil && cfg.ContainerOptions.Args != nil {
 		args = append(args, cfg.ContainerOptions.Args.Xtrabackup...)
+	}
+	if cfg != nil && cfg.IncrementalLsn != "" {
+		args = append(args, "--incremental-lsn="+cfg.IncrementalLsn)
 	}
 	return args
 }

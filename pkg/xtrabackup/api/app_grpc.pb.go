@@ -23,6 +23,7 @@ const (
 	XtrabackupService_CreateBackup_FullMethodName           = "/api.XtrabackupService/CreateBackup"
 	XtrabackupService_DeleteBackup_FullMethodName           = "/api.XtrabackupService/DeleteBackup"
 	XtrabackupService_GetLogs_FullMethodName                = "/api.XtrabackupService/GetLogs"
+	XtrabackupService_GetBackupInfo_FullMethodName          = "/api.XtrabackupService/GetBackupInfo"
 )
 
 // XtrabackupServiceClient is the client API for XtrabackupService service.
@@ -33,6 +34,7 @@ type XtrabackupServiceClient interface {
 	CreateBackup(ctx context.Context, in *CreateBackupRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[CreateBackupResponse], error)
 	DeleteBackup(ctx context.Context, in *DeleteBackupRequest, opts ...grpc.CallOption) (*DeleteBackupResponse, error)
 	GetLogs(ctx context.Context, in *GetLogsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[LogChunk], error)
+	GetBackupInfo(ctx context.Context, in *GetBackupInfoRequest, opts ...grpc.CallOption) (*BackupInfo, error)
 }
 
 type xtrabackupServiceClient struct {
@@ -101,6 +103,16 @@ func (c *xtrabackupServiceClient) GetLogs(ctx context.Context, in *GetLogsReques
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type XtrabackupService_GetLogsClient = grpc.ServerStreamingClient[LogChunk]
 
+func (c *xtrabackupServiceClient) GetBackupInfo(ctx context.Context, in *GetBackupInfoRequest, opts ...grpc.CallOption) (*BackupInfo, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BackupInfo)
+	err := c.cc.Invoke(ctx, XtrabackupService_GetBackupInfo_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // XtrabackupServiceServer is the server API for XtrabackupService service.
 // All implementations must embed UnimplementedXtrabackupServiceServer
 // for forward compatibility.
@@ -109,6 +121,7 @@ type XtrabackupServiceServer interface {
 	CreateBackup(*CreateBackupRequest, grpc.ServerStreamingServer[CreateBackupResponse]) error
 	DeleteBackup(context.Context, *DeleteBackupRequest) (*DeleteBackupResponse, error)
 	GetLogs(*GetLogsRequest, grpc.ServerStreamingServer[LogChunk]) error
+	GetBackupInfo(context.Context, *GetBackupInfoRequest) (*BackupInfo, error)
 	mustEmbedUnimplementedXtrabackupServiceServer()
 }
 
@@ -130,6 +143,9 @@ func (UnimplementedXtrabackupServiceServer) DeleteBackup(context.Context, *Delet
 }
 func (UnimplementedXtrabackupServiceServer) GetLogs(*GetLogsRequest, grpc.ServerStreamingServer[LogChunk]) error {
 	return status.Error(codes.Unimplemented, "method GetLogs not implemented")
+}
+func (UnimplementedXtrabackupServiceServer) GetBackupInfo(context.Context, *GetBackupInfoRequest) (*BackupInfo, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetBackupInfo not implemented")
 }
 func (UnimplementedXtrabackupServiceServer) mustEmbedUnimplementedXtrabackupServiceServer() {}
 func (UnimplementedXtrabackupServiceServer) testEmbeddedByValue()                           {}
@@ -210,6 +226,24 @@ func _XtrabackupService_GetLogs_Handler(srv interface{}, stream grpc.ServerStrea
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type XtrabackupService_GetLogsServer = grpc.ServerStreamingServer[LogChunk]
 
+func _XtrabackupService_GetBackupInfo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetBackupInfoRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(XtrabackupServiceServer).GetBackupInfo(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: XtrabackupService_GetBackupInfo_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(XtrabackupServiceServer).GetBackupInfo(ctx, req.(*GetBackupInfoRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // XtrabackupService_ServiceDesc is the grpc.ServiceDesc for XtrabackupService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -224,6 +258,10 @@ var XtrabackupService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeleteBackup",
 			Handler:    _XtrabackupService_DeleteBackup_Handler,
+		},
+		{
+			MethodName: "GetBackupInfo",
+			Handler:    _XtrabackupService_GetBackupInfo_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

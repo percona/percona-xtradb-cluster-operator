@@ -1,0 +1,11 @@
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBClusterBackup
+metadata:
+  name: backup-invalid-base-on-full
+spec:
+  pxcCluster: demand-backup-incr
+  storageName: local-s3
+  # type: full with incrementalBaseBackupName set is rejected by the CEL rule on
+  # PXCBackupSpec. This manifest must never be accepted by the API server.
+  type: full
+  incrementalBaseBackupName: backup-full

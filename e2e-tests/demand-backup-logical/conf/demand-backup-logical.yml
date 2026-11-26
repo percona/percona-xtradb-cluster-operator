@@ -1,0 +1,69 @@
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBCluster
+metadata:
+  name: demand-backup-logical
+  finalizers:
+    - percona.com/delete-pxc-pods-in-order
+spec:
+  tls:
+    SANs:
+      - "s3-storage-all-in-one.#namespace"
+  secretsName: my-cluster-secrets
+  pause: false
+  pxc:
+    size: 3
+    image: -pxc
+    resources:
+      requests:
+        memory: 0.1G
+        cpu: 100m
+      limits:
+        memory: "2G"
+        cpu: "1"
+    volumeSpec:
+      persistentVolumeClaim:
+        resources:
+          requests:
+            storage: 2Gi
+    affinity:
+      antiAffinityTopologyKey: "kubernetes.io/hostname"
+  haproxy:
+    enabled: true
+    size: 2
+    image: -haproxy
+    resources:
+      requests:
+        memory: 0.1G
+        cpu: 100m
+      limits:
+        memory: 1G
+        cpu: 700m
+    affinity:
+      antiAffinityTopologyKey: "kubernetes.io/hostname"
+  backup:
+    ttlSecondsAfterFinished: 3600
+    activeDeadlineSeconds: 3600
+    allowParallel: false
+    backoffLimit: 1
+    image: -backup
+    storages:
+      local-s3:
+        type: s3
+        resources:
+          requests:
+            memory: 0.5G
+            cpu: 500m
+          limits:
+            memory: "2G"
+            cpu: "1"
+        s3:
+          credentialsSecret: s3-secret
+          region: us-east-1
+          bucket: operator-testing/prefix
+          prefix: subfolder
+          endpointUrl: https://s3-storage-all-in-one.#namespace:8443/
+        verifyTLS: false
+        containerOptions:
+          args:
+            mydumper:
+            - '--threads=1'

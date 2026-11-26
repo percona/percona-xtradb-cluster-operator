@@ -34,7 +34,7 @@ func CheckPITRErrors(ctx context.Context, cl client.Client, clcmd clientcmd.Clie
 		return nil
 	}
 
-	backup, err := getLatestSuccessfulBackup(ctx, cl, cr)
+	backup, err := getLatestSuccessfulPhysicalBackup(ctx, cl, cr)
 	if err != nil {
 		if errors.Is(err, ErrNoBackups) {
 			return nil
@@ -120,7 +120,7 @@ func UpdatePITRTimeline(ctx context.Context, cl client.Client, clcmd clientcmd.C
 		return nil
 	}
 
-	backup, err := getLatestSuccessfulBackup(ctx, cl, cr)
+	backup, err := getLatestSuccessfulPhysicalBackup(ctx, cl, cr)
 	if err != nil {
 		if errors.Is(err, ErrNoBackups) {
 			return nil
@@ -206,7 +206,7 @@ func addPitrNotReadyFileToBackup(ctx context.Context, cl client.Client, cr *api.
 
 var ErrNoBackups = errors.New("No backups found")
 
-func getLatestSuccessfulBackup(ctx context.Context, cl client.Client, cr *api.PerconaXtraDBCluster) (*api.PerconaXtraDBClusterBackup, error) {
+func getLatestSuccessfulPhysicalBackup(ctx context.Context, cl client.Client, cr *api.PerconaXtraDBCluster) (*api.PerconaXtraDBClusterBackup, error) {
 	bcpList := api.PerconaXtraDBClusterBackupList{}
 	if err := cl.List(ctx, &bcpList, client.InNamespace(cr.GetNamespace()), client.MatchingFields{PXCClusterBackupField: cr.GetName()}); err != nil {
 		return nil, errors.Wrap(err, "get backup objects")
@@ -215,6 +215,10 @@ func getLatestSuccessfulBackup(ctx context.Context, cl client.Client, cr *api.Pe
 	var latest *api.PerconaXtraDBClusterBackup
 	for _, bcp := range bcpList.Items {
 		if bcp.Status.State != api.BackupSucceeded {
+			continue
+		}
+
+		if bcp.Status.IsLogical() {
 			continue
 		}
 

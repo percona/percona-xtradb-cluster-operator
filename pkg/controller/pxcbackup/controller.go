@@ -84,6 +84,8 @@ func newReconciler(ctx context.Context, mgr manager.Manager) (reconcile.Reconcil
 		clientcmd:           cli,
 		chLimit:             make(chan struct{}, limit),
 		bcpDeleteInProgress: new(sync.Map),
+
+		newStorageClientFunc: storage.NewClient,
 	}, nil
 }
 
@@ -108,6 +110,8 @@ type ReconcilePerconaXtraDBClusterBackup struct {
 	clientcmd           clientcmd.Client
 	chLimit             chan struct{}
 	bcpDeleteInProgress *sync.Map
+
+	newStorageClientFunc storage.NewClientFunc
 }
 
 // Reconcile reads that state of the cluster for a PerconaXtraDBClusterBackup object and makes changes based on the state read
@@ -173,6 +177,15 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 		}
 
 		return reconcile.Result{}, err
+	}
+
+	if isLogicalBackup(cr) {
+		if err := validateLogicalBackup(cluster, cr.Spec.StorageName, storage); err != nil {
+			if err := r.setFailedStatus(ctx, cr, err); err != nil {
+				return rr, errors.Wrap(err, "update status")
+			}
+			return reconcile.Result{}, err
+		}
 	}
 
 	// TODO: implement support
@@ -291,6 +304,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 		cr.Status.VaultSecretName = cluster.Spec.PXC.VaultSecretName
 		cr.Status.VerifyTLS = storage.VerifyTLS
 	}
+	cr.Status.Type = backupType(cr)
 
 	var job *batchv1.Job
 	job, err = r.createBackupJob(ctx, cr, cluster, storage)
@@ -326,8 +340,12 @@ func (r *ReconcilePerconaXtraDBClusterBackup) createBackupJob(
 		return nil, errors.Wrap(err, "failed to get initImage")
 	}
 
-	xtrabackupEnabled := features.Enabled(ctx, features.XtrabackupSidecar)
+	// logical backups don't use xtrabackup, so the sidecar feature doesn't apply to them
+	xtrabackupEnabled := features.Enabled(ctx, features.XtrabackupSidecar) && !isLogicalBackup(cr)
 	getJobSpec := func() (batchv1.JobSpec, error) {
+		if isLogicalBackup(cr) {
+			return bcp.LogicalJobSpec(cr.Spec, cluster, job, initImage)
+		}
 		if xtrabackupEnabled {
 			srcNode, err := pxc.GetHostForSidecarBackup(ctx, r.client, cluster)
 			if err != nil {
@@ -377,7 +395,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) createBackupJob(
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get bucket and prefix")
 		}
-		cr.Status.Destination.SetS3Destination(path.Join(bucket, prefix), cr.Spec.PXCCluster+"-"+cr.CreationTimestamp.Time.Format("2006-01-02-15:04:05")+"-full")
+		cr.Status.Destination.SetS3Destination(path.Join(bucket, prefix), backupDestinationName(cr))
 
 		if err := backup.SetStorageS3(ctx, &job.Spec, cr); err != nil {
 			return nil, errors.Wrap(err, "set storage FS")
@@ -387,7 +405,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) createBackupJob(
 			return nil, errors.New("azure storage is not specified")
 		}
 		container, prefix := storage.Azure.ContainerAndPrefix()
-		cr.Status.Destination.SetAzureDestination(path.Join(container, prefix), cr.Spec.PXCCluster+"-"+cr.CreationTimestamp.Time.Format("2006-01-02-15:04:05")+"-full")
+		cr.Status.Destination.SetAzureDestination(path.Join(container, prefix), backupDestinationName(cr))
 
 		err := backup.SetStorageAzure(ctx, &job.Spec, cr)
 		if err != nil {
@@ -651,6 +669,14 @@ func (r *ReconcilePerconaXtraDBClusterBackup) getCluster(ctx context.Context, cr
 	return &cluster, nil
 }
 
+// backupType returns the type of the backup. An empty type is a full backup.
+func backupType(cr *api.PerconaXtraDBClusterBackup) api.PXCBackupType {
+	if cr.Spec.Type == "" {
+		return api.BackupTypeFull
+	}
+	return cr.Spec.Type
+}
+
 func getPXCBackupStateFromJob(job *batchv1.Job) api.PXCBackupState {
 	for _, cond := range job.Status.Conditions {
 		if cond.Status != corev1.ConditionTrue {
@@ -708,6 +734,8 @@ func (r *ReconcilePerconaXtraDBClusterBackup) updateJobStatus(
 	}
 
 	status := api.PXCBackupStatus{
+		Type:                  bcp.Status.Type,
+		Size:                  bcp.Status.Size,
 		State:                 getPXCBackupStateFromJob(job),
 		Destination:           bcp.Status.Destination,
 		StorageName:           storageName,
@@ -724,6 +752,10 @@ func (r *ReconcilePerconaXtraDBClusterBackup) updateJobStatus(
 
 	if status.State == api.BackupSucceeded {
 		status.CompletedAt = job.Status.CompletionTime
+
+		if bcp.Status.IsLogical() {
+			status.Size = r.getLogicalBackupSize(ctx, cluster, bcp)
+		}
 	}
 
 	// There is a bug in k8s 1.33.2 (possibly some earlier versions as well), where a suspended job after being un-suspended
@@ -755,7 +787,9 @@ func (r *ReconcilePerconaXtraDBClusterBackup) updateJobStatus(
 	case api.BackupSucceeded:
 		log.Info("Backup succeeded")
 
-		if cluster.PITREnabled() {
+		// A logical backup is not a point-in-time recovery base, so it must not
+		// reset the binlog gap tracking that belongs to the latest full backup.
+		if cluster.PITREnabled() && !bcp.Status.IsLogical() {
 			collectorPod, err := binlogcollector.GetPod(ctx, r.client, cluster)
 			if err != nil {
 				return errors.Wrap(err, "get binlog collector pod")

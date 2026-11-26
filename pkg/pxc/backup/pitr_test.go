@@ -84,6 +84,42 @@ func TestGetLatestSuccessfulBackup(t *testing.T) {
 			},
 			expected: "succeeded-backup",
 		},
+		{
+			name:        "newer logical backup is ignored in favour of an older full backup",
+			clusterName: "cluster1",
+			backups: []runtime.Object{
+				newTypedBackup("full", "cluster1", api.BackupTypeFull, baseTime.Add(time.Minute)),
+				newTypedBackup("logical", "cluster1", api.BackupTypeLogical, baseTime.Add(2*time.Minute)),
+			},
+			expected: "full",
+		},
+		{
+			name:        "backup without a type is a full backup and is preferred when it is newer than a logical one",
+			clusterName: "cluster1",
+			backups: []runtime.Object{
+				newTypedBackup("logical", "cluster1", api.BackupTypeLogical, baseTime.Add(time.Minute)),
+				newTypedBackup("untyped", "cluster1", "", baseTime.Add(2*time.Minute)),
+			},
+			expected: "untyped",
+		},
+		{
+			name:        "backup without a type is still chosen when a logical backup is newer",
+			clusterName: "cluster1",
+			backups: []runtime.Object{
+				newTypedBackup("untyped", "cluster1", "", baseTime.Add(time.Minute)),
+				newTypedBackup("logical", "cluster1", api.BackupTypeLogical, baseTime.Add(2*time.Minute)),
+			},
+			expected: "untyped",
+		},
+		{
+			name:        "returns no backups when cluster has only logical backups",
+			clusterName: "cluster1",
+			backups: []runtime.Object{
+				newTypedBackup("logical1", "cluster1", api.BackupTypeLogical, baseTime.Add(time.Minute)),
+				newTypedBackup("logical2", "cluster1", api.BackupTypeLogical, baseTime.Add(2*time.Minute)),
+			},
+			expectedErr: ErrNoBackups,
+		},
 	}
 
 	for _, tt := range tests {
@@ -95,7 +131,7 @@ func TestGetLatestSuccessfulBackup(t *testing.T) {
 				},
 			}
 
-			backup, err := getLatestSuccessfulBackup(t.Context(), buildBackupFakeClient(t, tt.backups...), cr)
+			backup, err := getLatestSuccessfulPhysicalBackup(t.Context(), buildBackupFakeClient(t, tt.backups...), cr)
 			if tt.expectedErr != nil {
 				require.ErrorIs(t, err, tt.expectedErr)
 				assert.Nil(t, backup)
@@ -144,4 +180,12 @@ func newBackup(name, clusterName string, state api.PXCBackupState, createdAt tim
 			State: state,
 		},
 	}
+}
+
+// newTypedBackup returns a succeeded backup of the given type.
+func newTypedBackup(name, clusterName string, backupType api.PXCBackupType, createdAt time.Time) *api.PerconaXtraDBClusterBackup {
+	backup := newBackup(name, clusterName, api.BackupSucceeded, createdAt)
+	backup.Spec.Type = backupType
+	backup.Status.Type = backupType
+	return backup
 }

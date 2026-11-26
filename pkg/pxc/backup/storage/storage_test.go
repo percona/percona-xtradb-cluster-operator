@@ -55,3 +55,44 @@ func TestMinioPutObjectOptions(t *testing.T) {
 		})
 	}
 }
+
+func TestTotalSize(t *testing.T) {
+	tests := map[string]struct {
+		objects  []ObjectInfo
+		expected int64
+	}{
+		"nil list": {
+			objects:  nil,
+			expected: 0,
+		},
+		"empty list": {
+			objects:  []ObjectInfo{},
+			expected: 0,
+		},
+		"single object": {
+			objects:  []ObjectInfo{{Name: "backup/metadata", Size: 1302}},
+			expected: 1302,
+		},
+		"several objects": {
+			objects: []ObjectInfo{
+				{Name: "backup/metadata", Size: 100},
+				{Name: "backup/shop.orders.00000.sql", Size: 250},
+				{Name: "backup/shop.orders.00001.sql", Size: 4096},
+			},
+			expected: 4446,
+		},
+		"zero-sized objects are counted as zero": {
+			objects: []ObjectInfo{
+				{Name: "backup/empty", Size: 0},
+				{Name: "backup/metadata", Size: 7},
+			},
+			expected: 7,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, TotalSize(tt.objects))
+		})
+	}
+}

@@ -696,7 +696,7 @@ func s3Envs(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBa
 				storage, ok := cluster.Spec.Backup.Storages[bs.StorageName]
 				if ok {
 					storageS3 = storage.S3
-					bucket, err = storage.S3.BucketURL()
+					bucket, err = storage.S3.BucketURLWithPrefix()
 					if err != nil {
 						return nil, errors.Wrap(err, "failed to get bucket url")
 					}
@@ -704,7 +704,7 @@ func s3Envs(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBa
 			}
 			if bs.S3 != nil {
 				storageS3 = bs.S3
-				bucket, err = storageS3.BucketURL()
+				bucket, err = storageS3.BucketURLWithPrefix()
 				if err != nil {
 					return nil, errors.Wrap(err, "failed to get bucket url")
 				}

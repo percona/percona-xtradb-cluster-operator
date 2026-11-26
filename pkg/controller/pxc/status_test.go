@@ -102,7 +102,7 @@ func buildFakeClient(objs []runtime.Object) *ReconcilePerconaXtraDBCluster {
 		WithStatusSubresource(&api.PerconaXtraDBCluster{}).
 		Build()
 
-	return &ReconcilePerconaXtraDBCluster{client: cl, scheme: s}
+	return &ReconcilePerconaXtraDBCluster{client: cl, apiReader: cl, scheme: s}
 }
 
 func TestAppStatusInit(t *testing.T) {

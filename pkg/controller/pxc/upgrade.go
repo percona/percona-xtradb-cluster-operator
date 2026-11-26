@@ -126,7 +126,7 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(
 		return k8serrors.IsAlreadyExists(err) || k8serrors.IsConflict(err)
 	}, func() error {
 		currentSet := sfs.StatefulSet()
-		if err := r.client.Get(ctx, client.ObjectKeyFromObject(currentSet), currentSet); client.IgnoreNotFound(err) != nil {
+		if err := r.apiReader.Get(ctx, client.ObjectKeyFromObject(currentSet), currentSet); client.IgnoreNotFound(err) != nil {
 			return errors.Wrap(err, "get statefulset")
 		}
 		if !currentSet.DeletionTimestamp.IsZero() {
@@ -160,6 +160,10 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(
 
 		sts.Spec.Template.Annotations = annotations
 		sts.Spec.Template.Labels = labels
+
+		if applied, ok := currentSet.Annotations[lastAppliedMySQLConfigAnnotation]; ok {
+			sts.Annotations = util.MergeMaps(sts.Annotations, map[string]string{lastAppliedMySQLConfigAnnotation: applied})
+		}
 
 		if err := k8s.SetControllerReference(cr, sts, r.scheme); err != nil {
 			return errors.Wrap(err, "set controller reference")
@@ -646,13 +650,16 @@ func (r *ReconcilePerconaXtraDBCluster) getConfigHash(
 ) (string, error) {
 	var b strings.Builder
 
-	if res, err := r.getComponentConfigHash(ctx, cr, sfs); err != nil {
-		return "", errors.Wrap(err, "failed to get component config hash")
-	} else {
-		b.WriteString(res)
-	}
-
 	component := sfs.Labels()[naming.LabelAppKubernetesComponent]
+
+	// reconcileMySQLConfig restarts PXC only for the options that need it
+	if component != naming.ComponentPXC || cr.CompareVersionWith(liveConfigVersion) < 0 {
+		if res, err := r.getComponentConfigHash(ctx, cr, sfs); err != nil {
+			return "", errors.Wrap(err, "failed to get component config hash")
+		} else {
+			b.WriteString(res)
+		}
+	}
 
 	if component == naming.ComponentPXC &&
 		cr.CompareVersionWith("1.20.0") >= 0 &&

@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
@@ -32,29 +31,10 @@ func NewConfigMap(cr *api.PerconaXtraDBCluster, cmName, filename, content string
 	}
 }
 
-func NewAutoTuneConfigMap(cr *api.PerconaXtraDBCluster, memory *resource.Quantity, cmName string) (*corev1.ConfigMap, error) {
-	autotuneParams, err := getAutoTuneParams(cr, memory)
-	if err != nil {
-		return nil, err
-	}
-	var ls map[string]string
-	if cr.CompareVersionWith("1.16.0") >= 0 {
-		ls = naming.LabelsCluster(cr)
-	}
-	return &corev1.ConfigMap{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "v1",
-			Kind:       "ConfigMap",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cmName,
-			Namespace: cr.Namespace,
-			Labels:    ls,
-		},
-		Data: map[string]string{
-			"auto-config.cnf": "[mysqld]" + autotuneParams,
-		},
-	}, nil
+const AutoConfigKey = "auto-config.cnf"
+
+func NewAutoConfigMap(cr *api.PerconaXtraDBCluster, cmName, params string) *corev1.ConfigMap {
+	return NewConfigMap(cr, cmName, AutoConfigKey, "[mysqld]"+params)
 }
 
 func AutoTuneConfigMapName(clusterName, component string) string {

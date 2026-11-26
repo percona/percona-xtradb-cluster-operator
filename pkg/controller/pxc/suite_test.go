@@ -1,6 +1,7 @@
 package pxc
 
 import (
+	"k8s.io/client-go/tools/record"
 	"os"
 	"path/filepath"
 	"testing"
@@ -80,6 +81,8 @@ func reconciler() *ReconcilePerconaXtraDBCluster {
 
 	return (&ReconcilePerconaXtraDBCluster{
 		client:    k8sClient,
+		apiReader: k8sClient,
+		recorder:  new(record.FakeRecorder),
 		scheme:    k8sClient.Scheme(),
 		crons:     NewCronRegistry(),
 		lockers:   newLockStore(),

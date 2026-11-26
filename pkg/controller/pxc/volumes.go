@@ -29,6 +29,53 @@ func validatePVCName(pvc corev1.PersistentVolumeClaim, sts *appsv1.StatefulSet) 
 	return strings.HasPrefix(pvc.Name, "datadir-"+sts.Name)
 }
 
+func (r *ReconcilePerconaXtraDBCluster) deleteStatefulSetForVolumeTemplate(ctx context.Context, cr *pxcv1.PerconaXtraDBCluster, sts *appsv1.StatefulSet) error {
+	if err := r.stashAppliedMySQLConfig(ctx, cr, sts); err != nil {
+		return errors.Wrapf(err, "stash applied mysql config of statefulset/%s", sts.Name)
+	}
+
+	if err := r.client.Delete(ctx, sts, client.PropagationPolicy("Orphan")); client.IgnoreNotFound(err) != nil {
+		return errors.Wrapf(err, "delete statefulset/%s", sts.Name)
+	}
+	return nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) dataVolumeCapacity(ctx context.Context, cr *pxcv1.PerconaXtraDBCluster) (int64, error) {
+	vs := cr.Spec.PXC.VolumeSpec
+	if vs == nil || vs.PersistentVolumeClaim == nil {
+		if vs != nil && vs.EmptyDir != nil && vs.EmptyDir.SizeLimit != nil {
+			return vs.EmptyDir.SizeLimit.Value(), nil
+		}
+		return 0, nil
+	}
+
+	sts := statefulset.NewNode(cr).StatefulSet()
+	pvcList := new(corev1.PersistentVolumeClaimList)
+	if err := r.client.List(ctx, pvcList, &client.ListOptions{
+		Namespace:     cr.Namespace,
+		LabelSelector: labels.SelectorFromSet(naming.LabelsPXC(cr)),
+	}); err != nil {
+		return 0, errors.Wrap(err, "list PVCs")
+	}
+
+	var smallest int64
+	for _, pvc := range pvcList.Items {
+		if !validatePVCName(pvc, sts) {
+			continue
+		}
+		size := pvc.Status.Capacity.Storage().Value()
+		if size > 0 && (smallest == 0 || size < smallest) {
+			smallest = size
+		}
+	}
+	if smallest > 0 {
+		return smallest, nil
+	}
+
+	requested := vs.PersistentVolumeClaim.Resources.Requests[corev1.ResourceStorage]
+	return requested.Value(), nil
+}
+
 func (r *ReconcilePerconaXtraDBCluster) reconcilePersistentVolumes(ctx context.Context, cr *pxcv1.PerconaXtraDBCluster) (bool, error) {
 	pxcSet := statefulset.NewNode(cr)
 	sts := pxcSet.StatefulSet()
@@ -227,10 +274,8 @@ func (r *ReconcilePerconaXtraDBCluster) reconcilePersistentVolumes(ctx context.C
 			}
 
 			log.Info("PVC resize completed")
-			if err := r.client.Delete(ctx, sts, client.PropagationPolicy("Orphan")); err != nil {
-				if !k8serrors.IsNotFound(err) {
-					return false, errors.Wrapf(err, "delete statefulset/%s", sts.Name)
-				}
+			if err := r.deleteStatefulSetForVolumeTemplate(ctx, cr, sts); err != nil {
+				return false, err
 			}
 
 			return true, nil
@@ -246,10 +291,8 @@ func (r *ReconcilePerconaXtraDBCluster) reconcilePersistentVolumes(ctx context.C
 			}
 
 			log.Info("Deleting statefulset to reconcile volume claim template", "configured", configured.String(), "requested", requested.String(), "actual", actual.String())
-			if err := r.client.Delete(ctx, sts, client.PropagationPolicy("Orphan")); err != nil {
-				if !k8serrors.IsNotFound(err) {
-					return false, errors.Wrapf(err, "delete statefulset/%s", sts.Name)
-				}
+			if err := r.deleteStatefulSetForVolumeTemplate(ctx, cr, sts); err != nil {
+				return false, err
 			}
 			return true, nil
 		}
@@ -265,10 +308,8 @@ func (r *ReconcilePerconaXtraDBCluster) reconcilePersistentVolumes(ctx context.C
 	if requested.Cmp(actual) == 0 {
 		if configured.Cmp(requested) != 0 {
 			log.Info("Deleting statefulset to reconcile volume claim template", "configured", configured.String(), "requested", requested.String())
-			if err := r.client.Delete(ctx, sts, client.PropagationPolicy("Orphan")); err != nil {
-				if !k8serrors.IsNotFound(err) {
-					return false, errors.Wrapf(err, "delete statefulset/%s", sts.Name)
-				}
+			if err := r.deleteStatefulSetForVolumeTemplate(ctx, cr, sts); err != nil {
+				return false, err
 			}
 			return true, nil
 		}

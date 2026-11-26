@@ -18,6 +18,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
+const defaultTimeout = 10 * time.Second
+
 func main() {
 	command := "collect"
 	if len(os.Args) > 1 {
@@ -28,9 +30,9 @@ func main() {
 
 	srv := &http.Server{
 		Addr:              ":8080",
-		ReadHeaderTimeout: 10 * time.Second,
-		ReadTimeout:       10 * time.Second,
-		WriteTimeout:      10 * time.Second,
+		ReadHeaderTimeout: defaultTimeout,
+		ReadTimeout:       defaultTimeout,
+		WriteTimeout:      defaultTimeout,
 	}
 	go func() {
 		http.Handle("/metrics", promhttp.Handler())
@@ -92,7 +94,8 @@ func cacheInvalidationHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ctx := r.Context()
+	ctx, cancel := context.WithTimeout(r.Context(), defaultTimeout)
+	defer cancel()
 
 	config, err := getCollectorConfig()
 	if err != nil {
@@ -138,9 +141,9 @@ func runCollector(ctx context.Context) {
 	log.Println("running binlog collector")
 	for {
 		timeout, cancel := context.WithTimeout(ctx, time.Duration(config.TimeoutSeconds)*time.Second)
-		defer cancel()
 
 		err := c.Run(timeout)
+		cancel()
 		if err != nil {
 			log.Fatalln("ERROR:", err)
 		}
@@ -150,7 +153,6 @@ func runCollector(ctx context.Context) {
 		case <-ctx.Done():
 			log.Fatalln("ERROR:", ctx.Err().Error())
 		case <-t.C:
-			break
 		}
 	}
 }

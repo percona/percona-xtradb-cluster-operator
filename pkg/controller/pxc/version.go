@@ -10,6 +10,7 @@ import (
 	"time"
 
 	goversion "github.com/hashicorp/go-version"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 	"github.com/pkg/errors"
 	"github.com/robfig/cron/v3"
 	corev1 "k8s.io/api/core/v1"
@@ -426,6 +427,35 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(ctx context.Context, cr
 	time.Sleep(1 * time.Second)
 
 	return nil
+}
+
+// currentMySQLVersion returns the currently running MySQL/PXC version for the cluster.
+// It prefers the version already recorded in cr.Status.PXC.Version, falling back to
+// querying a live PXC pod via mysqlVersion when the status field is not yet populated.
+// It returns (nil, nil) if the version cannot be determined yet (e.g. the cluster is not
+// ready to be queried), which callers should treat as "try again later" rather than an error.
+func (r *ReconcilePerconaXtraDBCluster) currentMySQLVersion(ctx context.Context, cr *apiv1.PerconaXtraDBCluster) (*goversion.Version, error) {
+	mysqlVersion := cr.Status.PXC.Version
+	if mysqlVersion == "" {
+		var err error
+		mysqlVersion, err = r.mysqlVersion(ctx, cr, statefulset.NewNode(cr))
+		if err != nil {
+			if errors.Is(err, versionNotReadyErr) {
+				return nil, nil
+			}
+			return nil, errors.Wrap(err, "retrieving pxc version")
+		}
+	}
+	if mysqlVersion == "" {
+		return nil, nil
+	}
+
+	ver, err := goversion.NewVersion(mysqlVersion)
+	if err != nil {
+		return nil, errors.Wrap(err, "invalid pxc version")
+	}
+
+	return ver, nil
 }
 
 func (r *ReconcilePerconaXtraDBCluster) isPMM3Configured(ctx context.Context, cr *apiv1.PerconaXtraDBCluster) (bool, error) {

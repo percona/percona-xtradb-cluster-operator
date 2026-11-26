@@ -178,9 +178,9 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(ctx context.Context, re
 	case api.RestoreStopCluster:
 		return r.reconcileStateStopCluster(ctx, restorer, cr, cluster)
 	case api.RestoreRestore:
-		return r.reconcileStateRestore(ctx, restorer, cr, cluster)
+		return r.reconcileStateRestore(ctx, cr, cluster)
 	case api.RestorePITR:
-		return r.reconcileStatePITR(ctx, restorer, cr)
+		return r.reconcileStatePITR(ctx, cr)
 	case api.RestorePrepareCluster:
 		return r.reconcileStatePrepareCluster(ctx, restorer, cr, bcp, cluster)
 	case api.RestoreStartCluster:
@@ -312,34 +312,16 @@ func (r *ReconcilePerconaXtraDBClusterRestore) reconcileStateNew(ctx context.Con
 	return rr, nil
 }
 
-func (r *ReconcilePerconaXtraDBClusterRestore) reconcileStateRestore(ctx context.Context, restorer Restorer, cr *api.PerconaXtraDBClusterRestore, cluster *api.PerconaXtraDBCluster) (reconcile.Result, error) {
+func (r *ReconcilePerconaXtraDBClusterRestore) reconcileStateRestore(ctx context.Context, cr *api.PerconaXtraDBClusterRestore, cluster *api.PerconaXtraDBCluster) (reconcile.Result, error) {
 	log := logf.FromContext(ctx)
 	rr := reconcile.Result{
 		// TODO: do not depend on the RequeueAfter
 		RequeueAfter: time.Second * 5,
 	}
 
-	restorerJob, err := restorer.Job(ctx)
-	if err != nil {
-		return rr, errors.Wrap(err, "failed to create restore job")
-	}
-	job := new(batchv1.Job)
-	if err := r.client.Get(ctx, types.NamespacedName{
-		Name:      restorerJob.Name,
-		Namespace: restorerJob.Namespace,
-	}, job); err != nil {
-		return rr, errors.Wrap(err, "failed to get restore job")
-	}
-
-	finished, err := isJobFinished(job)
-	if err != nil {
-		cr.Status.State = api.RestoreFailed
-		cr.Status.Comments = err.Error()
+	finished, err := r.waitForRestoreJob(ctx, cr, false)
+	if err != nil || !finished {
 		return rr, err
-	}
-	if !finished {
-		log.Info("Waiting for restore job to finish", "job", job.Name)
-		return rr, nil
 	}
 
 	if cluster.Spec.Backup.PITR.Enabled {
@@ -359,34 +341,24 @@ func (r *ReconcilePerconaXtraDBClusterRestore) reconcileStateRestore(ctx context
 	return rr, nil
 }
 
-func (r *ReconcilePerconaXtraDBClusterRestore) reconcileStatePITR(ctx context.Context, restorer Restorer, cr *api.PerconaXtraDBClusterRestore) (reconcile.Result, error) {
+func (r *ReconcilePerconaXtraDBClusterRestore) reconcileStatePITR(ctx context.Context, cr *api.PerconaXtraDBClusterRestore) (reconcile.Result, error) {
 	log := logf.FromContext(ctx)
 	rr := reconcile.Result{
 		// TODO: do not depend on the RequeueAfter
 		RequeueAfter: time.Second * 5,
 	}
 
-	restorerJob, err := restorer.PITRJob(ctx)
-	if err != nil {
-		return rr, errors.Wrap(err, "failed to create restore job")
-	}
-	job := new(batchv1.Job)
-	if err := r.client.Get(ctx, types.NamespacedName{
-		Name:      restorerJob.Name,
-		Namespace: restorerJob.Namespace,
-	}, job); err != nil {
-		return rr, errors.Wrap(err, "failed to get pitr job")
+	finished, err := r.waitForRestoreJob(ctx, cr, true)
+
+	// Only possible with a CRD that doesn't enforce spec immutability yet.
+	if cr.Spec.PITR == nil {
+		msg := "spec.pitr was removed after point-in-time recovery had started; the change is ignored and the running PITR job will finish"
+		log.Info(msg)
+		addStatusComment(cr, msg)
 	}
 
-	finished, err := isJobFinished(job)
-	if err != nil {
-		cr.Status.State = api.RestoreFailed
-		cr.Status.Comments = err.Error()
+	if err != nil || !finished {
 		return rr, err
-	}
-	if !finished {
-		log.Info("Waiting for restore job to finish", "job", job.Name)
-		return rr, nil
 	}
 
 	log.Info("starting cluster", "cluster", cr.Spec.PXCCluster)
@@ -418,6 +390,51 @@ func (r *ReconcilePerconaXtraDBClusterRestore) reconcileStateStopCluster(ctx con
 	}
 	cr.Status.State = api.RestoreRestore
 	return rr, nil
+}
+
+// waitForRestoreJob checks whether the restore (or PITR) job created in a previous state has finished.
+// The job is looked up by name instead of being rebuilt from the restore spec: the spec may
+// have been changed after the job started, and the running job must be tracked until it finishes.
+//
+// It updates the restore status:
+//   - if the job failed, the restore is marked as failed;
+//   - if the job is not found, a status comment is added and the restore keeps waiting. The restore
+//     is not marked as failed, because the client reads from a cache that may not contain a job
+//     created moments ago.
+func (r *ReconcilePerconaXtraDBClusterRestore) waitForRestoreJob(ctx context.Context, cr *api.PerconaXtraDBClusterRestore, pitr bool) (bool, error) {
+	log := logf.FromContext(ctx)
+
+	jobName := naming.RestoreJobName(cr, pitr)
+	job := new(batchv1.Job)
+	if err := r.client.Get(ctx, types.NamespacedName{Name: jobName, Namespace: cr.Namespace}, job); err != nil {
+		if !k8serrors.IsNotFound(err) {
+			return false, errors.Wrapf(err, "get job %s", jobName)
+		}
+		log.Info("Waiting for restore job to appear", "job", jobName)
+		addStatusComment(cr, fmt.Sprintf("waiting for job %s to appear; if this persists, check that the job exists", jobName))
+		return false, nil
+	}
+
+	finished, err := isJobFinished(job)
+	if err != nil {
+		cr.Status.State = api.RestoreFailed
+		cr.Status.Comments = err.Error()
+		return false, err
+	}
+	if !finished {
+		log.Info("Waiting for restore job to finish", "job", jobName)
+		return false, nil
+	}
+	return true, nil
+}
+
+// addStatusComment appends msg to the restore status comments.
+func addStatusComment(cr *api.PerconaXtraDBClusterRestore, msg string) {
+	if cr.Status.Comments == "" {
+		cr.Status.Comments = msg
+		return
+	}
+	cr.Status.Comments += "; " + msg
 }
 
 func createRestoreJob(ctx context.Context, cl client.Client, restorer Restorer, pitr bool) error {

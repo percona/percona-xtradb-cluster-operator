@@ -62,6 +62,11 @@ type PerconaXtraDBClusterRestore struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
+	// Spec is immutable after the restore is created. A restore is a one-shot,
+	// multi-step operation (stop cluster -> restore -> PITR -> start cluster), and
+	// changing the spec while it is running can leave the cluster in an inconsistent
+	// state. To restore with different parameters, delete the restore and create a new one.
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="spec is immutable: delete the restore and create a new one to change it"
 	Spec   PerconaXtraDBClusterRestoreSpec   `json:"spec,omitempty"`
 	Status PerconaXtraDBClusterRestoreStatus `json:"status,omitempty"`
 }

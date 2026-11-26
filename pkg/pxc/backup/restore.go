@@ -222,6 +222,10 @@ func RestoreJob(
 	scheme *runtime.Scheme,
 	destination api.PXCBackupDestination, pitr bool,
 ) (*batchv1.Job, error) {
+	if pitr && cr.Spec.PITR == nil {
+		return nil, errors.New("pitr restore job requested but spec.pitr is not set")
+	}
+
 	switch bcp.Status.GetStorageType(cluster) {
 	case api.BackupStorageAzure:
 		if bcp.Status.Azure == nil {

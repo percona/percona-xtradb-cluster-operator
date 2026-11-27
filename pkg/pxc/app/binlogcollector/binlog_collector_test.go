@@ -4,7 +4,9 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
@@ -66,6 +68,7 @@ func TestGetDeployment(t *testing.T) {
 		existingMatchLabels map[string]string
 		expectedLabels      map[string]string
 		expectedMatchLabels map[string]string
+		expectedEnvNames    []string
 	}{
 		{
 			name:                "Default labels and matchLabels",
@@ -129,6 +132,58 @@ func TestGetDeployment(t *testing.T) {
 				"app.kubernetes.io/part-of":    "percona-xtradb-cluster",
 			},
 		},
+		{
+			name: "Version 1.20.0 keeps BUFFER_SIZE env",
+			cr: func() *api.PerconaXtraDBCluster {
+				cr := createCR()
+				cr.Spec.CRVersion = "1.20.0"
+				return cr
+			}(),
+			expectedLabels: map[string]string{
+				"app.kubernetes.io/component":  "pitr",
+				"app.kubernetes.io/instance":   "test-cluster",
+				"app.kubernetes.io/managed-by": "percona-xtradb-cluster-operator",
+				"app.kubernetes.io/name":       "percona-xtradb-cluster",
+				"app.kubernetes.io/part-of":    "percona-xtradb-cluster",
+				"storage-type":                 "s3",
+			},
+			expectedMatchLabels: map[string]string{
+				"app.kubernetes.io/component":  "pitr",
+				"app.kubernetes.io/instance":   "test-cluster",
+				"app.kubernetes.io/managed-by": "percona-xtradb-cluster-operator",
+				"app.kubernetes.io/name":       "percona-xtradb-cluster",
+				"app.kubernetes.io/part-of":    "percona-xtradb-cluster",
+			},
+			expectedEnvNames: []string{
+				"SECRET_ACCESS_KEY", "ACCESS_KEY_ID", "S3_SESSION_TOKEN", "S3_BUCKET_URL", "DEFAULT_REGION",
+				"S3_CHECKSUM_ALGORITHM", "STORAGE_TYPE", "ENDPOINT", "VERIFY_TLS", "PXC_SERVICE", "PXC_USER",
+				"PXC_PASS", "COLLECT_SPAN_SEC", "BUFFER_SIZE", "TIMEOUT_SECONDS", "GTID_CACHE_KEY",
+			},
+		},
+		{
+			name: "Current version has no BUFFER_SIZE env",
+			cr:   createCR(),
+			expectedLabels: map[string]string{
+				"app.kubernetes.io/component":  "pitr",
+				"app.kubernetes.io/instance":   "test-cluster",
+				"app.kubernetes.io/managed-by": "percona-xtradb-cluster-operator",
+				"app.kubernetes.io/name":       "percona-xtradb-cluster",
+				"app.kubernetes.io/part-of":    "percona-xtradb-cluster",
+				"storage-type":                 "s3",
+			},
+			expectedMatchLabels: map[string]string{
+				"app.kubernetes.io/component":  "pitr",
+				"app.kubernetes.io/instance":   "test-cluster",
+				"app.kubernetes.io/managed-by": "percona-xtradb-cluster-operator",
+				"app.kubernetes.io/name":       "percona-xtradb-cluster",
+				"app.kubernetes.io/part-of":    "percona-xtradb-cluster",
+			},
+			expectedEnvNames: []string{
+				"SECRET_ACCESS_KEY", "ACCESS_KEY_ID", "S3_SESSION_TOKEN", "S3_BUCKET_URL", "DEFAULT_REGION",
+				"S3_CHECKSUM_ALGORITHM", "STORAGE_TYPE", "ENDPOINT", "VERIFY_TLS", "PXC_SERVICE", "PXC_USER",
+				"PXC_PASS", "COLLECT_SPAN_SEC", "TIMEOUT_SECONDS", "GTID_CACHE_KEY",
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -147,6 +202,14 @@ func TestGetDeployment(t *testing.T) {
 				t.Errorf("Selector matchLabels = %v, want %v", depl.Spec.Selector.MatchLabels, tt.expectedMatchLabels)
 			}
 
+			if tt.expectedEnvNames != nil {
+				var envNames []string
+				for _, env := range depl.Spec.Template.Spec.Containers[0].Env {
+					envNames = append(envNames, env.Name)
+				}
+				assert.Equal(t, tt.expectedEnvNames, envNames)
+			}
+
 			if tt.cr.CompareVersionWith("1.16.0") >= 0 && tt.cr.CompareVersionWith("1.18.0") < 0 {
 				if !reflect.DeepEqual(depl.Labels, tt.expectedLabels) {
 					t.Errorf("Deployment labels = %v, want %v", depl.Labels, tt.expectedLabels)
@@ -156,6 +219,59 @@ func TestGetDeployment(t *testing.T) {
 					t.Errorf("Deployment labels = %v, want empty", depl.Labels)
 				}
 			}
+		})
+	}
+}
+
+func TestGetBufferSize(t *testing.T) {
+	tests := []struct {
+		name      string
+		resources corev1.ResourceRequirements
+		expected  int64
+	}{
+		{
+			name:     "no resources",
+			expected: 0,
+		},
+		{
+			name: "cpu only",
+			resources: corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("100m")},
+			},
+			expected: 0,
+		},
+		{
+			name: "memory request only",
+			resources: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("1000")},
+			},
+			expected: 750,
+		},
+		{
+			name: "memory limit only",
+			resources: corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("2000")},
+			},
+			expected: 1500,
+		},
+		{
+			name: "limit takes precedence over request",
+			resources: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("1000")},
+				Limits:   corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("2000")},
+			},
+			expected: 1500,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			spec := api.PerconaXtraDBClusterSpec{
+				Backup: &api.BackupSpec{
+					PITR: api.PITRSpec{Resources: tt.resources},
+				},
+			}
+			assert.Equal(t, tt.expected, getBufferSize(spec))
 		})
 	}
 }

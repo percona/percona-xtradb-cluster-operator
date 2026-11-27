@@ -95,6 +95,66 @@ func (p *PXC) GetGTIDSet(ctx context.Context, binlogName string) (string, error)
 	return binlogSet, nil
 }
 
+// GetBinlogByGTID returns the name of the binary log containing the given GTID
+// (in "uuid:seq" form). It returns an empty string when no binary log on the
+// host contains it, e.g. because it was purged.
+func (p *PXC) GetBinlogByGTID(ctx context.Context, gtid string) (string, error) {
+	name, err := p.queryNullString(ctx, "SELECT CAST(get_binlog_by_gtid(?) AS CHAR)", gtid)
+	return name, errors.Wrapf(err, "get binlog by gtid %s", gtid)
+}
+
+// GetPreviousGTIDs returns the GTID set of the Previous_gtids event of the
+// binary log: every GTID executed before the binary log was opened. It only
+// reads the binary log header.
+func (p *PXC) GetPreviousGTIDs(ctx context.Context, binlogName string) (string, error) {
+	var logName, pos, eventType, serverID, endPos, info string
+	err := p.db.QueryRowContext(ctx, "SHOW BINLOG EVENTS IN ? LIMIT 1, 1", binlogName).
+		Scan(&logName, &pos, &eventType, &serverID, &endPos, &info)
+	if err != nil {
+		return "", errors.Wrapf(err, "show binlog events in %s", binlogName)
+	}
+	if eventType != "Previous_gtids" {
+		return "", errors.Errorf("second event of %s is %s, not Previous_gtids", binlogName, eventType)
+	}
+	return info, nil
+}
+
+// queryNullString runs a query returning a single, possibly NULL, string.
+// If the binlog UDFs are not available yet, they are created and the query is retried once.
+func (p *PXC) queryNullString(ctx context.Context, query string, args ...any) (string, error) {
+	scan := func() (string, error) {
+		var value sql.NullString
+		if err := p.db.QueryRowContext(ctx, query, args...).Scan(&value); err != nil {
+			return "", err
+		}
+		return value.String, nil
+	}
+
+	value, err := scan()
+	if err != nil && strings.Contains(err.Error(), "does not exist") {
+		if ierr := p.ensureBinlogUDFs(ctx); ierr != nil {
+			return "", stderrors.Join(err, ierr)
+		}
+		value, err = scan()
+	}
+	return value, err
+}
+
+func (p *PXC) ensureBinlogUDFs(ctx context.Context) error {
+	version, err := p.GetVersion(ctx)
+	if err != nil {
+		return errors.Wrap(err, "get version")
+	}
+
+	switch {
+	case strings.HasPrefix(version, "8.0"):
+		return p.CreateCollectorFunctions(ctx)
+	case strings.HasPrefix(version, "8.4"):
+		return p.InstallBinlogUDFComponent(ctx)
+	}
+	return nil
+}
+
 type Binlog struct {
 	Name      string
 	Size      int64
@@ -141,12 +201,13 @@ func (p *PXC) GetVersion(ctx context.Context) (string, error) {
 	return version, nil
 }
 
-// GetBinLogList return binary log files list
-func (p *PXC) GetBinLogList(ctx context.Context) ([]Binlog, error) {
+// ShowBinaryLogs returns the binary log files list without rotating the log.
+func (p *PXC) ShowBinaryLogs(ctx context.Context) ([]Binlog, error) {
 	rows, err := p.db.QueryContext(ctx, "SHOW BINARY LOGS")
 	if err != nil {
 		return nil, errors.Wrap(err, "show binary logs")
 	}
+	defer rows.Close()
 
 	var binlogs []Binlog
 	for rows.Next() {
@@ -157,6 +218,17 @@ func (p *PXC) GetBinLogList(ctx context.Context) ([]Binlog, error) {
 		binlogs = append(binlogs, b)
 	}
 
+	return binlogs, errors.Wrap(rows.Err(), "iterate binlogs")
+}
+
+// GetBinLogList returns the binary log files list and then rotates the log,
+// so every returned file is closed by the time it is read.
+func (p *PXC) GetBinLogList(ctx context.Context) ([]Binlog, error) {
+	binlogs, err := p.ShowBinaryLogs(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	_, err = p.db.ExecContext(ctx, "FLUSH BINARY LOGS")
 	if err != nil {
 		return nil, errors.Wrap(err, "flush binary logs")
@@ -165,24 +237,18 @@ func (p *PXC) GetBinLogList(ctx context.Context) ([]Binlog, error) {
 	return binlogs, nil
 }
 
-// GetBinLogList return binary log files list
+// GetBinLogNamesList returns the binary log file names
 func (p *PXC) GetBinLogNamesList(ctx context.Context) ([]string, error) {
-	rows, err := p.db.QueryContext(ctx, "SHOW BINARY LOGS")
+	binlogs, err := p.ShowBinaryLogs(ctx)
 	if err != nil {
-		return nil, errors.Wrap(err, "show binary logs")
-	}
-	defer rows.Close()
-
-	var binlogs []string
-	for rows.Next() {
-		var b Binlog
-		if err := rows.Scan(&b.Name, &b.Size, &b.Encrypted); err != nil {
-			return nil, errors.Wrap(err, "scan binlogs")
-		}
-		binlogs = append(binlogs, b.Name)
+		return nil, err
 	}
 
-	return binlogs, nil
+	names := make([]string, 0, len(binlogs))
+	for _, b := range binlogs {
+		names = append(names, b.Name)
+	}
+	return names, nil
 }
 
 func (p *PXC) WsrepClusterStateUUID() (string, error) {
@@ -198,6 +264,15 @@ func (p *PXC) WsrepClusterStateUUID() (string, error) {
 	}
 
 	return value, nil
+}
+
+// GetGTIDExecuted returns the GTIDs of all transactions executed on the host.
+func (p *PXC) GetGTIDExecuted(ctx context.Context) (string, error) {
+	var executed string
+	if err := p.db.QueryRowContext(ctx, "SELECT @@GLOBAL.gtid_executed").Scan(&executed); err != nil {
+		return "", errors.Wrap(err, "select gtid_executed")
+	}
+	return executed, nil
 }
 
 func (p *PXC) GTIDSubset(ctx context.Context, set1, set2 string) (bool, error) {
@@ -284,6 +359,35 @@ func (p *PXC) SubtractGTIDSet(ctx context.Context, set, subSet string) (string, 
 	return result, nil
 }
 
+const syncedPrimaryState = "wsrep_ready:ON:wsrep_connected:ON:wsrep_local_state_comment:Synced:wsrep_cluster_status:Primary"
+
+// IsSyncedPrimary reports whether a node entry returned by GetNodesByServiceName
+// describes a node that is Synced and part of the Primary component.
+func IsSyncedPrimary(node string) bool {
+	return strings.Contains(node, syncedPrimaryState)
+}
+
+// IsHostSyncedPrimary reports whether the given host is currently listed by the
+// PXC service as Synced and Primary. A host that is not listed is not healthy.
+func IsHostSyncedPrimary(ctx context.Context, pxcServiceName, host string) (bool, error) {
+	nodes, err := GetNodesByServiceName(ctx, pxcServiceName)
+	if err != nil {
+		return false, errors.Wrap(err, "get nodes by service name")
+	}
+	return hostSyncedPrimary(nodes, host), nil
+}
+
+// hostSyncedPrimary reports whether host is in nodes, the entries returned by
+// GetNodesByServiceName, as Synced and Primary.
+func hostSyncedPrimary(nodes []string, host string) bool {
+	for _, node := range nodes {
+		if strings.Split(node, ":")[0] == host {
+			return IsSyncedPrimary(node)
+		}
+	}
+	return false
+}
+
 func GetNodesByServiceName(ctx context.Context, pxcServiceName string) ([]string, error) {
 	cmd := exec.CommandContext(ctx, "/opt/percona/peer-list", "-on-start=/opt/percona/get-pxc-state.sh", "-service="+pxcServiceName)
 	out, err := cmd.CombinedOutput()
@@ -302,7 +406,7 @@ func GetPXCFirstHost(ctx context.Context, pxcServiceName string) (string, error)
 	lastHost := ""
 	for _, node := range nodes {
 		log.Printf("PXC Node: %s", node)
-		if strings.Contains(node, "wsrep_ready:ON:wsrep_connected:ON:wsrep_local_state_comment:Synced:wsrep_cluster_status:Primary") {
+		if IsSyncedPrimary(node) {
 			nodeArr := strings.Split(node, ":")
 			lastHost = nodeArr[0]
 			break
@@ -331,7 +435,7 @@ func GetPXCOldestBinlogHost(ctx context.Context, pxcServiceName, user, pass, pre
 		if prevHost != "" && nodeArr[0] == prevHost {
 			prevNode = node
 		}
-		if strings.Contains(node, "wsrep_ready:ON:wsrep_connected:ON:wsrep_local_state_comment:Synced:wsrep_cluster_status:Primary") {
+		if IsSyncedPrimary(node) {
 			binlogTime, err := getBinlogTime(ctx, nodeArr[0], user, pass)
 			if err != nil {
 				log.Printf("ERROR: get binlog time: %v", err)
@@ -349,7 +453,7 @@ func GetPXCOldestBinlogHost(ctx context.Context, pxcServiceName, user, pass, pre
 	}
 
 	if prevHost != "" && prevHost != oldestHost {
-		if !strings.Contains(prevNode, "wsrep_ready:ON:wsrep_connected:ON:wsrep_local_state_comment:Synced:wsrep_cluster_status:Primary") {
+		if !IsSyncedPrimary(prevNode) {
 			log.Printf("switching PITR binlog source from %s to %s because current source host %s is not healthy (not Synced/Primary)", prevHost, oldestHost, prevHost)
 		} else {
 			log.Printf("switching PITR binlog source from %s to %s because host %s has the oldest available binlog", prevHost, oldestHost, oldestHost)
@@ -447,6 +551,7 @@ func collectorFunctions() map[string]string {
 		"get_last_record_timestamp_by_binlog":  "INTEGER",
 		"get_gtid_set_by_binlog":               "STRING",
 		"get_first_record_timestamp_by_binlog": "INTEGER",
+		"get_binlog_by_gtid":                   "STRING",
 	}
 }
 

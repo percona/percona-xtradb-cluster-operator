@@ -7,6 +7,9 @@ test_dir=$(realpath $(dirname $0))
 
 set_debug
 
+# seconds between binlog collection cycles, see timeBetweenUploads in conf/
+cycle=55
+
 GTID_PATTERN='[A-F0-9a-f]{8}-[A-F0-9a-f]{4}-[A-F0-9a-f]{4}-[A-F0-9a-f]{4}-[A-F0-9a-f]{12}:[0-9]+'
 
 if [[ $IMAGE_PXC =~ 5\.7 ]]; then
@@ -121,6 +124,147 @@ check_binlog_gap_error() {
 	if [[ $backup_cond -eq 0 ]]; then
 		echo "ERROR: Backup is not tagged as PITR unready in the backup condition."
 		kubectl_bin get pxc-backup on-pitr-local-s3-gap -oyaml
+		exit 1
+	fi
+}
+
+set_wsrep_desync() {
+	local pod=$1
+	local value=$2
+
+	log "setting wsrep_desync=${value} on ${pod}"
+	run_mysql_local "SET GLOBAL wsrep_desync=${value};" "-h127.0.0.1 -P3306 -uroot -proot_password" "${pod}"
+}
+
+wait_for_pxc_synced() {
+	local pod=$1
+	local retry=0
+
+	log "waiting for ${pod} to be Synced"
+	until [[ "$(run_mysql_local "SHOW STATUS LIKE 'wsrep_local_state_comment';" "-h127.0.0.1 -P3306 -uroot -proot_password" "${pod}" | awk '{print $2}')" == "Synced" ]]; do
+		if [ $retry -ge 36 ]; then
+			echo "${pod} is not Synced after 3 min"
+			exit 1
+		fi
+		sleep 5
+		retry=$((retry + 1))
+	done
+}
+
+purge_binlogs() {
+	local pod=$1
+
+	log "purging binlogs on ${pod}"
+	run_mysql_local 'FLUSH BINARY LOGS;' "-h127.0.0.1 -P3306 -uroot -proot_password" "${pod}"
+	run_mysql_local 'PURGE BINARY LOGS BEFORE now();' "-h127.0.0.1 -P3306 -uroot -proot_password" "${pod}"
+}
+
+count_binlogs() {
+	local pod=$1
+
+	run_mysql_local 'SHOW BINARY LOGS;' "-h127.0.0.1 -P3306 -uroot -proot_password" "${pod}" | wc -l
+}
+
+# When nothing is written, the collector skips its runs and doesn't rotate the
+# binlogs, so no empty binlogs pile up on the host it reads from.
+check_no_binlogs_rotated_when_idle() {
+	local pod=$1
+	local before after
+
+	desc "PiTR collector doesn't rotate binlogs on ${pod} while nothing is written"
+	before=$(count_binlogs "$pod")
+	sleep_with_log $((cycle * 2 + 10))
+	after=$(count_binlogs "$pod")
+	if [[ $before != "$after" ]]; then
+		echo "ERROR: binlogs on ${pod} went from ${before} to ${after} while nothing was written"
+		exit 1
+	fi
+}
+
+write_stickiness_data() {
+	local cluster=$1
+	local start=$2
+	local rows=$3
+	local proxy
+	proxy=$(get_proxy "$cluster")
+
+	local sql=""
+	for ((i = 0; i < rows; i++)); do
+		sql+="INSERT test.stickiness (id) VALUES ($((start + i)));"
+	done
+
+	log "inserting ${rows} rows for source host check"
+	run_mysql "${sql}" "-h ${proxy} -uroot -proot_password"
+}
+
+# The collector keeps reading binlogs from the same PXC host, and leaves it only
+# when it has to: when it is not Synced, or when it lost the binlogs the collector needs.
+check_source_host_stickiness() {
+	local cluster=$1
+	local proxy
+	proxy=$(get_proxy "$cluster")
+
+	desc 'check source host stickiness'
+	wait_pitr_pod_ready
+	run_mysql \
+		"CREATE TABLE IF NOT EXISTS test.stickiness (id int PRIMARY KEY);" \
+		"-h $proxy -uroot -proot_password"
+
+	local host
+	host=$(wait_for_pitr_source_host "$cluster")
+	check_pitr_no_binlog_gap "$cluster"
+
+	desc "PiTR collector keeps reading from ${host} while data is written"
+	for i in 1 2; do
+		write_stickiness_data "$cluster" $((i * 10)) 3
+		check_pitr_source_host_stays "$cluster" "$host" $((cycle + 10))
+	done
+
+	desc "PiTR collector leaves ${host} when it is not Synced"
+	set_wsrep_desync "$host" ON
+	local next_host
+	next_host=$(wait_for_pitr_source_host_change "$cluster" "$host" $((cycle * 6)))
+	check_pitr_no_binlog_gap "$cluster"
+
+	desc "PiTR collector does not go back to ${host} when it is Synced again"
+	set_wsrep_desync "$host" OFF
+	wait_for_pxc_synced "$host"
+	check_pitr_source_host_stays "$cluster" "$next_host" $((cycle * 2 + 10))
+	check_no_binlogs_rotated_when_idle "$next_host"
+
+	desc "PiTR collector leaves ${next_host} when the binlogs it needs are purged there"
+	purge_binlogs "$next_host"
+	# purging doesn't change gtid_executed, so until something is written the
+	# collector skips its runs and doesn't look at the binlogs of ${next_host}
+	write_stickiness_data "$cluster" 30 3
+	local last_host
+	last_host=$(wait_for_pitr_source_host_change "$cluster" "$next_host" $((cycle * 6)))
+	check_pitr_no_binlog_gap "$cluster"
+	check_pitr_source_host_stays "$cluster" "$last_host" $((cycle + 10))
+}
+
+# After the collector found a binlog gap it carries on from the new binlogs:
+# it stays on its host and doesn't find the same gap again.
+check_source_host_after_gap() {
+	local cluster=$1
+
+	desc 'check source host after the binlog gap'
+	local host
+	host=$(wait_for_pitr_source_host "$cluster")
+
+	local gaps
+	gaps=$(get_pitr_metric "$cluster" pxc_binlog_collector_gap_detected_total)
+	if [[ -z $gaps || $gaps -lt 1 ]]; then
+		echo "ERROR: PiTR collector did not count the binlog gap, metric is '${gaps}'"
+		exit 1
+	fi
+
+	check_pitr_source_host_stays "$cluster" "$host" $((cycle * 2 + 10))
+
+	local gaps_after
+	gaps_after=$(get_pitr_metric "$cluster" pxc_binlog_collector_gap_detected_total)
+	if [[ $gaps_after != "$gaps" ]]; then
+		echo "ERROR: PiTR collector detected the binlog gap again: ${gaps} -> ${gaps_after}"
 		exit 1
 	fi
 }
@@ -361,8 +505,10 @@ main() {
 	run_backup "$cluster" "on-pitr-local-s3-gap"
 	write_data_for_pitr "$cluster"
 	sleep_with_log 65 # need to wait while collector catch new data
+	check_source_host_stickiness "$cluster"
 	create_binlog_gap ${cluster}
 	check_binlog_gap_error
+	check_source_host_after_gap "$cluster"
 	check_binlog_gap_restore ${cluster} "backup-source"
 	check_binlog_gap_restore ${cluster} "error"
 	check_binlog_gap_restore ${cluster} "force"

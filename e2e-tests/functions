@@ -2886,6 +2886,150 @@ wait_pitr_pod_ready() {
 	set_debug
 }
 
+# The PITR binlog collector serves its metrics on the <cluster>-pitr service.
+# They are read from the client pod, which is inside the cluster network.
+get_pitr_metrics() {
+	local cluster=$1
+
+	kubectl_bin exec "$(get_client_pod)" -c pxc-client -- curl -s -m 10 "http://${cluster}-pitr:8080/metrics" 2>/dev/null || true
+}
+
+# prints the value of a metric that has no labels, e.g. pxc_binlog_collector_gap_detected_total.
+# prints nothing if the metric can't be read
+get_pitr_metric() {
+	local cluster=$1
+	local metric=$2
+
+	get_pitr_metrics "$cluster" | awk -v metric="$metric" '$1 == metric {printf "%.0f\n", $2}'
+}
+
+# prints the pod name of the PXC host the binlog collector reads binlogs from, e.g. pitr-pxc-0.
+# The metric has one series, so anything but a single line means there is no
+# source host yet, or the metric is wrong.
+get_pitr_source_host() {
+	local cluster=$1
+
+	get_pitr_metrics "$cluster" \
+		| sed -n 's/^pxc_binlog_collector_source_host{host="\([^".]*\)[^"]*"} 1$/\1/p'
+}
+
+# waits until the collector reports its source host and prints the pod name
+wait_for_pitr_source_host() {
+	local cluster=$1
+	local timeout="${2:-300}"
+	local deadline=$((SECONDS + timeout))
+	local host
+
+	set +o xtrace
+	while true; do
+		host=$(get_pitr_source_host "$cluster")
+		if [[ -n $host && $(echo "$host" | wc -l) -eq 1 ]]; then
+			break
+		fi
+		if ((SECONDS >= deadline)); then
+			echo "PiTR collector did not report a source host after ${timeout}s" >&2
+			exit 1
+		fi
+		sleep 5
+	done
+	set_debug
+
+	log "PiTR collector reads binlogs from ${host}" >&2
+	echo "$host"
+}
+
+# waits until the collector reports a source host other than $2 and prints the pod name
+wait_for_pitr_source_host_change() {
+	local cluster=$1
+	local previous=$2
+	local timeout="${3:-300}"
+	local deadline=$((SECONDS + timeout))
+	local host
+
+	log "waiting for PiTR collector to leave ${previous}" >&2
+	set +o xtrace
+	while true; do
+		host=$(get_pitr_source_host "$cluster")
+		if [[ -n $host && $host != "$previous" && $(echo "$host" | wc -l) -eq 1 ]]; then
+			break
+		fi
+		if ((SECONDS >= deadline)); then
+			echo "PiTR collector still reads from '${host:-nothing}' after ${timeout}s, it was expected to leave ${previous}" >&2
+			exit 1
+		fi
+		sleep 5
+	done
+	set_debug
+
+	log "PiTR collector moved from ${previous} to ${host}" >&2
+	echo "$host"
+}
+
+# fails if the collector reports anything but $2 as its source host during $3 seconds
+check_pitr_source_host_stays() {
+	local cluster=$1
+	local expected=$2
+	local duration="${3:-120}"
+	local deadline=$((SECONDS + duration))
+	local host
+
+	log "checking that PiTR collector keeps reading from ${expected} for ${duration}s"
+	set +o xtrace
+	while ((SECONDS < deadline)); do
+		host=$(get_pitr_source_host "$cluster")
+		if [[ $host != "$expected" ]]; then
+			echo "PiTR collector reads from '${host:-nothing}', expected ${expected}" >&2
+			exit 1
+		fi
+		sleep 5
+	done
+	set_debug
+
+	desc "PiTR collector stayed on ${expected}: OK"
+}
+
+check_pitr_no_binlog_gap() {
+	local cluster=$1
+	local gaps
+
+	gaps=$(get_pitr_metric "$cluster" pxc_binlog_collector_gap_detected_total)
+	if [[ -z $gaps ]]; then
+		echo "PiTR collector metrics can't be read"
+		exit 1
+	fi
+	if [[ $gaps != "0" ]]; then
+		echo "PiTR collector detected ${gaps} binlog gaps"
+		exit 1
+	fi
+
+	desc "PiTR collector did not detect binlog gaps: OK"
+}
+
+# waits until the collector uploads a binlog after unix time $2
+wait_for_pitr_upload_after() {
+	local cluster=$1
+	local since=$2
+	local timeout="${3:-300}"
+	local deadline=$((SECONDS + timeout))
+	local uploaded
+
+	set +o xtrace
+	while true; do
+		uploaded=$(get_pitr_metric "$cluster" pxc_binlog_collector_last_upload_timestamp)
+		if [[ -n $uploaded && $uploaded -gt $since ]]; then
+			break
+		fi
+		if ((SECONDS >= deadline)); then
+			echo "PiTR collector did not upload binlogs after ${timeout}s"
+			exit 1
+		fi
+		sleep 5
+	done
+	set_debug
+
+	desc "PiTR collector uploads binlogs: OK"
+}
+
 run_recovery_check_pitr() {
 	local cluster=$1
 	local restore=$2

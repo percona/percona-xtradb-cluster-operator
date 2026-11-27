@@ -66,58 +66,14 @@ func healthHandler(w http.ResponseWriter, _ *http.Request) {
 	}
 }
 
+// cacheInvalidationHandler is kept for backward compatibility: the wsrep notify
+// handler of PXC pods (build/wsrep_cmd_notify_handler.sh) calls it when a node
+// joins after SST, including pods running images of older operator versions.
+// The collector has no GTID cache anymore, so there is nothing to invalidate.
+// TODO: remove in v1.22.0
 func cacheInvalidationHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		if _, err := w.Write([]byte("only POST method is allowed")); err != nil {
-			log.Println("ERROR: writing response:", err)
-		}
-		return
-	}
-
-	if err := r.ParseForm(); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		if _, err := w.Write([]byte("failed to parse form")); err != nil {
-			log.Println("ERROR: writing response:", err)
-		}
-		return
-	}
-
-	hostname := r.FormValue("hostname")
-	if hostname == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		if _, err := w.Write([]byte("hostname is required")); err != nil {
-			log.Println("ERROR: writing response:", err)
-		}
-		return
-	}
-
-	ctx := r.Context()
-
-	config, err := getCollectorConfig()
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		log.Println("ERROR: get collector config:", err)
-		return
-	}
-
-	c, err := collector.New(ctx, config)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		log.Println("ERROR: get new collector:", err)
-		return
-	}
-
-	if err := collector.InvalidateCache(ctx, c, hostname); err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		log.Println("ERROR: invalidate cache:", err)
-		return
-	}
-
+	log.Printf("received deprecated cache invalidation request for host %q, ignoring: the GTID cache is not used anymore", r.FormValue("hostname"))
 	w.WriteHeader(http.StatusOK)
-	if _, err := w.Write(fmt.Appendf(nil, "cache invalidated for host: %s", hostname)); err != nil {
-		log.Println("ERROR: writing response:", err)
-	}
 }
 
 func runCollector(ctx context.Context) {

@@ -1,16 +1,18 @@
 package pxc
 
 import (
+	"testing"
+
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/apis"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/version"
+	"github.com/stretchr/testify/assert"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-	"testing"
 )
 
 func TestVersionMeta(t *testing.T) {
@@ -141,6 +143,109 @@ func TestVersionMeta(t *testing.T) {
 			if vm.Apply != tt.want.Apply || vm.ClusterWideEnabled != tt.want.ClusterWideEnabled {
 				t.Fatalf("Have: %+v; Want: %+v", vm, tt.want)
 			}
+		})
+	}
+}
+
+func TestIsDowngrade(t *testing.T) {
+	tests := []struct {
+		name           string
+		currentVersion string
+		newVersion     string
+		want           bool
+		wantErr        bool
+	}{
+		{
+			name:           "no version in status yet",
+			currentVersion: "",
+			newVersion:     "8.4.8-8.1",
+			want:           false,
+		},
+		{
+			name:           "same version",
+			currentVersion: "8.0.45-36.1",
+			newVersion:     "8.0.45-36.1",
+			want:           false,
+		},
+		{
+			name:           "patch upgrade",
+			currentVersion: "8.0.45-36.1",
+			newVersion:     "8.0.46-37.1",
+			want:           false,
+		},
+		{
+			name:           "patch downgrade",
+			currentVersion: "8.0.46-37.1",
+			newVersion:     "8.0.45-36.1",
+			want:           true,
+		},
+		{
+			name:           "major upgrade 8.0 to 8.4",
+			currentVersion: "8.0.45-36.1",
+			newVersion:     "8.4.8-8.1",
+			want:           false,
+		},
+		{
+			name:           "major downgrade 8.4 to 8.0",
+			currentVersion: "8.4.8-8.1",
+			newVersion:     "8.0.45-36.1",
+			want:           true,
+		},
+		{
+			name:           "major downgrade 8.0 to 5.7",
+			currentVersion: "8.0.45-36.1",
+			newVersion:     "5.7.44-31.65",
+			want:           true,
+		},
+		{
+			name:           "only the percona build differs",
+			currentVersion: "8.0.45-36.1",
+			newVersion:     "8.0.45-35.1",
+			want:           false,
+		},
+		{
+			name:           "intermediate build of the same upstream version",
+			currentVersion: "8.0.25-intermediate",
+			newVersion:     "8.0.25-15.1",
+			want:           false,
+		},
+		{
+			name:           "upgrade from an intermediate build",
+			currentVersion: "8.0.25-intermediate",
+			newVersion:     "8.0.29-21.1",
+			want:           false,
+		},
+		{
+			name:           "empty new version",
+			currentVersion: "8.0.45-36.1",
+			newVersion:     "",
+			wantErr:        true,
+		},
+		{
+			name:           "empty new version on a cluster without a version in status",
+			currentVersion: "",
+			newVersion:     "",
+			wantErr:        true,
+		},
+		{
+			name:           "unparsable current version",
+			currentVersion: "not-a-version",
+			newVersion:     "8.0.45-36.1",
+			wantErr:        true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := isDowngrade(tt.currentVersion, tt.newVersion)
+
+			if tt.wantErr {
+				assert.Error(t, err)
+				return
+			}
+
+			assert.NoError(t, err)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
